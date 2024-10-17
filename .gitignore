@@ -28,3 +28,7 @@ build-wasmer.tar.gz
 lcov.info
 link/
 link.tar.gz
+.vscode
+# Ignore files used by the "direnv" tool.
+.direnv
+.envrc

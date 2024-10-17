@@ -16,6 +16,9 @@ use std::mem::MaybeUninit;
 use std::net::IpAddr;
 use std::task::Waker;
 use std::time::Duration;
+
+#[cfg(feature = "hyper")]
+use hyper_util::rt::tokio::TokioIo;
 use std::{
     collections::HashMap,
     future::Future,
@@ -167,10 +170,10 @@ impl RemoteNetworkingServer {
     #[cfg(feature = "hyper")]
     pub fn new_from_hyper_ws_io(
         tx: SplitSink<
-            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+            hyper_tungstenite::WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>,
             hyper_tungstenite::tungstenite::Message,
         >,
-        rx: SplitStream<hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>>,
+        rx: SplitStream<hyper_tungstenite::WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>>,
         format: FrameSerializationFormat,
         inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
     ) -> (Self, RemoteNetworkingServerDriver) {

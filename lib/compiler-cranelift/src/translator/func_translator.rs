@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Standalone WebAssembly to Cranelift IR translator.
 //!
@@ -7,15 +7,16 @@
 //! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the
 //! WebAssembly module and the runtime environment.
 
-use super::code_translator::{bitcast_arguments, translate_operator, wasm_param_types};
+use super::code_translator::translate_operator;
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
+use crate::translator::code_translator::bitcast_wasm_returns;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
-use wasmer_compiler::wasmparser;
+use wasmer_compiler::{wasm_unsupported, wasmparser};
 use wasmer_compiler::{wptype_to_type, FunctionBinaryReader, ModuleTranslationState};
 use wasmer_types::{LocalFunctionIndex, WasmResult};
 
@@ -194,8 +195,13 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
             let constant_handle = builder.func.dfg.constants.insert([0; 16].to_vec().into());
             builder.ins().vconst(ir::types::I8X16, constant_handle)
         }
-        ExternRef => builder.ins().null(environ.reference_type()),
-        FuncRef => builder.ins().null(environ.reference_type()),
+        Ref(ty) => {
+            if ty.is_func_ref() || ty.is_extern_ref() {
+                builder.ins().null(environ.reference_type())
+            } else {
+                return Err(wasm_unsupported!("unsupported reference type: {:?}", ty));
+            }
+        }
     };
 
     let wasmer_ty = wptype_to_type(wasm_type).unwrap();
@@ -244,10 +250,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
         if !builder.is_unreachable() {
             match environ.return_mode() {
                 ReturnMode::NormalReturns => {
-                    let return_types = wasm_param_types(&builder.func.signature.returns, |i| {
-                        environ.is_wasm_return(&builder.func.signature, i)
-                    });
-                    bitcast_arguments(&mut state.stack, &return_types, builder);
+                    bitcast_wasm_returns(environ, &mut state.stack, builder);
                     builder.ins().return_(&state.stack)
                 }
             };

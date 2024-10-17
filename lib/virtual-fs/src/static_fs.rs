@@ -117,8 +117,8 @@ impl VirtualFile for WebCFile {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(())
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let remaining = self.entry.get_len() - self.cursor;
@@ -238,6 +238,20 @@ fn transform_into_read_dir(path: &Path, fs_entries: &[FsEntry<'_>]) -> crate::Re
 }
 
 impl FileSystem for StaticFileSystem {
+    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+        let path = normalizes_path(path);
+        if self
+            .volumes
+            .values()
+            .find_map(|v| v.get_file_entry(&path).ok())
+            .is_some()
+        {
+            Err(FsError::InvalidInput)
+        } else {
+            self.memory.readlink(Path::new(&path))
+        }
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = normalizes_path(path);
         for volume in self.volumes.values() {
@@ -367,6 +381,15 @@ impl FileSystem for StaticFileSystem {
         } else {
             self.memory.symlink_metadata(Path::new(&path))
         }
+    }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<(), FsError> {
+        Err(FsError::Unsupported)
     }
 }
 

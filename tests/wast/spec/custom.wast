@@ -86,7 +86,7 @@
     "\00asm" "\01\00\00\00"
     "\00\26\10" "a custom section" "this is the payload"
   )
-  "unexpected end"
+  "length out of bounds"
 )
 
 (assert_malformed

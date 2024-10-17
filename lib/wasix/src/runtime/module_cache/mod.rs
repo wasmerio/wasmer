@@ -42,8 +42,9 @@ pub use self::{
     fallback::FallbackCache,
     shared::SharedCache,
     thread_local::ThreadLocalCache,
-    types::{CacheError, ModuleCache, ModuleHash},
+    types::{CacheError, ModuleCache},
 };
+use wasmer_types::ModuleHash;
 
 #[cfg(feature = "sys-thread")]
 pub use self::filesystem::FileSystemCache;

@@ -7,6 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use derivative::Derivative;
 use futures::future::BoxFuture;
+use tokio::runtime::Handle;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use wasmer::Imports;
 use webc::metadata::annotations::Wasi as WasiAnnotation;
@@ -17,6 +18,8 @@ use crate::{
     journal::{DynJournal, SnapshotTrigger},
     WasiEnvBuilder,
 };
+
+pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &str = "/home";
 
 #[derive(Debug, Clone)]
 pub struct MappedCommand {
@@ -29,11 +32,14 @@ pub struct MappedCommand {
 #[derive(Derivative, Default, Clone)]
 #[derivative(Debug)]
 pub(crate) struct CommonWasiOptions {
+    pub(crate) entry_function: Option<String>,
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) forward_host_env: bool,
     pub(crate) mapped_host_commands: Vec<MappedCommand>,
     pub(crate) mounts: Vec<MountedDirectory>,
+    pub(crate) is_home_mapped: bool,
+    pub(crate) is_tmp_mapped: bool,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     #[derivative(Debug = "ignore")]
@@ -52,7 +58,15 @@ impl CommonWasiOptions {
         wasi: &WasiAnnotation,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
-        let root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+        if let Some(ref entry_function) = self.entry_function {
+            builder.set_entry_function(entry_function);
+        }
+
+        let root_fs = root_fs.unwrap_or_else(|| {
+            RootFileSystemBuilder::default()
+                .with_tmp(!self.is_tmp_mapped)
+                .build()
+        });
         let fs = prepare_filesystem(root_fs, &self.mounts, container_fs)?;
 
         builder.add_preopen_dir("/")?;
@@ -157,8 +171,7 @@ fn build_directory_mappings(
                 })?;
             }
 
-            root_fs
-                .mount(guest_path.clone(), fs, "/".into())
+            TmpFileSystem::mount(root_fs, guest_path.clone(), fs, "/".into())
                 .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?;
         }
     }
@@ -269,7 +282,7 @@ impl From<MappedDirectory> for MountedDirectory {
             if #[cfg(feature = "host-fs")] {
                 let MappedDirectory { host, guest } = value;
                 let fs: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(virtual_fs::ScopedDirectoryFileSystem::new_with_default_runtime(host));
+                    Arc::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), host).unwrap());
 
                 MountedDirectory { guest, fs }
             } else {
@@ -302,6 +315,10 @@ impl<F: FileSystem> RelativeOrAbsolutePathHack<F> {
 }
 
 impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
+    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
+        self.execute(path, |fs, p| fs.readlink(p))
+    }
+
     fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
         self.execute(path, |fs, p| fs.read_dir(p))
     }
@@ -324,12 +341,29 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.metadata(p))
     }
 
+    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        self.execute(path, |fs, p| fs.symlink_metadata(p))
+    }
+
     fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
         self.execute(path, |fs, p| fs.remove_file(p))
     }
 
     fn new_open_options(&self) -> virtual_fs::OpenOptions {
         virtual_fs::OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> virtual_fs::Result<()> {
+        let name_ref = &name;
+        let f_ref = &Arc::new(fs);
+        self.execute(path, move |f, p| {
+            f.mount(name_ref.clone(), p, Box::new(f_ref.clone()))
+        })
     }
 }
 

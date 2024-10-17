@@ -4,6 +4,26 @@ use std::path::{Path, PathBuf};
 
 use crate::{asset_path, c_asset_path};
 
+pub fn resources() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("resources")
+}
+
+pub fn packages() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("packages")
+}
+
+pub fn php() -> (PathBuf, PathBuf, PathBuf) {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let resources = resources().join("php");
+    (
+        root.join("tests").join("wasm").join("php.wasm"),
+        resources.clone(),
+        resources.join("db"),
+    )
+}
+
 /// A WEBC file containing the Python interpreter, compiled to WASI.
 pub fn python() -> PathBuf {
     c_asset_path().join("python-0.1.0.wasmer")

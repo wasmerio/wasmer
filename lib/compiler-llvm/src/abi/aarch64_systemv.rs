@@ -1,4 +1,5 @@
 use crate::abi::Abi;
+use crate::error::{err, err_nt};
 use crate::translator::intrinsics::{type_to_llvm, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -44,7 +45,7 @@ impl Abi for Aarch64SystemV {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
         let param_types =
-            std::iter::once(Ok(intrinsics.ctx_ptr_ty.as_basic_type_enum())).chain(user_param_types);
+            std::iter::once(Ok(intrinsics.ptr_ty.as_basic_type_enum())).chain(user_param_types);
 
         let vmctx_attributes = |i: u32| {
             vec![
@@ -202,7 +203,7 @@ impl Abi for Aarch64SystemV {
                             .collect::<Result<_, _>>()?;
 
                         let sret = context.struct_type(&basic_types, false);
-                        let sret_ptr = sret.ptr_type(AddressSpace::default());
+                        let sret_ptr = context.ptr_type(AddressSpace::default());
 
                         let param_types =
                             std::iter::once(Ok(sret_ptr.as_basic_type_enum())).chain(param_types);
@@ -241,7 +242,7 @@ impl Abi for Aarch64SystemV {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
-    ) -> Vec<BasicValueEnum<'ctx>> {
+    ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
         // If it's an sret, allocate the return space.
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {
             let llvm_params: Vec<_> = func_sig
@@ -252,20 +253,22 @@ impl Abi for Aarch64SystemV {
             let llvm_params = llvm_fn_ty
                 .get_context()
                 .struct_type(llvm_params.as_slice(), false);
-            Some(alloca_builder.build_alloca(llvm_params, "sret"))
+            Some(err!(alloca_builder.build_alloca(llvm_params, "sret")))
         } else {
             None
         };
 
         let values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
 
-        if let Some(sret) = sret {
+        let ret = if let Some(sret) = sret {
             std::iter::once(sret.as_basic_value_enum())
                 .chain(values)
                 .collect()
         } else {
             values.collect()
-        }
+        };
+
+        Ok(ret)
     }
 
     // Given a CallSite, extract the returned values and return them in a Vec.
@@ -275,72 +278,78 @@ impl Abi for Aarch64SystemV {
         intrinsics: &Intrinsics<'ctx>,
         call_site: CallSiteValue<'ctx>,
         func_sig: &FuncSig,
-    ) -> Vec<BasicValueEnum<'ctx>> {
-        let split_i64 = |value: IntValue<'ctx>| -> (IntValue<'ctx>, IntValue<'ctx>) {
-            assert!(value.get_type() == intrinsics.i64_ty);
-            let low = builder.build_int_truncate(value, intrinsics.i32_ty, "");
-            let lshr =
-                builder.build_right_shift(value, intrinsics.i64_ty.const_int(32, false), false, "");
-            let high = builder.build_int_truncate(lshr, intrinsics.i32_ty, "");
-            (low, high)
-        };
+    ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
+        let split_i64 =
+            |value: IntValue<'ctx>| -> Result<(IntValue<'ctx>, IntValue<'ctx>), CompileError> {
+                assert!(value.get_type() == intrinsics.i64_ty);
+                let low = err!(builder.build_int_truncate(value, intrinsics.i32_ty, ""));
+                let lshr = err!(builder.build_right_shift(
+                    value,
+                    intrinsics.i64_ty.const_int(32, false),
+                    false,
+                    "",
+                ));
+                let high = err!(builder.build_int_truncate(lshr, intrinsics.i32_ty, ""));
+                Ok((low, high))
+            };
 
-        let casted = |value: BasicValueEnum<'ctx>, ty: Type| -> BasicValueEnum<'ctx> {
-            match ty {
-                Type::I32 => {
-                    assert!(
-                        value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.i32_ty, "")
+        let casted =
+            |value: BasicValueEnum<'ctx>, ty: Type| -> Result<BasicValueEnum<'ctx>, CompileError> {
+                match ty {
+                    Type::I32 => {
+                        assert!(
+                            value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
+                        );
+                        err_nt!(builder.build_bit_cast(value, intrinsics.i32_ty, ""))
+                    }
+                    Type::F32 => {
+                        assert!(
+                            value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
+                        );
+                        err_nt!(builder.build_bit_cast(value, intrinsics.f32_ty, ""))
+                    }
+                    Type::I64 => {
+                        assert!(
+                            value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
+                        );
+                        err_nt!(builder.build_bit_cast(value, intrinsics.i64_ty, ""))
+                    }
+                    Type::F64 => {
+                        assert!(
+                            value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
+                        );
+                        err_nt!(builder.build_bit_cast(value, intrinsics.f64_ty, ""))
+                    }
+                    Type::V128 => {
+                        assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
+                        Ok(value)
+                    }
+                    Type::ExternRef | Type::FuncRef => {
+                        assert!(value.get_type() == intrinsics.ptr_ty.as_basic_type_enum());
+                        Ok(value)
+                    }
                 }
-                Type::F32 => {
-                    assert!(
-                        value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.f32_ty, "")
-                }
-                Type::I64 => {
-                    assert!(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.i64_ty, "")
-                }
-                Type::F64 => {
-                    assert!(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.f64_ty, "")
-                }
-                Type::V128 => {
-                    assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
-                    value
-                }
-                Type::ExternRef | Type::FuncRef => {
-                    assert!(value.get_type() == intrinsics.funcref_ty.as_basic_type_enum());
-                    value
-                }
-            }
-        };
+            };
 
         if let Some(basic_value) = call_site.try_as_basic_value().left() {
             if func_sig.results().len() > 1 {
                 if basic_value.get_type() == intrinsics.i64_ty.as_basic_type_enum() {
                     assert!(func_sig.results().len() == 2);
                     let value = basic_value.into_int_value();
-                    let (low, high) = split_i64(value);
-                    let low = casted(low.into(), func_sig.results()[0]);
-                    let high = casted(high.into(), func_sig.results()[1]);
-                    return vec![low, high];
+                    let (low, high) = split_i64(value)?;
+                    let low = casted(low.into(), func_sig.results()[0])?;
+                    let high = casted(high.into(), func_sig.results()[1])?;
+                    return Ok(vec![low, high]);
                 }
                 if basic_value.is_struct_value() {
                     let struct_value = basic_value.into_struct_value();
-                    return (0..struct_value.get_type().count_fields())
+                    return Ok((0..struct_value.get_type().count_fields())
                         .map(|i| builder.build_extract_value(struct_value, i, "").unwrap())
-                        .collect::<Vec<_>>();
+                        .collect::<Vec<_>>());
                 }
                 let array_value = basic_value.into_array_value();
                 let low = builder
@@ -364,58 +373,58 @@ impl Abi for Aarch64SystemV {
 
                 match func_sig_returns_bitwidths.as_slice() {
                     [32, 64] => {
-                        let (low, _) = split_i64(low);
-                        let low = casted(low.into(), func_sig.results()[0]);
-                        let high = casted(high.into(), func_sig.results()[1]);
-                        vec![low, high]
+                        let (low, _) = split_i64(low)?;
+                        let low = casted(low.into(), func_sig.results()[0])?;
+                        let high = casted(high.into(), func_sig.results()[1])?;
+                        Ok(vec![low, high])
                     }
                     [64, 32] => {
-                        let (high, _) = split_i64(high);
-                        let low = casted(low.into(), func_sig.results()[0]);
-                        let high = casted(high.into(), func_sig.results()[1]);
-                        vec![low, high]
+                        let (high, _) = split_i64(high)?;
+                        let low = casted(low.into(), func_sig.results()[0])?;
+                        let high = casted(high.into(), func_sig.results()[1])?;
+                        Ok(vec![low, high])
                     }
                     [64, 64] => {
-                        let low = casted(low.into(), func_sig.results()[0]);
-                        let high = casted(high.into(), func_sig.results()[1]);
-                        vec![low, high]
+                        let low = casted(low.into(), func_sig.results()[0])?;
+                        let high = casted(high.into(), func_sig.results()[1])?;
+                        Ok(vec![low, high])
                     }
                     [32, 32, 32] => {
-                        let (v1, v2) = split_i64(low);
-                        let (v3, _) = split_i64(high);
-                        let v1 = casted(v1.into(), func_sig.results()[0]);
-                        let v2 = casted(v2.into(), func_sig.results()[1]);
-                        let v3 = casted(v3.into(), func_sig.results()[2]);
-                        vec![v1, v2, v3]
+                        let (v1, v2) = split_i64(low)?;
+                        let (v3, _) = split_i64(high)?;
+                        let v1 = casted(v1.into(), func_sig.results()[0])?;
+                        let v2 = casted(v2.into(), func_sig.results()[1])?;
+                        let v3 = casted(v3.into(), func_sig.results()[2])?;
+                        Ok(vec![v1, v2, v3])
                     }
                     [32, 32, 64] => {
-                        let (v1, v2) = split_i64(low);
-                        let v1 = casted(v1.into(), func_sig.results()[0]);
-                        let v2 = casted(v2.into(), func_sig.results()[1]);
-                        let v3 = casted(high.into(), func_sig.results()[2]);
-                        vec![v1, v2, v3]
+                        let (v1, v2) = split_i64(low)?;
+                        let v1 = casted(v1.into(), func_sig.results()[0])?;
+                        let v2 = casted(v2.into(), func_sig.results()[1])?;
+                        let v3 = casted(high.into(), func_sig.results()[2])?;
+                        Ok(vec![v1, v2, v3])
                     }
                     [64, 32, 32] => {
-                        let v1 = casted(low.into(), func_sig.results()[0]);
-                        let (v2, v3) = split_i64(high);
-                        let v2 = casted(v2.into(), func_sig.results()[1]);
-                        let v3 = casted(v3.into(), func_sig.results()[2]);
-                        vec![v1, v2, v3]
+                        let v1 = casted(low.into(), func_sig.results()[0])?;
+                        let (v2, v3) = split_i64(high)?;
+                        let v2 = casted(v2.into(), func_sig.results()[1])?;
+                        let v3 = casted(v3.into(), func_sig.results()[2])?;
+                        Ok(vec![v1, v2, v3])
                     }
                     [32, 32, 32, 32] => {
-                        let (v1, v2) = split_i64(low);
-                        let (v3, v4) = split_i64(high);
-                        let v1 = casted(v1.into(), func_sig.results()[0]);
-                        let v2 = casted(v2.into(), func_sig.results()[1]);
-                        let v3 = casted(v3.into(), func_sig.results()[2]);
-                        let v4 = casted(v4.into(), func_sig.results()[3]);
-                        vec![v1, v2, v3, v4]
+                        let (v1, v2) = split_i64(low)?;
+                        let (v3, v4) = split_i64(high)?;
+                        let v1 = casted(v1.into(), func_sig.results()[0])?;
+                        let v2 = casted(v2.into(), func_sig.results()[1])?;
+                        let v3 = casted(v3.into(), func_sig.results()[2])?;
+                        let v4 = casted(v4.into(), func_sig.results()[3])?;
+                        Ok(vec![v1, v2, v3, v4])
                     }
                     _ => unreachable!("expected an sret for this type"),
                 }
             } else {
                 assert!(func_sig.results().len() == 1);
-                vec![basic_value]
+                Ok(vec![basic_value])
             }
         } else {
             assert!(call_site.count_arguments() > 0); // Either sret or vmctx.
@@ -446,19 +455,18 @@ impl Abi for Aarch64SystemV {
                     .get_context()
                     .struct_type(llvm_results.as_slice(), false);
 
-                let struct_value = builder
-                    .build_load(struct_type, sret, "")
-                    .into_struct_value();
+                let struct_value =
+                    err!(builder.build_load(struct_type, sret, "")).into_struct_value();
                 let mut rets: Vec<_> = Vec::new();
                 for i in 0..struct_value.get_type().count_fields() {
-                    let value = builder.build_extract_value(struct_value, i, "").unwrap();
+                    let value = err!(builder.build_extract_value(struct_value, i, ""));
                     rets.push(value);
                 }
                 assert!(func_sig.results().len() == rets.len());
-                rets
+                Ok(rets)
             } else {
                 assert!(func_sig.results().is_empty());
-                vec![]
+                Ok(vec![])
             }
         }
     }
@@ -511,56 +519,59 @@ impl Abi for Aarch64SystemV {
             assert!(low.get_type() == intrinsics.i32_ty.as_basic_type_enum());
             assert!(high.get_type() == intrinsics.i32_ty.as_basic_type_enum());
             let (low, high) = (low.into_int_value(), high.into_int_value());
-            let low = builder.build_int_z_extend(low, intrinsics.i64_ty, "");
-            let high = builder.build_int_z_extend(high, intrinsics.i64_ty, "");
-            let high = builder.build_left_shift(high, intrinsics.i64_ty.const_int(32, false), "");
-            builder.build_or(low, high, "").as_basic_value_enum()
+            let low = err!(builder.build_int_z_extend(low, intrinsics.i64_ty, ""));
+            let high = err!(builder.build_int_z_extend(high, intrinsics.i64_ty, ""));
+            let high =
+                err!(builder.build_left_shift(high, intrinsics.i64_ty.const_int(32, false), ""));
+            err_nt!(builder
+                .build_or(low, high, "")
+                .map(|v| v.as_basic_value_enum()))
         };
 
-        let to_i64 = |v: BasicValueEnum<'ctx>| {
+        let to_i64 = |v: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'_>, CompileError> {
             if v.is_float_value() {
                 let v = v.into_float_value();
                 if v.get_type() == intrinsics.f32_ty {
-                    let v = builder
-                        .build_bitcast(v, intrinsics.i32_ty, "")
-                        .into_int_value();
-                    let v = builder.build_int_z_extend(v, intrinsics.i64_ty, "");
-                    v.as_basic_value_enum()
+                    let v = err!(builder.build_bit_cast(v, intrinsics.i32_ty, "")).into_int_value();
+                    let v = err!(builder.build_int_z_extend(v, intrinsics.i64_ty, ""));
+                    Ok(v.as_basic_value_enum())
                 } else {
                     debug_assert!(v.get_type() == intrinsics.f64_ty);
-                    let v = builder.build_bitcast(v, intrinsics.i64_ty, "");
-                    v.as_basic_value_enum()
+                    let v = err!(builder.build_bit_cast(v, intrinsics.i64_ty, ""));
+                    Ok(v.as_basic_value_enum())
                 }
             } else {
                 let v = v.into_int_value();
                 if v.get_type() == intrinsics.i32_ty {
-                    let v = builder.build_int_z_extend(v, intrinsics.i64_ty, "");
-                    v.as_basic_value_enum()
+                    let v = err!(builder.build_int_z_extend(v, intrinsics.i64_ty, ""));
+                    Ok(v.as_basic_value_enum())
                 } else {
                     debug_assert!(v.get_type() == intrinsics.i64_ty);
-                    v.as_basic_value_enum()
+                    Ok(v.as_basic_value_enum())
                 }
             }
         };
 
-        let build_struct = |ty: StructType<'ctx>, values: &[BasicValueEnum<'ctx>]| {
+        let build_struct = |ty: StructType<'ctx>,
+                            values: &[BasicValueEnum<'ctx>]|
+         -> Result<BasicValueEnum<'_>, CompileError> {
             let mut struct_value = ty.get_undef();
             for (i, v) in values.iter().enumerate() {
-                struct_value = builder
-                    .build_insert_value(struct_value, *v, i as u32, "")
-                    .unwrap()
+                struct_value = err!(builder.build_insert_value(struct_value, *v, i as u32, ""))
                     .into_struct_value();
             }
-            struct_value.as_basic_value_enum()
+            Ok(struct_value.as_basic_value_enum())
         };
 
-        let build_2xi64 = |low: BasicValueEnum<'ctx>, high: BasicValueEnum<'ctx>| {
-            let low = to_i64(low);
-            let high = to_i64(high);
+        let build_2xi64 = |low: BasicValueEnum<'ctx>,
+                           high: BasicValueEnum<'ctx>|
+         -> Result<BasicValueEnum<'_>, CompileError> {
+            let low = to_i64(low)?;
+            let high = to_i64(high)?;
             let value = intrinsics.i64_ty.array_type(2).get_undef();
-            let value = builder.build_insert_value(value, low, 0, "").unwrap();
-            let value = builder.build_insert_value(value, high, 1, "").unwrap();
-            value.as_basic_value_enum()
+            let value = err!(builder.build_insert_value(value, low, 0, ""));
+            let value = err!(builder.build_insert_value(value, high, 1, ""));
+            Ok(value.as_basic_value_enum())
         };
 
         Ok(match *values {
@@ -573,14 +584,14 @@ impl Abi for Aarch64SystemV {
                 build_struct(
                     func_type.get_return_type().unwrap().into_struct_type(),
                     &[v1, v2],
-                )
+                )?
             }
             [v1, v2] if is_32(v1) && is_32(v2) => {
-                let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
-                pack_i32s(v1, v2)
+                let v1 = err!(builder.build_bit_cast(v1, intrinsics.i32_ty, ""));
+                let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
+                pack_i32s(v1, v2)?
             }
-            [v1, v2] => build_2xi64(v1, v2),
+            [v1, v2] => build_2xi64(v1, v2)?,
             [v1, v2, v3]
                 if is_32(v1)
                     && is_32(v2)
@@ -592,19 +603,19 @@ impl Abi for Aarch64SystemV {
                 build_struct(
                     func_type.get_return_type().unwrap().into_struct_type(),
                     &[v1, v2, v3],
-                )
+                )?
             }
             [v1, v2, v3] if is_32(v1) && is_32(v2) => {
-                let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
-                let v1v2_pack = pack_i32s(v1, v2);
-                build_2xi64(v1v2_pack, v3)
+                let v1 = err!(builder.build_bit_cast(v1, intrinsics.i32_ty, ""));
+                let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
+                let v1v2_pack = pack_i32s(v1, v2)?;
+                build_2xi64(v1v2_pack, v3)?
             }
             [v1, v2, v3] if is_64(v1) && is_32(v2) && is_32(v3) => {
-                let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
-                let v3 = builder.build_bitcast(v3, intrinsics.i32_ty, "");
-                let v2v3_pack = pack_i32s(v2, v3);
-                build_2xi64(v1, v2v3_pack)
+                let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
+                let v3 = err!(builder.build_bit_cast(v3, intrinsics.i32_ty, ""));
+                let v2v3_pack = pack_i32s(v2, v3)?;
+                build_2xi64(v1, v2v3_pack)?
             }
             [v1, v2, v3, v4]
                 if is_32(v1)
@@ -619,16 +630,16 @@ impl Abi for Aarch64SystemV {
                 build_struct(
                     func_type.get_return_type().unwrap().into_struct_type(),
                     &[v1, v2, v3, v4],
-                )
+                )?
             }
             [v1, v2, v3, v4] if is_32(v1) && is_32(v2) && is_32(v3) && is_32(v4) => {
-                let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");
-                let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
-                let v1v2_pack = pack_i32s(v1, v2);
-                let v3 = builder.build_bitcast(v3, intrinsics.i32_ty, "");
-                let v4 = builder.build_bitcast(v4, intrinsics.i32_ty, "");
-                let v3v4_pack = pack_i32s(v3, v4);
-                build_2xi64(v1v2_pack, v3v4_pack)
+                let v1 = err!(builder.build_bit_cast(v1, intrinsics.i32_ty, ""));
+                let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
+                let v1v2_pack = pack_i32s(v1, v2)?;
+                let v3 = err!(builder.build_bit_cast(v3, intrinsics.i32_ty, ""));
+                let v4 = err!(builder.build_bit_cast(v4, intrinsics.i32_ty, ""));
+                let v3v4_pack = pack_i32s(v3, v4)?;
+                build_2xi64(v1v2_pack, v3v4_pack)?
             }
             _ => {
                 unreachable!("called to perform register return on struct return or void function")

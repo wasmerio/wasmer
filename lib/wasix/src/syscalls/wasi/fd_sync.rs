@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// TODO: figure out which errors this should return
 /// - `Errno::Perm`
 /// - `Errno::Notcapable`
-#[instrument(level = "debug", skip_all, fields(%fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 

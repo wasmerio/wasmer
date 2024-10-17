@@ -42,7 +42,16 @@ pub fn stack_restore<M: MemorySize>(
             // so that the execution can end here and continue elsewhere.
             let pid = ctx.data().pid();
             let tid = ctx.data().tid();
-            match rewind::<M, _>(ctx, memory_stack.freeze(), rewind_stack, store_data, val) {
+
+            let rewind_result = bincode::serialize(&val).unwrap().into();
+            let ret = rewind_ext::<M>(
+                &mut ctx,
+                None, // we do not restore the thread memory as `longjmp`` is not meant to do this
+                rewind_stack,
+                store_data,
+                RewindResultType::RewindWithResult(rewind_result),
+            );
+            match ret {
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("failed to rewind the stack - errno={}", err);

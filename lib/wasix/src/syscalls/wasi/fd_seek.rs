@@ -62,6 +62,9 @@ pub(crate) fn fd_seek_internal(
     if !fd_entry.rights.contains(Rights::FD_SEEK) {
         return Ok(Err(Errno::Access));
     }
+    if fd_entry.flags.contains(Fdflags::APPEND) {
+        return Ok(Ok(fd_entry.offset.load(Ordering::Acquire)));
+    }
 
     // TODO: handle case if fd is a dir?
     let new_offset = match whence {
@@ -75,8 +78,12 @@ pub(crate) fn fd_seek_internal(
                 fd_entry.offset.fetch_add(offset, Ordering::AcqRel) + offset
             } else if offset < 0 {
                 let offset = offset.unsigned_abs();
-                // FIXME: need to handle underflow!
-                fd_entry.offset.fetch_sub(offset, Ordering::AcqRel) - offset
+
+                wasi_try_ok_ok!(fd_entry
+                    .offset
+                    .fetch_sub(offset, Ordering::AcqRel)
+                    .checked_sub(offset)
+                    .ok_or(Errno::Inval))
             } else {
                 fd_entry.offset.load(Ordering::Acquire)
             }
@@ -134,8 +141,10 @@ pub(crate) fn fd_seek_internal(
         Whence::Set => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
-            fd_entry.offset.store(offset as u64, Ordering::Release);
-            offset as u64
+            let offset: u64 = wasi_try_ok_ok!(u64::try_from(offset).map_err(|_| Errno::Inval));
+
+            fd_entry.offset.store(offset, Ordering::Release);
+            offset
         }
         _ => return Ok(Err(Errno::Inval)),
     };

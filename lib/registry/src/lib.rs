@@ -18,7 +18,6 @@ pub mod login;
 pub mod package;
 pub mod publish;
 pub mod subscriptions;
-pub(crate) mod tokio_spawner;
 pub mod types;
 pub mod utils;
 pub mod wasmer_env;
@@ -185,9 +184,12 @@ pub fn query_package_from_registry(
             version: None,
         })?;
 
-    let manifest = toml::from_str::<wasmer_toml::Manifest>(&v.manifest).map_err(|e| {
-        QueryPackageError::ErrorSendingQuery(format!("Invalid manifest for crate {name:?}: {e}"))
-    })?;
+    let manifest =
+        toml::from_str::<wasmer_config::package::Manifest>(&v.manifest).map_err(|e| {
+            QueryPackageError::ErrorSendingQuery(format!(
+                "Invalid manifest for crate {name:?}: {e}"
+            ))
+        })?;
 
     Ok(PackageDownloadInfo {
         registry: registry_url.to_string(),
@@ -347,7 +349,7 @@ where
         if entry.header().entry_type().is_file() {
             entry.unpack_in(&dst_normalized)?;
         } else if entry.header().entry_type() == EntryType::Directory {
-            std::fs::create_dir_all(&Path::new(&dst_normalized).join(&path))?;
+            std::fs::create_dir_all(Path::new(&dst_normalized).join(&path))?;
         }
     }
     Ok(())

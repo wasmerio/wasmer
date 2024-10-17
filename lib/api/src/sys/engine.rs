@@ -6,43 +6,37 @@ pub use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{DeserializeError, Target};
+use wasmer_types::{DeserializeError, HashAlgorithm, Target};
+
+/// Get the default config for the sys Engine
+#[allow(unreachable_code)]
+pub fn get_default_compiler_config() -> Option<Box<dyn wasmer_compiler::CompilerConfig>> {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "cranelift")] {
+            Some(Box::<wasmer_compiler_cranelift::Cranelift>::default())
+        } else if #[cfg(feature = "llvm")] {
+            Some(Box::<wasmer_compiler_llvm::LLVM>::default())
+        } else if #[cfg(feature = "singlepass")] {
+            Some(Box::<wasmer_compiler_singlepass::Singlepass>::default())
+        }
+        else {
+            None
+        }
+    }
+}
 
 /// Returns the default engine for the Sys engine
 pub(crate) fn default_engine() -> Engine {
-    // We store them on a function that returns to make
-    // sure this function doesn't emit a compile error even if
-    // more than one compiler is enabled.
-    #[allow(unreachable_code)]
-    #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-    fn get_config() -> impl wasmer_compiler::CompilerConfig + 'static {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "cranelift")] {
-                wasmer_compiler_cranelift::Cranelift::default()
-            } else if #[cfg(feature = "llvm")] {
-                wasmer_compiler_llvm::LLVM::default()
-            } else if #[cfg(feature = "singlepass")] {
-                wasmer_compiler_singlepass::Singlepass::default()
-            } else {
-                compile_error!("No default compiler chosen")
-            }
-        }
-    }
-
     #[allow(unreachable_code, unused_mut)]
     fn get_engine() -> Engine {
         cfg_if::cfg_if! {
             if #[cfg(feature = "compiler")] {
-                cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-                    {
-                        let config = get_config();
-                        EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
-                            .engine()
-                    } else {
-                        EngineBuilder::headless()
-                            .engine()
-                    }
+                if let Some(config) = get_default_compiler_config() {
+                    EngineBuilder::new(config)
+                        .engine()
+                } else {
+                    EngineBuilder::headless()
+                        .engine()
                 }
             } else {
                 EngineBuilder::headless().engine()
@@ -62,6 +56,9 @@ pub trait NativeEngineExt {
     /// Create a new `Engine` with the given config
     #[cfg(feature = "compiler")]
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self;
+
+    /// Sets the hash algorithm
+    fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>);
 
     /// Create a headless `Engine`
     ///
@@ -134,8 +131,12 @@ impl NativeEngineExt for crate::engine::Engine {
         &self,
         file_ref: &Path,
     ) -> Result<crate::Module, DeserializeError> {
-        let bytes = std::fs::read(file_ref)?;
-        let artifact = Arc::new(Artifact::deserialize_unchecked(&self.0, bytes.into())?);
+        let file = std::fs::File::open(file_ref)?;
+        let artifact = Arc::new(Artifact::deserialize_unchecked(
+            &self.0,
+            OwnedBuffer::from_file(&file)
+                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
+        )?);
         Ok(crate::Module(super::module::Module::from_artifact(
             artifact,
         )))
@@ -154,5 +155,9 @@ impl NativeEngineExt for crate::engine::Engine {
         Ok(crate::Module(super::module::Module::from_artifact(
             artifact,
         )))
+    }
+
+    fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
+        self.0.set_hash_algorithm(hash_algorithm)
     }
 }

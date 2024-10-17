@@ -18,7 +18,7 @@ use crate::syscalls::*;
 ///     String containing the new file path
 /// - `u32 old_path_len`
 ///     Length of the `new_path` string
-#[instrument(level = "debug", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty, follow_symlinks = false), ret)]
+#[instrument(level = "trace", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty, follow_symlinks = false), ret)]
 pub fn path_link<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: WasiFd,
@@ -111,7 +111,7 @@ pub(crate) fn path_link_internal(
             .fs
             .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, false)?;
 
-    if source_inode.stat.write().unwrap().st_nlink == Linkcount::max_value() {
+    if source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
         return Err(Errno::Mlink);
     }
     {

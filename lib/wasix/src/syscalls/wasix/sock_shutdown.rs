@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
-#[instrument(level = "debug", skip_all, fields(%sock), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock), ret)]
 pub fn sock_shutdown(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

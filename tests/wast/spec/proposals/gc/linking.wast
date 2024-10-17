@@ -177,23 +177,6 @@
   "incompatible import type"
 )
 
-(assert_unlinkable
-  (module (global (import "Mref_ex" "g-const-funcnull") externref))
-  "incompatible import type"
-)
-(assert_unlinkable
-  (module (global (import "Mref_ex" "g-const-func") externref))
-  "incompatible import type"
-)
-(assert_unlinkable
-  (module (global (import "Mref_ex" "g-const-refnull") externref))
-  "incompatible import type"
-)
-(assert_unlinkable
-  (module (global (import "Mref_ex" "g-const-ref") externref))
-  "incompatible import type"
-)
-
 
 (assert_unlinkable
   (module (global (import "Mref_ex" "g-var-func") (mut (ref null func))))

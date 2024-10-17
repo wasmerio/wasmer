@@ -1,10 +1,11 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Memory management for linear memories.
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
+use crate::mmap::MmapType;
 use crate::threadconditions::ThreadConditions;
 pub use crate::threadconditions::{NotifyLocation, WaiterError};
 use crate::trap::Trap;
@@ -13,8 +14,9 @@ use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
+use std::rc::Rc;
 use std::slice;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use std::time::Duration;
 use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
 
@@ -94,7 +96,8 @@ impl WasmMmap {
                     })?;
 
             let mut new_mmap =
-                Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
+                Mmap::accessible_reserved(new_bytes, request_bytes, None, MmapType::Private)
+                    .map_err(MemoryError::Region)?;
 
             let copy_len = self.alloc.len() - conf.offset_guard_size;
             new_mmap.as_mut_slice()[..copy_len].copy_from_slice(&self.alloc.as_slice()[..copy_len]);
@@ -206,7 +209,22 @@ impl VMOwnedMemory {
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
-        unsafe { Self::new_internal(memory, style, None) }
+        unsafe { Self::new_internal(memory, style, None, None, MmapType::Private) }
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
+    /// that is backed by a memory file. When set to private the file will be remaing in memory and
+    /// never flush to disk, when set to shared the memory will be flushed to disk.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new_with_file(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        backing_file: std::path::PathBuf,
+        memory_type: MmapType,
+    ) -> Result<Self, MemoryError> {
+        unsafe { Self::new_internal(memory, style, None, Some(backing_file), memory_type) }
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -221,7 +239,38 @@ impl VMOwnedMemory {
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
-        Self::new_internal(memory, style, Some(vm_memory_location))
+        Self::new_internal(
+            memory,
+            style,
+            Some(vm_memory_location),
+            None,
+            MmapType::Private,
+        )
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
+    /// that is backed by a file. When set to private the file will be remaing in memory and
+    /// never flush to disk, when set to shared the memory will be flushed to disk.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition_with_file(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+        backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
+    ) -> Result<Self, MemoryError> {
+        Self::new_internal(
+            memory,
+            style,
+            Some(vm_memory_location),
+            backing_file,
+            memory_type,
+        )
     }
 
     /// Build a `Memory` with either self-owned or VM owned metadata.
@@ -229,6 +278,8 @@ impl VMOwnedMemory {
         memory: &MemoryType,
         style: &MemoryStyle,
         vm_memory_location: Option<NonNull<VMMemoryDefinition>>,
+        backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         if memory.minimum > Pages::max_value() {
             return Err(MemoryError::MinimumMemoryTooLarge {
@@ -268,10 +319,16 @@ impl VMOwnedMemory {
         let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
-        let mut alloc = Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
-            .map_err(MemoryError::Region)?;
+        let mut alloc =
+            Mmap::accessible_reserved(mapped_bytes.0, request_bytes, backing_file, memory_type)
+                .map_err(MemoryError::Region)?;
+
         let base_ptr = alloc.as_mut_ptr();
-        let mem_length = memory.minimum.bytes().0;
+        let mem_length = memory
+            .minimum
+            .bytes()
+            .0
+            .max(alloc.as_slice_accessible().len());
         let mmap = WasmMmap {
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
@@ -288,7 +345,7 @@ impl VMOwnedMemory {
                 })))
             },
             alloc,
-            size: memory.minimum,
+            size: Bytes::from(mem_length).try_into().unwrap(),
         };
 
         Ok(Self {
@@ -305,7 +362,7 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
-            mmap: Arc::new(RwLock::new(self.mmap)),
+            mmap: Rc::new(RwLock::new(self.mmap)),
             config: self.config,
             conditions: ThreadConditions::new(),
         }
@@ -378,7 +435,7 @@ impl LinearMemory for VMOwnedMemory {
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
     // The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
+    mmap: Rc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
     // waiters list for this memory
@@ -397,6 +454,21 @@ impl VMSharedMemory {
         Ok(VMOwnedMemory::new(memory, style)?.to_shared())
     }
 
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
+    /// that is backed by a file. When set to private the file will be remaing in memory and
+    /// never flush to disk, when set to shared the memory will be flushed to disk.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new_with_file(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        backing_file: std::path::PathBuf,
+        memory_type: MmapType,
+    ) -> Result<Self, MemoryError> {
+        Ok(VMOwnedMemory::new_with_file(memory, style, backing_file, memory_type)?.to_shared())
+    }
+
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
     /// This creates a `Memory` with metadata owned by a VM, pointed to by
@@ -412,11 +484,37 @@ impl VMSharedMemory {
         Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
     }
 
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
+    /// that is backed by a file. When set to private the file will be remaing in memory and
+    /// never flush to disk, when set to shared the memory will be flushed to disk.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition_with_file(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+        backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
+    ) -> Result<Self, MemoryError> {
+        Ok(VMOwnedMemory::from_definition_with_file(
+            memory,
+            style,
+            vm_memory_location,
+            backing_file,
+            memory_type,
+        )?
+        .to_shared())
+    }
+
     /// Copies this memory to a new memory
     pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
         Ok(Self {
-            mmap: Arc::new(RwLock::new(guard.copy()?)),
+            mmap: Rc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
             conditions: ThreadConditions::new(),
         })

@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `routes` - The buffer where routes will be stored
-#[instrument(level = "debug", skip_all, fields(nroutes = field::Empty, max_routes = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(nroutes = field::Empty, max_routes = field::Empty), ret)]
 pub fn port_route_list<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     routes_ptr: WasmPtr<Route, M>,

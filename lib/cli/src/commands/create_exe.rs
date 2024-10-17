@@ -11,6 +11,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use tar::Archive;
+use wasmer::sys::Artifact;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
@@ -20,7 +21,10 @@ use webc::{
 };
 
 use self::utils::normalize_atom_name;
-use crate::{common::normalize_path, store::CompilerOptions};
+use crate::{
+    common::{normalize_path, HashAlgorithm},
+    store::CompilerOptions,
+};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -90,6 +94,10 @@ pub struct CreateExe {
 
     #[clap(flatten)]
     compiler: CompilerOptions,
+
+    /// Hashing algorithm to be used for module hash
+    #[clap(long, value_enum)]
+    hash_algorithm: Option<HashAlgorithm>,
 }
 
 /// Url or version to download the release from
@@ -215,7 +223,11 @@ impl CreateExe {
 
         let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
 
-        println!("Compiler: {}", compiler_type.to_string());
+        let mut engine = store.engine().clone();
+        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+        engine.set_hash_algorithm(Some(hash_algorithm));
+
+        println!("Compiler: {}", compiler_type);
         println!("Target: {}", target.triple());
         println!(
             "Using path `{}` as libwasmer path.",
@@ -379,7 +391,7 @@ pub(super) fn compile_pirita_into_directory(
     let volume_path = target_dir.join("volumes").join("volume.o");
     write_volume_obj(&volume_bytes, volume_name, &volume_path, target)?;
     let volume_path = volume_path.canonicalize()?;
-    let volume_path = pathdiff::diff_paths(&volume_path, &target_dir).unwrap();
+    let volume_path = pathdiff::diff_paths(volume_path, &target_dir).unwrap();
 
     std::fs::create_dir_all(target_dir.join("atoms")).map_err(|e| {
         anyhow::anyhow!("cannot create /atoms dir in {}: {e}", target_dir.display())
@@ -500,11 +512,11 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
         path: &mut PathSegments,
         files: &mut BTreeMap<webc::v1::DirOrFile, Vec<u8>>,
     ) {
-        for (segment, meta) in volume.read_dir(&*path).unwrap_or_default() {
+        for (segment, _, meta) in volume.read_dir(&*path).unwrap_or_default() {
             path.push(segment);
 
             match meta {
-                webc::compat::Metadata::Dir => {
+                webc::compat::Metadata::Dir { .. } => {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
@@ -512,7 +524,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
                     read_dir(volume, path, files);
                 }
                 webc::compat::Metadata::File { .. } => {
-                    if let Some(contents) = volume.read_file(&*path) {
+                    if let Some((contents, _)) = volume.read_file(&*path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
                             contents.to_vec(),
@@ -536,7 +548,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
 impl AllowMultiWasm {
     fn validate(
         &self,
-        all_atoms: &Vec<(String, webc::compat::SharedBytes)>,
+        all_atoms: &[(String, webc::compat::SharedBytes)],
     ) -> Result<(), anyhow::Error> {
         if matches!(self, AllowMultiWasm::Reject(None)) && all_atoms.len() > 1 {
             let keys = all_atoms
@@ -672,7 +684,7 @@ impl PrefixMapCompilation {
 
     fn split_prefix(s: &str) -> Vec<String> {
         let regex =
-            regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?"#).unwrap();
+            regex::Regex::new(r"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?").unwrap();
         let mut captures = regex
             .captures(s.trim())
             .map(|c| {
@@ -1272,14 +1284,15 @@ fn link_exe_from_dir(
     let out_path = directory.join("wasmer_main.exe");
     #[cfg(not(target_os = "windows"))]
     let out_path = directory.join("wasmer_main");
-    cmd.arg(&format!("-femit-bin={}", out_path.display()));
+    cmd.arg(format!("-femit-bin={}", out_path.display()));
+
     cmd.args(
-        &object_paths
+        object_paths
             .iter()
             .map(|o| normalize_path(&format!("{}", o.display())))
             .collect::<Vec<_>>(),
     );
-    cmd.arg(&normalize_path(&format!("{}", library_path.display())));
+    cmd.arg(normalize_path(&format!("{}", library_path.display())));
     cmd.arg(normalize_path(&format!(
         "{}",
         directory
@@ -1479,11 +1492,9 @@ fn generate_wasmer_main_c(
         .iter()
         .map(|v| utils::normalize_atom_name(&v.name).to_uppercase())
         .map(|uppercase| {
-            vec![
-                format!("extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");"),
-                format!("extern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"),
-            ]
-            .join("\r\n")
+            format!(
+                "extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");\r\nextern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"
+            )
         })
         .collect::<Vec<_>>();
 
@@ -1959,7 +1970,7 @@ pub(super) mod utils {
     #[test]
     fn test_filter_tarball() {
         use std::str::FromStr;
-        let test_paths = vec![
+        let test_paths = [
             "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",

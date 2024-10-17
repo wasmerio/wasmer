@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! This section defines the `PROBESTACK` intrinsic which is used in the
 //! implementation of "stack probes" on certain platforms.
@@ -42,10 +42,10 @@ cfg_if::cfg_if! {
             // ___chkstk (note the triple underscore) is implemented in compiler-builtins/src/x86_64.rs
             // by the Rust compiler for the MinGW target
             #[cfg(all(target_os = "windows", target_env = "gnu"))]
-            pub fn ___chkstk();
+            pub fn ___chkstk_ms();
         }
         /// The probestack for Windows when compiled with GNU
-        pub const PROBESTACK: unsafe extern "C" fn() = ___chkstk;
+        pub const PROBESTACK: unsafe extern "C" fn() = ___chkstk_ms;
     } else if #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))] {
         // As per
         // https://github.com/rust-lang/compiler-builtins/blob/cae3e6ea23739166504f9f9fb50ec070097979d4/src/probestack.rs#L39,

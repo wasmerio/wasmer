@@ -11,7 +11,10 @@ use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
-use wasmer_compiler::wasmparser::{BlockType as WpTypeOrFuncType, Operator, ValType as WpType};
+use wasmer_compiler::wasmparser::{
+    BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
+    ValType as WpType,
+};
 use wasmer_compiler::FunctionBodyData;
 #[cfg(feature = "unwind")]
 use wasmer_types::CompiledFunctionUnwindInfo;
@@ -235,8 +238,8 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
         Type::V128 => WpType::V128,
-        Type::ExternRef => WpType::ExternRef,
-        Type::FuncRef => WpType::FuncRef, // TODO: FuncRef or Func?
+        Type::ExternRef => WpType::Ref(WpRefType::new(true, WpHeapType::EXTERN).unwrap()),
+        Type::FuncRef => WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
     }
 }
 
@@ -270,7 +273,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             let loc = match *ty {
                 WpType::F32 | WpType::F64 => self.machine.pick_simd().map(Location::SIMD),
                 WpType::I32 | WpType::I64 => self.machine.pick_gpr().map(Location::GPR),
-                WpType::FuncRef | WpType::ExternRef => self.machine.pick_gpr().map(Location::GPR),
+                WpType::Ref(ty) if ty.is_extern_ref() || ty.is_func_ref() => {
+                    self.machine.pick_gpr().map(Location::GPR)
+                }
                 _ => codegen_error!("can't acquire location for type {:?}", ty),
             };
 
@@ -1043,7 +1048,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     pub fn get_state_diff(&mut self) -> usize {
         if !self.track_state {
-            return std::usize::MAX;
+            return usize::MAX;
         }
         let last_frame = self.control_stack.last_mut().unwrap();
         let mut diff = self.state.diff(&last_frame.state);
@@ -1099,9 +1104,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
 
-        if self.state.wasm_inst_offset != std::usize::MAX {
+        if self.state.wasm_inst_offset != usize::MAX {
             return Err(CompileError::Codegen(
-                "emit_head: wasm_inst_offset not std::usize::MAX".to_owned(),
+                "emit_head: wasm_inst_offset not usize::MAX".to_owned(),
             ));
         }
         Ok(())
@@ -2714,7 +2719,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::CallIndirect {
                 type_index,
                 table_index,
-                table_byte: _,
             } => {
                 // TODO: removed restriction on always being table idx 0;
                 // does any code depend on this?
@@ -2993,7 +2997,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.release_locations_value(stack_depth)?;
                 self.value_stack.truncate(stack_depth);
                 self.fp_stack.truncate(fp_depth);
-                let mut frame = &mut self.control_stack.last_mut().unwrap();
+                let frame = &mut self.control_stack.last_mut().unwrap();
 
                 match frame.if_else {
                     IfElseState::If(label) => {
@@ -3118,7 +3122,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 // TODO: Re-enable interrupt signal check without branching
             }
             Operator::Nop => {}
-            Operator::MemorySize { mem, mem_byte: _ } => {
+            Operator::MemorySize { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 self.machine.move_location(
                     Size::S64,
@@ -3324,7 +3328,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
                 self.release_locations_only_stack(&[dst, val, len])?;
             }
-            Operator::MemoryGrow { mem, mem_byte: _ } => {
+            Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 let param_pages = self.value_stack.pop().unwrap();
 
@@ -6067,7 +6071,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let ret = self.acquire_locations(
                     &[(
-                        WpType::FuncRef,
+                        WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
                         MachineValue::WasmStack(self.value_stack.len()),
                     )],
                     false,
@@ -6092,6 +6096,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(index as _);
                 let value = self.value_stack.pop().unwrap();
                 let index = self.value_stack.pop().unwrap();
+
                 // double check this does what I think it does
                 self.release_locations_only_regs(&[value, index])?;
 
@@ -6129,6 +6134,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let index = self.value_stack.pop().unwrap();
+
                 self.release_locations_only_regs(&[index])?;
 
                 self.machine.move_location(
@@ -6163,7 +6169,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let ret = self.acquire_locations(
                     &[(
-                        WpType::FuncRef,
+                        WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
                         MachineValue::WasmStack(self.value_stack.len()),
                     )],
                     false,
@@ -6228,7 +6234,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             if self.module.local_table_index(table_index).is_some() {
                                 VMBuiltinFunctionIndex::get_table_grow_index()
                             } else {
-                                VMBuiltinFunctionIndex::get_imported_table_get_index()
+                                VMBuiltinFunctionIndex::get_imported_table_grow_index()
                             },
                         ) as i32,
                     ),
@@ -6676,7 +6682,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
-        let mut body = self.machine.assembler_finalize();
+        let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
 
         Ok((

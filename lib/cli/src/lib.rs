@@ -4,10 +4,10 @@
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 #![deny(
     missing_docs,
-    dead_code,
+    // dead_code,
     nonstandard_style,
     unused_mut,
-    unused_variables,
+    // unused_variables,
     unused_unsafe,
     unreachable_patterns
 )]
@@ -20,6 +20,7 @@ mod net;
 
 mod commands;
 mod common;
+mod config;
 #[macro_use]
 mod error;
 mod c_gen;

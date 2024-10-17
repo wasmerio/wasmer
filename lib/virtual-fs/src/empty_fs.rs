@@ -12,6 +12,10 @@ pub struct EmptyFileSystem {}
 
 #[allow(unused_variables)]
 impl FileSystem for EmptyFileSystem {
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        Err(FsError::EntryNotFound)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         // Special-case the root path by returning an empty iterator.
         // An empty file system should still be readable, just not contain
@@ -62,6 +66,15 @@ impl FileSystem for EmptyFileSystem {
 
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn crate::FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        Err(FsError::Unsupported)
     }
 }
 

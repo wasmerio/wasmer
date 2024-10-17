@@ -6,6 +6,8 @@ use futures::future::BoxFuture;
 use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
+use self::offloaded_file::OffloadWrite;
+
 use super::*;
 use crate::limiter::TrackedVec;
 use crate::{CopyOnWriteFile, FsError, Result, VirtualFile};
@@ -142,6 +144,27 @@ impl VirtualFile for FileHandle {
         node.metadata().created
     }
 
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        let mut fs = match self.filesystem.inner.write() {
+            Ok(fs) => fs,
+            _ => return Err(crate::FsError::Lock),
+        };
+
+        let inode = fs.storage.get_mut(self.inode);
+        if let Some(node) = inode {
+            if let Some(atime) = atime {
+                node.metadata_mut().accessed = atime;
+            }
+            if let Some(mtime) = mtime {
+                node.metadata_mut().modified = mtime;
+            }
+
+            return Ok(());
+        }
+
+        Err(crate::FsError::UnknownError)
+    }
+
     fn size(&self) -> u64 {
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
@@ -151,6 +174,7 @@ impl VirtualFile for FileHandle {
         let inode = fs.storage.get(self.inode);
         match inode {
             Some(Node::File(node)) => node.file.len().try_into().unwrap_or(0),
+            Some(Node::OffloadedFile(node)) => node.file.len(),
             Some(Node::ReadOnlyFile(node)) => node.file.len().try_into().unwrap_or(0),
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
@@ -182,6 +206,10 @@ impl VirtualFile for FileHandle {
                     .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0)?;
                 metadata.len = new_size;
             }
+            Some(Node::OffloadedFile(OffloadedFileNode { file, metadata, .. })) => {
+                file.resize(new_size, 0);
+                metadata.len = new_size;
+            }
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 file.set_len(new_size)?;
@@ -199,53 +227,52 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
+    fn unlink(&mut self) -> Result<()> {
         let filesystem = self.filesystem.clone();
         let inode = self.inode;
-        Box::pin(async move {
-            let (inode_of_parent, position, inode_of_file) = {
-                // Read lock.
-                let fs = filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
-                // The inode of the file.
-                let inode_of_file = inode;
+        let (inode_of_parent, position, inode_of_file) = {
+            // Read lock.
+            let fs = filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
-                // Find the position of the file in the parent, and the
-                // inode of the parent.
-                let (position, inode_of_parent) = fs
-                    .storage
-                    .iter()
-                    .find_map(|(inode_of_parent, node)| match node {
-                        Node::Directory(DirectoryNode { children, .. }) => {
-                            children.iter().enumerate().find_map(|(nth, inode)| {
-                                if inode == &inode_of_file {
-                                    Some((nth, inode_of_parent))
-                                } else {
-                                    None
-                                }
-                            })
-                        }
+            // The inode of the file.
+            let inode_of_file = inode;
 
-                        _ => None,
-                    })
-                    .ok_or(FsError::BaseNotDirectory)?;
+            // Find the position of the file in the parent, and the
+            // inode of the parent.
+            let (position, inode_of_parent) = fs
+                .storage
+                .iter()
+                .find_map(|(inode_of_parent, node)| match node {
+                    Node::Directory(DirectoryNode { children, .. }) => {
+                        children.iter().enumerate().find_map(|(nth, inode)| {
+                            if inode == &inode_of_file {
+                                Some((nth, inode_of_parent))
+                            } else {
+                                None
+                            }
+                        })
+                    }
 
-                (inode_of_parent, position, inode_of_file)
-            };
+                    _ => None,
+                })
+                .ok_or(FsError::BaseNotDirectory)?;
 
-            {
-                // Write lock.
-                let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
+            (inode_of_parent, position, inode_of_file)
+        };
 
-                // Remove the file from the storage.
-                fs.storage.remove(inode_of_file);
+        {
+            // Write lock.
+            let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
-                // Remove the child from the parent directory.
-                fs.remove_child_from_node(inode_of_parent, position)?;
-            }
+            // Remove the file from the storage.
+            fs.storage.remove(inode_of_file);
 
-            Ok(())
-        })
+            // Remove the child from the parent directory.
+            fs.remove_child_from_node(inode_of_parent, position)?;
+        }
+
+        Ok(())
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -337,6 +364,10 @@ impl VirtualFile for FileHandle {
                 let remaining = node.file.buffer.len() - (self.cursor as usize);
                 Poll::Ready(Ok(remaining))
             }
+            Some(Node::OffloadedFile(node)) => {
+                let remaining = node.file.len() as usize - (self.cursor as usize);
+                Poll::Ready(Ok(remaining))
+            }
             Some(Node::ReadOnlyFile(node)) => {
                 let remaining = node.file.buffer.len() - (self.cursor as usize);
                 Poll::Ready(Ok(remaining))
@@ -385,6 +416,7 @@ impl VirtualFile for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File(_)) => Poll::Ready(Ok(8192)),
+            Some(Node::OffloadedFile(_)) => Poll::Ready(Ok(8192)),
             Some(Node::ReadOnlyFile(_)) => Poll::Ready(Ok(0)),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -409,6 +441,39 @@ impl VirtualFile for FileHandle {
                 format!("inode `{}` doesn't match a file", self.inode),
             ))),
         }
+    }
+
+    fn write_from_mmap(&mut self, offset: u64, size: u64) -> std::io::Result<()> {
+        if !self.writable {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "the file (inode `{}) doesn't have the `write` permission",
+                    self.inode
+                ),
+            ));
+        }
+
+        let mut cursor = self.cursor;
+        {
+            let mut fs = self.filesystem.inner.write().map_err(|_| {
+                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
+            })?;
+
+            let inode = fs.storage.get_mut(self.inode);
+            match inode {
+                Some(Node::OffloadedFile(node)) => {
+                    node.file
+                        .write(OffloadWrite::MmapOffset { offset, size }, &mut cursor)?;
+                    node.metadata.len = node.file.len();
+                }
+                _ => {
+                    return Err(io::ErrorKind::Unsupported.into());
+                }
+            }
+        }
+        self.cursor = cursor;
+        Ok(())
     }
 }
 
@@ -563,7 +628,7 @@ mod test_virtual_file {
             );
         }
 
-        assert_eq!(file.unlink().await, Ok(()), "unlinking the file");
+        assert_eq!(file.unlink(), Ok(()), "unlinking the file");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -615,8 +680,27 @@ impl AsyncRead for FileHandle {
             match inode {
                 Some(Node::File(node)) => {
                     let read = unsafe {
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file.read(
+                            std::mem::transmute::<&mut [std::mem::MaybeUninit<u8>], &mut [u8]>(
+                                buf.unfilled_mut(),
+                            ),
+                            &mut cursor,
+                        )
+                    };
+                    if let Ok(read) = &read {
+                        unsafe { buf.assume_init(*read) };
+                        buf.advance(*read);
+                    }
+                    Poll::Ready(read.map(|_| ()))
+                }
+                Some(Node::OffloadedFile(node)) => {
+                    let read = unsafe {
+                        node.file.read(
+                            std::mem::transmute::<&mut [std::mem::MaybeUninit<u8>], &mut [u8]>(
+                                buf.unfilled_mut(),
+                            ),
+                            &mut cursor,
+                        )
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
@@ -626,8 +710,12 @@ impl AsyncRead for FileHandle {
                 }
                 Some(Node::ReadOnlyFile(node)) => {
                     let read = unsafe {
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file.read(
+                            std::mem::transmute::<&mut [std::mem::MaybeUninit<u8>], &mut [u8]>(
+                                buf.unfilled_mut(),
+                            ),
+                            &mut cursor,
+                        )
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
@@ -683,6 +771,10 @@ impl AsyncSeek for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
+                    node.file.seek(position, &mut cursor)?;
+                    Ok(())
+                }
+                Some(Node::OffloadedFile(node)) => {
                     node.file.seek(position, &mut cursor)?;
                     Ok(())
                 }
@@ -749,6 +841,7 @@ impl AsyncSeek for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File { .. }) => Poll::Ready(Ok(self.cursor)),
+            Some(Node::OffloadedFile { .. }) => Poll::Ready(Ok(self.cursor)),
             Some(Node::ReadOnlyFile { .. }) => Poll::Ready(Ok(self.cursor)),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -803,6 +896,11 @@ impl AsyncWrite for FileHandle {
                 Some(Node::File(node)) => {
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.len().try_into().unwrap();
+                    bytes_written
+                }
+                Some(Node::OffloadedFile(node)) => {
+                    let bytes_written = node.file.write(OffloadWrite::Buffer(buf), &mut cursor)?;
+                    node.metadata.len = node.file.len();
                     bytes_written
                 }
                 Some(Node::ReadOnlyFile(node)) => {
@@ -880,6 +978,15 @@ impl AsyncWrite for FileHandle {
                     node.metadata.len = node.file.buffer.len() as u64;
                     Poll::Ready(Ok(bytes_written))
                 }
+                Some(Node::OffloadedFile(node)) => {
+                    let buf = bufs
+                        .iter()
+                        .find(|b| !b.is_empty())
+                        .map_or(&[][..], |b| &**b);
+                    let bytes_written = node.file.write(OffloadWrite::Buffer(buf), &mut cursor)?;
+                    node.metadata.len = node.file.len();
+                    Poll::Ready(Ok(bytes_written))
+                }
                 Some(Node::ReadOnlyFile(node)) => {
                     let buf = bufs
                         .iter()
@@ -926,6 +1033,7 @@ impl AsyncWrite for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File(node)) => Poll::Ready(node.file.flush()),
+            Some(Node::OffloadedFile(node)) => Poll::Ready(node.file.flush()),
             Some(Node::ReadOnlyFile(node)) => Poll::Ready(node.file.flush()),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -961,6 +1069,7 @@ impl AsyncWrite for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File { .. }) => Poll::Ready(Ok(())),
+            Some(Node::OffloadedFile { .. }) => Poll::Ready(Ok(())),
             Some(Node::ReadOnlyFile { .. }) => Poll::Ready(Ok(())),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -996,6 +1105,7 @@ impl AsyncWrite for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File { .. }) => false,
+            Some(Node::OffloadedFile { .. }) => false,
             Some(Node::ReadOnlyFile { .. }) => false,
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
@@ -1281,7 +1391,7 @@ mod test_read_write_seek {
 
         let mut buffer = [0; 16];
         assert!(
-            matches!(file.read_exact(&mut buffer).await, Err(_)),
+            file.read_exact(&mut buffer).await.is_err(),
             "failing to read an exact buffer",
         );
 
@@ -1292,7 +1402,7 @@ mod test_read_write_seek {
 
         let mut buffer = [0; 3];
         assert!(
-            matches!(file.read_exact(&mut buffer).await, Ok(_)),
+            file.read_exact(&mut buffer).await.is_ok(),
             "failing to read an exact buffer",
         );
     }
@@ -1303,6 +1413,8 @@ impl fmt::Debug for FileHandle {
         formatter
             .debug_struct("FileHandle")
             .field("inode", &self.inode)
+            .field("readable", &self.readable)
+            .field("writable", &self.writable)
             .finish()
     }
 }

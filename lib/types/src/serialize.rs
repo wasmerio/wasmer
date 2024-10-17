@@ -1,3 +1,9 @@
+/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+#![allow(missing_docs)]
+
 use crate::entity::PrimaryMap;
 use crate::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
@@ -6,19 +12,15 @@ use crate::{
     SerializeError, SignatureIndex, TableIndex, TableStyle,
 };
 use enumset::EnumSet;
-use rkyv::check_archived_value;
-use rkyv::{
-    archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
-    ser::Serializer as RkyvSerializer, Archive, CheckBytes, Deserialize as RkyvDeserialize,
-    Serialize as RkyvSerialize,
-};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use std::convert::TryInto;
 use std::mem;
 
 /// The compilation related data for a serialized modules
 #[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
-#[archive_attr(derive(CheckBytes))]
+#[rkyv(derive(Debug))]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
@@ -40,20 +42,17 @@ impl SerializableCompilation {
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let mut serializer = AllocSerializer::<4096>::default();
-        let pos = serializer
-            .serialize_value(self)
-            .map_err(to_serialize_error)? as u64;
-        let mut serialized_data = serializer.into_serializer().into_inner();
-        serialized_data.extend_from_slice(&pos.to_le_bytes());
-        Ok(serialized_data.to_vec())
+        rkyv::to_bytes::<rkyv::rancor::Error>(self)
+            .map(|v| v.into_vec())
+            .map_err(|e| SerializeError::Generic(e.to_string()))
     }
 }
 
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
-#[archive_attr(derive(CheckBytes))]
+#[rkyv(derive(Debug))]
 pub struct SerializableModule {
     /// The main serializable compilation object
     pub compilation: SerializableCompilation,
@@ -65,22 +64,14 @@ pub struct SerializableModule {
     pub cpu_features: u64,
 }
 
-fn to_serialize_error(err: impl std::error::Error) -> SerializeError {
-    SerializeError::Generic(format!("{}", err))
-}
-
 impl SerializableModule {
     /// Serialize a Module into bytes
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let mut serializer = AllocSerializer::<4096>::default();
-        let pos = serializer
-            .serialize_value(self)
-            .map_err(to_serialize_error)? as u64;
-        let mut serialized_data = serializer.into_serializer().into_inner();
-        serialized_data.extend_from_slice(&pos.to_le_bytes());
-        Ok(serialized_data.to_vec())
+        rkyv::to_bytes::<rkyv::rancor::Error>(self)
+            .map(|v| v.into_vec())
+            .map_err(|e| SerializeError::Generic(e.to_string()))
     }
 
     /// Deserialize a Module from a slice.
@@ -120,18 +111,7 @@ impl SerializableModule {
     pub unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
-        if metadata_slice.len() < 8 {
-            return Err(DeserializeError::Incompatible(
-                "invalid serialized data".into(),
-            ));
-        }
-        let mut pos: [u8; 8] = Default::default();
-        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
-        let pos: u64 = u64::from_le_bytes(pos);
-        Ok(archived_value::<Self>(
-            &metadata_slice[..metadata_slice.len() - 8],
-            pos as usize,
-        ))
+        Ok(rkyv::access_unchecked(metadata_slice))
     }
 
     /// Deserialize an archived module.
@@ -141,25 +121,16 @@ impl SerializableModule {
     pub fn archive_from_slice_checked(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
-        if metadata_slice.len() < 8 {
-            return Err(DeserializeError::Incompatible(
-                "invalid serialized data".into(),
-            ));
-        }
-        let mut pos: [u8; 8] = Default::default();
-        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
-        let pos: u64 = u64::from_le_bytes(pos);
-        check_archived_value::<Self>(&metadata_slice[..metadata_slice.len() - 8], pos as usize)
-            .map_err(|err| DeserializeError::CorruptedBinary(err.to_string()))
+        rkyv::access::<_, rkyv::rancor::Error>(metadata_slice)
+            .map_err(|e| DeserializeError::CorruptedBinary(e.to_string()))
     }
 
     /// Deserialize a compilation module from an archive
     pub fn deserialize_from_archive(
         archived: &ArchivedSerializableModule,
     ) -> Result<Self, DeserializeError> {
-        let mut deserializer = SharedDeserializeMap::new();
-        RkyvDeserialize::deserialize(archived, &mut deserializer)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
+        rkyv::deserialize::<_, rkyv::rancor::Error>(archived)
+            .map_err(|e| DeserializeError::CorruptedBinary(e.to_string()))
     }
 
     /// Create a `ModuleInfo` for instantiation
@@ -211,7 +182,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    pub const CURRENT_VERSION: u32 = 5;
+    pub const CURRENT_VERSION: u32 = 8;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";

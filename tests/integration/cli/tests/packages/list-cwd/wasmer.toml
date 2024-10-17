@@ -1,0 +1,14 @@
+[[module]]
+name = "main"
+source = "main.wasm"
+
+[fs]
+"/data" = "."
+
+[[command]]
+name = "run"
+module = "main"
+runner = "wasi"
+
+[command.annotations.wasi]
+cwd = "/data"

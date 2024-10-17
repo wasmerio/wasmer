@@ -1,7 +1,7 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -10,6 +10,7 @@ use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
+use wasmer_config::package::PackageId;
 
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, SnapshotTrigger};
@@ -18,14 +19,15 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    runtime::module_cache::ModuleHash,
     state::WasiState,
     syscalls::{
         rewind_ext2,
         types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     },
+    utils::xxhash_random,
     Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
+use wasmer_types::ModuleHash;
 
 use super::env::WasiEnvInit;
 
@@ -47,6 +49,8 @@ use super::env::WasiEnvInit;
 /// ```
 #[derive(Default)]
 pub struct WasiEnvBuilder {
+    /// Name of entry function. Defaults to running `_start` if not specified.
+    pub(super) entry_function: Option<String>,
     /// Command line arguments.
     pub(super) args: Vec<String>,
     /// Environment variables.
@@ -68,6 +72,8 @@ pub struct WasiEnvBuilder {
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
 
+    pub(super) included_packages: HashSet<PackageId>,
+
     pub(super) module_hash: Option<ModuleHash>,
 
     /// List of host commands to map into the WASI instance.
@@ -84,12 +90,16 @@ pub struct WasiEnvBuilder {
 
     #[cfg(feature = "journal")]
     pub(super) journals: Vec<Arc<DynJournal>>,
+
+    #[cfg(feature = "ctrlc")]
+    pub(super) attach_ctrl_c: bool,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: update this when stable
         f.debug_struct("WasiEnvBuilder")
+            .field("entry_function", &self.entry_function)
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
@@ -167,6 +177,14 @@ impl WasiEnvBuilder {
         self
     }
 
+    /// Attaches a ctrl-c handler which will send signals to the
+    /// process rather than immediately termiante it
+    #[cfg(feature = "ctrlc")]
+    pub fn attach_ctrl_c(mut self) -> Self {
+        self.attach_ctrl_c = true;
+        self
+    }
+
     /// Add an environment variable pair.
     ///
     /// Both the key and value of an environment variable must not
@@ -223,6 +241,21 @@ impl WasiEnvBuilder {
     /// Get a mutable reference to the configured environment variables.
     pub fn get_env_mut(&mut self) -> &mut Vec<(String, Vec<u8>)> {
         &mut self.envs
+    }
+
+    pub fn entry_function<S>(mut self, entry_function: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        self.set_entry_function(entry_function);
+        self
+    }
+
+    pub fn set_entry_function<S>(&mut self, entry_function: S)
+    where
+        S: AsRef<str>,
+    {
+        self.entry_function = Some(entry_function.as_ref().to_owned());
     }
 
     /// Add an argument.
@@ -308,6 +341,21 @@ impl WasiEnvBuilder {
     /// resulting WASI instance.
     pub fn add_webc(&mut self, pkg: BinaryPackage) -> &mut Self {
         self.uses.push(pkg);
+        self
+    }
+
+    /// Adds a package that is already included in the [`WasiEnvBuilder`] filesystem.
+    /// These packages will not be merged to the final filesystem since they are already included.
+    pub fn include_package(&mut self, pkg_id: PackageId) -> &mut Self {
+        self.included_packages.insert(pkg_id);
+        self
+    }
+
+    /// Adds packages that is already included in the [`WasiEnvBuilder`] filesystem.
+    /// These packages will not be merged to the final filesystem since they are already included.
+    pub fn include_packages(&mut self, pkg_ids: impl IntoIterator<Item = PackageId>) -> &mut Self {
+        self.included_packages.extend(pkg_ids);
+
         self
     }
 
@@ -829,11 +877,15 @@ impl WasiEnvBuilder {
             wasi_fs.set_current_dir(s);
         }
 
+        for id in &self.included_packages {
+            wasi_fs.has_unioned.lock().unwrap().insert(id.clone());
+        }
+
         let state = WasiState {
             fs: wasi_fs,
             secret: rand::thread_rng().gen::<[u8; 32]>(),
             inodes,
-            args: self.args.clone(),
+            args: std::sync::Mutex::new(self.args.clone()),
             preopen: self.vfs_preopens.clone(),
             futexs: Default::default(),
             clock_offset: Default::default(),
@@ -868,6 +920,7 @@ impl WasiEnvBuilder {
         let plane_config = ControlPlaneConfig {
             max_task_count: capabilities.threading.max_threads,
             enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
+            enable_exponential_cpu_backoff: capabilities.threading.enable_exponential_cpu_backoff,
         };
         let control_plane = WasiControlPlane::new(plane_config);
 
@@ -898,7 +951,7 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
-        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
+        let module_hash = self.module_hash.unwrap_or_else(xxhash_random);
         let init = self.build_init()?;
         WasiEnv::from_init(init, module_hash)
     }
@@ -913,7 +966,7 @@ impl WasiEnvBuilder {
         self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
-        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
+        let module_hash = self.module_hash.unwrap_or_else(xxhash_random);
         let init = self.build_init()?;
         let env = WasiEnv::from_init(init, module_hash)?;
         let func_env = WasiFunctionEnv::new(store, env);
@@ -931,7 +984,7 @@ impl WasiEnvBuilder {
         module: Module,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
-        self.instantiate_ext(module, ModuleHash::random(), store)
+        self.instantiate_ext(module, xxhash_random(), store)
     }
 
     #[allow(clippy::result_large_err)]
@@ -947,7 +1000,7 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn run(self, module: Module) -> Result<(), WasiRuntimeError> {
-        self.run_ext(module, ModuleHash::random())
+        self.run_ext(module, xxhash_random())
     }
 
     #[allow(clippy::result_large_err)]
@@ -959,7 +1012,7 @@ impl WasiEnvBuilder {
     #[allow(clippy::result_large_err)]
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
-        self.run_with_store_ext(module, ModuleHash::random(), store)
+        self.run_with_store_ext(module, xxhash_random(), store)
     }
 
     #[allow(clippy::result_large_err)]
@@ -989,6 +1042,8 @@ impl WasiEnvBuilder {
             );
         }
 
+        let entry_function = self.entry_function.clone();
+
         let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
 
         // Bootstrap the process
@@ -1001,7 +1056,9 @@ impl WasiEnvBuilder {
                 .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))?;
         }
 
-        let start = instance.exports.get_function("_start")?;
+        let start = instance
+            .exports
+            .get_function(entry_function.as_deref().unwrap_or("_start"))?;
         env.data(&store).thread.set_status_running();
 
         let result = crate::run_wasi_func_start(start, store);
@@ -1031,7 +1088,24 @@ impl WasiEnvBuilder {
         module_hash: ModuleHash,
         mut store: Store,
     ) -> Result<(), WasiRuntimeError> {
+        #[cfg(feature = "ctrlc")]
+        let attach_ctrl_c = self.attach_ctrl_c;
+
         let (_, env) = self.instantiate_ext(module, module_hash, &mut store)?;
+
+        // Install the ctrl-c handler
+        #[cfg(feature = "ctrlc")]
+        if attach_ctrl_c {
+            tokio::spawn({
+                let process = env.data(&store).process.clone();
+                async move {
+                    while tokio::signal::ctrl_c().await.is_ok() {
+                        process.signal_process(wasmer_wasix_types::wasi::Signal::Sigint);
+                    }
+                }
+            });
+        }
+
         env.run_async(store)?;
         Ok(())
     }

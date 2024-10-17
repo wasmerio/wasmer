@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-cli"
-version = "4.2.5"
+version = "4.4.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "CLI integration tests"
 repository = "https://github.com/wasmerio/wasmer"
@@ -14,16 +14,16 @@ serde = { version = "1.0.147", features = ["derive"] }
 insta = { version = "1.21.1", features = ["json"] }
 md5 = "0.7.0"
 hex = "0.4.3"
-pretty_assertions = "1.3.0"
+pretty_assertions.workspace = true
 object = "0.30.0"
-reqwest = { version = "0.11.14", features = ["json", "blocking"] }
-tokio = { version = "1", features = [ "rt", "rt-multi-thread", "macros" ] }
+reqwest = { workspace = true, default-features = false, features = ["json", "blocking", "rustls-tls"] }
+tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "macros", "process" ] }
 assert_cmd = "2.0.8"
 predicates = "2.1.5"
 once_cell = "1.17.1"
 futures = "0.3.28"
 regex = "1.8.3"
-libc = "0.2.147"
+libc.workspace = true
 
 [dependencies]
 anyhow = "1"
@@ -38,4 +38,7 @@ wasmer-registry = { path = "../../../lib/registry", default-features = false }
 [features]
 default = ["webc_runner"]
 webc_runner = []
+wamr = []
+v8 = []
+wasmi = []
 debug = []

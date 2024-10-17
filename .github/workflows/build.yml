@@ -3,12 +3,12 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.70"
+  MSRV: "1.81"
 
 on:
   push:
     branches:
-      - 'master'
+      - 'main'
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
@@ -46,30 +46,32 @@ jobs:
           - build: linux-x64
             os: ubuntu-20.04
             artifact_name: 'wasmer-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-linux-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
             use_llvm: true
             build_wasm: true
           - build: macos-x64
-            os: macos-11
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-darwin-amd64.tar.xz'
+            os: macos-12
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             use_sccache: false
             use_llvm: true
             build_wasm: false
           - build: macos-arm64
-            os: macos-11.0
+            os: macos-14
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: false
             use_llvm: false
             build_wasm: false
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           - build: windows-x64
             os: windows-2019
             artifact_name: 'wasmer-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             use_sccache: false
             use_llvm: true
@@ -77,7 +79,6 @@ jobs:
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
-            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-linux-amd64.tar.xz'
             container: alpine:latest
             use_sccache: false
             use_llvm: false
@@ -91,22 +92,16 @@ jobs:
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
-        run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "nightly-2023-05-25"
-          target: ${{ matrix.metadata.target }}
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        if: matrix.os == 'macos-12' && !matrix.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -119,13 +114,16 @@ jobs:
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
         env:
           LLVM_DIR: .llvm
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
       - name: Configure LLVM (Windows)
         # The Custom Windows build does not contains llvm-config.exe, so need to setup manualy here
         if: matrix.build == 'windows-x64' && matrix.llvm_url
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          echo LLVM_SYS_150_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          echo LLVM_SYS_180_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
@@ -135,7 +133,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+        if: matrix.os == 'macos-12'
       - uses: actions/cache@v2
         with:
           path: |
@@ -191,17 +189,9 @@ jobs:
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
       - name: Build C API headless
-        if: matrix.build != 'macos-arm64'
         shell: bash
         run: |
           make package-capi-headless
-      - name: Build C API headless
-        if: matrix.build == 'macos-arm64'
-        run: |
-          make package-capi-headless
-        env:
-          TARGET: aarch64-apple-darwin
-          TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Build C API
         shell: bash
         run: |
@@ -224,9 +214,10 @@ jobs:
      #  run: |
      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
+        if: matrix.build != 'linux-musl-x64'
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-05-25"
+          toolchain: "nightly-2023-10-05"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
@@ -244,22 +235,14 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2023-05-25
+          rustup override set nightly-2023-10-05
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Dist
-        if: matrix.build != 'macos-arm64'
         run: |
           make distribution
-      - name: Dist macos-arm64
-        if: matrix.build == 'macos-arm64'
-        run: |
-          make distribution
-        env:
-          TARGET: aarch64-apple-darwin
-          TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
@@ -277,11 +260,6 @@ jobs:
           sudo apt install -y mingw-w64
       - uses: dtolnay/rust-toolchain@stable
         with:
-          target: x86_64-pc-windows-gnu
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "nightly-2023-05-25"
           target: x86_64-pc-windows-gnu
       - name: Install Windows-GNU target
         shell: bash
@@ -331,7 +309,7 @@ jobs:
           CARGO_TARGET: x86_64-pc-windows-gnu
           TARGET_DIR: target/x86_64-pc-windows-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'wasmer-windows-gnu64'
           path: dist
@@ -340,7 +318,7 @@ jobs:
 
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
-    runs-on: macos-11.0
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -364,7 +342,7 @@ jobs:
           CARGO_TARGET: aarch64-apple-darwin
           TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'aarch64-apple-darwin-jsc'
           path: dist
@@ -373,7 +351,7 @@ jobs:
 
   darwin_x86_64_jsc:
     name: macOS x86_64 (JSC)
-    runs-on: macos-11.0
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -393,7 +371,7 @@ jobs:
           CARGO_TARGET: x86_64-apple-darwin
           TARGET_DIR: target/x86_64-apple-darwin/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'x86_64-apple-darwin-jsc'
           path: dist
@@ -458,7 +436,7 @@ jobs:
           TARGET: aarch64-unknown-linux-gnu
           TARGET_DIR: target/aarch64-unknown-linux-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wasmer-linux-aarch64
           path: dist
@@ -523,7 +501,7 @@ jobs:
           TARGET: riscv64gc-unknown-linux-gnu
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wasmer-linux-riscv64
           path: dist
@@ -536,7 +514,7 @@ jobs:
     if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
     steps:
       - name: Download the Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Create Release

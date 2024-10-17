@@ -29,4 +29,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod error;
+pub mod tracing;
 pub mod wasm_c_api;

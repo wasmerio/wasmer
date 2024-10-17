@@ -13,7 +13,9 @@ use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_registry::wasmer_env::WasmerEnv;
+use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
@@ -24,13 +26,13 @@ use wasmer_wasix::{
     journal::{CompactingLogFileJournal, DynJournal},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
+    runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runners::{MappedCommand, MappedDirectory},
     runtime::{
-        module_cache::{FileSystemCache, ModuleCache, ModuleHash},
+        module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{
-            FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
-            WebSource,
+            BackendSource, FileSystemSource, InMemorySource, MultiSource, Source, WebSource,
         },
         task_manager::{
             tokio::{RuntimeOrHandle, TokioTaskManager},
@@ -44,6 +46,11 @@ use wasmer_wasix::{
 };
 
 use crate::utils::{parse_envvar, parse_mapdir};
+
+use super::{
+    capabilities::{self, PkgCapabilityCache},
+    ExecutableTarget, PackageSource,
+};
 
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
@@ -87,14 +94,6 @@ pub struct Wasi {
     #[clap(long = "map-command", name = "MAPCMD")]
     pub(super) map_commands: Vec<String>,
 
-    /// Enable experimental IO devices
-    #[cfg(feature = "experimental-io-devices")]
-    #[cfg_attr(
-        feature = "experimental-io-devices",
-        clap(long = "enable-experimental-io-devices")
-    )]
-    enable_experimental_io_devices: bool,
-
     /// Enable networking with the host network.
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
@@ -108,6 +107,13 @@ pub struct Wasi {
     /// Enables asynchronous threading
     #[clap(long = "enable-async-threads")]
     pub enable_async_threads: bool,
+
+    /// Enables an exponential backoff (measured in milli-seconds) of
+    /// the process CPU usage when there are no active run tokens (when set
+    /// holds the maximum amount of time that it will pause the CPU)
+    /// (default = off)
+    #[clap(long = "enable-cpu-backoff")]
+    pub enable_cpu_backoff: Option<u64>,
 
     /// Specifies one or more journal files that Wasmer will use to restore
     /// and save the state of the WASM process as it executes.
@@ -156,7 +162,7 @@ pub struct Wasi {
     pub snapshot_on: Vec<SnapshotTrigger>,
 
     /// Adds a periodic interval (measured in milli-seconds) that the runtime will automatically
-    /// takes snapshots of the running process and write them to the journal. When specifying
+    /// take snapshots of the running process and write them to the journal. When specifying
     /// this parameter it implies that `--snapshot-on interval` has also been specified.
     #[cfg(feature = "journal")]
     #[clap(long = "snapshot-period")]
@@ -182,8 +188,6 @@ pub struct RunProperties {
 
 #[allow(dead_code)]
 impl Wasi {
-    const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/mnt/host";
-
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
         self.mapped_dirs.push(MappedDirectory {
             guest: alias.to_string(),
@@ -229,7 +233,7 @@ impl Wasi {
 
         let mut uses = Vec::new();
         for name in &self.uses {
-            let specifier = PackageSpecifier::parse(name)
+            let specifier = PackageSpecifier::from_str(name)
                 .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
             let pkg = {
                 let inner_rt = rt.clone();
@@ -271,7 +275,7 @@ impl Wasi {
 
                     MappedDirectory {
                         host: current_dir,
-                        guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                     }
                 } else {
                     let resolved = dir.canonicalize().with_context(|| {
@@ -324,7 +328,7 @@ impl Wasi {
 
                     MappedDirectory {
                         host: resolved_host,
-                        guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                     }
                 } else {
                     MappedDirectory {
@@ -336,6 +340,7 @@ impl Wasi {
             }
 
             if !mapped_dirs.is_empty() {
+                // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
@@ -355,7 +360,7 @@ impl Wasi {
                 .unwrap();
 
             if have_current_dir {
-                b.map_dir(".", Self::MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+                b.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
             } else {
                 b.map_dir(".", "/")?
             }
@@ -373,14 +378,6 @@ impl Wasi {
             }
             for journal in self.build_journals()? {
                 builder.add_journal(journal);
-            }
-        }
-
-        #[cfg(feature = "experimental-io-devices")]
-        {
-            if self.enable_experimental_io_devices {
-                wasi_state_builder
-                    .setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
             }
         }
 
@@ -412,7 +409,9 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>, anyhow::Error> {
+    pub fn build_mapped_directories(
+        &self,
+    ) -> Result<(bool, bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -429,7 +428,7 @@ impl Wasi {
 
                 MappedDirectory {
                     host: current_dir,
-                    guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                 }
             } else {
                 let resolved = dir.canonicalize().with_context(|| {
@@ -482,7 +481,7 @@ impl Wasi {
 
                 MappedDirectory {
                     host: resolved_host,
-                    guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                 }
             } else {
                 MappedDirectory {
@@ -493,7 +492,9 @@ impl Wasi {
             mapped_dirs.push(mapping);
         }
 
-        Ok(mapped_dirs)
+        let is_tmp_mapped = mapped_dirs.iter().any(|d| d.guest == "/tmp");
+
+        Ok((have_current_dir, is_tmp_mapped, mapped_dirs))
     }
 
     pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {
@@ -533,6 +534,8 @@ impl Wasi {
         }
 
         caps.threading.enable_asynchronous_threading = self.enable_async_threads;
+        caps.threading.enable_exponential_cpu_backoff =
+            self.enable_cpu_backoff.map(Duration::from_millis);
 
         caps
     }
@@ -541,7 +544,9 @@ impl Wasi {
         &self,
         engine: Engine,
         env: &WasmerEnv,
+        pkg_cache_path: &Path,
         rt_or_handle: I,
+        preferred_webc_version: webc::Version,
     ) -> Result<impl Runtime + Send + Sync>
     where
         I: Into<RuntimeOrHandle>,
@@ -549,10 +554,20 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        if self.networking {
+        let has_networking = self.networking
+            || capabilities::get_cached_capability(pkg_cache_path)
+                .ok()
+                .is_some_and(|v| v.enable_networking);
+
+        if has_networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+            let net = super::capabilities::net::AskingNetworking::new(
+                pkg_cache_path.to_path_buf(),
+                Arc::new(virtual_net::host::LocalNetworking::default()),
+            );
+
+            rt.set_networking_implementation(net);
         }
 
         #[cfg(feature = "journal")]
@@ -561,7 +576,7 @@ impl Wasi {
         }
 
         if !self.no_tty {
-            let tty = Arc::new(SysTty::default());
+            let tty = Arc::new(SysTty);
             tty.reset();
             rt.set_tty(tty);
         }
@@ -574,7 +589,7 @@ impl Wasi {
             .prepare_package_loader(env, client.clone())
             .context("Unable to prepare the package loader")?;
 
-        let registry = self.prepare_source(env, client)?;
+        let registry = self.prepare_source(env, client, preferred_webc_version)?;
 
         let cache_dir = env.cache_dir().join("compiled");
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
@@ -620,7 +635,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl PackageLoader + Send + Sync> {
+    ) -> Result<impl PackageLoader> {
         let checkout_dir = env.cache_dir().join("checkouts");
         let tokens = tokens_by_authority(env)?;
 
@@ -636,8 +651,9 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl Source + Send + Sync> {
-        let mut source = MultiSource::new();
+        preferred_webc_version: webc::Version,
+    ) -> Result<impl Source + Send> {
+        let mut source = MultiSource::default();
 
         // Note: This should be first so our "preloaded" sources get a chance to
         // override the main registry.
@@ -651,8 +667,9 @@ impl Wasi {
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
         let cache_dir = env.cache_dir().join("queries");
-        let mut wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
-            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
+        let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
+            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
+            .with_preferred_webc_version(preferred_webc_version);
         if let Some(token) = env
             .config()?
             .registry

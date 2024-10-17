@@ -16,7 +16,7 @@ use crate::syscalls::*;
 ///     Pointer to UTF8 bytes, the new file name
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
-#[instrument(level = "debug", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty), ret)]
 pub fn path_rename<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: WasiFd,
@@ -201,6 +201,8 @@ pub fn path_rename_internal(
         }
     }
 
+    let source_size = source_entry.stat.read().unwrap().st_size;
+
     if need_create {
         let mut guard = target_parent_inode.write();
         if let Kind::Dir { entries, .. } = guard.deref_mut() {
@@ -211,6 +213,13 @@ pub fn path_rename_internal(
             );
         }
     }
+
+    // The target entry is created, one way or the other
+    let target_inode =
+        wasi_try_ok!(state
+            .fs
+            .get_inode_at_path(inodes, target_fd, target_path, true));
+    target_inode.stat.write().unwrap().st_size = source_size;
 
     Ok(Errno::Success)
 }

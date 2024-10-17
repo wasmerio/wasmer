@@ -1,6 +1,11 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    sync::Arc,
+};
 
-use crate::runtime::resolver::{PackageSpecifier, PackageSummary};
+use wasmer_config::package::{PackageIdent, PackageSource};
+
+use crate::runtime::resolver::PackageSummary;
 
 /// Something that packages can be downloaded from.
 #[async_trait::async_trait]
@@ -15,18 +20,31 @@ pub trait Source: Sync + Debug {
     /// should return [`QueryError::NotFound`] or [`QueryError::NoMatches`].
     ///
     /// [dep]: crate::runtime::resolver::Dependency
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError>;
+    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError>;
 
     /// Run [`Source::query()`] and get the [`PackageSummary`] for the latest
     /// version.
-    async fn latest(&self, pkg: &PackageSpecifier) -> Result<PackageSummary, QueryError> {
+    async fn latest(&self, pkg: &PackageSource) -> Result<PackageSummary, QueryError> {
         let candidates = self.query(pkg).await?;
-        candidates
-            .into_iter()
-            .max_by(|left, right| left.pkg.version.cmp(&right.pkg.version))
-            .ok_or(QueryError::NoMatches {
-                archived_versions: Vec::new(),
-            })
+
+        match pkg {
+            PackageSource::Ident(PackageIdent::Named(_)) => candidates
+                .into_iter()
+                .max_by(|left, right| {
+                    let left_version = left.pkg.id.as_named().map(|x| &x.version);
+                    let right_version = right.pkg.id.as_named().map(|x| &x.version);
+
+                    left_version.cmp(&right_version)
+                })
+                .ok_or(QueryError::NoMatches {
+                    query: pkg.clone(),
+                    archived_versions: Vec::new(),
+                }),
+            _ => candidates
+                .into_iter()
+                .next()
+                .ok_or_else(|| QueryError::NotFound { query: pkg.clone() }),
+        }
     }
 }
 
@@ -36,51 +54,81 @@ where
     D: std::ops::Deref<Target = S> + Debug + Send + Sync,
     S: Source + ?Sized + Send + Sync + 'static,
 {
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
+    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
         (**self).query(package).await
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum QueryError {
-    Unsupported,
-    NotFound,
+    Unsupported {
+        query: PackageSource,
+    },
+    NotFound {
+        query: PackageSource,
+    },
     NoMatches {
+        query: PackageSource,
         archived_versions: Vec<semver::Version>,
     },
-    Timeout,
-    Other(anyhow::Error),
+    Timeout {
+        query: PackageSource,
+    },
+    Other {
+        query: PackageSource,
+        // Arc to make it cloneable
+        // Cloning is important for some use-cases.
+        error: Arc<anyhow::Error>,
+    },
 }
 
-impl From<anyhow::Error> for QueryError {
-    fn from(value: anyhow::Error) -> Self {
-        Self::Other(value)
+impl QueryError {
+    pub fn query(&self) -> &PackageSource {
+        match self {
+            Self::Unsupported { query }
+            | Self::NotFound { query }
+            | Self::NoMatches { query, .. }
+            | Self::Timeout { query }
+            | Self::Other { query, .. } => query,
+        }
+    }
+
+    pub fn new_other(err: anyhow::Error, query: &PackageSource) -> Self {
+        Self::Other {
+            query: query.clone(),
+            error: Arc::new(err),
+        }
     }
 }
 
 impl Display for QueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "failed to query package '{}': ", self.query())?;
+
         match self {
-            Self::Unsupported => f.write_str("This type of package specifier isn't supported"),
-            Self::NotFound => f.write_str("Not found"),
-            Self::Timeout => f.write_str("Timed out"),
-            Self::NoMatches { archived_versions } => match archived_versions.as_slice() {
+            Self::Unsupported { .. } => f.write_str("unsupported package specifier"),
+            Self::NotFound { .. } => f.write_str("not found"),
+            Self::Timeout { .. } => f.write_str("timeout"),
+            Self::NoMatches {
+                query: _,
+                archived_versions,
+            } => match archived_versions.as_slice() {
                 [] => f.write_str(
-                    "The package was found, but no published versions matched the constraint",
+                    "the package was found, but no published versions matched the constraint",
                 ),
                 [version] => write!(
                     f,
-                    "The only version satisfying the constraint, {version}, is archived"
+                    "the only version satisfying the constraint, {version}, is archived"
                 ),
                 [first, rest @ ..] => {
                     let num_others = rest.len();
                     write!(
                         f,
-                        "Unable to satisfy the request. Version {first}, and {num_others} are all archived"
+                        "unable to satisfy the request - version {first}, and {num_others} are all archived"
                     )
                 }
             },
-            Self::Other(e) => Display::fmt(e, f),
+            Self::Other { error: e, query: _ } => Display::fmt(e, f),
         }
     }
 }
@@ -88,8 +136,11 @@ impl Display for QueryError {
 impl std::error::Error for QueryError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Other(e) => Some(&**e),
-            Self::Unsupported | Self::NotFound | Self::NoMatches { .. } | Self::Timeout => None,
+            Self::Other { error, query: _ } => Some(&***error),
+            Self::Unsupported { .. }
+            | Self::NotFound { .. }
+            | Self::NoMatches { .. }
+            | Self::Timeout { .. } => None,
         }
     }
 }

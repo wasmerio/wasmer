@@ -23,6 +23,7 @@ impl PackageLoader for UnsupportedPackageLoader {
         &self,
         _root: &Container,
         _resolution: &Resolution,
+        _root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error> {
         Err(Error::new(Unsupported))
     }

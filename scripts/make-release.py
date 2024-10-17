@@ -12,7 +12,7 @@ import re
 RELEASE_VERSION=""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "Arshia001"
-TAG = "master"
+TAG = "main"
 
 if len(sys.argv) > 1:
     RELEASE_VERSION = sys.argv[1]
@@ -271,12 +271,12 @@ def make_release(version):
     if last_commit == "":
         raise Exception("could not get last info")
 
-    proc = subprocess.Popen(['git','checkout', "master"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+    proc = subprocess.Popen(['git','checkout', 'main'], stdout = subprocess.PIPE, cwd = temp_dir.name)
     proc.wait()
     if proc.returncode != 0:
         for line in proc.stdout:
             print(line.rstrip())
-        raise Exception("could not commit checkout master " + RELEASE_VERSION_WITH_V)
+        raise Exception("could not commit checkout main " + RELEASE_VERSION_WITH_V)
 
     if not(already_released):
         proc = subprocess.Popen(['gh','pr', "merge", "--auto", pr_number, "--merge", "--delete-branch"], stdout = subprocess.PIPE, cwd = temp_dir.name)
@@ -285,8 +285,8 @@ def make_release(version):
     # wait for bors to merge PR
     while not(already_released):
 
-        print("git pull origin master...")
-        proc = subprocess.Popen(['git','pull', "origin", "master", "--depth", "1"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        print("git pull origin main...")
+        proc = subprocess.Popen(['git','pull', "origin", "main", "--depth", "1"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
         if proc.returncode != 0:
             for line in proc.stdout:
@@ -313,7 +313,7 @@ def make_release(version):
                 current_commit = line
                 break
         else: 
-            raise Exception("could not git log master")
+            raise Exception("could not git log main")
 
         if current_commit == "":
             raise Exception("could not get current info")
@@ -424,7 +424,7 @@ def make_release(version):
     hash = hash.replace("/", "")
 
     release_notes.append("")
-    release_notes.append("See full list of changes in the [CHANGELOG](https://github.com/wasmerio/wasmer/blob/master/CHANGELOG.md#" + hash + ")")
+    release_notes.append("See full list of changes in the [CHANGELOG](https://github.com/wasmerio/wasmer/blob/main/CHANGELOG.md#" + hash + ")")
 
     proc = subprocess.Popen(['gh','release', "edit", RELEASE_VERSION_WITH_V, "--notes", "\r\n".join(release_notes)], stdout = subprocess.PIPE, cwd = temp_dir.name)
     proc.wait()

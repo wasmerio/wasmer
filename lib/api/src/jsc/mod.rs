@@ -33,7 +33,6 @@ pub(crate) mod externals;
 pub(crate) mod instance;
 pub(crate) mod mem_access;
 pub(crate) mod module;
-mod module_info_polyfill;
 pub(crate) mod store;
 pub(crate) mod trap;
 pub(crate) mod typed_function;

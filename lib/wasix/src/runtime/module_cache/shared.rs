@@ -1,7 +1,8 @@
 use dashmap::DashMap;
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+use crate::runtime::module_cache::{CacheError, ModuleCache};
+use wasmer_types::ModuleHash;
 
 /// A [`ModuleCache`] based on a <code>[DashMap]<[ModuleHash], [Module]></code>.
 #[derive(Debug, Default, Clone)]
@@ -64,7 +65,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = SharedCache::default();
-        let key = ModuleHash::from_bytes([0; 8]);
+        let key = ModuleHash::xxhash_from_bytes([0; 8]);
 
         cache.save(key, &engine, &module).await.unwrap();
         let round_tripped = cache.load(key, &engine).await.unwrap();

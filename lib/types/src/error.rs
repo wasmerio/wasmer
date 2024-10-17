@@ -175,6 +175,10 @@ pub enum CompileError {
     /// Insufficient resources available for execution.
     #[cfg_attr(feature = "std", error("Insufficient resources: {0}"))]
     Resource(String),
+
+    /// Middleware error occurred.
+    #[cfg_attr(feature = "std", error("Middleware error: {0}"))]
+    MiddlewareError(String),
 }
 
 impl From<WasmError> for CompileError {

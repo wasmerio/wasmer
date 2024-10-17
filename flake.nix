@@ -1,7 +1,8 @@
 {
-  description = "wasmer Webassembly runtime";
+  description = "Wasmer Webassembly runtime";
 
   inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
     flakeutils.url = "github:numtide/flake-utils";
   };
 
@@ -9,51 +10,69 @@
     flakeutils.lib.eachDefaultSystem (system:
       let
         NAME = "wasmer";
-        VERSION = "0.1";
 
         pkgs = import nixpkgs {
           inherit system;
         };
-
       in
       rec {
+        packages.${NAME} = import ./scripts/nix/pkg.nix pkgs;
+        defaultPackage = pkgs.callPackage packages.${NAME} pkgs;
 
-        # packages.${NAME} = pkgs.stdenv.mkDerivation {
-        #   pname = NAME;
-        #   version = VERSION;
+        # For `nix run`.
+        apps.${NAME} = flakeutils.lib.mkApp {
+          drv = packages.${NAME};
+        };
+        defaultApp = apps.${NAME};
 
-        #   buildPhase = "echo 'no-build'";
-        # };
-
-        # defaultPackage = packages.${NAME};
-
-        # # For `nix run`.
-        # apps.${NAME} = flakeutils.lib.mkApp {
-        #   drv = packages.${NAME};
-        # };
-        # defaultApp = apps.${NAME};
-
-        devShell = pkgs.stdenv.mkDerivation {
+        # Development shell.
+        # Run "nix develop" to activate.
+        devShell = pkgs.mkShell {
           name = NAME;
           src = self;
-          buildInputs = with pkgs; [
-            pkgconfig
+          packages = with pkgs; [
+            pkg-config
             openssl
-            llvmPackages_15.libllvm
-            # Snapshot testing
-            cargo-insta
-            wabt
-            binaryen
 
             # LLVM and related dependencies
+            llvmPackages_15.libllvm
             llvmPackages_15.llvm
             libxml2
             libffi
-          ];
-          runtimeDependencies = with pkgs; [ ];
 
-          LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib";
-          LLVM_SYS_150_PREFIX = "${pkgs.llvmPackages_15.llvm.dev}";
+            # Rust tooling
+
+            # Snapshot testing
+            # https://github.com/mitsuhiko/insta
+            cargo-insta
+            # Test runner
+            # https://github.com/nextest-rs/nextest
+            cargo-nextest
+            # Rust dependency vulnerability checker
+            # https://github.com/EmbarkStudios/cargo-deny
+            cargo-deny
+
+            # Webassembly tooling
+
+            # "Official" WASM CLI tools
+            # (wasm2wat, wat2wasm, wasm-objdump, ...)
+            # https://github.com/WebAssembly/wabt
+            wabt
+            # Provides `wasm-opt` (WASM optimizer) and some other tools
+            # https://github.com/WebAssembly/binaryen
+            binaryen
+            # Various WASM debugging and conversion tools
+            # (partial overlap with "wabt")
+            # https://github.com/bytecodealliance/wasm-tools
+            wasm-tools
+          ];
+
+          env.LLVM_SYS_150_PREFIX = pkgs.llvmPackages_15.llvm.dev;
+
+          # shellHook = ''
+          #   LD_LIBRARY_PATH = "${ env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.openssl.out ] }:$LD_LIBRARY_PATH"
+          # '';
+
         };
       }
     );

@@ -113,7 +113,7 @@ pub fn ___build_environment(mut ctx: FunctionEnvMut<EmEnv>, environ: c_int) {
     unsafe {
         for (i, s) in strings.iter().enumerate() {
             for (j, c) in s.chars().enumerate() {
-                debug_assert!(c < u8::max_value() as char);
+                debug_assert!(c < u8::MAX as char);
                 *pool_ptr.add(j) = c as u8;
             }
             *env_ptr.add(i * 4) = pool_offset as i32;
@@ -139,7 +139,7 @@ pub fn _pathconf(ctx: FunctionEnvMut<EmEnv>, path_addr: c_int, name: c_int) -> c
     let _path = emscripten_memory_pointer!(memory.view(&ctx), path_addr) as *const c_char;
     match name {
         0 => 32000,
-        1 | 2 | 3 => 255,
+        1..=3 => 255,
         4 | 5 | 16 | 17 | 18 => 4096,
         6 | 7 | 20 => 1,
         8 => 0,
@@ -156,7 +156,7 @@ pub fn _fpathconf(_ctx: FunctionEnvMut<EmEnv>, _fildes: c_int, name: c_int) -> c
     debug!("emscripten::_fpathconf {} {}", _fildes, name);
     match name {
         0 => 32000,
-        1 | 2 | 3 => 255,
+        1..=3 => 255,
         4 | 5 | 16 | 17 | 18 => 4096,
         6 | 7 | 20 => 1,
         8 => 0,

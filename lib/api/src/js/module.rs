@@ -44,14 +44,10 @@ pub struct Module {
     raw_bytes: Option<Bytes>,
 }
 
-// Module implements `structuredClone` in js, so it's safe it to make it Send.
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// ```js
-// const module = new WebAssembly.Module(new Uint8Array([
-//   0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00
-// ]));
-// structuredClone(module)
-// ```
+// XXX
+// Do not rely on `Module` being `Send`: it will panic at runtime
+// if accessed from multiple threads thanks to [`JsHandle`].
+// See https://github.com/wasmerio/wasmer/issues/4158 for details.
 unsafe impl Send for Module {}
 unsafe impl Sync for Module {}
 
@@ -89,7 +85,7 @@ impl Module {
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {
-            let info = crate::js::module_info_polyfill::translate_module(&binary[..]).unwrap();
+            let info = crate::module_info_polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {

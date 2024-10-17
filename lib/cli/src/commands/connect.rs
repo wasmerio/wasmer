@@ -1,13 +1,16 @@
+// NOTE: not currently in use - but kept here to allow easy re-implementation.
+
 use std::net::IpAddr;
 
+use crate::config::WasmerEnv;
+
 use super::AsyncCliCommand;
-use crate::opts::ApiOpts;
 
 /// Connects to the Wasmer Edge distributed network.
 #[derive(clap::Parser, Debug)]
 pub struct CmdConnect {
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
 
     /// Runs in promiscuous mode
     #[clap(long)]

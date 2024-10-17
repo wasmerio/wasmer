@@ -22,7 +22,7 @@ void wasm_val_print(wasm_val_t val) {
     case WASM_F64: {
       printf("%g", val.of.f64);
     } break;
-    case WASM_ANYREF:
+    case WASM_EXTERNREF:
     case WASM_FUNCREF: {
       if (val.of.ref == NULL) {
         printf("null");

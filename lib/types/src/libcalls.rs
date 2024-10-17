@@ -18,10 +18,10 @@ use std::fmt;
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u16)]
 pub enum LibCall {
     /// ceil.f32

@@ -9,7 +9,7 @@ use crate::{journal::SnapshotTrigger, syscalls::*};
 ///     A pointer to a buffer to write the environment variable pointers.
 /// - `char *environ_buf`
 ///     A pointer to a buffer to write the environment variable string data.
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn environ_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     environ: WasmPtr<WasmPtr<u8, M>, M>,

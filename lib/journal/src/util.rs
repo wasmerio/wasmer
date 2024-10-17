@@ -5,7 +5,7 @@ pub fn copy_journal<R: ReadableJournal, W: WritableJournal>(
     to: &W,
 ) -> anyhow::Result<()> {
     while let Some(record) = from.read()? {
-        to.write(record)?;
+        to.write(record.into_inner())?;
     }
     Ok(())
 }

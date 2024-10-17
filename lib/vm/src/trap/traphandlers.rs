@@ -1,16 +1,18 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
+
+#![allow(static_mut_refs)]
 
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMFunctionBody};
+use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
+use corosensei::{Coroutine, CoroutineResult, Yielder};
 use scopeguard::defer;
 use std::any::Any;
 use std::cell::Cell;
@@ -24,7 +26,7 @@ use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 use std::sync::Once;
 use wasmer_types::TrapCode;
 
-/// Configuration for the the runtime VM
+/// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub struct VMConfig {
     /// Optionnal stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
@@ -75,7 +77,7 @@ use libc::ucontext_t;
 
 /// Default stack size is 1MB.
 pub fn set_stack_size(size: usize) {
-    DEFAULT_STACK_SIZE.store(size.max(8 * 1024).min(100 * 1024 * 1024), Ordering::Relaxed);
+    DEFAULT_STACK_SIZE.store(size.clamp(8 * 1024, 100 * 1024 * 1024), Ordering::Relaxed);
 }
 
 cfg_if::cfg_if! {
@@ -84,7 +86,7 @@ cfg_if::cfg_if! {
         pub type TrapHandlerFn<'a> = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool + Send + Sync + 'a;
     } else if #[cfg(target_os = "windows")] {
         /// Function which may handle custom signals while processing traps.
-        pub type TrapHandlerFn<'a> = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool + Send + Sync + 'a;
+        pub type TrapHandlerFn<'a> = dyn Fn(*mut windows_sys::Win32::System::Diagnostics::Debug::EXCEPTION_POINTERS) -> bool + Send + Sync + 'a;
     }
 }
 
@@ -190,12 +192,12 @@ cfg_if::cfg_if! {
             // For more details see https://github.com/mono/mono/commit/8e75f5a28e6537e56ad70bf870b86e22539c2fb7
             #[cfg(target_vendor = "apple")]
             {
-                use mach::exception_types::*;
-                use mach::kern_return::*;
-                use mach::port::*;
-                use mach::thread_status::*;
-                use mach::traps::*;
-                use mach::mach_types::*;
+                use mach2::exception_types::*;
+                use mach2::kern_return::*;
+                use mach2::port::*;
+                use mach2::thread_status::*;
+                use mach2::traps::*;
+                use mach2::mach_types::*;
 
                 extern "C" {
                     fn task_set_exception_ports(
@@ -476,10 +478,20 @@ cfg_if::cfg_if! {
             };
         }
     } else if #[cfg(target_os = "windows")] {
-        use winapi::um::errhandlingapi::*;
-        use winapi::um::winnt::*;
-        use winapi::um::minwinbase::*;
-        use winapi::vc::excpt::*;
+        use windows_sys::Win32::System::Diagnostics::Debug::{
+            AddVectoredExceptionHandler,
+            CONTEXT,
+            EXCEPTION_CONTINUE_EXECUTION,
+            EXCEPTION_CONTINUE_SEARCH,
+            EXCEPTION_POINTERS,
+        };
+        use windows_sys::Win32::Foundation::{
+            EXCEPTION_ACCESS_VIOLATION,
+            EXCEPTION_ILLEGAL_INSTRUCTION,
+            EXCEPTION_INT_DIVIDE_BY_ZERO,
+            EXCEPTION_INT_OVERFLOW,
+            EXCEPTION_STACK_OVERFLOW,
+        };
 
         unsafe fn platform_init() {
             // our trap handler needs to go first, so that we can recover from
@@ -491,8 +503,8 @@ cfg_if::cfg_if! {
         }
 
         unsafe extern "system" fn exception_handler(
-            exception_info: PEXCEPTION_POINTERS
-        ) -> LONG {
+            exception_info: *mut EXCEPTION_POINTERS
+        ) -> i32 {
             // Check the kind of exception, since we only handle a subset within
             // wasm code. If anything else happens we want to defer to whatever
             // the rest of the system wants to do for this exception.
@@ -673,10 +685,15 @@ pub unsafe fn wasmer_call_trampoline(
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    catch_traps(trap_handler, config, || {
-        mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
-            trampoline,
-        )(vmctx, callee, values_vec);
+    catch_traps(trap_handler, config, move || {
+        mem::transmute::<
+            unsafe extern "C" fn(
+                *mut VMContext,
+                *const VMFunctionBody,
+                *mut wasmer_types::RawValue,
+            ),
+            extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
+        >(trampoline)(vmctx, callee, values_vec);
     })
 }
 
@@ -686,13 +703,13 @@ pub unsafe fn wasmer_call_trampoline(
 /// # Safety
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
-pub unsafe fn catch_traps<F, R>(
+pub unsafe fn catch_traps<F, R: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     config: &VMConfig,
     closure: F,
 ) -> Result<R, Trap>
 where
-    F: FnOnce() -> R,
+    F: FnOnce() -> R + 'static,
 {
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
@@ -711,8 +728,8 @@ where
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
 thread_local! {
-    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = Cell::new(None);
-    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = AtomicPtr::new(ptr::null_mut());
+    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
+    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
@@ -915,7 +932,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// Runs the given function on a separate stack so that its stack usage can be
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
-fn on_wasm_stack<F: FnOnce() -> T, T>(
+fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
@@ -933,7 +950,7 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     // Create a coroutine with a new stack to run the function on.
-    let mut coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
+    let mut coro = Coroutine::with_stack(&mut *stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
 
@@ -1004,7 +1021,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
     // We need additional space on the stack to handle stack overflow
     // exceptions. Rust's initialization code sets this to 0x5000 but this
     // seems to be insufficient in practice.
-    use winapi::um::processthreadsapi::SetThreadStackGuarantee;
+    use windows_sys::Win32::System::Threading::SetThreadStackGuarantee;
     if unsafe { SetThreadStackGuarantee(&mut 0x10000) } == 0 {
         panic!("failed to set thread stack guarantee");
     }

@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Boxed slices for `PrimaryMap`.
 
@@ -22,6 +22,22 @@ where
 {
     elems: Box<[V]>,
     unused: PhantomData<K>,
+}
+
+#[cfg(feature = "artifact-size")]
+impl<K, V> loupe::MemoryUsage for BoxedSlice<K, V>
+where
+    K: EntityRef,
+    V: loupe::MemoryUsage,
+{
+    fn size_of_val(&self, tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of_val(self)
+            + self
+                .elems
+                .iter()
+                .map(|value| value.size_of_val(tracker) - std::mem::size_of_val(value))
+                .sum::<usize>()
+    }
 }
 
 impl<K, V> BoxedSlice<K, V>

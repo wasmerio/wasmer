@@ -25,7 +25,7 @@ use crate::syscalls::*;
 ///     The new file descriptor
 /// Possible Errors:
 /// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`
-#[instrument(level = "debug", skip_all, fields(%dirfd, path = field::Empty, follow_symlinks = field::Empty, ret_fd = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%dirfd, path = field::Empty, follow_symlinks = field::Empty, ret_fd = field::Empty), ret)]
 pub fn path_open<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     dirfd: WasiFd,
@@ -48,6 +48,10 @@ pub fn path_open<M: MemorySize>(
     let path_len64: u64 = path_len.into();
     if path_len64 > 1024u64 * 1024u64 {
         return Ok(Errno::Nametoolong);
+    }
+
+    if path_len64 == 0 {
+        return Ok(Errno::Noent);
     }
 
     // o_flags:
@@ -76,6 +80,7 @@ pub fn path_open<M: MemorySize>(
         fs_rights_base,
         fs_rights_inheriting,
         fs_flags,
+        None,
     )?);
     let env = ctx.data();
 
@@ -119,6 +124,7 @@ pub(crate) fn path_open_internal(
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
+    with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     let env = ctx.data();
     let (memory, mut state, mut inodes) =
@@ -199,12 +205,19 @@ pub(crate) fn path_open_internal(
 
     open_options.options(minimum_rights.clone());
 
+    let orig_path = path;
+
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         let processing_inode = inode.clone();
         let mut guard = processing_inode.write();
 
         let deref_mut = guard.deref_mut();
+
+        if o_flags.contains(Oflags::EXCL) && o_flags.contains(Oflags::CREATE) {
+            return Ok(Err(Errno::Exist));
+        }
+
         match deref_mut {
             Kind::File {
                 ref mut handle,
@@ -217,11 +230,8 @@ pub(crate) fn path_open_internal(
                     assert!(handle.is_some());
                     return Ok(Ok(*special_fd));
                 }
-                if o_flags.contains(Oflags::DIRECTORY) {
+                if o_flags.contains(Oflags::DIRECTORY) || orig_path.ends_with('/') {
                     return Ok(Err(Errno::Notdir));
-                }
-                if o_flags.contains(Oflags::EXCL) {
-                    return Ok(Err(Errno::Exist));
                 }
 
                 let open_options = open_options
@@ -268,8 +278,12 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notcapable));
                 }
             }
-            Kind::Dir { .. }
-            | Kind::Socket { .. }
+            Kind::Dir { .. } => {
+                if fs_rights_base.contains(Rights::FD_WRITE) {
+                    return Ok(Err(Errno::Isdir));
+                }
+            }
+            Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => {}
@@ -290,6 +304,12 @@ pub(crate) fn path_open_internal(
             if o_flags.contains(Oflags::DIRECTORY) {
                 return Ok(Err(Errno::Notdir));
             }
+
+            // Trailing slash matters. But the underlying opener normalizes it away later.
+            if path.ends_with('/') {
+                return Ok(Err(Errno::Isdir));
+            }
+
             // strip end file name
 
             let (parent_inode, new_entity_name) =
@@ -318,11 +338,13 @@ pub(crate) fn path_open_internal(
             // once we got the data we need from the parent, we lookup the host file
             // todo: extra check that opening with write access is okay
             let handle = {
+                // We set create_new because the path already didn't resolve to an existing file,
+                // so it must be created.
                 let open_options = open_options
                     .read(minimum_rights.read)
                     .append(minimum_rights.append)
                     .write(minimum_rights.write)
-                    .create_new(minimum_rights.create_new);
+                    .create_new(true);
 
                 if minimum_rights.read {
                     open_flags |= Fd::READ;
@@ -337,9 +359,19 @@ pub(crate) fn path_open_internal(
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                Some(wasi_try_ok_ok!(open_options
-                    .open(&new_file_host_path)
-                    .map_err(|e| { fs_error_into_wasi_err(e) })))
+                match open_options.open(&new_file_host_path) {
+                    Ok(handle) => Some(handle),
+                    Err(err) => {
+                        // Even though the file does not exist, it still failed to create with
+                        // `AlreadyExists` error.  This can happen if the path resolves to a
+                        // symlink that points outside the FS sandbox.
+                        if err == FsError::AlreadyExists {
+                            return Ok(Err(Errno::Perm));
+                        }
+
+                        return Ok(Err(fs_error_into_wasi_err(err)));
+                    }
+                }
             };
 
             let new_inode = {
@@ -371,13 +403,27 @@ pub(crate) fn path_open_internal(
 
     // TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
-    let out_fd = wasi_try_ok_ok!(state.fs.create_fd(
-        adjusted_rights,
-        fs_rights_inheriting,
-        fs_flags,
-        open_flags,
-        inode
-    ));
+    let out_fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        state
+            .fs
+            .with_fd(
+                adjusted_rights,
+                fs_rights_inheriting,
+                fs_flags,
+                open_flags,
+                inode,
+                fd,
+            )
+            .map(|_| fd)
+    } else {
+        state.fs.create_fd(
+            adjusted_rights,
+            fs_rights_inheriting,
+            fs_flags,
+            open_flags,
+            inode,
+        )
+    });
 
     Ok(Ok(out_fd))
 }

@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_route_remove()`
 /// Removes an existing route from the local port
-#[instrument(level = "debug", skip_all, fields(ip = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(ip = field::Empty), ret)]
 pub fn port_route_remove<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
@@ -12,7 +12,7 @@ pub fn port_route_remove<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
-    Span::current().record("ip", &format!("{:?}", ip));
+    Span::current().record("ip", format!("{:?}", ip));
 
     wasi_try_ok!(port_route_remove_internal(&mut ctx, ip)?);
 

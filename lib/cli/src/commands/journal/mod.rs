@@ -2,15 +2,21 @@ use crate::commands::CliCommand;
 
 mod compact;
 mod export;
+mod extract;
 mod filter;
 mod import;
 mod inspect;
+#[cfg(feature = "fuse")]
+mod mount;
 
 pub use compact::*;
 pub use export::*;
+pub use extract::*;
 pub use filter::*;
 pub use import::*;
 pub use inspect::*;
+#[cfg(feature = "fuse")]
+pub use mount::*;
 
 /// Manage Journal files.
 #[derive(clap::Subcommand, Debug)]
@@ -20,11 +26,16 @@ pub enum CmdJournal {
     /// Exports the contents of a journal to stdout as JSON objects
     Export(CmdJournalExport),
     /// Imports the events into a journal as JSON objects
-    Import(CmdJournaImport),
+    Import(CmdJournalImport),
     /// Inspects the contents of a journal and summarizes it to `stdout`
-    Inspect(CmdJournaInspect),
+    Inspect(CmdJournalInspect),
     /// Filters out certain events from a journal
     Filter(CmdJournalFilter),
+    /// Mounts the journal at a particular directory
+    #[cfg(feature = "fuse")]
+    Mount(CmdJournalMount),
+    /// Extracts an element of a journal
+    Extract(CmdJournalExtract),
 }
 
 impl CliCommand for CmdJournal {
@@ -37,6 +48,9 @@ impl CliCommand for CmdJournal {
             Self::Export(cmd) => cmd.run(),
             Self::Inspect(cmd) => cmd.run(),
             Self::Filter(cmd) => cmd.run(),
+            #[cfg(feature = "fuse")]
+            Self::Mount(cmd) => cmd.run(),
+            Self::Extract(cmd) => cmd.run(),
         }
     }
 }

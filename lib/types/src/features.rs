@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 /// Features usually have a corresponding [WebAssembly proposal].
 ///
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
-#[derive(Clone, Debug, Eq, PartialEq, rkyv::CheckBytes)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialEq))]
 pub struct Features {
     /// Threads proposal should be enabled
     pub threads: bool,

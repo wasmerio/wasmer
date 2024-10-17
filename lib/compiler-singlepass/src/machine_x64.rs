@@ -1105,7 +1105,7 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::u64::MAX),
+                    Location::Imm64(u64::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -1256,14 +1256,14 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MIN as u64),
+                    Location::Imm64(i64::MIN as u64),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MAX as u64),
+                    Location::Imm64(i64::MAX as u64),
                     Location::GPR(tmp_out),
                 )
             },
@@ -1348,14 +1348,14 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MIN as u32),
+                    Location::Imm32(i32::MIN as u32),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MAX as u32),
+                    Location::Imm32(i32::MAX as u32),
                     Location::GPR(tmp_out),
                 )
             },
@@ -1444,7 +1444,7 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::u32::MAX),
+                    Location::Imm32(u32::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -1518,7 +1518,7 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::u64::MAX),
+                    Location::Imm64(u64::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -1669,14 +1669,14 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MIN as u64),
+                    Location::Imm64(i64::MIN as u64),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MAX as u64),
+                    Location::Imm64(i64::MAX as u64),
                     Location::GPR(tmp_out),
                 )
             },
@@ -1748,14 +1748,14 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MIN as u32),
+                    Location::Imm32(i32::MIN as u32),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MAX as u32),
+                    Location::Imm32(i32::MAX as u32),
                     Location::GPR(tmp_out),
                 )
             },
@@ -1831,7 +1831,7 @@ impl MachineX86_64 {
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::u32::MAX),
+                    Location::Imm32(u32::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -2499,8 +2499,10 @@ impl Machine for MachineX86_64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Vec<u8> {
-        self.assembler.finalize().unwrap()
+    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
+        self.assembler.finalize().map_err(|e| {
+            CompileError::Codegen(format!("Assembler failed finalization with: {:?}", e))
+        })
     }
 
     fn get_offset(&self) -> Offset {

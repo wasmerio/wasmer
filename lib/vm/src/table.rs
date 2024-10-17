@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Memory management for tables.
 //!
@@ -21,7 +21,7 @@ use wasmer_types::{TableType, TrapCode, Type as ValType};
 /// A reference stored in a table. Can be either an externref or a funcref.
 #[derive(Debug, Clone)]
 pub enum TableElement {
-    /// Opaque pointer to arbitrary host data.
+    /// Opaque pointer to arbitrary hostdata.
     ExternRef(Option<VMExternRef>),
     /// Pointer to function: contains enough information to call it.
     FuncRef(Option<VMFuncRef>),

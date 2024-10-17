@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! WebAssembly module and function translation state.
 //!
@@ -10,12 +10,11 @@
 //! value and control stacks during the translation of a single function.
 
 use super::func_environ::{FuncEnvironment, GlobalVariable};
+use crate::heap::Heap;
 use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, Inst, Value};
 use std::vec::Vec;
-use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
-};
+use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
 
 /// Information about the presence of an associated `else` for an `if`, or the
 /// lack thereof.
@@ -30,6 +29,9 @@ pub enum ElseData {
         /// instruction that needs to be fixed up to point to the new `else`
         /// block rather than the destination block after the `if...end`.
         branch_inst: Inst,
+
+        /// The placeholder block we're replacing.
+        placeholder: Block,
     },
 
     /// We have already allocated an `else` block.
@@ -233,10 +235,7 @@ pub struct FuncTranslationState {
     globals: HashMap<GlobalIndex, GlobalVariable>,
 
     // Map of heaps that have been created by `FuncEnvironment::make_heap`.
-    heaps: HashMap<MemoryIndex, ir::Heap>,
-
-    // Map of tables that have been created by `FuncEnvironment::make_table`.
-    tables: HashMap<TableIndex, ir::Table>,
+    heaps: HashMap<MemoryIndex, Heap>,
 
     // Map of indirect call signatures that have been created by
     // `FuncEnvironment::make_indirect_sig()`.
@@ -270,7 +269,6 @@ impl FuncTranslationState {
             reachable: true,
             globals: HashMap::new(),
             heaps: HashMap::new(),
-            tables: HashMap::new(),
             signatures: HashMap::new(),
             functions: HashMap::new(),
         }
@@ -282,7 +280,6 @@ impl FuncTranslationState {
         self.reachable = true;
         self.globals.clear();
         self.heaps.clear();
-        self.tables.clear();
         self.signatures.clear();
         self.functions.clear();
     }
@@ -343,7 +340,7 @@ impl FuncTranslationState {
         (v1, v2, v3)
     }
 
-    /// Helper to ensure the the stack size is at least as big as `n`; note that due to
+    /// Helper to ensure the stack size is at least as big as `n`; note that due to
     /// `debug_assert` this will not execute in non-optimized builds.
     #[inline]
     fn ensure_length_is_at_least(&self, n: usize) {
@@ -473,26 +470,11 @@ impl FuncTranslationState {
         func: &mut ir::Function,
         index: u32,
         environ: &mut FE,
-    ) -> WasmResult<ir::Heap> {
+    ) -> WasmResult<Heap> {
         let index = MemoryIndex::from_u32(index);
         match self.heaps.entry(index) {
             Occupied(entry) => Ok(*entry.get()),
             Vacant(entry) => Ok(*entry.insert(environ.make_heap(func, index)?)),
-        }
-    }
-
-    /// Get the `Table` reference that should be used to access table `index`.
-    /// Create the reference if necessary.
-    pub(crate) fn get_or_create_table<FE: FuncEnvironment + ?Sized>(
-        &mut self,
-        func: &mut ir::Function,
-        index: u32,
-        environ: &mut FE,
-    ) -> WasmResult<ir::Table> {
-        let index = TableIndex::from_u32(index);
-        match self.tables.entry(index) {
-            Occupied(entry) => Ok(*entry.get()),
-            Vacant(entry) => Ok(*entry.insert(environ.make_table(func, index)?)),
         }
     }
 

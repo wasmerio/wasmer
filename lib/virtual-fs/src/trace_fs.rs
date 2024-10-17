@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -40,6 +40,11 @@ where
     F: FileSystem,
 {
     #[tracing::instrument(level = "trace", skip(self), err)]
+    fn readlink(&self, path: &std::path::Path) -> crate::Result<PathBuf> {
+        self.0.readlink(path)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self), err)]
     fn read_dir(&self, path: &std::path::Path) -> crate::Result<crate::ReadDir> {
         self.0.read_dir(path)
     }
@@ -69,6 +74,11 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
+    fn symlink_metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
+        self.0.symlink_metadata(path)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self), err)]
     fn remove_file(&self, path: &std::path::Path) -> crate::Result<()> {
         self.0.remove_file(path)
     }
@@ -76,6 +86,16 @@ where
     #[tracing::instrument(level = "trace", skip(self))]
     fn new_open_options(&self) -> crate::OpenOptions {
         crate::OpenOptions::new(self)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self))]
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> crate::Result<()> {
+        self.0.mount(name, path, fs)
     }
 }
 
@@ -120,6 +140,11 @@ impl VirtualFile for TraceFile {
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        self.file.set_times(atime, mtime)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
     fn size(&self) -> u64 {
         self.file.size()
     }
@@ -129,8 +154,8 @@ impl VirtualFile for TraceFile {
         self.file.set_len(new_size)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
-        Box::pin(self.file.unlink())
+    fn unlink(&mut self) -> crate::Result<()> {
+        self.file.unlink()
     }
 
     #[tracing::instrument(level = "trace", skip_all, fields(path=%self.path.display()))]

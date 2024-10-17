@@ -1,11 +1,10 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Low-level abstraction for allocating and managing zero-filled pages
 //! of memory.
 
 use more_asserts::assert_le;
-use more_asserts::assert_lt;
 use std::io;
 use std::ptr;
 use std::slice;
@@ -26,6 +25,17 @@ pub struct Mmap {
     ptr: usize,
     total_size: usize,
     accessible_size: usize,
+    sync_on_drop: bool,
+}
+
+/// The type of mmap to create
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MmapType {
+    /// The memory is private to the process and not shared with other processes.
+    Private,
+    /// The memory is shared with other processes. This is only supported on Unix.
+    /// When the memory is flushed it will update the file data.
+    Shared,
 }
 
 impl Mmap {
@@ -39,6 +49,7 @@ impl Mmap {
             ptr: empty.as_ptr() as usize,
             total_size: 0,
             accessible_size: 0,
+            sync_on_drop: false,
         }
     }
 
@@ -46,7 +57,7 @@ impl Mmap {
     pub fn with_at_least(size: usize) -> Result<Self, String> {
         let page_size = region::page::size();
         let rounded_size = round_up_to_page_size(size, page_size);
-        Self::accessible_reserved(rounded_size, rounded_size)
+        Self::accessible_reserved(rounded_size, rounded_size, None, MmapType::Private)
     }
 
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
@@ -54,9 +65,13 @@ impl Mmap {
     /// must be native page-size multiples.
     #[cfg(not(target_os = "windows"))]
     pub fn accessible_reserved(
-        accessible_size: usize,
+        mut accessible_size: usize,
         mapping_size: usize,
+        mut backing_file: Option<std::path::PathBuf>,
+        memory_type: MmapType,
     ) -> Result<Self, String> {
+        use std::os::fd::IntoRawFd;
+
         let page_size = region::page::size();
         assert_le!(accessible_size, mapping_size);
         assert_eq!(mapping_size & (page_size - 1), 0);
@@ -68,6 +83,51 @@ impl Mmap {
             return Ok(Self::new());
         }
 
+        // If there is a backing file, resize the file so that its at least
+        // `mapping_size` bytes.
+        let mut memory_fd = -1;
+        if let Some(backing_file_path) = &mut backing_file {
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&backing_file_path)
+                .map_err(|e| e.to_string())?;
+
+            let mut backing_file_accessible = backing_file_path.clone();
+            backing_file_accessible.set_extension("accessible");
+
+            let len = file.metadata().map_err(|e| e.to_string())?.len() as usize;
+            if len < mapping_size {
+                std::fs::write(&backing_file_accessible, format!("{}", len).as_bytes()).ok();
+
+                file.set_len(mapping_size as u64)
+                    .map_err(|e| e.to_string())?;
+            }
+
+            if backing_file_accessible.exists() {
+                let accessible = std::fs::read_to_string(&backing_file_accessible)
+                    .map_err(|e| e.to_string())?
+                    .parse::<usize>()
+                    .map_err(|e| e.to_string())?;
+                accessible_size = accessible_size.max(accessible);
+            } else {
+                accessible_size = accessible_size.max(len);
+            }
+
+            accessible_size = accessible_size.min(mapping_size);
+            memory_fd = file.into_raw_fd();
+        }
+
+        // Compute the flags
+        let mut flags = match memory_fd {
+            fd if fd < 0 => libc::MAP_ANON,
+            _ => libc::MAP_FILE,
+        };
+        flags |= match memory_type {
+            MmapType::Private => libc::MAP_PRIVATE,
+            MmapType::Shared => libc::MAP_SHARED,
+        };
+
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
             let ptr = unsafe {
@@ -75,8 +135,8 @@ impl Mmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_READ | libc::PROT_WRITE,
-                    libc::MAP_PRIVATE | libc::MAP_ANON,
-                    -1,
+                    flags,
+                    memory_fd,
                     0,
                 )
             };
@@ -88,6 +148,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
             }
         } else {
             // Reserve the mapping size.
@@ -96,8 +157,8 @@ impl Mmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_NONE,
-                    libc::MAP_PRIVATE | libc::MAP_ANON,
-                    -1,
+                    flags,
+                    memory_fd,
                     0,
                 )
             };
@@ -109,6 +170,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
             };
 
             if accessible_size != 0 {
@@ -127,9 +189,12 @@ impl Mmap {
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
+        _backing_file: Option<std::path::PathBuf>,
+        _memory_type: MmapType,
     ) -> Result<Self, String> {
-        use winapi::um::memoryapi::VirtualAlloc;
-        use winapi::um::winnt::{MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE};
+        use windows_sys::Win32::System::Memory::{
+            VirtualAlloc, MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE,
+        };
 
         let page_size = region::page::size();
         assert_le!(accessible_size, mapping_size);
@@ -160,6 +225,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: false,
             }
         } else {
             // Reserve the mapping size.
@@ -173,6 +239,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: false,
             };
 
             if accessible_size != 0 {
@@ -192,8 +259,8 @@ impl Mmap {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
-        assert_lt!(len, self.total_size);
-        assert_lt!(start, self.total_size - len);
+        assert_le!(len, self.total_size);
+        assert_le!(start, self.total_size - len);
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
@@ -206,14 +273,13 @@ impl Mmap {
     /// `self`'s reserved memory.
     #[cfg(target_os = "windows")]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
-        use winapi::ctypes::c_void;
-        use winapi::um::memoryapi::VirtualAlloc;
-        use winapi::um::winnt::{MEM_COMMIT, PAGE_READWRITE};
+        use std::ffi::c_void;
+        use windows_sys::Win32::System::Memory::{VirtualAlloc, MEM_COMMIT, PAGE_READWRITE};
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
-        assert_lt!(len, self.len());
-        assert_lt!(start, self.len() - len);
+        assert_le!(len, self.len());
+        assert_le!(start, self.len() - len);
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
@@ -300,7 +366,8 @@ impl Mmap {
             copy_size = usize::max(copy_size, size_hint);
         }
 
-        let mut new = Self::accessible_reserved(copy_size, self.total_size)?;
+        let mut new =
+            Self::accessible_reserved(copy_size, self.total_size, None, MmapType::Private)?;
         new.as_mut_slice_arbitary(copy_size)
             .copy_from_slice(self.as_slice_arbitary(copy_size));
         Ok(new)
@@ -311,6 +378,16 @@ impl Drop for Mmap {
     #[cfg(not(target_os = "windows"))]
     fn drop(&mut self) {
         if self.total_size != 0 {
+            if self.sync_on_drop {
+                let r = unsafe {
+                    libc::msync(
+                        self.ptr as *mut libc::c_void,
+                        self.total_size,
+                        libc::MS_SYNC | libc::MS_INVALIDATE,
+                    )
+                };
+                assert_eq!(r, 0, "msync failed: {}", io::Error::last_os_error());
+            }
             let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.total_size) };
             assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
         }
@@ -319,9 +396,8 @@ impl Drop for Mmap {
     #[cfg(target_os = "windows")]
     fn drop(&mut self) {
         if self.len() != 0 {
-            use winapi::ctypes::c_void;
-            use winapi::um::memoryapi::VirtualFree;
-            use winapi::um::winnt::MEM_RELEASE;
+            use std::ffi::c_void;
+            use windows_sys::Win32::System::Memory::{VirtualFree, MEM_RELEASE};
             let r = unsafe { VirtualFree(self.ptr as *mut c_void, 0, MEM_RELEASE) };
             assert_ne!(r, 0);
         }

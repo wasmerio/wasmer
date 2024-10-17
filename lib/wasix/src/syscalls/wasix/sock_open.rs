@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::SocketProperties, syscalls::*};
 
 /// ### `sock_open()`
 /// Create an endpoint for communication.
@@ -20,7 +20,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// The file descriptor of the socket that has been opened.
-#[instrument(level = "debug", skip_all, fields(?af, ?ty, ?pt, sock = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(?af, ?ty, ?pt, sock = field::Empty), ret)]
 pub fn sock_open<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     af: Addressfamily,
@@ -43,7 +43,7 @@ pub fn sock_open<M: MemorySize>(
         _ => {}
     }
 
-    let fd = wasi_try_ok!(sock_open_internal(&mut ctx, af, ty, pt)?);
+    let fd = wasi_try_ok!(sock_open_internal(&mut ctx, af, ty, pt, None)?);
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
@@ -65,6 +65,7 @@ pub(crate) fn sock_open_internal(
     af: Addressfamily,
     ty: Socktype,
     pt: SockProto,
+    with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
@@ -72,23 +73,25 @@ pub(crate) fn sock_open_internal(
     let kind = match ty {
         Socktype::Stream | Socktype::Dgram => Kind::Socket {
             socket: InodeSocket::new(InodeSocketKind::PreSocket {
-                family: af,
-                ty,
-                pt,
+                props: SocketProperties {
+                    family: af,
+                    ty,
+                    pt,
+                    only_v6: false,
+                    reuse_port: false,
+                    reuse_addr: false,
+                    no_delay: None,
+                    keep_alive: None,
+                    dont_route: None,
+                    send_buf_size: None,
+                    recv_buf_size: None,
+                    write_timeout: None,
+                    read_timeout: None,
+                    accept_timeout: None,
+                    connect_timeout: None,
+                    handler: None,
+                },
                 addr: None,
-                only_v6: false,
-                reuse_port: false,
-                reuse_addr: false,
-                no_delay: None,
-                keep_alive: None,
-                dont_route: None,
-                send_buf_size: None,
-                recv_buf_size: None,
-                write_timeout: None,
-                read_timeout: None,
-                accept_timeout: None,
-                connect_timeout: None,
-                handler: None,
             }),
         },
         _ => return Ok(Err(Errno::Notsup)),
@@ -99,9 +102,16 @@ pub(crate) fn sock_open_internal(
             .fs
             .create_inode_with_default_stat(inodes, kind, false, "socket".to_string().into());
     let rights = Rights::all_socket();
-    let fd = wasi_try_ok_ok!(state
-        .fs
-        .create_fd(rights, rights, Fdflags::empty(), 0, inode));
+    let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        state
+            .fs
+            .with_fd(rights, rights, Fdflags::empty(), 0, inode, fd)
+            .map(|_| fd)
+    } else {
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), 0, inode)
+    });
     Span::current().record("sock", fd);
 
     Ok(Ok(fd))

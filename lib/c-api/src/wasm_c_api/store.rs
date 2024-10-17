@@ -1,11 +1,11 @@
 use super::engine::wasm_engine_t;
 use std::cell::UnsafeCell;
-use std::sync::Arc;
+use std::rc::Rc;
 use wasmer_api::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef as BaseStoreRef};
 
 #[derive(Clone)]
 pub struct StoreRef {
-    inner: Arc<UnsafeCell<Store>>,
+    inner: Rc<UnsafeCell<Store>>,
 }
 
 impl StoreRef {
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn wasm_store_new(
 
     Some(Box::new(wasm_store_t {
         inner: StoreRef {
-            inner: Arc::new(UnsafeCell::new(store)),
+            inner: Rc::new(UnsafeCell::new(store)),
         },
     }))
 }

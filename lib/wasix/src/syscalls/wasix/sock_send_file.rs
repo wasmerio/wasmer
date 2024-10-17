@@ -15,7 +15,7 @@ use crate::{net::socket::TimeType, syscalls::*, WasiInodes};
 /// ## Return
 ///
 /// Number of bytes transmitted.
-#[instrument(level = "debug", skip_all, fields(%sock, %in_fd, %offset, %count, nsent = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, %in_fd, %offset, %count, nsent = field::Empty), ret)]
 pub fn sock_send_file<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -48,6 +48,7 @@ pub fn sock_send_file<M: MemorySize>(
     Ok(Errno::Success)
 }
 
+#[allow(clippy::await_holding_lock)]
 pub(crate) fn sock_send_file_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

@@ -6,14 +6,16 @@ use wasmer::{
 };
 use wasmer_wasix_types::wasi::ExitCode;
 
+#[allow(unused_imports)]
+use crate::os::task::thread::RewindResultType;
 #[cfg(feature = "journal")]
 use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions, store::restore_instance_snapshot},
-    InstanceSnapshot, RewindStateOption, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
+    utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
+    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
 };
 
 /// The default stack size for WASIX - the number itself is the default that compilers
@@ -39,7 +41,7 @@ impl WasiFunctionEnv {
     pub fn new_with_store(
         module: Module,
         env: WasiEnv,
-        snapshot: Option<&InstanceSnapshot>,
+        store_snapshot: Option<&StoreSnapshot>,
         spawn_type: SpawnMemoryType,
         update_layout: bool,
     ) -> Result<(Self, Store), WasiThreadError> {
@@ -76,9 +78,8 @@ impl WasiFunctionEnv {
             })?;
 
         // Set all the globals
-        if let Some(snapshot) = snapshot {
-            tracing::trace!("restoring snapshot for new thread");
-            restore_instance_snapshot(&mut store, snapshot);
+        if let Some(snapshot) = store_snapshot {
+            restore_store_snapshot(&mut store, snapshot);
         }
 
         Ok((ctx, store))
@@ -133,21 +134,33 @@ impl WasiFunctionEnv {
     ) -> Result<(), ExportError> {
         let is_wasix_module = crate::utils::is_wasix_module(instance.module());
 
-        // First we get the malloc function which if it exists will be used to
-        // create the pthread_self structure
-        let memory = instance.exports.get_memory("memory").map_or_else(
-            |e| {
-                if let Some(memory) = memory {
-                    Ok(memory)
+        let exported_memory = instance
+            .exports
+            .iter()
+            .filter_map(|(_, export)| {
+                if let wasmer::Extern::Memory(memory) = export {
+                    Some(memory.clone())
                 } else {
-                    Err(e)
+                    None
                 }
-            },
-            |v| Ok(v.clone()),
-        )?;
+            })
+            .next();
+        let memory = match (exported_memory, memory) {
+            (Some(memory), _) => memory,
+            (None, Some(memory)) => memory,
+            (None, None) => {
+                return Err(ExportError::Missing(
+                    "No imported or exported memory found".to_string(),
+                ))
+            }
+        };
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
+
         let stack_pointer = new_inner.stack_pointer.clone();
+        let data_end = new_inner.data_end.clone();
+        let stack_low = new_inner.stack_low.clone();
+        let stack_high = new_inner.stack_high.clone();
 
         let env = self.data_mut(store);
         env.set_inner(new_inner);
@@ -157,7 +170,13 @@ impl WasiFunctionEnv {
         // If the stack offset and size is not set then do so
         if update_layout {
             // Set the base stack
-            let stack_base = if let Some(stack_pointer) = stack_pointer {
+            let stack_base = if let Some(stack_high) = stack_high {
+                match stack_high.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => DEFAULT_STACK_BASE,
+                }
+            } else if let Some(stack_pointer) = stack_pointer {
                 match stack_pointer.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
@@ -166,10 +185,50 @@ impl WasiFunctionEnv {
             } else {
                 DEFAULT_STACK_BASE
             };
+
             if stack_base == 0 {
                 return Err(ExportError::Missing(
-                    "stack_pointer is not set to the upper stack range".to_string(),
+                    "stack_high or stack_pointer is not set to the upper stack range".to_string(),
                 ));
+            }
+
+            let mut stack_lower = if let Some(stack_low) = stack_low {
+                match stack_low.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => 0,
+                }
+            } else if let Some(data_end) = data_end {
+                let data_end = match data_end.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => 0,
+                };
+                // It's possible for the data section to be above the stack, we check for that here and
+                // if it is, we'll assume the stack starts at address 0
+                if data_end >= stack_base {
+                    0
+                } else {
+                    data_end
+                }
+            } else {
+                // clang-16 and higher generate the `__stack_low` global, and it can be exported with
+                // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
+                // and can be exported if `__stack_low` is not available.
+                if self.data(store).will_use_asyncify() {
+                    tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                }
+                0
+            };
+
+            if stack_lower >= stack_base {
+                if self.data(store).will_use_asyncify() {
+                    tracing::warn!(
+                        "Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                        unwinding may cause memory corruption"
+                    );
+                }
+                stack_lower = 0;
             }
 
             // Update the stack layout which is need for asyncify
@@ -177,6 +236,7 @@ impl WasiFunctionEnv {
             let tid = env.tid();
             let layout = &mut env.layout;
             layout.stack_upper = stack_base;
+            layout.stack_lower = stack_lower;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
 
             // Replace the thread object itself
@@ -245,10 +305,13 @@ impl WasiFunctionEnv {
     ///
     #[allow(clippy::result_large_err)]
     #[allow(unused_variables, unused_mut)]
+    #[tracing::instrument(skip_all)]
     pub unsafe fn bootstrap(
         &self,
         mut store: &'_ mut impl AsStoreMut,
     ) -> Result<RewindStateOption, WasiRuntimeError> {
+        tracing::debug!("bootstrap start");
+
         #[allow(unused_mut)]
         let mut rewind_state = None;
 
@@ -258,6 +321,7 @@ impl WasiFunctionEnv {
             // prevent the initialization function from running
             let restore_journals = self.data(&store).runtime.journals().clone();
             if !restore_journals.is_empty() {
+                tracing::trace!("replaying journal=true");
                 self.data_mut(&mut store).replaying_journal = true;
 
                 for journal in restore_journals {
@@ -265,32 +329,56 @@ impl WasiFunctionEnv {
                     let rewind = match restore_snapshot(ctx, journal, true) {
                         Ok(r) => r,
                         Err(err) => {
+                            tracing::trace!("replaying journal=false (err={:?})", err);
                             self.data_mut(&mut store).replaying_journal = false;
                             return Err(err);
                         }
                     };
-                    rewind_state = rewind.map(|rewind| (rewind, None));
+                    rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
+                tracing::trace!("replaying journal=false");
                 self.data_mut(&mut store).replaying_journal = false;
             }
 
-            // The first event we save is an event that records the module hash.
-            // Note: This is used to detect if an incorrect journal is used on the wrong
-            // process or if a process has been recompiled
-            let wasm_hash = self.data(&store).process.module_hash.as_bytes();
-            let mut ctx = self.env.clone().into_mut(&mut store);
-            crate::journal::JournalEffector::save_event(
-                &mut ctx,
-                crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
-            )
-            .map_err(|err| {
-                WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                    "journal failied to save the module initialization event - {}",
-                    err
-                )))
-            })?;
+            // If there is no rewind state then the journal is being replayed
+            // and hence we do not need to write an init module event
+            //
+            // But otherwise we need to notify the journal of the module hash
+            // so that recompiled modules will restart
+            if rewind_state.is_none() {
+                // The first event we save is an event that records the module hash.
+                // Note: This is used to detect if an incorrect journal is used on the wrong
+                // process or if a process has been recompiled
+                let wasm_hash = Box::from(self.data(&store).process.module_hash.as_bytes());
+                let mut ctx = self.env.clone().into_mut(&mut store);
+                crate::journal::JournalEffector::save_event(
+                    &mut ctx,
+                    crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
+                        "journal failed to save the module initialization event - {}",
+                        err
+                    )))
+                })?;
+            } else {
+                // Otherwise we should emit a clear ethereal event
+                let mut ctx = self.env.clone().into_mut(&mut store);
+                crate::journal::JournalEffector::save_event(
+                    &mut ctx,
+                    crate::journal::JournalEntry::ClearEtherealV1,
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
+                        "journal failed to save clear ethereal event - {}",
+                        err
+                    )))
+                })?;
+            }
         }
+
+        tracing::debug!("bootstrap complete");
 
         Ok(rewind_state)
     }

@@ -1,3 +1,5 @@
+use std::{path::PathBuf, str::FromStr};
+
 use super::*;
 use crate::syscalls::*;
 
@@ -57,13 +59,9 @@ pub(crate) fn path_create_directory_internal(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;
-    {
-        let guard = working_dir.inode.read();
-        if let Kind::Root { .. } = guard.deref() {
-            return Err(Errno::Access);
-        }
-    }
+
     if !working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+        trace!("working directory (fd={fd}) has no rights to create a directory");
         return Err(Errno::Access);
     }
 
@@ -78,10 +76,12 @@ pub(crate) fn path_create_directory_internal(
         })
         .collect::<Result<Vec<String>, Errno>>()?;
     if path_vec.is_empty() {
+        trace!("path vector is inva;id (its empty)");
         return Err(Errno::Inval);
     }
 
     let mut cur_dir_inode = working_dir.inode;
+    let mut created_directory = false;
     for comp in &path_vec {
         let processing_cur_dir_inode = cur_dir_inode.clone();
         let mut guard = processing_cur_dir_inode.write();
@@ -118,9 +118,11 @@ pub(crate) fn path_create_directory_internal(
                         &adjusted_path.to_string_lossy(),
                     ) {
                         if adjusted_path_stat.st_filetype != Filetype::Directory {
+                            trace!("path is not a directory");
                             return Err(Errno::Notdir);
                         }
                     } else {
+                        created_directory = true;
                         state.fs_create_dir(&adjusted_path)?;
                     }
                     let kind = Kind::Dir {
@@ -145,10 +147,28 @@ pub(crate) fn path_create_directory_internal(
                     cur_dir_inode = new_inode;
                 }
             }
-            Kind::Root { .. } => return Err(Errno::Access),
-            _ => return Err(Errno::Notdir),
+            Kind::Root { entries } => {
+                match comp.borrow() {
+                    "." | ".." => continue,
+                    _ => (),
+                }
+                if let Some(child) = entries.get(comp) {
+                    cur_dir_inode = child.clone();
+                } else {
+                    trace!("the root node can no create a directory");
+                    return Err(Errno::Access);
+                }
+            }
+            _ => {
+                trace!("path is not a directory");
+                return Err(Errno::Notdir);
+            }
         }
     }
 
-    Ok(())
+    if created_directory {
+        Ok(())
+    } else {
+        Err(Errno::Exist)
+    }
 }

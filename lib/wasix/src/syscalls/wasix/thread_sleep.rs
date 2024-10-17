@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `duration` - Amount of time that the thread should sleep
-#[instrument(level = "debug", skip_all, fields(%duration), ret)]
+#[instrument(level = "trace", skip_all, fields(%duration), ret)]
 pub fn thread_sleep<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
@@ -27,6 +27,7 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
         return Ok(Errno::Success);
     }
 
+    ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     let env = ctx.data();
@@ -39,10 +40,9 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     if duration > 0 {
         let duration = Duration::from_nanos(duration);
         let tasks = env.tasks().clone();
-        let res =
-            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), async move {
-                tasks.sleep_now(duration).await;
-            })?;
+        let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
+            tasks.sleep_now(duration).await;
+        })?;
     }
     Ok(Errno::Success)
 }

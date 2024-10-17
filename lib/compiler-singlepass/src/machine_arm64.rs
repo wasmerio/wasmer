@@ -1,3 +1,14 @@
+use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
+#[cfg(feature = "unwind")]
+use gimli::{write::CallFrameInstruction, AArch64};
+
+use wasmer_compiler::wasmparser::ValType as WpType;
+use wasmer_types::{
+    CallingConvention, CompileError, CpuFeature, CustomSection, FunctionBody, FunctionIndex,
+    FunctionType, InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc,
+    Target, TrapCode, TrapInformation, VMOffsets,
+};
+
 use crate::arm64_decl::new_machine_state;
 use crate::arm64_decl::{GPR, NEON};
 use crate::codegen_error;
@@ -7,15 +18,6 @@ use crate::location::Location as AbstractLocation;
 use crate::location::Reg;
 use crate::machine::*;
 use crate::unwind::{UnwindInstructions, UnwindOps};
-use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
-#[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, AArch64};
-use wasmer_compiler::wasmparser::ValType as WpType;
-use wasmer_types::{
-    CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex, FunctionType,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
-    TrapInformation, VMOffsets,
-};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 type Location = AbstractLocation<GPR, NEON>;
@@ -103,7 +105,6 @@ pub struct MachineARM64 {
     used_simd: u32,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
-    ///
     // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
     /// The source location for the current operator.
@@ -112,6 +113,8 @@ pub struct MachineARM64 {
     pushed: bool,
     /// Vector of unwind operations with offset
     unwind_ops: Vec<(usize, UnwindOps)>,
+    /// A boolean flag signaling if this machine supports NEON.
+    has_neon: bool,
 }
 
 #[allow(dead_code)]
@@ -136,7 +139,15 @@ enum ImmType {
 
 #[allow(dead_code)]
 impl MachineARM64 {
-    pub fn new() -> Self {
+    pub fn new(target: Option<Target>) -> Self {
+        // If and when needed, checks for other supported features should be
+        // added as boolean fields in the struct to make checking if such
+        // features are available as cheap as possible.
+        let has_neon = match target {
+            Some(ref target) => target.cpu_features().contains(CpuFeature::NEON),
+            None => false,
+        };
+
         MachineARM64 {
             assembler: Assembler::new(0),
             used_gprs: 0,
@@ -146,6 +157,7 @@ impl MachineARM64 {
             src_loc: 0,
             pushed: false,
             unwind_ops: vec![],
+            has_neon,
         }
     }
     fn compatible_imm(&self, imm: i64, ty: ImmType) -> bool {
@@ -2288,8 +2300,10 @@ impl Machine for MachineARM64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Vec<u8> {
-        self.assembler.finalize().unwrap()
+    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
+        self.assembler.finalize().map_err(|e| {
+            CompileError::Codegen(format!("Assembler failed finalization with: {:?}", e))
+        })
     }
 
     fn get_offset(&self) -> Offset {
@@ -2796,7 +2810,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
         self.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)?;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S32, src1, src2, dest)?;
         if ret != dest {
@@ -2821,7 +2835,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
         self.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)?;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)?;
         let label_nooverflow = self.assembler.get_label();
         let tmp = self.location_to_reg(
             Size::S32,
@@ -2873,7 +2887,7 @@ impl Machine for MachineARM64 {
             dest
         };
         self.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)?;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S32, src1, src2, dest)?;
         // unsigned remainder : src1 - (src1/src2)*src2
@@ -2911,7 +2925,7 @@ impl Machine for MachineARM64 {
             dest
         };
         self.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)?;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest)?;
         // unsigned remainder : src1 - (src1/src2)*src2
@@ -3068,48 +3082,82 @@ impl Machine for MachineARM64 {
         Ok(())
     }
     fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        // no opcode for that.
-        // 2 solutions: using NEON CNT, that count bits per Byte, or using clz with some shift and loop
-        let mut temps = vec![];
-        let src = self.location_to_reg(Size::S32, loc, &mut temps, ImmType::None, true, None)?;
-        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
-        let src = if src == loc {
-            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+        if self.has_neon {
+            let mut temps = vec![];
+
+            let src_gpr =
+                self.location_to_reg(Size::S32, loc, &mut temps, ImmType::None, true, None)?;
+            let dst_gpr =
+                self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
+
+            let mut neon_temps = vec![];
+            let neon_temp = self.acquire_temp_simd().ok_or_else(|| {
                 CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            temps.push(tmp);
+            neon_temps.push(neon_temp);
+
             self.assembler
-                .emit_mov(Size::S32, src, Location::GPR(tmp))?;
-            Location::GPR(tmp)
+                .emit_fmov(Size::S32, src_gpr, Size::S32, Location::SIMD(neon_temp))?;
+            self.assembler.emit_cnt(neon_temp, neon_temp)?;
+            self.assembler.emit_addv(neon_temp, neon_temp)?;
+            self.assembler
+                .emit_fmov(Size::S32, Location::SIMD(neon_temp), Size::S32, dst_gpr)?;
+
+            if ret != dst_gpr {
+                self.move_location(Size::S32, dst_gpr, ret)?;
+            }
+
+            for r in temps {
+                self.release_gpr(r);
+            }
+
+            for r in neon_temps {
+                self.release_simd(r);
+            }
         } else {
-            src
-        };
-        let tmp = {
-            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            temps.push(tmp);
-            Location::GPR(tmp)
-        };
-        let label_loop = self.assembler.get_label();
-        let label_exit = self.assembler.get_label();
-        self.assembler
-            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // 0 => dest
-        self.assembler.emit_cbz_label(Size::S32, src, label_exit)?; // src==0, exit
-        self.assembler.emit_label(label_loop)?; // loop:
-        self.assembler
-            .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
-        self.assembler.emit_clz(Size::S32, src, tmp)?; // clz src => tmp
-        self.assembler.emit_lsl(Size::S32, src, tmp, src)?; // src << tmp => src
-        self.assembler
-            .emit_lsl(Size::S32, src, Location::Imm8(1), src)?; // src << 1 => src
-        self.assembler.emit_cbnz_label(Size::S32, src, label_loop)?; // if src!=0 goto loop
-        self.assembler.emit_label(label_exit)?;
-        if ret != dest {
-            self.move_location(Size::S32, dest, ret)?;
-        }
-        for r in temps {
-            self.release_gpr(r);
+            let mut temps = vec![];
+            let src =
+                self.location_to_reg(Size::S32, loc, &mut temps, ImmType::None, true, None)?;
+            let dest =
+                self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
+            let src = if src == loc {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                self.assembler
+                    .emit_mov(Size::S32, src, Location::GPR(tmp))?;
+                Location::GPR(tmp)
+            } else {
+                src
+            };
+            let tmp = {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                Location::GPR(tmp)
+            };
+            let label_loop = self.assembler.get_label();
+            let label_exit = self.assembler.get_label();
+            self.assembler
+                .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // 0 => dest
+            self.assembler.emit_cbz_label(Size::S32, src, label_exit)?; // src==0, exit
+            self.assembler.emit_label(label_loop)?; // loop:
+            self.assembler
+                .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
+            self.assembler.emit_clz(Size::S32, src, tmp)?; // clz src => tmp
+            self.assembler.emit_lsl(Size::S32, src, tmp, src)?; // src << tmp => src
+            self.assembler
+                .emit_lsl(Size::S32, src, Location::Imm8(1), src)?; // src << 1 => src
+            self.assembler.emit_cbnz_label(Size::S32, src, label_loop)?; // if src!=0 goto loop
+            self.assembler.emit_label(label_exit)?;
+            if ret != dest {
+                self.move_location(Size::S32, dest, ret)?;
+            }
+            for r in temps {
+                self.release_gpr(r);
+            }
         }
         Ok(())
     }
@@ -3606,6 +3654,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3665,6 +3715,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3724,6 +3776,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3783,6 +3837,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3842,6 +3898,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3901,6 +3959,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3960,6 +4020,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4019,6 +4081,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4078,6 +4142,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4137,6 +4203,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4196,6 +4264,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4255,6 +4325,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4314,6 +4386,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4373,6 +4447,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4432,6 +4508,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4489,6 +4567,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4546,6 +4625,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4603,6 +4683,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4665,6 +4746,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4727,6 +4809,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4789,6 +4872,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4897,7 +4981,7 @@ impl Machine for MachineARM64 {
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
 
         self.assembler
-            .emit_cbz_label(Size::S64, src2, integer_division_by_zero)?;
+            .emit_cbz_label_far(Size::S64, src2, integer_division_by_zero)?;
         let label_nooverflow = self.assembler.get_label();
         let tmp = self.location_to_reg(
             Size::S64,
@@ -5144,47 +5228,84 @@ impl Machine for MachineARM64 {
         Ok(())
     }
     fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        let mut temps = vec![];
-        let src = self.location_to_reg(Size::S64, loc, &mut temps, ImmType::None, true, None)?;
-        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
-        let src = if src == loc {
-            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+        if self.has_neon {
+            let mut temps = vec![];
+
+            let src_gpr =
+                self.location_to_reg(Size::S64, loc, &mut temps, ImmType::None, true, None)?;
+            let dst_gpr =
+                self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
+
+            let mut neon_temps = vec![];
+            let neon_temp = self.acquire_temp_simd().ok_or_else(|| {
                 CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            temps.push(tmp);
+            neon_temps.push(neon_temp);
+
             self.assembler
-                .emit_mov(Size::S64, src, Location::GPR(tmp))?;
-            Location::GPR(tmp)
+                .emit_fmov(Size::S64, src_gpr, Size::S64, Location::SIMD(neon_temp))?;
+            self.assembler.emit_cnt(neon_temp, neon_temp)?;
+            self.assembler.emit_addv(neon_temp, neon_temp)?;
+            self.assembler
+                .emit_fmov(Size::S64, Location::SIMD(neon_temp), Size::S64, dst_gpr)?;
+
+            if ret != dst_gpr {
+                self.move_location(Size::S64, dst_gpr, ret)?;
+            }
+
+            for r in temps {
+                self.release_gpr(r);
+            }
+
+            for r in neon_temps {
+                self.release_simd(r);
+            }
         } else {
-            src
-        };
-        let tmp = {
-            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            temps.push(tmp);
-            Location::GPR(tmp)
-        };
-        let label_loop = self.assembler.get_label();
-        let label_exit = self.assembler.get_label();
-        self.assembler
-            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // dest <= 0
-        self.assembler.emit_cbz_label(Size::S64, src, label_exit)?; // src == 0, then goto label_exit
-        self.assembler.emit_label(label_loop)?;
-        self.assembler
-            .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
-        self.assembler.emit_clz(Size::S64, src, tmp)?; // clz src => tmp
-        self.assembler.emit_lsl(Size::S64, src, tmp, src)?; // src << tmp => src
-        self.assembler
-            .emit_lsl(Size::S64, src, Location::Imm8(1), src)?; // src << 1 => src
-        self.assembler.emit_cbnz_label(Size::S64, src, label_loop)?; // src != 0, then goto label_loop
-        self.assembler.emit_label(label_exit)?;
-        if ret != dest {
-            self.move_location(Size::S64, dest, ret)?;
+            let mut temps = vec![];
+            let src =
+                self.location_to_reg(Size::S64, loc, &mut temps, ImmType::None, true, None)?;
+            let dest =
+                self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
+            let src = if src == loc {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                self.assembler
+                    .emit_mov(Size::S64, src, Location::GPR(tmp))?;
+                Location::GPR(tmp)
+            } else {
+                src
+            };
+            let tmp = {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                Location::GPR(tmp)
+            };
+            let label_loop = self.assembler.get_label();
+            let label_exit = self.assembler.get_label();
+            self.assembler
+                .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // dest <= 0
+            self.assembler.emit_cbz_label(Size::S64, src, label_exit)?; // src == 0, then goto label_exit
+            self.assembler.emit_label(label_loop)?;
+            self.assembler
+                .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
+            self.assembler.emit_clz(Size::S64, src, tmp)?; // clz src => tmp
+            self.assembler.emit_lsl(Size::S64, src, tmp, src)?; // src << tmp => src
+            self.assembler
+                .emit_lsl(Size::S64, src, Location::Imm8(1), src)?; // src << 1 => src
+            self.assembler.emit_cbnz_label(Size::S64, src, label_loop)?; // src != 0, then goto label_loop
+            self.assembler.emit_label(label_exit)?;
+            if ret != dest {
+                self.move_location(Size::S64, dest, ret)?;
+            }
+            for r in temps {
+                self.release_gpr(r);
+            }
         }
-        for r in temps {
-            self.release_gpr(r);
-        }
+
         Ok(())
     }
     fn i64_shl(
@@ -5802,6 +5923,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -5861,6 +5984,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -5920,6 +6045,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -5979,6 +6106,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6038,6 +6167,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6097,6 +6228,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6156,6 +6289,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6215,6 +6350,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6274,6 +6411,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6333,6 +6472,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6392,6 +6533,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6451,6 +6594,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6510,6 +6655,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6569,6 +6716,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6628,6 +6777,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6687,6 +6838,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6746,6 +6899,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6805,6 +6960,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6864,6 +7021,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6923,6 +7082,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6980,6 +7141,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7037,6 +7199,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7094,6 +7257,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7151,6 +7315,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7213,6 +7378,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7275,6 +7441,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7337,6 +7504,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7399,6 +7567,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -8693,7 +8862,7 @@ mod test {
 
     #[test]
     fn tests_arm64() -> Result<(), CompileError> {
-        let mut machine = MachineARM64::new();
+        let mut machine = MachineARM64::new(None);
 
         test_move_location(&mut machine, Size::S32)?;
         test_move_location(&mut machine, Size::S64)?;

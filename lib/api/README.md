@@ -1,9 +1,9 @@
-# `wasmer` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
+# `wasmer` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
 
 [`Wasmer`](https://wasmer.io/) is the most popular
-[WebAssembly](https://webassembly.org/) runtime for Rust. It supports
-JIT (Just In Time) and AOT (Ahead Of Time) compilation as well as
-pluggable compilers suited to your needs.
+[WebAssembly](https://webassembly.org/) runtime for Rust. It supports JIT (Just
+In Time), AOT (Ahead Of Time) compilation, an experimental interpreter as well
+as pluggable compilers suited to your needs.
 
 It's designed to be safe and secure, and runnable in any kind of environment.
 
@@ -20,7 +20,7 @@ fn main() -> anyhow::Result<()> {
     (module
     (type $t0 (func (param i32) (result i32)))
     (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-        get_local $p0
+        local.get $p0
         i32.const 1
         i32.add))
     "#;
@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
-[Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/master/examples).
+[Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/main/examples).
 
 ## Features
 
@@ -53,6 +53,13 @@ Wasmer is not only fast, but also designed to be *highly customizable*:
     compilation-time and runtime performance, useful for development,
   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
     code with the fastest runtime speed, ideal for production.
+
+* **Pluggable interpreters** (experimental) - `wamr`, a feature provided by
+  the `wasmer` crate, provides binding to the interpreter provided by
+  [`WAMR`](https://github.com/bytecodealliance/wasm-micro-runtime). More
+  informations about this experimental backend can be found in the [dedicated
+  documentation](/docs/en/wamr.md).
+ 
     
 * **Headless mode** — Once a WebAssembly module has been compiled, it
   is possible to serialize it in a file for example, and later execute
@@ -89,6 +96,6 @@ more](https://wasmerio.github.io/wasmer/crates/doc/wasmer/).
 
 Made with ❤️ by the Wasmer team, for the community
 
-[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
-[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
-[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
+[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass
+[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-cranelift
+[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-llvm

@@ -197,7 +197,7 @@ impl LLVM {
         // are compliant with the same string representations as gcc.
         let llvm_cpu_features = cpu_features
             .iter()
-            .map(|feature| format!("+{}", feature.to_string()))
+            .map(|feature| format!("+{}", feature))
             .join(",");
 
         let target_triple = self.target_triple(target);
@@ -250,7 +250,9 @@ impl LLVM {
                     6,
                 );
 
-                std::mem::transmute(my_target_machine)
+                std::mem::transmute::<MyTargetMachine, inkwell::targets::TargetMachine>(
+                    my_target_machine,
+                )
             }
         } else {
             llvm_target_machine

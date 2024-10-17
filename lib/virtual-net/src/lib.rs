@@ -1,24 +1,29 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-
-#[cfg(any(feature = "remote"))]
+#![allow(clippy::multiple_bound_locations)]
+#[cfg(feature = "remote")]
 pub mod client;
+pub mod composite;
 #[cfg(feature = "host-net")]
 pub mod host;
+pub mod loopback;
 pub mod meta;
-#[cfg(any(feature = "remote"))]
+#[cfg(feature = "remote")]
 pub mod rx_tx;
-#[cfg(any(feature = "remote"))]
+#[cfg(feature = "remote")]
 pub mod server;
+pub mod tcp_pair;
 #[cfg(feature = "tokio")]
 #[cfg(test)]
 mod tests;
 
-#[cfg(any(feature = "remote"))]
+#[cfg(feature = "remote")]
 pub use client::{RemoteNetworkingClient, RemoteNetworkingClientDriver};
+pub use composite::CompositeTcpListener;
+pub use loopback::LoopbackNetworking;
 use pin_project_lite::pin_project;
 #[cfg(feature = "rkyv")]
-use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
-#[cfg(any(feature = "remote"))]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+#[cfg(feature = "remote")]
 pub use server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 use std::fmt;
 use std::mem::MaybeUninit;
@@ -50,7 +55,6 @@ pub type Result<T> = std::result::Result<T, NetworkError>;
 /// Represents an IP address and its netmask
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[cfg_attr(feature = "rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
-#[cfg_attr(feature = "rkyv", archive_attr(derive(CheckBytes)))]
 pub struct IpCidr {
     pub ip: IpAddr,
     pub prefix: u8,
@@ -59,7 +63,6 @@ pub struct IpCidr {
 /// Represents a routing entry in the routing table of the interface
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
-#[cfg_attr(feature = "rkyv", archive_attr(derive(CheckBytes)))]
 pub struct IpRoute {
     pub cidr: IpCidr,
     pub via_router: IpAddr,

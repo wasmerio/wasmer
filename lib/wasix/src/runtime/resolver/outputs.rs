@@ -1,15 +1,10 @@
-use std::{
-    collections::BTreeMap,
-    fmt::{self, Display, Formatter},
-    ops::Index,
-    path::PathBuf,
-};
+use std::{collections::BTreeMap, ops::Index, path::PathBuf};
 
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
 };
-use semver::Version;
+use wasmer_config::package::PackageId;
 
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
 
@@ -25,23 +20,6 @@ pub struct ItemLocation {
     pub name: String,
     /// The package this item comes from.
     pub package: PackageId,
-}
-
-/// An identifier for a package within a dependency graph.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PackageId {
-    pub package_name: String,
-    pub version: Version,
-}
-
-impl Display for PackageId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let PackageId {
-            package_name,
-            version,
-        } = self;
-        write!(f, "{package_name}@{version}")
-    }
 }
 
 /// An acyclic, directed dependency graph.
@@ -81,6 +59,11 @@ impl DependencyGraph {
     pub fn root_info(&self) -> &PackageInfo {
         let Node { pkg, .. } = &self.graph[self.root];
         pkg
+    }
+
+    pub fn id(&self) -> &PackageId {
+        let Node { id, .. } = &self.graph[self.root];
+        id
     }
 
     pub fn root(&self) -> NodeIndex {
@@ -205,7 +188,7 @@ pub struct ResolvedFileSystemMapping {
     // TODO: Change this to a new type that isn't coupled to the OS
     pub mount_path: PathBuf,
     pub volume_name: String,
-    pub original_path: String,
+    pub original_path: Option<String>,
     pub package: PackageId,
 }
 

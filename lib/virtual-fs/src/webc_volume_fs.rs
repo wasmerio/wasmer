@@ -49,6 +49,10 @@ impl WebcVolumeFileSystem {
 }
 
 impl FileSystem for WebcVolumeFileSystem {
+    fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
+        Err(FsError::InvalidInput)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
         let meta = self.metadata(path)?;
 
@@ -60,7 +64,7 @@ impl FileSystem for WebcVolumeFileSystem {
 
         let mut entries = Vec::new();
 
-        for (name, meta) in self
+        for (name, _, meta) in self
             .volume()
             .read_dir(&path)
             .ok_or(FsError::EntryNotFound)?
@@ -134,6 +138,10 @@ impl FileSystem for WebcVolumeFileSystem {
             .ok_or(FsError::EntryNotFound)
     }
 
+    fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
+        self.metadata(path)
+    }
+
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         let meta = self.metadata(path)?;
 
@@ -146,6 +154,15 @@ impl FileSystem for WebcVolumeFileSystem {
 
     fn new_open_options(&self) -> crate::OpenOptions {
         crate::OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<(), FsError> {
+        Err(FsError::Unsupported)
     }
 }
 
@@ -162,18 +179,21 @@ impl FileOpener for WebcVolumeFileSystem {
             }
         }
 
-        match self.volume().metadata(path) {
-            Some(m) if m.is_file() => {}
+        let timestamps = match self.volume().metadata(path) {
+            Some(m) if m.is_file() => m.timestamps(),
             Some(_) => return Err(FsError::NotAFile),
             None if conf.create() || conf.create_new() => {
                 // The file would normally be created, but we are a readonly fs.
                 return Err(FsError::PermissionDenied);
             }
             None => return Err(FsError::EntryNotFound),
-        }
+        };
 
         match self.volume().read_file(path) {
-            Some(bytes) => Ok(Box::new(File(Cursor::new(bytes)))),
+            Some((bytes, _)) => Ok(Box::new(File {
+                timestamps,
+                content: Cursor::new(bytes),
+            })),
             None => {
                 // The metadata() call should guarantee this, so something
                 // probably went wrong internally
@@ -184,7 +204,10 @@ impl FileOpener for WebcVolumeFileSystem {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct File(Cursor<SharedBytes>);
+struct File {
+    timestamps: Option<webc::Timestamps>,
+    content: Cursor<SharedBytes>,
+}
 
 impl VirtualFile for File {
     fn last_accessed(&self) -> u64 {
@@ -192,7 +215,9 @@ impl VirtualFile for File {
     }
 
     fn last_modified(&self) -> u64 {
-        0
+        self.timestamps
+            .map(|t| t.modified())
+            .unwrap_or_else(|| get_modified(None))
     }
 
     fn created_time(&self) -> u64 {
@@ -200,22 +225,23 @@ impl VirtualFile for File {
     }
 
     fn size(&self) -> u64 {
-        self.0.get_ref().len().try_into().unwrap()
+        self.content.get_ref().len().try_into().unwrap()
     }
 
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Err(FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
-        Box::pin(async { Err(FsError::PermissionDenied) })
+    fn unlink(&mut self) -> crate::Result<()> {
+        Err(FsError::PermissionDenied)
     }
 
     fn poll_read_ready(
         self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<usize>> {
-        let bytes_remaining = self.0.get_ref().len() - usize::try_from(self.0.position()).unwrap();
+        let bytes_remaining =
+            self.content.get_ref().len() - usize::try_from(self.content.position()).unwrap();
         Poll::Ready(Ok(bytes_remaining))
     }
 
@@ -233,20 +259,20 @@ impl AsyncRead for File {
         cx: &mut std::task::Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
-        AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
+        AsyncRead::poll_read(Pin::new(&mut self.content), cx, buf)
     }
 }
 
 impl AsyncSeek for File {
     fn start_seek(mut self: Pin<&mut Self>, position: std::io::SeekFrom) -> std::io::Result<()> {
-        AsyncSeek::start_seek(Pin::new(&mut self.0), position)
+        AsyncSeek::start_seek(Pin::new(&mut self.content), position)
     }
 
     fn poll_complete(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<u64>> {
-        AsyncSeek::poll_complete(Pin::new(&mut self.0), cx)
+        AsyncSeek::poll_complete(Pin::new(&mut self.content), cx)
     }
 }
 
@@ -274,21 +300,33 @@ impl AsyncWrite for File {
     }
 }
 
+// HACK: timestamps are not present in webc v2, so we have to return
+// a stub modified time. previously we used to just return 0, but that
+// proved to cause problems with programs that interpret the value 0.
+// to circumvent this problem, we decided to return a non-zero value.
+fn get_modified(timestamps: Option<webc::Timestamps>) -> u64 {
+    timestamps.map(|t| t.modified()).unwrap_or(1)
+}
+
 fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
     match meta {
-        webc::compat::Metadata::Dir => Metadata {
+        webc::compat::Metadata::Dir { timestamps } => Metadata {
             ft: FileType {
                 dir: true,
                 ..Default::default()
             },
+            modified: get_modified(timestamps),
             ..Default::default()
         },
-        webc::compat::Metadata::File { length } => Metadata {
+        webc::compat::Metadata::File {
+            length, timestamps, ..
+        } => Metadata {
             ft: FileType {
                 file: true,
                 ..Default::default()
             },
             len: length.try_into().unwrap(),
+            modified: get_modified(timestamps),
             ..Default::default()
         },
     }
@@ -402,6 +440,8 @@ mod tests {
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
+
+        let modified = get_modified(None);
         let expected = vec![
             DirEntry {
                 path: "/lib/.DS_Store".into(),
@@ -412,7 +452,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 6148,
                 }),
             },
@@ -425,7 +465,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 0,
                 }),
             },
@@ -438,7 +478,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 4694941,
                 }),
             },
@@ -451,7 +491,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 0,
                 }),
             },
@@ -467,6 +507,7 @@ mod tests {
 
         let fs = WebcVolumeFileSystem::new(volume);
 
+        let modified = get_modified(None);
         let python_wasm = crate::Metadata {
             ft: crate::FileType {
                 file: true,
@@ -474,7 +515,7 @@ mod tests {
             },
             accessed: 0,
             created: 0,
-            modified: 0,
+            modified,
             len: 4694941,
         };
         assert_eq!(
@@ -500,7 +541,7 @@ mod tests {
                 },
                 accessed: 0,
                 created: 0,
-                modified: 0,
+                modified,
                 len: 0,
             },
         );

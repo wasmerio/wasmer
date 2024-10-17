@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` for old Snapshot0
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
@@ -30,7 +30,7 @@ pub fn fd_filestat_get(
 }
 
 /// Wrapper around `syscalls::path_filestat_get` for old Snapshot0
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn path_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
@@ -50,7 +50,7 @@ pub fn path_filestat_get(
 
 /// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
 /// of `Whence`
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,

@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! [See the `metering` detailed and complete
-//! example](https://github.com/wasmerio/wasmer/blob/master/examples/metering.rs).
+//! example](https://github.com/wasmerio/wasmer/blob/main/examples/metering.rs).
 
 use std::convert::TryInto;
 use std::fmt;
@@ -124,6 +124,10 @@ pub enum MeteringPoints {
 
 impl<F: Fn(&Operator) -> u64 + Send + Sync> Metering<F> {
     /// Creates a `Metering` middleware.
+    ///
+    /// When providing a cost function, you should consider that branching operations do
+    /// additional work to track the metering points and probably need to have a higher cost.
+    /// To find out which operations are affected by this, you can call [`is_accounting`].
     pub fn new(initial_limit: u64, cost_function: F) -> Self {
         Self {
             initial_limit,
@@ -154,7 +158,7 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Meter
     }
 
     /// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
-    fn transform_module_info(&self, module_info: &mut ModuleInfo) {
+    fn transform_module_info(&self, module_info: &mut ModuleInfo) -> Result<(), MiddlewareError> {
         let mut global_indexes = self.global_indexes.lock().unwrap();
 
         if global_indexes.is_some() {
@@ -192,8 +196,46 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Meter
         *global_indexes = Some(MeteringGlobalIndexes(
             remaining_points_global_index,
             points_exhausted_global_index,
-        ))
+        ));
+
+        Ok(())
     }
+}
+
+/// Returns `true` if and only if the given operator is an accounting operator.
+/// Accounting operators do additional work to track the metering points.
+pub fn is_accounting(operator: &Operator) -> bool {
+    // Possible sources and targets of a branch.
+    matches!(
+        operator,
+        Operator::Loop { .. } // loop headers are branch targets
+            | Operator::End // block ends are branch targets
+            | Operator::If { .. } // branch source, "if" can branch to else branch
+            | Operator::Else // "else" is the "end" of an if branch
+            | Operator::Br { .. } // branch source
+            | Operator::BrTable { .. } // branch source
+            | Operator::BrIf { .. } // branch source
+            | Operator::Call { .. } // function call - branch source
+            | Operator::CallIndirect { .. } // function call - branch source
+            | Operator::Return // end of function - branch source
+            // exceptions proposal
+            | Operator::Throw { .. } // branch source
+            | Operator::ThrowRef // branch source
+            | Operator::Rethrow { .. } // branch source
+            | Operator::Delegate { .. } // branch source
+            | Operator::Catch { .. } // branch target
+            // tail_call proposal
+            | Operator::ReturnCall { .. } // branch source
+            | Operator::ReturnCallIndirect { .. } // branch source
+            // gc proposal
+            | Operator::BrOnCast { .. } // branch source
+            | Operator::BrOnCastFail { .. } // branch source
+            // function_references proposal
+            | Operator::CallRef { .. } // branch source
+            | Operator::ReturnCallRef { .. } // branch source
+            | Operator::BrOnNull { .. } // branch source
+            | Operator::BrOnNonNull { .. } // branch source
+    )
 }
 
 impl<F: Fn(&Operator) -> u64 + Send + Sync> fmt::Debug for FunctionMetering<F> {
@@ -216,41 +258,40 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMeter
         // corner cases.
         self.accumulated_cost += (self.cost_function)(&operator);
 
-        // Possible sources and targets of a branch. Finalize the cost of the previous basic block and perform necessary checks.
-        match operator {
-            Operator::Loop { .. } // loop headers are branch targets
-            | Operator::End // block ends are branch targets
-            | Operator::Else // "else" is the "end" of an if branch
-            | Operator::Br { .. } // branch source
-            | Operator::BrTable { .. } // branch source
-            | Operator::BrIf { .. } // branch source
-            | Operator::Call { .. } // function call - branch source
-            | Operator::CallIndirect { .. } // function call - branch source
-            | Operator::Return // end of function - branch source
-            => {
-                if self.accumulated_cost > 0 {
-                    state.extend(&[
-                        // if unsigned(globals[remaining_points_index]) < unsigned(self.accumulated_cost) { throw(); }
-                        Operator::GlobalGet { global_index: self.global_indexes.remaining_points().as_u32() },
-                        Operator::I64Const { value: self.accumulated_cost as i64 },
-                        Operator::I64LtU,
-                        Operator::If { blockty: WpTypeOrFuncType::Empty },
-                        Operator::I32Const { value: 1 },
-                        Operator::GlobalSet { global_index: self.global_indexes.points_exhausted().as_u32() },
-                        Operator::Unreachable,
-                        Operator::End,
+        // Finalize the cost of the previous basic block and perform necessary checks.
+        if is_accounting(&operator) && self.accumulated_cost > 0 {
+            state.extend(&[
+                // if unsigned(globals[remaining_points_index]) < unsigned(self.accumulated_cost) { throw(); }
+                Operator::GlobalGet {
+                    global_index: self.global_indexes.remaining_points().as_u32(),
+                },
+                Operator::I64Const {
+                    value: self.accumulated_cost as i64,
+                },
+                Operator::I64LtU,
+                Operator::If {
+                    blockty: WpTypeOrFuncType::Empty,
+                },
+                Operator::I32Const { value: 1 },
+                Operator::GlobalSet {
+                    global_index: self.global_indexes.points_exhausted().as_u32(),
+                },
+                Operator::Unreachable,
+                Operator::End,
+                // globals[remaining_points_index] -= self.accumulated_cost;
+                Operator::GlobalGet {
+                    global_index: self.global_indexes.remaining_points().as_u32(),
+                },
+                Operator::I64Const {
+                    value: self.accumulated_cost as i64,
+                },
+                Operator::I64Sub,
+                Operator::GlobalSet {
+                    global_index: self.global_indexes.remaining_points().as_u32(),
+                },
+            ]);
 
-                        // globals[remaining_points_index] -= self.accumulated_cost;
-                        Operator::GlobalGet { global_index: self.global_indexes.remaining_points().as_u32() },
-                        Operator::I64Const { value: self.accumulated_cost as i64 },
-                        Operator::I64Sub,
-                        Operator::GlobalSet { global_index: self.global_indexes.remaining_points().as_u32() },
-                    ]);
-
-                    self.accumulated_cost = 0;
-                }
-            }
-            _ => {}
+            self.accumulated_cost = 0;
         }
         state.push_operator(operator);
 
@@ -353,9 +394,8 @@ mod tests {
     use super::*;
 
     use std::sync::Arc;
-    use wasmer::{
-        imports, wat2wasm, CompilerConfig, Cranelift, EngineBuilder, Module, Store, TypedFunction,
-    };
+    use wasmer::sys::EngineBuilder;
+    use wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, TypedFunction};
 
     fn cost_function(operator: &Operator) -> u64 {
         match operator {
@@ -367,15 +407,39 @@ mod tests {
 
     fn bytecode() -> Vec<u8> {
         wat2wasm(
-            br#"
-            (module
+            br#"(module
             (type $add_t (func (param i32) (result i32)))
             (func $add_one_f (type $add_t) (param $value i32) (result i32)
                 local.get $value
                 i32.const 1
                 i32.add)
-            (export "add_one" (func $add_one_f)))
-            "#,
+            (func $short_loop_f
+                (local $x f64) (local $j i32)
+                (local.set $x (f64.const 5.5))
+
+                (loop $named_loop
+                    ;; $j++
+                    local.get $j
+                    i32.const 1
+                    i32.add
+                    local.set $j
+
+                    ;; if $j < 5, one more time
+                    local.get $j
+                    i32.const 5
+                    i32.lt_s
+                    br_if $named_loop
+                )
+            )
+            (func $infi_loop_f
+                (loop $infi_loop_start
+                    br $infi_loop_start
+                )
+            )
+            (export "add_one" (func $add_one_f))
+            (export "short_loop" (func $short_loop_f))
+            (export "infi_loop" (func $infi_loop_f))
+        )"#,
         )
         .unwrap()
         .into()
@@ -483,6 +547,70 @@ mod tests {
         assert_eq!(
             get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(4)
+        );
+    }
+
+    #[test]
+    fn metering_works_for_loops() {
+        const INITIAL_POINTS: u64 = 10_000;
+
+        fn cost(operator: &Operator) -> u64 {
+            match operator {
+                Operator::Loop { .. } => 1000,
+                Operator::Br { .. } | Operator::BrIf { .. } => 10,
+                Operator::F64Const { .. } => 7,
+                _ => 0,
+            }
+        }
+
+        // Short loop
+
+        let metering = Arc::new(Metering::new(INITIAL_POINTS, cost));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering);
+        let mut store = Store::new(EngineBuilder::new(compiler_config));
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        let short_loop: TypedFunction<(), ()> = instance
+            .exports
+            .get_function("short_loop")
+            .unwrap()
+            .typed(&store)
+            .unwrap();
+        short_loop.call(&mut store).unwrap();
+
+        let points_used: u64 = match get_remaining_points(&mut store, &instance) {
+            MeteringPoints::Exhausted => panic!("Unexpected exhausted"),
+            MeteringPoints::Remaining(remaining) => INITIAL_POINTS - remaining,
+        };
+
+        assert_eq!(
+            points_used,
+            7 /* pre-loop instructions */ +
+            1000 /* loop instruction */ + 50 /* five conditional breaks */
+        );
+
+        // Infinite loop
+
+        let metering = Arc::new(Metering::new(INITIAL_POINTS, cost));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering);
+        let mut store = Store::new(EngineBuilder::new(compiler_config));
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        let infi_loop: TypedFunction<(), ()> = instance
+            .exports
+            .get_function("infi_loop")
+            .unwrap()
+            .typed(&store)
+            .unwrap();
+        infi_loop.call(&mut store).unwrap_err(); // exhausted leads to runtime error
+
+        assert_eq!(
+            get_remaining_points(&mut store, &instance),
+            MeteringPoints::Exhausted
         );
     }
 }

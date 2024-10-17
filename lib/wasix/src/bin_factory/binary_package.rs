@@ -1,19 +1,19 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Context;
 use derivative::*;
 use once_cell::sync::OnceCell;
-use semver::Version;
+use sha2::Digest;
 use virtual_fs::FileSystem;
+use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use webc::{compat::SharedBytes, Container};
 
 use crate::{
-    runtime::{
-        module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
-    },
+    runners::MappedDirectory,
+    runtime::resolver::{PackageInfo, ResolveError},
     Runtime,
 };
+use wasmer_types::ModuleHash;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -22,16 +22,21 @@ pub struct BinaryPackageCommand {
     metadata: webc::metadata::Command,
     #[derivative(Debug = "ignore")]
     pub(crate) atom: SharedBytes,
-    hash: OnceCell<ModuleHash>,
+    hash: ModuleHash,
 }
 
 impl BinaryPackageCommand {
-    pub fn new(name: String, metadata: webc::metadata::Command, atom: SharedBytes) -> Self {
+    pub fn new(
+        name: String,
+        metadata: webc::metadata::Command,
+        atom: SharedBytes,
+        hash: ModuleHash,
+    ) -> Self {
         Self {
             name,
             metadata,
             atom,
-            hash: OnceCell::new(),
+            hash,
         }
     }
 
@@ -52,7 +57,7 @@ impl BinaryPackageCommand {
     }
 
     pub fn hash(&self) -> &ModuleHash {
-        self.hash.get_or_init(|| ModuleHash::hash(self.atom()))
+        &self.hash
     }
 }
 
@@ -60,7 +65,10 @@ impl BinaryPackageCommand {
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackage {
-    pub package_name: String,
+    pub id: PackageId,
+    /// Includes the ids of all the packages in the tree
+    pub package_ids: Vec<PackageId>,
+
     pub when_cached: Option<u128>,
     /// The name of the [`BinaryPackageCommand`] which is this package's
     /// entrypoint.
@@ -69,11 +77,60 @@ pub struct BinaryPackage {
     pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
-    pub version: Version,
     pub file_system_memory_footprint: u64,
+
+    pub additional_host_mapped_directories: Vec<MappedDirectory>,
 }
 
 impl BinaryPackage {
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub async fn from_dir(
+        dir: &Path,
+        rt: &(dyn Runtime + Send + Sync),
+    ) -> Result<Self, anyhow::Error> {
+        let source = rt.source();
+
+        // since each package must be in its own directory, hash of the `dir` should provide a good enough
+        // unique identifier for the package
+        let hash = sha2::Sha256::digest(dir.display().to_string().as_bytes()).into();
+        let id = PackageId::Hash(PackageHash::from_sha256_bytes(hash));
+
+        let manifest_path = dir.join("wasmer.toml");
+        let webc = webc::wasmer_package::Package::from_manifest(&manifest_path)?;
+        let container = Container::from(webc);
+        let manifest = container.manifest();
+
+        let root = PackageInfo::from_manifest(id, manifest, container.version())?;
+        let root_id = root.id.clone();
+
+        let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
+        let mut pkg = rt
+            .package_loader()
+            .load_package_tree(&container, &resolution, true)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        // HACK: webc has no way to return its deserialized manifest to us, so we need to do it again here
+        // We already read and parsed the manifest once, so it'll succeed again. Unwrapping is safe at this point.
+        let wasmer_toml = std::fs::read_to_string(&manifest_path).unwrap();
+        let wasmer_toml: wasmer_config::package::Manifest = toml::from_str(&wasmer_toml).unwrap();
+        pkg.additional_host_mapped_directories.extend(
+            wasmer_toml
+                .fs
+                .into_iter()
+                .map(|(guest, host)| {
+                    anyhow::Ok(MappedDirectory {
+                        host: dir.join(host).canonicalize()?,
+                        guest,
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter(),
+        );
+
+        Ok(pkg)
+    }
+
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
     #[tracing::instrument(level = "debug", skip_all)]
@@ -82,16 +139,23 @@ impl BinaryPackage {
         rt: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
-        let root = PackageInfo::from_manifest(container.manifest())?;
-        let root_id = PackageId {
-            package_name: root.name.clone(),
-            version: root.version.clone(),
-        };
+
+        let manifest = container.manifest();
+        let id = PackageInfo::package_id_from_manifest(manifest)?
+            .or_else(|| {
+                container
+                    .webc_hash()
+                    .map(|hash| PackageId::Hash(PackageHash::from_sha256_bytes(hash)))
+            })
+            .ok_or_else(|| anyhow::Error::msg("webc file did not provide its hash"))?;
+
+        let root = PackageInfo::from_manifest(id, manifest, container.version())?;
+        let root_id = root.id.clone();
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
             .package_loader()
-            .load_package_tree(container, &resolution)
+            .load_package_tree(container, &resolution, false)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -101,7 +165,7 @@ impl BinaryPackage {
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_registry(
-        specifier: &PackageSpecifier,
+        specifier: &PackageSource,
         runtime: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = runtime.source();
@@ -121,7 +185,7 @@ impl BinaryPackage {
             .context("Dependency resolution failed")?;
         let pkg = runtime
             .package_loader()
-            .load_package_tree(&root, &resolution)
+            .load_package_tree(&root, &resolution, false)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -132,27 +196,58 @@ impl BinaryPackage {
         self.commands.iter().find(|cmd| cmd.name() == name)
     }
 
-    /// Get the bytes for the entrypoint command.
-    pub fn entrypoint_bytes(&self) -> Option<&[u8]> {
+    /// Resolve the entrypoint command name to a [`BinaryPackageCommand`].
+    pub fn get_entrypoint_command(&self) -> Option<&BinaryPackageCommand> {
         self.entrypoint_cmd
             .as_deref()
             .and_then(|name| self.get_command(name))
-            .map(|entry| entry.atom())
     }
 
+    /// Get the bytes for the entrypoint command.
+    #[deprecated(
+        note = "Use BinaryPackage::get_entrypoint_cmd instead",
+        since = "0.22.0"
+    )]
+    pub fn entrypoint_bytes(&self) -> Option<&[u8]> {
+        self.get_entrypoint_command().map(|entry| entry.atom())
+    }
+
+    /// Get a hash for this binary package.
+    ///
+    /// Usually the hash of the entrypoint.
     pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
-            if let Some(entry) = self.entrypoint_bytes() {
-                ModuleHash::hash(entry)
+            if let Some(cmd) = self.get_entrypoint_command() {
+                cmd.hash
             } else {
-                ModuleHash::hash(self.package_name.as_bytes())
+                ModuleHash::xxhash(self.id.to_string())
             }
         })
+    }
+
+    pub fn infer_entrypoint(&self) -> Result<&str, anyhow::Error> {
+        if let Some(entrypoint) = self.entrypoint_cmd.as_deref() {
+            return Ok(entrypoint);
+        }
+
+        match self.commands.as_slice() {
+            [] => anyhow::bail!("The package doesn't contain any executable commands"),
+            [one] => Ok(one.name()),
+            [..] => {
+                let mut commands: Vec<_> = self.commands.iter().map(|cmd| cmd.name()).collect();
+                commands.sort();
+                anyhow::bail!(
+                    "Unable to determine the package's entrypoint. Please choose one of {:?}",
+                    commands,
+                );
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use sha2::Digest;
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
 
@@ -195,9 +290,6 @@ mod tests {
         std::fs::create_dir_all(&out).unwrap();
         let file_txt = "Hello, World!";
         std::fs::write(out.join("file.txt"), file_txt).unwrap();
-        let webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
-            .unwrap()
-            .into();
         let tasks = task_manager();
         let mut runtime = PluggableRuntime::new(tasks);
         runtime.set_package_loader(
@@ -205,7 +297,14 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
+        let pkg = webc::wasmer_package::Package::from_manifest(&manifest).unwrap();
+        let data = pkg.serialize().unwrap();
+        let webc_path = temp.path().join("package.webc");
+        std::fs::write(&webc_path, data).unwrap();
+
+        let pkg = BinaryPackage::from_webc(&Container::from_disk(&webc_path).unwrap(), &runtime)
+            .await
+            .unwrap();
 
         // We should have mapped "./out/file.txt" on the host to
         // "/public/file.txt" on the guest.
@@ -218,5 +317,55 @@ mod tests {
         let mut buffer = String::new();
         f.read_to_string(&mut buffer).await.unwrap();
         assert_eq!(buffer, file_txt);
+    }
+
+    #[tokio::test]
+    #[cfg_attr(
+        not(feature = "sys-thread"),
+        ignore = "The tokio task manager isn't available on this platform"
+    )]
+    async fn commands_use_the_atom_signature() {
+        let temp = TempDir::new().unwrap();
+        let wasmer_toml = r#"
+            [package]
+            name = "some/package"
+            version = "0.0.0"
+            description = "a dummy package"
+
+            [[module]]
+            name = "foo"
+            source = "foo.wasm"
+            abi = "wasi"
+            
+            [[command]]
+            name = "cmd"
+            module = "foo"     
+        "#;
+        let manifest = temp.path().join("wasmer.toml");
+        std::fs::write(&manifest, wasmer_toml).unwrap();
+
+        let atom_path = temp.path().join("foo.wasm");
+        std::fs::write(&atom_path, b"").unwrap();
+
+        let webc: Container = webc::wasmer_package::Package::from_manifest(&manifest)
+            .unwrap()
+            .into();
+
+        let tasks = task_manager();
+        let mut runtime = PluggableRuntime::new(tasks);
+        runtime.set_package_loader(
+            BuiltinPackageLoader::new()
+                .with_shared_http_client(runtime.http_client().unwrap().clone()),
+        );
+
+        let pkg = BinaryPackage::from_dir(temp.path(), &runtime)
+            .await
+            .unwrap();
+
+        assert_eq!(pkg.commands.len(), 1);
+        let command = pkg.get_command("cmd").unwrap();
+        let atom_sha256_hash: [u8; 32] = sha2::Sha256::digest(webc.get_atom("foo").unwrap()).into();
+        let module_hash = ModuleHash::sha256_from_bytes(atom_sha256_hash);
+        assert_eq!(command.hash(), &module_hash);
     }
 }

@@ -23,6 +23,8 @@ use futures_util::stream::FuturesOrdered;
 use futures_util::Sink;
 use futures_util::Stream;
 use futures_util::StreamExt;
+#[cfg(feature = "hyper")]
+use hyper_util::rt::tokio::TokioIo;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::sync::mpsc;
@@ -200,11 +202,11 @@ impl RemoteNetworkingClient {
     #[cfg(feature = "hyper")]
     pub fn new_from_hyper_ws_io(
         tx: futures_util::stream::SplitSink<
-            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+            hyper_tungstenite::WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>,
             hyper_tungstenite::tungstenite::Message,
         >,
         rx: futures_util::stream::SplitStream<
-            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+            hyper_tungstenite::WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>,
         >,
         format: FrameSerializationFormat,
     ) -> (Self, RemoteNetworkingClientDriver) {

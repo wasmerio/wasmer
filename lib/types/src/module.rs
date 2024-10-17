@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Data structure for representing WebAssembly modules in a
 //! `wasmer::Module`.
@@ -8,15 +8,13 @@ use crate::entity::{EntityRef, PrimaryMap};
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableInitializer, TableType,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, ModuleHash,
+    SignatureIndex, TableIndex, TableInitializer, TableType,
 };
+
 use indexmap::IndexMap;
-use rkyv::{
-    de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
-    ser::SharedSerializeRegistry, Archive, Archived, CheckBytes, Deserialize as RkyvDeserialize,
-    Fallible, Serialize as RkyvSerialize,
-};
+use rkyv::rancor::{Fallible, Source, Trace};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -26,7 +24,8 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[rkyv(derive(Debug))]
 pub struct ModuleId {
     id: usize,
 }
@@ -49,7 +48,7 @@ impl Default for ModuleId {
 /// Hash key of an import
 #[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash))]
+#[rkyv(derive(PartialOrd, Ord, PartialEq, Eq, Hash, Debug))]
 pub struct ImportKey {
     /// Module name
     pub module: String,
@@ -99,8 +98,13 @@ mod serde_imports {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
+///
+/// IMPORTANT: since this struct will be serialized as part of the compiled module artifact,
+/// if you change this struct, do not forget to update [`MetadataHeader::version`](crate::serialize::MetadataHeader)
+/// to make sure we don't break compatibility between versions.
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
@@ -110,6 +114,9 @@ pub struct ModuleInfo {
     /// it's still deserialized back as a garbage number, and later override from computed by the process
     #[cfg_attr(feature = "enable-serde", serde(skip_serializing, skip_deserializing))]
     pub id: ModuleId,
+
+    /// hash of the module
+    pub hash: Option<ModuleHash>,
 
     /// The name of this wasm module, often found in the wasm file.
     pub name: Option<String>,
@@ -178,10 +185,11 @@ pub struct ModuleInfo {
 }
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
-#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug))]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
+    hash: Option<ModuleHash>,
     imports: IndexMap<ImportKey, ImportIndex>,
     exports: IndexMap<String, ExportIndex>,
     start_function: Option<FunctionIndex>,
@@ -207,6 +215,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
     fn from(it: ModuleInfo) -> Self {
         Self {
             name: it.name,
+            hash: it.hash,
             imports: it.imports,
             exports: it.exports,
             start_function: it.start_function,
@@ -235,6 +244,7 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
         Self {
             id: Default::default(),
             name: it.name,
+            hash: it.hash,
             imports: it.imports,
             exports: it.exports,
             start_function: it.start_function,
@@ -268,26 +278,28 @@ impl Archive for ModuleInfo {
     type Archived = <ArchivableModuleInfo as Archive>::Archived;
     type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
 
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        ArchivableModuleInfo::from(self).resolve(pos, resolver, out)
+    fn resolve(&self, resolver: Self::Resolver, out: rkyv::Place<Self::Archived>) {
+        ArchivableModuleInfo::from(self).resolve(resolver, out)
     }
 }
 
-impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerialize<S>
+impl<S: rkyv::ser::Allocator + rkyv::ser::Writer + Fallible + ?Sized> RkyvSerialize<S>
     for ModuleInfo
+where
+    <S as Fallible>::Error: rkyv::rancor::Source + rkyv::rancor::Trace,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivableModuleInfo::from(self).serialize(serializer)
     }
 }
 
-impl<D: Fallible + ?Sized + SharedDeserializeRegistry> RkyvDeserialize<ModuleInfo, D>
-    for Archived<ModuleInfo>
+impl<D: Fallible + ?Sized> RkyvDeserialize<ModuleInfo, D> for ArchivedArchivableModuleInfo
+where
+    D::Error: Source + Trace,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {
-        let r: ArchivableModuleInfo =
-            RkyvDeserialize::<ArchivableModuleInfo, D>::deserialize(self, deserializer)?;
-        Ok(ModuleInfo::from(r))
+        let archived = RkyvDeserialize::<ArchivableModuleInfo, D>::deserialize(self, deserializer)?;
+        Ok(ModuleInfo::from(archived))
     }
 }
 
@@ -323,6 +335,11 @@ impl ModuleInfo {
     /// Allocates the module data structures.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Returns the module hash if available
+    pub fn hash(&self) -> Option<ModuleHash> {
+        self.hash
     }
 
     /// Get the given passive element, if it exists.

@@ -6,6 +6,7 @@ use crate::{vm::VMExternTable, ExternRef, Function, RuntimeError};
 use wasmer_vm::{StoreHandle, TableElement, Trap, VMExtern, VMTable};
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Table {
     handle: StoreHandle<VMTable>,
 }
@@ -120,7 +121,6 @@ impl Table {
                 "cross-`Store` table copies are not supported",
             ));
         }
-        let store = store;
         if dst_table.handle.internal_handle() == src_table.handle.internal_handle() {
             let table = dst_table.handle.get_mut(store.objects_mut());
             table.copy_within(dst_index, src_index, len)

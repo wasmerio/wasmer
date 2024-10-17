@@ -3,6 +3,7 @@
 pub(crate) mod package_wizard;
 pub(crate) mod prompts;
 pub(crate) mod render;
+pub(crate) mod timestamp;
 
 use std::{
     path::{Path, PathBuf},
@@ -10,10 +11,8 @@ use std::{
 };
 
 use anyhow::{bail, Context as _, Result};
-use edge_schema::schema::StringWebcIdent;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use wasmer_api::WasmerClient;
 use wasmer_wasix::runners::MappedDirectory;
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
@@ -79,7 +78,7 @@ pub(crate) const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
 /// Path can either be a directory, or a concrete file path.
 pub fn load_package_manifest(
     path: &Path,
-) -> Result<Option<(PathBuf, wasmer_toml::Manifest)>, anyhow::Error> {
+) -> Result<Option<(PathBuf, wasmer_config::package::Manifest)>, anyhow::Error> {
     let file_path = if path.is_file() {
         path.to_owned()
     } else {
@@ -98,157 +97,16 @@ pub fn load_package_manifest(
             })
         }
     };
-    let manifest = wasmer_toml::Manifest::parse(&contents).with_context(|| {
+
+    let manifest = wasmer_config::package::Manifest::parse(&contents).with_context(|| {
         format!(
-            "Could not parse package config at: '{}'",
-            file_path.display()
+            "Could not parse package config at: '{}' - full config: {}",
+            file_path.display(),
+            contents
         )
     })?;
+
     Ok(Some((file_path, manifest)))
-}
-
-/// Ask a user for a package name.
-///
-/// Will continue looping until the user provides a valid name.
-pub fn prompt_for_package_name(
-    message: &str,
-    default: Option<&str>,
-) -> Result<StringWebcIdent, anyhow::Error> {
-    loop {
-        let raw: String = dialoguer::Input::new()
-            .with_prompt(message)
-            .with_initial_text(default.unwrap_or_default())
-            .interact_text()
-            .context("could not read user input")?;
-
-        match raw.parse::<StringWebcIdent>() {
-            Ok(p) => break Ok(p),
-            Err(err) => {
-                eprintln!("invalid package name: {err}");
-            }
-        }
-    }
-}
-
-/// Defines how to check for a package.
-pub enum PackageCheckMode {
-    /// The package must exist in the registry.
-    MustExist,
-    /// The package must NOT exist in the registry.
-    #[allow(dead_code)]
-    MustNotExist,
-}
-
-/// Ask for a package name.
-///
-/// Will continue looping until the user provides a valid name.
-///
-/// If an API is provided, will check if the package exists.
-pub async fn prompt_for_package(
-    message: &str,
-    default: Option<&str>,
-    check: Option<PackageCheckMode>,
-    client: Option<&WasmerClient>,
-) -> Result<(StringWebcIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
-    loop {
-        let name = prompt_for_package_name(message, default)?;
-
-        if let Some(check) = &check {
-            let api = client.expect("Check mode specified, but no API provided");
-
-            let pkg = wasmer_api::query::get_package(api, name.to_string())
-                .await
-                .context("could not query backend for package")?;
-
-            match check {
-                PackageCheckMode::MustExist => {
-                    if let Some(pkg) = pkg {
-                        break Ok((name, Some(pkg)));
-                    } else {
-                        eprintln!("Package '{name}' does not exist");
-                    }
-                }
-                PackageCheckMode::MustNotExist => {
-                    if pkg.is_none() {
-                        break Ok((name, None));
-                    } else {
-                        eprintln!("Package '{name}' already exists");
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Re-publish a package with an increased minor version.
-pub async fn republish_package_with_bumped_version(
-    client: &WasmerClient,
-    manifest_path: &Path,
-    mut manifest: wasmer_toml::Manifest,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
-    // Try to load existing version.
-    // If it does not exist yet, we don't need to increment.
-
-    let current_opt = wasmer_api::query::get_package(client, manifest.package.name.clone())
-        .await
-        .context("could not load package info from backend")?
-        .and_then(|x| x.last_version);
-
-    let new_version = if let Some(current) = current_opt {
-        let mut v = semver::Version::parse(&current.version)
-            .with_context(|| format!("Could not parse package version: '{}'", current.version))?;
-
-        v.patch += 1;
-        v
-    } else {
-        manifest.package.version
-    };
-
-    manifest.package.version = new_version;
-    let contents = toml::to_string(&manifest).with_context(|| {
-        format!(
-            "could not persist manifest to '{}'",
-            manifest_path.display()
-        )
-    })?;
-
-    let manifest_path = if manifest_path.is_file() {
-        manifest_path.to_owned()
-    } else {
-        manifest_path.join(DEFAULT_PACKAGE_MANIFEST_FILE)
-    };
-
-    std::fs::write(manifest_path.clone(), contents)
-        .with_context(|| format!("could not write manifest to '{}'", manifest_path.display()))?;
-
-    let dir = manifest_path
-        .parent()
-        .context("could not determine wasmer.toml parent directory")?
-        .to_owned();
-
-    let registry = client.graphql_endpoint().to_string();
-    let token = client
-        .auth_token()
-        .context("no auth token configured - run 'wasmer login'")?
-        .to_string();
-
-    let publish = wasmer_registry::package::builder::Publish {
-        registry: Some(registry),
-        dry_run: false,
-        quiet: false,
-        package_name: None,
-        version: None,
-        wait: wasmer_registry::publish::PublishWait::new_none(),
-        token,
-        no_validate: true,
-        package_path: Some(dir.to_str().unwrap().to_string()),
-        // Use a high timeout to prevent interrupting uploads of
-        // large packages.
-        timeout: std::time::Duration::from_secs(60 * 60 * 12),
-    };
-    publish.execute()?;
-
-    Ok(manifest)
 }
 
 /// The identifier for an app or package in the form, `owner/package@version`,

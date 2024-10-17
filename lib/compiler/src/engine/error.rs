@@ -1,6 +1,6 @@
 //! The WebAssembly possible errors
 use thiserror::Error;
-pub use wasmer_types::{DeserializeError, ImportError, SerializeError};
+pub use wasmer_types::ImportError;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::Trap;
 

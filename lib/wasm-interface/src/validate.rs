@@ -6,14 +6,14 @@
 
 use crate::{Export, Import, Interface, WasmType};
 use std::collections::HashMap;
-use wasmparser::{ExternalKind, FuncType, GlobalType, ImportSectionEntryType};
+use wasmparser::{
+    CompositeInnerType, ExternalKind, FuncType, GlobalType, Payload, TypeRef, WasmFeatures,
+};
 
 pub fn validate_wasm_and_report_errors(
     wasm: &[u8],
     interface: &Interface,
 ) -> Result<(), WasmValidationError> {
-    use wasmparser::WasmDecoder;
-
     let mut errors: Vec<String> = vec![];
     let mut import_fns: HashMap<(String, String), u32> = HashMap::new();
     let mut export_fns: HashMap<String, u32> = HashMap::new();
@@ -22,90 +22,123 @@ pub fn validate_wasm_and_report_errors(
     let mut global_types: Vec<GlobalType> = vec![];
     let mut fn_sigs: Vec<u32> = vec![];
 
-    let mut parser = wasmparser::ValidatingParser::new(
-        wasm,
-        Some(wasmparser::ValidatingParserConfig {
-            operator_config: wasmparser::OperatorValidatorConfig {
-                enable_threads: true,
-                enable_reference_types: true,
-                enable_simd: true,
-                enable_bulk_memory: true,
-                enable_multi_value: true,
-            },
-        }),
-    );
-    loop {
-        let state = parser.read();
-        match state {
-            wasmparser::ParserState::EndWasm => break,
-            wasmparser::ParserState::Error(e) => {
-                return Err(WasmValidationError::InvalidWasm {
-                    error: format!("{}", e),
-                });
-            }
-            wasmparser::ParserState::ImportSectionEntry {
-                module,
-                field,
-                ref ty,
-            } => match ty {
-                ImportSectionEntryType::Function(idx) => {
-                    import_fns.insert(Import::format_key(module, field), *idx);
-                    fn_sigs.push(*idx);
-                }
-                ImportSectionEntryType::Global(GlobalType { content_type, .. }) => {
-                    let global_type =
-                        wasmparser_type_into_wasm_type(*content_type).map_err(|err| {
-                            WasmValidationError::UnsupportedType {
-                                error: format!(
-                                    "Invalid type found in import \"{}\" \"{}\": {}",
-                                    module, field, err
-                                ),
-                            }
-                        })?;
-                    if let Some(val) = interface.imports.get(&Import::format_key(module, field)) {
-                        if let Import::Global { var_type, .. } = val {
-                            if *var_type != global_type {
+    let mut wasm_features = WasmFeatures::default();
+    wasm_features.set(WasmFeatures::THREADS, true);
+    wasm_features.set(WasmFeatures::REFERENCE_TYPES, true);
+    wasm_features.set(WasmFeatures::SIMD, true);
+    wasm_features.set(WasmFeatures::BULK_MEMORY, true);
+    wasm_features.set(WasmFeatures::MULTI_VALUE, true);
+    wasm_features.set(WasmFeatures::GC_TYPES, true);
+
+    let mut val = wasmparser::Validator::new_with_features(wasm_features);
+
+    val.validate_all(wasm)
+        .map_err(|e| WasmValidationError::InvalidWasm {
+            error: format!("{}", e),
+        })?;
+
+    let parser = wasmparser::Parser::new(0).parse_all(wasm);
+
+    for res in parser {
+        let payload = res.map_err(|e| WasmValidationError::InvalidWasm {
+            error: format!("{}", e),
+        })?;
+        match payload {
+            Payload::End(_) => break,
+            Payload::ImportSection(reader) => {
+                for item in reader.into_iter_with_offsets() {
+                    let (_offset, import) = item.map_err(|e| WasmValidationError::InvalidWasm {
+                        error: format!("{}", e),
+                    })?;
+
+                    match import.ty {
+                        TypeRef::Func(idx) => {
+                            import_fns.insert(Import::format_key(import.module, import.name), idx);
+                            fn_sigs.push(idx);
+                        }
+                        TypeRef::Global(GlobalType { content_type, .. }) => {
+                            let global_type = wasmparser_type_into_wasm_type(content_type)
+                                .map_err(|err| WasmValidationError::UnsupportedType {
+                                    error: format!(
+                                        "Invalid type found in import \"{}\" \"{}\": {}",
+                                        import.module, import.name, err
+                                    ),
+                                })?;
+                            if let Some(val) = interface
+                                .imports
+                                .get(&Import::format_key(import.module, import.name))
+                            {
+                                if let Import::Global { var_type, .. } = val {
+                                    if *var_type != global_type {
+                                        errors.push(format!(
+                                            "Invalid type on Global \"{}\". Expected {} found {}",
+                                            import.name, var_type, global_type
+                                        ));
+                                    }
+                                } else {
+                                    errors.push(format!(
+                                        "Invalid import type. Expected Global, found {:?}",
+                                        val
+                                    ));
+                                }
+                            } else {
                                 errors.push(format!(
-                                    "Invalid type on Global \"{}\". Expected {} found {}",
-                                    field, var_type, global_type
+                                    "Global import \"{}\" not found in the specified interface",
+                                    import.name
                                 ));
                             }
-                        } else {
-                            errors.push(format!(
-                                "Invalid import type. Expected Global, found {:?}",
-                                val
-                            ));
                         }
-                    } else {
-                        errors.push(format!(
-                            "Global import \"{}\" not found in the specified interface",
-                            field
-                        ));
+                        _ => (),
                     }
                 }
-                _ => (),
-            },
-            wasmparser::ParserState::ExportSectionEntry {
-                field,
-                index,
-                ref kind,
-            } => match kind {
-                ExternalKind::Function => {
-                    export_fns.insert(Export::format_key(field), *index);
-                }
-                ExternalKind::Global => {
-                    export_globals.insert(Export::format_key(field), *index);
-                }
-                _ => (),
-            },
-            wasmparser::ParserState::BeginGlobalSectionEntry(gt) => {
-                global_types.push(*gt);
             }
-            wasmparser::ParserState::TypeSectionEntry(ft) => {
-                type_defs.push(ft.clone());
+            Payload::ExportSection(reader) => {
+                for res in reader.into_iter() {
+                    let export = res.map_err(|e| WasmValidationError::InvalidWasm {
+                        error: format!("{}", e),
+                    })?;
+
+                    match export.kind {
+                        ExternalKind::Func => {
+                            export_fns.insert(Export::format_key(export.name), export.index);
+                        }
+                        ExternalKind::Global => {
+                            export_globals.insert(Export::format_key(export.name), export.index);
+                        }
+                        _ => (),
+                    }
+                }
             }
-            wasmparser::ParserState::FunctionSectionEntry(n) => {
-                fn_sigs.push(*n);
+            Payload::GlobalSection(reader) => {
+                for res in reader.into_iter() {
+                    let global = res.map_err(|e| WasmValidationError::InvalidWasm {
+                        error: format!("{}", e),
+                    })?;
+
+                    global_types.push(global.ty);
+                }
+            }
+            Payload::TypeSection(reader) => {
+                for res in reader.into_iter() {
+                    let group = res.map_err(|e| WasmValidationError::InvalidWasm {
+                        error: format!("{}", e),
+                    })?;
+
+                    for ty in group.into_types() {
+                        if let CompositeInnerType::Func(ft) = ty.composite_type.inner {
+                            type_defs.push(ft);
+                        }
+                    }
+                }
+            }
+            Payload::FunctionSection(reader) => {
+                for res in reader.into_iter() {
+                    let func = res.map_err(|e| WasmValidationError::InvalidWasm {
+                        error: format!("{}", e),
+                    })?;
+
+                    fn_sigs.push(func);
+                }
             }
             _ => {}
         }
@@ -142,9 +175,8 @@ fn validate_imports(
                 continue;
             };
             if let Import::Func { params, result, .. } = interface_def {
-                debug_assert!(type_sig.form == wasmparser::Type::Func);
                 for (i, param) in type_sig
-                    .params
+                    .params()
                     .iter()
                     .cloned()
                     .map(wasmparser_type_into_wasm_type)
@@ -170,7 +202,7 @@ fn validate_imports(
                     }
                 }
                 for (i, ret) in type_sig
-                    .returns
+                    .results()
                     .iter()
                     .cloned()
                     .map(wasmparser_type_into_wasm_type)
@@ -210,7 +242,7 @@ fn validate_imports(
 fn validate_export_fns(
     export_fns: &HashMap<String, u32>,
     type_defs: &[FuncType],
-    fn_sigs: &Vec<u32>,
+    fn_sigs: &[u32],
     interface: &Interface,
     errors: &mut Vec<String>,
 ) {
@@ -236,9 +268,8 @@ fn validate_export_fns(
                 continue;
             };
             if let Export::Func { params, result, .. } = interface_def {
-                debug_assert!(type_sig.form == wasmparser::Type::Func);
                 for (i, param) in type_sig
-                    .params
+                    .params()
                     .iter()
                     .cloned()
                     .map(wasmparser_type_into_wasm_type)
@@ -247,7 +278,7 @@ fn validate_export_fns(
                     match param {
                         Ok(t) => {
                             if params.get(i).is_none() {
-                                errors.push(format!("Found {} args but the interface only expects {} for exported function \"{}\"", type_sig.params.len(), params.len(), &key));
+                                errors.push(format!("Found {} args but the interface only expects {} for exported function \"{}\"", type_sig.params().len(), params.len(), &key));
                                 continue 'export_loop;
                             }
                             if t != params[i] {
@@ -262,7 +293,7 @@ fn validate_export_fns(
                     }
                 }
                 for (i, ret) in type_sig
-                    .returns
+                    .results()
                     .iter()
                     .cloned()
                     .map(wasmparser_type_into_wasm_type)
@@ -295,7 +326,7 @@ fn validate_export_fns(
 /// `Interface`
 fn validate_export_globals(
     export_globals: &HashMap<String, u32>,
-    global_types: &Vec<GlobalType>,
+    global_types: &[GlobalType],
     interface: &Interface,
     errors: &mut Vec<String>,
 ) {
@@ -328,13 +359,13 @@ fn validate_export_globals(
 ///
 /// Additionally wasmerparser containers more advanced types like references that
 /// wasm-interface does not yet support
-fn wasmparser_type_into_wasm_type(ty: wasmparser::Type) -> Result<WasmType, String> {
-    use wasmparser::Type;
+fn wasmparser_type_into_wasm_type(ty: wasmparser::ValType) -> Result<WasmType, String> {
+    use wasmparser::ValType;
     Ok(match ty {
-        Type::I32 => WasmType::I32,
-        Type::I64 => WasmType::I64,
-        Type::F32 => WasmType::F32,
-        Type::F64 => WasmType::F64,
+        ValType::I32 => WasmType::I32,
+        ValType::I64 => WasmType::I64,
+        ValType::F32 => WasmType::F32,
+        ValType::F64 => WasmType::F64,
         e => {
             return Err(format!("Invalid type found: {:?}", e));
         }
@@ -411,15 +442,15 @@ mod validation_tests {
     #[test]
     fn global_exports() {
         const WAT: &str = r#"(module
-(func (export "as-set_local-first") (param i32) (result i32)
-  (nop) (i32.const 2) (set_local 0) (get_local 0))
+(func (export "as-local.set-first") (param i32) (result i32)
+  (nop) (i32.const 2) (local.set 0) (local.get 0))
 (global (export "num_tries") i64 (i64.const 0))
 )"#;
         let wasm = wat::parse_str(WAT).unwrap();
 
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i32) (result i32))
+(func (export "as-local.set-first") (param i32) (result i32))
 (global (export "num_tries") (type i64)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 
@@ -430,7 +461,7 @@ mod validation_tests {
         // Now set the global export type to mismatch the wasm
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i32) (result i32))
+(func (export "as-local.set-first") (param i32) (result i32))
 (global (export "num_tries") (type f32)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 
@@ -444,7 +475,7 @@ mod validation_tests {
         // Now set the function export type to mismatch the wasm
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i64) (result i64))
+(func (export "as-local.set-first") (param i64) (result i64))
 (global (export "num_tries") (type i64)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 
@@ -458,7 +489,7 @@ mod validation_tests {
         // Now try a interface that requires an export that the module doesn't have
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i64) (result i64))
+(func (export "as-local.set-first") (param i64) (result i64))
 (global (export "numb_trees") (type i64)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 

@@ -2,7 +2,6 @@
 
 use super::func_environ::TargetEnvironment;
 use crate::std::string::ToString;
-use core::u32;
 use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;
@@ -84,19 +83,19 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
         Reloc::X86CallPLTRel4 => RelocationKind::X86CallPLTRel4,
         Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
         Reloc::Arm64Call => RelocationKind::Arm64Call,
-        Reloc::RiscvCall => RelocationKind::RiscvCall,
+        Reloc::RiscvCallPlt => RelocationKind::RiscvCall,
         _ => panic!("The relocation {} is not yet supported.", reloc),
     }
 }
 
 /// Create a `Block` with the given Wasm parameters.
-pub fn block_with_params<PE: TargetEnvironment + ?Sized>(
+pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
     builder: &mut FunctionBuilder,
-    params: &[wasmparser::ValType],
+    params: impl Iterator<Item = &'a wasmparser::ValType>,
     environ: &PE,
 ) -> WasmResult<ir::Block> {
     let block = builder.create_block();
-    for ty in params.iter() {
+    for ty in params.into_iter() {
         match ty {
             wasmparser::ValType::I32 => {
                 builder.append_block_param(block, ir::types::I32);
@@ -110,8 +109,15 @@ pub fn block_with_params<PE: TargetEnvironment + ?Sized>(
             wasmparser::ValType::F64 => {
                 builder.append_block_param(block, ir::types::F64);
             }
-            wasmparser::ValType::ExternRef | wasmparser::ValType::FuncRef => {
-                builder.append_block_param(block, environ.reference_type());
+            wasmparser::ValType::Ref(ty) => {
+                if ty.is_extern_ref() || ty.is_func_ref() {
+                    builder.append_block_param(block, environ.reference_type());
+                } else {
+                    return Err(WasmError::Unsupported(format!(
+                        "unsupported reference type: {:?}",
+                        ty
+                    )));
+                }
             }
             wasmparser::ValType::V128 => {
                 builder.append_block_param(block, ir::types::I8X16);

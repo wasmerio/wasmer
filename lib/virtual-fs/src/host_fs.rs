@@ -9,7 +9,7 @@ use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fs;
 use std::io::{self, Seek};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -23,43 +23,101 @@ use tokio::runtime::Handle;
 pub struct FileSystem {
     #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
+    root: PathBuf,
 }
+
 #[allow(dead_code)]
 fn default_handle() -> Handle {
     Handle::current()
 }
 
-impl Default for FileSystem {
-    fn default() -> Self {
-        Self {
-            handle: Handle::current(),
+pub fn canonicalize(path: &Path) -> Result<PathBuf> {
+    if !path.exists() {
+        return Err(FsError::InvalidInput);
+    }
+    dunce::canonicalize(path).map_err(Into::into)
+}
+
+// Copied from cargo
+// https://github.com/rust-lang/cargo/blob/fede83ccf973457de319ba6fa0e36ead454d2e20/src/cargo/util/paths.rs#L61
+pub fn normalize_path(path: &Path) -> PathBuf {
+    let mut components = path.components().peekable();
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } else {
+        PathBuf::new()
+    };
+
+    for component in components {
+        match component {
+            Component::Prefix(..) => unreachable!(),
+            Component::RootDir => {
+                ret.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                ret.pop();
+            }
+            Component::Normal(c) => {
+                ret.push(c);
+            }
         }
     }
+    ret
 }
+
 impl FileSystem {
-    pub fn new(handle: Handle) -> Self {
-        FileSystem { handle }
+    pub fn new(handle: Handle, root: impl Into<PathBuf>) -> Result<Self> {
+        let root = canonicalize(&root.into())?;
+
+        Ok(FileSystem { handle, root })
     }
 }
 
 impl FileSystem {
-    pub fn canonicalize(&self, path: &Path) -> Result<PathBuf> {
-        if !path.exists() {
-            return Err(FsError::InvalidInput);
-        }
-        fs::canonicalize(path).map_err(Into::into)
+    fn prepare_path(&self, path: &Path) -> PathBuf {
+        let path = normalize_path(path);
+
+        let path = if !path.starts_with(&self.root) {
+            let path = path.strip_prefix("/").unwrap_or(&path);
+
+            self.root.join(path)
+        } else {
+            path.to_owned()
+        };
+
+        debug_assert!(path.starts_with(&self.root));
+        path
     }
 }
 
 impl crate::FileSystem for FileSystem {
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        let path = self.prepare_path(path);
+
+        fs::read_link(path).map_err(Into::into)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+        let path = self.prepare_path(path);
+
         let read_dir = fs::read_dir(path)?;
         let mut data = read_dir
             .map(|entry| {
                 let entry = entry?;
+
+                let path = entry
+                    .path()
+                    .strip_prefix(&self.root)
+                    .map_err(|_| FsError::InvalidData)?
+                    .to_owned();
+                let path = Path::new("/").join(path);
+
                 let metadata = entry.metadata()?;
+
                 Ok(DirEntry {
-                    path: entry.path(),
+                    path,
                     metadata: Ok(metadata.try_into()?),
                 })
             })
@@ -70,35 +128,46 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
+        let path = self.prepare_path(path);
+
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
+
         fs::create_dir(path).map_err(Into::into)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
+        let path = self.prepare_path(path);
+
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
+
         // https://github.com/rust-lang/rust/issues/86442
         // DirectoryNotEmpty is not implemented consistently
-        if path.is_dir() && self.read_dir(path).map(|s| !s.is_empty()).unwrap_or(false) {
+        if path.is_dir() && self.read_dir(&path).map(|s| !s.is_empty()).unwrap_or(false) {
             return Err(FsError::DirectoryNotEmpty);
         }
         fs::remove_dir(path).map_err(Into::into)
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
         Box::pin(async move {
             use filetime::{set_file_mtime, FileTime};
-            if from.parent().is_none() {
+            let norm_from = normalize_path(from);
+            let norm_to = normalize_path(to);
+
+            if norm_from.parent().is_none() {
                 return Err(FsError::BaseNotDirectory);
             }
-            if to.parent().is_none() {
+            if norm_to.parent().is_none() {
                 return Err(FsError::BaseNotDirectory);
             }
+
+            let from = self.prepare_path(from);
+            let to = self.prepare_path(to);
+
             if !from.exists() {
                 return Err(FsError::EntryNotFound);
             }
@@ -138,9 +207,12 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
+        let path = self.prepare_path(path);
+
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
+
         fs::remove_file(path).map_err(Into::into)
     }
 
@@ -149,9 +221,28 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
+        let path = self.prepare_path(path);
+
         fs::metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        let path = self.prepare_path(path);
+
+        fs::symlink_metadata(path)
+            .and_then(TryInto::try_into)
+            .map_err(Into::into)
+    }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn crate::FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        Err(FsError::Unsupported)
     }
 }
 
@@ -219,6 +310,8 @@ impl crate::FileOpener for FileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        let path = self.prepare_path(path);
+
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();
@@ -237,7 +330,7 @@ impl crate::FileOpener for FileSystem {
             .create(conf.create())
             .append(append)
             .truncate(conf.truncate())
-            .open(path)
+            .open(&path)
             .map_err(Into::into)
             .map(|file| {
                 Box::new(File::new(
@@ -434,6 +527,14 @@ impl VirtualFile for File {
             .unwrap_or(0)
     }
 
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        let atime = atime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+        let mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+
+        filetime::set_file_handle_times(&self.inner_std, atime, mtime)
+            .map_err(|_| crate::FsError::IOError)
+    }
+
     fn size(&self) -> u64 {
         self.metadata().len()
     }
@@ -442,9 +543,8 @@ impl VirtualFile for File {
         fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        let path = self.host_path.clone();
-        Box::pin(async move { fs::remove_file(&path).map_err(Into::into) })
+    fn unlink(&mut self) -> Result<()> {
+        fs::remove_file(&self.host_path).map_err(Into::into)
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -589,8 +689,8 @@ impl VirtualFile for Stdout {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<()> {
+        Ok(())
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -779,8 +879,8 @@ impl VirtualFile for Stderr {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<()> {
+        Ok(())
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -915,8 +1015,8 @@ impl VirtualFile for Stdin {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<()> {
+        Ok(())
     }
     fn get_special_fd(&self) -> Option<u32> {
         Some(0)
@@ -958,8 +1058,9 @@ impl VirtualFile for Stdin {
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
+    use tokio::runtime::Handle;
 
-    use crate::host_fs::FileSystem;
+    use super::FileSystem;
     use crate::FileSystem as FileSystemTrait;
     use crate::FsError;
     use std::path::Path;
@@ -969,12 +1070,15 @@ mod tests {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("foo2.txt"), b"").unwrap();
 
-        let fs = FileSystem::default();
-        assert!(fs.read_dir(Path::new("/")).is_ok(), "hostfs can read root");
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
+        assert!(
+            fs.read_dir(Path::new("/")).is_ok(),
+            "NativeFS can read root"
+        );
         assert!(
             fs.new_open_options()
                 .read(true)
-                .open(temp.path().join("foo2.txt"))
+                .open(Path::new("/foo2.txt"))
                 .is_ok(),
             "created foo2.txt"
         );
@@ -982,17 +1086,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_dir() {
-        let temp = TempDir::new().unwrap();
-        let fs = FileSystem::default();
+        let temp: TempDir = TempDir::new().unwrap();
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert_eq!(
-            fs.create_dir(Path::new("/")),
-            Err(FsError::BaseNotDirectory),
-            "creating a directory that has no parent",
+            fs.create_dir(Path::new("../")),
+            Err(FsError::AlreadyExists),
+            "creating a directory out of bounds",
         );
 
         assert_eq!(
-            fs.create_dir(&temp.path().join("foo")),
+            fs.create_dir(Path::new("/foo")),
             Ok(()),
             "creating a directory",
         );
@@ -1002,7 +1106,7 @@ mod tests {
             "foo dir exists in host_fs"
         );
 
-        let cur_dir = read_dir_names(&fs, temp.path());
+        let cur_dir = read_dir_names(&fs, "/");
 
         if !cur_dir.contains(&"foo".to_string()) {
             panic!("cur_dir does not contain foo: {:#?}", cur_dir);
@@ -1014,7 +1118,7 @@ mod tests {
         );
 
         assert_eq!(
-            fs.create_dir(&temp.path().join("foo/bar")),
+            fs.create_dir(Path::new("foo/bar")),
             Ok(()),
             "creating a sub-directory",
         );
@@ -1024,14 +1128,14 @@ mod tests {
             "foo dir exists in host_fs"
         );
 
-        let foo_dir = read_dir_names(&fs, temp.path().join("foo"));
+        let foo_dir = read_dir_names(&fs, Path::new("/foo"));
 
         assert!(
             foo_dir.contains(&"bar".to_string()),
             "the foo directory is updated and well-defined"
         );
 
-        let bar_dir = read_dir_names(&fs, temp.path().join("foo/bar"));
+        let bar_dir = read_dir_names(&fs, Path::new("/foo/bar"));
 
         assert!(
             bar_dir.is_empty(),
@@ -1041,8 +1145,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove_dir() {
-        let temp = TempDir::new().unwrap();
-        let fs = FileSystem::default();
+        let temp: TempDir = TempDir::new().unwrap();
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert_eq!(
             fs.remove_dir(Path::new("/foo")),
@@ -1051,13 +1155,13 @@ mod tests {
         );
 
         assert_eq!(
-            fs.create_dir(&temp.path().join("foo")),
+            fs.create_dir(Path::new("foo")),
             Ok(()),
             "creating a directory",
         );
 
         assert_eq!(
-            fs.create_dir(&temp.path().join("foo/bar")),
+            fs.create_dir(Path::new("foo/bar")),
             Ok(()),
             "creating a sub-directory",
         );
@@ -1065,24 +1169,24 @@ mod tests {
         assert!(temp.path().join("foo/bar").exists(), "./foo/bar exists");
 
         assert_eq!(
-            fs.remove_dir(&temp.path().join("foo")),
+            fs.remove_dir(Path::new("foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.remove_dir(&temp.path().join("foo/bar")),
+            fs.remove_dir(Path::new("foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
         assert_eq!(
-            fs.remove_dir(&temp.path().join("foo")),
+            fs.remove_dir(Path::new("foo")),
             Ok(()),
             "removing a directory",
         );
 
-        let cur_dir = read_dir_names(&fs, temp.path());
+        let cur_dir = read_dir_names(&fs, "/");
 
         assert!(
             !cur_dir.contains(&"foo".to_string()),
@@ -1090,7 +1194,7 @@ mod tests {
         );
     }
 
-    fn read_dir_names(fs: &dyn crate::FileSystem, path: impl AsRef<Path>) -> Vec<String> {
+    fn read_dir_names(fs: &FileSystem, path: impl AsRef<Path>) -> Vec<String> {
         fs.read_dir(path.as_ref())
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
@@ -1099,11 +1203,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_rename() {
-        let temp = TempDir::new().unwrap();
-        let fs = FileSystem::default();
+        let temp: TempDir = TempDir::new().unwrap();
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
         std::fs::create_dir_all(temp.path().join("foo").join("qux")).unwrap();
-        let foo = temp.path().join("foo");
-        let bar = temp.path().join("bar");
+        let foo = Path::new("foo");
+        let bar = Path::new("bar");
+        let foo_realpath = temp.path().join(foo);
+        let bar_realpath = temp.path().join(bar);
 
         assert_eq!(
             fs.rename(Path::new("/"), Path::new("/bar")).await,
@@ -1117,43 +1223,39 @@ mod tests {
         );
 
         assert_eq!(
-            fs.rename(&foo, &foo.join("bar").join("baz"),).await,
+            fs.rename(foo, &foo.join("bar").join("baz"),).await,
             Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
 
         // On Windows, rename "to" must not be an existing directory
         #[cfg(not(target_os = "windows"))]
-        assert_eq!(fs.create_dir(&bar), Ok(()));
+        assert_eq!(fs.create_dir(bar), Ok(()));
 
         assert_eq!(
-            fs.rename(&foo, &bar).await,
+            fs.rename(foo, bar).await,
             Ok(()),
             "renaming to a directory that has parent that exists",
         );
 
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(bar.join("hello1.txt")),
-                Ok(_),
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(bar.join("hello1.txt"))
+                .is_ok(),
             "creating a new file (`hello1.txt`)",
         );
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(bar.join("hello2.txt")),
-                Ok(_),
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(bar.join("hello2.txt"))
+                .is_ok(),
             "creating a new file (`hello2.txt`)",
         );
 
-        let cur_dir = read_dir_names(&fs, temp.path());
+        let cur_dir = read_dir_names(&fs, Path::new("/"));
 
         assert!(
             !cur_dir.contains(&"foo".to_string()),
@@ -1165,7 +1267,7 @@ mod tests {
             "the bar directory still exists"
         );
 
-        let bar_dir = read_dir_names(&fs, &bar);
+        let bar_dir = read_dir_names(&fs, bar);
 
         if !bar_dir.contains(&"qux".to_string()) {
             println!("qux does not exist: {:?}", bar_dir)
@@ -1176,16 +1278,16 @@ mod tests {
         assert!(qux_dir.is_empty(), "the qux directory is empty");
 
         assert!(
-            bar.join("hello1.txt").exists(),
+            bar_realpath.join("hello1.txt").exists(),
             "the /bar/hello1.txt file exists"
         );
 
         assert!(
-            bar.join("hello2.txt").exists(),
+            bar_realpath.join("hello2.txt").exists(),
             "the /bar/hello2.txt file exists"
         );
 
-        assert_eq!(fs.create_dir(&foo), Ok(()), "create ./foo again",);
+        assert_eq!(fs.create_dir(foo), Ok(()), "create ./foo again",);
 
         assert_eq!(
             fs.rename(&bar.join("hello2.txt"), &foo.join("world2.txt"))
@@ -1195,7 +1297,7 @@ mod tests {
         );
 
         assert_eq!(
-            fs.rename(&foo, &bar.join("baz")).await,
+            fs.rename(foo, &bar.join("baz")).await,
             Ok(()),
             "renaming a directory",
         );
@@ -1207,21 +1309,27 @@ mod tests {
             "renaming a file (in the same directory)",
         );
 
-        assert!(bar.exists(), "./bar exists");
-        assert!(bar.join("baz").exists(), "./bar/baz exists");
-        assert!(!foo.exists(), "foo does not exist anymore");
+        assert!(bar_realpath.exists(), "./bar exists");
+        assert!(bar_realpath.join("baz").exists(), "./bar/baz exists");
+        assert!(!foo_realpath.exists(), "foo does not exist anymore");
         assert!(
-            bar.join("baz/world2.txt").exists(),
+            bar_realpath.join("baz/world2.txt").exists(),
             "/bar/baz/world2.txt exists"
         );
         assert!(
-            bar.join("world1.txt").exists(),
+            bar_realpath.join("world1.txt").exists(),
             "/bar/world1.txt (ex hello1.txt) exists"
         );
-        assert!(!bar.join("hello1.txt").exists(), "hello1.txt was moved");
-        assert!(!bar.join("hello2.txt").exists(), "hello2.txt was moved");
         assert!(
-            bar.join("baz/world2.txt").exists(),
+            !bar_realpath.join("hello1.txt").exists(),
+            "hello1.txt was moved"
+        );
+        assert!(
+            !bar_realpath.join("hello2.txt").exists(),
+            "hello2.txt was moved"
+        );
+        assert!(
+            bar_realpath.join("baz/world2.txt").exists(),
             "world2.txt was moved to the correct place"
         );
     }
@@ -1233,9 +1341,9 @@ mod tests {
 
         let temp = TempDir::new().unwrap();
 
-        let fs = FileSystem::default();
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
-        let root_metadata = fs.metadata(temp.path()).unwrap();
+        let root_metadata = fs.metadata(Path::new("/")).unwrap();
 
         assert!(root_metadata.ft.dir);
         // it seems created is not evailable on musl, at least on CI testing.
@@ -1245,11 +1353,11 @@ mod tests {
         assert_eq!(root_metadata.modified, root_metadata.created);
         assert!(root_metadata.modified > 0);
 
-        let foo = temp.path().join("foo");
+        let foo = Path::new("foo");
 
-        assert_eq!(fs.create_dir(&foo), Ok(()));
+        assert_eq!(fs.create_dir(foo), Ok(()));
 
-        let foo_metadata = fs.metadata(&foo);
+        let foo_metadata = fs.metadata(foo);
         assert!(foo_metadata.is_ok());
         let foo_metadata = foo_metadata.unwrap();
 
@@ -1262,17 +1370,17 @@ mod tests {
 
         sleep(Duration::from_secs(3));
 
-        let bar = temp.path().join("bar");
+        let bar = Path::new("bar");
 
-        assert_eq!(fs.rename(&foo, &bar).await, Ok(()));
+        assert_eq!(fs.rename(foo, bar).await, Ok(()));
 
-        let bar_metadata = fs.metadata(&bar).unwrap();
+        let bar_metadata = fs.metadata(bar).unwrap();
         assert!(bar_metadata.ft.dir);
         assert!(bar_metadata.accessed >= foo_metadata.accessed);
         assert_eq!(bar_metadata.created, foo_metadata.created);
         assert!(bar_metadata.modified > foo_metadata.modified);
 
-        let root_metadata = fs.metadata(&bar).unwrap();
+        let root_metadata = fs.metadata(bar).unwrap();
         assert!(
             root_metadata.modified > foo_metadata.modified,
             "the parent modified time was updated"
@@ -1281,26 +1389,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove_file() {
-        let fs = FileSystem::default();
         let temp = TempDir::new().unwrap();
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(temp.path().join("foo.txt")),
-                Ok(_)
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(Path::new("foo.txt"))
+                .is_ok(),
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, temp.path()).contains(&"foo.txt".to_string()));
+        assert!(read_dir_names(&fs, Path::new("/")).contains(&"foo.txt".to_string()));
 
         assert!(temp.path().join("foo.txt").is_file());
 
         assert_eq!(
-            fs.remove_file(&temp.path().join("foo.txt")),
+            fs.remove_file(Path::new("foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
@@ -1308,7 +1414,7 @@ mod tests {
         assert!(!temp.path().join("foo.txt").exists());
 
         assert_eq!(
-            fs.remove_file(&temp.path().join("foo.txt")),
+            fs.remove_file(Path::new("foo.txt")),
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
@@ -1317,146 +1423,65 @@ mod tests {
     #[tokio::test]
     async fn test_readdir() {
         let temp = TempDir::new().unwrap();
-        let fs = FileSystem::default();
+        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
+        assert_eq!(fs.create_dir(Path::new("foo")), Ok(()), "creating `foo`");
         assert_eq!(
-            fs.create_dir(&temp.path().join("foo")),
-            Ok(()),
-            "creating `foo`"
-        );
-        assert_eq!(
-            fs.create_dir(&temp.path().join("foo/sub")),
+            fs.create_dir(Path::new("foo/sub")),
             Ok(()),
             "creating `sub`"
         );
-        assert_eq!(
-            fs.create_dir(&temp.path().join("bar")),
-            Ok(()),
-            "creating `bar`"
-        );
-        assert_eq!(
-            fs.create_dir(&temp.path().join("baz")),
-            Ok(()),
-            "creating `bar`"
-        );
+        assert_eq!(fs.create_dir(Path::new("bar")), Ok(()), "creating `bar`");
+        assert_eq!(fs.create_dir(Path::new("baz")), Ok(()), "creating `bar`");
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(temp.path().join("a.txt")),
-                Ok(_)
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(Path::new("a.txt"))
+                .is_ok(),
             "creating `a.txt`",
         );
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(&temp.path().join("b.txt")),
-                Ok(_)
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(Path::new("b.txt"))
+                .is_ok(),
             "creating `b.txt`",
         );
 
-        let readdir = fs.read_dir(temp.path());
+        let readdir = fs.read_dir(Path::new("/"));
 
         assert!(
             readdir.is_ok(),
             "reading the directory `{}`",
-            temp.path().display()
+            Path::new("/").display()
         );
 
         let mut readdir = readdir.unwrap();
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("a.txt"), "checking entry #1");
-        assert!(next.path.is_file(), "checking entry #1");
+        assert!(next.metadata().unwrap().is_file(), "checking entry #1");
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("b.txt"), "checking entry #2");
-        assert!(next.path.is_file(), "checking entry #2");
+        assert!(next.metadata().unwrap().is_file(), "checking entry #2");
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("bar"), "checking entry #3");
-        assert!(next.path.is_dir(), "checking entry #3");
+        assert!(next.metadata().unwrap().is_dir(), "checking entry #3");
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("baz"), "checking entry #4");
-        assert!(next.path.is_dir(), "checking entry #4");
+        assert!(next.metadata().unwrap().is_dir(), "checking entry #4");
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("foo"), "checking entry #5");
-        assert!(next.path.is_dir(), "checking entry #5");
+        assert!(next.metadata().unwrap().is_dir(), "checking entry #5");
 
         if let Some(s) = readdir.next() {
             panic!("next: {:?}", s);
         }
-    }
-
-    #[tokio::test]
-    async fn test_canonicalize() {
-        let temp = TempDir::new().unwrap();
-        std::fs::create_dir_all(temp.path().join("foo/bar/baz/qux")).unwrap();
-        std::fs::write(temp.path().join("foo/bar/baz/qux/hello.txt"), b"").unwrap();
-
-        let fs = FileSystem::default();
-        let root_dir = temp.path().canonicalize().unwrap();
-
-        assert_eq!(
-            fs.canonicalize(temp.path()),
-            Ok(root_dir.clone()),
-            "canonicalizing `/`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("foo")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `foo`",
-        );
-        assert_eq!(
-            fs.canonicalize(&temp.path().join("././././foo/")),
-            Ok(root_dir.join("foo")),
-            "canonicalizing `/././././foo/`",
-        );
-        assert_eq!(
-            fs.canonicalize(&temp.path().join("foo/bar//")),
-            Ok(root_dir.join("foo").join("bar")),
-            "canonicalizing `/foo/bar//`",
-        );
-        assert_eq!(
-            fs.canonicalize(&temp.path().join("foo/bar/../bar")),
-            Ok(root_dir.join("foo").join("bar")),
-            "canonicalizing `/foo/bar/../bar`",
-        );
-        assert_eq!(
-            fs.canonicalize(&temp.path().join("foo/bar/../..")),
-            Ok(root_dir.clone()),
-            "canonicalizing `/foo/bar/../..`",
-        );
-        // temp.path().join("/foo/bar/../../..").exists() gives true on windows
-        #[cfg(not(target_os = "windows"))]
-        assert_eq!(
-            fs.canonicalize(&root_dir.join("/foo/bar/../../..")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `/foo/bar/../../..`",
-        );
-        assert_eq!(
-            fs.canonicalize(&root_dir.join("C:/foo/")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `C:/foo/`",
-        );
-        assert_eq!(
-            fs.canonicalize(&root_dir.join(
-                "foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
-            )),
-            Ok(root_dir
-                .join("foo")
-                .join("bar")
-                .join("baz")
-                .join("qux")
-                .join("hello.txt")),
-            "canonicalizing a crazily stupid path name",
-        );
     }
 }

@@ -40,14 +40,10 @@ mod filesystems;
 pub(crate) mod ops;
 mod overlay_fs;
 pub mod pipe;
-#[cfg(feature = "host-fs")]
-mod scoped_directory_fs;
 mod static_file;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 mod trace_fs;
-#[cfg(feature = "webc-fs")]
-pub mod webc_fs;
 #[cfg(feature = "webc-fs")]
 mod webc_volume_fs;
 
@@ -67,8 +63,6 @@ pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
 pub use pipe::*;
-#[cfg(feature = "host-fs")]
-pub use scoped_directory_fs::ScopedDirectoryFileSystem;
 pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;
@@ -88,9 +82,10 @@ pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
-pub use ops::{copy_reference, copy_reference_ext};
+pub use ops::{copy_reference, copy_reference_ext, create_dir_all};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
+    fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn remove_dir(&self, path: &Path) -> Result<()>;
@@ -99,12 +94,13 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        self.metadata(path)
-    }
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+
+    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>)
+        -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -128,6 +124,10 @@ where
         (**self).read_dir(path)
     }
 
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        (**self).readlink(path)
+    }
+
     fn create_dir(&self, path: &Path) -> Result<()> {
         (**self).create_dir(path)
     }
@@ -144,12 +144,25 @@ where
         (**self).metadata(path)
     }
 
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).symlink_metadata(path)
+    }
+
     fn remove_file(&self, path: &Path) -> Result<()> {
         (**self).remove_file(path)
     }
 
     fn new_open_options(&self) -> OpenOptions {
         (**self).new_open_options()
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        (**self).mount(name, path, fs)
     }
 }
 
@@ -336,6 +349,12 @@ pub trait VirtualFile:
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
     fn created_time(&self) -> u64;
 
+    #[allow(unused_variables)]
+    /// sets accessed and modified time
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        Ok(())
+    }
+
     /// the size of the file in bytes
     fn size(&self) -> u64;
 
@@ -344,7 +363,7 @@ pub trait VirtualFile:
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>>;
+    fn unlink(&mut self) -> Result<()>;
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
@@ -357,6 +376,12 @@ pub trait VirtualFile:
     /// on normal files
     fn get_special_fd(&self) -> Option<u32> {
         None
+    }
+
+    /// Writes to this file using an mmap offset and reference
+    /// (this method only works for mmap optimized file systems)
+    fn write_from_mmap(&mut self, _offset: u64, _len: u64) -> std::io::Result<()> {
+        Err(std::io::ErrorKind::Unsupported.into())
     }
 
     /// This method will copy a file from a source to this destination where
@@ -497,6 +522,9 @@ pub enum FsError {
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
+    /// Operation is not supported on this filesystem
+    #[error("unsupported")]
+    Unsupported,
 }
 
 impl From<io::Error> for FsError {
@@ -557,6 +585,7 @@ impl From<FsError> for io::Error {
             FsError::DirectoryNotEmpty => io::ErrorKind::Other,
             FsError::UnknownError => io::ErrorKind::Other,
             FsError::StorageFull => io::ErrorKind::Other,
+            FsError::Unsupported => io::ErrorKind::Unsupported,
             // NOTE: Add this once the "io_error_more" Rust feature is stabilized
             // FsError::StorageFull => io::ErrorKind::StorageFull,
         };
@@ -567,7 +596,7 @@ impl From<FsError> for io::Error {
 #[derive(Debug)]
 pub struct ReadDir {
     // TODO: to do this properly we need some kind of callback to the core FS abstraction
-    data: Vec<DirEntry>,
+    pub(crate) data: Vec<DirEntry>,
     index: usize,
 }
 

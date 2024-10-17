@@ -58,6 +58,7 @@ pub enum ExportError {
 ///
 /// TODO: add examples of using exports
 #[derive(Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Exports {
     map: IndexMap<String, Extern>,
 }
@@ -301,6 +302,6 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
 /// with empty `Args` and `Rets`.
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
-        T::get_self_from_extern(_extern).map(|i| i.clone())
+        T::get_self_from_extern(_extern).cloned()
     }
 }

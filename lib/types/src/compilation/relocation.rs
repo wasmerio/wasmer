@@ -1,3 +1,9 @@
+/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+#![allow(missing_docs)]
+
 //! Relocation is the process of assigning load addresses for position-dependent
 //! code and data of a program and adjusting the code and data to reflect the
 //! assigned addresses.
@@ -20,11 +26,10 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 
 /// Relocation kinds for every ISA.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Copy, Clone, Debug, PartialEq, Eq,
-)]
-#[archive(as = "Self")]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum RelocationKind {
     /// absolute 4-byte
@@ -104,8 +109,9 @@ impl fmt::Display for RelocationKind {
 
 /// A record of a relocation to perform.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[rkyv(derive(Debug), compare(PartialEq))]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,
@@ -205,28 +211,27 @@ impl RelocationLike for Relocation {
 
 impl RelocationLike for ArchivedRelocation {
     fn kind(&self) -> RelocationKind {
-        self.kind
+        rkyv::deserialize::<_, String>(&self.kind).unwrap()
     }
 
     fn reloc_target(&self) -> RelocationTarget {
-        self.reloc_target
+        rkyv::deserialize::<_, String>(&self.reloc_target).unwrap()
     }
 
     fn offset(&self) -> CodeOffset {
-        self.offset
+        self.offset.into()
     }
 
     fn addend(&self) -> Addend {
-        self.addend
+        self.addend.into()
     }
 }
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Copy, Clone, PartialEq, Eq,
-)]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Copy, Clone, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).

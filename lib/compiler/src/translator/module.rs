@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Translation skeleton that traverses the whole WebAssembly module and call helper functions
 //! to deal with each part of it.
@@ -12,7 +12,7 @@ use super::sections::{
 };
 use super::state::ModuleTranslationState;
 use wasmer_types::WasmResult;
-use wasmparser::{NameSectionReader, Parser, Payload};
+use wasmparser::{BinaryReader, NameSectionReader, Parser, Payload, WasmFeatures};
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
 /// parsed ModuleInfo `ModuleTranslationState`.
@@ -107,8 +107,11 @@ pub fn translate_module<'data>(
                 environ.custom_section(name, sectionreader.data())?;
                 if name == "name" {
                     parse_name_section(
-                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset())
-                            .map_err(from_binaryreadererror_wasmerror)?,
+                        NameSectionReader::new(BinaryReader::new(
+                            sectionreader.data(),
+                            sectionreader.data_offset(),
+                            WasmFeatures::default(),
+                        )),
                         environ,
                     )?;
                 }

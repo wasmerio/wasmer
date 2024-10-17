@@ -98,7 +98,7 @@ fn main() -> anyhow::Result<()> {
                 Ok(())
             }
             Err(e) => {
-                bail!("Unknown error `{}` found. expected `ErrorCode`", e);
+                bail!("Unknown error `{}` found. expected `ExitCode`", e);
             }
         },
     }

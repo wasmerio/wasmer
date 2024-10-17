@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Densely numbered entity references as mapping keys.
 use crate::entity::boxed_slice::BoxedSlice;
@@ -34,13 +34,28 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct PrimaryMap<K, V>
 where
     K: EntityRef,
 {
     pub(crate) elems: Vec<V>,
     pub(crate) unused: PhantomData<K>,
+}
+
+#[cfg(feature = "artifact-size")]
+impl<K, V> loupe::MemoryUsage for PrimaryMap<K, V>
+where
+    K: EntityRef,
+    V: loupe::MemoryUsage,
+{
+    fn size_of_val(&self, tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of_val(self)
+            + self
+                .elems
+                .iter()
+                .map(|value| value.size_of_val(tracker) - std::mem::size_of_val(value))
+                .sum::<usize>()
+    }
 }
 
 impl<K, V> PrimaryMap<K, V>
@@ -156,6 +171,28 @@ where
     }
 }
 
+impl<K, V> ArchivedPrimaryMap<K, V>
+where
+    K: EntityRef,
+    V: Archive,
+{
+    /// Get the element at `k` if it exists.
+    pub fn get(&self, k: K) -> Option<&V::Archived> {
+        self.elems.get(k.index())
+    }
+}
+
+impl<K, V> std::fmt::Debug for ArchivedPrimaryMap<K, V>
+where
+    K: EntityRef + std::fmt::Debug,
+    V: Archive,
+    V::Archived: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
 impl<K, V> Default for PrimaryMap<K, V>
 where
     K: EntityRef,
@@ -243,6 +280,7 @@ impl<K, V> ArchivedPrimaryMap<K, V>
 where
     K: EntityRef,
     V: Archive,
+    V::Archived: std::fmt::Debug,
 {
     /// Iterator over all values in the `ArchivedPrimaryMap`
     pub fn values(&self) -> slice::Iter<Archived<V>> {
@@ -261,6 +299,7 @@ impl<K, V> Index<K> for ArchivedPrimaryMap<K, V>
 where
     K: EntityRef,
     V: Archive,
+    V::Archived: std::fmt::Debug,
 {
     type Output = Archived<V>;
 

@@ -1,6 +1,7 @@
 use std::fmt;
 
 use super::*;
+use lz4_flex::block::uncompressed_size;
 use wasmer_wasix_types::wasi;
 
 /// Type of printing mode to use
@@ -15,8 +16,8 @@ impl Default for JournalPrintingMode {
     }
 }
 
-/// The default for runtime is to use the unsupported journal
-/// which will fail to write journal entries if one attempts to do so.
+/// The printing journal writes all the journal entries to the console
+/// as either text or json.
 #[derive(Debug, Default)]
 pub struct PrintingJournal {
     mode: JournalPrintingMode,
@@ -29,7 +30,7 @@ impl PrintingJournal {
 }
 
 impl ReadableJournal for PrintingJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         Ok(None)
     }
 
@@ -39,14 +40,21 @@ impl ReadableJournal for PrintingJournal {
 }
 
 impl WritableJournal for PrintingJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         match self.mode {
             JournalPrintingMode::Text => println!("{}", entry),
             JournalPrintingMode::Json => {
                 println!("{}", serde_json::to_string_pretty(&entry)?)
             }
         }
-        Ok(entry.estimate_size() as u64)
+        Ok(LogWriteResult {
+            record_start: 0,
+            record_end: entry.estimate_size() as u64,
+        })
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 
@@ -65,12 +73,21 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::InitModuleV1 { wasm_hash } => {
                 write!(f, "init-module (hash={:x?})", wasm_hash)
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } => write!(
+            JournalEntry::ClearEtherealV1 => {
+                write!(f, "clear-ethereal")
+            }
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } => write!(
                 f,
-                "memory-update (start={}, end={}, data.len={})",
+                "memory-update (start={}, end={}, data.len={}, compressed.len={})",
                 region.start,
                 region.end,
-                data.len()
+                uncompressed_size(compressed_data.as_ref())
+                    .map(|a| a.0)
+                    .unwrap_or_else(|_| compressed_data.as_ref().len()),
+                compressed_data.len()
             ),
             JournalEntry::ProcessExitV1 { exit_code } => {
                 write!(f, "process-exit (code={:?})", exit_code)
@@ -116,6 +133,8 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 if o_flags.contains(wasi::Oflags::CREATE) {
                     if o_flags.contains(wasi::Oflags::TRUNC) {
                         write!(f, "fd-create-new (fd={}, path={})", fd, path)
+                    } else if o_flags.contains(wasi::Oflags::EXCL) {
+                        write!(f, "fd-create-excl (fd={}, path={})", fd, path)
                     } else {
                         write!(f, "fd-create (fd={}, path={})", fd, path)
                     }
@@ -136,11 +155,11 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "fd-duplicate (original={}, copied={})",
                 original_fd, copied_fd
             ),
-            JournalEntry::CreateDirectoryV1 { path, .. } => {
-                write!(f, "path-create-dir (path={})", path)
+            JournalEntry::CreateDirectoryV1 { fd, path } => {
+                write!(f, "path-create-dir (fd={}, path={})", fd, path)
             }
-            JournalEntry::RemoveDirectoryV1 { path, .. } => {
-                write!(f, "path-remove-dir (path={})", path)
+            JournalEntry::RemoveDirectoryV1 { fd, path } => {
+                write!(f, "path-remove-dir (fd={}, path={})", fd, path)
             }
             JournalEntry::PathSetTimesV1 {
                 path,
@@ -246,18 +265,27 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::SocketBindV1 { fd, addr } => {
                 write!(f, "sock-bind (fd={}, addr={})", fd, addr)
             }
-            JournalEntry::SocketConnectedV1 { fd, addr } => {
-                write!(f, "sock-connect (fd={}, addr={})", fd, addr)
+            JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => {
+                write!(
+                    f,
+                    "sock-connect (fd={}, addr={}, peer={})",
+                    fd, local_addr, peer_addr
+                )
             }
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 ..
             } => write!(
                 f,
-                "sock-accept (listen-fd={}, sock_fd={}, peer={})",
-                listen_fd, fd, peer_addr
+                "sock-accept (listen-fd={}, sock_fd={}, addr={}, peer={})",
+                listen_fd, fd, local_addr, peer_addr
             ),
             JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,

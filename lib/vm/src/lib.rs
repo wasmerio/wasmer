@@ -1,23 +1,16 @@
 //! Runtime library support for Wasmer.
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
-#![deny(trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::new_without_default, clippy::vtable_address_comparisons)
-)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default, ambiguous_wide_pointer_comparisons)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
@@ -51,7 +44,7 @@ pub use crate::memory::{
     initialize_memory_with_data, LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory,
     VMSharedMemory,
 };
-pub use crate::mmap::Mmap;
+pub use crate::mmap::{Mmap, MmapType};
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
 pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
@@ -94,19 +87,9 @@ impl std::ops::Deref for SectionBodyPtr {
 #[repr(C)]
 pub struct VMFunctionBody(u8);
 
-#[cfg(test)]
-mod test_vmfunction_body {
-    use super::VMFunctionBody;
-    use std::mem::size_of;
-
-    #[test]
-    fn check_vmfunction_body_offsets() {
-        assert_eq!(size_of::<VMFunctionBody>(), 1);
-    }
-}
-
 /// A safe wrapper around `VMFunctionBody`.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[repr(transparent)]
 pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 
@@ -146,5 +129,16 @@ impl VMFuncRef {
     /// `raw.funcref` must be a valid pointer.
     pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
         NonNull::new(raw.funcref as *mut VMCallerCheckedAnyfunc).map(Self)
+    }
+}
+
+#[cfg(test)]
+mod test_vmfunction_body {
+    use super::VMFunctionBody;
+    use std::mem::size_of;
+
+    #[test]
+    fn check_vmfunction_body_offsets() {
+        assert_eq!(size_of::<VMFunctionBody>(), 1);
     }
 }

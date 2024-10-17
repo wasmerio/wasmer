@@ -1,4 +1,4 @@
-# `wasmer-compiler-llvm` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-compiler-llvm.svg)](https://crates.io/crates/wasmer-compiler-llvm)
+# `wasmer-compiler-llvm` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-compiler-llvm.svg)](https://crates.io/crates/wasmer-compiler-llvm)
 
 This crate contains a compiler implementation based on [the LLVM Compiler Infrastructure][LLVM].
 
@@ -30,18 +30,18 @@ You can install LLVM easily on your Debian-like system via this command:
 
 ```bash
 wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
-sudo bash /tmp/llvm.sh 14
+sudo bash /tmp/llvm.sh 15
 ```
 
 Or in macOS:
 
 ```bash
-brew install llvm@14
+brew install llvm@15
 ```
 
 Or via any of the [pre-built binaries that LLVM offers][llvm-pre-built].
 
 
 [LLVM]: https://llvm.org/
-[example]: https://github.com/wasmerio/wasmer/blob/master/examples/compiler_llvm.rs
+[example]: https://github.com/wasmerio/wasmer/blob/main/examples/compiler_llvm.rs
 [llvm-pre-built]: https://releases.llvm.org/download.html

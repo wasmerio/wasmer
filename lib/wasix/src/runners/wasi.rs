@@ -13,11 +13,12 @@ use crate::{
     capabilities::Capabilities,
     journal::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory, MountedDirectory},
-    runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
+    runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
+use wasmer_types::ModuleHash;
 
-use super::wasi_common::MappedCommand;
+use super::wasi_common::{MappedCommand, MAPPED_CURRENT_DIR_DEFAULT_PATH};
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -31,6 +32,20 @@ impl WasiRunner {
     /// Constructs a new `WasiRunner`.
     pub fn new() -> Self {
         WasiRunner::default()
+    }
+
+    /// Returns the current entry function for this `WasiRunner`
+    pub fn entry_function(&self) -> Option<String> {
+        self.wasi.entry_function.clone()
+    }
+
+    /// Builder method to set the name of the entry function for this `WasiRunner`
+    pub fn with_entry_function<S>(&mut self, entry_function: S) -> &mut Self
+    where
+        S: Into<String>,
+    {
+        self.wasi.entry_function = Some(entry_function.into());
+        self
     }
 
     /// Returns the current arguments for this `WasiRunner`
@@ -77,6 +92,16 @@ impl WasiRunner {
         D: Into<MappedDirectory>,
     {
         self.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
+    }
+
+    pub fn with_home_mapped(&mut self, is_home_mapped: bool) -> &mut Self {
+        self.wasi.is_home_mapped = is_home_mapped;
+        self
+    }
+
+    pub fn with_tmp_mapped(&mut self, is_tmp_mapped: bool) -> &mut Self {
+        self.wasi.is_tmp_mapped = is_tmp_mapped;
+        self
     }
 
     pub fn with_mounted_directories<I, D>(&mut self, dirs: I) -> &mut Self
@@ -218,7 +243,7 @@ impl WasiRunner {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    pub(crate) fn prepare_webc_env(
+    pub fn prepare_webc_env(
         &self,
         program_name: &str,
         wasi: &Wasi,
@@ -231,6 +256,7 @@ impl WasiRunner {
         let container_fs = if let Some(pkg) = pkg {
             builder.add_webc(pkg.clone());
             builder.set_module_hash(pkg.hash());
+            builder.include_packages(pkg.package_ids.clone());
             Some(Arc::clone(&pkg.webc_fs))
         } else {
             None
@@ -249,6 +275,13 @@ impl WasiRunner {
             builder.set_stderr(Box::new(stderr.clone()));
         }
 
+        if self.wasi.is_home_mapped {
+            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
+        }
+        if let Some(current_dir) = &self.wasi.current_dir {
+            builder.set_current_dir(current_dir.clone());
+        }
+
         Ok(builder)
     }
 
@@ -262,12 +295,38 @@ impl WasiRunner {
     ) -> Result<(), Error> {
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
         let mut store = runtime.new_store();
-        let env = self.prepare_webc_env(program_name, &wasi, None, runtime, None)?;
+
+        let mut builder = self.prepare_webc_env(program_name, &wasi, None, runtime, None)?;
+
+        #[cfg(feature = "ctrlc")]
+        {
+            builder = builder.attach_ctrl_c();
+        }
+
+        #[cfg(feature = "journal")]
+        {
+            for trigger in self.wasi.snapshot_on.iter().cloned() {
+                builder.add_snapshot_trigger(trigger);
+            }
+            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+                for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+                    builder.add_snapshot_trigger(on);
+                }
+            }
+            if let Some(period) = self.wasi.snapshot_interval {
+                if self.wasi.journals.is_empty() {
+                    return Err(anyhow::format_err!(
+                            "If you specify a snapshot interval then you must also specify a journal file"
+                        ));
+                }
+                builder.with_snapshot_interval(period);
+            }
+        }
 
         if asyncify {
-            env.run_with_store_async(module.clone(), module_hash, store)?;
+            builder.run_with_store_async(module.clone(), module_hash, store)?;
         } else {
-            env.run_with_store_ext(module.clone(), module_hash, &mut store)?;
+            builder.run_with_store_ext(module.clone(), module_hash, &mut store)?;
         }
 
         Ok(())
@@ -296,9 +355,15 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
+        let exec_name = if let Some(exec_name) = wasi.exec_name.as_ref() {
+            exec_name
+        } else {
+            command_name
+        };
+
         #[allow(unused_mut)]
         let mut env = self
-            .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
+            .prepare_webc_env(exec_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
         #[cfg(feature = "journal")]
@@ -310,6 +375,10 @@ impl crate::runners::Runner for WasiRunner {
             for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
                 env.add_snapshot_trigger(snapshot_trigger);
             }
+        }
+
+        if let Some(cwd) = &wasi.cwd {
+            env.set_current_dir(cwd);
         }
 
         let env = env.build()?;
@@ -325,6 +394,9 @@ impl crate::runners::Runner for WasiRunner {
                     crate::bin_factory::spawn_exec(pkg, &command_name, store, env, &runtime)
                         .await
                         .context("Spawn failed")?;
+
+                #[cfg(feature = "ctrlc")]
+                task_handle.install_ctrlc_handler();
 
                 task_handle
                     .wait_finished()
@@ -398,5 +470,95 @@ mod tests {
 
         assert_send::<WasiRunner>();
         assert_sync::<WasiRunner>();
+    }
+
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
+    #[tokio::test]
+    async fn test_volume_mount_without_webcs() {
+        use std::sync::Arc;
+
+        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
+
+        let tokrt = tokio::runtime::Handle::current();
+
+        let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
+        let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
+
+        root_fs
+            .mount("/host".into(), &hostdir_dyn, "/".into())
+            .unwrap();
+
+        let envb = crate::runners::wasi::WasiRunner::new();
+
+        let annotations = webc::metadata::annotations::Wasi::new("test");
+
+        let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokrt.clone(),
+        ));
+        let rt = crate::PluggableRuntime::new(tm);
+
+        let envb = envb
+            .prepare_webc_env("test", &annotations, None, Arc::new(rt), Some(root_fs))
+            .unwrap();
+
+        let init = envb.build_init().unwrap();
+
+        let fs = &init.state.fs.root_fs;
+
+        fs.read_dir(std::path::Path::new("/host")).unwrap();
+    }
+
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
+    #[tokio::test]
+    async fn test_volume_mount_with_webcs() {
+        use std::sync::Arc;
+
+        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
+
+        let tokrt = tokio::runtime::Handle::current();
+
+        let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
+        let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
+
+        root_fs
+            .mount("/host".into(), &hostdir_dyn, "/".into())
+            .unwrap();
+
+        let envb = crate::runners::wasi::WasiRunner::new();
+
+        let annotations = webc::metadata::annotations::Wasi::new("test");
+
+        let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokrt.clone(),
+        ));
+        let mut rt = crate::PluggableRuntime::new(tm);
+        rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new());
+
+        let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
+        let webc_data = std::fs::read(webc_path).unwrap();
+        let container = webc::Container::from_bytes(webc_data).unwrap();
+
+        let binpkg = crate::bin_factory::BinaryPackage::from_webc(&container, &rt)
+            .await
+            .unwrap();
+
+        let mut envb = envb
+            .prepare_webc_env(
+                "test",
+                &annotations,
+                Some(&binpkg),
+                Arc::new(rt),
+                Some(root_fs),
+            )
+            .unwrap();
+
+        envb = envb.preopen_dir("/host").unwrap();
+
+        let init = envb.build_init().unwrap();
+
+        let fs = &init.state.fs.root_fs;
+
+        fs.read_dir(std::path::Path::new("/host")).unwrap();
+        fs.read_dir(std::path::Path::new("/settings")).unwrap();
     }
 }
