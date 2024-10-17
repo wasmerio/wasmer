@@ -622,6 +622,7 @@ mod validate {
     use anyhow::anyhow;
     use thiserror::Error;
     use wasmer_wasm_interface::{validate, Interface};
+    use wasmparser::WasmFeatures;
 
     use super::interfaces;
     use crate::{interface::InterfaceFromServer, QueryPackageError};
@@ -817,14 +818,14 @@ mod validate {
         wasm: &[u8],
         file_name: String,
     ) -> Result<(), ValidationError> {
-        let mut val = wasmparser::Validator::new_with_features(wasmparser::WasmFeatures {
-            threads: true,
-            reference_types: true,
-            simd: true,
-            bulk_memory: true,
-            multi_value: true,
-            ..Default::default()
-        });
+        let mut wasm_features = WasmFeatures::empty();
+        wasm_features.set(WasmFeatures::THREADS, true);
+        wasm_features.set(WasmFeatures::REFERENCE_TYPES, true);
+        wasm_features.set(WasmFeatures::SIMD, true);
+        wasm_features.set(WasmFeatures::BULK_MEMORY, true);
+        wasm_features.set(WasmFeatures::MULTI_VALUE, true);
+
+        let mut val = wasmparser::Validator::new_with_features(wasm_features);
 
         val.validate_all(wasm)
             .map_err(|e| ValidationError::InvalidWasm {

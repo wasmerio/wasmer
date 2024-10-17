@@ -49,6 +49,8 @@ use super::env::WasiEnvInit;
 /// ```
 #[derive(Default)]
 pub struct WasiEnvBuilder {
+    /// Name of entry function. Defaults to running `_start` if not specified.
+    pub(super) entry_function: Option<String>,
     /// Command line arguments.
     pub(super) args: Vec<String>,
     /// Environment variables.
@@ -97,6 +99,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: update this when stable
         f.debug_struct("WasiEnvBuilder")
+            .field("entry_function", &self.entry_function)
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
@@ -240,6 +243,21 @@ impl WasiEnvBuilder {
         &mut self.envs
     }
 
+    pub fn entry_function<S>(mut self, entry_function: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        self.set_entry_function(entry_function);
+        self
+    }
+
+    pub fn set_entry_function<S>(&mut self, entry_function: S)
+    where
+        S: AsRef<str>,
+    {
+        self.entry_function = Some(entry_function.as_ref().to_owned());
+    }
+
     /// Add an argument.
     ///
     /// Arguments must not contain the nul (0x0) byte
@@ -336,7 +354,7 @@ impl WasiEnvBuilder {
     /// Adds packages that is already included in the [`WasiEnvBuilder`] filesystem.
     /// These packages will not be merged to the final filesystem since they are already included.
     pub fn include_packages(&mut self, pkg_ids: impl IntoIterator<Item = PackageId>) -> &mut Self {
-        self.included_packages.extend(pkg_ids.into_iter());
+        self.included_packages.extend(pkg_ids);
 
         self
     }
@@ -1024,6 +1042,8 @@ impl WasiEnvBuilder {
             );
         }
 
+        let entry_function = self.entry_function.clone();
+
         let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
 
         // Bootstrap the process
@@ -1036,7 +1056,9 @@ impl WasiEnvBuilder {
                 .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))?;
         }
 
-        let start = instance.exports.get_function("_start")?;
+        let start = instance
+            .exports
+            .get_function(entry_function.as_deref().unwrap_or("_start"))?;
         env.data(&store).thread.set_status_running();
 
         let result = crate::run_wasi_func_start(start, store);

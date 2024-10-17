@@ -108,37 +108,41 @@ fn main() -> anyhow::Result<()> {
     // see how we can do that:
     println!("Growing memory...");
 
-    // Here we are requesting two more pages for our memory.
-    memory.grow(&mut store, 2)?;
+    // 'wasm-c-api' does not support direct calls to memory.grow()
+    #[cfg(not(feature = "wasm-c-api"))]
+    {
+        // Here we are requesting two more pages for our memory.
+        memory.grow(&mut store, 2)?;
 
-    let memory_view = memory.view(&store);
-    assert_eq!(memory_view.size(), Pages::from(3));
-    assert_eq!(memory_view.data_size(), 65536 * 3);
+        let memory_view = memory.view(&store);
+        assert_eq!(memory_view.size(), Pages::from(3));
+        assert_eq!(memory_view.data_size(), 65536 * 3);
 
-    // Now that we know how to query and adjust the size of the memory,
-    // let's see how wa can write to it or read from it.
-    //
-    // We'll only focus on how to do this using exported functions, the goal
-    // is to show how to work with memory addresses. Here we'll use absolute
-    // addresses to write and read a value.
-    let mem_addr = 0x2220;
-    let val = 0xFEFEFFE;
-    set_at.call(&mut store, mem_addr, val)?;
+        // Now that we know how to query and adjust the size of the memory,
+        // let's see how wa can write to it or read from it.
+        //
+        // We'll only focus on how to do this using exported functions, the goal
+        // is to show how to work with memory addresses. Here we'll use absolute
+        // addresses to write and read a value.
+        let mem_addr = 0x2220;
+        let val = 0xFEFEFFE;
+        set_at.call(&mut store, mem_addr, val)?;
 
-    let result = get_at.call(&mut store, mem_addr)?;
-    println!("Value at {:#x?}: {:?}", mem_addr, result);
-    assert_eq!(result, val);
+        let result = get_at.call(&mut store, mem_addr)?;
+        println!("Value at {:#x?}: {:?}", mem_addr, result);
+        assert_eq!(result, val);
 
-    // Now instead of using hard coded memory addresses, let's try to write
-    // something at the end of the second memory page and read it.
-    let page_size = 0x1_0000;
-    let mem_addr = (page_size * 2) - mem::size_of_val(&val) as i32;
-    let val = 0xFEA09;
-    set_at.call(&mut store, mem_addr, val)?;
+        // Now instead of using hard coded memory addresses, let's try to write
+        // something at the end of the second memory page and read it.
+        let page_size = 0x1_0000;
+        let mem_addr = (page_size * 2) - mem::size_of_val(&val) as i32;
+        let val = 0xFEA09;
+        set_at.call(&mut store, mem_addr, val)?;
 
-    let result = get_at.call(&mut store, mem_addr)?;
-    println!("Value at {:#x?}: {:?}", mem_addr, result);
-    assert_eq!(result, val);
+        let result = get_at.call(&mut store, mem_addr)?;
+        println!("Value at {:#x?}: {:?}", mem_addr, result);
+        assert_eq!(result, val);
+    }
 
     Ok(())
 }

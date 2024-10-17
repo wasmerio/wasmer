@@ -25,6 +25,10 @@
   (func (export "f32.max_finite") (result i32) (i32.reinterpret_f32 (f32.const 0x1.fffffep+127)))
   (func (export "f32.max_subnormal") (result i32) (i32.reinterpret_f32 (f32.const 0x1.fffffcp-127)))
   (func (export "f32.trailing_dot") (result i32) (i32.reinterpret_f32 (f32.const 0x1.p10)))
+  (func (export "f32.misc_int") (result i32) (i32.reinterpret_f32 (f32.const 0x12345)))
+  (func (export "f32.large_int") (result i32) (i32.reinterpret_f32 (f32.const 0x1_0000_0000_0000_0000_0000)))
+  (func (export "f32.min_int32") (result i32) (i32.reinterpret_f32 (f32.const -0x8000_0000)))
+  (func (export "f32.min_int64") (result i32) (i32.reinterpret_f32 (f32.const -0x8000_0000_0000_0000)))
 
   ;; f32 in decimal format
   (func (export "f32_dec.zero") (result i32) (i32.reinterpret_f32 (f32.const 0.0e0)))
@@ -36,6 +40,10 @@
   (func (export "f32_dec.max_subnormal") (result i32) (i32.reinterpret_f32 (f32.const 1.1754942e-38)))
   (func (export "f32_dec.max_finite") (result i32) (i32.reinterpret_f32 (f32.const 3.4028234e+38)))
   (func (export "f32_dec.trailing_dot") (result i32) (i32.reinterpret_f32 (f32.const 1.e10)))
+  (func (export "f32_dec.misc_int") (result i32) (i32.reinterpret_f32 (f32.const 12345)))
+  (func (export "f32_dec.large_int") (result i32) (i32.reinterpret_f32 (f32.const 100_000_000_000_000_000_000)))
+  (func (export "f32_dec.min_int32") (result i32) (i32.reinterpret_f32 (f32.const -2147483648)))
+  (func (export "f32_dec.min_int64") (result i32) (i32.reinterpret_f32 (f32.const -9223372036854775808)))
 
   ;; https://twitter.com/Archivd/status/994637336506912768
   (func (export "f32_dec.root_beer_float") (result i32) (i32.reinterpret_f32 (f32.const 1.000000119)))
@@ -64,6 +72,10 @@
   (func (export "f64.max_subnormal") (result i64) (i64.reinterpret_f64 (f64.const 0x0.fffffffffffffp-1022)))
   (func (export "f64.max_finite") (result i64) (i64.reinterpret_f64 (f64.const 0x1.fffffffffffffp+1023)))
   (func (export "f64.trailing_dot") (result i64) (i64.reinterpret_f64 (f64.const 0x1.p100)))
+  (func (export "f64.misc_int") (result i64) (i64.reinterpret_f64 (f64.const 0x12345)))
+  (func (export "f64.large_int") (result i64) (i64.reinterpret_f64 (f64.const 0x1_0000_0000_0000_0000_0000)))
+  (func (export "f64.min_int32") (result i64) (i64.reinterpret_f64 (f64.const -0x8000_0000)))
+  (func (export "f64.min_int64") (result i64) (i64.reinterpret_f64 (f64.const -0x8000_0000_0000_0000)))
 
   ;; f64 numbers in decimal format
   (func (export "f64_dec.zero") (result i64) (i64.reinterpret_f64 (f64.const 0.0e0)))
@@ -75,6 +87,10 @@
   (func (export "f64_dec.max_subnormal") (result i64) (i64.reinterpret_f64 (f64.const 2.2250738585072011e-308)))
   (func (export "f64_dec.max_finite") (result i64) (i64.reinterpret_f64 (f64.const 1.7976931348623157e+308)))
   (func (export "f64_dec.trailing_dot") (result i64) (i64.reinterpret_f64 (f64.const 1.e100)))
+  (func (export "f64_dec.misc_int") (result i64) (i64.reinterpret_f64 (f64.const 12345)))
+  (func (export "f64_dec.large_int") (result i64) (i64.reinterpret_f64 (f64.const 100_000_000_000_000_000_000)))
+  (func (export "f64_dec.min_int32") (result i64) (i64.reinterpret_f64 (f64.const -2147483648)))
+  (func (export "f64_dec.min_int64") (result i64) (i64.reinterpret_f64 (f64.const -9223372036854775808)))
 
   ;; https://twitter.com/Archivd/status/994637336506912768
   (func (export "f64_dec.root_beer_float") (result i64) (i64.reinterpret_f64 (f64.const 1.000000119)))
@@ -123,6 +139,10 @@
 (assert_return (invoke "f32.max_subnormal") (i32.const 0x7fffff))
 (assert_return (invoke "f32.max_finite") (i32.const 0x7f7fffff))
 (assert_return (invoke "f32.trailing_dot") (i32.const 0x44800000))
+(assert_return (invoke "f32.misc_int") (i32.const 0x4791a280))
+(assert_return (invoke "f32.large_int") (i32.const 0x67800000))
+(assert_return (invoke "f32.min_int32") (i32.const 0xcf000000))
+(assert_return (invoke "f32.min_int64") (i32.const 0xdf000000))
 (assert_return (invoke "f32_dec.zero") (i32.const 0))
 (assert_return (invoke "f32_dec.positive_zero") (i32.const 0))
 (assert_return (invoke "f32_dec.negative_zero") (i32.const 0x80000000))
@@ -133,6 +153,10 @@
 (assert_return (invoke "f32_dec.max_finite") (i32.const 0x7f7fffff))
 (assert_return (invoke "f32_dec.trailing_dot") (i32.const 0x501502f9))
 (assert_return (invoke "f32_dec.root_beer_float") (i32.const 0x3f800001))
+(assert_return (invoke "f32_dec.misc_int") (i32.const 0x4640e400))
+(assert_return (invoke "f32_dec.large_int") (i32.const 0x60ad78ec))
+(assert_return (invoke "f32_dec.min_int32") (i32.const 0xcf000000))
+(assert_return (invoke "f32_dec.min_int64") (i32.const 0xdf000000))
 
 (assert_return (invoke "f64.nan") (i64.const 0x7ff8000000000000))
 (assert_return (invoke "f64.positive_nan") (i64.const 0x7ff8000000000000))
@@ -155,6 +179,10 @@
 (assert_return (invoke "f64.max_subnormal") (i64.const 0xfffffffffffff))
 (assert_return (invoke "f64.max_finite") (i64.const 0x7fefffffffffffff))
 (assert_return (invoke "f64.trailing_dot") (i64.const 0x4630000000000000))
+(assert_return (invoke "f64.misc_int") (i64.const 0x40f2345000000000))
+(assert_return (invoke "f64.large_int") (i64.const 0x44f0000000000000))
+(assert_return (invoke "f64.min_int32") (i64.const 0xc1e0000000000000))
+(assert_return (invoke "f64.min_int64") (i64.const 0xc3e0000000000000))
 (assert_return (invoke "f64_dec.zero") (i64.const 0))
 (assert_return (invoke "f64_dec.positive_zero") (i64.const 0))
 (assert_return (invoke "f64_dec.negative_zero") (i64.const 0x8000000000000000))
@@ -165,6 +193,10 @@
 (assert_return (invoke "f64_dec.max_finite") (i64.const 0x7fefffffffffffff))
 (assert_return (invoke "f64_dec.trailing_dot") (i64.const 0x54b249ad2594c37d))
 (assert_return (invoke "f64_dec.root_beer_float") (i64.const 0x3ff000001ff19e24))
+(assert_return (invoke "f64_dec.misc_int") (i64.const 0x40c81c8000000000))
+(assert_return (invoke "f64_dec.large_int") (i64.const 0x4415af1d78b58c40))
+(assert_return (invoke "f64_dec.min_int32") (i64.const 0xc1e0000000000000))
+(assert_return (invoke "f64_dec.min_int64") (i64.const 0xc3e0000000000000))
 
 (assert_return (invoke "f32-dec-sep1") (f32.const 1000000))
 (assert_return (invoke "f32-dec-sep2") (f32.const 1000))
@@ -352,6 +384,10 @@
   (module quote "(global f32 (f32.const 0x1.0p_+1))")
   "unknown operator"
 )
+(assert_malformed
+  (module quote "(global f32 (f32.const nan:0x80_0000))")
+  "constant out of range"
+)
 
 (assert_malformed
   (module quote "(global f64 (f64.const _100))")
@@ -504,4 +540,8 @@
 (assert_malformed
   (module quote "(global f64 (f64.const 0x1.0p_+1))")
   "unknown operator"
+)
+(assert_malformed
+  (module quote "(global f64 (f64.const nan:0x10_0000_0000_0000))")
+  "constant out of range"
 )

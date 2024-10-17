@@ -29,6 +29,7 @@ wasmer-middlewares = { version = "=4.4.0", path = "lib/middlewares", optional = 
 
 # Third party dependencies
 cfg-if = "1.0"
+
 tokio = { version = "1.39", features = [
     "rt",
     "rt-multi-thread",
@@ -38,43 +39,43 @@ crossbeam-queue = "0.3.8"
 
 [workspace]
 members = [
-    "fuzz",
-    "lib/api",
-    "lib/api/macro-wasmer-universal-test",
-    "lib/backend-api",
-    "lib/c-api",
-    "lib/c-api/examples/wasmer-capi-examples-runner",
-    "lib/c-api/tests/wasmer-c-api-test-runner",
-    "lib/cache",
-    "lib/cli-compiler",
-    "lib/cli",
-    "lib/compiler-cranelift",
-    "lib/compiler-llvm",
-    "lib/compiler-singlepass",
-    "lib/compiler",
-    "lib/config",
-    "lib/derive",
-    "lib/emscripten",
-    "lib/object",
-    "lib/package",
-    "lib/registry",
-    "lib/sys-utils",
-    "lib/types",
-    "lib/virtual-io",
-    "lib/virtual-fs",
-    "lib/virtual-net",
-    "lib/vm",
-    "lib/wai-bindgen-wasmer",
-    "lib/wasi-types",
-    "lib/wasix",
-    "lib/wasm-interface",
-    "lib/journal",
-    "tests/integration/cli",
-    "tests/integration/ios",
-    "tests/lib/compiler-test-derive",
-    "tests/lib/wast",
-    "tests/wasi-wast",
-    "tests/wasmer-argus",
+	"fuzz",
+	"lib/api",
+	"lib/api/macro-wasmer-universal-test",
+	"lib/backend-api",
+	"lib/c-api",
+	"lib/c-api/examples/wasmer-capi-examples-runner",
+	"lib/c-api/tests/wasmer-c-api-test-runner",
+	"lib/cache",
+	"lib/cli-compiler",
+	"lib/cli",
+	"lib/compiler-cranelift",
+	"lib/compiler-llvm",
+	"lib/compiler-singlepass",
+	"lib/compiler",
+	"lib/config",
+	"lib/derive",
+	"lib/emscripten",
+	"lib/object",
+	"lib/registry",
+	"lib/sys-utils",
+	"lib/types",
+	"lib/virtual-io",
+	"lib/virtual-fs",
+	"lib/virtual-net",
+	"lib/vm",
+	"lib/wai-bindgen-wasmer",
+	"lib/wasi-types",
+	"lib/wasix",
+	"lib/wasm-interface",
+	"lib/journal",
+	"lib/swift",
+	"tests/integration/cli",
+	"tests/integration/ios",
+	"tests/lib/compiler-test-derive",
+	"tests/lib/wast",
+	"tests/wasi-wast",
+	"tests/wasmer-argus",
 ]
 exclude = [
   "./lib/cli/tests/packages/axum"
@@ -106,13 +107,17 @@ hyper = "1"
 reqwest = { version = "0.12.0", default-features = false }
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmparser = { version = "0.121.0", default-features = false }
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+wasmparser = { version = "0.216.0", default-features = false, features = [
+	"validate",
+] }
+rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
-toml = {version = "0.5.9", features = ["preserve_order"]}
+toml = { version = "0.5.9", features = ["preserve_order"] }
 indexmap = "2"
 serde_yaml = "0.9.34"
 libc = { version = "^0.2", default-features = false }
+gimli = { version = "0.28.1" }
+futures-util = { version = "0.3.31" }
 mio = "1"
 # MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
 tokio = { version = "1.39.0", default-features = false}
@@ -148,18 +153,30 @@ ureq = "2.6"
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "env-filter",
-    "fmt",
+	"env-filter",
+	"fmt",
 ] }
+reqwest.workspace = true
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "cache", "wasi", "engine", "emscripten", "middlewares"]
+default = [
+	"wat",
+	"wast",
+	"cache",
+	"wasi",
+	"engine",
+	"emscripten",
+	"middlewares",
+]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
+wamr = ["wasmer/wamr"]
+v8 = ["wasmer/v8"]
+wasmi = ["wasmer/wasmi"]
 engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]
@@ -212,6 +229,10 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.digest]
 opt-level = 3
+
+[[bench]]
+name = "deserialize_modules"
+harness = false
 
 [[bench]]
 name = "static_and_dynamic_functions"
@@ -294,7 +315,7 @@ required-features = ["cranelift"]
 [[example]]
 name = "wasi"
 path = "examples/wasi.rs"
-required-features = ["backend", "wasi"]
+required-features = ["wasi"]
 
 [[example]]
 name = "wasi-manual-setup"

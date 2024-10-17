@@ -292,7 +292,7 @@ enum Cmd {
 
     /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]
-    Publish(crate::commands::package::publish::PackagePublish),
+    Publish(PackagePublish),
 
     /// Manage the local Wasmer cache
     Cache(Cache),
@@ -491,5 +491,24 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
     println!("compiler: {}", compilers.join(","));
 
+    let mut interpreters = Vec::<&'static str>::new();
+
+    if cfg!(feature = "wamr") {
+        interpreters.push("wamr");
+    }
+
+    if cfg!(feature = "wasmi") {
+        // Can't use two different c_api backends together as of now, but maybe we'll support more
+        // interepreters.
+        interpreters.push("wasmi");
+    }
+
+    if cfg!(feature = "v8") {
+        // Can't use c_api backends together as of now, but maybe we'll support more
+        // interepreters.
+        interpreters.push("v8");
+    }
+
+    println!("c_api backend: {}", interpreters.join(","));
     Ok(())
 }

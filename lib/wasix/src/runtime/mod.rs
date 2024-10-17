@@ -237,7 +237,7 @@ impl PluggableRuntime {
 
         let loader = UnsupportedPackageLoader;
 
-        let mut source = MultiSource::new();
+        let mut source = MultiSource::default();
         if let Some(client) = &http_client {
             source.add_source(BackendSource::new(
                 BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap(),
@@ -285,14 +285,14 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_source(&mut self, source: impl Source + Send + Sync + 'static) -> &mut Self {
+    pub fn set_source(&mut self, source: impl Source + Send + 'static) -> &mut Self {
         self.source = Arc::new(source);
         self
     }
 
     pub fn set_package_loader(
         &mut self,
-        package_loader: impl PackageLoader + Send + Sync + 'static,
+        package_loader: impl PackageLoader + 'static,
     ) -> &mut Self {
         self.package_loader = Arc::new(package_loader);
         self
@@ -331,11 +331,7 @@ impl Runtime for PluggableRuntime {
     }
 
     fn engine(&self) -> wasmer::Engine {
-        if let Some(engine) = self.engine.clone() {
-            engine
-        } else {
-            wasmer::Engine::default()
-        }
+        self.engine.clone().unwrap_or_default()
     }
 
     fn new_store(&self) -> wasmer::Store {

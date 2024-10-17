@@ -122,8 +122,8 @@ pub(crate) struct WasiFutexState {
 /// interact.
 ///
 /// * The contents of files are not stored and may be modified by
-/// other, concurrently running programs.  Data such as the contents
-/// of directories are lazily loaded.
+///   other, concurrently running programs.  Data such as the contents
+///   of directories are lazily loaded.
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiState {

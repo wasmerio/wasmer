@@ -680,8 +680,12 @@ impl AsyncRead for FileHandle {
             match inode {
                 Some(Node::File(node)) => {
                     let read = unsafe {
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file.read(
+                            std::mem::transmute::<&mut [std::mem::MaybeUninit<u8>], &mut [u8]>(
+                                buf.unfilled_mut(),
+                            ),
+                            &mut cursor,
+                        )
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
@@ -691,8 +695,12 @@ impl AsyncRead for FileHandle {
                 }
                 Some(Node::OffloadedFile(node)) => {
                     let read = unsafe {
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file.read(
+                            std::mem::transmute::<&mut [std::mem::MaybeUninit<u8>], &mut [u8]>(
+                                buf.unfilled_mut(),
+                            ),
+                            &mut cursor,
+                        )
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
@@ -702,8 +710,12 @@ impl AsyncRead for FileHandle {
                 }
                 Some(Node::ReadOnlyFile(node)) => {
                     let read = unsafe {
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file.read(
+                            std::mem::transmute::<&mut [std::mem::MaybeUninit<u8>], &mut [u8]>(
+                                buf.unfilled_mut(),
+                            ),
+                            &mut cursor,
+                        )
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };

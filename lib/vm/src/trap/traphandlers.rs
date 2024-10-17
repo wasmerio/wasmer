@@ -1,11 +1,13 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
+#![allow(static_mut_refs)]
+
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMFunctionBody};
+use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
@@ -75,7 +77,7 @@ use libc::ucontext_t;
 
 /// Default stack size is 1MB.
 pub fn set_stack_size(size: usize) {
-    DEFAULT_STACK_SIZE.store(size.max(8 * 1024).min(100 * 1024 * 1024), Ordering::Relaxed);
+    DEFAULT_STACK_SIZE.store(size.clamp(8 * 1024, 100 * 1024 * 1024), Ordering::Relaxed);
 }
 
 cfg_if::cfg_if! {
@@ -673,9 +675,14 @@ pub unsafe fn wasmer_call_trampoline(
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(trap_handler, config, move || {
-        mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
-            trampoline,
-        )(vmctx, callee, values_vec);
+        mem::transmute::<
+            unsafe extern "C" fn(
+                *mut VMContext,
+                *const VMFunctionBody,
+                *mut wasmer_types::RawValue,
+            ),
+            extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
+        >(trampoline)(vmctx, callee, values_vec);
     })
 }
 
@@ -710,8 +717,8 @@ where
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
 thread_local! {
-    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = Cell::new(None);
-    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = AtomicPtr::new(ptr::null_mut());
+    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
+    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
 /// Read-only information that is used by signal handlers to handle and recover

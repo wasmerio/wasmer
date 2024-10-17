@@ -349,7 +349,7 @@ where
         if entry.header().entry_type().is_file() {
             entry.unpack_in(&dst_normalized)?;
         } else if entry.header().entry_type() == EntryType::Directory {
-            std::fs::create_dir_all(&Path::new(&dst_normalized).join(&path))?;
+            std::fs::create_dir_all(Path::new(&dst_normalized).join(&path))?;
         }
     }
     Ok(())

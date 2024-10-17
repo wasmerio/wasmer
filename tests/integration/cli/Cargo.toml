@@ -38,4 +38,7 @@ wasmer-registry = { path = "../../../lib/registry", default-features = false }
 [features]
 default = ["webc_runner"]
 webc_runner = []
+wamr = []
+v8 = []
+wasmi = []
 debug = []

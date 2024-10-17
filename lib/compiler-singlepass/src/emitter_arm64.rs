@@ -84,6 +84,7 @@ pub enum GPROrMemory {
     Memory(GPR, i32),
 }
 
+#[allow(unused)]
 pub trait EmitterARM64 {
     fn get_label(&mut self) -> Label;
     fn get_offset(&self) -> Offset;

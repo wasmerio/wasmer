@@ -2531,3 +2531,13 @@
 (assert_invalid (module (func (result f64) (f64.nearest (i64.const 0)))) "type mismatch")
 (assert_invalid (module (func (result f64) (f64.sqrt (i64.const 0)))) "type mismatch")
 (assert_invalid (module (func (result f64) (f64.trunc (i64.const 0)))) "type mismatch")
+
+;; These float literal patterns are only allowed in scripts, not in text format.
+(assert_malformed
+  (module quote "(func (result f64) (f64.const nan:arithmetic))")
+  "unexpected token"
+)
+(assert_malformed
+  (module quote "(func (result f64) (f64.const nan:canonical))")
+  "unexpected token"
+)

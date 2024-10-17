@@ -649,7 +649,8 @@
 (assert_return (invoke "no_fold_promote_demote" (f32.const inf)) (f32.const inf))
 (assert_return (invoke "no_fold_promote_demote" (f32.const -inf)) (f32.const -inf))
 
-;; Test that demote(x+promote(y)) is not folded to demote(x)+y.
+;; Test that demote(x+promote(y)) is not folded to demote(x)+y, and that
+;; demote(promote(y)+x) is not folded to y+demote(x).
 
 (module
   (func (export "no_demote_mixed_add") (param $x f64) (param $y f32) (result f32)
@@ -670,11 +671,14 @@
 (assert_return (invoke "no_demote_mixed_add_commuted" (f32.const 0x1.096f4ap-29) (f64.const -0x1.0d5110e3385bbp-20)) (f32.const -0x1.0ccc5ap-20))
 (assert_return (invoke "no_demote_mixed_add_commuted" (f32.const -0x1.24e474p-41) (f64.const -0x1.73852db4e5075p-20)) (f32.const -0x1.738536p-20))
 
-;; Test that demote(x-promote(y)) is not folded to demote(x)-y.
+;; Test that demote(x-promote(y)) is not folded to demote(x)-y, and that
+;; demote(promote(y)-x) is not folded to y-demote(x).
 
 (module
   (func (export "no_demote_mixed_sub") (param $x f64) (param $y f32) (result f32)
     (f32.demote_f64 (f64.sub (local.get $x) (f64.promote_f32 (local.get $y)))))
+  (func (export "no_demote_mixed_sub_commuted") (param $y f32) (param $x f64) (result f32)
+    (f32.demote_f64 (f64.sub (f64.promote_f32 (local.get $y)) (local.get $x))))
 )
 
 (assert_return (invoke "no_demote_mixed_sub" (f64.const 0x1.a0a183220e9b1p+82) (f32.const 0x1.c5acf8p+61)) (f32.const 0x1.a0a174p+82))
@@ -682,6 +686,56 @@
 (assert_return (invoke "no_demote_mixed_sub" (f64.const -0x1.98c74350dde6ap+6) (f32.const 0x1.9d69bcp-12)) (f32.const -0x1.98c7aap+6))
 (assert_return (invoke "no_demote_mixed_sub" (f64.const 0x1.0459f34091dbfp-54) (f32.const 0x1.61ad08p-71)) (f32.const 0x1.045942p-54))
 (assert_return (invoke "no_demote_mixed_sub" (f64.const 0x1.a7498dca3fdb7p+14) (f32.const 0x1.ed21c8p+15)) (f32.const -0x1.197d02p+15))
+
+(assert_return (invoke "no_demote_mixed_sub_commuted" (f32.const 0x1.c5acf8p+61) (f64.const 0x1.a0a183220e9b1p+82)) (f32.const -0x1.a0a174p+82))
+(assert_return (invoke "no_demote_mixed_sub_commuted" (f32.const 0x1.d48ca4p+17) (f64.const -0x1.6e2c5ac39f63ep+30)) (f32.const 0x1.6e3bp+30))
+(assert_return (invoke "no_demote_mixed_sub_commuted" (f32.const 0x1.9d69bcp-12) (f64.const -0x1.98c74350dde6ap+6)) (f32.const 0x1.98c7aap+6))
+(assert_return (invoke "no_demote_mixed_sub_commuted" (f32.const 0x1.61ad08p-71) (f64.const 0x1.0459f34091dbfp-54)) (f32.const -0x1.045942p-54))
+(assert_return (invoke "no_demote_mixed_sub_commuted" (f32.const 0x1.ed21c8p+15) (f64.const 0x1.a7498dca3fdb7p+14)) (f32.const 0x1.197d02p+15))
+
+;; Test that demote(x*promote(y)) is not folded to demote(x)*y, and that
+;; demote(promote(y)*x) is not folded to y*demote(x).
+
+(module
+  (func (export "no_demote_mixed_mul") (param $x f64) (param $y f32) (result f32)
+    (f32.demote_f64 (f64.mul (local.get $x) (f64.promote_f32 (local.get $y)))))
+  (func (export "no_demote_mixed_mul_commuted") (param $y f32) (param $x f64) (result f32)
+    (f32.demote_f64 (f64.mul (f64.promote_f32 (local.get $y)) (local.get $x))))
+)
+
+(assert_return (invoke "no_demote_mixed_mul" (f64.const 0x1.a19789e5aa475p-202) (f32.const 0x1.858cbep+113)) (f32.const 0x1.3db86cp-88))
+(assert_return (invoke "no_demote_mixed_mul" (f64.const 0x1.8f0e6a5a53f15p+140) (f32.const 0x1.2ef826p-107)) (f32.const 0x1.d845d2p+33))
+(assert_return (invoke "no_demote_mixed_mul" (f64.const 0x1.f03aa769e296cp+176) (f32.const 0x1.a9255p-57)) (f32.const 0x1.9c0cdap+120))
+(assert_return (invoke "no_demote_mixed_mul" (f64.const 0x1.9cd70b636bc52p+221) (f32.const 0x1.3f3ac6p-122)) (f32.const 0x1.01676p+100))
+(assert_return (invoke "no_demote_mixed_mul" (f64.const 0x1.c56b4c2991a3cp-170) (f32.const 0x1.1ad242p+48)) (f32.const 0x1.f4ec98p-122))
+
+(assert_return (invoke "no_demote_mixed_mul_commuted" (f32.const 0x1.858cbep+113) (f64.const 0x1.a19789e5aa475p-202)) (f32.const 0x1.3db86cp-88))
+(assert_return (invoke "no_demote_mixed_mul_commuted" (f32.const 0x1.2ef826p-107) (f64.const 0x1.8f0e6a5a53f15p+140)) (f32.const 0x1.d845d2p+33))
+(assert_return (invoke "no_demote_mixed_mul_commuted" (f32.const 0x1.a9255p-57) (f64.const 0x1.f03aa769e296cp+176)) (f32.const 0x1.9c0cdap+120))
+(assert_return (invoke "no_demote_mixed_mul_commuted" (f32.const 0x1.3f3ac6p-122) (f64.const 0x1.9cd70b636bc52p+221)) (f32.const 0x1.01676p+100))
+(assert_return (invoke "no_demote_mixed_mul_commuted" (f32.const 0x1.1ad242p+48) (f64.const 0x1.c56b4c2991a3cp-170)) (f32.const 0x1.f4ec98p-122))
+
+;; Test that demote(x/promote(y)) is not folded to demote(x)/y, and that
+;; demote(promote(y)/x) is not folded to y/demote(x).
+
+(module
+  (func (export "no_demote_mixed_div") (param $x f64) (param $y f32) (result f32)
+    (f32.demote_f64 (f64.div (local.get $x) (f64.promote_f32 (local.get $y)))))
+  (func (export "no_demote_mixed_div_commuted") (param $y f32) (param $x f64) (result f32)
+    (f32.demote_f64 (f64.div (f64.promote_f32 (local.get $y)) (local.get $x))))
+)
+
+(assert_return (invoke "no_demote_mixed_div" (f64.const 0x1.40d0b55d4cee1p+150) (f32.const 0x1.6c7496p+103)) (f32.const 0x1.c2b158p+46))
+(assert_return (invoke "no_demote_mixed_div" (f64.const 0x1.402750f34cd98p-153) (f32.const 0x1.3db8ep-82)) (f32.const 0x1.01f586p-71))
+(assert_return (invoke "no_demote_mixed_div" (f64.const 0x1.3f7ece1a790a7p-37) (f32.const 0x1.a5652p-128)) (f32.const 0x1.8430dp+90))
+(assert_return (invoke "no_demote_mixed_div" (f64.const 0x1.5171328e16885p-138) (f32.const 0x1.10636ap-88)) (f32.const 0x1.3d23cep-50))
+(assert_return (invoke "no_demote_mixed_div" (f64.const 0x1.d3a380fc986ccp+74) (f32.const 0x1.f095b6p+88)) (f32.const 0x1.e227c4p-15))
+
+(assert_return (invoke "no_demote_mixed_div_commuted" (f32.const 0x1.d78ddcp-74) (f64.const 0x1.2c57e125069e2p-42)) (f32.const 0x1.91eed6p-32))
+(assert_return (invoke "no_demote_mixed_div_commuted" (f32.const 0x1.7db224p+26) (f64.const 0x1.1c291ec609ed4p+159)) (f32.const 0x1.57dfp-133))
+(assert_return (invoke "no_demote_mixed_div_commuted" (f32.const 0x1.e7a824p-40) (f64.const 0x1.f4bdb25ff00fcp-137)) (f32.const 0x1.f29f22p+96))
+(assert_return (invoke "no_demote_mixed_div_commuted" (f32.const 0x1.730b8p+80) (f64.const 0x1.880fb331a64cap+210)) (f32.const 0x1.e48ep-131))
+(assert_return (invoke "no_demote_mixed_div_commuted" (f32.const 0x1.7715fcp-73) (f64.const 0x1.6feb1fa66f11bp-198)) (f32.const 0x1.04fcb6p+125))
 
 ;; Test that converting between integer and float and back isn't folded away.
 
@@ -1986,7 +2040,7 @@
 (assert_return (invoke "f64.xkcd_better_sqrt_5" (f64.const 13.0) (f64.const 4.0) (f64.const 0x1.921fb54442d18p+1) (f64.const 24.0)) (f64.const 0x1.1e3778509a5a3p+1))
 
 ;; Compute the floating-point radix.
-;; M. A. Malcom. Algorithms to reveal properties of floating-point arithmetic.
+;; M. A. Malcolm. Algorithms to reveal properties of floating-point arithmetic.
 ;; Communications of the ACM, 15(11):949-951, November 1972.
 (module
   (func (export "f32.compute_radix") (param $0 f32) (param $1 f32) (result f32)

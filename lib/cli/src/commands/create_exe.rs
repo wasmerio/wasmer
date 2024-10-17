@@ -227,7 +227,7 @@ impl CreateExe {
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
-        println!("Compiler: {}", compiler_type.to_string());
+        println!("Compiler: {}", compiler_type);
         println!("Target: {}", target.triple());
         println!(
             "Using path `{}` as libwasmer path.",
@@ -548,7 +548,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
 impl AllowMultiWasm {
     fn validate(
         &self,
-        all_atoms: &Vec<(String, webc::compat::SharedBytes)>,
+        all_atoms: &[(String, webc::compat::SharedBytes)],
     ) -> Result<(), anyhow::Error> {
         if matches!(self, AllowMultiWasm::Reject(None)) && all_atoms.len() > 1 {
             let keys = all_atoms
@@ -1284,14 +1284,15 @@ fn link_exe_from_dir(
     let out_path = directory.join("wasmer_main.exe");
     #[cfg(not(target_os = "windows"))]
     let out_path = directory.join("wasmer_main");
-    cmd.arg(&format!("-femit-bin={}", out_path.display()));
+    cmd.arg(format!("-femit-bin={}", out_path.display()));
+
     cmd.args(
-        &object_paths
+        object_paths
             .iter()
             .map(|o| normalize_path(&format!("{}", o.display())))
             .collect::<Vec<_>>(),
     );
-    cmd.arg(&normalize_path(&format!("{}", library_path.display())));
+    cmd.arg(normalize_path(&format!("{}", library_path.display())));
     cmd.arg(normalize_path(&format!(
         "{}",
         directory

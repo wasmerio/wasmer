@@ -288,7 +288,11 @@ pub fn translate_module<'data>(data: &'data [u8]) -> WasmResult<ModuleInfoPolyfi
                 let name = sectionreader.name();
                 if name == "name" {
                     parse_name_section(
-                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset()),
+                        NameSectionReader::new(wasmparser::BinaryReader::new(
+                            sectionreader.data(),
+                            sectionreader.data_offset(),
+                            wasmparser::WasmFeatures::default(),
+                        )),
                         &mut module_info,
                     )?;
                 }
@@ -335,8 +339,8 @@ pub fn parse_type_section(
         let group = res.map_err(transform_err)?;
 
         for ty in group.into_types() {
-            match ty.composite_type {
-                wasmparser::CompositeType::Func(functype) => {
+            match ty.composite_type.inner {
+                wasmparser::CompositeInnerType::Func(functype) => {
                     let params = functype.params();
                     let returns = functype.results();
                     let sig_params: Vec<Type> = params
@@ -394,6 +398,7 @@ pub fn parse_import_section<'data>(
                 memory64,
                 initial,
                 maximum,
+                ..
             }) => {
                 if memory64 {
                     unimplemented!("64bit memory not implemented yet");
@@ -422,8 +427,8 @@ pub fn parse_import_section<'data>(
                 module_info.declare_table_import(
                     TableType {
                         ty: wpreftype_to_type(tab.element_type).unwrap(),
-                        minimum: tab.initial,
-                        maximum: tab.maximum,
+                        minimum: tab.initial as u32,
+                        maximum: tab.maximum.map(|v| v as u32),
                     },
                     module_name,
                     field_name,
@@ -461,8 +466,8 @@ pub fn parse_table_section(
         let table = entry.map_err(transform_err)?;
         module_info.declare_table(TableType {
             ty: wpreftype_to_type(table.ty.element_type).unwrap(),
-            minimum: table.ty.initial,
-            maximum: table.ty.maximum,
+            minimum: table.ty.initial as u32,
+            maximum: table.ty.maximum.map(|v| v as u32),
         })?;
     }
 
@@ -482,6 +487,7 @@ pub fn parse_memory_section(
             memory64,
             initial,
             maximum,
+            ..
         } = entry.map_err(transform_err)?;
         if memory64 {
             unimplemented!("64bit memory not implemented yet");
@@ -507,6 +513,7 @@ pub fn parse_global_section(
         let WPGlobalType {
             content_type,
             mutable,
+            ..
         } = entry.map_err(transform_err)?.ty;
         let global = GlobalType {
             ty: wptype_to_type(content_type).unwrap(),
@@ -595,6 +602,7 @@ pub fn parse_name_section<'data>(
             | wasmparser::Name::Element(_)
             | wasmparser::Name::Data(_)
             | wasmparser::Name::Tag(_)
+            | wasmparser::Name::Field(_)
             | wasmparser::Name::Unknown { .. } => {}
         };
     }

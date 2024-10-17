@@ -13,7 +13,7 @@ use crate::translator::{
     signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
 };
 use cranelift_codegen::ir::{ExternalName, UserFuncName};
-use cranelift_codegen::{ir, MachReloc};
+use cranelift_codegen::{ir, FinalizedMachReloc, FinalizedRelocTarget};
 use cranelift_codegen::{Context, MachTrap};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
@@ -124,7 +124,7 @@ impl Compiler for CraneliftCompiler {
                     module,
                     &signatures,
                     &memory_styles,
-                    &table_styles,
+                    table_styles,
                 );
                 context.func.name = match get_function_name(func_index) {
                     ExternalName::User(nameref) => {
@@ -160,7 +160,7 @@ impl Compiler for CraneliftCompiler {
 
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
-                    .compile_and_emit(&*isa, &mut code_buf)
+                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
                     .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
 
                 let result = context.compiled_code().unwrap();
@@ -254,6 +254,7 @@ impl Compiler for CraneliftCompiler {
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
                 // }
+
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(
@@ -272,8 +273,8 @@ impl Compiler for CraneliftCompiler {
 
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
-                    .compile_and_emit(&*isa, &mut code_buf)
-                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
+                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
+                    .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
 
                 let result = context.compiled_code().unwrap();
                 let func_relocs = result
@@ -415,30 +416,36 @@ impl Compiler for CraneliftCompiler {
     }
 }
 
-fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &MachReloc) -> Relocation {
-    let &MachReloc {
+fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Relocation {
+    let FinalizedMachReloc {
         offset,
         kind,
-        ref name,
         addend,
-    } = reloc;
-    let reloc_target = if let ExternalName::User(extname_ref) = *name {
+        target,
+    } = &reloc;
+    let name = match target {
+        FinalizedRelocTarget::ExternalName(external_name) => external_name,
+        FinalizedRelocTarget::Func(_) => {
+            unimplemented!("relocations to offset in the same function are not yet supported")
+        }
+    };
+    let reloc_target: RelocationTarget = if let ExternalName::User(extname_ref) = name {
         //debug_assert_eq!(namespace, 0);
         RelocationTarget::LocalFunc(
             module
                 .local_func_index(FunctionIndex::from_u32(extname_ref.as_u32()))
                 .expect("The provided function should be local"),
         )
-    } else if let ExternalName::LibCall(libcall) = *name {
-        RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
+    } else if let ExternalName::LibCall(libcall) = name {
+        RelocationTarget::LibCall(irlibcall_to_libcall(*libcall))
     } else {
-        panic!("unrecognized external name")
+        panic!("unrecognized external target")
     };
     Relocation {
-        kind: irreloc_to_relocationkind(kind),
+        kind: irreloc_to_relocationkind(*kind),
         reloc_target,
-        offset,
-        addend,
+        offset: *offset,
+        addend: *addend,
     }
 }
 
@@ -464,6 +471,9 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
         ir::TrapCode::Interrupt => unimplemented!("Interrupts not supported"),
+        ir::TrapCode::NullReference | ir::TrapCode::NullI31Ref => {
+            unimplemented!("Null reference not supported")
+        }
         ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
         // ir::TrapCode::Interrupt => TrapCode::Interrupt,
         // ir::TrapCode::User(user_code) => TrapCode::User(user_code),

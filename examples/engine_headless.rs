@@ -45,7 +45,7 @@
 //! Ready?
 
 use tempfile::NamedTempFile;
-use wasmer::{imports, wat2wasm, EngineBuilder, Instance, Module, Store, Value};
+use wasmer::{imports, sys::EngineBuilder, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

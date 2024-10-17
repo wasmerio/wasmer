@@ -24,7 +24,7 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.74"
+  MSRV: "1.81"
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
@@ -64,11 +64,11 @@ jobs:
           sudo apt install -y libtinfo5
       - name: Install LLVM (Linux)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o /opt/llvm.tar.xz
-          mkdir -p /opt/llvm-15
-          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-15
-          echo '/opt/llvm-15/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_150_PREFIX=/opt/llvm-15' >> $GITHUB_ENV
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
+          mkdir -p /opt/llvm-18
+          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-18
+          echo '/opt/llvm-18/bin' >> $GITHUB_PATH
+          echo 'LLVM_SYS_180_PREFIX=/opt/llvm-18' >> $GITHUB_ENV
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -135,6 +135,18 @@ jobs:
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: make test-wasi-fyi
         run: |
           make test-wasi-fyi
@@ -171,6 +183,18 @@ jobs:
           curl -L "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${{ env.WASI_SDK_VERSION }}/wasi-sdk-${{ env.WASI_SDK_VERSION }}.0-linux.tar.gz" -o wasi-sdk.tar.gz
           tar -xzf wasi-sdk.tar.gz
           cp -r wasi-sdk-${{ env.WASI_SDK_VERSION }}.0 ~/wasi-sdk
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: Install wasm-opt
         run: |
           sudo apt-get install -y binaryen
@@ -206,6 +230,98 @@ jobs:
       - name: make build-wasmer-jsc
         run: make build-wasmer-jsc
 
+  test_interpreter_api:
+    name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
+    runs-on:  ${{ matrix.metadata.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build-what: [
+          {
+            key: wamr,
+            build-cmd: 'make test-wamr-api',
+            name: 'Test API for wamr feature'
+          },
+          {
+            key: wasmi,
+            build-cmd: 'make test-wasmi-api',
+            name: 'Test API for wasmi feature'
+          },
+          {
+            key: v8,
+            build-cmd: 'make test-v8-api',
+            name: 'Test API for v8 feature'
+          }
+
+        ]
+        metadata: [
+          {
+            build: linux-x64,
+            os: ubuntu-22.04,
+          },
+          {
+            build: macos-arm,
+            os: macos-14,
+          },
+          {
+            build: windows-x64,
+            os: windows-2022,
+          }
+        ]
+    container: ${{ matrix.metadata.container }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup MSVC (Windows) 
+        uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.metadata.build == 'windows-x64'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Install `ninja`, clang` and `mold` on Ubuntu
+        if: startsWith(matrix.metadata.build, 'linux-')
+        shell: bash
+        run: |
+          sudo apt-get update -y && sudo apt-get install ninja-build clang mold -y
+
+      - name: Install `ninja` on macOS
+        if: startsWith(matrix.metadata.build, 'macos-')
+        shell: bash
+        run: |
+          brew install ninja
+
+      - name: Install `ninja` on Windows
+        if: startsWith(matrix.metadata.build, 'windows-')
+        shell: bash
+        run: |
+          choco install ninja
+
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: startsWith(matrix.metadata.build, 'windows-')
+
+      - name: Test WAMR API 
+        if: ${{ matrix.build-what.key == 'wamr' }}
+        run: ${{ matrix.build-what.build-cmd }}
+
+      - name: Test wasmi API 
+        if: ${{ matrix.build-what.key == 'wasmi' }}
+        run: ${{ matrix.build-what.build-cmd }}
+
+      - name: Test v8 API (Linux + mold) 
+        if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
+        run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
+
+      - name: Test v8 API 
+        if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
+        run: ${{ matrix.build-what.build-cmd }}
+
   test_build_docs_rs:
     name: Test build docs rs
     runs-on: ubuntu-22.04
@@ -213,9 +329,27 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-10-05"
+          toolchain: "nightly-2024-08-21"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
+
+      - name: Install `ninja` on Ubuntu
+        shell: bash
+        run: |
+          sudo apt-get install ninja-build -y
+
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
 
@@ -361,36 +495,46 @@ jobs:
             build: linux-x64,
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
-          },
-          {
-            build: linux-musl,
-            target: x86_64-unknown-linux-musl,
-            os: ubuntu-22.04,
-            container: 'alpine:latest'
+            exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-12,
             target: x86_64-apple-darwin,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
+            exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+
           },
           {
             build: macos-arm,
-            os: macos-12,
+            os: macos-14,
             target: aarch64-apple-darwin,
+            exe: '',
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
-            os: windows-2019,
+            os: windows-2022,
             target: x86_64-pc-windows-msvc,
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+            exe: '.exe',
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: windows-gnu,
             target: x86_64-pc-windows-gnu,
             os: ubuntu-22.04,
+          },
+          {
+            build: linux-musl,
+            target: x86_64-unknown-linux-musl,
+            os: ubuntu-22.04,
+            exe: '',
+            container: 'alpine:latest'
           }
+
         ]
     container: ${{ matrix.metadata.container }}
     env:
@@ -421,6 +565,13 @@ jobs:
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
       - name: Install Windows-GNU linker
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
@@ -458,8 +609,8 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.metadata.llvm_url
         shell: bash
+        if: matrix.metadata.llvm_url
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -468,9 +619,14 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_150_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Add `brew` libs to `RUSTFLAGS`
+        if: matrix.metadata.os == 'macos-14'
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
@@ -522,7 +678,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Test C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
         run: make test-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -531,7 +687,7 @@ jobs:
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu') }}
         run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -592,27 +748,31 @@ jobs:
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
             exe: '',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-12,
             target: x86_64-apple-darwin,
             exe: '',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+
           },
           {
             build: macos-arm64,
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
-            os: windows-2019,
+            os: windows-2022,
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -637,6 +797,14 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: ./scripts/alpine-linux-install-deps.sh
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -656,17 +824,24 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.metadata.llvm_url
         shell: bash
+        if: matrix.metadata.llvm_url
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Add `brew` libs to `RUSTFLAGS`
+        if: matrix.metadata.os == 'macos-14'
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
@@ -691,11 +866,13 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
+        shell: bash
         run: make ${{ matrix.stage.make }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+
 
   test_integration_cli:
     name: CLI integration tests on ${{ matrix.build }}
@@ -708,13 +885,12 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           - build: macos-x64
             os: macos-12
             target: x86_64-apple-darwin
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           # we only build the integration-test CLI, we don't run tests
-          - build: macos-arm
+          - build: macos-arm64
             os: macos-12
             target: aarch64-apple-darwin,
           - build: linux-musl
@@ -724,6 +900,9 @@ jobs:
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -777,7 +956,7 @@ jobs:
           path: package/cache/wasmercache1
       - uses: actions/download-artifact@v4
         with:
-          name: capi-windows-gnu
+          name: capi-windows-x64
           path: package/cache/wasmercache2
       - uses: actions/download-artifact@v4
         with:
@@ -812,7 +991,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'windows-x64' }}
         with:
-          name: capi-windows-gnu
+          name: capi-windows-x64
           path: download_link
       - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'linux-musl' }}
@@ -820,7 +999,7 @@ jobs:
           name: capi-linux-musl
           path: download_link
       - uses: actions/download-artifact@v4
-        if: ${{ matrix.build == 'macos-arm' }}
+        if: ${{ matrix.build == 'macos-arm64' }}
         with:
           name: capi-macos-arm
           path: download_link
@@ -846,18 +1025,54 @@ jobs:
         shell: bash
         run: |
           make untar-wasmer
-      - name: Test integration CLI
-        if: false # matrix.build != 'macos-arm'
-        shell: bash
-        run: |
-          export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
-          export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: ${{ matrix.target }}
-          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # Removed in favour of freestanding integration tests
+          #
+          # - name: Test integration CLI
+          #   if: false # matrix.build != 'macos-arm'
+          #   shell: bash
+          #   run: |
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
+          #   env:
+          #     TARGET: ${{ matrix.target }}
+          #     TARGET_DIR: target/${{ matrix.target }}/release
+          #     CARGO_TARGET: ${{ matrix.target }}
+          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+
+          # ---- 
+          # Note (xdoardo on 2024/10/07): 
+          # --- 
+          #  As of now the WAMR, WASMI (and V8) backends are not that mature enough. We will re-enable these tests 
+          #  when they've been used and matured. 
+          # ---- 
+          #
+          # - name: Test CLI integration (WAMR) 
+          #   shell: bash
+          #   run: |
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wamr-ci
+          #   env:
+          #     TARGET: ${{ matrix.target }}
+          #     TARGET_DIR: target/${{ matrix.target }}/release
+          #     CARGO_TARGET: ${{ matrix.target }}
+          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # - name: Test CLI integration (WASMI) 
+          #   shell: bash
+          #   run: |
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wasmi-ci
+          #   env:
+          #     TARGET: ${{ matrix.target }}
+          #     TARGET_DIR: target/${{ matrix.target }}/release
+          #     CARGO_TARGET: ${{ matrix.target }}
+          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
   # there is another set of integration tests in 'wasmer-integration-tests' repo. Run those
   test-wasmer-integration-tests:

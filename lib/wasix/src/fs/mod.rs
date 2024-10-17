@@ -1378,7 +1378,7 @@ impl WasiFs {
             .unwrap()
             .get(&fd)
             .ok_or(Errno::Badf)
-            .map(|a| a.clone());
+            .cloned();
 
         if ret.is_err() && fd == VIRTUAL_ROOT_FD {
             Ok(Fd {

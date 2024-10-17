@@ -1,5 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-
+#![allow(clippy::multiple_bound_locations)]
 #[cfg(feature = "remote")]
 pub mod client;
 pub mod composite;
@@ -22,7 +22,7 @@ pub use composite::CompositeTcpListener;
 pub use loopback::LoopbackNetworking;
 use pin_project_lite::pin_project;
 #[cfg(feature = "rkyv")]
-use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "remote")]
 pub use server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 use std::fmt;
@@ -55,7 +55,6 @@ pub type Result<T> = std::result::Result<T, NetworkError>;
 /// Represents an IP address and its netmask
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[cfg_attr(feature = "rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
-#[cfg_attr(feature = "rkyv", archive_attr(derive(CheckBytes)))]
 pub struct IpCidr {
     pub ip: IpAddr,
     pub prefix: u8,
@@ -64,7 +63,6 @@ pub struct IpCidr {
 /// Represents a routing entry in the routing table of the interface
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
-#[cfg_attr(feature = "rkyv", archive_attr(derive(CheckBytes)))]
 pub struct IpRoute {
     pub cidr: IpCidr,
     pub via_router: IpAddr,

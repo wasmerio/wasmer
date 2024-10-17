@@ -1,7 +1,13 @@
 use bytes::Buf;
-use rkyv::ser::{
-    serializers::{AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer},
-    Serializer,
+use rkyv::{
+    api::high::HighSerializer,
+    rancor::Strategy,
+    ser::{
+        allocator::{Arena, ArenaHandle},
+        sharing::Share,
+        writer::IoWriter,
+        Positional, Serializer, Writer,
+    },
 };
 use shared_buffer::OwnedBuffer;
 use std::{
@@ -31,10 +37,49 @@ pub struct LogFileJournal {
     rx: LogFileJournalRx,
 }
 
-#[derive(Debug)]
 struct TxState {
+    /// The original handle to the file
+    underlying_file: File,
+
+    /// A modified handle to the original underlying file
     file: File,
-    serializer: CompositeSerializer<WriteSerializer<File>, AllocScratch, SharedSerializeMap>,
+
+    /// The arena necessary for serialization
+    arena: Arena,
+
+    /// The latest position in the file the serializator got to
+    pos: usize,
+}
+
+impl TxState {
+    fn get_serializer(&mut self) -> Serializer<IoWriter<&File>, ArenaHandle<'_>, Share> {
+        self.get_serializer_with_pos(self.pos)
+    }
+
+    fn get_serializer_with_pos(
+        &mut self,
+        pos: usize,
+    ) -> Serializer<IoWriter<&File>, ArenaHandle<'_>, Share> {
+        Serializer::new(
+            IoWriter::with_pos(&self.file, pos),
+            self.arena.acquire(),
+            Share::new(),
+        )
+    }
+
+    fn to_high<'a>(
+        serializer: &'a mut Serializer<IoWriter<&'a File>, ArenaHandle<'a>, Share>,
+    ) -> &'a mut HighSerializer<IoWriter<&'a File>, ArenaHandle<'a>, rkyv::rancor::Error> {
+        Strategy::wrap(serializer)
+    }
+}
+
+impl std::fmt::Debug for TxState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TxState")
+            .field("file", &self.underlying_file)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -63,7 +108,7 @@ impl LogFileJournalRx {
 impl LogFileJournalTx {
     pub fn as_rx(&self) -> anyhow::Result<LogFileJournalRx> {
         let state = self.state.lock().unwrap();
-        let file = state.file.try_clone()?;
+        let file = state.underlying_file.try_clone()?;
 
         let store = OffloadBackingStore::from_file(&file);
         let buffer = store.owned_buffer();
@@ -101,6 +146,7 @@ impl LogFileJournal {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(path)?;
         Self::from_file(file)
     }
@@ -123,24 +169,35 @@ impl LogFileJournal {
         // Move to the end of the file and write the
         // magic if one is needed
         let underlying_file = file.try_clone()?;
+        let arena = Arena::new();
+
         let end_pos = file.seek(SeekFrom::End(0))?;
-        let mut serializer = WriteSerializer::with_pos(file, end_pos as usize);
+
+        let mut tx = TxState {
+            underlying_file,
+            arena,
+            file,
+            pos: end_pos as usize,
+        };
+
+        let mut serializer = tx.get_serializer();
+        let serializer = TxState::to_high(&mut serializer);
+
         if serializer.pos() == 0 {
             let magic = JOURNAL_MAGIC_NUMBER;
             let magic = magic.to_be_bytes();
             serializer.write(&magic)?;
         }
 
+        let last_pos = serializer.pos();
+        let _ = serializer;
+
+        tx.arena.shrink();
+        tx.pos = last_pos;
+
         // Create the tx
         let tx = LogFileJournalTx {
-            state: Arc::new(Mutex::new(TxState {
-                file: underlying_file,
-                serializer: CompositeSerializer::new(
-                    serializer,
-                    AllocScratch::default(),
-                    SharedSerializeMap::default(),
-                ),
-            })),
+            state: Arc::new(Mutex::new(tx)),
         };
 
         // First we create the readable journal
@@ -177,27 +234,36 @@ impl WritableJournal for LogFileJournalTx {
 
         // Write the header (with a record size of zero)
         let record_type: JournalEntryRecordType = entry.archive_record_type();
-        let offset_header = state.serializer.pos() as u64;
-        state.serializer.write(&[0u8; 8])?;
+        let mut serializer = state.get_serializer();
+        let serializer = TxState::to_high(&mut serializer);
+        let offset_header = serializer.pos() as u64;
+        tracing::trace!("serpos is {offset_header}");
+        serializer.write(&[0u8; 8])?;
 
         // Now serialize the actual data to the log
-        let offset_start = state.serializer.pos() as u64;
-        entry.serialize_archive(&mut state.serializer)?;
-        let offset_end = state.serializer.pos() as u64;
+        let offset_start = serializer.pos() as u64;
+        entry.serialize_archive(serializer)?;
+        let offset_end = serializer.pos() as u64;
         let record_size = offset_end - offset_start;
         tracing::trace!(
             "delimiter header={offset_header},start={offset_start},record_size={record_size}"
         );
 
+        let last_pos = serializer.pos();
+        let _ = serializer;
+
         // Write the record and then move back to the end again
-        state.file.seek(SeekFrom::Start(offset_header))?;
+        state.underlying_file.seek(SeekFrom::Start(offset_header))?;
         let header_bytes = {
             let a = (record_type as u16).to_be_bytes();
             let b = &record_size.to_be_bytes()[2..8];
             [a[0], a[1], b[0], b[1], b[2], b[3], b[4], b[5]]
         };
-        state.file.write_all(&header_bytes)?;
-        state.file.seek(SeekFrom::Start(offset_end))?;
+        state.underlying_file.write_all(&header_bytes)?;
+        state.underlying_file.seek(SeekFrom::Start(offset_end))?;
+
+        state.arena.shrink();
+        state.pos = last_pos;
 
         // Now write the actual data and update the offsets
         Ok(LogWriteResult {
@@ -208,7 +274,7 @@ impl WritableJournal for LogFileJournalTx {
 
     fn flush(&self) -> anyhow::Result<()> {
         let mut state = self.state.lock().unwrap();
-        state.file.flush()?;
+        state.underlying_file.flush()?;
         Ok(())
     }
 }

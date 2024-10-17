@@ -38,7 +38,7 @@ impl MultiSource {
         }
     }
 
-    pub fn add_source(&mut self, source: impl Source + Send + Sync + 'static) -> &mut Self {
+    pub fn add_source(&mut self, source: impl Source + Send + 'static) -> &mut Self {
         self.add_shared_source(Arc::new(source))
     }
 

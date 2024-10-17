@@ -78,31 +78,32 @@ pub trait Compiler: Send {
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
-        let wasm_features = WasmFeatures {
-            bulk_memory: features.bulk_memory,
-            threads: features.threads,
-            reference_types: features.reference_types,
-            multi_value: features.multi_value,
-            simd: features.simd,
-            tail_call: features.tail_call,
-            multi_memory: features.multi_memory,
-            memory64: features.memory64,
-            exceptions: features.exceptions,
-            extended_const: features.extended_const,
-            relaxed_simd: features.relaxed_simd,
-            mutable_global: true,
-            saturating_float_to_int: true,
-            floats: true,
-            sign_extension: true,
+        let mut wasm_features = WasmFeatures::default();
+        wasm_features.set(WasmFeatures::BULK_MEMORY, features.bulk_memory);
+        wasm_features.set(WasmFeatures::THREADS, features.threads);
+        wasm_features.set(WasmFeatures::REFERENCE_TYPES, features.reference_types);
+        wasm_features.set(WasmFeatures::MULTI_VALUE, features.multi_value);
+        wasm_features.set(WasmFeatures::SIMD, features.simd);
+        wasm_features.set(WasmFeatures::TAIL_CALL, features.tail_call);
+        wasm_features.set(WasmFeatures::MULTI_MEMORY, features.multi_memory);
+        wasm_features.set(WasmFeatures::MEMORY64, features.memory64);
+        wasm_features.set(WasmFeatures::EXCEPTIONS, features.exceptions);
+        wasm_features.set(WasmFeatures::EXTENDED_CONST, features.extended_const);
+        wasm_features.set(WasmFeatures::RELAXED_SIMD, features.relaxed_simd);
+        wasm_features.set(WasmFeatures::MUTABLE_GLOBAL, true);
+        wasm_features.set(WasmFeatures::SATURATING_FLOAT_TO_INT, true);
+        wasm_features.set(WasmFeatures::FLOATS, true);
+        wasm_features.set(WasmFeatures::SIGN_EXTENSION, true);
+        wasm_features.set(WasmFeatures::GC_TYPES, true);
 
-            // Not supported
-            component_model: false,
-            function_references: false,
-            memory_control: false,
-            gc: false,
-            component_model_values: false,
-            component_model_nested_names: false,
-        };
+        // Not supported
+        wasm_features.set(WasmFeatures::COMPONENT_MODEL, false);
+        wasm_features.set(WasmFeatures::FUNCTION_REFERENCES, false);
+        wasm_features.set(WasmFeatures::MEMORY_CONTROL, false);
+        wasm_features.set(WasmFeatures::GC, false);
+        wasm_features.set(WasmFeatures::COMPONENT_MODEL_VALUES, false);
+        wasm_features.set(WasmFeatures::COMPONENT_MODEL_NESTED_NAMES, false);
+
         let mut validator = Validator::new_with_features(wasm_features);
         validator
             .validate_all(data)

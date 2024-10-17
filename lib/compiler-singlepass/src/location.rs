@@ -38,6 +38,7 @@ impl<R, S> MaybeImmediate for Location<R, S> {
     }
 }
 
+#[allow(unused)]
 pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
     fn is_callee_save(self) -> bool;
     fn is_reserved(self) -> bool;
@@ -47,6 +48,7 @@ pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
     fn to_dwarf(self) -> u16;
 }
 
+#[allow(unused)]
 pub trait Descriptor<R: Reg, S: Reg> {
     const FP: R;
     const VMCTX: R;
@@ -65,6 +67,7 @@ pub trait Descriptor<R: Reg, S: Reg> {
     fn return_location() -> Location<R, S>;
 }
 
+#[allow(unused)]
 pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
     /// Returns the index of the register.
     fn to_index(&self) -> RegisterIndex;

@@ -58,8 +58,11 @@ pub fn wpreftype_to_type(ty: wasmparser::RefType) -> WasmResult<Type> {
 /// Converts a wasmparser heap type to a Wasm Type.
 pub fn wpheaptype_to_type(ty: wasmparser::HeapType) -> WasmResult<Type> {
     match ty {
-        wasmparser::HeapType::Func => Ok(Type::FuncRef),
-        wasmparser::HeapType::Extern => Ok(Type::ExternRef),
+        wasmparser::HeapType::Abstract { ty, .. } => match ty {
+            wasmparser::AbstractHeapType::Func => Ok(Type::FuncRef),
+            wasmparser::AbstractHeapType::Extern => Ok(Type::ExternRef),
+            other => Err(wasm_unsupported!("unsupported reference type: {other:?}")),
+        },
         other => Err(wasm_unsupported!("unsupported reference type: {other:?}")),
     }
 }
@@ -130,6 +133,7 @@ pub fn parse_import_section<'data>(
                 memory64,
                 initial,
                 maximum,
+                ..
             }) => {
                 if memory64 {
                     unimplemented!("64bit memory not implemented yet");
@@ -158,8 +162,8 @@ pub fn parse_import_section<'data>(
                 environ.declare_table_import(
                     TableType {
                         ty: wpreftype_to_type(tab.element_type)?,
-                        minimum: tab.initial,
-                        maximum: tab.maximum,
+                        minimum: tab.initial as u32,
+                        maximum: tab.maximum.map(|v| v as u32),
                     },
                     module_name,
                     field_name,
@@ -178,7 +182,7 @@ pub fn parse_function_section(
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
     let num_functions = functions.count();
-    if num_functions == std::u32::MAX {
+    if num_functions == u32::MAX {
         // We reserve `u32::MAX` for our own use.
         return Err(WasmError::ImplLimitExceeded);
     }
@@ -204,8 +208,8 @@ pub fn parse_table_section(
         let table = entry.map_err(from_binaryreadererror_wasmerror)?;
         environ.declare_table(TableType {
             ty: wpreftype_to_type(table.ty.element_type).unwrap(),
-            minimum: table.ty.initial,
-            maximum: table.ty.maximum,
+            minimum: table.ty.initial as u32,
+            maximum: table.ty.maximum.map(|v| v as u32),
         })?;
     }
 
@@ -225,6 +229,7 @@ pub fn parse_memory_section(
             memory64,
             initial,
             maximum,
+            ..
         } = entry.map_err(from_binaryreadererror_wasmerror)?;
         if memory64 {
             unimplemented!("64bit memory not implemented yet");
@@ -248,10 +253,12 @@ pub fn parse_global_section(
 
     for entry in globals {
         let wasmparser::Global {
-            ty: WPGlobalType {
-                content_type,
-                mutable,
-            },
+            ty:
+                WPGlobalType {
+                    content_type,
+                    mutable,
+                    ..
+                },
             init_expr,
         } = entry.map_err(from_binaryreadererror_wasmerror)?;
         let mut init_expr_reader = init_expr.get_binary_reader();
@@ -494,7 +501,7 @@ pub fn parse_name_section<'data>(
         match subsection {
             wasmparser::Name::Function(function_subsection) => {
                 for naming in function_subsection.into_iter().flatten() {
-                    if naming.index != std::u32::MAX {
+                    if naming.index != u32::MAX {
                         environ.declare_function_name(
                             FunctionIndex::from_u32(naming.index),
                             naming.name,
@@ -517,6 +524,7 @@ pub fn parse_name_section<'data>(
             | wasmparser::Name::Element(_)
             | wasmparser::Name::Data(_)
             | wasmparser::Name::Unknown { .. }
+            | wasmparser::Name::Field(_)
             | wasmparser::Name::Tag(..) => {}
         }
     }

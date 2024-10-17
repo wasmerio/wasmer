@@ -11,8 +11,7 @@ use crate::Features;
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
-use rkyv::de::deserializers::SharedDeserializeMap;
-use rkyv::option::ArchivedOption;
+use rkyv::{option::ArchivedOption, rancor::Error as RkyvError};
 use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
@@ -22,11 +21,16 @@ use wasmer_types::ArchivedSerializableCompilation;
 use wasmer_types::ArchivedSerializableModule;
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::DeserializeError;
+
+// Not every compiler backend uses these.
+#[allow(unused)]
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleHash, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
     SignatureIndex, TableIndex, TableStyle, Target,
 };
+
+#[allow(unused)]
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, HashAlgorithm, SerializableCompilation,
     SerializableModule,
@@ -271,7 +275,7 @@ impl<'a> ModuleFromArchive<'a> {
         Ok(Self {
             compilation: &module.compilation,
             data_initializers: &module.data_initializers,
-            cpu_features: module.cpu_features,
+            cpu_features: module.cpu_features.to_native(),
             original_module: module,
         })
     }
@@ -306,6 +310,7 @@ pub struct ArtifactBuildFromArchive {
 }
 
 impl ArtifactBuildFromArchive {
+    #[allow(unused)]
     pub(crate) fn try_new(
         buffer: OwnedBuffer,
         module_builder: impl FnOnce(
@@ -316,9 +321,8 @@ impl ArtifactBuildFromArchive {
 
         let cell = ArtifactBuildFromArchiveCell::try_new(buffer, |buffer| {
             let module = module_builder(buffer)?;
-            let mut deserializer = SharedDeserializeMap::new();
             compile_info = MaybeUninit::new(
-                rkyv::Deserialize::deserialize(&module.compile_info, &mut deserializer)
+                rkyv::deserialize::<_, RkyvError>(&module.compile_info)
                     .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?,
             );
             ModuleFromArchive::from_serializable_module(module)
@@ -393,7 +397,10 @@ impl ArtifactBuildFromArchive {
 
     /// Get LibCall Trampoline Section Index
     pub fn get_libcall_trampolines(&self) -> SectionIndex {
-        self.cell.borrow_dependent().compilation.libcall_trampolines
+        rkyv::deserialize::<_, RkyvError>(
+            &self.cell.borrow_dependent().compilation.libcall_trampolines,
+        )
+        .unwrap()
     }
 
     /// Get LibCall Trampoline Length
@@ -401,13 +408,16 @@ impl ArtifactBuildFromArchive {
         self.cell
             .borrow_dependent()
             .compilation
-            .libcall_trampoline_len as usize
+            .libcall_trampoline_len
+            .to_native() as usize
     }
 
     /// Get Debug optional Dwarf ref
-    pub fn get_debug_ref(&self) -> Option<&Dwarf> {
+    pub fn get_debug_ref(&self) -> Option<Dwarf> {
         match self.cell.borrow_dependent().compilation.debug {
-            ArchivedOption::Some(ref x) => Some(x),
+            ArchivedOption::Some(ref x) => {
+                Some(rkyv::deserialize::<_, rkyv::rancor::Error>(x).unwrap())
+            }
             ArchivedOption::None => None,
         }
     }
@@ -423,10 +433,8 @@ impl ArtifactBuildFromArchive {
     pub fn deserialize_frame_info_ref(
         &self,
     ) -> Result<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>, DeserializeError> {
-        let mut deserializer = SharedDeserializeMap::new();
-        rkyv::Deserialize::deserialize(
+        rkyv::deserialize::<_, RkyvError>(
             &self.cell.borrow_dependent().compilation.function_frame_info,
-            &mut deserializer,
         )
         .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
     }
@@ -479,12 +487,9 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
         // deserialized from a file makes little sense, so hopefully, this is not a
         // common use-case.
 
-        let mut deserializer = SharedDeserializeMap::new();
-        let mut module: SerializableModule = rkyv::Deserialize::deserialize(
-            self.cell.borrow_dependent().original_module,
-            &mut deserializer,
-        )
-        .map_err(|e| SerializeError::Generic(e.to_string()))?;
+        let mut module: SerializableModule =
+            rkyv::deserialize::<_, RkyvError>(self.cell.borrow_dependent().original_module)
+                .map_err(|e| SerializeError::Generic(e.to_string()))?;
         module.compile_info = self.compile_info.clone();
         serialize_module(&module)
     }
