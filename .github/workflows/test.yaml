@@ -287,7 +287,7 @@ jobs:
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
-          sudo apt-get install ninja-build -y
+          sudo apt-get update -y && sudo apt-get install ninja-build clang -y
 
       - name: Install `ninja` on macOS
         if: startsWith(matrix.metadata.build, 'macos-')
