@@ -307,6 +307,10 @@ jobs:
         if: startsWith(matrix.metadata.build, 'windows-')
 
       - name: Test WAMR API 
+        if: ${{ matrix.build-what.key == 'wamr' && startsWith(matrix.metadata.build, 'linux-')}}
+        run: cargo build --package=wasmer --features=wamr --no-default-features -vv 
+
+      - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
         run: ${{ matrix.build-what.build-cmd }}
 
