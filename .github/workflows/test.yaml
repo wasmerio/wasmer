@@ -316,7 +316,7 @@ jobs:
 
       - name: Test v8 API 
         if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
-        run: CARGO_X86_64_UNKNOWN_LINUX_GNU_LINKER="mold" CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
+        run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
 
       - name: Test v8 API 
         if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
