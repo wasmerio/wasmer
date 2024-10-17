@@ -283,23 +283,23 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
 
-      - name: Install `ninja` on Ubuntu
+      - name: Install `clang` and `mold` on Ubuntu
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
-          sudo apt-get update -y && sudo apt-get install ninja-build clang mold -y
+          sudo apt-get update -y && sudo apt-get install clang mold -y
 
-      - name: Install `ninja` on macOS
-        if: startsWith(matrix.metadata.build, 'macos-')
-        shell: bash
-        run: |
-          brew install ninja
+    #  - name: Install `ninja` on macOS
+    #    if: startsWith(matrix.metadata.build, 'macos-')
+    #    shell: bash
+    #    run: |
+    #      brew install ninja
 
-      - name: Install `ninja` on Windows
-        if: startsWith(matrix.metadata.build, 'windows-')
-        shell: bash
-        run: |
-          choco install ninja
+    #  - name: Install `ninja` on Windows
+    #    if: startsWith(matrix.metadata.build, 'windows-')
+    #    shell: bash
+    #    run: |
+    #      choco install ninja
 
       - name: Delete unwanted link to stop it from interfering (Windows) 
         shell: bash
