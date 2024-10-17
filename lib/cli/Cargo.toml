@@ -253,7 +253,7 @@ clap = { version = "4.4.0", default-features = false, features = [
 ] }
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
+reqwest = { workspace = true, default-features = false, features = [
 	"rustls-tls",
 	"json",
 	"multipart",
@@ -261,7 +261,7 @@ reqwest = { version = "^0.11", default-features = false, features = [
 ] }
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
+reqwest = { workspace = true, default-features = false, features = [
 	"native-tls",
 	"json",
 	"multipart",

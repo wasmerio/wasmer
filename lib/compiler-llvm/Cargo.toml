@@ -15,13 +15,14 @@ version.workspace = true
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=4.4.0", features = [
-    "translator", "compiler"
+	"translator",
+	"compiler",
 ] }
 wasmer-vm = { path = "../vm", version = "=4.4.0" }
 wasmer-types = { path = "../types", version = "=4.4.0" }
 target-lexicon = { version = "0.12.2", default-features = false }
 smallvec = "1.6"
-object = { version = "0.28.3", default-features = false, features = ["read"] }
+object = { version = "0.30.3", default-features = false, features = ["read"] }
 libc.workspace = true
 byteorder = "1"
 itertools = "0.10"
@@ -31,7 +32,13 @@ rayon = "1.5"
 package = "inkwell"
 version = "0.5.0"
 default-features = false
-features = ["llvm18-0-prefer-static", "target-x86", "target-aarch64", "target-riscv"]
+features = [
+	"llvm18-0-prefer-static",
+	"target-x86",
+	"target-aarch64",
+	"target-riscv",
+	"target-loongarch",
+]
 
 [build-dependencies]
 cc = "1.0"
