@@ -21,14 +21,14 @@ wasmer-compiler = { path = "../compiler", version = "=4.4.0", features = [
 wasmer-types = { path = "../types", version = "=4.4.0", default-features = false, features = [
 	"std",
 ] }
-cranelift-entity = { version = "0.110.2", default-features = false }
-cranelift-codegen = { version = "0.110.2", default-features = false, features = [
+cranelift-entity = { version = "=0.110.2", default-features = false }
+cranelift-codegen = { version = "=0.110.2", default-features = false, features = [
 	"x86",
 	"arm64",
 	"riscv64",
 	"isle-in-source-tree",
 ] }
-cranelift-frontend = { version = "0.110.2", default-features = false }
+cranelift-frontend = { version = "=0.110.2", default-features = false }
 itertools = "0.12.0"
 tracing = "0.1"
 hashbrown = { version = "0.11", optional = true }
@@ -39,7 +39,7 @@ smallvec = "1.6"
 target-lexicon = { version = "0.12.2", default-features = false }
 
 [dev-dependencies]
-cranelift-codegen = { version = "0.110.2", features = ["all-arch"] }
+cranelift-codegen = { version = "=0.110.2", features = ["all-arch"] }
 lazy_static = "1.4"
 
 [badges]
