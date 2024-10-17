@@ -90,6 +90,7 @@ fn main() {
             dst.define("CMAKE_C_COMPILER", "cl.exe");
             dst.define("CMAKE_LINKER_TYPE", "MSVC");
             dst.define("WAMR_BUILD_PLATFORM", "windows");
+            dst.define("WAMR_BUILD_LIBC_UVWASI", "0");
         }
 
         let dst = dst.build();

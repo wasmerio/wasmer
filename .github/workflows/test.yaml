@@ -314,7 +314,7 @@ jobs:
         if: ${{ matrix.build-what.key == 'wasmi' }}
         run: ${{ matrix.build-what.build-cmd }}
 
-      - name: Test v8 API 
+      - name: Test v8 API (Linux + mold) 
         if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
         run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
 
