@@ -287,7 +287,7 @@ jobs:
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
-          sudo apt-get update -y && sudo apt-get install ninja-build clang -y
+          sudo apt-get update -y && sudo apt-get install ninja-build clang mold -y
 
       - name: Install `ninja` on macOS
         if: startsWith(matrix.metadata.build, 'macos-')
@@ -316,7 +316,7 @@ jobs:
 
       - name: Test v8 API 
         if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
-        run: CARGO_X86_64_UNKNOWN_LINUX_GNU_LINKER="clang" ${{ matrix.build-what.build-cmd }}
+        run: CARGO_X86_64_UNKNOWN_LINUX_GNU_LINKER="mold" ${{ matrix.build-what.build-cmd }}
 
       - name: Test v8 API 
         if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
