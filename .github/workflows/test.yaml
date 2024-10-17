@@ -315,12 +315,16 @@ jobs:
         run: ${{ matrix.build-what.build-cmd }}
 
       - name: Test v8 API 
-        if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
+        if: ${{ matrix.build-what.key == 'v8'}}
         run: ${{ matrix.build-what.build-cmd }}
 
-      - name: Build v8 API 
-        if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
-        run: cargo build --package=wasmer --features=v8 --no-default-features -vv 
+        # - name: Test v8 API 
+        #   if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
+        #   run: ${{ matrix.build-what.build-cmd }}
+
+        # - name: Build v8 API 
+        #   if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
+        #   run: cargo build --package=wasmer --features=v8 --no-default-features -vv 
 
   test_build_docs_rs:
     name: Test build docs rs
