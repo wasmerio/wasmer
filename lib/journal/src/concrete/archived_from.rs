@@ -142,6 +142,7 @@ impl From<wasi::ExitCode> for JournalExitCodeV1 {
     fn from(val: wasi::ExitCode) -> Self {
         match val {
             wasi::ExitCode::Errno(errno) => JournalExitCodeV1::Errno(errno as u16),
+            wasi::ExitCode::Other(id) => JournalExitCodeV1::Other(id as i32),
         }
     }
 }
