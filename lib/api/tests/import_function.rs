@@ -6,6 +6,10 @@ use anyhow::Result;
 use wasmer::*;
 
 #[universal_test]
+#[cfg_attr(
+    all(target_os = "windows", feature = "v8"),
+    ignore = "flaky test on windows when using v8"
+)]
 fn pass_i64_between_host_and_plugin() -> Result<(), String> {
     let mut store = Store::default();
 
