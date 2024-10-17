@@ -199,7 +199,7 @@ fn main() {
         #[cfg(target_os = "linux")]
         {
             println!("cargo:rustc-link-lib=wee8");
-            println!("cargo:rustc-link-lib=static=v8_initializers");
+            //println!("cargo:rustc-link-lib=static=v8_initializers");
             println!("cargo:rustc-link-lib=static=v8_libbase");
             println!("cargo:rustc-link-lib=static=v8_base_without_compiler");
             println!("cargo:rustc-link-lib=static=v8_compiler");
