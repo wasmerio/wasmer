@@ -156,11 +156,24 @@ pub unsafe extern "C" fn wasm_val_copy(
     }); otherwise ());
 }
 
+impl Drop for wasm_val_t {
+    fn drop(&mut self) {
+        let kind: Result<wasm_valkind_enum, _> = self.kind.try_into();
+        match kind {
+            Ok(wasm_valkind_enum::WASM_EXTERNREF) | Ok(wasm_valkind_enum::WASM_FUNCREF) => unsafe {
+                if !self.of.wref.is_null() {
+                    drop(Box::from_raw(self.of.wref));
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn wasm_val_delete(val: Option<Box<wasm_val_t>>) {
-    if let Some(val) = val {
-        // TODO: figure out where wasm_val is allocated first...
-        let _ = val;
+pub unsafe extern "C" fn wasm_val_delete(val: *mut wasm_val_t) {
+    if !val.is_null() {
+        std::ptr::drop_in_place(val);
     }
 }
 
