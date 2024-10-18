@@ -172,7 +172,9 @@ impl Drop for wasm_val_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_val_delete(val: *mut wasm_val_t) {
-    std::ptr::drop_in_place(val);
+    if !val.is_null() {
+        std::ptr::drop_in_place(val);
+    }
 }
 
 impl TryFrom<wasm_valkind_t> for wasm_valkind_enum {
