@@ -47,7 +47,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             artifact_name: 'wasmer-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
@@ -55,7 +55,7 @@ jobs:
             use_llvm: true
             build_wasm: true
           - build: linux-x64-v8
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             artifact_name: 'wasmer-v8-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
@@ -63,7 +63,7 @@ jobs:
             use_llvm: true
             build_wasm: true
           - build: linux-x64-wamr
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             artifact_name: 'wasmer-wamr-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
@@ -71,7 +71,7 @@ jobs:
             use_llvm: true
             build_wasm: true
           - build: linux-x64-wasmi
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             artifact_name: 'wasmer-wasmi-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
