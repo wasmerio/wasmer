@@ -223,7 +223,7 @@ jobs:
       - name: Install Linux musl tools
         if: startsWith(matrix.build, 'linux-musl')
         run: |
-          apk add mold cmake ninja bash curl make llvm18 clang18 lld clang18-libclang
+          apk add mold cmake ninja bash curl make llvm18 clang18 lld clang18-static
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
