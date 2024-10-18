@@ -587,6 +587,7 @@ impl WasiThreadHandle {
 }
 
 impl Drop for WasiThreadHandleProtected {
+    // TODO: signal last thread here
     fn drop(&mut self) {
         let id = self.thread.tid();
         if let Some(inner) = Weak::upgrade(&self.inner) {
