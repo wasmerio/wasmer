@@ -12,6 +12,9 @@ on:
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
+  pull_request: # TODO: MUST BE REMOVED! ONLY FOR TESTING
+    branches:
+      - 'main'  # Run jobs on PRs targeting the 'main' branch
   workflow_dispatch:
     inputs:
       release:
@@ -46,6 +49,30 @@ jobs:
           - build: linux-x64
             os: ubuntu-20.04
             artifact_name: 'wasmer-linux-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: linux-x64-v8
+            os: ubuntu-20.04
+            artifact_name: 'wasmer-v8-linux-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: linux-x64-wamr
+            os: ubuntu-20.04
+            artifact_name: 'wasmer-wamr-linux-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: linux-x64-wasmi
+            os: ubuntu-20.04
+            artifact_name: 'wasmer-wasmi-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
@@ -93,6 +120,10 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: ./scripts/alpine-linux-install-deps.sh
+      - name: Install mold
+        if: startsWith(matrix.build, 'linux')
+        run: |
+          apt update && apt install mold
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -203,6 +234,22 @@ jobs:
           make build-wasmer
         env:
           ENABLE_LLVM: 1
+      - name: Build Wasmer with v8 backend
+        if: endsWith(matrix.build, 'v8')
+        run: |          
+          if [ "${{ matrix.build }}" == "linux-x64-v8" ] || [ "${{ matrix.build }}" == "linux-musl-x64-v8" ]; then
+            RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
+          else
+            make build-wasmer-v8
+          fi
+      - name: Build Wasmer with wamr backend
+        if: endsWith(matrix.build, 'wamr')
+        run: |
+          make build-wasmer-wamr
+      - name: Build Wasmer with wasmi backend
+        if: endsWith(matrix.build, 'wasmi')
+        run: |
+          make build-wasmer-wasmi    
       - name: Build Wasmer binary without LLVM
         if: matrix.use_llvm != true
         shell: bash
@@ -213,31 +260,31 @@ jobs:
      #  shell: bash
      #  run: |
      #    make build-wasmer-wasm
-      - name: Install Nightly Rust for Headless
-        if: matrix.build != 'linux-musl-x64'
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "nightly-2023-10-05"
-          target: ${{ matrix.target }}
-          components: "rust-src"
-      - name: Build Minimal Wasmer Headless
-        if: matrix.build != 'linux-musl-x64'
-        run: |
-          cargo install xargo
-          echo "" >> Cargo.toml
-          echo "[profile.release]" >> Cargo.toml
-          echo "opt-level = 'z'" >> Cargo.toml
-          echo "debug = false" >> Cargo.toml
-          echo "debug-assertions = false" >> Cargo.toml
-          echo "overflow-checks = false" >> Cargo.toml
-          echo "lto = true" >> Cargo.toml
-          echo "panic = 'abort'" >> Cargo.toml
-          echo "incremental = false" >> Cargo.toml
-          echo "codegen-units = 1" >> Cargo.toml
-          echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2023-10-05
-          make build-wasmer-headless-minimal
-          rustup override unset
+      # - name: Install Nightly Rust for Headless
+      #   if: matrix.build != 'linux-musl-x64'
+      #   uses: dtolnay/rust-toolchain@master
+      #   with:
+      #     toolchain: "nightly-2023-10-05"
+      #     target: ${{ matrix.target }}
+      #     components: "rust-src"
+      # - name: Build Minimal Wasmer Headless
+      #   if: matrix.build != 'linux-musl-x64'
+      #   run: |
+      #     cargo install xargo
+      #     echo "" >> Cargo.toml
+      #     echo "[profile.release]" >> Cargo.toml
+      #     echo "opt-level = 'z'" >> Cargo.toml
+      #     echo "debug = false" >> Cargo.toml
+      #     echo "debug-assertions = false" >> Cargo.toml
+      #     echo "overflow-checks = false" >> Cargo.toml
+      #     echo "lto = true" >> Cargo.toml
+      #     echo "panic = 'abort'" >> Cargo.toml
+      #     echo "incremental = false" >> Cargo.toml
+      #     echo "codegen-units = 1" >> Cargo.toml
+      #     echo "rpath = false" >> Cargo.toml
+      #     rustup override set nightly-2023-10-05
+      #     make build-wasmer-headless-minimal
+      #     rustup override unset
       - name: Dist
         run: |
           make distribution
