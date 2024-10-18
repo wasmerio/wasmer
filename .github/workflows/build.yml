@@ -223,7 +223,7 @@ jobs:
       - name: Install Linux musl tools
         if: startsWith(matrix.build, 'linux-musl')
         run: |
-          apk add mold cmake ninja bash curl make llvm18
+          apk add mold cmake ninja bash curl make llvm18 clang18
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
@@ -384,7 +384,7 @@ jobs:
       #   if: matrix.build != 'linux-musl-x64'
       #   uses: dtolnay/rust-toolchain@master
       #   with:
-      #     toolchain: "nightly-2023-10-05"
+      #     toolchain: "nightly-2024-07-05"
       #     target: ${{ matrix.target }}
       #     components: "rust-src"
       # - name: Build Minimal Wasmer Headless
@@ -402,7 +402,7 @@ jobs:
       #     echo "incremental = false" >> Cargo.toml
       #     echo "codegen-units = 1" >> Cargo.toml
       #     echo "rpath = false" >> Cargo.toml
-      #     rustup override set nightly-2023-10-05
+      #     rustup override set nightly-2024-07-05
       #     make build-wasmer-headless-minimal
       #     rustup override unset
       - name: Dist
