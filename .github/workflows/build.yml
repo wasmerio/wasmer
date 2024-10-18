@@ -119,33 +119,33 @@ jobs:
           #   build_wasm: false
           #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
           #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          - build: macos-arm64-v8
-            os: macos-14
-            target: aarch64-apple-darwin
-            artifact_name: 'wasmer-v8-darwin-arm64'
-            use_sccache: false
-            use_llvm: false
-            build_wasm: false
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          - build: macos-arm64-wamr
-            os: macos-14
-            target: aarch64-apple-darwin
-            artifact_name: 'wasmer-wamr-darwin-arm64'
-            use_sccache: false
-            use_llvm: false
-            build_wasm: false
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          - build: macos-arm64-wasmi
-            os: macos-14
-            target: aarch64-apple-darwin
-            artifact_name: 'wasmer-wasmi-darwin-arm64'
-            use_sccache: false
-            use_llvm: false
-            build_wasm: false
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+          # - build: macos-arm64-v8
+          #   os: macos-14
+          #   target: aarch64-apple-darwin
+          #   artifact_name: 'wasmer-v8-darwin-arm64'
+          #   use_sccache: false
+          #   use_llvm: false
+          #   build_wasm: false
+          #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+          # - build: macos-arm64-wamr
+          #   os: macos-14
+          #   target: aarch64-apple-darwin
+          #   artifact_name: 'wasmer-wamr-darwin-arm64'
+          #   use_sccache: false
+          #   use_llvm: false
+          #   build_wasm: false
+          #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+          # - build: macos-arm64-wasmi
+          #   os: macos-14
+          #   target: aarch64-apple-darwin
+          #   artifact_name: 'wasmer-wasmi-darwin-arm64'
+          #   use_sccache: false
+          #   use_llvm: false
+          #   build_wasm: false
+          #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           # - build: windows-x64
           #   os: windows-2019
           #   artifact_name: 'wasmer-windows-amd64'
@@ -185,6 +185,27 @@ jobs:
           #   use_sccache: false
           #   use_llvm: false
           #   build_wasm: true
+          - build: linux-musl-x64-v8
+            os: ubuntu-latest
+            artifact_name: 'wasmer-v8-linux-musl-amd64'
+            container: alpine:latest
+            use_sccache: false
+            use_llvm: false
+            build_wasm: true
+          - build: linux-musl-x64-wamr
+            os: ubuntu-latest
+            artifact_name: 'wasmer-wamr-linux-musl-amd64'
+            container: alpine:latest
+            use_sccache: false
+            use_llvm: false
+            build_wasm: true
+          - build: linux-musl-x64-wasmi
+            os: ubuntu-latest
+            artifact_name: 'wasmer-wasmi-linux-musl-amd64'
+            container: alpine:latest
+            use_sccache: false
+            use_llvm: false
+            build_wasm: true
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
