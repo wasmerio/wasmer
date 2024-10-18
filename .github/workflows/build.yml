@@ -314,14 +314,14 @@ jobs:
         if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux') }}
         run: |
             make build-wasmer-v8
-      # - name: Build Wasmer with wamr backend
-      #   if: endsWith(matrix.build, 'wamr')
-      #   run: |
-      #     make build-wasmer-wamr
-      # - name: Build Wasmer with wasmi backend
-      #   if: endsWith(matrix.build, 'wasmi')
-      #   run: |
-      #     make build-wasmer-wasmi    
+      - name: Build Wasmer with wamr backend
+        if: endsWith(matrix.build, 'wamr')
+        run: |
+          make build-wasmer-wamr
+      - name: Build Wasmer with wasmi backend
+        if: endsWith(matrix.build, 'wasmi')
+        run: |
+          make build-wasmer-wasmi    
       # - name: Build Wasmer binary without LLVM
       #   if: matrix.use_llvm != true
       #   shell: bash
