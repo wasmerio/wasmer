@@ -42,9 +42,6 @@ jobs:
     name: Build on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: setup
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
