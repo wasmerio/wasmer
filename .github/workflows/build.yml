@@ -224,6 +224,7 @@ jobs:
         if: startsWith(matrix.build, 'linux-musl')
         run: |
           apk add mold cmake ninja bash curl make llvm18 clang18 lld clang18-static clang18-libclang
+          echo "LIBCLANG_STATIC_PATH=/usr/lib/llvm18/lib" >> $GITHUB_ENV
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
@@ -357,11 +358,12 @@ jobs:
       - name: Build Wasmer with v8 backend with mold
         if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux-x64') }}
         run: |
-            RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
+          RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
       - name: Build Wasmer with v8 backend
         if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux-x64') }}
         run: |
-            make build-wasmer-v8
+          echo $LIBCLANG_STATIC_PATH
+          make build-wasmer-v8
       - name: Build Wasmer with wamr backend
         if: endsWith(matrix.build, 'wamr')
         run: |
