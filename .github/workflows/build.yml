@@ -86,14 +86,14 @@ jobs:
           #   use_sccache: false
           #   use_llvm: true
           #   build_wasm: false
-          - build: macos-x64-v8
-            os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-v8-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
+          # - build: macos-x64-v8
+          #   os: macos-13
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+          #   artifact_name: 'wasmer-v8-darwin-amd64'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
           # - build: macos-x64-wamr
           #   os: macos-13
           #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
@@ -127,6 +127,30 @@ jobs:
           #   use_sccache: false
           #   use_llvm: true
           #   build_wasm: false
+          - build: windows-x64-v8
+            os: windows-2019
+            artifact_name: 'wasmer-v8-windows-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: windows-x64-wamr
+            os: windows-2019
+            artifact_name: 'wasmer-wamr-windows-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: windows-x64-wasmi
+            os: windows-2019
+            artifact_name: 'wasmer-wasmi-windows-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
           # - build: linux-musl-x64
           #   os: ubuntu-latest
           #   artifact_name: 'wasmer-linux-musl-amd64'
@@ -162,12 +186,19 @@ jobs:
         shell: bash
         run: |
           choco install ninja
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        if: startsWith(matrix.build, 'windows-')
+        shell: bash
+        run: rm /usr/bin/link.exe
       - name: Install standard header files on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
         run: |
           sudo xcode-select -s /Library/Developer/CommandLineTools
           export CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.build == 'windows-x64' }}
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -189,9 +220,6 @@ jobs:
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
         env:
           LLVM_DIR: .llvm
-      - name: Install MSVC dev-cmd (Windows)
-        uses: ilammy/msvc-dev-cmd@v1
-        if: ${{ matrix.metadata.build == 'windows-x64' }}
       - name: Configure LLVM (Windows)
         # The Custom Windows build does not contains llvm-config.exe, so need to setup manualy here
         if: matrix.build == 'windows-x64' && matrix.llvm_url
