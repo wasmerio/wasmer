@@ -167,6 +167,7 @@ jobs:
         shell: bash
         run: |
           sudo xcode-select -s /Library/Developer/CommandLineTools
+          export CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -280,6 +281,7 @@ jobs:
       - name: Build Wasmer with v8 backend
         if: endsWith(matrix.build, 'v8')
         run: |          
+          echo $CPATH
           if [ "${{ matrix.build }}" == "linux-x64-v8" ] || [ "${{ matrix.build }}" == "linux-musl-x64-v8" ]; then
             RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
           else
