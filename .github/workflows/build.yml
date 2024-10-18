@@ -249,7 +249,7 @@ jobs:
           LLVM_DIR: .llvm
       - name: Configure LLVM (Windows)
         # The Custom Windows build does not contains llvm-config.exe, so need to setup manualy here
-        if: matrix.build == 'windows-x64' && matrix.llvm_url
+        if: startsWith(matrix.build, 'windows-x64') && matrix.llvm_url
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
