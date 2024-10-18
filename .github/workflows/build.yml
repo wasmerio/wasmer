@@ -86,30 +86,30 @@ jobs:
           #   use_sccache: false
           #   use_llvm: true
           #   build_wasm: false
-          # - build: macos-x64-v8
-          #   os: macos-13
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          #   artifact_name: 'wasmer-v8-darwin-amd64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: macos-x64-wamr
-          #   os: macos-13
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          #   artifact_name: 'wasmer-wamr-darwin-amd64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: macos-x64-wasmi
-          #   os: macos-13
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          #   artifact_name: 'wasmer-wasmi-darwin-amd64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
+          - build: macos-x64-v8
+            os: macos-13
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-v8-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-x64-wamr
+            os: macos-13
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-wamr-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-x64-wasmi
+            os: macos-13
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-wasmi-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
           # - build: macos-arm64
           #   os: macos-14
           #   target: aarch64-apple-darwin
@@ -127,30 +127,30 @@ jobs:
           #   use_sccache: false
           #   use_llvm: true
           #   build_wasm: false
-          - build: windows-x64-v8
-            os: windows-2022
-            artifact_name: 'wasmer-v8-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: windows-x64-wamr
-            os: windows-2022
-            artifact_name: 'wasmer-wamr-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: windows-x64-wasmi
-            os: windows-2022
-            artifact_name: 'wasmer-wasmi-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
+          # - build: windows-x64-v8
+          #   os: windows-2022
+          #   artifact_name: 'wasmer-v8-windows-amd64'
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
+          # - build: windows-x64-wamr
+          #   os: windows-2022
+          #   artifact_name: 'wasmer-wamr-windows-amd64'
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
+          # - build: windows-x64-wasmi
+          #   os: windows-2022
+          #   artifact_name: 'wasmer-wasmi-windows-amd64'
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
           # - build: linux-musl-x64
           #   os: ubuntu-latest
           #   artifact_name: 'wasmer-linux-musl-amd64'
@@ -195,7 +195,7 @@ jobs:
         shell: bash
         run: |
           sudo xcode-select -s /Library/Developer/CommandLineTools
-          export CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
+          echo "CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include" >> $GITHUB_ENV
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-')
@@ -236,7 +236,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.os == 'macos-12'
+        if: matrix.os == 'macos-13'
       - uses: actions/cache@v2
         with:
           path: |
