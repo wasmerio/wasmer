@@ -78,14 +78,14 @@ jobs:
           #   use_sccache: false
           #   use_llvm: true
           #   build_wasm: true
-          - build: macos-x64
-            os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
+          # - build: macos-x64
+          #   os: macos-13
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+          #   artifact_name: 'wasmer-darwin-amd64'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
           - build: macos-x64-v8
             os: macos-13
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
@@ -94,22 +94,22 @@ jobs:
             use_sccache: false
             use_llvm: true
             build_wasm: false
-          - build: macos-x64-wamr
-            os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-wamr-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: macos-x64-wasmi
-            os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-wasmi-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
+          # - build: macos-x64-wamr
+          #   os: macos-13
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+          #   artifact_name: 'wasmer-wamr-darwin-amd64'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
+          # - build: macos-x64-wasmi
+          #   os: macos-13
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+          #   artifact_name: 'wasmer-wasmi-darwin-amd64'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
           # - build: macos-arm64
           #   os: macos-14
           #   target: aarch64-apple-darwin
@@ -166,6 +166,7 @@ jobs:
         if: startsWith(matrix.build, 'macos-')
         shell: bash
         run: |
+          sudo xcode-select --install
           sudo xcode-select -s /Library/Developer/CommandLineTools
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
