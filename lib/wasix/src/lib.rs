@@ -114,6 +114,8 @@ pub use crate::{
 pub enum WasiError {
     #[error("WASI exited with code: {0}")]
     Exit(ExitCode),
+    #[error("WASI thread exited")]
+    ThreadExit,
     #[error("WASI deep sleep: {0:?}")]
     DeepSleep(DeepSleepWork),
     #[error("The WASI version could not be determined")]
