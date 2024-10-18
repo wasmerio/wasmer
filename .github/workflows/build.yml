@@ -291,14 +291,14 @@ jobs:
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
-      - name: Build C API headless
-        shell: bash
-        run: |
-          make package-capi-headless
-      - name: Build C API
-        shell: bash
-        run: |
-          make build-capi
+      # - name: Build C API headless
+      #   shell: bash
+      #   run: |
+      #     make package-capi-headless
+      # - name: Build C API
+      #   shell: bash
+      #   run: |
+      #     make build-capi
       # - name: Build Wasmer binary with LLVM
       #   if: matrix.use_llvm
       #   shell: bash
@@ -308,6 +308,7 @@ jobs:
       #     ENABLE_LLVM: 1
       - name: Build Wasmer with v8 backend
         if: endsWith(matrix.build, 'v8')
+        shell: bash
         run: |          
           echo $CPATH
           if [ "${{ matrix.build }}" == "linux-x64-v8" ] || [ "${{ matrix.build }}" == "linux-musl-x64-v8" ]; then
@@ -315,14 +316,14 @@ jobs:
           else
             make build-wasmer-v8
           fi
-      - name: Build Wasmer with wamr backend
-        if: endsWith(matrix.build, 'wamr')
-        run: |
-          make build-wasmer-wamr
-      - name: Build Wasmer with wasmi backend
-        if: endsWith(matrix.build, 'wasmi')
-        run: |
-          make build-wasmer-wasmi    
+      # - name: Build Wasmer with wamr backend
+      #   if: endsWith(matrix.build, 'wamr')
+      #   run: |
+      #     make build-wasmer-wamr
+      # - name: Build Wasmer with wasmi backend
+      #   if: endsWith(matrix.build, 'wasmi')
+      #   run: |
+      #     make build-wasmer-wasmi    
       # - name: Build Wasmer binary without LLVM
       #   if: matrix.use_llvm != true
       #   shell: bash
