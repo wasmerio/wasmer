@@ -135,22 +135,22 @@ jobs:
             use_sccache: false
             use_llvm: true
             build_wasm: false
-          - build: windows-x64-wamr
-            os: windows-2019
-            artifact_name: 'wasmer-wamr-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: windows-x64-wasmi
-            os: windows-2019
-            artifact_name: 'wasmer-wasmi-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
+          # - build: windows-x64-wamr
+          #   os: windows-2019
+          #   artifact_name: 'wasmer-wamr-windows-amd64'
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
+          # - build: windows-x64-wasmi
+          #   os: windows-2019
+          #   artifact_name: 'wasmer-wasmi-windows-amd64'
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
+          #   use_sccache: false
+          #   use_llvm: true
+          #   build_wasm: false
           # - build: linux-musl-x64
           #   os: ubuntu-latest
           #   artifact_name: 'wasmer-linux-musl-amd64'
@@ -306,16 +306,14 @@ jobs:
       #     make build-wasmer
       #   env:
       #     ENABLE_LLVM: 1
-      - name: Build Wasmer with v8 backend
-        if: endsWith(matrix.build, 'v8')
-        shell: bash
-        run: |          
-          echo $CPATH
-          if [ "${{ matrix.build }}" == "linux-x64-v8" ] || [ "${{ matrix.build }}" == "linux-musl-x64-v8" ]; then
+      - name: Build Wasmer with v8 backend with mold
+        if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux') }}
+        run: |
             RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
-          else
+      - name: Build Wasmer with v8 backend
+        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux') }}
+        run: |
             make build-wasmer-v8
-          fi
       # - name: Build Wasmer with wamr backend
       #   if: endsWith(matrix.build, 'wamr')
       #   run: |
