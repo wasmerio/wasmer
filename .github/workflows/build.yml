@@ -123,7 +123,7 @@ jobs:
       - name: Install mold
         if: startsWith(matrix.build, 'linux')
         run: |
-          apt update && apt install mold
+          sudo apt update && sudo apt install mold
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
