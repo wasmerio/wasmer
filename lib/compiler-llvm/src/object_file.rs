@@ -231,6 +231,26 @@ where
                     object::RelocationKind::Elf(object::elf::R_RISCV_PCREL_LO12_I),
                     0,
                 ) => RelocationKind::RiscvPCRelLo12I,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS_HI20),
+                    0,
+                ) => RelocationKind::LArchAbsHi20,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS_LO12),
+                    0,
+                ) => RelocationKind::LArchAbsLo12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_HI12),
+                    0,
+                ) => RelocationKind::LArchAbs64Hi12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_LO20),
+                    0,
+                ) => RelocationKind::LArchAbs64Lo20,
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",
