@@ -223,7 +223,7 @@ jobs:
       - name: Install Linux musl tools
         if: startsWith(matrix.build, 'linux-musl')
         run: |
-          apk add mold ninja
+          apk add mold ninja bash
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
