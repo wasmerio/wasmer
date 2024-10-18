@@ -534,13 +534,8 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi',
+            build-cmd: 'make build-wasmer && make build-capi && make package-capi',
             name: 'Build C-API'
-          },
-          {
-            key: wasmer,
-            build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
-            name: 'Build wasmer-cli'
           }
         ]
     steps:
@@ -594,13 +589,8 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi',
+            build-cmd: 'make build-wasmer && make build-capi && make package-capi',
             name: 'Build C-API'
-          },
-          {
-            key: wasmer,
-            build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
-            name: 'Build wasmer-cli'
           }
         ]
     steps:
