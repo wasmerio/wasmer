@@ -156,7 +156,7 @@ jobs:
         if: startsWith(matrix.build, 'macos-')
         shell: bash
         run: |
-          brew install ninja
+          brew install ninja gcc
       - name: Install `ninja` on Windows
         if: startsWith(matrix.build, 'windows-')
         shell: bash
@@ -166,7 +166,6 @@ jobs:
         if: startsWith(matrix.build, 'macos-')
         shell: bash
         run: |
-          sudo xcode-select --install
           sudo xcode-select -s /Library/Developer/CommandLineTools
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
