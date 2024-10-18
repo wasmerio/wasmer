@@ -198,7 +198,7 @@ jobs:
           export CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
-        if: ${{ matrix.build == 'windows-x64' }}
+        if: startsWith(matrix.build, 'windows-')
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
