@@ -534,7 +534,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-wasmer &&  make package-capi-headless && make build-capi && make package-capi',
+            build-cmd: 'make build-capi && make package-capi',
             name: 'Build C-API'
           },
           {
@@ -594,7 +594,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-wasmer &&  make package-capi-headless && make build-capi && make package-capi',
+            build-cmd: 'make build-capi && make package-capi',
             name: 'Build C-API'
           },
           {
