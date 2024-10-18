@@ -166,7 +166,7 @@ jobs:
         if: startsWith(matrix.build, 'macos-')
         shell: bash
         run: |
-          xcode-select -s /Library/Developer/CommandLineTools
+          sudo xcode-select -s /Library/Developer/CommandLineTools
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
