@@ -355,11 +355,11 @@ jobs:
       #   env:
       #     ENABLE_LLVM: 1
       - name: Build Wasmer with v8 backend with mold
-        if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux') }}
+        if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux-x64') }}
         run: |
             RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
       - name: Build Wasmer with v8 backend
-        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux') }}
+        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux-x64') }}
         run: |
             make build-wasmer-v8
       - name: Build Wasmer with wamr backend
