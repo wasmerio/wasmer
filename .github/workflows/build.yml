@@ -86,6 +86,30 @@ jobs:
             use_sccache: false
             use_llvm: true
             build_wasm: false
+          - build: macos-x64-v8
+            os: macos-12
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-v8-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-x64-wamr
+            os: macos-12
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-wamr-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-x64-wasmi
+            os: macos-12
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-wasmi-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
           - build: macos-arm64
             os: macos-14
             target: aarch64-apple-darwin
@@ -120,10 +144,24 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: ./scripts/alpine-linux-install-deps.sh
-      - name: Install mold
-        if: startsWith(matrix.build, 'linux')
+      - name: Install Linux tools
+        if: startsWith(matrix.build, 'linux-x64')
         run: |
-          sudo apt update && sudo apt install mold
+          sudo apt install mold ninja-build
+      - name: Install Linux musl tools
+        if: startsWith(matrix.build, 'linux-musl')
+        run: |
+          apk add mold ninja
+      - name: Install `ninja` on macOS
+        if: startsWith(matrix.build, 'macos-')
+        shell: bash
+        run: |
+          brew install ninja
+      - name: Install `ninja` on Windows
+        if: startsWith(matrix.build, 'windows-')
+        shell: bash
+        run: |
+          choco install ninja
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -219,14 +257,14 @@ jobs:
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
-      # - name: Build C API headless
-      #   shell: bash
-      #   run: |
-      #     make package-capi-headless
-      # - name: Build C API
-      #   shell: bash
-      #   run: |
-      #     make build-capi
+      - name: Build C API headless
+        shell: bash
+        run: |
+          make package-capi-headless
+      - name: Build C API
+        shell: bash
+        run: |
+          make build-capi
       # - name: Build Wasmer binary with LLVM
       #   if: matrix.use_llvm
       #   shell: bash
