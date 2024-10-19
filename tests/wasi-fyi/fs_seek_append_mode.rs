@@ -13,8 +13,9 @@ fn main() {
     // file offset must be 1 now
     write!(file, "{}", "a").unwrap();
 
-    // rewind should not work on file in append mode
-    // since the offset must always be at the end of the file
+    // rewind should not work on file in append mode.
+    // It changes the offset, which is immediately set to the end of the file
+    // with a write.
     let _ = file.rewind();
 
     // file offset must be 2 now
