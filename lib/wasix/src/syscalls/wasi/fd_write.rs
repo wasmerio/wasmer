@@ -167,8 +167,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                         fd_entry.offset.store(offset, Ordering::Release);
                                     }
 
-                                    println!("whoa {offset}");
-
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset))
                                         .await
@@ -207,8 +205,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                         written += data.len();
                                     }
                                 }
-
-                                println!("written {written} {}", handle.size());
 
                                 if is_stdio {
                                     handle.flush().await.map_err(map_io_err)?;
