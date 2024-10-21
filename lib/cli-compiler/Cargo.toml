@@ -38,14 +38,14 @@ target-lexicon = { version = "0.12", features = ["std"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-compiler-singlepass = { version = "=5.0.0-rc.1", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-cranelift = { version = "=5.0.0-rc.1", path = "../compiler-cranelift", optional = true }
-clap = { version = "5.0.0-rc.1", features = ["derive", "env"] }
+clap = { version = "4.4.0", features = ["derive", "env"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasmer-compiler-singlepass = { version = "=5.0.0-rc.1", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
 wasmer-compiler-cranelift = { version = "=5.0.0-rc.1", path = "../compiler-cranelift", optional = true, default-features = false, features = ["wasm"] }
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi, due to the anstream dependency not compiling.
-clap = { version = "5.0.0-rc.1", default-features = false, features = [
+clap = { version = "4.4.0", default-features = false, features = [
   "std",
   "help",
   "usage",

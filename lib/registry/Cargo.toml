@@ -23,7 +23,7 @@ full = []
 
 [dependencies]
 anyhow = "1.0.65"
-clap = { version = "5.0.0-rc.1", default-features = false, features = [
+clap = { version = "4.4.0", default-features = false, features = [
 	"derive",
 	"env",
 ], optional = true }
