@@ -13,15 +13,15 @@ name = "wasmer_swift"
 thiserror = "1"
 tokio = { version = "1.28.1", features = [ "rt" ], default-features = false }
 uniffi = "0.27"
-virtual-fs = { path = "../virtual-fs", version = "0.18.0", default-features = false, features = [
+virtual-fs = { version = "=0.18.0", default-features = false, features = [
 	"webc-fs",
 ] }
-wasmer = { version = "5.0.0-rc.1", path = "../api", default-features = false, features = [
+wasmer = { version = "=5.0.0-rc.1", path = "../api", default-features = false, features = [
 	"wamr",
 	"std",
 ] }
-wasmer-wasix.workspace = true
-webc.workspace = true
+wasmer-wasix = "=0.29.0"
+webc = { version = "6.1.0", default-features = false, features = ["package"] }
 
 
 [build-dependencies]
