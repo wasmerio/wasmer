@@ -1,6 +1,6 @@
 [package]
 name = "virtual-fs"
-version = "0.17.0"
+version = "0.18.0"
 description = "Wasmer Virtual FileSystem"
 authors.workspace = true
 edition.workspace = true
@@ -27,33 +27,51 @@ replace_with = "0.1.7"
 shared-buffer = { workspace = true }
 slab = { version = "0.4" }
 thiserror = "1"
-tokio = { workspace = true, features = ["io-util", "sync", "macros"], default-features = false }
+
+tokio = { workspace = true, features = [
+	"io-util",
+	"sync",
+	"macros",
+], default-features = false }
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 webc = { workspace = true, optional = true, features = ["v1"] }
-serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0", default-features = false, features = [
+	"derive",
+], optional = true }
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
 getrandom = { version = "0.2" }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.2", features = [ "js" ] }
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 pretty_assertions.workspace = true
 tempfile = "3.6.0"
 tracing-test = "0.2.4"
-tokio = { workspace = true, features = ["io-util", "rt"], default-features = false }
+tokio = { workspace = true, features = [
+	"io-util",
+	"rt",
+], default-features = false }
 
 [features]
 default = ["host-fs", "webc-fs", "static-fs"]
-host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std", "tokio/rt"]
+host-fs = [
+	"libc",
+	"fs_extra",
+	"filetime",
+	"tokio/fs",
+	"tokio/io-std",
+	"tokio/rt",
+]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
 enable-serde = ["typetag", "serde"]
 no-time = []
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []
+futures = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

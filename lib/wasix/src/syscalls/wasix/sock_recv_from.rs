@@ -134,7 +134,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
     };
     Span::current()
         .record("nread", bytes_read)
-        .record("peer", &format!("{:?}", peer));
+        .record("peer", format!("{:?}", peer));
 
     wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
 

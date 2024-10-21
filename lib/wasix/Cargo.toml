@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.28.0"
+version = "0.29.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -13,14 +13,14 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer-wasix-types = { path = "../wasi-types", version = "0.28.0", features = [ "enable-serde" ] }
-wasmer-types = { path = "../types", version = "=4.4.0", default-features = false }
-wasmer = { path = "../api", version = "=4.4.0", default-features = false, features = ["wat", "js-serializable-module"] }
-virtual-mio  = { path = "../virtual-io", version = "0.4.0", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.17.0", default-features = false, features = ["webc-fs"] }
-virtual-net = { path = "../virtual-net", version = "0.9.0", default-features = false, features = ["rkyv"] }
-wasmer-journal = { path = "../journal", version = "0.10.0", default-features = false }
-wasmer-emscripten = { path = "../emscripten", version = "=4.4.0", optional = true }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.29.0", features = [ "enable-serde" ] }
+wasmer-types = { path = "../types", version = "=5.0.0-rc.1", default-features = false }
+wasmer = { path = "../api", version = "=5.0.0-rc.1", default-features = false, features = ["wat", "js-serializable-module"] }
+virtual-mio  = { path = "../virtual-io", version = "0.5.0", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.18.0", default-features = false, features = ["webc-fs"] }
+virtual-net = { path = "../virtual-net", version = "0.10.0", default-features = false, features = ["rkyv"] }
+wasmer-journal = { path = "../journal", version = "0.11.0", default-features = false }
+wasmer-emscripten = { path = "../emscripten", version = "=5.0.0-rc.1", optional = true }
 wasmer-config = { version = "0.9.0", path = "../config" }
 
 http.workspace = true
@@ -41,7 +41,11 @@ getrandom = "0.2"
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 bincode = { version = "1.3" }
-chrono = { version = "^0.4.31", default-features = false, features = [ "wasmbind", "std", "clock" ], optional = true }
+chrono = { version = "^0.4.31", default-features = false, features = [
+	"wasmbind",
+	"std",
+	"clock",
+], optional = true }
 derivative = { version = "^2" }
 bytes = "1"
 anyhow = { version = "1.0.66" }
@@ -51,12 +55,12 @@ waker-fn = { version = "1.1" }
 cooked-waker = "^5"
 rand = "0.8"
 tokio = { workspace = true, features = [
-    "sync",
-    "macros",
-    "time",
-    "rt",
+	"sync",
+	"macros",
+	"time",
+	"rt",
 ], default-features = false }
-tokio-stream = { version = "0.1", features = [ "sync" ] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 futures = { version = "0.3" }
 # used by feature='os'
 async-trait = { version = "^0.1" }
@@ -76,10 +80,10 @@ num_enum = "0.5.7"
 wcgi = { version = "0.2.0", optional = true }
 wcgi-host = { version = "0.2.0", optional = true }
 tower-http = { version = "0.5.0", features = [
-    "trace",
-    "util",
-    "catch-panic",
-    "cors",
+	"trace",
+	"util",
+	"catch-panic",
+	"cors",
 ], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
@@ -92,27 +96,33 @@ wasm-bindgen = { version = "0.2.87", optional = true }
 js-sys = { version = "0.3.64", optional = true }
 wasm-bindgen-futures = { version = "0.4.37", optional = true }
 web-sys = { version = "0.3.64", features = [
-    "Request",
-    "RequestInit",
-    "Window",
-    "WorkerGlobalScope",
-    "RequestMode",
-    "Response",
-    "Headers",
+	"Request",
+	"RequestInit",
+	"Window",
+	"WorkerGlobalScope",
+	"RequestMode",
+	"Response",
+	"Headers",
 ], optional = true }
 ahash = "0.8.11"
-hyper-util = { version = "0.1.5", features = ["server", "server-graceful", "tokio", "service", "client"], optional = true }
-http-body-util = { version="0.1.1", optional = true }
+hyper-util = { version = "0.1.5", features = [
+	"server",
+	"server-graceful",
+	"tokio",
+	"service",
+	"client",
+], optional = true }
+http-body-util = { version = "0.1.1", optional = true }
 toml = "0.8"
 pin-utils = "0.1.0"
 
-[target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
+[target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
 default-features = false
 features = ["rustls-tls", "json", "stream", "socks", "blocking"]
 optional = true
 
-[target.'cfg(target_arch = "riscv64")'.dependencies.reqwest]
+[target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies.reqwest]
 workspace = true
 default-features = false
 features = ["native-tls", "json", "stream", "socks", "blocking"]
@@ -125,13 +135,15 @@ libc.workspace = true
 termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_SystemInformation"] }
+windows-sys = { version = "0.59", features = [
+	"Win32_System_SystemInformation",
+] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 terminal_size = { version = "0.3.0" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=4.4.0", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer = { path = "../api", version = "=5.0.0-rc.1", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { workspace = true, features = [ "sync", "macros", "rt" ], default-features = false }
 pretty_assertions.workspace = true
 tracing-test = "0.2.4"
@@ -143,7 +155,7 @@ tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tracing-subscriber = { version = "^0.3" }
-wasmer = { path = "../api", version = "=4.4.0", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
+wasmer = { path = "../api", version = "=5.0.0-rc.1", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
 
 [features]
 default = ["sys-default"]
@@ -151,23 +163,38 @@ default = ["sys-default"]
 time = ["tokio/time"]
 ctrlc = ["tokio/signal"]
 
-webc_runner_rt_wcgi = ["hyper", "hyper-util", "http-body-util", "wcgi", "wcgi-host", "tower", "tower-http"]
+webc_runner_rt_wcgi = [
+	"hyper",
+	"hyper-util",
+	"http-body-util",
+	"wcgi",
+	"wcgi-host",
+	"tower",
+	"tower-http",
+]
 webc_runner_rt_dcgi = ["webc_runner_rt_wcgi", "journal"]
-webc_runner_rt_dproxy = ["hyper", "hyper-util", "http-body-util", "tower", "tower-http", "journal"]
+webc_runner_rt_dproxy = [
+	"hyper",
+	"hyper-util",
+	"http-body-util",
+	"tower",
+	"tower-http",
+	"journal",
+]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["webc/mmap", "time", "virtual-mio/sys"]
 sys-default = [
-    "sys",
-    "logging",
-    "host-fs",
-    "journal",
-    "sys-poll",
-    "sys-thread",
-    "host-vnet",
-    "host-threads",
-    "host-reqwest",
-    "ctrlc"
+	"sys",
+	"logging",
+	"host-fs",
+	"journal",
+	"sys-poll",
+	"sys-thread",
+	"host-vnet",
+	"host-threads",
+	"host-reqwest",
+	"ctrlc",
 ]
 sys-poll = []
 extra-logging = []
@@ -178,13 +205,13 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 compiler = []
 
 js = [
-    "virtual-fs/no-time",
-    "getrandom/js",
-    "chrono",
-    "js-sys",
-    "wasm-bindgen",
-    "wasm-bindgen-futures",
-    "web-sys",
+	"virtual-fs/no-time",
+	"getrandom/js",
+	"chrono",
+	"js-sys",
+	"wasm-bindgen",
+	"wasm-bindgen-futures",
+	"web-sys",
 ]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
@@ -198,18 +225,18 @@ remote-vnet = ["virtual-net/remote"]
 logging = ["tracing/log"]
 disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
 enable-serde = [
-    "typetag",
-    "virtual-fs/enable-serde",
-    "wasmer-wasix-types/enable-serde",
+	"typetag",
+	"virtual-fs/enable-serde",
+	"wasmer-wasix-types/enable-serde",
 ]
 
 [package.metadata.docs.rs]
 features = [
-    "wasmer/sys",
-    "webc_runner_rt_wcgi",
-    "webc_runner_rt_dcgi",
-    "webc_runner_rt_dproxy",
-    "webc_runner_rt_emscripten",
-    "sys-default",
+	"wasmer/sys",
+	"webc_runner_rt_wcgi",
+	"webc_runner_rt_dcgi",
+	"webc_runner_rt_dproxy",
+	"webc_runner_rt_emscripten",
+	"sys-default",
 ]
 rustc-args = ["--cfg", "docsrs"]

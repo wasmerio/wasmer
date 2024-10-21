@@ -9,7 +9,7 @@
     rustdoc::broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
-#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![allow(clippy::new_without_default, ambiguous_wide_pointer_comparisons)]
 #![warn(
     clippy::float_arithmetic,
     clippy::mut_mut,
@@ -42,7 +42,7 @@
 //!     (module
 //!       (type $t0 (func (param i32) (result i32)))
 //!       (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-//!         get_local $p0
+//!         local.get $p0
 //!         i32.const 1
 //!         i32.add))
 //!     "#;
@@ -355,7 +355,7 @@
 //!     (module
 //!       (type $t0 (func (param i32) (result i32)))
 //!       (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-//!         get_local $p0
+//!         local.get $p0
 //!         i32.const 1
 //!         i32.add))
 //!     "#;
@@ -391,8 +391,15 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
-#[cfg(all(not(feature = "sys"), not(feature = "js"), not(feature = "jsc")))]
-compile_error!("One of: `sys`, `js` or `jsc` features must be enabled. Please, pick one.");
+#[cfg(all(
+    not(feature = "sys"),
+    not(feature = "js"),
+    not(feature = "jsc"),
+    not(feature = "wasm-c-api")
+))]
+compile_error!(
+    "One of: `sys`, `js`, `jsc` or `wasm-c-api` features must be enabled. Please, pick one."
+);
 
 #[cfg(all(feature = "sys", feature = "js"))]
 compile_error!(
@@ -404,9 +411,24 @@ compile_error!(
     "Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one."
 );
 
+#[cfg(all(feature = "js", feature = "wasm-c-api"))]
+compile_error!(
+    "Cannot have both `js` and `wasm-c-api` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "jsc", feature = "wasm-c-api"))]
+compile_error!(
+    "Cannot have both `jsc` and `wasm-c-api` features enabled at the same time. Please, pick one."
+);
+
 #[cfg(all(feature = "sys", feature = "jsc"))]
 compile_error!(
     "Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "sys", feature = "wasm-c-api"))]
+compile_error!(
+    "Cannot have both `sys` and `wasm-c-api` features enabled at the same time. Please, pick one."
 );
 
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
@@ -443,47 +465,33 @@ pub mod vm;
 mod module_info_polyfill;
 
 #[cfg(feature = "sys")]
-/// sys
+/// The `sys` engine.
 pub mod sys;
-
 #[cfg(feature = "sys")]
+/// Re-export `sys` definitions.
 pub use sys::*;
 
-#[cfg(feature = "sys")]
-#[deprecated(note = "wasmer::Artifact is deprecated, use wasmer::sys::Artifact instead")]
-/// A compiled wasm module, ready to be instantiated.
-pub type Artifact = sys::Artifact;
-#[cfg(feature = "sys")]
-#[deprecated(note = "wasmer::EngineBuilder is deprecated, use wasmer::sys::EngineBuilder instead")]
-/// The Builder contents of `Engine`
-pub type EngineBuilder = sys::EngineBuilder;
-#[cfg(feature = "sys")]
-#[deprecated(note = "wasmer::Features is deprecated, use wasmer::sys::Features instead")]
-/// Controls which experimental features will be enabled.
-pub type Features = sys::Features;
-#[cfg(feature = "sys")]
-#[deprecated(note = "wasmer::BaseTunables is deprecated, use wasmer::sys::BaseTunables instead")]
-/// Tunable parameters for WebAssembly compilation.
-/// This is the reference implementation of the `Tunables` trait,
-/// used by default.
-pub type BaseTunables = sys::BaseTunables;
-#[cfg(feature = "sys")]
-#[deprecated(note = "wasmer::VMConfig is deprecated, use wasmer::sys::VMConfig instead")]
-/// Configuration for the runtime VM
-/// Currently only the stack size is configurable
-pub type VMConfig = sys::VMConfig;
-
 #[cfg(feature = "js")]
+/// The `js` engine.
 mod js;
-
 #[cfg(feature = "js")]
+/// Re-export `js` definitions.
 pub use js::*;
 
 #[cfg(feature = "jsc")]
+/// The `jsc` engine.
 mod jsc;
-
 #[cfg(feature = "jsc")]
+/// Re-export `jsc` definitions.
 pub use jsc::*;
+
+#[cfg(feature = "wasm-c-api")]
+/// The `c-api` engine.
+mod c_api;
+#[cfg(feature = "wasm-c-api")]
+/// Re-export `c-api` definitions.
+#[allow(unused_imports)]
+pub use c_api::*;
 
 pub use crate::externals::{
     Extern, Function, Global, HostFunction, Memory, MemoryLocation, MemoryView, SharedMemory, Table,
@@ -506,7 +514,7 @@ pub use store::{
 };
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
-#[cfg(any(feature = "sys", feature = "jsc"))]
+#[cfg(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"))]
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use typed_function::TypedFunction;
 pub use value::Value;

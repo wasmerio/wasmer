@@ -1,3 +1,8 @@
+/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+#![allow(missing_docs)]
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -25,7 +30,7 @@ use super::unwind::CompiledFunctionUnwindInfoLike;
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 pub struct CompiledFunctionFrameInfo {
     /// The traps (in the function body).
     ///
@@ -40,7 +45,7 @@ pub struct CompiledFunctionFrameInfo {
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 pub struct FunctionBody {
     /// The function body bytes.
     #[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))]
@@ -93,7 +98,7 @@ impl<'a> FunctionBodyLike<'a> for ArchivedFunctionBody {
 /// and unwind information).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 pub struct CompiledFunction {
     /// The function body.
     pub body: FunctionBody,
@@ -119,10 +124,8 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, PartialEq, Eq, Clone,
-)]
-#[archive(as = "Self")]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// [Learn

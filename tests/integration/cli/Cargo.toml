@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-cli"
-version = "4.4.0"
+version = "5.0.0-rc.1"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "CLI integration tests"
 repository = "https://github.com/wasmerio/wasmer"
@@ -38,4 +38,7 @@ wasmer-registry = { path = "../../../lib/registry", default-features = false }
 [features]
 default = ["webc_runner"]
 webc_runner = []
+wamr = []
+v8 = []
+wasmi = []
 debug = []

@@ -6,6 +6,7 @@
 
 use super::func_state::FuncTranslationState;
 use super::translation_utils::reference_type;
+use crate::heap::{Heap, HeapData};
 use core::convert::From;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::Offset32;
@@ -13,6 +14,7 @@ use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use wasmer_compiler::wasmparser::{HeapType, Operator};
+use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type as WasmerType, WasmResult,
@@ -80,6 +82,12 @@ pub trait TargetEnvironment {
 /// IR. The function environment provides information about the WebAssembly module as well as the
 /// runtime environment.
 pub trait FuncEnvironment: TargetEnvironment {
+    /// Whether to enable Spectre mitigations for heap accesses.
+    fn heap_access_spectre_mitigation(&self) -> bool;
+
+    /// Whether to add proof-carrying-code facts to verify memory accesses.
+    fn proof_carrying_code(&self) -> bool;
+
     /// Is the given parameter of the given function a wasm-level parameter, as opposed to a hidden
     /// parameter added for use by the implementation?
     fn is_wasm_parameter(&self, signature: &ir::Signature, index: usize) -> bool {
@@ -112,17 +120,29 @@ pub trait FuncEnvironment: TargetEnvironment {
         index: GlobalIndex,
     ) -> WasmResult<GlobalVariable>;
 
+    /// Inserts code before updating a global.
+    fn update_global(
+        &mut self,
+        _builder: &mut FunctionBuilder,
+        _global_index: u32,
+        _value: ir::Value,
+    ) {
+    }
+
+    /// Get the heaps for this function environment.
+    ///
+    /// The returned map should provide heap format details (encoded in
+    /// `HeapData`) for each `Heap` that was previously returned by
+    /// `make_heap()`. The translator will first call make_heap for each Wasm
+    /// memory, and then later when translating code, will invoke `heaps()` to
+    /// learn how to access the environment's implementation of each memory.
+    fn heaps(&self) -> &PrimaryMap<Heap, HeapData>;
+
     /// Set up the necessary preamble definitions in `func` to access the linear memory identified
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared memories.
-    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> WasmResult<ir::Heap>;
-
-    /// Set up the necessary preamble definitions in `func` to access the table identified
-    /// by `index`.
-    ///
-    /// The index space covers both imported and locally declared tables.
-    fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> WasmResult<ir::Table>;
+    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> WasmResult<Heap>;
 
     /// Set up a signature definition in the preamble of `func` that can be used for an indirect
     /// call with signature `index`.
@@ -156,27 +176,6 @@ pub trait FuncEnvironment: TargetEnvironment {
         index: FunctionIndex,
     ) -> WasmResult<ir::FuncRef>;
 
-    /// Translate a `call_indirect` WebAssembly instruction at `pos`.
-    ///
-    /// Insert instructions at `pos` for an indirect call to the function `callee` in the table
-    /// `table_index` with WebAssembly signature `sig_index`. The `callee` value will have type
-    /// `i32`.
-    ///
-    /// The signature `sig_ref` was previously created by `make_indirect_sig()`.
-    ///
-    /// Return the call instruction whose results are the WebAssembly return values.
-    #[allow(clippy::too_many_arguments)]
-    fn translate_call_indirect(
-        &mut self,
-        pos: FuncCursor,
-        table_index: TableIndex,
-        table: ir::Table,
-        sig_index: SignatureIndex,
-        sig_ref: ir::SigRef,
-        callee: ir::Value,
-        call_args: &[ir::Value],
-    ) -> WasmResult<ir::Inst>;
-
     /// Translate a `call` WebAssembly instruction at `pos`.
     ///
     /// Insert instructions at `pos` for a direct call to the function `callee_index`.
@@ -186,13 +185,34 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Return the call instruction whose results are the WebAssembly return values.
     fn translate_call(
         &mut self,
-        mut pos: FuncCursor,
+        builder: &mut FunctionBuilder,
         _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
-        Ok(pos.ins().call(callee, call_args))
+        Ok(builder.ins().call(callee, call_args))
     }
+
+    /// Translate a `call_indirect` WebAssembly instruction at `pos`.
+    ///
+    /// Insert instructions at `pos` for an indirect call to the function `callee` in the table
+    /// `table_index` with WebAssembly signature `sig_index`. The `callee` value will have type
+    /// `i32`.
+    ///
+    /// The signature `sig_ref` was previously created by `make_indirect_sig()`.
+    ///
+    /// Return the call instruction whose results are the WebAssembly return values.
+    /// Returns `None` if this statically traps instead of creating a call
+    /// instruction.
+    fn translate_call_indirect(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        table_index: TableIndex,
+        sig_index: SignatureIndex,
+        sig_ref: ir::SigRef,
+        callee: ir::Value,
+        call_args: &[ir::Value],
+    ) -> WasmResult<ir::Inst>;
 
     /// Translate a `memory.grow` WebAssembly instruction.
     ///
@@ -206,7 +226,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value>;
 
@@ -220,7 +240,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
     ) -> WasmResult<ir::Value>;
 
     /// Translate a `memory.copy` WebAssembly instruction.
@@ -232,9 +252,9 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         src_index: MemoryIndex,
-        src_heap: ir::Heap,
+        src_heap: Heap,
         dst_index: MemoryIndex,
-        dst_heap: ir::Heap,
+        dst_heap: Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -248,7 +268,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         dst: ir::Value,
         val: ir::Value,
         len: ir::Value,
@@ -264,7 +284,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         seg_index: u32,
         dst: ir::Value,
         src: ir::Value,
@@ -275,19 +295,14 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_data_drop(&mut self, pos: FuncCursor, seg_index: u32) -> WasmResult<()>;
 
     /// Translate a `table.size` WebAssembly instruction.
-    fn translate_table_size(
-        &mut self,
-        pos: FuncCursor,
-        index: TableIndex,
-        table: ir::Table,
-    ) -> WasmResult<ir::Value>;
+    fn translate_table_size(&mut self, pos: FuncCursor, index: TableIndex)
+        -> WasmResult<ir::Value>;
 
     /// Translate a `table.grow` WebAssembly instruction.
     fn translate_table_grow(
         &mut self,
         pos: FuncCursor,
         table_index: TableIndex,
-        table: ir::Table,
         delta: ir::Value,
         init_value: ir::Value,
     ) -> WasmResult<ir::Value>;
@@ -297,7 +312,6 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
-        table: ir::Table,
         index: ir::Value,
     ) -> WasmResult<ir::Value>;
 
@@ -306,7 +320,6 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
-        table: ir::Table,
         value: ir::Value,
         index: ir::Value,
     ) -> WasmResult<()>;
@@ -317,9 +330,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         dst_table_index: TableIndex,
-        dst_table: ir::Table,
         src_table_index: TableIndex,
-        src_table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -342,7 +353,6 @@ pub trait FuncEnvironment: TargetEnvironment {
         pos: FuncCursor,
         seg_index: u32,
         table_index: TableIndex,
-        table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -418,7 +428,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         addr: ir::Value,
         expected: ir::Value,
         timeout: ir::Value,
@@ -434,7 +444,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         addr: ir::Value,
         count: ir::Value,
     ) -> WasmResult<ir::Value>;
@@ -470,6 +480,18 @@ pub trait FuncEnvironment: TargetEnvironment {
         Ok(())
     }
 
+    /// Optional callback for the `FuncEnvironment` performing this translation
+    /// to maintain, prepare, or finalize custom, internal state when we
+    /// statically determine that a Wasm memory access will unconditionally
+    /// trap, rendering the rest of the block unreachable. Called just before
+    /// the unconditional trap is emitted.
+    fn before_unconditionally_trapping_memory_access(
+        &mut self,
+        _builder: &mut FunctionBuilder,
+    ) -> WasmResult<()> {
+        Ok(())
+    }
+
     /// Get the type of the global at the given index.
     #[allow(dead_code)]
     fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType>;
@@ -495,4 +517,27 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Get the type of a function with the given signature index.
     #[allow(dead_code)]
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
+
+    /// Inserts code before a function return.
+    fn handle_before_return(&mut self, _retvals: &[ir::Value], _builder: &mut FunctionBuilder) {}
+
+    /// Inserts code before a load.
+    fn before_load(
+        &mut self,
+        _builder: &mut FunctionBuilder,
+        _val_size: u8,
+        _addr: ir::Value,
+        _offset: u64,
+    ) {
+    }
+
+    /// Inserts code before a store.
+    fn before_store(
+        &mut self,
+        _builder: &mut FunctionBuilder,
+        _val_size: u8,
+        _addr: ir::Value,
+        _offset: u64,
+    ) {
+    }
 }

@@ -4,9 +4,11 @@ use crate::types::wasi::Snapshot0Filestat;
 
 /// ### `fd_filestat_get()`
 /// Get the metadata of an open file
+///
 /// Input:
 /// - `Fd fd`
 ///     The open file descriptor whose metadata will be read
+///
 /// Output:
 /// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
@@ -32,9 +34,11 @@ pub fn fd_filestat_get<M: MemorySize>(
 
 /// ### `fd_filestat_get()`
 /// Get the metadata of an open file
+///
 /// Input:
 /// - `__wasi_fd_t fd`
 ///     The open file descriptor whose metadata will be read
+///
 /// Output:
 /// - `__wasi_filestat_t *buf`
 ///     Where the metadata from `fd` will be written
@@ -54,9 +58,11 @@ pub(crate) fn fd_filestat_get_internal(
 
 /// ### `fd_filestat_get_old()`
 /// Get the metadata of an open file
+///
 /// Input:
 /// - `Fd fd`
 ///     The open file descriptor whose metadata will be read
+///
 /// Output:
 /// - `Snapshot0Filestat *buf`
 ///     Where the metadata from `fd` will be written

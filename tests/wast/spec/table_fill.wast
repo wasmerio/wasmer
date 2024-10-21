@@ -5,6 +5,10 @@
     (table.fill $t (local.get $i) (local.get $r) (local.get $n))
   )
 
+  (func (export "fill-abbrev") (param $i i32) (param $r externref) (param $n i32)
+    (table.fill (local.get $i) (local.get $r) (local.get $n))
+  )
+
   (func (export "get") (param $i i32) (result externref)
     (table.get $t (local.get $i))
   )
@@ -39,7 +43,7 @@
 (assert_return (invoke "get" (i32.const 8)) (ref.extern 4))
 (assert_return (invoke "get" (i32.const 9)) (ref.extern 4))
 
-(assert_return (invoke "fill" (i32.const 9) (ref.null extern) (i32.const 1)))
+(assert_return (invoke "fill-abbrev" (i32.const 9) (ref.null extern) (i32.const 1)))
 (assert_return (invoke "get" (i32.const 8)) (ref.extern 4))
 (assert_return (invoke "get" (i32.const 9)) (ref.null extern))
 

@@ -206,7 +206,7 @@ pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
 ) -> u64 {
     match get_remaining_points(&mut instance.store.store_mut(), &instance.inner) {
         MeteringPoints::Remaining(value) => value,
-        MeteringPoints::Exhausted => std::u64::MAX,
+        MeteringPoints::Exhausted => u64::MAX,
     }
 }
 

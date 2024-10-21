@@ -15,7 +15,6 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, Ordering};
-use std::u32;
 use wasmer_types::RawValue;
 
 /// Union representing the first parameter passed when calling a function.
@@ -749,7 +748,7 @@ impl VMContext {
     }
 }
 
-///
+/// The type for tramplines in the VM.
 pub type VMTrampoline = unsafe extern "C" fn(
     *mut VMContext,        // callee vmctx
     *const VMFunctionBody, // function we're actually calling

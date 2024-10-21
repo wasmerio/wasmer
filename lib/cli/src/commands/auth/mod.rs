@@ -3,7 +3,6 @@ mod logout;
 mod whoami;
 
 pub use login::*;
-pub use logout::*;
 pub use whoami::*;
 
 use super::AsyncCliCommand;

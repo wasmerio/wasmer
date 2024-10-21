@@ -213,7 +213,7 @@ fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
         .instance
         .exports
         .get_function("_start")
-        .map(|a| a.clone())
+        .cloned()
         .ok()
 }
 

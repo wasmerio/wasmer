@@ -217,7 +217,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
 
     /// Get a `WasmSlice` for a subslice of this slice.
     #[inline]
-    pub fn subslice(self, range: Range<u64>) -> WasmSlice<'a, T> {
+    pub fn subslice(self, range: Range<u64>) -> Self {
         if range.start > range.end || range.end > self.len {
             panic!("WasmSlice out of bounds");
         }

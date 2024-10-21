@@ -1,3 +1,5 @@
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::externals::function as function_impl;
 #[cfg(feature = "js")]
 use crate::js::externals::function as function_impl;
 #[cfg(feature = "jsc")]

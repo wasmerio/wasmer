@@ -2,10 +2,14 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
 use wasmer::{imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store};
 
 #[test]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi does not support threads")]
+#[cfg_attr(
+    feature = "v8",
+    ignore = "v8 does not currently support shared memory through wasm_c_api"
+)]
 fn test_shared_memory_atomics_notify_send() {
     let mut store = Store::default();
     let wat = r#"(module

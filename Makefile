@@ -18,15 +18,15 @@ SHELL=/usr/bin/env bash
 #
 # Here is what works and what doesn't:
 #
-# * Cranelift works everywhere,
+# * Cranelift works everywhere except */`loongarch64`,
 #
 # * LLVM works on Linux+Darwin/`amd64`,
-#   and linux+`aarch64`, linux+`riscv`
+#   and linux+`aarch64`, linux+`riscv`, linux+`loongarch64`
 #   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
 #
 # * Singlepass works on Linux+Darwin+Windows/`amd64`,
 #   and Linux+Darwin/`aarch64`
-#   it doesn't work on */`riscv`.
+#   it doesn't work on */`riscv` or */`loongarch64`.
 #
 # * Windows isn't tested on `aarch64`, that's why we consider it's not
 #   working, but it might possibly be.
@@ -48,6 +48,7 @@ IS_WINDOWS := 0
 IS_AMD64 := 0
 IS_AARCH64 := 0
 IS_RISCV64 := 0
+IS_LOONGARCH64 := 0
 
 # Test Windows apart because it doesn't support `uname -s`.
 ifeq ($(OS), Windows_NT)
@@ -80,11 +81,13 @@ else
 		IS_AARCH64 := 1
 	else ifneq (, $(filter $(uname), riscv64))
 		IS_RISCV64 := 1
+	else ifneq (, $(filter $(uname), loongarch64))
+		IS_LOONGARCH64 := 1
 	else
 		# We use spaces instead of tabs to indent `$(error)`
 		# otherwise it's considered as a command outside a
 		# target and it will fail.
-                $(error Unrecognized architecture, expect `x86_64`, `aarch64`, `arm64`, 'riscv64')
+                $(error Unrecognized architecture, expect `x86_64`, `aarch64`, `arm64`, 'riscv64', 'loongarch64')
 	endif
 
 	# Libc
@@ -168,6 +171,7 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-co
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
+exclude_tests += --exclude wasmer-swift
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -239,6 +243,8 @@ ifeq ($(ENABLE_LLVM), 1)
 		else ifeq ($(IS_AARCH64), 1)
 			compilers_engines += llvm-universal
 		else ifeq ($(IS_RISCV64), 1)
+			compilers_engines += llvm-universal
+		else ifeq ($(IS_LOONGARCH64), 1)
 			compilers_engines += llvm-universal
 		endif
 	endif
@@ -385,6 +391,15 @@ check-capi:
 
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
+	
+build-wasmer-v8:
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="v8" --bin wasmer --locked
+
+build-wasmer-wamr:
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="wamr" --bin wasmer --locked
+
+build-wasmer-wasmi:
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="wasmi" --bin wasmer --locked
 
 build-wasmer-jsc:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat" --bin wasmer --locked
@@ -464,10 +479,10 @@ test-build-docs-rs-ci:
 		fi; \
 		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
 		if [ -z "$$features" ]; then \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-10-05  doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2024-08-21  doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
 		else \
 			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-10-05 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2024-08-21 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 
@@ -566,6 +581,22 @@ test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift-nostd 
 
 test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 
+
+test-v8: test-v8-api
+
+test-v8-api:
+	CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
+
+test-wamr: test-wamr-api
+
+test-wamr-api:
+	cargo nextest run --package=wasmer --release --features=wamr --no-default-features
+
+test-wasmi: test-wasmi-api
+
+test-wasmi-api:
+	cargo nextest run --package=wasmer --release --features=wasmi --no-default-features
+
 test-js: test-js-api test-js-wasi
 
 # TODO: disabled because the no-std / core feature doesn't actually work at the moment.
@@ -645,6 +676,15 @@ test-integration-cli: build-wasmer build-capi package-capi-headless package dist
 test-integration-cli-ci: require-nextest
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
+
+test-integration-cli-wamr-ci: require-nextest build-wasmer-wamr
+	rustup target add wasm32-wasi
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
+
+test-integration-cli-wasmi-ci: require-nextest build-wasmer-wasmi
+	rustup target add wasm32-wasi
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
+
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios --locked
@@ -926,7 +966,7 @@ update-testsuite:
 
 lint-packages: RUSTFLAGS += -D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D function_item_references # TODO: add `-D missing-docs`
 lint-packages:
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all --exclude wasmer-cli --locked -- -D clippy::all
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all --exclude wasmer-cli --exclude wasmer-swift --locked -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 

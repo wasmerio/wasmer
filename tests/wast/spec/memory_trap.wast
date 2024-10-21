@@ -20,7 +20,7 @@
 
 (assert_return (invoke "store" (i32.const -4) (i32.const 42)))
 (assert_return (invoke "load" (i32.const -4)) (i32.const 42))
-(assert_trap (invoke "store" (i32.const -3) (i32.const 13)) "out of bounds memory access")
+(assert_trap (invoke "store" (i32.const -3) (i32.const 0x12345678)) "out of bounds memory access")
 (assert_trap (invoke "load" (i32.const -3)) "out of bounds memory access")
 (assert_trap (invoke "store" (i32.const -2) (i32.const 13)) "out of bounds memory access")
 (assert_trap (invoke "load" (i32.const -2)) "out of bounds memory access")
@@ -268,3 +268,15 @@
 ;; No memory was changed
 (assert_return (invoke "i64.load" (i32.const 0xfff8)) (i64.const 0x6867666564636261))
 (assert_return (invoke "i64.load" (i32.const 0)) (i64.const 0x6867666564636261))
+
+;; Check that out of bounds store do not store partial data.
+;; Zero last 8 bytes.
+(assert_return (invoke "i64.store" (i32.const 0xfff8) (i64.const 0)))
+(assert_trap (invoke "i32.store" (i32.const 0xfffd) (i32.const 0x12345678)) "out of bounds memory access")
+(assert_return (invoke "i32.load" (i32.const 0xfffc)) (i32.const 0))
+(assert_trap (invoke "i64.store" (i32.const 0xfff9) (i64.const 0x1234567890abcdef)) "out of bounds memory access")
+(assert_return (invoke "i64.load" (i32.const 0xfff8)) (i64.const 0))
+(assert_trap (invoke "f32.store" (i32.const 0xfffd) (f32.const 0x12345678)) "out of bounds memory access")
+(assert_return (invoke "f32.load" (i32.const 0xfffc)) (f32.const 0))
+(assert_trap (invoke "f64.store" (i32.const 0xfff9) (f64.const 0x1234567890abcdef)) "out of bounds memory access")
+(assert_return (invoke "f64.load" (i32.const 0xfff8)) (f64.const 0))

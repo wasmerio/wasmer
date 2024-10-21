@@ -44,6 +44,7 @@ impl EventResult {
 
 /// ### `poll_oneoff()`
 /// Concurrently poll for a set of events
+///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
 ///     The events to subscribe to
@@ -51,6 +52,7 @@ impl EventResult {
 ///     The events that have occured
 /// - `u32 nsubscriptions`
 ///     The number of subscriptions and the number of events
+///
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
@@ -95,7 +97,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));
             events_seen += 1;
         }
-        let events_seen: M::Offset = wasi_try!(events_seen.try_into().map_err(|_| Errno::Overflow));
+        let events_seen: M::Offset = events_seen.into();
         let out_ptr = nevents.deref(&memory);
         wasi_try_mem!(out_ptr.write(events_seen));
         Errno::Success
@@ -198,6 +200,7 @@ pub(crate) fn poll_fd_guard(
 
 /// ### `poll_oneoff()`
 /// Concurrently poll for a set of events
+///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
 ///     The events to subscribe to
@@ -205,6 +208,7 @@ pub(crate) fn poll_fd_guard(
 ///     The events that have occured
 /// - `u32 nsubscriptions`
 ///     The number of subscriptions and the number of events
+///
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
@@ -399,7 +403,7 @@ where
                 };
                 Span::current().record(
                     "seen",
-                    &format!(
+                    format!(
                         "clock(id={},userdata={})",
                         clock_info.clock_id as u32, evt.userdata
                     ),
@@ -451,9 +455,9 @@ where
                 Ok(evts) => {
                     // If its a timeout then return an event for it
                     if evts.len() == 1 {
-                        Span::current().record("seen", &format!("{:?}", evts.first().unwrap()));
+                        Span::current().record("seen", format!("{:?}", evts.first().unwrap()));
                     } else {
-                        Span::current().record("seen", &format!("trigger_cnt=({})", evts.len()));
+                        Span::current().record("seen", format!("trigger_cnt=({})", evts.len()));
                     }
 
                     // Process the events

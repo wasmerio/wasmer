@@ -136,7 +136,7 @@
   "malformed UTF-8 encoding"
 )
 
-;; byte after (first) 2-byte prefix not a contination byte
+;; byte after (first) 2-byte prefix not a continuation byte
 (assert_malformed
   (module binary
     "\00asm" "\01\00\00\00"

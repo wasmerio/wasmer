@@ -265,9 +265,11 @@ fn test_create_exe_with_precompiled_works_1() {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 // Also ignored on macOS because it's flaky
-#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
+#[cfg_attr(
+    any(target_os = "windows", target_os = "macos"),
+    ignore = "See https://github.com/wasmerio/wasmer/issues/4285"
+)]
 #[test]
-#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();

@@ -2,7 +2,6 @@
 
 use super::func_environ::TargetEnvironment;
 use crate::std::string::ToString;
-use core::u32;
 use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;
@@ -84,7 +83,7 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
         Reloc::X86CallPLTRel4 => RelocationKind::X86CallPLTRel4,
         Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
         Reloc::Arm64Call => RelocationKind::Arm64Call,
-        Reloc::RiscvCall => RelocationKind::RiscvCall,
+        Reloc::RiscvCallPlt => RelocationKind::RiscvCall,
         _ => panic!("The relocation {} is not yet supported.", reloc),
     }
 }

@@ -59,7 +59,7 @@ mod response_tracing {
             _latency: std::time::Duration,
             span: &tracing::Span,
         ) {
-            span.record("status_code", &tracing::field::display(response.status()));
+            span.record("status_code", tracing::field::display(response.status()));
             tracing::info!("response generated")
         }
     }

@@ -1,3 +1,9 @@
+/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+#![allow(missing_docs)]
+
 //! Relocation is the process of assigning load addresses for position-dependent
 //! code and data of a program and adjusting the code and data to reflect the
 //! assigned addresses.
@@ -22,10 +28,8 @@ use serde::{Deserialize, Serialize};
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Copy, Clone, Debug, PartialEq, Eq,
-)]
-#[archive(as = "Self")]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum RelocationKind {
     /// absolute 4-byte
@@ -60,6 +64,14 @@ pub enum RelocationKind {
     RiscvPCRelLo12I,
     /// RISC-V call target
     RiscvCall,
+    /// LoongArch absolute high 20bit
+    LArchAbsHi20,
+    /// LoongArch absolute low 12bit
+    LArchAbsLo12,
+    /// LoongArch absolute high 12bit
+    LArchAbs64Hi12,
+    /// LoongArch absolute low 20bit
+    LArchAbs64Lo20,
     /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
     ElfX86_64TlsGd,
     // /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
@@ -86,6 +98,10 @@ impl fmt::Display for RelocationKind {
             Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
             Self::RiscvPCRelHi20 => write!(f, "RiscvPCRelHi20"),
             Self::RiscvPCRelLo12I => write!(f, "RiscvPCRelLo12I"),
+            Self::LArchAbsHi20 => write!(f, "LArchAbsHi20"),
+            Self::LArchAbsLo12 => write!(f, "LArchAbsLo12"),
+            Self::LArchAbs64Hi12 => write!(f, "LArchAbs64Hi12"),
+            Self::LArchAbs64Lo20 => write!(f, "LArchAbs64Lo20"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }
@@ -95,7 +111,7 @@ impl fmt::Display for RelocationKind {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug), compare(PartialEq))]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,
@@ -195,29 +211,27 @@ impl RelocationLike for Relocation {
 
 impl RelocationLike for ArchivedRelocation {
     fn kind(&self) -> RelocationKind {
-        self.kind
+        rkyv::deserialize::<_, String>(&self.kind).unwrap()
     }
 
     fn reloc_target(&self) -> RelocationTarget {
-        self.reloc_target
+        rkyv::deserialize::<_, String>(&self.reloc_target).unwrap()
     }
 
     fn offset(&self) -> CodeOffset {
-        self.offset
+        self.offset.into()
     }
 
     fn addend(&self) -> Addend {
-        self.addend
+        self.addend.into()
     }
 }
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Copy, Clone, PartialEq, Eq,
-)]
-#[archive(as = "Self")]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Copy, Clone, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).

@@ -635,7 +635,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl PackageLoader + Send + Sync> {
+    ) -> Result<impl PackageLoader> {
         let checkout_dir = env.cache_dir().join("checkouts");
         let tokens = tokens_by_authority(env)?;
 
@@ -652,8 +652,8 @@ impl Wasi {
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
         preferred_webc_version: webc::Version,
-    ) -> Result<impl Source + Send + Sync> {
-        let mut source = MultiSource::new();
+    ) -> Result<impl Source + Send> {
+        let mut source = MultiSource::default();
 
         // Note: This should be first so our "preloaded" sources get a chance to
         // override the main registry.

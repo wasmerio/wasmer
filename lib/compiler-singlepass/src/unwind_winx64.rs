@@ -106,7 +106,7 @@ impl UnwindCode {
                 };
                 writer.write_u8(*instruction_offset);
                 let scaled_stack_offset = stack_offset / 16;
-                if scaled_stack_offset <= core::u16::MAX as u32 {
+                if scaled_stack_offset <= u16::MAX as u32 {
                     writer.write_u8((*reg << 4) | (op_small as u8));
                     writer.write_u16_le(scaled_stack_offset as u16);
                 } else {
@@ -155,7 +155,7 @@ impl UnwindCode {
                 }
             }
             Self::SaveXmm { stack_offset, .. } | Self::SaveReg { stack_offset, .. } => {
-                if *stack_offset <= core::u16::MAX as u32 {
+                if *stack_offset <= u16::MAX as u32 {
                     2
                 } else {
                     3

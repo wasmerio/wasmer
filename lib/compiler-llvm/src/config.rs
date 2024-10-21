@@ -171,6 +171,16 @@ impl LLVM {
                 info: true,
                 machine_code: true,
             }),
+            Architecture::LoongArch64 => {
+                InkwellTarget::initialize_loongarch(&InitializationConfig {
+                    asm_parser: true,
+                    asm_printer: true,
+                    base: true,
+                    disassembler: true,
+                    info: true,
+                    machine_code: true,
+                })
+            }
             // Architecture::Arm(_) => InkwellTarget::initialize_arm(&InitializationConfig {
             //     asm_parser: true,
             //     asm_printer: true,
@@ -187,7 +197,7 @@ impl LLVM {
         // are compliant with the same string representations as gcc.
         let llvm_cpu_features = cpu_features
             .iter()
-            .map(|feature| format!("+{}", feature.to_string()))
+            .map(|feature| format!("+{}", feature))
             .join(",");
 
         let target_triple = self.target_triple(target);
@@ -197,10 +207,12 @@ impl LLVM {
                 &target_triple,
                 match triple.architecture {
                     Architecture::Riscv64(_) => "generic-rv64",
+                    Architecture::LoongArch64 => "generic-la64",
                     _ => "generic",
                 },
                 match triple.architecture {
                     Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
+                    Architecture::LoongArch64 => "+f,+d",
                     _ => &llvm_cpu_features,
                 },
                 self.opt_level,
@@ -238,7 +250,9 @@ impl LLVM {
                     6,
                 );
 
-                std::mem::transmute(my_target_machine)
+                std::mem::transmute::<MyTargetMachine, inkwell::targets::TargetMachine>(
+                    my_target_machine,
+                )
             }
         } else {
             llvm_target_machine

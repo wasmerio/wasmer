@@ -1,6 +1,6 @@
 [package]
 name = "virtual-mio"
-version = "0.4.0"
+version = "0.5.0"
 description = "Wasmer Virtual IO Engine powered by mio"
 authors.workspace = true
 edition.workspace = true
@@ -14,11 +14,13 @@ thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-mio = { workspace = true, features = [ "os-poll" ], optional = true }
+
+mio = { workspace = true, features = ["os-poll"], optional = true }
 socket2 = { workspace = true, optional = true }
 derivative = { version = "^2" }
 futures = { version = "0.3" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [features]
-sys = [ "mio", "socket2" ]
+sys = ["mio", "socket2"]
+js = []

@@ -1,9 +1,23 @@
 //! Helper functions and structures for the translation.
 use crate::entity::entity_impl;
-use core::u32;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+
+/*
+ * [todo] xdoardo (on 2024/10/09)
+ *
+ * While updating rkyv from 0.7.x to 0.8.x it became unfeasible to represent archived
+ * version of some types as themselves (i.e. `rkyv(as = Self)`). This means that in cases
+ * like this one we can't simply return a reference to the underlying value.
+ *
+ * Hopefully as 0.8.x matures a bit more we can return to `rkyv(as = Self)`, making all
+ * of this faster and leaner. The missing bits for it are:
+ *
+ * 1. rkyv::rend::{u32_le, i32_le, u64_le, ..} should implement `serde::Serialize` and
+ *    `serde::Deserialize`.
+ *
+ */
 
 /// Index type of a function defined locally inside the WebAssembly module.
 #[derive(
@@ -18,11 +32,10 @@ use serde::{Deserialize, Serialize};
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct LocalFunctionIndex(u32);
 entity_impl!(LocalFunctionIndex);
 
@@ -53,11 +66,10 @@ entity_impl!(LocalMemoryIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct LocalGlobalIndex(u32);
 entity_impl!(LocalGlobalIndex);
 
@@ -74,11 +86,13 @@ entity_impl!(LocalGlobalIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(
+    derive(Debug, PartialOrd, Ord, PartialEq, Eq),
+    compare(PartialOrd, PartialEq)
+)]
 pub struct FunctionIndex(u32);
 entity_impl!(FunctionIndex);
 
@@ -95,11 +109,13 @@ entity_impl!(FunctionIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(
+    derive(Debug, PartialOrd, Ord, PartialEq, Eq),
+    compare(PartialOrd, PartialEq)
+)]
 pub struct TableIndex(u32);
 entity_impl!(TableIndex);
 
@@ -116,11 +132,10 @@ entity_impl!(TableIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct GlobalIndex(u32);
 entity_impl!(GlobalIndex);
 
@@ -137,12 +152,11 @@ entity_impl!(GlobalIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
-pub struct MemoryIndex(u32);
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
+pub struct MemoryIndex(pub(crate) u32);
 entity_impl!(MemoryIndex);
 
 /// Index type of a signature (imported or local) inside the WebAssembly module.
@@ -158,11 +172,10 @@ entity_impl!(MemoryIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct SignatureIndex(u32);
 entity_impl!(SignatureIndex);
 
@@ -179,11 +192,13 @@ entity_impl!(SignatureIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(
+    derive(Debug, PartialOrd, Ord, PartialEq, Eq),
+    compare(PartialOrd, PartialEq)
+)]
 pub struct DataIndex(u32);
 entity_impl!(DataIndex);
 
@@ -200,11 +215,13 @@ entity_impl!(DataIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(
+    derive(Debug, PartialOrd, Ord, PartialEq, Eq),
+    compare(PartialOrd, PartialEq)
+)]
 pub struct ElemIndex(u32);
 entity_impl!(ElemIndex);
 
@@ -221,11 +238,10 @@ entity_impl!(ElemIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct CustomSectionIndex(u32);
 entity_impl!(CustomSectionIndex);
 
@@ -242,11 +258,10 @@ entity_impl!(CustomSectionIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 #[repr(u8)]
 pub enum ExportIndex {
     /// Function export.
@@ -261,21 +276,11 @@ pub enum ExportIndex {
 
 /// An entity to import.
 #[derive(
-    Clone,
-    Debug,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
-    rkyv::CheckBytes,
+    Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 #[repr(u8)]
 pub enum ImportIndex {
     /// Function import.

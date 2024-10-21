@@ -11,7 +11,6 @@
 use crate::error::ParseCpuFeatureError;
 use enumset::{EnumSet, EnumSetType};
 use std::str::FromStr;
-use std::string::{String, ToString};
 pub use target_lexicon::{
     Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, Endianness, Environment,
     OperatingSystem, PointerWidth, Triple, Vendor,
@@ -160,26 +159,29 @@ impl FromStr for CpuFeature {
     }
 }
 
-impl ToString for CpuFeature {
-    fn to_string(&self) -> String {
-        match self {
-            Self::SSE2 => "sse2",
-            Self::SSE3 => "sse3",
-            Self::SSSE3 => "ssse3",
-            Self::SSE41 => "sse4.1",
-            Self::SSE42 => "sse4.2",
-            Self::POPCNT => "popcnt",
-            Self::AVX => "avx",
-            Self::BMI1 => "bmi",
-            Self::BMI2 => "bmi2",
-            Self::AVX2 => "avx2",
-            Self::AVX512DQ => "avx512dq",
-            Self::AVX512VL => "avx512vl",
-            Self::AVX512F => "avx512f",
-            Self::LZCNT => "lzcnt",
-            Self::NEON => "neon",
-        }
-        .to_string()
+impl std::fmt::Display for CpuFeature {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::SSE2 => "sse2",
+                Self::SSE3 => "sse3",
+                Self::SSSE3 => "ssse3",
+                Self::SSE41 => "sse4.1",
+                Self::SSE42 => "sse4.2",
+                Self::POPCNT => "popcnt",
+                Self::AVX => "avx",
+                Self::BMI1 => "bmi",
+                Self::BMI2 => "bmi2",
+                Self::AVX2 => "avx2",
+                Self::AVX512DQ => "avx512dq",
+                Self::AVX512VL => "avx512vl",
+                Self::AVX512F => "avx512f",
+                Self::LZCNT => "lzcnt",
+                Self::NEON => "neon",
+            }
+        )
     }
 }
 

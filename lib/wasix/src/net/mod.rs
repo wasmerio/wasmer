@@ -30,7 +30,7 @@ pub(crate) fn read_ip<M: MemorySize>(
     Ok(match addr.tag {
         Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
         Addressfamily::Inet6 => {
-            let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(o) };
+            let [a, b, c, d, e, f, g, h] = unsafe { transmute::<[u8; 16], [u16; 8]>(o) };
             IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
         }
         _ => return Err(Errno::Inval),
@@ -55,7 +55,7 @@ pub(crate) fn read_ip_v6<M: MemorySize>(
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
 
-    let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(addr.segs) };
+    let [a, b, c, d, e, f, g, h] = unsafe { transmute::<[u8; 16], [u16; 8]>(addr.segs) };
     Ok(Ipv6Addr::new(a, b, c, d, e, f, g, h))
 }
 
@@ -110,7 +110,7 @@ pub(crate) fn read_cidr<M: MemorySize>(
                     o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11],
                     o[12], o[13], o[14], o[15],
                 ];
-                unsafe { transmute::<_, [u16; 8]>(o) }
+                unsafe { transmute::<[u8; 16], [u16; 8]>(o) }
             };
             IpCidr {
                 ip: IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
@@ -250,7 +250,7 @@ pub(crate) fn read_route<M: MemorySize>(
                             o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
                             o[11], o[12], o[13], o[14], o[15],
                         ];
-                        unsafe { transmute::<_, [u16; 8]>(o) }
+                        unsafe { transmute::<[u8; 16], [u16; 8]>(o) }
                     };
                     IpCidr {
                         ip: IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
@@ -265,7 +265,7 @@ pub(crate) fn read_route<M: MemorySize>(
             match route.via_router.tag {
                 Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::new(o[0], o[1], o[2], o[3])),
                 Addressfamily::Inet6 => {
-                    let [a, b, c, d, e, f, g, h] = unsafe { transmute::<_, [u16; 8]>(o) };
+                    let [a, b, c, d, e, f, g, h] = unsafe { transmute::<[u8; 16], [u16; 8]>(o) };
                     IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
                 }
                 _ => return Err(Errno::Inval),
