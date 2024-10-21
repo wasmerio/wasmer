@@ -759,7 +759,7 @@ jobs:
 
           },
           {
-            build: macos-arm64,
+            build: macos-arm,
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
@@ -890,7 +890,7 @@ jobs:
             os: macos-12
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
-          - build: macos-arm64
+          - build: macos-arm
             os: macos-12
             target: aarch64-apple-darwin,
           - build: linux-musl
@@ -999,7 +999,7 @@ jobs:
           name: capi-linux-musl
           path: download_link
       - uses: actions/download-artifact@v4
-        if: ${{ matrix.build == 'macos-arm64' }}
+        if: ${{ matrix.build == 'macos-arm' }}
         with:
           name: capi-macos-arm
           path: download_link
