@@ -1236,32 +1236,33 @@ impl WasiEnv {
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn blocking_on_exit(&self, exit_code: Option<ExitCode>) {
-        let cleanup = self.on_exit(exit_code);
+    pub fn blocking_on_exit(&self, process_exit_code: Option<ExitCode>) {
+        let cleanup = self.on_exit(process_exit_code);
         InlineWaker::block_on(cleanup);
     }
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn on_exit(&self, exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
+    pub fn on_exit(&self, process_exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
 
         // If snap-shooting is enabled then we should record an event that the thread has exited.
         #[cfg(feature = "journal")]
         if self.should_journal() && self.has_active_journal() {
-            if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), exit_code) {
+            if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), process_exit_code)
+            {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }
 
             if self.thread.is_main() {
-                if let Err(err) = JournalEffector::save_process_exit(self, exit_code) {
+                if let Err(err) = JournalEffector::save_process_exit(self, process_exit_code) {
                     tracing::warn!("failed to save snapshot event for process exit - {}", err);
                 }
             }
         }
 
-        // If this is the main thread then also close all the files
-        if self.thread.is_main() {
+        // If the process wants to exit, also close all files and terminate it
+        if let Some(process_exit_code) = process_exit_code {
             let process = self.process.clone();
             let disable_fs_cleanup = self.disable_fs_cleanup;
             let pid = self.pid();
@@ -1287,8 +1288,7 @@ impl WasiEnv {
                 }
 
                 // Terminate the process
-                let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
-                process.terminate(exit_code);
+                process.terminate(process_exit_code);
             })
         } else {
             Box::pin(async {})

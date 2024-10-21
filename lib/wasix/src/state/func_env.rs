@@ -284,7 +284,7 @@ impl WasiFunctionEnv {
     /// This function should only be called from within a syscall
     /// as it can potentially execute local thread variable cleanup
     /// code
-    pub fn on_exit(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
+    pub fn on_exit(&self, store: &mut impl AsStoreMut, process_exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::on_exit",
             self.data(store).pid(),
@@ -292,7 +292,7 @@ impl WasiFunctionEnv {
         );
 
         // Cleans up all the open files (if this is the main thread)
-        self.data(store).blocking_on_exit(exit_code);
+        self.data(store).blocking_on_exit(process_exit_code);
     }
 
     /// Bootstraps this main thread and context with any journals that
