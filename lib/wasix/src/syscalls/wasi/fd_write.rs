@@ -127,6 +127,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     should_update_cursor: bool,
     should_snapshot: bool,
 ) -> Result<Result<usize, Errno>, WasiError> {
+    let mut offset = offset;
     let mut env = ctx.data();
     let state = env.state.clone();
 
@@ -160,6 +161,12 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             async {
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
+                                    if fd_entry.flags.contains(Fdflags::APPEND) {
+                                        // `fdflags::append` means we need to seek to the end before writing.
+                                        offset = handle.size();
+                                        fd_entry.offset.store(offset, Ordering::Release);
+                                    }
+
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset))
                                         .await
