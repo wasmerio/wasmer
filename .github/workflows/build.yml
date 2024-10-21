@@ -753,24 +753,24 @@ jobs:
           asset_path: artifacts/wasmer-wasmi-linux-amd64/wasmer.tar.gz
           asset_name: wasmer-wasmi-linux-amd64.tar.gz
           asset_content_type: application/gzip
-      - name: Upload Release Asset Linux aarch64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-          asset_name: wasmer-linux-aarch64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux riscv64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-riscv64/wasmer.tar.gz
-          asset_name: wasmer-linux-riscv64.tar.gz
-          asset_content_type: application/gzip
+      # - name: Upload Release Asset Linux aarch64
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
+      #     asset_name: wasmer-linux-aarch64.tar.gz
+      #     asset_content_type: application/gzip
+      # - name: Upload Release Asset Linux riscv64
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: artifacts/wasmer-linux-riscv64/wasmer.tar.gz
+      #     asset_name: wasmer-linux-riscv64.tar.gz
+      #     asset_content_type: application/gzip
       - name: Upload Release Asset Windows gnu64
         uses: actions/upload-release-asset@v1
         env:
