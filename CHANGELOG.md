@@ -9,6 +9,39 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 5.0.0-rc.1 - 21/10/2024
+
+This is a release candidate as we are preparing for the final release of 5.0
+
+## Added
+
+  - [#5154](https://github.com/wasmerio/wasmer/pull/5154) Add build steps for interpreter backends
+  - [#5138](https://github.com/wasmerio/wasmer/pull/5138) Experimental: Add support for v8
+  - [#5129](https://github.com/wasmerio/wasmer/pull/5129) Experimental: Add support for WASMI
+  - [#4515](https://github.com/wasmerio/wasmer/pull/4515) Experimental: Add interpreter support for Wasmer
+
+## Changed
+
+  - [#5158](https://github.com/wasmerio/wasmer/pull/5158) path_create_directory shouldn't behave recursively
+  - [#5156](https://github.com/wasmerio/wasmer/pull/5156) Resolve double-free error in c-api
+  - [#5149](https://github.com/wasmerio/wasmer/pull/5149) Merge 5.0 release candidate into main
+  - [#5148](https://github.com/wasmerio/wasmer/pull/5148) Remove deprecated methods and types
+  - [#5147](https://github.com/wasmerio/wasmer/pull/5147) Feat(compiler/llvm): Replace runtime assertions (in debug mode) with errors
+  - [#5146](https://github.com/wasmerio/wasmer/pull/5146) feat(api/build/v8): Use blob to build v8
+  - [#5142](https://github.com/wasmerio/wasmer/pull/5142) Upgrade `rkyv`
+  - [#5098](https://github.com/wasmerio/wasmer/pull/5098) `js::module`: leave warning comment on the `Send` impl
+  - [#5139](https://github.com/wasmerio/wasmer/pull/5139) deps: Update corosensei
+  - [#5136](https://github.com/wasmerio/wasmer/pull/5136) Replace v3 usage of download-artifact
+  - [#5135](https://github.com/wasmerio/wasmer/pull/5135) Use upload/download artifact v4
+
+## Fixed
+
+  - [#4834](https://github.com/wasmerio/wasmer/pull/4834) Fix `path_open` trailing slash edge case
+  - [#4821](https://github.com/wasmerio/wasmer/pull/4821) Fix `path_open` sometimes ignoring trailing slash
+  - [#5137](https://github.com/wasmerio/wasmer/pull/5137) Trying to fix js build
+
+
+
 ## 4.4.0 - 04/10/2024
 
 This release adds support for object size estimation, adds better proxy support, improves executable spawning, and contains various bug fixes.
