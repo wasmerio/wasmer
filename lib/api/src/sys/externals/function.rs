@@ -26,7 +26,7 @@ impl From<StoreHandle<VMFunction>> for Function {
 }
 
 impl Function {
-    pub fn new_with_env<FT, F, T: Send + 'static>(
+    pub fn new_with_env<FT, F, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -159,7 +159,7 @@ impl Function {
         }
     }
 
-    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
+    pub fn new_typed_with_env<T: 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
@@ -475,7 +475,7 @@ macro_rules! impl_host_function {
             // Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same
             // arity than the tuple.
             #[allow(unused_parens)]
-            impl< $( $x, )* Rets, RetsAsResult, T: Send + 'static, Func >
+            impl< $( $x, )* Rets, RetsAsResult, T: 'static, Func >
                 HostFunction<T, ( $( $x ),* ), Rets, WithEnv>
             for
                 Func
@@ -490,7 +490,7 @@ macro_rules! impl_host_function {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+                    unsafe extern "C" fn func_wrapper<T: 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
