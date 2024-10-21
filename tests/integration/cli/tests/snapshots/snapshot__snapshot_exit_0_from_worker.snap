@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1309
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_exit_0_from_worker",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}
