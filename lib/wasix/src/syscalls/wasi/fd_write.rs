@@ -404,7 +404,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                 JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
                     .map_err(|err| {
                         tracing::error!("failed to save terminal data - {}", err);
-                        WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                        WasiError::Exit(ExitCode::from(Errno::Fault))
                     })?;
             }
         }

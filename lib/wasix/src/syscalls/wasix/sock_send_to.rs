@@ -62,7 +62,7 @@ pub fn sock_send_to<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save sock_send_to event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

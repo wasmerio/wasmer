@@ -30,7 +30,7 @@ pub fn fd_seek<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_fd_seek(&mut ctx, fd, offset, whence).map_err(|err| {
             tracing::error!("failed to save file descriptor seek event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

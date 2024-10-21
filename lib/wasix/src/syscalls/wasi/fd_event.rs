@@ -21,7 +21,7 @@ pub fn fd_event<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_fd_event(&mut ctx, initial_val, flags, fd).map_err(|err| {
             tracing::error!("failed to save fd_event event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

@@ -21,7 +21,7 @@ pub fn chdir<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_chdir(&mut ctx, path).map_err(|err| {
             tracing::error!("failed to chdir event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

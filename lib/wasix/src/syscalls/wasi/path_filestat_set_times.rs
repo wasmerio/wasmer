@@ -67,7 +67,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save file set times event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

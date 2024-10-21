@@ -250,16 +250,11 @@ unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub enum ExitCode {
-    Errno(Errno),
-    Other(u16),
-}
+pub struct ExitCode(u16);
+
 impl ExitCode {
     pub fn raw(&self) -> i32 {
-        match self {
-            ExitCode::Errno(err) => err.to_native(),
-            ExitCode::Other(code) => *code as i32,
-        }
+        self.0 as i32
     }
 
     pub fn is_success(&self) -> bool {
@@ -268,10 +263,7 @@ impl ExitCode {
 }
 impl core::fmt::Debug for ExitCode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ExitCode::Errno(a) => write!(f, "ExitCode::{}", a),
-            ExitCode::Other(a) => write!(f, "ExitCode::{}", a),
-        }
+        write!(f, "ExitCode::{}", self.0)
     }
 }
 impl core::fmt::Display for ExitCode {
@@ -298,35 +290,31 @@ unsafe impl wasmer::FromToNativeWasmType for ExitCode {
 
 impl From<Errno> for ExitCode {
     fn from(val: Errno) -> Self {
-        Self::Errno(val)
+        Self((val.to_native() % 256) as u16)
     }
 }
 
 impl From<i32> for ExitCode {
     fn from(val: i32) -> Self {
-        let err = Errno::from_native(val);
-        match err {
-            Errno::Unknown => Self::Other((val % 256) as u16),
-            err => Self::Errno(err),
-        }
+        Self((val % 256) as u16)
+    }
+}
+
+impl From<u16> for ExitCode {
+    fn from(value: u16) -> Self {
+        Self(value)
     }
 }
 
 impl From<ExitCode> for Errno {
     fn from(code: ExitCode) -> Self {
-        match code {
-            ExitCode::Errno(err) => err,
-            ExitCode::Other(code) => Errno::from_native(code as i32),
-        }
+        Errno::from_native(code.0 as i32)
     }
 }
 
 impl From<ExitCode> for i32 {
     fn from(val: ExitCode) -> Self {
-        match val {
-            ExitCode::Errno(err) => err.to_native(),
-            ExitCode::Other(code) => code as i32,
-        }
+        val.0 as i32
     }
 }
 

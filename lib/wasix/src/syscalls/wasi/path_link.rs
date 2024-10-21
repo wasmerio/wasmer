@@ -61,7 +61,7 @@ pub fn path_link<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save path hard link event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

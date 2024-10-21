@@ -35,7 +35,7 @@ pub fn sock_send_file<M: MemorySize>(
         JournalEffector::save_sock_send_file::<M>(&mut ctx, sock, in_fd, offset, total_written)
             .map_err(|err| {
                 tracing::error!("failed to save sock_send_file event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             })?;
     }
 

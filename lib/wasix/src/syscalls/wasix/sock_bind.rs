@@ -28,7 +28,7 @@ pub fn sock_bind<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_bind(&mut ctx, sock, addr).map_err(|err| {
             tracing::error!("failed to save sock_bind event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

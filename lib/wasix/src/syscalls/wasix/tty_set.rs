@@ -44,7 +44,7 @@ pub fn tty_set<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_tty_set(&mut ctx, state).map_err(|err| {
             tracing::error!("failed to save path symbolic link event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
