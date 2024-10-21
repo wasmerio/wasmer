@@ -341,6 +341,9 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
                     pc = context.uc_mcontext.mc_gpregs.gp_elr as usize;
                     sp = context.uc_mcontext.mc_gpregs.gp_sp as usize;
+                } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
+                    pc = context.uc_mcontext.__gregs[1] as usize;
+                    sp = context.uc_mcontext.__gregs[3] as usize;
                 } else {
                     compile_error!("Unsupported platform");
                 }
@@ -461,6 +464,14 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.mc_gpregs.gp_x[1] = x1 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[29] = x29 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[30] = lr as libc::register_t;
+                } else if #[cfg(all(target_os = "linux", target_arch = "loongarch64"))] {
+                    let TrapHandlerRegs { pc, sp, a0, a1, fp, ra } = regs;
+                    context.uc_mcontext.__pc = pc;
+                    context.uc_mcontext.__gregs[1] = ra;
+                    context.uc_mcontext.__gregs[3] = sp;
+                    context.uc_mcontext.__gregs[4] = a0;
+                    context.uc_mcontext.__gregs[5] = a1;
+                    context.uc_mcontext.__gregs[22] = fp;
                 } else {
                     compile_error!("Unsupported platform");
                 }
