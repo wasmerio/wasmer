@@ -12,9 +12,6 @@ on:
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
-  pull_request: # TODO: MUST BE REMOVED! ONLY FOR TESTING
-    branches:
-      - 'main'  # Run jobs on PRs targeting the 'main' branch
   workflow_dispatch:
     inputs:
       release:
