@@ -6503,7 +6503,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6535,7 +6535,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "bytes 1.7.2",
@@ -6550,7 +6550,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6653,7 +6653,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7451,7 +7451,7 @@ version = "5.0.0-rc.1"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7507,7 +7507,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.20.0"
+version = "5.21.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -7569,7 +7569,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "libc",
  "region",
@@ -7634,7 +7634,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "ahash 0.8.11",
  "anyhow",
@@ -7720,7 +7720,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "anyhow",
  "bitflags 1.3.2",
