@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 5.0.0-rc.1 - 21/10/2024
 
+This release adds experimental support for v8, wasmi, and wamr as interpreter backends to wasmer. Also, we updated the versions of 
+llvm, cranelift and rkyv gaining nice performance boosts.
+
 ## Added
 
   - [#5154](https://github.com/wasmerio/wasmer/pull/5154) Add build steps for interpreter backends
