@@ -3,6 +3,7 @@
 pub mod create;
 pub mod delete;
 pub mod deploy;
+mod deployments;
 pub mod get;
 pub mod info;
 pub mod list;
@@ -36,6 +37,8 @@ pub enum CmdApp {
     Region(regions::CmdAppRegions),
     #[clap(subcommand, alias = "volumes")]
     Volume(volumes::CmdAppVolumes),
+    #[clap(subcommand, alias = "deployments")]
+    Deployment(deployments::CmdAppDeployment),
 }
 
 #[async_trait::async_trait]
@@ -65,6 +68,7 @@ impl AsyncCliCommand for CmdApp {
             Self::Secret(cmd) => cmd.run_async().await,
             Self::Region(cmd) => cmd.run_async().await,
             Self::Volume(cmd) => cmd.run_async().await,
+            Self::Deployment(cmd) => cmd.run_async().await,
         }
     }
 }

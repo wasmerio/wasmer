@@ -26,7 +26,7 @@ impl AsyncCliCommand for CmdNamespaceGet {
             .await?
             .context("namespace not found")?;
 
-        println!("{}", self.fmt.format.render(&namespace));
+        println!("{}", self.fmt.get().render(&namespace));
 
         Ok(())
     }

@@ -47,6 +47,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
         Architecture::X86_64 => object::Architecture::X86_64,
         Architecture::Aarch64(_) => object::Architecture::Aarch64,
         Architecture::Riscv64(_) => object::Architecture::Riscv64,
+        Architecture::LoongArch64 => object::Architecture::LoongArch64,
         architecture => {
             return Err(ObjectError::UnsupportedArchitecture(format!(
                 "{}",
