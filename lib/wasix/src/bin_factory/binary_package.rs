@@ -6,7 +6,9 @@ use once_cell::sync::OnceCell;
 use sha2::Digest;
 use virtual_fs::FileSystem;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
-use webc::{compat::SharedBytes, Container};
+use wasmer_package::container::Container;
+use wasmer_package::package::Package;
+use webc::compat::SharedBytes;
 
 use crate::{
     runners::MappedDirectory,
@@ -96,7 +98,7 @@ impl BinaryPackage {
         let id = PackageId::Hash(PackageHash::from_sha256_bytes(hash));
 
         let manifest_path = dir.join("wasmer.toml");
-        let webc = webc::wasmer_package::Package::from_manifest(&manifest_path)?;
+        let webc = Package::from_manifest(&manifest_path)?;
         let container = Container::from(webc);
         let manifest = container.manifest();
 
@@ -297,7 +299,7 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = webc::wasmer_package::Package::from_manifest(&manifest).unwrap();
+        let pkg = Package::from_manifest(&manifest).unwrap();
         let data = pkg.serialize().unwrap();
         let webc_path = temp.path().join("package.webc");
         std::fs::write(&webc_path, data).unwrap();
@@ -347,9 +349,7 @@ mod tests {
         let atom_path = temp.path().join("foo.wasm");
         std::fs::write(&atom_path, b"").unwrap();
 
-        let webc: Container = webc::wasmer_package::Package::from_manifest(&manifest)
-            .unwrap()
-            .into();
+        let webc: Container = Package::from_manifest(&manifest).unwrap().into();
 
         let tasks = task_manager();
         let mut runtime = PluggableRuntime::new(tasks);

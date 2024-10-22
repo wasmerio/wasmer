@@ -4,10 +4,11 @@ use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
 use wasmer_compiler::Artifact;
+use wasmer_package::container::{Container, ContainerError};
 use wasmer_types::{
     compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
 };
-use webc::{compat::SharedBytes, Container, DetectError};
+use webc::{compat::SharedBytes, DetectError};
 
 use crate::store::CompilerOptions;
 
@@ -62,7 +63,7 @@ impl GenCHeader {
 
         let atom = match Container::from_bytes(file.clone()) {
             Ok(webc) => self.get_atom(&webc)?,
-            Err(webc::compat::ContainerError::Detect(DetectError::InvalidMagic { .. })) => {
+            Err(ContainerError::Detect(DetectError::InvalidMagic { .. })) => {
                 // we've probably got a WebAssembly file
                 file.into()
             }

@@ -6,6 +6,7 @@ use std::{env, path::PathBuf};
 use anyhow::{Context, Result};
 use clap::Parser;
 use wasmer::*;
+use wasmer_package::container::Container;
 
 use crate::store::CompilerOptions;
 
@@ -83,7 +84,7 @@ impl CreateObj {
         println!("Compiler: {}", compiler_type);
         println!("Target: {}", target.triple());
 
-        let atoms = if let Ok(webc) = webc::compat::Container::from_disk(&input_path) {
+        let atoms = if let Ok(webc) = Container::from_disk(&input_path) {
             crate::commands::create_exe::compile_pirita_into_directory(
                 &webc,
                 &output_directory_path,

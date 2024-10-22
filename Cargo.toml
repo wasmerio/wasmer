@@ -93,11 +93,12 @@ version = "5.0.0-rc.1"
 
 [workspace.dependencies]
 # Repo-local crates
+wasmer-package = { version = "0.1.0", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "6.1.0", default-features = false, features = ["package"] }
+webc = { path = "../pirita/crates/webc", version = "6.1.0", default-features = false, features = ["package"] }
 shared-buffer = "0.1.4"
 
 # Third-party crates

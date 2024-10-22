@@ -16,6 +16,7 @@ rust-version.workspace = true
 [dependencies]
 # Wasmer dependencies.
 wasmer-config = { version = "0.9.0", path = "../config" }
+wasmer-package.workspace = true
 webc.workspace = true
 
 

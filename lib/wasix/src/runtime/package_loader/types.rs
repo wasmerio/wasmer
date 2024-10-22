@@ -1,7 +1,7 @@
 use std::{fmt::Debug, ops::Deref};
 
 use anyhow::Error;
-use webc::compat::Container;
+use wasmer_package::container::Container;
 
 use crate::{
     bin_factory::BinaryPackage,

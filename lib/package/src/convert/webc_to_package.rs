@@ -2,14 +2,13 @@ use std::path::Path;
 
 use wasmer_config::package::ModuleReference;
 
+use crate::container::Container;
+
 use super::ConversionError;
 
 /// Convert a webc image into a directory with a wasmer.toml file that can
 /// be used for generating a new pacakge.
-pub fn webc_to_package_dir(
-    webc: &webc::Container,
-    target_dir: &Path,
-) -> Result<(), ConversionError> {
+pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), ConversionError> {
     let mut pkg_manifest = wasmer_config::package::Manifest::new_empty();
 
     let manifest = webc.manifest();
@@ -227,6 +226,8 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
+    use crate::package::Package;
+
     use super::*;
 
     // Build a webc from a pacakge directory, and then restore the directory
@@ -277,10 +278,9 @@ main-args = ["/mounted/script.py"]
             )
             .unwrap();
 
-            let pkg = webc::wasmer_package::Package::from_manifest(dir_input.join("wasmer.toml"))
-                .unwrap();
+            let pkg = Package::from_manifest(dir_input.join("wasmer.toml")).unwrap();
             let raw = pkg.serialize().unwrap();
-            webc::Container::from_bytes(raw).unwrap()
+            Container::from_bytes(raw).unwrap()
         };
 
         let dir_output = dir.join("output");

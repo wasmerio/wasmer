@@ -10,8 +10,8 @@ use std::{
 use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
+use wasmer_package::container::Container;
 use wasmer_wasix_types::wasi::Errno;
-use webc::Container;
 
 mod binary_package;
 mod exec;

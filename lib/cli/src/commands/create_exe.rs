@@ -14,11 +14,10 @@ use tar::Archive;
 use wasmer::sys::Artifact;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
+use wasmer_package::container::Container;
+use wasmer_package::package::{Metadata, Volume as WebcVolume};
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-use webc::{
-    compat::{Container, Volume as WebcVolume},
-    PathSegments,
-};
+use webc::PathSegments;
 
 use self::utils::normalize_atom_name;
 use crate::{
@@ -516,14 +515,14 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
             path.push(segment);
 
             match meta {
-                webc::compat::Metadata::Dir { .. } => {
+                Metadata::Dir { .. } => {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
                     );
                     read_dir(volume, path, files);
                 }
-                webc::compat::Metadata::File { .. } => {
+                Metadata::File { .. } => {
                     if let Some((contents, _)) = volume.read_file(&*path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),

@@ -10,10 +10,8 @@ use semver::VersionReq;
 use sha2::{Digest, Sha256};
 use url::Url;
 use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageSource};
-use webc::{
-    metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest},
-    Container,
-};
+use wasmer_package::container::Container;
+use webc::metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest};
 
 /// A dependency constraint.
 #[derive(Debug, Clone, PartialEq, Eq)]

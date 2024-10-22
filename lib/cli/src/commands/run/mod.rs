@@ -32,6 +32,7 @@ use wasmer::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
+use wasmer_package::container::Container;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
@@ -53,7 +54,7 @@ use wasmer_wasix::{
     },
     Runtime, WasiError,
 };
-use webc::{metadata::Manifest, Container};
+use webc::metadata::Manifest;
 
 use crate::{
     commands::run::wasi::Wasi, common::HashAlgorithm, error::PrettyError, logging::Output,
