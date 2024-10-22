@@ -62,9 +62,6 @@ pub(crate) fn fd_seek_internal(
     if !fd_entry.rights.contains(Rights::FD_SEEK) {
         return Ok(Err(Errno::Access));
     }
-    if fd_entry.flags.contains(Fdflags::APPEND) {
-        return Ok(Ok(fd_entry.offset.load(Ordering::Acquire)));
-    }
 
     // TODO: handle case if fd is a dir?
     let new_offset = match whence {
