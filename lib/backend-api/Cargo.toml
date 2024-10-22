@@ -24,7 +24,7 @@ reqwest = { workspace = true, default-features = false, features = ["json"] }
 
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
-time = { version = "0.3", features = ["formatting", "parsing"] }
+time = { workspace = true, features = ["formatting", "parsing"] }
 tokio = { workspace = true }
 serde_json = "1"
 url = { version = "2", features = ["serde"] }
