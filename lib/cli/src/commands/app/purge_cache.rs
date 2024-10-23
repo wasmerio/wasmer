@@ -1,5 +1,7 @@
 //! Get information about an edge app.
 
+use anyhow::Context;
+
 use super::util::AppIdentOpts;
 use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 
@@ -29,7 +31,12 @@ impl AsyncCliCommand for CmdAppPurgeCache {
         let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
-        let version_id = app.active_version.id;
+        let version_id = app
+            .active_version
+            .as_ref()
+            .context("Could not purge cache: app has no active version!")?
+            .id
+            .clone();
 
         let name = format!("{} ({})", app.name, app.owner.global_name);
 

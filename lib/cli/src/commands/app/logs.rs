@@ -90,10 +90,12 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             .from
             .unwrap_or_else(|| OffsetDateTime::now_utc() - time::Duration::minutes(10));
 
+        let version = app.active_version.as_ref().map_or("n/a", |v| &v.version);
+
         tracing::info!(
             app.name=%app.name,
             app.owner=%app.owner.global_name,
-            app.version=app.active_version.version,
+            app.version=version,
             range.start=%from,
             range.end=self.until.map(|ts| ts.to_string()),
             "Fetching logs",

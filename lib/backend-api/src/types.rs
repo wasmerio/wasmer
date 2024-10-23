@@ -832,7 +832,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "DeployApp")]
     pub(crate) struct AppVolumes {
-        pub active_version: AppVersionVolumes,
+        pub active_version: Option<AppVersionVolumes>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -938,7 +938,7 @@ mod queries {
         pub created_at: DateTime,
         pub updated_at: DateTime,
         pub description: Option<String>,
-        pub active_version: DeployAppVersion,
+        pub active_version: Option<DeployAppVersion>,
         pub admin_url: String,
         pub owner: Owner,
         pub url: String,
@@ -1205,21 +1205,38 @@ mod queries {
     pub struct DeployAppDeployments {
         // FIXME: add $offset, $after, currently causes an error from the backend
         // #[arguments(first: $first, after: $after, offset: $offset)]
-        pub deployments: Option<AutobuildRepositoryConnection>,
+        pub deployments: Option<DeploymentConnection>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    pub struct AutobuildRepositoryConnection {
+    pub struct DeploymentConnection {
         pub page_info: PageInfo,
-        pub edges: Vec<Option<AutobuildRepositoryEdge>>,
+        pub edges: Vec<Option<DeploymentEdge>>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    pub struct AutobuildRepositoryEdge {
-        pub node: Option<AutobuildRepository>,
+    pub struct DeploymentEdge {
+        pub node: Option<Deployment>,
     }
 
-    #[derive(cynic::QueryFragment, serde::Serialize, Debug)]
+    #[allow(clippy::large_enum_variant)]
+    #[derive(cynic::InlineFragments, Debug, Clone, Serialize)]
+    pub enum Deployment {
+        AutobuildRepository(AutobuildRepository),
+        NakedDeployment(NakedDeployment),
+        #[cynic(fallback)]
+        Other,
+    }
+
+    #[derive(cynic::QueryFragment, serde::Serialize, Debug, Clone)]
+    pub struct NakedDeployment {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub app_version: Option<DeployAppVersion>,
+    }
+
+    #[derive(cynic::QueryFragment, serde::Serialize, Debug, Clone)]
     pub struct AutobuildRepository {
         pub id: cynic::Id,
         pub build_id: Uuid,
@@ -1239,6 +1256,7 @@ mod queries {
         Timeout,
         InternalError,
         Cancelled,
+        Running,
     }
 
     impl StatusEnum {
@@ -1251,6 +1269,7 @@ mod queries {
                 Self::Timeout => "timeout",
                 Self::InternalError => "internal_error",
                 Self::Cancelled => "cancelled",
+                Self::Running => "running",
             }
         }
     }

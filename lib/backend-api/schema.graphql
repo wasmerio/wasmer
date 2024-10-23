@@ -924,6 +924,7 @@ type DeployAppVersion implements Node {
   sourcePackage: Package!
   aggregateMetrics: AggregateMetrics!
   volumes: [AppVersionVolume]
+  gitSource: AutobuildRepository
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
 }
@@ -935,7 +936,7 @@ type DeployApp implements Node & Owner {
   createdBy: User!
   createdAt: DateTime!
   updatedAt: DateTime!
-  activeVersion: DeployAppVersion!
+  activeVersion: DeployAppVersion
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
@@ -957,7 +958,7 @@ type DeployApp implements Node & Owner {
   deleted: Boolean!
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
-  deployments(offset: Int, before: String, after: String, first: Int, last: Int): AutobuildRepositoryConnection
+  deployments(before: String, after: String, first: Int, last: Int): DeploymentConnection
 }
 
 enum DeployAppVersionsSortBy {
@@ -1144,24 +1145,31 @@ enum AppScreenshotAppearance {
   DARK
 }
 
-type AutobuildRepositoryConnection {
+type DeploymentConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
 
   """Contains the nodes in this connection."""
-  edges: [AutobuildRepositoryEdge]!
-
-  """Total number of items in the connection."""
-  totalCount: Int
+  edges: [DeploymentEdge]!
 }
 
-"""A Relay edge containing a `AutobuildRepository` and its cursor."""
-type AutobuildRepositoryEdge {
+"""A Relay edge containing a `Deployment` and its cursor."""
+type DeploymentEdge {
   """The item at the end of the edge"""
-  node: AutobuildRepository
+  node: Deployment
 
   """A cursor for use in pagination"""
   cursor: String!
+}
+
+union Deployment = NakedDeployment | AutobuildRepository
+
+type NakedDeployment implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  appVersion: DeployAppVersion
 }
 
 type AutobuildRepository implements Node {
@@ -1170,14 +1178,19 @@ type AutobuildRepository implements Node {
   user: User!
   name: String!
   namespace: String!
-  app: DeployApp
   createdAt: DateTime!
   updatedAt: DateTime!
   appName: String
-  buildId: UUID!
-  repoUrl: String!
-  status: StatusEnum!
   appVersion: DeployAppVersion
+  buildId: UUID!
+  buildCmd: String!
+  installCmd: String!
+  repoUrl: String!
+  prevCommitHash: String!
+  commitHash: String!
+  commitMessage: String!
+  commitAuthorUsername: String!
+  status: StatusEnum!
   logUrl: String
 }
 
@@ -1190,6 +1203,7 @@ scalar UUID
 enum StatusEnum {
   SUCCESS
   WORKING
+  RUNNING
   FAILURE
   QUEUED
   TIMEOUT
@@ -2456,6 +2470,12 @@ type Query {
   getAppTemplate(slug: String!): AppTemplate
   getAppTemplateCategories(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateCategoryConnection
   getBuildKinds(offset: Int, before: String, after: String, first: Int, last: Int): BuildKindConnection!
+
+  """Specify if the database name is valid or not."""
+  canDeployDbWithName(
+    """Name of the database"""
+    name: String!
+  ): Boolean!
   viewer: User
   getUser(username: String!): User
   getPasswordResetToken(token: String!): GetPasswordResetToken
@@ -3184,6 +3204,18 @@ type Mutation {
 
   """Delete a database for an app."""
   deleteAppDb(input: DeleteAppDBInput!): DeleteAppDBPayload
+
+  """Get the autobuild config for a given repo"""
+  autobuildConfigForRepo(input: AutobuildConfigForRepoInput!): AutobuildConfigForRepoPayload
+
+  """Add a new github app installation"""
+  installGithubApp(input: InstallGithubAppInput!): InstallGithubAppPayload
+
+  """Detach autobuild from app."""
+  detachAppFromAutobuild(input: DetachAppFromAutobuildInput!): DetachAppFromAutobuildPayload
+
+  """Update autobuild config for an app."""
+  updateAutobuildConfigForApp(input: UpdateAutobuildConfigForAppInput!): UpdateAutobuildConfigForAppPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3705,6 +3737,74 @@ type DeleteAppDBPayload {
 input DeleteAppDBInput {
   """App Database ID"""
   id: ID!
+  clientMutationId: String
+}
+
+"""Get the autobuild config for a given repo"""
+type AutobuildConfigForRepoPayload {
+  """The build configuration"""
+  buildConfig: BuildConfig
+
+  """List of apps deployed with this repo."""
+  deployedApps: [DeployApp]
+  clientMutationId: String
+}
+
+"""The Build Configuration for a given repo"""
+type BuildConfig {
+  buildCmd: String!
+  installCmd: String!
+  setupDb: Boolean!
+  presetName: String!
+  appName: String!
+}
+
+input AutobuildConfigForRepoInput {
+  """The repo URL"""
+  repoUrl: String!
+  clientMutationId: String
+}
+
+"""Add a new github app installation"""
+type InstallGithubAppPayload {
+  success: Boolean!
+  user: User!
+  clientMutationId: String
+}
+
+input InstallGithubAppInput {
+  """Github app Installation ID"""
+  installationId: ID!
+  clientMutationId: String
+}
+
+"""Detach autobuild from app."""
+type DetachAppFromAutobuildPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input DetachAppFromAutobuildInput {
+  """The ID of the App"""
+  appId: ID!
+  clientMutationId: String
+}
+
+"""Update autobuild config for an app."""
+type UpdateAutobuildConfigForAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input UpdateAutobuildConfigForAppInput {
+  """The ID of the App"""
+  appId: ID!
+
+  """Build command for the app"""
+  buildCmd: String
+
+  """Install command for the app"""
+  installCmd: String
   clientMutationId: String
 }
 
@@ -4560,7 +4660,6 @@ type Subscription {
   appIsPublishedFromRepo(repoId: ID!): DeployAppVersion!
   publishAppFromRepoAutobuild(repoUrl: String!, appName: String!, owner: String, buildCmd: String, installCmd: String, databaseName: String, secrets: [SecretInput]): AutobuildLog
   fetchBuildLogs(buildId: String!): String
-  autobuildConfigForRepo(repoUrl: String!): BuildConfig
   packageVersionCreated(publishedBy: ID, ownerId: ID): PackageVersion!
 
   """Subscribe to package version ready"""
@@ -4584,14 +4683,6 @@ type AutobuildLog {
 enum AutoBuildDeployAppLogKind {
   LOG
   COMPLETE
-}
-
-"""Log entry for Deploying app from github repo"""
-type BuildConfig {
-  buildCmd: String!
-  installCmd: String!
-  setupDb: Boolean!
-  presetName: String!
 }
 
 type PackageVersionReadyResponse {
