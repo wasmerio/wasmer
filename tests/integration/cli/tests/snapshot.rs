@@ -1288,6 +1288,10 @@ fn test_snapshot_exit_0_from_main() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/exit-0-from-main.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 0, .. })
+    ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1297,6 +1301,10 @@ fn test_snapshot_exit_1_from_main() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/exit-1-from-main.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 1, .. })
+    ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1306,6 +1314,10 @@ fn test_snapshot_exit_0_from_worker() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/exit-0-from-worker.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 0, .. })
+    ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1315,6 +1327,10 @@ fn test_snapshot_exit_1_from_worker() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/exit-1-from-worker.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 1, .. })
+    ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1324,6 +1340,10 @@ fn test_snapshot_worker_terminating_normally() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/worker-terminating-normally.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 0, .. })
+    ));
     assert_json_snapshot!(snapshot);
 }
 
@@ -1333,5 +1353,9 @@ fn test_snapshot_worker_panicking() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/worker-panicking.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 173, .. })
+    ));
     assert_json_snapshot!(snapshot);
 }
