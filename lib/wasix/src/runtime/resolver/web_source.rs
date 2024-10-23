@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
+use wasmer_package::utils::from_disk;
 use webc::Container;
 
 use crate::{
@@ -236,7 +237,7 @@ impl WebSource {
 
         // Note: We want to use Container::from_disk() rather than the bytes
         // our HTTP client gave us because then we can use memory-mapped files
-        let container = crate::block_in_place(|| Container::from_disk(&local_path))
+        let container = crate::block_in_place(|| from_disk(&local_path))
             .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
 
         let id = PackageInfo::package_id_from_manifest(container.manifest())?

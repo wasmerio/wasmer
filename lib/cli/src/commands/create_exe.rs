@@ -14,6 +14,7 @@ use tar::Archive;
 use wasmer::sys::Artifact;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
+use wasmer_package::utils::from_disk;
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
 use webc::Container;
 use webc::PathSegments;
@@ -244,7 +245,7 @@ impl CreateExe {
         };
         std::fs::create_dir_all(&tempdir)?;
 
-        let atoms = if let Ok(pirita) = Container::from_disk(&input_path) {
+        let atoms = if let Ok(pirita) = from_disk(&input_path) {
             // pirita file
             compile_pirita_into_directory(
                 &pirita,

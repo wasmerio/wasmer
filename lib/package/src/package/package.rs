@@ -22,7 +22,8 @@ use webc::{
         write::{FileEntry, Writer},
         ChecksumAlgorithm, Timestamps,
     },
-    AbstractVolume, AbstractWebc, Container, PathSegment, Version, Volume,
+    AbstractVolume, AbstractWebc, Container, ContainerError, DetectError, PathSegment, Version,
+    Volume,
 };
 
 use super::{
@@ -118,6 +119,14 @@ pub enum WasmerPackageError {
     /// Error when serializing or deserializing
     #[error("serde error: {0:?}")]
     SerdeError(#[from] ciborium::value::Error),
+
+    /// Container Error
+    #[error("container error: {0:?}")]
+    ContainerError(#[from] ContainerError),
+
+    /// Detect Error
+    #[error("detect error: {0:?}")]
+    DetectError(#[from] DetectError),
 }
 
 /// A Wasmer package that will be lazily loaded from disk.

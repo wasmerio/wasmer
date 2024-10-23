@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
+use wasmer_package::utils::from_disk;
 use webc::Container;
 
 /// Extract contents of a webc image to a directory.
@@ -68,7 +69,7 @@ impl PackageUnpack {
             PACKAGE_EMOJI
         ));
 
-        let pkg = Container::from_disk(&self.package_path).with_context(|| {
+        let pkg = from_disk(&self.package_path).with_context(|| {
             format!(
                 "could not open package at '{}'",
                 self.package_path.display()

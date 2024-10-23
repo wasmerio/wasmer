@@ -32,6 +32,7 @@ use wasmer::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
+use wasmer_package::utils::from_disk;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
@@ -762,7 +763,7 @@ impl ExecutableTarget {
                 })
             }
             TargetOnDisk::LocalWebc => {
-                let container = Container::from_disk(path)?;
+                let container = from_disk(path)?;
                 pb.set_message("Resolving dependencies");
 
                 let inner_runtime = runtime.clone();

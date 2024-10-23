@@ -11,6 +11,10 @@ use bytes::Bytes;
 use http::{HeaderMap, Method};
 use tempfile::NamedTempFile;
 use url::Url;
+use wasmer_package::{
+    package::WasmerPackageError,
+    utils::{from_bytes, from_disk},
+};
 use webc::DetectError;
 use webc::{Container, ContainerError};
 
@@ -367,7 +371,7 @@ impl PackageLoader for BuiltinPackageLoader {
 
         // The sad path - looks like we don't have a filesystem cache so we'll
         // need to keep the whole thing in memory.
-        let container = crate::spawn_blocking(move || Container::from_bytes(bytes)).await??;
+        let container = crate::spawn_blocking(move || from_bytes(bytes)).await??;
         // We still want to cache it in memory, of course
         self.in_memory.save(&container, summary.dist.webc_sha256);
         Ok(container)
@@ -485,18 +489,16 @@ impl FileSystemCache {
 
         let container = crate::spawn_blocking({
             let path = path.clone();
-            move || Container::from_disk(path)
+            move || from_disk(path)
         })
         .await?;
         match container {
             Ok(c) => Ok(Some(c)),
-            Err(ContainerError::Open { error, .. })
-            | Err(ContainerError::Read { error, .. })
-            | Err(ContainerError::Detect(DetectError::Io(error)))
-                if error.kind() == ErrorKind::NotFound =>
-            {
-                Ok(None)
-            }
+            Err(WasmerPackageError::ContainerError(ContainerError::Open { error, .. }))
+            | Err(WasmerPackageError::ContainerError(ContainerError::Read { error, .. }))
+            | Err(WasmerPackageError::ContainerError(ContainerError::Detect(DetectError::Io(
+                error,
+            )))) if error.kind() == ErrorKind::NotFound => Ok(None),
             Err(e) => {
                 let msg = format!("Unable to read \"{}\"", path.display());
                 Err(Error::new(e).context(msg))
