@@ -22,7 +22,7 @@ use webc::{
         write::{FileEntry, Writer},
         ChecksumAlgorithm, Timestamps,
     },
-    PathSegment,
+    AbstractVolume, AbstractWebc, Container, PathSegment, Version, Volume,
 };
 
 use super::{
@@ -484,6 +484,53 @@ impl Package {
             .keys()
             .map(|name| Cow::Borrowed(name.as_str()))
             .collect()
+    }
+}
+
+impl AbstractWebc for Package {
+    fn version(&self) -> Version {
+        Version::V3
+    }
+
+    fn manifest(&self) -> &WebcManifest {
+        self.manifest()
+    }
+
+    fn atom_names(&self) -> Vec<Cow<'_, str>> {
+        self.atoms()
+            .keys()
+            .map(|s| Cow::Borrowed(s.as_str()))
+            .collect()
+    }
+
+    fn get_atom(&self, name: &str) -> Option<OwnedBuffer> {
+        self.atoms().get(name).cloned()
+    }
+
+    fn get_webc_hash(&self) -> Option<[u8; 32]> {
+        self.webc_hash()
+    }
+
+    fn get_atoms_hash(&self) -> Option<[u8; 32]> {
+        None
+    }
+
+    fn volume_names(&self) -> Vec<Cow<'_, str>> {
+        self.volume_names()
+    }
+
+    fn get_volume(&self, name: &str) -> Option<Volume> {
+        self.get_volume(name).map(|v| {
+            let a: Arc<dyn AbstractVolume + Send + Sync + 'static> = v.as_volume();
+
+            Volume::new(a)
+        })
+    }
+}
+
+impl From<Package> for Container {
+    fn from(value: Package) -> Self {
+        Container::new(value)
     }
 }
 

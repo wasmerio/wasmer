@@ -10,7 +10,11 @@ use shared_buffer::{MmapError, OwnedBuffer};
 use url::Url;
 #[allow(deprecated)]
 use wasmer_config::package::{CommandV1, CommandV2, Manifest as WasmerManifest, Package};
-use webc::{indexmap, indexmap::IndexMap, metadata::AtomSignature};
+use webc::{
+    indexmap::{self, IndexMap},
+    metadata::AtomSignature,
+    sanitize_path,
+};
 
 use webc::metadata::{
     annotations::{
@@ -397,47 +401,6 @@ fn get_fs_table(fs: &IndexMap<String, PathBuf>) -> FileSystemMappings {
     }
 
     FileSystemMappings(entries)
-}
-
-/// Turn any path that gets passed in into something WASI can use.
-///
-/// In general, this means...
-///
-/// - Use "/" everywhere
-/// - Remove "." or ".." components
-/// - Make the path absolute because when loaded it'll be absolute with respect
-///   to the volume
-/// - Get rid of any UNC path stuff
-pub(crate) fn sanitize_path(path: impl AsRef<Path>) -> String {
-    let path = path.as_ref();
-
-    let mut segments = Vec::new();
-
-    for component in path.components() {
-        match component {
-            std::path::Component::Prefix(_) | std::path::Component::RootDir => {}
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
-                segments.pop();
-            }
-            std::path::Component::Normal(segment) => {
-                segments.push(segment.to_string_lossy());
-            }
-        }
-    }
-
-    let mut sanitized = String::new();
-
-    for segment in segments {
-        sanitized.push('/');
-        sanitized.push_str(&segment);
-    }
-
-    if sanitized.is_empty() {
-        sanitized.push('/');
-    }
-
-    sanitized
 }
 
 fn transform_package_meta_to_annotations(

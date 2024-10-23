@@ -6,9 +6,9 @@ use once_cell::sync::OnceCell;
 use sha2::Digest;
 use virtual_fs::FileSystem;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
-use wasmer_package::container::Container;
 use wasmer_package::package::Package;
 use webc::compat::SharedBytes;
+use webc::Container;
 
 use crate::{
     runners::MappedDirectory,

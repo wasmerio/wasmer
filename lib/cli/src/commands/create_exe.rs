@@ -14,10 +14,10 @@ use tar::Archive;
 use wasmer::sys::Artifact;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
-use wasmer_package::container::Container;
-use wasmer_package::package::{Metadata, Volume as WebcVolume};
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
+use webc::Container;
 use webc::PathSegments;
+use webc::{Metadata, Volume as WebcVolume};
 
 use self::utils::normalize_atom_name;
 use crate::{

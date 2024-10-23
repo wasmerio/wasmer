@@ -9,16 +9,17 @@ use anyhow::{Context, Error};
 use shared_buffer::OwnedBuffer;
 
 use webc::{
+    sanitize_path,
     v3::{
         self,
         write::{DirEntry, Directory, FileEntry},
     },
-    PathSegment, PathSegments, Timestamps, ToPathSegments,
+    AbstractVolume, Metadata, PathSegment, PathSegments, Timestamps, ToPathSegments,
 };
 
 use crate::package::Strictness;
 
-use super::{super::manifest::sanitize_path, abstract_volume::Metadata, WasmerPackageVolume};
+use super::WasmerPackageVolume;
 
 /// A lazily loaded volume in a Wasmer package.
 ///
@@ -304,9 +305,10 @@ impl FsVolume {
         }
     }
 }
-impl WasmerPackageVolume for FsVolume {
-    fn read_file(&self, path: &PathSegments) -> Option<OwnedBuffer> {
-        self.read_file(path)
+
+impl AbstractVolume for FsVolume {
+    fn read_file(&self, path: &PathSegments) -> Option<(OwnedBuffer, Option<[u8; 32]>)> {
+        self.read_file(path).map(|c| (c, None))
     }
 
     fn read_dir(
@@ -319,7 +321,9 @@ impl WasmerPackageVolume for FsVolume {
     fn metadata(&self, path: &PathSegments) -> Option<Metadata> {
         self.metadata(path)
     }
+}
 
+impl WasmerPackageVolume for FsVolume {
     fn as_directory_tree(&self, strictness: Strictness) -> Result<Directory<'_>, Error> {
         self.as_directory_tree(strictness)
     }

@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
 use wasmer_config::package::PackageIdent;
-use wasmer_package::container::Container;
+use webc::Container;
 
 use crate::{
     types::{self, *},

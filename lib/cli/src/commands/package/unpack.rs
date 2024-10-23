@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
-use wasmer_package::container::Container;
+use webc::Container;
 
 /// Extract contents of a webc image to a directory.
 ///

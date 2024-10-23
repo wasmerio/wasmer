@@ -6,12 +6,12 @@ use std::{
 
 use webc::{
     v3::{self, write::FileEntry},
-    PathSegment, PathSegments,
+    AbstractVolume, Metadata, PathSegment, PathSegments,
 };
 
 use crate::package::Strictness;
 
-use super::{abstract_volume::Metadata, WasmerPackageVolume};
+use super::WasmerPackageVolume;
 
 /// An in-memory representation of a volume.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -121,7 +121,7 @@ impl MemoryDir {
         let mut dir = self;
 
         while !segments.is_empty() {
-            let next = segments.first().unwrap().clone();
+            let next = (*segments.first().unwrap()).clone();
             segments.remove(0);
 
             if let Some(next_node) = dir.nodes.get(&next.to_string()) {
@@ -200,9 +200,12 @@ impl MemoryDir {
     }
 }
 
-impl WasmerPackageVolume for MemoryVolume {
-    fn read_file(&self, path: &PathSegments) -> Option<shared_buffer::OwnedBuffer> {
-        self.node.read_file(path)
+impl AbstractVolume for MemoryVolume {
+    fn read_file(
+        &self,
+        path: &PathSegments,
+    ) -> Option<(shared_buffer::OwnedBuffer, Option<[u8; 32]>)> {
+        self.node.read_file(path).map(|c| (c, None))
     }
 
     fn read_dir(
@@ -215,7 +218,9 @@ impl WasmerPackageVolume for MemoryVolume {
     fn metadata(&self, path: &PathSegments) -> Option<Metadata> {
         self.node.find_meta(path)
     }
+}
 
+impl WasmerPackageVolume for MemoryVolume {
     fn as_directory_tree(
         &self,
         strictness: Strictness,

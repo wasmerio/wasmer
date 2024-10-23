@@ -6,7 +6,7 @@ use std::{env, path::PathBuf};
 use anyhow::{Context, Result};
 use clap::Parser;
 use wasmer::*;
-use wasmer_package::container::Container;
+use webc::Container;
 
 use crate::store::CompilerOptions;
 

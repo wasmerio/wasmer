@@ -4,11 +4,11 @@ use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
 use wasmer_compiler::Artifact;
-use wasmer_package::container::{Container, ContainerError};
 use wasmer_types::{
     compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
 };
 use webc::{compat::SharedBytes, DetectError};
+use webc::{Container, ContainerError};
 
 use crate::store::CompilerOptions;
 

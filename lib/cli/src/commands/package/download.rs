@@ -5,7 +5,7 @@ use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
-use wasmer_package::container::Container;
+use webc::Container;
 
 use crate::config::WasmerEnv;
 

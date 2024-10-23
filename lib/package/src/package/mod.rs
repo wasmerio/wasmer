@@ -8,8 +8,5 @@ pub use self::{
     manifest::ManifestError,
     package::{Package, WasmerPackageError},
     strictness::Strictness,
-    volume::{
-        abstract_volume::Metadata, abstract_volume::Volume, fs::*, in_memory::*,
-        WasmerPackageVolume,
-    },
+    volume::{fs::*, in_memory::*, WasmerPackageVolume},
 };

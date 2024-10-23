@@ -1,6 +1,6 @@
 use anyhow::Context;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
-use wasmer_package::container::Container;
+use webc::Container;
 
 use crate::runtime::resolver::{
     DistributionInfo, PackageInfo, PackageSummary, QueryError, Source, WebcHash,

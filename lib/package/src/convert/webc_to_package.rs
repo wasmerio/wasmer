@@ -2,7 +2,7 @@ use std::path::Path;
 
 use wasmer_config::package::ModuleReference;
 
-use crate::container::Container;
+use webc::Container;
 
 use super::ConversionError;
 

@@ -9,16 +9,14 @@ use std::{
 
 use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use webc::{compat::SharedBytes, PathSegmentError, PathSegments, ToPathSegments};
+use webc::{
+    compat::SharedBytes, Container, Metadata as WebcMetadata, PathSegmentError, PathSegments,
+    ToPathSegments, Volume,
+};
 
 use crate::{
     DirEntry, EmptyFileSystem, FileOpener, FileSystem, FileType, FsError, Metadata,
     OpenOptionsConfig, OverlayFileSystem, ReadDir, VirtualFile,
-};
-
-use wasmer_package::{
-    container::Container,
-    package::{Metadata as PackageMetadata, Volume},
 };
 
 #[derive(Debug, Clone)]
@@ -310,9 +308,9 @@ fn get_modified(timestamps: Option<webc::Timestamps>) -> u64 {
     timestamps.map(|t| t.modified()).unwrap_or(1)
 }
 
-fn compat_meta(meta: PackageMetadata) -> Metadata {
+fn compat_meta(meta: WebcMetadata) -> Metadata {
     match meta {
-        PackageMetadata::Dir { timestamps } => Metadata {
+        WebcMetadata::Dir { timestamps } => Metadata {
             ft: FileType {
                 dir: true,
                 ..Default::default()
@@ -320,7 +318,7 @@ fn compat_meta(meta: PackageMetadata) -> Metadata {
             modified: get_modified(timestamps),
             ..Default::default()
         },
-        PackageMetadata::File {
+        WebcMetadata::File {
             length, timestamps, ..
         } => Metadata {
             ft: FileType {

@@ -11,8 +11,8 @@ use bytes::Bytes;
 use http::{HeaderMap, Method};
 use tempfile::NamedTempFile;
 use url::Url;
-use wasmer_package::container::{Container, ContainerError};
 use webc::DetectError;
+use webc::{Container, ContainerError};
 
 use crate::{
     bin_factory::BinaryPackage,

@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
-use wasmer_package::container::Container;
+use webc::Container;
 
 use crate::{
     http::{HttpClient, HttpRequest},

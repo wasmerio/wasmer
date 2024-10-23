@@ -11,9 +11,8 @@ use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::PackageId;
-use wasmer_package::container::Container;
-use wasmer_package::package::Volume;
 use webc::metadata::annotations::Atom as AtomAnnotation;
+use webc::{Container, Volume};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
