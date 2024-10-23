@@ -232,7 +232,20 @@ impl WasmerPackageVolume for MemoryVolume {
 
 #[cfg(test)]
 mod tests {
+    use sha2::{Digest, Sha256};
+    use v3::{
+        write::Writer, Checksum, ChecksumAlgorithm, Index, IndexEntry, Signature,
+        SignatureAlgorithm, Span, Tag, Timestamps,
+    };
+    use webc::metadata::Manifest;
+
     use super::*;
+
+    fn sha256(data: impl AsRef<[u8]>) -> [u8; 32] {
+        let mut state = Sha256::default();
+        state.update(data.as_ref());
+        state.finalize().into()
+    }
 
     #[test]
     fn volume_metadata() -> anyhow::Result<()> {
@@ -289,6 +302,162 @@ mod tests {
             timestamps.unwrap().modified(),
             dir_modified.duration_since(UNIX_EPOCH)?.as_nanos() as u64
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_webc_file_from_memory() -> Result<(), Box<dyn std::error::Error>> {
+        let manifest = Manifest::default();
+
+        let mut writer = Writer::new(ChecksumAlgorithm::Sha256)
+            .write_manifest(&manifest)?
+            .write_atoms(BTreeMap::new())?;
+
+        let file_contents = "Hello, World!";
+        let file = MemoryFile {
+            modified: SystemTime::UNIX_EPOCH,
+            data: file_contents.as_bytes().to_vec(),
+        };
+        let mut nodes = BTreeMap::new();
+        nodes.insert(String::from("a"), MemoryNode::File(file));
+
+        let dir_modified = std::time::SystemTime::UNIX_EPOCH;
+        let dir = MemoryDir {
+            modified: dir_modified,
+            nodes,
+        };
+
+        let volume = MemoryVolume { node: dir };
+
+        writer.write_volume(
+            "first",
+            dbg!(WasmerPackageVolume::as_directory_tree(
+                &volume,
+                Strictness::Strict,
+            )?),
+        )?;
+
+        let webc = writer.finish(SignatureAlgorithm::None)?;
+
+        let mut data = vec![];
+        ciborium::into_writer(&manifest, &mut data).unwrap();
+        let manifest_hash: [u8; 32] = sha2::Sha256::digest(data).into();
+        let manifest_section = bytes! {
+            Tag::Manifest,
+            manifest_hash,
+            1_u64.to_le_bytes(),
+            [0xa0],
+        };
+
+        let empty_hash: [u8; 32] = sha2::Sha256::new().finalize().into();
+
+        let atoms_header_and_data = bytes! {
+            // header section
+            65_u64.to_le_bytes(),
+            Tag::Directory,
+            56_u64.to_le_bytes(),
+            Timestamps::default(),
+            empty_hash,
+            // data section (empty)
+            0_u64.to_le_bytes(),
+        };
+
+        let atoms_hash: [u8; 32] = sha2::Sha256::digest(&atoms_header_and_data).into();
+        let atoms_section = bytes! {
+            Tag::Atoms,
+            atoms_hash,
+            81_u64.to_le_bytes(),
+            atoms_header_and_data,
+        };
+
+        let a_hash: [u8; 32] = sha2::Sha256::digest(file_contents).into();
+        let dir_hash: [u8; 32] = sha2::Sha256::digest(a_hash).into();
+        let volume_header_and_data = bytes! {
+            // ==== Name ====
+            5_u64.to_le_bytes(),
+            "first",
+            // ==== Header Section ====
+            187_u64.to_le_bytes(),
+            // ---- root directory ----
+            Tag::Directory,
+            105_u64.to_le_bytes(),
+            Timestamps::default(),
+            dir_hash,
+            // first entry
+            114_u64.to_le_bytes(),
+            a_hash,
+            1_u64.to_le_bytes(),
+            "a",
+
+            // ---- first item ----
+            Tag::File,
+            0_u64.to_le_bytes(),
+            13_u64.to_le_bytes(),
+            sha256("Hello, World!"),
+            Timestamps::default(),
+
+            // ==== Data Section ====
+            13_u64.to_le_bytes(),
+            file_contents,
+        };
+        let volume_hash: [u8; 32] = sha2::Sha256::digest(&volume_header_and_data).into();
+        let first_volume_section = bytes! {
+            Tag::Volume,
+            volume_hash,
+            229_u64.to_le_bytes(),
+            volume_header_and_data,
+        };
+
+        let index = Index::new(
+            IndexEntry::new(
+                Span::new(437, 42),
+                Checksum::sha256(sha256(&manifest_section[41..])),
+            ),
+            IndexEntry::new(
+                Span::new(479, 122),
+                Checksum::sha256(sha256(&atoms_section[41..])),
+            ),
+            [(
+                "first".to_string(),
+                IndexEntry::new(
+                    Span::new(601, 270),
+                    Checksum::sha256(sha256(&first_volume_section[41..])),
+                ),
+            )]
+            .into_iter()
+            .collect(),
+            Signature::none(),
+        );
+
+        let mut serialized_index = vec![];
+        ciborium::into_writer(&index, &mut serialized_index).unwrap();
+        let index_section = bytes! {
+            Tag::Index,
+            420_u64.to_le_bytes(),
+            serialized_index,
+            // padding bytes to compensate for an unknown index length
+            // NOTE: THIS VALUE IS COMPLETELY RANDOM AND YOU SHOULD GUESS WHAT VALUE
+            // WILL WORK.
+            [0_u8; 75],
+        };
+
+        assert_bytes_eq!(
+            &webc,
+            bytes! {
+                webc::MAGIC,
+                webc::Version::V3,
+                index_section,
+                manifest_section,
+                atoms_section,
+                first_volume_section,
+            }
+        );
+
+        // make sure the index is accurate
+        assert_bytes_eq!(&webc[index.manifest.span], manifest_section);
+        assert_bytes_eq!(&webc[index.atoms.span], atoms_section);
+        assert_bytes_eq!(&webc[index.volumes["first"].span], first_volume_section);
 
         Ok(())
     }
