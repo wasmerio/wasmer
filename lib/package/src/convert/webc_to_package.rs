@@ -226,7 +226,7 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
-    use crate::package::Package;
+    use crate::{package::Package, utils::from_bytes};
 
     use super::*;
 
@@ -280,7 +280,7 @@ main-args = ["/mounted/script.py"]
 
             let pkg = Package::from_manifest(dir_input.join("wasmer.toml")).unwrap();
             let raw = pkg.serialize().unwrap();
-            Container::from_bytes(raw).unwrap()
+            from_bytes(raw).unwrap()
         };
 
         let dir_output = dir.join("output");

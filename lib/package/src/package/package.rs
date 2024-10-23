@@ -763,7 +763,7 @@ mod tests {
         PathSegment, PathSegments,
     };
 
-    use crate::{container::Container, package::*};
+    use crate::{package::*, utils::from_bytes};
 
     #[test]
     fn nonexistent_files() {
@@ -777,8 +777,9 @@ mod tests {
     fn load_a_tarball() {
         let coreutils = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
-            .join("wapm-targz-to-pirita")
-            .join("fixtures")
+            .join("..")
+            .join("tests")
+            .join("old-tar-gz")
             .join("coreutils-1.0.11.tar.gz");
         assert!(coreutils.exists());
 
@@ -829,9 +830,9 @@ mod tests {
     fn load_old_cowsay() {
         let tarball = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
-            .join("wapm-to-webc")
-            .join("test")
-            .join("fixtures")
+            .join("..")
+            .join("tests")
+            .join("old-tar-gz")
             .join("cowsay-0.3.0.tar.gz");
 
         let pkg = Package::from_tarball_file(tarball).unwrap();
@@ -921,7 +922,7 @@ mod tests {
         let package = Package::from_manifest(manifest).unwrap();
 
         let webc = package.serialize().unwrap();
-        let webc = Container::from_bytes(webc).unwrap();
+        let webc = from_bytes(webc).unwrap();
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
         assert!(wapm_metadata.name.is_none());
@@ -1016,7 +1017,7 @@ mod tests {
             .serialize()
             .unwrap();
 
-        let webc = Container::from_bytes(serialized).unwrap();
+        let webc = from_bytes(serialized).unwrap();
         let metadata_volume = webc.get_volume("metadata").unwrap();
 
         let readme_hash: [u8; 32] = sha2::Sha256::digest(b"readme").into();
@@ -1055,7 +1056,7 @@ mod tests {
             .unwrap()
             .serialize()
             .unwrap();
-        let webc = Container::from_bytes(package).unwrap();
+        let webc = from_bytes(package).unwrap();
 
         assert_eq!(
             webc.manifest().bindings,
@@ -1108,7 +1109,7 @@ mod tests {
             .unwrap()
             .serialize()
             .unwrap();
-        let webc = Container::from_bytes(package).unwrap();
+        let webc = from_bytes(package).unwrap();
 
         assert_eq!(
             webc.manifest().bindings,
@@ -1191,7 +1192,7 @@ mod tests {
             .serialize()
             .unwrap();
 
-        let webc = Container::from_bytes(serialized).unwrap();
+        let webc = from_bytes(serialized).unwrap();
         let manifest = webc.manifest();
         let wapm = manifest.wapm().unwrap().unwrap();
 
@@ -1244,7 +1245,7 @@ mod tests {
 
         let serialized = pkg.serialize().unwrap();
 
-        let webc = Container::from_bytes(serialized).unwrap();
+        let webc = from_bytes(serialized).unwrap();
         let manifest = webc.manifest();
         let wapm = manifest.wapm().unwrap().unwrap();
         // We re-wrote the WAPM annotations to just not include the license file
@@ -1297,7 +1298,7 @@ mod tests {
         let package = Package::from_manifest(manifest).unwrap();
 
         let webc = package.serialize().unwrap();
-        let webc = Container::from_bytes(webc).unwrap();
+        let webc = from_bytes(webc).unwrap();
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
 
@@ -1388,7 +1389,7 @@ mod tests {
         let package = Package::from_manifest(manifest).unwrap();
 
         let webc = package.serialize().unwrap();
-        let webc = Container::from_bytes(webc).unwrap();
+        let webc = from_bytes(webc).unwrap();
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
 
@@ -1491,7 +1492,7 @@ mod tests {
         let package = Package::from_manifest(manifest).unwrap();
 
         let webc = package.serialize().unwrap();
-        let webc = Container::from_bytes(webc).unwrap();
+        let webc = from_bytes(webc).unwrap();
         let manifest = webc.manifest();
         let wapm_metadata = manifest.wapm().unwrap().unwrap();
 

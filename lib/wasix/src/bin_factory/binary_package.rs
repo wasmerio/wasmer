@@ -252,6 +252,7 @@ mod tests {
     use sha2::Digest;
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
+    use wasmer_package::utils::from_disk;
 
     use crate::{
         runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
@@ -304,7 +305,7 @@ mod tests {
         let webc_path = temp.path().join("package.webc");
         std::fs::write(&webc_path, data).unwrap();
 
-        let pkg = BinaryPackage::from_webc(&Container::from_disk(&webc_path).unwrap(), &runtime)
+        let pkg = BinaryPackage::from_webc(&from_disk(&webc_path).unwrap(), &runtime)
             .await
             .unwrap();
 

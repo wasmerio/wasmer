@@ -355,6 +355,7 @@ mod tests {
     use crate::DirEntry;
     use std::convert::TryFrom;
     use tokio::io::AsyncReadExt;
+    use wasmer_package::utils::from_bytes;
 
     const PYTHON_WEBC: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
 
@@ -418,7 +419,7 @@ mod tests {
 
     #[test]
     fn mount_all_volumes_in_python() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
 
         let fs = WebcVolumeFileSystem::mount_all(&container);
 
@@ -429,7 +430,7 @@ mod tests {
 
     #[test]
     fn read_dir() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
@@ -501,7 +502,7 @@ mod tests {
 
     #[test]
     fn metadata() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
@@ -553,7 +554,7 @@ mod tests {
 
     #[tokio::test]
     async fn file_opener() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
@@ -596,7 +597,7 @@ mod tests {
 
     #[test]
     fn remove_dir_is_not_allowed() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
@@ -618,7 +619,7 @@ mod tests {
 
     #[test]
     fn remove_file_is_not_allowed() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
@@ -640,7 +641,7 @@ mod tests {
 
     #[test]
     fn create_dir_is_not_allowed() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
@@ -662,7 +663,7 @@ mod tests {
 
     #[tokio::test]
     async fn rename_is_not_allowed() {
-        let container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
 
