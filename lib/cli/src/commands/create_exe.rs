@@ -14,11 +14,11 @@ use tar::Archive;
 use wasmer::sys::Artifact;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
+use wasmer_package::utils::from_disk;
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-use webc::{
-    compat::{Container, Volume as WebcVolume},
-    PathSegments,
-};
+use webc::Container;
+use webc::PathSegments;
+use webc::{Metadata, Volume as WebcVolume};
 
 use self::utils::normalize_atom_name;
 use crate::{
@@ -245,7 +245,7 @@ impl CreateExe {
         };
         std::fs::create_dir_all(&tempdir)?;
 
-        let atoms = if let Ok(pirita) = Container::from_disk(&input_path) {
+        let atoms = if let Ok(pirita) = from_disk(&input_path) {
             // pirita file
             compile_pirita_into_directory(
                 &pirita,
@@ -516,14 +516,14 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
             path.push(segment);
 
             match meta {
-                webc::compat::Metadata::Dir { .. } => {
+                Metadata::Dir { .. } => {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
                     );
                     read_dir(volume, path, files);
                 }
-                webc::compat::Metadata::File { .. } => {
+                Metadata::File { .. } => {
                     if let Some((contents, _)) = volume.read_file(&*path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),

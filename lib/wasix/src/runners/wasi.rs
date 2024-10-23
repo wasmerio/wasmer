@@ -513,6 +513,8 @@ mod tests {
     async fn test_volume_mount_with_webcs() {
         use std::sync::Arc;
 
+        use wasmer_package::utils::from_bytes;
+
         let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
 
         let tokrt = tokio::runtime::Handle::current();
@@ -536,7 +538,7 @@ mod tests {
 
         let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
         let webc_data = std::fs::read(webc_path).unwrap();
-        let container = webc::Container::from_bytes(webc_data).unwrap();
+        let container = from_bytes(webc_data).unwrap();
 
         let binpkg = crate::bin_factory::BinaryPackage::from_webc(&container, &rt)
             .await

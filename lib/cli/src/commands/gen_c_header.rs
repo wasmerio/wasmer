@@ -4,10 +4,13 @@ use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
 use wasmer_compiler::Artifact;
+use wasmer_package::package::WasmerPackageError;
+use wasmer_package::utils::from_bytes;
 use wasmer_types::{
     compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
 };
-use webc::{compat::SharedBytes, Container, DetectError};
+use webc::{compat::SharedBytes, DetectError};
+use webc::{Container, ContainerError};
 
 use crate::store::CompilerOptions;
 
@@ -60,9 +63,11 @@ impl GenCHeader {
             None => crate::commands::PrefixMapCompilation::hash_for_bytes(&file),
         };
 
-        let atom = match Container::from_bytes(file.clone()) {
+        let atom = match from_bytes(file.clone()) {
             Ok(webc) => self.get_atom(&webc)?,
-            Err(webc::compat::ContainerError::Detect(DetectError::InvalidMagic { .. })) => {
+            Err(WasmerPackageError::ContainerError(ContainerError::Detect(
+                DetectError::InvalidMagic { .. },
+            ))) => {
                 // we've probably got a WebAssembly file
                 file.into()
             }

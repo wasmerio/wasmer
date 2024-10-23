@@ -13,7 +13,7 @@ use std::{
 };
 use wasmer_api::WasmerClient;
 use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
-use webc::wasmer_package::Package;
+use wasmer_package::package::Package;
 
 pub mod macros;
 pub mod wait;
