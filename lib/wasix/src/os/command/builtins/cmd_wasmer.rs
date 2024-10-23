@@ -10,7 +10,6 @@ use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_package::utils::from_bytes;
 use wasmer_wasix_types::wasi::Errno;
-use webc::Container;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage},

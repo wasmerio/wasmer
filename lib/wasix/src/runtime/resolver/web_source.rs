@@ -13,7 +13,6 @@ use tempfile::NamedTempFile;
 use url::Url;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use wasmer_package::utils::from_disk;
-use webc::Container;
 
 use crate::{
     http::{HttpClient, HttpRequest},

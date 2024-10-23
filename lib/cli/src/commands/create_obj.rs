@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use wasmer::*;
 use wasmer_package::utils::from_disk;
-use webc::Container;
 
 use crate::store::CompilerOptions;
 

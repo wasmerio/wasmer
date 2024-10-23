@@ -12,7 +12,6 @@ use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
 use wasmer_wasix_types::wasi::Errno;
-use webc::Container;
 
 mod binary_package;
 mod exec;

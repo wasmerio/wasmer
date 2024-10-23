@@ -4,7 +4,6 @@ use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
 use wasmer_package::utils::from_disk;
-use webc::Container;
 
 /// Extract contents of a webc image to a directory.
 ///

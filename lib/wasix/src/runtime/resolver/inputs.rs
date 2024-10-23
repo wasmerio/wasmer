@@ -12,7 +12,6 @@ use url::Url;
 use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageSource};
 use wasmer_package::utils::from_disk;
 use webc::metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest};
-use webc::Container;
 
 /// A dependency constraint.
 #[derive(Debug, Clone, PartialEq, Eq)]

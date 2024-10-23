@@ -6,7 +6,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
 use wasmer_package::utils::from_disk;
-use webc::Container;
 
 use crate::config::WasmerEnv;
 
