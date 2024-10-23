@@ -532,7 +532,7 @@ impl AbstractWebc for Package {
         self.get_volume(name).map(|v| {
             let a: Arc<dyn AbstractVolume + Send + Sync + 'static> = v.as_volume();
 
-            Volume::new(a)
+            Volume::from(a)
         })
     }
 }

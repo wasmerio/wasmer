@@ -6185,7 +6185,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "static_assertions",
 ]
 
@@ -8025,7 +8025,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "ciborium",
  "document-features",
- "flate2",
  "ignore",
  "indexmap 1.9.3",
  "leb128",
@@ -8034,15 +8033,11 @@ dependencies = [
  "once_cell",
  "path-clean",
  "rand",
- "semver 1.0.23",
  "serde",
  "serde_json",
  "sha2",
  "shared-buffer",
- "tar",
- "tempfile",
  "thiserror",
- "toml 0.8.19",
  "url",
 ]
 
@@ -8115,7 +8110,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
