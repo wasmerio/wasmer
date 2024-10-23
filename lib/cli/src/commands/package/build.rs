@@ -179,6 +179,8 @@ impl PackageBuild {
 
 #[cfg(test)]
 mod tests {
+    use wasmer_package::utils::from_disk;
+
     use super::*;
 
     /// Download a package from the dev registry.
@@ -213,6 +215,6 @@ description = "hello"
 
         cmd.execute().unwrap();
 
-        webc::Container::from_disk(path.join("wasmer-hello-0.1.0.webc")).unwrap();
+        from_disk(path.join("wasmer-hello-0.1.0.webc")).unwrap();
     }
 }
