@@ -6185,7 +6185,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "static_assertions",
 ]
 
@@ -8017,7 +8017,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "6.1.0"
+version = "7.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56c452dd6074574080dea17d228caa5efc24f1e29650895c61333b0900734c20"
 dependencies = [
  "anyhow",
  "base64",
@@ -8110,7 +8112,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
