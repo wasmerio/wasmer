@@ -1,5 +1,6 @@
 //! Load a Wasmer package from disk.
 pub(crate) mod manifest;
+#[allow(clippy::module_inception)]
 pub(crate) mod package;
 pub(crate) mod strictness;
 pub(crate) mod volume;

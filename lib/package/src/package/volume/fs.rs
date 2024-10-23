@@ -207,6 +207,7 @@ impl FsVolume {
     }
 
     /// Read the contents of a directory.
+    #[allow(clippy::type_complexity)]
     pub fn read_dir(
         &self,
         path: &PathSegments,

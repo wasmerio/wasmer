@@ -149,6 +149,7 @@ impl MemoryDir {
         })
     }
 
+    #[allow(clippy::type_complexity)]
     fn read_dir(
         &self,
         path: &PathSegments,
