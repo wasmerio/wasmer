@@ -30,7 +30,7 @@ pub fn sock_listen<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_listen(&mut ctx, sock, backlog).map_err(|err| {
             tracing::error!("failed to save sock_listen event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

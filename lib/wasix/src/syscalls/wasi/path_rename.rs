@@ -44,7 +44,7 @@ pub fn path_rename<M: MemorySize>(
             JournalEffector::save_path_rename(&mut ctx, old_fd, source_str, new_fd, target_str)
                 .map_err(|err| {
                     tracing::error!("failed to save path rename event - {}", err);
-                    WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                    WasiError::Exit(ExitCode::from(Errno::Fault))
                 })?;
         }
     }

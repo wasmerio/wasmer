@@ -27,7 +27,7 @@ pub fn fd_advise(
     if env.enable_journal {
         JournalEffector::save_fd_advise(&mut ctx, fd, offset, len, advice).map_err(|err| {
             tracing::error!("failed to save file descriptor advise event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

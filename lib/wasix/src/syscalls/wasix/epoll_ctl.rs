@@ -64,7 +64,7 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
     if env.enable_journal {
         JournalEffector::save_epoll_ctl(&mut ctx, epfd, op, fd, event_ctl).map_err(|err| {
             tracing::error!("failed to save epoll_create event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

@@ -24,7 +24,7 @@ pub fn fd_allocate(
     if env.enable_journal {
         JournalEffector::save_fd_allocate(&mut ctx, fd, offset, len).map_err(|err| {
             tracing::error!("failed to save file descriptor allocate event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

@@ -21,7 +21,7 @@ pub fn fd_filestat_set_size(
     if env.enable_journal {
         JournalEffector::save_fd_set_size(&mut ctx, fd, st_size).map_err(|err| {
             tracing::error!("failed to save file set size event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

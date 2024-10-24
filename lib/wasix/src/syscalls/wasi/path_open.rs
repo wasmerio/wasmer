@@ -99,7 +99,7 @@ pub fn path_open<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save unlink event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

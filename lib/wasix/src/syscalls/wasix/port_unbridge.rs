@@ -11,7 +11,7 @@ pub fn port_unbridge(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, Wasi
     if ctx.data().enable_journal {
         JournalEffector::save_port_unbridge(&mut ctx).map_err(|err| {
             tracing::error!("failed to save port_unbridge event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

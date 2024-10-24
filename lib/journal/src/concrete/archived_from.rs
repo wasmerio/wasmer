@@ -140,20 +140,15 @@ impl From<JournalIpCidrV1> for virtual_net::IpCidr {
 
 impl From<wasi::ExitCode> for JournalExitCodeV1 {
     fn from(val: wasi::ExitCode) -> Self {
-        match val {
-            wasi::ExitCode::Errno(errno) => JournalExitCodeV1::Errno(errno as u16),
-            wasi::ExitCode::Other(id) => JournalExitCodeV1::Other(id),
-        }
+        JournalExitCodeV1::Other(val.raw())
     }
 }
 
 impl From<JournalExitCodeV1> for wasi::ExitCode {
     fn from(val: JournalExitCodeV1) -> Self {
         match val {
-            JournalExitCodeV1::Errno(errno) => {
-                wasi::ExitCode::Errno(errno.try_into().unwrap_or(wasi::Errno::Unknown))
-            }
-            JournalExitCodeV1::Other(id) => wasi::ExitCode::Other(id),
+            JournalExitCodeV1::Errno(errno) => wasi::ExitCode::from(errno),
+            JournalExitCodeV1::Other(id) => wasi::ExitCode::from(id),
         }
     }
 }
@@ -161,12 +156,8 @@ impl From<JournalExitCodeV1> for wasi::ExitCode {
 impl From<&'_ ArchivedJournalExitCodeV1> for wasi::ExitCode {
     fn from(val: &'_ ArchivedJournalExitCodeV1) -> Self {
         match val {
-            ArchivedJournalExitCodeV1::Errno(errno) => wasi::ExitCode::Errno(
-                (errno.to_native())
-                    .try_into()
-                    .unwrap_or(wasi::Errno::Unknown),
-            ),
-            ArchivedJournalExitCodeV1::Other(id) => wasi::ExitCode::Other(id.to_native()),
+            ArchivedJournalExitCodeV1::Errno(errno) => wasi::ExitCode::from(errno.to_native()),
+            ArchivedJournalExitCodeV1::Other(id) => wasi::ExitCode::from(id.to_native()),
         }
     }
 }

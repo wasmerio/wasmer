@@ -11,7 +11,7 @@ pub fn port_dhcp_acquire(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, 
     if ctx.data().enable_journal {
         JournalEffector::save_port_dhcp_acquire(&mut ctx).map_err(|err| {
             tracing::error!("failed to save port_dhcp_acquire event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

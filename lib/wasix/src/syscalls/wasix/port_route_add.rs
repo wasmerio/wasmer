@@ -54,7 +54,7 @@ pub fn port_route_add<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save port_route_add event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
