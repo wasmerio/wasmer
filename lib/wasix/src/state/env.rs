@@ -253,10 +253,6 @@ pub struct WasiEnvInit {
     /// Indicates if extra tracing should be output
     pub extra_tracing: bool,
 
-    /// Additional functionality provided to the WASIX instance, besides the
-    /// normal WASIX syscalls.
-    pub additional_imports: Imports,
-
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
@@ -298,7 +294,6 @@ impl WasiEnvInit {
             extra_tracing: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
-            additional_imports: self.additional_imports.clone(),
         }
     }
 }
@@ -577,6 +572,7 @@ impl WasiEnv {
         module: Module,
         module_hash: ModuleHash,
         store: &mut impl AsStoreMut,
+        additional_imports: Imports,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let call_initialize = init.call_initialize;
         let spawn_type = init.memory_ty.take();
@@ -586,8 +582,6 @@ impl WasiEnv {
                 tracing::trace!("import {}.{}", import.module(), import.name());
             }
         }
-
-        let additional_imports = init.additional_imports.clone();
 
         let env = Self::from_init(init, module_hash)?;
         let pid = env.process.pid();
@@ -615,20 +609,26 @@ impl WasiEnv {
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
-        for ((namespace, name), value) in &additional_imports {
-            // Note: We don't want to let downstream users override WASIX
-            // syscalls
-            if !import_object.exists(&namespace, &name) {
-                import_object.define(&namespace, &name, value);
-            }
-        }
-
         let imported_memory = if let Some(memory) = memory {
             import_object.define("env", "memory", memory.clone());
             Some(memory)
         } else {
             None
         };
+
+        for ((namespace, name), value) in additional_imports {
+            // Note: We don't want to let downstream users override WASIX
+            // syscalls
+            if import_object.exists(&namespace, &name) {
+                tracing::warn!(
+                    "Skipping duplicate additional import {}.{}",
+                    namespace,
+                    name
+                );
+            } else {
+                import_object.define(&namespace, &name, value);
+            }
+        }
 
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
@@ -917,15 +917,17 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
+    pub fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
         self.try_inner().map(|i| i.memory())
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
-    pub(crate) unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
+    pub unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
         self.try_memory().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -933,7 +935,7 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn try_memory_view<'a>(
+    pub fn try_memory_view<'a>(
         &self,
         store: &'a (impl AsStoreRef + ?Sized),
     ) -> Option<MemoryView<'a>> {
@@ -942,12 +944,11 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
-    pub(crate) unsafe fn memory_view<'a>(
-        &self,
-        store: &'a (impl AsStoreRef + ?Sized),
-    ) -> MemoryView<'a> {
+    pub unsafe fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
         self.try_memory_view(store).expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -956,7 +957,7 @@ impl WasiEnv {
     /// Copy the lazy reference so that when it's initialized during the
     /// export phase, all the other references get a copy of it
     #[allow(dead_code)]
-    pub(crate) fn try_memory_clone(&self) -> Option<Memory> {
+    pub fn try_memory_clone(&self) -> Option<Memory> {
         self.try_inner().map(|i| i.memory_clone())
     }
 
