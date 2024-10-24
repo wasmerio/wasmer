@@ -70,6 +70,7 @@ members = [
 	"lib/wasm-interface",
 	"lib/journal",
 	"lib/swift",
+	"lib/package",
 	"tests/integration/cli",
 	"tests/integration/ios",
 	"tests/lib/compiler-test-derive",
