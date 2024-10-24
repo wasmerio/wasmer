@@ -150,7 +150,6 @@ virtual-mio = { version = "0.5.0", path = "../virtual-io" }
 
 webc = { workspace = true }
 wasmer-api = { version = "=0.1.0", path = "../backend-api" }
-edge-util = { version = "=0.1.0" }
 lazy_static = "1.4.0"
 
 # Used by the mount command
