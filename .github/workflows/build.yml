@@ -254,6 +254,7 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo LLVM_SYS_180_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          ls -R ${LLVM_DIR}
         env:
           LLVM_DIR: .llvm
       - name: Configure LLVM (Windows)
@@ -339,6 +340,7 @@ jobs:
         if: matrix.use_llvm
         shell: bash
         run: |
+          ls -R ${LLVM_SYS_180_PREFIX}
           make build-wasmer
         env:
           ENABLE_LLVM: 1
