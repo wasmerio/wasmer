@@ -20,8 +20,6 @@ use wasmer_config::{
     package::{PackageIdent, PackageSource},
 };
 
-// TODO: apparently edge-util uses a different version of the http crate, which makes the
-// HEADER_APP_VERSION_ID field incompatible with our use here, so it needs to be redeclared.
 static EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
     http::HeaderName::from_static("x-edge-app-version-id");
 
