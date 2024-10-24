@@ -1443,7 +1443,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b42b6fa04a440b495c8b04d0e71b707c585f83cb9cb28cf8cd0d976c315e31b4"
 dependencies = [
  "powerfmt",
- "serde",
 ]
 
 [[package]]
@@ -1669,42 +1668,6 @@ dependencies = [
  "byteorder",
  "dynasm",
  "memmap2 0.5.10",
-]
-
-[[package]]
-name = "edge-schema"
-version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
-dependencies = [
- "anyhow",
- "bytesize",
- "once_cell",
- "parking_lot 0.12.3",
- "rand_chacha",
- "rand_core",
- "schemars",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_yaml 0.8.26",
- "sparx",
- "time 0.3.36",
- "url",
- "uuid",
- "wcgi-host 0.1.2",
-]
-
-[[package]]
-name = "edge-util"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60d06780ae676369e0a9ac2c75f7d1a6d22e157ef5b10cfeda0ee6a465cf7337"
-dependencies = [
- "edge-schema",
- "http 0.2.12",
- "serde",
- "wasmparser 0.121.2",
 ]
 
 [[package]]
@@ -2414,17 +2377,6 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "0.2.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "601cbb57e577e2f5ef5be8e7b83f0f63994f25aa94d673e54a92d5c516d101f1"
-dependencies = [
- "bytes 1.8.0",
- "fnv",
- "itoa",
-]
-
-[[package]]
-name = "http"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21b9ddb458710bc376481b842f5da65cdf31522de232c1ca8146abce2a358258"
@@ -2441,7 +2393,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes 1.8.0",
- "http 1.1.0",
+ "http",
 ]
 
 [[package]]
@@ -2452,19 +2404,9 @@ checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes 1.8.0",
  "futures-util",
- "http 1.1.0",
+ "http",
  "http-body",
  "pin-project-lite",
-]
-
-[[package]]
-name = "http-serde"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f560b665ad9f1572cfcaf034f7fb84338a7ce945216d64a90fd81f046a3caee"
-dependencies = [
- "http 0.2.12",
- "serde",
 ]
 
 [[package]]
@@ -2473,7 +2415,7 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f056c8559e3757392c8d091e796416e4649d8e49e88b8d76df6c002f05027fd"
 dependencies = [
- "http 1.1.0",
+ "http",
  "serde",
 ]
 
@@ -2504,7 +2446,7 @@ dependencies = [
  "bytes 1.8.0",
  "futures-channel",
  "futures-util",
- "http 1.1.0",
+ "http",
  "http-body",
  "httparse",
  "httpdate",
@@ -2522,7 +2464,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08afdbb5c31130e3034af566421053ab03787c640246a446327f550d11bcb333"
 dependencies = [
  "futures-util",
- "http 1.1.0",
+ "http",
  "hyper",
  "hyper-util",
  "rustls 0.23.15",
@@ -2573,7 +2515,7 @@ dependencies = [
  "bytes 1.8.0",
  "futures-channel",
  "futures-util",
- "http 1.1.0",
+ "http",
  "http-body",
  "hyper",
  "pin-project-lite",
@@ -4399,7 +4341,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "http 1.1.0",
+ "http",
  "http-body",
  "http-body-util",
  "hyper",
@@ -4788,7 +4730,6 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
- "uuid",
 ]
 
 [[package]]
@@ -5035,18 +4976,6 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.8.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578a7433b776b56a35785ed5ce9a7e777ac0598aac5a6dd1b4b18a307c7fc71b"
-dependencies = [
- "indexmap 1.9.3",
- "ryu",
- "serde",
- "yaml-rust",
-]
-
-[[package]]
-name = "serde_yaml"
 version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
@@ -5224,15 +5153,6 @@ checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "sparx"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc2257c28eacecfc38c658124ed239e7ecfc9b89082c0794b0672420b63b84c6"
-dependencies = [
- "byteorder",
 ]
 
 [[package]]
@@ -5996,7 +5916,7 @@ dependencies = [
  "bitflags 2.6.0",
  "bytes 1.8.0",
  "futures-util",
- "http 1.1.0",
+ "http",
  "http-body",
  "http-body-util",
  "pin-project-lite",
@@ -6167,7 +6087,7 @@ dependencies = [
  "byteorder",
  "bytes 1.8.0",
  "data-encoding",
- "http 1.1.0",
+ "http",
  "httparse",
  "log 0.4.22",
  "rand",
@@ -6481,7 +6401,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
 dependencies = [
  "getrandom",
- "serde",
 ]
 
 [[package]]
@@ -7130,13 +7049,12 @@ dependencies = [
  "dialoguer",
  "dirs",
  "dotenvy",
- "edge-util",
  "flate2",
  "fuse",
  "futures 0.3.31",
  "futures-util",
  "hex",
- "http 1.1.0",
+ "http",
  "http-body-util",
  "humantime",
  "hyper",
@@ -7164,7 +7082,7 @@ dependencies = [
  "semver 1.0.23",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
  "sha2",
  "shared-buffer",
  "tar",
@@ -7336,7 +7254,7 @@ dependencies = [
  "semver 1.0.23",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
  "tempfile",
  "thiserror",
  "toml 0.8.19",
@@ -7651,7 +7569,7 @@ dependencies = [
  "getrandom",
  "heapless",
  "hex",
- "http 1.1.0",
+ "http",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -7675,7 +7593,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yaml",
  "sha2",
  "shared-buffer",
  "tempfile",
@@ -7708,8 +7626,8 @@ dependencies = [
  "wasmer-package",
  "wasmer-types",
  "wasmer-wasix-types",
- "wcgi 0.2.0",
- "wcgi-host 0.2.0",
+ "wcgi",
+ "wcgi-host",
  "web-sys",
  "webc",
  "weezl",
@@ -7954,42 +7872,15 @@ dependencies = [
 
 [[package]]
 name = "wcgi"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39ca8f334eec3a8197bd25a612c74f415b8691d219ee11f1acd20f15a3e2bf77"
-dependencies = [
- "http 0.2.12",
- "http-serde 1.1.3",
- "serde",
- "serde_json",
- "url",
-]
-
-[[package]]
-name = "wcgi"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b51540185fb0764ba68176a955c9530f8f7501b418b034e30607f892fec261b2"
 dependencies = [
- "http 1.1.0",
- "http-serde 2.1.1",
+ "http",
+ "http-serde",
  "serde",
  "serde_json",
  "url",
-]
-
-[[package]]
-name = "wcgi-host"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a762cf2b0ed389a2a2fb591d63a398c1a4c0f8bef938cfd040285a3c63b695cc"
-dependencies = [
- "http 0.2.12",
- "schemars",
- "serde",
- "tokio 1.40.0",
- "wasmparser 0.95.0",
- "wcgi 0.1.2",
 ]
 
 [[package]]
@@ -7998,11 +7889,11 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cfc134be64da186b33675e0154827ba8eb4eb30579c1142cebec88607cd2cf6"
 dependencies = [
- "http 1.1.0",
+ "http",
  "serde",
  "tokio 1.40.0",
  "wasmparser 0.95.0",
- "wcgi 0.2.0",
+ "wcgi",
 ]
 
 [[package]]
@@ -8369,15 +8260,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388c44dc09d76f1536602ead6d325eb532f5c122f17782bd57fb47baeeb767e2"
 dependencies = [
  "lzma-sys",
-]
-
-[[package]]
-name = "yaml-rust"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
-dependencies = [
- "linked-hash-map",
 ]
 
 [[package]]
