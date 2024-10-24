@@ -938,6 +938,8 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
     pub unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
@@ -957,6 +959,8 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
     pub unsafe fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
