@@ -253,6 +253,7 @@ jobs:
           mkdir -p ${LLVM_DIR}
           curl --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo LLVM_SYS_180_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Configure LLVM (Windows)
