@@ -210,7 +210,7 @@ jobs:
       - name: Install Linux ARM tools
         if: startsWith(matrix.build, 'linux-arm64')
         run: |
-          sudo apt install mold ninja-build llvm-18-dev libclang-18-dev clang-18 cmake make libpolly-18-dev
+          sudo apt install mold ninja-build llvm-18-dev libclang-18-dev clang-18 cmake make libpolly-18-dev libzstd1 zstd
       - name: Install Linux musl tools
         if: startsWith(matrix.build, 'linux-musl')
         run: |
