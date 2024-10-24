@@ -216,7 +216,7 @@ pub async fn get_app_volumes(
         .get_deploy_app
         .context("app not found")?
         .active_version
-        .volumes
+        .and_then(|v| v.volumes)
         .unwrap_or_default()
         .into_iter()
         .flatten()
@@ -1015,7 +1015,7 @@ pub async fn get_deploy_app_versions(
 pub async fn app_deployments(
     client: &WasmerClient,
     vars: types::GetAppDeploymentsVariables,
-) -> Result<Vec<types::AutobuildRepository>, anyhow::Error> {
+) -> Result<Vec<types::Deployment>, anyhow::Error> {
     let res = client
         .run_graphql_strict(types::GetAppDeployments::build(vars))
         .await?;

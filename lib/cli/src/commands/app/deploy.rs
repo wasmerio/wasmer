@@ -762,7 +762,7 @@ pub async fn wait_app(
 
                         tracing::debug!(
                             current=%header,
-                            expected=%app.active_version.id.inner(),
+                            expected=%version.id.inner(),
                             "app is not at the right version yet",
                         );
                     }
