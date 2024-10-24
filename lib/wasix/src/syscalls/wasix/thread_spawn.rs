@@ -235,7 +235,7 @@ fn call_module<M: MemorySize>(
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);
                     ret = Errno::Noexec;
-                    exit_code = Some(ExitCode::Other(128 + ret as i32));
+                    exit_code = Some(ExitCode::from(128 + ret as i32));
                 }
                 Err(err) => {
                     debug!("failed with runtime error: {}", err);
@@ -243,7 +243,7 @@ fn call_module<M: MemorySize>(
                         .runtime
                         .on_taint(TaintReason::RuntimeError(err));
                     ret = Errno::Noexec;
-                    exit_code = Some(ExitCode::Other(128 + ret as i32));
+                    exit_code = Some(ExitCode::from(128 + ret as i32));
                 }
             }
         } else {
