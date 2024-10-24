@@ -1,0 +1,26 @@
+---
+source: crates/webc/src/wasmer_package/package.rs
+description: "\n                [package]\n                name = 'some/package'\n                version = '0.0.0'\n                description = 'Test package'\n                readme = '[BASE_DIR]/README.md'\n                license-file = '[BASE_DIR]/LICENSE'\n\n                [[module]]\n                name = 'first'\n                source = '[BASE_DIR]/target/debug/package.wasm'\n                bindings = { wai-version = '0.2.0', exports = '[BASE_DIR]/bindings/file.wai', imports = ['[BASE_DIR]/bindings/a.wai'] }\n            "
+expression: webc.manifest()
+---
+package:
+  wapm:
+    license-file:
+      volume: metadata
+      path: /LICENSE
+    readme:
+      volume: metadata
+      path: /README.md
+atoms:
+  first:
+    kind: "https://webc.org/kind/wasm"
+    signature: "sha256:Wjn+71LlO4/+39cFFVbsEF7YaYLxIqBdJyjZZ3jk65Y="
+bindings:
+  - name: library-bindings
+    kind: wai@0.2.0
+    annotations:
+      wai:
+        exports: "metadata://bindings/file.wai"
+        module: first
+        imports:
+          - "metadata://bindings/a.wai"

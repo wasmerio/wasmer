@@ -1,0 +1,29 @@
+---
+source: crates/webc/src/wasmer_package/package.rs
+expression: pkg.manifest()
+---
+package:
+  wapm:
+    readme:
+      volume: metadata
+      path: /README.md
+    repository: "https://github.com/wapm-packages/cowsay"
+atoms:
+  cowsay:
+    kind: "https://webc.org/kind/wasm"
+    signature: "sha256:DPmhiSNXCg5261eTUi3BIvAc/aJttGj+nD+bGhQkVQo="
+commands:
+  cowsay:
+    runner: "https://webc.org/runner/wasi"
+    annotations:
+      atom:
+        name: cowsay
+      wasi:
+        atom: cowsay
+  cowthink:
+    runner: "https://webc.org/runner/wasi"
+    annotations:
+      atom:
+        name: cowsay
+      wasi:
+        atom: cowsay

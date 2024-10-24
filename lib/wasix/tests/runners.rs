@@ -21,10 +21,10 @@ use wasmer_wasix::{
     },
     PluggableRuntime, Runtime,
 };
-use webc::Container;
 
 mod wasi {
     use virtual_fs::{AsyncReadExt, AsyncSeekExt};
+    use wasmer_package::utils::from_bytes;
     use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
 
     use super::*;
@@ -32,7 +32,7 @@ mod wasi {
     #[tokio::test]
     async fn can_run_wat2wasm() {
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let command = &container.manifest().commands["wat2wasm"];
 
         assert!(WasiRunner::can_run_command(command).unwrap());
@@ -41,7 +41,7 @@ mod wasi {
     #[tokio::test(flavor = "multi_thread")]
     async fn wat2wasm() {
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let (rt, tasks) = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
         let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
@@ -72,7 +72,7 @@ mod wasi {
     async fn python() {
         let webc = download_cached("https://wasmer.io/python/python@0.1.0").await;
         let (rt, tasks) = runtime();
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
 
         let handle = std::thread::spawn(move || {
@@ -113,7 +113,7 @@ mod wcgi {
     #[tokio::test]
     async fn can_run_staticserver() {
         let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
 
         let entrypoint = container.manifest().entrypoint.as_ref().unwrap();
         assert!(WcgiRunner::can_run_command(&container.manifest().commands[entrypoint]).unwrap());
@@ -123,7 +123,7 @@ mod wcgi {
     async fn staticserver() {
         let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
         let (rt, tasks) = runtime();
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new(NoOpWcgiCallbacks);
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
         let (cb, started) = callbacks(Handle::current());

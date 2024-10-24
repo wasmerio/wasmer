@@ -1,0 +1,18 @@
+---
+source: crates/webc/src/wasmer_package/package.rs
+description: "\n            [package]\n            name = \"some/package\"\n            version = \"0.0.0\"\n            description = \"\"\n\n            [[module]]\n            name = \"my-lib\"\n            source = \"./my-lib.wasm\"\n            abi = \"none\"\n            bindings = { wit-bindgen = \"0.1.0\", wit-exports = \"./file.wit\" }\n        "
+expression: webc.manifest()
+---
+package:
+  wapm: {}
+atoms:
+  my-lib:
+    kind: "https://webc.org/kind/wasm"
+    signature: "sha256:Wjn+71LlO4/+39cFFVbsEF7YaYLxIqBdJyjZZ3jk65Y="
+bindings:
+  - name: library-bindings
+    kind: wit@0.1.0
+    annotations:
+      wit:
+        exports: "metadata://file.wit"
+        module: my-lib

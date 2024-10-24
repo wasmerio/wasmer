@@ -9,7 +9,7 @@ use is_terminal::IsTerminal;
 use std::path::{Path, PathBuf};
 use wasmer_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageHash};
-use webc::wasmer_package::Package;
+use wasmer_package::package::Package;
 
 /// Push a package to the registry.
 ///

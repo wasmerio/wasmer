@@ -8,8 +8,8 @@ use crate::{
 };
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::{FunctionEnvMut, Store};
+use wasmer_package::utils::from_bytes;
 use wasmer_wasix_types::wasi::Errno;
-use webc::Container;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage},
@@ -97,7 +97,7 @@ impl CmdWasmer {
 
                 let bytes: bytes::Bytes = data.into();
 
-                if let Ok(container) = Container::from_bytes(bytes.clone()) {
+                if let Ok(container) = from_bytes(bytes.clone()) {
                     let pkg = BinaryPackage::from_webc(&container, &*self.runtime)
                         .await
                         .unwrap();

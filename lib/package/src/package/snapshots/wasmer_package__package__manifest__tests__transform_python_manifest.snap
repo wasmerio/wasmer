@@ -1,0 +1,29 @@
+---
+source: crates/webc/src/wasmer_package/manifest.rs
+description: "\n            [package]\n            name = \"python\"\n            version = \"0.1.0\"\n            description = \"Python is an interpreted, high-level, general-purpose programming language\"\n            license = \"ISC\"\n            repository = \"https://github.com/wapm-packages/python\"\n\n            [[module]]\n            name = \"python\"\n            source = \"bin/python.wasm\"\n            abi = \"wasi\"\n\n            [module.interfaces]\n            wasi = \"0.0.0-unstable\"\n\n            [[command]]\n            name = \"python\"\n            module = \"python\"\n\n            [fs]\n            lib = \"lib\"\n        "
+expression: "&transformed"
+---
+package:
+  wapm:
+    name: python
+    version: 0.1.0
+    description: "Python is an interpreted, high-level, general-purpose programming language"
+    license: ISC
+    repository: "https://github.com/wapm-packages/python"
+  fs:
+    - from: ~
+      volume_name: /lib
+      mount_path: /lib
+atoms:
+  python:
+    kind: "https://webc.org/kind/wasm"
+    signature: "sha256:Wjn+71LlO4/+39cFFVbsEF7YaYLxIqBdJyjZZ3jk65Y="
+commands:
+  python:
+    runner: "https://webc.org/runner/wasi"
+    annotations:
+      atom:
+        name: python
+      wasi:
+        atom: python
+entrypoint: python

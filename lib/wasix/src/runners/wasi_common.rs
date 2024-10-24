@@ -385,7 +385,7 @@ mod tests {
 
     use tempfile::TempDir;
     use virtual_fs::{DirEntry, FileType, Metadata, WebcVolumeFileSystem};
-    use webc::Container;
+    use wasmer_package::utils::from_bytes;
 
     use super::*;
 
@@ -462,7 +462,7 @@ mod tests {
             guest: "/home".to_string(),
             host: sub_dir,
         })];
-        let container = Container::from_bytes(PYTHON).unwrap();
+        let container = from_bytes(PYTHON).unwrap();
         let webc_fs = WebcVolumeFileSystem::mount_all(&container);
 
         let root_fs = RootFileSystemBuilder::default().build();

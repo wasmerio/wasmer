@@ -37,6 +37,7 @@ impl ReqwestHttpClient {
         self
     }
 
+    #[tracing::instrument(skip_all, fields(method=?request.method, url=%request.url))]
     async fn request(&self, request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
         let method = reqwest::Method::try_from(request.method.as_str())
             .with_context(|| format!("Invalid http method {}", request.method))?;
@@ -53,6 +54,7 @@ impl ReqwestHttpClient {
         };
         let client = builder.build().context("failed to create reqwest client")?;
 
+        tracing::debug!("sending http request");
         let mut builder = client.request(method, request.url.as_str());
         for (header, val) in &request.headers {
             builder = builder.header(header, val);
@@ -71,9 +73,11 @@ impl ReqwestHttpClient {
 
         let status = response.status();
 
+        tracing::debug!(status=?status, "received http response");
+
         // Download the body.
         #[cfg(not(feature = "js"))]
-        let data = if let Some(timeout) = self.response_body_chunk_timeout {
+        let data = if let Some(timeout_duration) = self.response_body_chunk_timeout {
             // Download the body with a chunk timeout.
             // The timeout prevents long stalls.
 
@@ -85,7 +89,7 @@ impl ReqwestHttpClient {
             // is kept. Only if no chunk was downloaded within the timeout a
             // timeout error is raised.
             'OUTER: loop {
-                let timeout = tokio::time::sleep(timeout);
+                let timeout = tokio::time::sleep(timeout_duration);
                 pin_utils::pin_mut!(timeout);
 
                 let mut chunk_count = 0;
@@ -113,9 +117,11 @@ impl ReqwestHttpClient {
 
                         _ = &mut timeout => {
                             if chunk_count == 0 {
+                                tracing::warn!(timeout= "timeout while downloading response body");
                                 return Err(anyhow::anyhow!("Timeout while downloading response body"));
                             } else {
-                                // Timeout, but chunks were still downloaded, so
+                                tracing::debug!(downloaded_body_size_bytes=%buf.len(), "download progress");
+                                // Timeout, but chunks were downloaded, so
                                 // just continue with a fresh timeout.
                                 continue 'OUTER;
                             }
@@ -130,6 +136,8 @@ impl ReqwestHttpClient {
         };
         #[cfg(feature = "js")]
         let data = response.bytes().await?.to_vec();
+
+        tracing::debug!(body_size_bytes=%data.len(), "downloaded http response body");
 
         Ok(HttpResponse {
             status,

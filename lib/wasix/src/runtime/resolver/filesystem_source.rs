@@ -1,6 +1,6 @@
 use anyhow::Context;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
-use webc::compat::Container;
+use wasmer_package::utils::from_disk;
 
 use crate::runtime::resolver::{
     DistributionInfo, PackageInfo, PackageSummary, QueryError, Source, WebcHash,
@@ -14,7 +14,7 @@ impl FileSystemSource {
     async fn load_path(path: &std::path::Path) -> Result<Vec<PackageSummary>, anyhow::Error> {
         let webc_sha256 = crate::block_in_place(|| WebcHash::for_file(path))
             .with_context(|| format!("Unable to hash \"{}\"", path.display()))?;
-        let container = crate::block_in_place(|| Container::from_disk(path))
+        let container = crate::block_in_place(|| from_disk(path))
             .with_context(|| format!("Unable to parse \"{}\"", path.display()))?;
 
         let url = crate::runtime::resolver::utils::url_from_file_path(path)

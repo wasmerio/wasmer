@@ -1,0 +1,24 @@
+---
+source: crates/webc/src/wasmer_package/manifest.rs
+description: "\n            [package]\n            name = \"some/package\"\n            version = \"0.0.0\"\n            description = \"My awesome package\"\n\n            [[module]]\n            name = \"cpython\"\n            source = \"python.wasm\"\n            abi = \"wasi\"\n\n            [[command]]\n            name = \"python\"\n            module = \"cpython\"\n            runner = \"wasi\"\n        "
+expression: "&transformed"
+---
+package:
+  wapm:
+    name: some/package
+    version: 0.0.0
+    description: My awesome package
+atoms:
+  cpython:
+    kind: "https://webc.org/kind/wasm"
+    signature: "sha256:Wjn+71LlO4/+39cFFVbsEF7YaYLxIqBdJyjZZ3jk65Y="
+commands:
+  python:
+    runner: "https://webc.org/runner/wasi"
+    annotations:
+      atom:
+        name: cpython
+      wasi:
+        atom: cpython
+entrypoint: python
+

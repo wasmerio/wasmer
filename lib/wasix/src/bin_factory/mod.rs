@@ -10,8 +10,8 @@ use std::{
 use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
+use wasmer_package::utils::from_bytes;
 use wasmer_wasix_types::wasi::Errno;
-use webc::Container;
 
 mod binary_package;
 mod exec;
@@ -212,7 +212,7 @@ async fn load_executable_from_filesystem(
 
     let bytes: bytes::Bytes = data.into();
 
-    if let Ok(container) = Container::from_bytes(bytes.clone()) {
+    if let Ok(container) = from_bytes(bytes.clone()) {
         let pkg = BinaryPackage::from_webc(&container, rt)
             .await
             .context("Unable to load the package")?;

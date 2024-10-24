@@ -8,6 +8,8 @@ use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
 use wasmer_config::package::PackageIdent;
+use wasmer_package::utils::from_bytes;
+use webc::Container;
 
 use crate::{
     types::{self, *},
@@ -374,7 +376,7 @@ pub async fn fetch_webc_package(
     client: &WasmerClient,
     ident: &PackageIdent,
     default_registry: &Url,
-) -> Result<webc::compat::Container, anyhow::Error> {
+) -> Result<Container, anyhow::Error> {
     let url = match ident {
         PackageIdent::Named(n) => Url::parse(&format!(
             "{default_registry}/{}:{}",
@@ -398,7 +400,7 @@ pub async fn fetch_webc_package(
         .bytes()
         .await?;
 
-    webc::compat::Container::from_bytes(data).context("failed to parse webc package")
+    from_bytes(data).context("failed to parse webc package")
 }
 
 /// Fetch app templates.

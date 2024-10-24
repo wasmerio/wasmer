@@ -1,0 +1,26 @@
+---
+source: crates/webc/src/wasmer_package/manifest.rs
+description: "\n            [package]\n            name = \"sharrattj/bash\"\n            version = \"1.0.17\"\n            description = \"Bash is a modern POSIX-compliant implementation of /bin/sh.\"\n            license = \"GNU\"\n            wasmer-extra-flags = \"--enable-threads --enable-bulk-memory\"\n\n            [dependencies]\n            \"sharrattj/coreutils\" = \"1.0.16\"\n\n            [[module]]\n            name = \"bash\"\n            source = \"bash.wasm\"\n            abi = \"wasi\"\n\n            [[command]]\n            name = \"bash\"\n            module = \"bash\"\n            runner = \"wasi@unstable_\"\n        "
+expression: "&transformed"
+---
+use:
+  sharrattj/coreutils: sharrattj/coreutils@^1.0.16
+package:
+  wapm:
+    name: sharrattj/bash
+    version: 1.0.17
+    description: Bash is a modern POSIX-compliant implementation of /bin/sh.
+    license: GNU
+atoms:
+  bash:
+    kind: "https://webc.org/kind/wasm"
+    signature: "sha256:Wjn+71LlO4/+39cFFVbsEF7YaYLxIqBdJyjZZ3jk65Y="
+commands:
+  bash:
+    runner: "https://webc.org/runner/wasi"
+    annotations:
+      atom:
+        name: bash
+      wasi:
+        atom: bash
+entrypoint: bash
