@@ -6,7 +6,6 @@ pub(crate) mod render;
 pub(crate) mod timestamp;
 pub(crate) mod unpack;
 
-
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
