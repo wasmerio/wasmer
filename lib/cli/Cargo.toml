@@ -136,10 +136,6 @@ wasmer-wast = { version = "=5.0.0-rc.1", path = "../../tests/lib/wast", optional
 wasmer-types = { version = "=5.0.0-rc.1", path = "../types", features = [
 	"enable-serde",
 ] }
-wasmer-registry = { version = "=5.21.0", path = "../registry", features = [
-	"build-package",
-	"clap",
-] }
 wasmer-object = { version = "=5.0.0-rc.1", path = "../object", optional = true }
 virtual-fs = { version = "0.18.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
