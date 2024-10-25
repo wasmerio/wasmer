@@ -47,8 +47,8 @@ pub struct WasmerConfig {
 impl Default for WasmerConfig {
     fn default() -> Self {
         Self {
-            telemetry_enabled: true, 
-            update_notifications_enabled: true, 
+            telemetry_enabled: true,
+            update_notifications_enabled: true,
             registry: Default::default(),
             proxy: Default::default(),
         }
