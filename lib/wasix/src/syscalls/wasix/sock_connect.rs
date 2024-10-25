@@ -38,7 +38,7 @@ pub fn sock_connect<M: MemorySize>(
         JournalEffector::save_sock_connect(&mut ctx, sock, local_addr, peer_addr).map_err(
             |err| {
                 tracing::error!("failed to save sock_connected event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             },
         )?;
     }

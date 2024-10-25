@@ -70,7 +70,7 @@ pub fn sock_send<M: MemorySize>(
         JournalEffector::save_sock_send(&ctx, fd, bytes_written, si_data, si_data_len, si_flags)
             .map_err(|err| {
                 tracing::error!("failed to save sock_send event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             })?;
     }
 

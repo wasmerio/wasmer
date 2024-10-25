@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1336
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_worker_panicking",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "",
+      "stderr": "thread '<unnamed>' panicked at src/bin/worker-panicking.rs:3:9:\nchild thread panicking\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+      "exit_code": 173
+    }
+  }
+}

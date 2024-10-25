@@ -63,7 +63,7 @@ pub fn test_record_init_module() {
 #[test]
 pub fn test_record_process_exit() {
     run_test(JournalEntry::ProcessExitV1 {
-        exit_code: Some(wasi::ExitCode::Errno(wasi::Errno::Fault)),
+        exit_code: Some(wasi::ExitCode::from(wasi::Errno::Fault)),
     });
 }
 
@@ -91,7 +91,7 @@ pub fn test_record_set_thread() {
 pub fn test_record_close_thread() {
     run_test(JournalEntry::CloseThreadV1 {
         id: 987u32,
-        exit_code: Some(wasi::ExitCode::Errno(wasi::Errno::Fault)),
+        exit_code: Some(wasi::ExitCode::from(wasi::Errno::Fault)),
     });
 }
 

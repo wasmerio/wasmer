@@ -8,6 +8,8 @@ use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
 use wasmer_config::package::PackageIdent;
+use wasmer_package::utils::from_bytes;
+use webc::Container;
 
 use crate::{
     types::{self, *},
@@ -250,7 +252,7 @@ pub async fn get_app_volumes(
         .get_deploy_app
         .context("app not found")?
         .active_version
-        .volumes
+        .and_then(|v| v.volumes)
         .unwrap_or_default()
         .into_iter()
         .flatten()
@@ -410,7 +412,7 @@ pub async fn fetch_webc_package(
     client: &WasmerClient,
     ident: &PackageIdent,
     default_registry: &Url,
-) -> Result<webc::compat::Container, anyhow::Error> {
+) -> Result<Container, anyhow::Error> {
     let url = match ident {
         PackageIdent::Named(n) => Url::parse(&format!(
             "{default_registry}/{}:{}",
@@ -434,7 +436,7 @@ pub async fn fetch_webc_package(
         .bytes()
         .await?;
 
-    webc::compat::Container::from_bytes(data).context("failed to parse webc package")
+    from_bytes(data).context("failed to parse webc package")
 }
 
 /// Fetch app templates.
@@ -1043,6 +1045,41 @@ pub async fn get_deploy_app_versions(
         .await?;
     let versions = res.get_deploy_app.context("app not found")?.versions;
     Ok(versions)
+}
+
+/// Get app deployments for an app.
+pub async fn app_deployments(
+    client: &WasmerClient,
+    vars: types::GetAppDeploymentsVariables,
+) -> Result<Vec<types::Deployment>, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::GetAppDeployments::build(vars))
+        .await?;
+    let builds = res
+        .get_deploy_app
+        .and_then(|x| x.deployments)
+        .context("no data returned")?
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect();
+
+    Ok(builds)
+}
+
+/// Get an app deployment by ID.
+pub async fn app_deployment(
+    client: &WasmerClient,
+    id: String,
+) -> Result<types::AutobuildRepository, anyhow::Error> {
+    let node = get_node(client, id.clone())
+        .await?
+        .with_context(|| format!("app deployment with id '{}' not found", id))?;
+    match node {
+        types::Node::AutobuildRepository(x) => Ok(*x),
+        _ => anyhow::bail!("invalid node type returned"),
+    }
 }
 
 /// Load all versions of an app.

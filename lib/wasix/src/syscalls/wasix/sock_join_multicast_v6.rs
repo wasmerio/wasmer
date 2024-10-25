@@ -29,7 +29,7 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
         JournalEffector::save_sock_join_ipv6_multicast(&mut ctx, sock, multiaddr, iface).map_err(
             |err| {
                 tracing::error!("failed to save sock_join_ipv6_multicast event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             },
         )?;
     }

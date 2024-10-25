@@ -23,7 +23,10 @@ impl AsyncCliCommand for CmdAppInfo {
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let app_url = app.url;
-        let versioned_url = app.active_version.url;
+        let versioned_url = app
+            .active_version
+            .as_ref()
+            .map_or("n/a", |version| &version.url);
         let dashboard_url = app.admin_url;
 
         println!("  App Info  ");

@@ -5,6 +5,7 @@ use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
+use wasmer_package::utils::from_disk;
 
 use crate::config::WasmerEnv;
 
@@ -243,7 +244,7 @@ impl PackageDownload {
 
             step_num += 1;
 
-            webc::compat::Container::from_disk(tmpfile.path())
+            from_disk(tmpfile.path())
                 .context("could not parse downloaded file as a package - invalid download?")?;
         }
 
@@ -302,6 +303,6 @@ mod tests {
 
         cmd.execute().unwrap();
 
-        webc::compat::Container::from_disk(out_path).unwrap();
+        from_disk(out_path).unwrap();
     }
 }

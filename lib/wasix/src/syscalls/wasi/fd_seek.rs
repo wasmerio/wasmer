@@ -30,7 +30,7 @@ pub fn fd_seek<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_fd_seek(&mut ctx, fd, offset, whence).map_err(|err| {
             tracing::error!("failed to save file descriptor seek event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
@@ -61,9 +61,6 @@ pub(crate) fn fd_seek_internal(
 
     if !fd_entry.rights.contains(Rights::FD_SEEK) {
         return Ok(Err(Errno::Access));
-    }
-    if fd_entry.flags.contains(Fdflags::APPEND) {
-        return Ok(Ok(fd_entry.offset.load(Ordering::Acquire)));
     }
 
     // TODO: handle case if fd is a dir?

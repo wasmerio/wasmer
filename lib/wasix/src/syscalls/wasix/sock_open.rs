@@ -49,7 +49,7 @@ pub fn sock_open<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_open(&mut ctx, af, ty, pt, fd).map_err(|err| {
             tracing::error!("failed to save sock_open event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

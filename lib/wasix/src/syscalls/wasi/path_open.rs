@@ -99,7 +99,7 @@ pub fn path_open<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save unlink event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
@@ -237,7 +237,7 @@ pub(crate) fn path_open_internal(
                 let open_options = open_options
                     .write(minimum_rights.write)
                     .create(minimum_rights.create)
-                    .append(minimum_rights.append)
+                    .append(false)
                     .truncate(minimum_rights.truncate);
 
                 if minimum_rights.read {

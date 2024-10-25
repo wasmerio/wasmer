@@ -30,7 +30,7 @@ pub fn fd_filestat_set_times(
         JournalEffector::save_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags).map_err(
             |err| {
                 tracing::error!("failed to save file set times event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             },
         )?;
     }

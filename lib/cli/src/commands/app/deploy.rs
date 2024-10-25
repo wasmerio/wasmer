@@ -20,8 +20,6 @@ use wasmer_config::{
     package::{PackageIdent, PackageSource},
 };
 
-// TODO: apparently edge-util uses a different version of the http crate, which makes the
-// HEADER_APP_VERSION_ID field incompatible with our use here, so it needs to be redeclared.
 static EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
     http::HeaderName::from_static("x-edge-app-version-id");
 
@@ -587,7 +585,7 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         wait_app(&client, opts.clone(), app_version.clone(), self.quiet).await?;
 
-        if self.fmt.format == crate::utils::render::ItemFormat::Json {
+        if self.fmt.format == Some(crate::utils::render::ItemFormat::Json) {
             println!("{}", serde_json::to_string_pretty(&app_version)?);
         }
 
@@ -764,7 +762,7 @@ pub async fn wait_app(
 
                         tracing::debug!(
                             current=%header,
-                            expected=%app.active_version.id.inner(),
+                            expected=%version.id.inner(),
                             "app is not at the right version yet",
                         );
                     }

@@ -93,7 +93,7 @@ pub fn sock_accept_v2<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save sock_accepted event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

@@ -22,7 +22,7 @@ pub fn fd_renumber(
         if env.enable_journal {
             JournalEffector::save_fd_renumber(&mut ctx, from, to).map_err(|err| {
                 tracing::error!("failed to save file descriptor renumber event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             })?;
         }
     }

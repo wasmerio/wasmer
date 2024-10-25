@@ -23,7 +23,7 @@ pub fn sock_set_opt_size(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_set_opt_size(&mut ctx, sock, opt, size).map_err(|err| {
             tracing::error!("failed to save sock_set_opt_size event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

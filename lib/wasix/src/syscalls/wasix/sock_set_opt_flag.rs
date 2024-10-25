@@ -29,7 +29,7 @@ pub fn sock_set_opt_flag(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_set_opt_flag(&mut ctx, sock, opt, flag).map_err(|err| {
             tracing::error!("failed to save sock_set_opt_flag event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

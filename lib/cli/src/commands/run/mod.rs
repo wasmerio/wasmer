@@ -32,7 +32,10 @@ use wasmer::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
+use wasmer_package::utils::from_disk;
+use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_types::ModuleHash;
+
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
@@ -52,7 +55,8 @@ use wasmer_wasix::{
     },
     Runtime, WasiError,
 };
-use webc::{metadata::Manifest, Container};
+use webc::metadata::Manifest;
+use webc::Container;
 
 use crate::{
     commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
@@ -760,7 +764,7 @@ impl ExecutableTarget {
                 })
             }
             TargetOnDisk::LocalWebc => {
-                let container = Container::from_disk(path)?;
+                let container = from_disk(path)?;
                 pb.set_message("Resolving dependencies");
 
                 let inner_runtime = runtime.clone();

@@ -22,7 +22,7 @@ pub fn fd_fdstat_set_flags(
         if env.enable_journal {
             JournalEffector::save_fd_set_flags(&mut ctx, fd, flags).map_err(|err| {
                 tracing::error!("failed to save file set flags event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             })?;
         }
     }

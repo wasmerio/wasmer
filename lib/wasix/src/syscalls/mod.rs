@@ -413,7 +413,7 @@ where
                         Poll::Pending
                     }
                 }
-                Ok(Err(err)) => Poll::Ready(Err(WasiError::Exit(ExitCode::Errno(err)))),
+                Ok(Err(err)) => Poll::Ready(Err(WasiError::Exit(ExitCode::from(err)))),
                 Err(err) => Poll::Ready(Err(err)),
             };
         }
@@ -1122,7 +1122,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     // If there is an error then exit the process, otherwise we are done
     match res {
         Errno::Success => Ok(()),
-        err => Err(WasiError::Exit(ExitCode::Errno(err))),
+        err => Err(WasiError::Exit(ExitCode::from(err))),
     }
 }
 

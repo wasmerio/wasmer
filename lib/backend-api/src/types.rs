@@ -832,7 +832,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "DeployApp")]
     pub(crate) struct AppVolumes {
-        pub active_version: AppVersionVolumes,
+        pub active_version: Option<AppVersionVolumes>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -844,7 +844,7 @@ mod queries {
     #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
     pub struct AppVersionVolume {
         pub name: String,
-        pub size: Option<i32>,
+        pub size: Option<BigInt>,
         pub used_size: Option<BigInt>,
     }
 
@@ -938,7 +938,7 @@ mod queries {
         pub created_at: DateTime,
         pub updated_at: DateTime,
         pub description: Option<String>,
-        pub active_version: DeployAppVersion,
+        pub active_version: Option<DeployAppVersion>,
         pub admin_url: String,
         pub owner: Owner,
         pub url: String,
@@ -1183,6 +1183,100 @@ mod queries {
     pub struct RedeployActiveVersionPayload {
         pub app: DeployApp,
     }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetAppDeploymentsVariables {
+        pub after: Option<String>,
+        pub first: Option<i32>,
+        pub name: String,
+        pub offset: Option<i32>,
+        pub owner: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppDeploymentsVariables")]
+    pub struct GetAppDeployments {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<DeployAppDeployments>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetAppDeploymentsVariables")]
+    pub struct DeployAppDeployments {
+        // FIXME: add $offset, $after, currently causes an error from the backend
+        // #[arguments(first: $first, after: $after, offset: $offset)]
+        pub deployments: Option<DeploymentConnection>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct DeploymentConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<DeploymentEdge>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct DeploymentEdge {
+        pub node: Option<Deployment>,
+    }
+
+    #[allow(clippy::large_enum_variant)]
+    #[derive(cynic::InlineFragments, Debug, Clone, Serialize)]
+    pub enum Deployment {
+        AutobuildRepository(AutobuildRepository),
+        NakedDeployment(NakedDeployment),
+        #[cynic(fallback)]
+        Other,
+    }
+
+    #[derive(cynic::QueryFragment, serde::Serialize, Debug, Clone)]
+    pub struct NakedDeployment {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub app_version: Option<DeployAppVersion>,
+    }
+
+    #[derive(cynic::QueryFragment, serde::Serialize, Debug, Clone)]
+    pub struct AutobuildRepository {
+        pub id: cynic::Id,
+        pub build_id: Uuid,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub status: StatusEnum,
+        pub log_url: Option<String>,
+        pub repo_url: String,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum StatusEnum {
+        Success,
+        Working,
+        Failure,
+        Queued,
+        Timeout,
+        InternalError,
+        Cancelled,
+        Running,
+    }
+
+    impl StatusEnum {
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::Success => "success",
+                Self::Working => "working",
+                Self::Failure => "failure",
+                Self::Queued => "queued",
+                Self::Timeout => "timeout",
+                Self::InternalError => "internal_error",
+                Self::Cancelled => "cancelled",
+                Self::Running => "running",
+            }
+        }
+    }
+
+    #[derive(cynic::Scalar, Debug, Clone)]
+    #[cynic(graphql_type = "UUID")]
+    pub struct Uuid(pub String);
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct PublishDeployAppVars {
@@ -2181,6 +2275,7 @@ mod queries {
     pub enum Node {
         DeployApp(Box<DeployApp>),
         DeployAppVersion(Box<DeployAppVersion>),
+        AutobuildRepository(Box<AutobuildRepository>),
         #[cynic(fallback)]
         Unknown,
     }

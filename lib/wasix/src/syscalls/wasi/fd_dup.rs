@@ -22,7 +22,7 @@ pub fn fd_dup<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_fd_duplicate(&mut ctx, fd, copied_fd).map_err(|err| {
             tracing::error!("failed to save file descriptor duplicate event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
