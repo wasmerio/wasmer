@@ -146,6 +146,32 @@ fn apply_relocation(
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_abs);
         },
+        RelocationKind::Aarch64AdrPrelPgHi21 | RelocationKind::Aarch64AdrPrelLo21 => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let reloc_delta = ((((reloc_delta >> 62) & 0xff) as u32) << 29)
+                | ((((reloc_delta >> 5) & 0b11111) as u32) << 5)
+                | read_unaligned(reloc_address as *mut u32);
+            write_unaligned(reloc_address as *mut u32, reloc_delta);
+        },
+
+        RelocationKind::Aarch64AddAbsLo12Nc => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let reloc_delta = (reloc_delta as u32 & 0xfff)
+                | (read_unaligned(reloc_address as *mut u32) & 0xFFC003FF);
+            write_unaligned(reloc_address as *mut u32, reloc_delta);
+        },
+        RelocationKind::Aarch64Ldst128AbsLo12Nc => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let reloc_delta = ((reloc_delta as u32 & 0xfff) >> 4) << 10
+                | (read_unaligned(reloc_address as *mut u32) & 0xFFC003FF);
+            write_unaligned(reloc_address as *mut u32, reloc_delta);
+        },
+        RelocationKind::Aarch64Ldst64AbsLo12Nc => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let reloc_delta = ((reloc_delta as u32 & 0xfff) >> 3) << 10
+                | (read_unaligned(reloc_address as *mut u32) & 0xFFC003FF);
+            write_unaligned(reloc_address as *mut u32, reloc_delta);
+        },
         kind => panic!(
             "Relocation kind unsupported in the current architecture {}",
             kind
