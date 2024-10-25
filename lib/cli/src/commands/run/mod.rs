@@ -33,7 +33,6 @@ use wasmer::{
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_package::utils::from_disk;
-use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_types::ModuleHash;
 
 #[cfg(feature = "journal")]
