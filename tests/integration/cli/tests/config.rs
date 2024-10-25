@@ -16,8 +16,8 @@ fn setup_wasmer_dir() -> TempDir {
     let config_path = temp.path().join("wasmer.toml");
 
     let contents = r#"
-telemetry_enabled = false
-update_notifications_enabled = false
+telemetry_enabled = true
+update_notifications_enabled = true
 
 [registry]
 active_registry = "https://registry.wasmer.io/graphql"
