@@ -32,7 +32,6 @@ use wasmer::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
-use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
@@ -56,8 +55,8 @@ use wasmer_wasix::{
 use webc::{metadata::Manifest, Container};
 
 use crate::{
-    commands::run::wasi::Wasi, common::HashAlgorithm, error::PrettyError, logging::Output,
-    store::StoreOptions,
+    commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
+    logging::Output, store::StoreOptions,
 };
 
 const TICK: Duration = Duration::from_millis(250);

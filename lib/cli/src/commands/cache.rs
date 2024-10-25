@@ -1,8 +1,7 @@
-use std::{fs, path::Path};
-
+use crate::config::WasmerEnv;
 use anyhow::Result;
 use clap::Parser;
-use wasmer_registry::wasmer_env::WasmerEnv;
+use std::{fs, path::Path};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer cache` subcommand

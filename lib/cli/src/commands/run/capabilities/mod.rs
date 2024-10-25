@@ -1,3 +1,5 @@
+use crate::config::WasmerEnv;
+
 use super::PackageSource;
 use anyhow::anyhow;
 use sha2::{Digest, Sha256};
@@ -5,8 +7,8 @@ use std::{
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
+
 use wasmer_config::package::PackageSource as PackageSpecifier;
-use wasmer_registry::wasmer_env::WasmerEnv;
 
 /// A custom implementation of the [`virtual_net::VirtualNetwork`] that asks users if they want to
 /// use networking features at runtime.

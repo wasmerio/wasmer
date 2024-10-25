@@ -18,7 +18,6 @@ rust-version.workspace = true
 wasmer-config = { version = "0.9.0", path = "../config" }
 webc.workspace = true
 
-
 # crates.io dependencies.
 reqwest = { workspace = true, default-features = false, features = ["json"] }
 
@@ -35,6 +34,20 @@ pin-project-lite = "0.2.10"
 serde_path_to_error = "0.1.14"
 harsh = "0.2.2"
 merge-streams = "0.1.2"
+
+
+# Subscriptions. 
+graphql-ws-client = { version = "0.11.0", features = [
+	"tungstenite",
+	"client-cynic",
+] }
+tokio-tungstenite = { version = "0.24.0", features = [
+	"rustls-tls-native-roots",
+] }
+async-tungstenite = { version = "0.28.0", features = [
+	"tokio-runtime",
+	"tokio-rustls-native-certs",
+] }
 
 [target.'cfg(target_family = "wasm")'.dependencies.getrandom]
 version = "0.2.14"

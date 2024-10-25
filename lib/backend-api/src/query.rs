@@ -55,6 +55,42 @@ pub async fn redeploy_app_by_id(
         .map(|v| v.redeploy_active_version.map(|v| v.app))
 }
 
+/// List all bindings associated with a particular package.
+///
+/// If a version number isn't provided, this will default to the most recently
+/// published version.
+pub async fn list_bindings(
+    client: &WasmerClient,
+    name: &str,
+    version: Option<&str>,
+) -> Result<Vec<Bindings>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetBindingsQuery::build(GetBindingsQueryVariables {
+            name,
+            version,
+        }))
+        .await
+        .and_then(|b| {
+            b.package_version
+                .ok_or(anyhow::anyhow!("No bindings found!"))
+        })
+        .map(|v| {
+            let mut bindings_packages = Vec::new();
+
+            for b in v.bindings.into_iter().flatten() {
+                let pkg = Bindings {
+                    id: b.id.into_inner(),
+                    url: b.url,
+                    language: b.language,
+                    generator: b.generator,
+                };
+                bindings_packages.push(pkg);
+            }
+
+            bindings_packages
+        })
+}
+
 /// Revoke an existing token
 pub async fn revoke_token(
     client: &WasmerClient,

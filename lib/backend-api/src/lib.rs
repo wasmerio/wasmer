@@ -6,6 +6,7 @@ mod error;
 
 pub mod global_id;
 pub mod query;
+pub mod subscription;
 pub mod stream;
 pub mod types;
 
