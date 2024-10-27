@@ -377,7 +377,7 @@ jobs:
           chmod +x /usr/bin/llvm-config
           LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-v8
       - name: Build Wasmer with v8 backend
-        if: ${{ endsWith(matrix.build, 'v8') && (!startsWith(matrix.build, 'linux-x64') || !startsWith(matrix.build, 'linux-musl')) }}
+        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         run: |
           echo $LIBCLANG_STATIC_PATH
           make build-wasmer-v8
@@ -392,7 +392,7 @@ jobs:
       - name: Build Wasmer with wasmi backend musl
         if: ${{ endsWith(matrix.build, 'wasmi') && startsWith(matrix.build, 'linux-musl') }}
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-wasmi
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-wasmi
       - name: Build Wasmer binary without LLVM
         if: matrix.use_llvm != true
         shell: bash
