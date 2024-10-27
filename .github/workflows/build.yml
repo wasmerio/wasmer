@@ -193,18 +193,18 @@ jobs:
             use_llvm: false
             build_wasm: true
           - build: linux-musl-x64-v8
-            os: ubuntu-22.04
+            os: ubuntu-latest
             artifact_name: 'wasmer-v8-linux-musl-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            container: alpine:latest
             use_sccache: false
-            use_llvm: true
+            use_llvm: false
             build_wasm: true
           - build: linux-musl-x64-wasmi
-            os: ubuntu-22.04
+            os: ubuntu-latest
             artifact_name: 'wasmer-wasmi-linux-musl-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            container: alpine:latest
             use_sccache: false
-            use_llvm: true
+            use_llvm: false
             build_wasm: true
     container: ${{ matrix.container }}
     env:
