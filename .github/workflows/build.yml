@@ -209,7 +209,7 @@ jobs:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static
+          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static musl-dev
           ln -s /usr/bin/clang-18 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
