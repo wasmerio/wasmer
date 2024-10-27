@@ -46,145 +46,145 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - build: linux-arm64
-          #   os: arm64-ubuntu-latest-8-cores
-          #   artifact_name: 'wasmer-linux-aarch64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_linux'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: true
-          # - build: linux-x64
-          #   os: ubuntu-22.04
-          #   artifact_name: 'wasmer-linux-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_linux'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: true
-          # - build: linux-x64-v8
-          #   os: ubuntu-22.04
-          #   artifact_name: 'wasmer-v8-linux-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_linux'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: true
-          # - build: linux-x64-wamr
-          #   os: ubuntu-22.04
-          #   artifact_name: 'wasmer-wamr-linux-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_linux'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: true
-          # - build: linux-x64-wasmi
-          #   os: ubuntu-22.04
-          #   artifact_name: 'wasmer-wasmi-linux-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_linux'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: true
-          # - build: macos-x64
-          #   os: macos-13
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          #   artifact_name: 'wasmer-darwin-amd64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: macos-x64-v8
-          #   os: macos-13
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          #   artifact_name: 'wasmer-v8-darwin-amd64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: macos-x64-wamr
-          #   os: macos-13
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          #   artifact_name: 'wasmer-wamr-darwin-amd64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: macos-x64-wasmi
-          #   os: macos-13
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          #   artifact_name: 'wasmer-wasmi-darwin-amd64'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_mac'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: macos-arm64
-          #   os: macos-14
-          #   target: aarch64-apple-darwin
-          #   artifact_name: 'wasmer-darwin-arm64'
-          #   use_sccache: false
-          #   use_llvm: false
-          #   build_wasm: false
-          #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          # - build: macos-arm64-v8
-          #   os: macos-14
-          #   target: aarch64-apple-darwin
-          #   artifact_name: 'wasmer-v8-darwin-arm64'
-          #   use_sccache: false
-          #   use_llvm: false
-          #   build_wasm: false
-          #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          # - build: macos-arm64-wamr
-          #   os: macos-14
-          #   target: aarch64-apple-darwin
-          #   artifact_name: 'wasmer-wamr-darwin-arm64'
-          #   use_sccache: false
-          #   use_llvm: false
-          #   build_wasm: false
-          #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          # - build: macos-arm64-wasmi
-          #   os: macos-14
-          #   target: aarch64-apple-darwin
-          #   artifact_name: 'wasmer-wasmi-darwin-arm64'
-          #   use_sccache: false
-          #   use_llvm: false
-          #   build_wasm: false
-          #   # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          # - build: windows-x64
-          #   os: windows-2022
-          #   artifact_name: 'wasmer-windows-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: windows-x64-v8
-          #   os: windows-2022
-          #   artifact_name: 'wasmer-v8-windows-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: windows-x64-wamr
-          #   os: windows-2022
-          #   artifact_name: 'wasmer-wamr-windows-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
-          # - build: windows-x64-wasmi
-          #   os: windows-2022
-          #   artifact_name: 'wasmer-wasmi-windows-amd64'
-          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-          #   cross_compilation_artifact_name: 'cross_compiled_from_win'
-          #   use_sccache: false
-          #   use_llvm: true
-          #   build_wasm: false
+          - build: linux-arm64
+            os: arm64-ubuntu-latest-8-cores
+            artifact_name: 'wasmer-linux-aarch64'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: linux-x64
+            os: ubuntu-22.04
+            artifact_name: 'wasmer-linux-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: linux-x64-v8
+            os: ubuntu-22.04
+            artifact_name: 'wasmer-v8-linux-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: linux-x64-wamr
+            os: ubuntu-22.04
+            artifact_name: 'wasmer-wamr-linux-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: linux-x64-wasmi
+            os: ubuntu-22.04
+            artifact_name: 'wasmer-wasmi-linux-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
+          - build: macos-x64
+            os: macos-13
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-x64-v8
+            os: macos-13
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-v8-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-x64-wamr
+            os: macos-13
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-wamr-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-x64-wasmi
+            os: macos-13
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+            artifact_name: 'wasmer-wasmi-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: macos-arm64
+            os: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-darwin-arm64'
+            use_sccache: false
+            use_llvm: false
+            build_wasm: false
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+          - build: macos-arm64-v8
+            os: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-v8-darwin-arm64'
+            use_sccache: false
+            use_llvm: false
+            build_wasm: false
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+          - build: macos-arm64-wamr
+            os: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-wamr-darwin-arm64'
+            use_sccache: false
+            use_llvm: false
+            build_wasm: false
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+          - build: macos-arm64-wasmi
+            os: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-wasmi-darwin-arm64'
+            use_sccache: false
+            use_llvm: false
+            build_wasm: false
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+          - build: windows-x64
+            os: windows-2022
+            artifact_name: 'wasmer-windows-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: windows-x64-v8
+            os: windows-2022
+            artifact_name: 'wasmer-v8-windows-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: windows-x64-wamr
+            os: windows-2022
+            artifact_name: 'wasmer-wamr-windows-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
+          - build: windows-x64-wasmi
+            os: windows-2022
+            artifact_name: 'wasmer-wasmi-windows-amd64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: false
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
@@ -195,13 +195,6 @@ jobs:
           - build: linux-musl-x64-v8
             os: ubuntu-latest
             artifact_name: 'wasmer-v8-linux-musl-amd64'
-            container: alpine:latest
-            use_sccache: false
-            use_llvm: false
-            build_wasm: true
-          - build: linux-musl-x64-wasmi
-            os: ubuntu-latest
-            artifact_name: 'wasmer-wasmi-linux-musl-amd64'
             container: alpine:latest
             use_sccache: false
             use_llvm: false
@@ -354,7 +347,7 @@ jobs:
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
       - name: Build Wasmer binary with LLVM
-        if: matrix.use_llvm
+        if: matrix.use_llvm && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
         shell: bash
         run: |
           make build-wasmer
@@ -386,15 +379,11 @@ jobs:
         run: |
           make build-wasmer-wamr
       - name: Build Wasmer with wasmi backend
-        if: ${{ endsWith(matrix.build, 'wasmi') && !startsWith(matrix.build, 'linux-musl') }}
+        if: endsWith(matrix.build, 'wasmi')
         run: |
           make build-wasmer-wasmi    
-      - name: Build Wasmer with wasmi backend musl
-        if: ${{ endsWith(matrix.build, 'wasmi') && startsWith(matrix.build, 'linux-musl') }}
-        run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-wasmi
       - name: Build Wasmer binary without LLVM
-        if: matrix.use_llvm != true
+        if: matrix.use_llvm != true && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
         shell: bash
         run: |
           make build-wasmer
@@ -439,134 +428,134 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  # windows_gnu:
-  #   name: Windows GNU
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - name: Install Windows-GNU linker
-  #       shell: bash
-  #       run: |
-  #         sudo apt install -y mingw-w64
-  #     - uses: dtolnay/rust-toolchain@stable
-  #       with:
-  #         target: x86_64-pc-windows-gnu
-  #     - name: Install Windows-GNU target
-  #       shell: bash
-  #       run: |
-  #         rustup target add x86_64-pc-windows-gnu
-  #     - name: Install Windows 10 SDK with xwin
-  #       shell: bash
-  #       run: |
-  #         mkdir -p /tmp/xwin
-  #         mkdir -p /tmp/xwindownload
-  #         mkdir -p /tmp/xwincache
-  #         git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
-  #         cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-  #         /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
-  #         mkdir -p /tmp/winsdk
-  #         cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/WS2_32.lib /tmp/winsdk/
-  #         cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/KERNEL32.lib /tmp/winsdk/
-  #         cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/BCRYPT.lib /tmp/winsdk/
-  #         cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/ADVAPI32.lib /tmp/winsdk/
-  #         cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/USERENV.lib /tmp/winsdk/
-  #         echo "WinSDK files:"
-  #         ls -laH /tmp/winsdk
-  #         echo ""
-  #         mkdir -p package
-  #         mkdir -p package/winsdk
-  #         cp -r /tmp/winsdk/* package/winsdk
-  #     - name: Build Wasmer C-API without LLVM
-  #       shell: bash
-  #       run: |
-  #         make build-capi
-  #       env:
-  #         RUSTFLAGS: -Cpanic=abort
-  #         CARGO_TARGET: x86_64-pc-windows-gnu
-  #         ENABLE_LLVM: 0
-  #     - name: Build Wasmer C-API headless without LLVM
-  #       shell: bash
-  #       run: |
-  #         make build-capi-headless
-  #       env:
-  #         RUSTFLAGS: -Cpanic=abort
-  #         CARGO_TARGET: x86_64-pc-windows-gnu
-  #         ENABLE_LLVM: 0
-  #     - name: Dist
-  #       run: |
-  #         make distribution-gnu
-  #       env:
-  #         CARGO_TARGET: x86_64-pc-windows-gnu
-  #         TARGET_DIR: target/x86_64-pc-windows-gnu/release
-  #     - name: Upload Artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: 'wasmer-windows-gnu64'
-  #         path: dist
-  #         if-no-files-found: error
-  #         retention-days: 2
+  windows_gnu:
+    name: Windows GNU
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Windows-GNU linker
+        shell: bash
+        run: |
+          sudo apt install -y mingw-w64
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-pc-windows-gnu
+      - name: Install Windows-GNU target
+        shell: bash
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+      - name: Install Windows 10 SDK with xwin
+        shell: bash
+        run: |
+          mkdir -p /tmp/xwin
+          mkdir -p /tmp/xwindownload
+          mkdir -p /tmp/xwincache
+          git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
+          cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
+          /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
+          mkdir -p /tmp/winsdk
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/WS2_32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/KERNEL32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/BCRYPT.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/ADVAPI32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/USERENV.lib /tmp/winsdk/
+          echo "WinSDK files:"
+          ls -laH /tmp/winsdk
+          echo ""
+          mkdir -p package
+          mkdir -p package/winsdk
+          cp -r /tmp/winsdk/* package/winsdk
+      - name: Build Wasmer C-API without LLVM
+        shell: bash
+        run: |
+          make build-capi
+        env:
+          RUSTFLAGS: -Cpanic=abort
+          CARGO_TARGET: x86_64-pc-windows-gnu
+          ENABLE_LLVM: 0
+      - name: Build Wasmer C-API headless without LLVM
+        shell: bash
+        run: |
+          make build-capi-headless
+        env:
+          RUSTFLAGS: -Cpanic=abort
+          CARGO_TARGET: x86_64-pc-windows-gnu
+          ENABLE_LLVM: 0
+      - name: Dist
+        run: |
+          make distribution-gnu
+        env:
+          CARGO_TARGET: x86_64-pc-windows-gnu
+          TARGET_DIR: target/x86_64-pc-windows-gnu/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'wasmer-windows-gnu64'
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
 
-  # darwin_aarch64_jsc:
-  #   name: macOS aarch64 (JSC)
-  #   runs-on: macos-12
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: dtolnay/rust-toolchain@stable
-  #       with:
-  #         target: aarch64-apple-darwin
-  #     - name: Install Darwin-aarch64 target
-  #       shell: bash
-  #       run: |
-  #         rustup target add aarch64-apple-darwin
-  #     - name: Build Wasmer C-API (JSC)
-  #       shell: bash
-  #       run: |
-  #         make build-capi-jsc
-  #       env:
-  #         RUSTFLAGS: -Cpanic=abort
-  #         CARGO_TARGET: aarch64-apple-darwin
-  #     - name: Dist
-  #       run: |
-  #         make distribution
-  #       env:
-  #         CARGO_TARGET: aarch64-apple-darwin
-  #         TARGET_DIR: target/aarch64-apple-darwin/release
-  #     - name: Upload Artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: 'aarch64-apple-darwin-jsc'
-  #         path: dist
-  #         if-no-files-found: error
-  #         retention-days: 2
+  darwin_aarch64_jsc:
+    name: macOS aarch64 (JSC)
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: aarch64-apple-darwin
+      - name: Install Darwin-aarch64 target
+        shell: bash
+        run: |
+          rustup target add aarch64-apple-darwin
+      - name: Build Wasmer C-API (JSC)
+        shell: bash
+        run: |
+          make build-capi-jsc
+        env:
+          RUSTFLAGS: -Cpanic=abort
+          CARGO_TARGET: aarch64-apple-darwin
+      - name: Dist
+        run: |
+          make distribution
+        env:
+          CARGO_TARGET: aarch64-apple-darwin
+          TARGET_DIR: target/aarch64-apple-darwin/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'aarch64-apple-darwin-jsc'
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
 
-  # darwin_x86_64_jsc:
-  #   name: macOS x86_64 (JSC)
-  #   runs-on: macos-12
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: dtolnay/rust-toolchain@stable
-  #       with:
-  #         target: x86_64-apple-darwin
-  #     - name: Build Wasmer C-API (JSC)
-  #       shell: bash
-  #       run: |
-  #         make build-capi-jsc
-  #       env:
-  #         RUSTFLAGS: -Cpanic=abort
-  #         CARGO_TARGET: x86_64-apple-darwin
-  #     - name: Dist
-  #       run: |
-  #         make distribution
-  #       env:
-  #         CARGO_TARGET: x86_64-apple-darwin
-  #         TARGET_DIR: target/x86_64-apple-darwin/release
-  #     - name: Upload Artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: 'x86_64-apple-darwin-jsc'
-  #         path: dist
-  #         if-no-files-found: error
-  #         retention-days: 2
+  darwin_x86_64_jsc:
+    name: macOS x86_64 (JSC)
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-apple-darwin
+      - name: Build Wasmer C-API (JSC)
+        shell: bash
+        run: |
+          make build-capi-jsc
+        env:
+          RUSTFLAGS: -Cpanic=abort
+          CARGO_TARGET: x86_64-apple-darwin
+      - name: Dist
+        run: |
+          make distribution
+        env:
+          CARGO_TARGET: x86_64-apple-darwin
+          TARGET_DIR: target/x86_64-apple-darwin/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'x86_64-apple-darwin-jsc'
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
 
   # linux_riscv64:
   #   name: Linux riscv64
@@ -635,8 +624,7 @@ jobs:
 
   release:
     # needs: [setup, build, linux_aarch64, windows_gnu, linux_riscv64]
-    # needs: [setup, build, windows_gnu]
-    needs: [setup, build]
+    needs: [setup, build, windows_gnu]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
     steps:
@@ -781,16 +769,6 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-v8-linux-musl-amd64/wasmer.tar.gz
           asset_name: wasmer-v8-linux-musl-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 (musl) with wasmi
-        id: upload-release-asset-linux-musl-amd64-wasmi
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wasmi-linux-musl-amd64/wasmer.tar.gz
-          asset_name: wasmer-wasmi-linux-musl-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac amd64
         uses: actions/upload-release-asset@v1
