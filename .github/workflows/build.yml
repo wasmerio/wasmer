@@ -344,14 +344,14 @@ jobs:
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
-      # - name: Build C API headless
-      #   shell: bash
-      #   run: |
-      #     make package-capi-headless
-      # - name: Build C API
-      #   shell: bash
-      #   run: |
-      #     make build-capi
+      - name: Build C API headless
+        shell: bash
+        run: |
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make package-capi-headless
+      - name: Build C API
+        shell: bash
+        run: |
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
       - name: Build Wasmer binary with LLVM
         if: matrix.use_llvm
         shell: bash
