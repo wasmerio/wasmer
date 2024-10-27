@@ -217,6 +217,7 @@ jobs:
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
           apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static
+          ln -s /usr/bin/clang-18 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
         run: |
@@ -366,7 +367,6 @@ jobs:
       - name: Build Wasmer with v8 backend musl
         if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux-musl') }}
         run: |
-          ln -s /usr/bin/clang-18 /usr/bin/clang
           echo "#!/bin/bash" >> /usr/bin/llvm-config
           echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
           echo 'llvm-config-18 "$@" "--link-static"' >> /usr/bin/llvm-config
@@ -377,7 +377,7 @@ jobs:
           chmod +x /usr/bin/llvm-config
           LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-v8
       - name: Build Wasmer with v8 backend
-        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux-x64') }}
+        if: ${{ endsWith(matrix.build, 'v8') && (!startsWith(matrix.build, 'linux-x64') || !startsWith(matrix.build, 'linux-musl') }}
         run: |
           echo $LIBCLANG_STATIC_PATH
           make build-wasmer-v8
