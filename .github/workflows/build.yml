@@ -773,7 +773,7 @@ jobs:
           asset_name: wasmer-linux-musl-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux amd64 (musl) With v8
-        id: upload-release-asset-linux-musl-amd64
+        id: upload-release-asset-linux-musl-amd64-v8
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -783,7 +783,7 @@ jobs:
           asset_name: wasmer-v8-linux-musl-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux amd64 (musl) with wasmi
-        id: upload-release-asset-linux-musl-amd64
+        id: upload-release-asset-linux-musl-amd64-wasmi
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
