@@ -85,12 +85,24 @@ fn main() {
             .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
             .define("WAMR_BUILD_TARGET", target_arch);
 
-        if cfg!(target_os = "windows") {
+        if target_os == "windows" {
             dst.define("CMAKE_CXX_COMPILER", "cl.exe");
             dst.define("CMAKE_C_COMPILER", "cl.exe");
             dst.define("CMAKE_LINKER_TYPE", "MSVC");
             dst.define("WAMR_BUILD_PLATFORM", "windows");
             dst.define("WAMR_BUILD_LIBC_UVWASI", "0");
+        }
+
+        if target_os == "ios" {
+            // XXX: Hacky..
+            let mut lines = vec![];
+            let cmake_file_path = wamr_platform_dir.join("CMakeLists.txt");
+            for line in std::fs::read_to_string(&cmake_file_path).unwrap().lines() {
+                if !line.contains("-mfloat-abi=hard") {
+                    lines.push(line.to_string())
+                }
+            }
+            std::fs::write(cmake_file_path, lines.join("\n")).unwrap();
         }
 
         let dst = dst.build();
