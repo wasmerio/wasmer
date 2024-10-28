@@ -550,7 +550,9 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: ./scripts/alpine-linux-install-deps.sh
+        run: |
+          ./scripts/alpine-linux-install-deps.sh
+          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -796,7 +798,9 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: ./scripts/alpine-linux-install-deps.sh
+        run: |
+          ./scripts/alpine-linux-install-deps.sh
+          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.metadata.build == 'windows-x64' }}
@@ -914,7 +918,9 @@ jobs:
           version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
-        run: ./scripts/alpine-linux-install-deps.sh
+        run: |
+          ./scripts/alpine-linux-install-deps.sh
+          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
       - uses: actions/download-artifact@v4
         id: download
         with:

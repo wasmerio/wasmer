@@ -43,6 +43,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - build: linux-arm64
+            os: arm64-ubuntu-latest-8-cores
+            artifact_name: 'wasmer-linux-aarch64'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: false
+            use_llvm: true
+            build_wasm: true
           - build: linux-x64
             os: ubuntu-22.04
             artifact_name: 'wasmer-linux-amd64'
@@ -182,6 +189,20 @@ jobs:
             use_sccache: false
             use_llvm: false
             build_wasm: true
+          - build: linux-musl-x64-v8
+            os: ubuntu-latest
+            artifact_name: 'wasmer-v8-linux-musl-amd64'
+            container: alpine:latest
+            use_sccache: false
+            use_llvm: false
+            build_wasm: true
+          - build: linux-musl-x64-wasmi
+            os: ubuntu-latest
+            artifact_name: 'wasmer-wasmi-linux-musl-amd64'
+            container: alpine:latest
+            use_sccache: false
+            use_llvm: false
+            build_wasm: true
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -190,12 +211,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
-        run: ./scripts/alpine-linux-install-deps.sh
+        if: startsWith(matrix.build, 'linux-musl-x64')
+        run: |
+          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static
+          ln -s /usr/bin/clang-18 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
         run: |
           sudo apt install mold ninja-build
+      - name: Install Linux ARM tools
+        if: startsWith(matrix.build, 'linux-arm64')
+        run: |
+          sudo apt install mold ninja-build llvm-18-dev libclang-18-dev clang-18 cmake make libpolly-18-dev libzstd1 zstd libzstd-dev
       - name: Install Linux musl tools
         if: startsWith(matrix.build, 'linux-musl')
         run: |
@@ -318,13 +345,13 @@ jobs:
       - name: Build C API headless
         shell: bash
         run: |
-          make package-capi-headless
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make package-capi-headless
       - name: Build C API
         shell: bash
         run: |
-          make build-capi
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
       - name: Build Wasmer binary with LLVM
-        if: matrix.use_llvm
+        if: matrix.use_llvm && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
         shell: bash
         run: |
           make build-wasmer
@@ -334,21 +361,45 @@ jobs:
         if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux-x64') }}
         run: |
           RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
+      - name: Build Wasmer with v8 backend musl
+        if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux-musl') }}
+        run: |
+          echo "#!/bin/bash" >> /usr/bin/llvm-config
+          echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
+          echo 'llvm-config-18 "$@" "--link-static"' >> /usr/bin/llvm-config
+          echo "else" >> /usr/bin/llvm-config
+          echo 'llvm-config-18 "$@"' >> /usr/bin/llvm-config
+          echo 'fi' >> /usr/bin/llvm-config
+          cat /usr/bin/llvm-config
+          chmod +x /usr/bin/llvm-config
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-v8
       - name: Build Wasmer with v8 backend
-        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux-x64') }}
+        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         run: |
           echo $LIBCLANG_STATIC_PATH
           make build-wasmer-v8
       - name: Build Wasmer with wamr backend
-        if: endsWith(matrix.build, 'wamr')
+        if: ${{ endsWith(matrix.build, 'wamr') && !startsWith(matrix.build, 'linux-musl') }}
         run: |
           make build-wasmer-wamr
       - name: Build Wasmer with wasmi backend
-        if: endsWith(matrix.build, 'wasmi')
+        if: endsWith(matrix.build, 'wasmi') && !startsWith(matrix.build, 'linux-musl')
         run: |
           make build-wasmer-wasmi    
+      - name: Build Wasmer with wasmi backend musl
+        if: endsWith(matrix.build, 'wasmi') && startsWith(matrix.build, 'linux-musl')
+        run: |
+          echo "#!/bin/bash" >> /usr/bin/llvm-config
+          echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
+          echo 'llvm-config-18 "$@" "--link-static"' >> /usr/bin/llvm-config
+          echo "else" >> /usr/bin/llvm-config
+          echo 'llvm-config-18 "$@"' >> /usr/bin/llvm-config
+          echo 'fi' >> /usr/bin/llvm-config
+          cat /usr/bin/llvm-config
+          chmod +x /usr/bin/llvm-config
+          RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-wasmi
       - name: Build Wasmer binary without LLVM
-        if: matrix.use_llvm != true
+        if: matrix.use_llvm != true && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
         shell: bash
         run: |
           make build-wasmer
@@ -358,14 +409,14 @@ jobs:
      #  run: |
      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
-        if: matrix.build != 'linux-musl-x64'
+        if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "nightly-2024-07-05"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
-        if: matrix.build != 'linux-musl-x64'
+        if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         run: |
           cargo install xargo
           echo "" >> Cargo.toml
@@ -522,135 +573,70 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  linux_aarch64:
-    name: Linux aarch64
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: aarch64-unknown-linux-gnu
-      - name: Build cross image
-        run: |
-          docker build -t wasmer/aarch64 ${GITHUB_WORKSPACE}/.github/cross-linux-aarch64/
-        env:
-          CROSS_DOCKER_IN_DOCKER: true
-      - name: Build Wasmer binary
-        run: |
-          make build-wasmer
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Build C API headless
-        shell: bash
-        run: |
-          make package-capi-headless
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-          TARGET: aarch64-unknown-linux-gnu
-          TARGET_DIR: target/aarch64-unknown-linux-gnu/release
-      - name: Build C API
-        run: |
-          make build-capi
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: aarch64-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          TARGET: aarch64-unknown-linux-gnu
-          TARGET_DIR: target/aarch64-unknown-linux-gnu/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasmer-linux-aarch64
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
-  linux_riscv64:
-    name: Linux riscv64
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: riscv64gc-unknown-linux-gnu
-      - name: Build cross image
-        run: |
-          docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
-        env:
-          CROSS_DOCKER_IN_DOCKER: true
-      - name: Build Wasmer binary
-        run: |
-          make build-wasmer
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Build C API headless
-        shell: bash
-        run: |
-          make package-capi-headless
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-          TARGET: riscv64gc-unknown-linux-gnu
-          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
-      - name: Build C API
-        run: |
-          make build-capi
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          TARGET: riscv64gc-unknown-linux-gnu
-          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasmer-linux-riscv64
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
+  # linux_riscv64:
+  #   name: Linux riscv64
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         target: riscv64gc-unknown-linux-gnu
+  #     - name: Build cross image
+  #       run: |
+  #         docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
+  #       env:
+  #         CROSS_DOCKER_IN_DOCKER: true
+  #     - name: Build Wasmer binary
+  #       run: |
+  #         make build-wasmer
+  #       env:
+  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+  #         CROSS_DOCKER_IN_DOCKER: true
+  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
+  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+  #         PKG_CONFIG_ALLOW_CROSS: true
+  #         ENABLE_LLVM: 0
+  #     - name: Build C API headless
+  #       shell: bash
+  #       run: |
+  #         make package-capi-headless
+  #       env:
+  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+  #         CROSS_DOCKER_IN_DOCKER: true
+  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
+  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+  #         PKG_CONFIG_ALLOW_CROSS: true
+  #         ENABLE_LLVM: 0
+  #         TARGET: riscv64gc-unknown-linux-gnu
+  #         TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
+  #     - name: Build C API
+  #       run: |
+  #         make build-capi
+  #       env:
+  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+  #         CROSS_DOCKER_IN_DOCKER: true
+  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
+  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+  #         PKG_CONFIG_ALLOW_CROSS: true
+  #         ENABLE_LLVM: 0
+  #     - name: Dist
+  #       run: |
+  #         make distribution
+  #       env:
+  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+  #         CROSS_DOCKER_IN_DOCKER: true
+  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
+  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+  #         PKG_CONFIG_ALLOW_CROSS: true
+  #         TARGET: riscv64gc-unknown-linux-gnu
+  #         TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
+  #     - name: Upload Artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wasmer-linux-riscv64
+  #         path: dist
+  #         if-no-files-found: error
+  #         retention-days: 2
 
   release:
     # needs: [setup, build, linux_aarch64, windows_gnu, linux_riscv64]
@@ -753,15 +739,15 @@ jobs:
           asset_path: artifacts/wasmer-wasmi-linux-amd64/wasmer.tar.gz
           asset_name: wasmer-wasmi-linux-amd64.tar.gz
           asset_content_type: application/gzip
-      # - name: Upload Release Asset Linux aarch64
-      #   uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #     asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-      #     asset_name: wasmer-linux-aarch64.tar.gz
-      #     asset_content_type: application/gzip
+      - name: Upload Release Asset Linux aarch64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
+          asset_name: wasmer-linux-aarch64.tar.gz
+          asset_content_type: application/gzip
       # - name: Upload Release Asset Linux riscv64
       #   uses: actions/upload-release-asset@v1
       #   env:
@@ -789,6 +775,26 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
           asset_name: wasmer-linux-musl-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux amd64 (musl) With v8
+        id: upload-release-asset-linux-musl-amd64-v8
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-v8-linux-musl-amd64/wasmer.tar.gz
+          asset_name: wasmer-v8-linux-musl-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux amd64 (musl) With wasmi
+        id: upload-release-asset-linux-musl-amd64-wasmi
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-wasmi-linux-musl-amd64/wasmer.tar.gz
+          asset_name: wasmer-wasmi-linux-musl-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac amd64
         uses: actions/upload-release-asset@v1
