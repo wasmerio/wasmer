@@ -643,7 +643,8 @@ jobs:
 
   release:
     # needs: [setup, build, linux_aarch64, windows_gnu, linux_riscv64]
-    needs: [setup, build, windows_gnu]
+    # needs: [setup, build, windows_gnu]
+    needs: [setup, build]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
     steps:
