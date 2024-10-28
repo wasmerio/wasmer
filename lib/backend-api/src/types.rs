@@ -2171,6 +2171,89 @@ mod queries {
     #[derive(cynic::Scalar, Debug, Clone)]
     pub struct BigInt(pub i64);
 
+    #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ProgrammingLanguage {
+        Python,
+        Javascript,
+    }
+
+    /// A library that exposes bindings to a Wasmer package.
+    #[derive(Debug, Clone)]
+    pub struct Bindings {
+        /// A unique ID specifying this set of bindings.
+        pub id: String,
+        /// The URL which can be used to download the files that were generated
+        /// (typically as a `*.tar.gz` file).
+        pub url: String,
+        /// The programming language these bindings are written in.
+        pub language: ProgrammingLanguage,
+        /// The generator used to generate these bindings.
+        pub generator: BindingsGenerator,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetBindingsQueryVariables<'a> {
+        pub name: &'a str,
+        pub version: Option<&'a str>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "Query", variables = "GetBindingsQueryVariables")]
+    pub struct GetBindingsQuery {
+        #[arguments(name: $name, version: $version)]
+        #[cynic(rename = "getPackageVersion")]
+        pub package_version: Option<PackageBindingsVersion>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageBindingsVersion {
+        pub bindings: Vec<Option<PackageVersionLanguageBinding>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    pub struct BindingsGenerator {
+        pub package_version: PackageVersion,
+        pub command_name: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    pub struct PackageVersionLanguageBinding {
+        pub id: cynic::Id,
+        pub language: ProgrammingLanguage,
+        pub url: String,
+        pub generator: BindingsGenerator,
+        pub __typename: String,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct PackageVersionReadySubscriptionVariables {
+        pub package_version_id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = "Subscription",
+        variables = "PackageVersionReadySubscriptionVariables"
+    )]
+    pub struct PackageVersionReadySubscription {
+        #[arguments(packageVersionId: $package_version_id)]
+        pub package_version_ready: PackageVersionReadyResponse,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct PackageVersionReadyResponse {
+        pub state: PackageVersionState,
+        pub success: bool,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum PackageVersionState {
+        WebcGenerated,
+        BindingsGenerated,
+        NativeExesGenerated,
+    }
+
     #[derive(cynic::InlineFragments, Debug, Clone)]
     #[cynic(graphql_type = "Node", variables = "GetDeployAppVersionsByIdVars")]
     pub enum NodeDeployAppVersions {

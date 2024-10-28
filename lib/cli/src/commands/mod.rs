@@ -178,12 +178,12 @@ impl WasmerCmd {
             #[cfg(feature = "compiler")]
             Some(Cmd::Compile(compile)) => compile.execute(),
             #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-            Some(Cmd::CreateExe(create_exe)) => create_exe.execute(),
+            Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
             #[cfg(feature = "static-artifact-create")]
             Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
-            Some(Cmd::Config(config)) => config.execute(),
+            Some(Cmd::Config(config)) => config.run(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
-            Some(Cmd::Init(init)) => init.execute(),
+            Some(Cmd::Init(init)) => init.run(),
             Some(Cmd::Login(login)) => login.run(),
             Some(Cmd::Auth(auth)) => auth.run(),
             Some(Cmd::Publish(publish)) => publish.run().map(|_| ()),
@@ -205,7 +205,7 @@ impl WasmerCmd {
             #[cfg(target_os = "linux")]
             Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
             Some(Cmd::Whoami(whoami)) => whoami.run(),
-            Some(Cmd::Add(install)) => install.execute(),
+            Some(Cmd::Add(add)) => add.run(),
 
             // Deploy commands.
             Some(Cmd::Deploy(c)) => c.run(),
@@ -402,7 +402,7 @@ enum Cmd {
     Whoami(Whoami),
 
     /// Add a Wasmer package's bindings to your application
-    Add(Add),
+    Add(CmdAdd),
 
     /// Run a WebAssembly file or Wasmer container
     #[clap(alias = "run-unstable")]

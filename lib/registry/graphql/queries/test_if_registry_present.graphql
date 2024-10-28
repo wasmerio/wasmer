@@ -1,3 +1,0 @@
-query TestIfRegistryPresent {
-  __typename
-}

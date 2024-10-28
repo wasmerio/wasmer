@@ -26,7 +26,7 @@ lazy_static::lazy_static! {
     pub static ref DEFAULT_WASMER_CACHE_DIR: PathBuf = DEFAULT_WASMER_DIR.join("cache");
 }
 
-#[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct WasmerConfig {
     /// Whether or not telemetry is enabled.
     #[serde(default)]
@@ -42,6 +42,17 @@ pub struct WasmerConfig {
     /// The proxy to use when connecting to the Internet.
     #[serde(default)]
     pub proxy: Proxy,
+}
+
+impl Default for WasmerConfig {
+    fn default() -> Self {
+        Self {
+            telemetry_enabled: true,
+            update_notifications_enabled: true,
+            registry: Default::default(),
+            proxy: Default::default(),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]

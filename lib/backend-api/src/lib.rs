@@ -7,6 +7,7 @@ mod error;
 pub mod global_id;
 pub mod query;
 pub mod stream;
+pub mod subscription;
 pub mod types;
 
 use url::Url;

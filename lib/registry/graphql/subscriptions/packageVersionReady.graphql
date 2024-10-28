@@ -1,6 +1,0 @@
-subscription PackageVersionReady ($packageVersionId: ID!) {
-  packageVersionReady(packageVersionId: $packageVersionId) {
-    state
-    success
-  }
-}

@@ -29,7 +29,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 pin-project-lite = "0.2.9"
 futures-util = { workspace = true }
 anyhow = "1.0"
-tokio-serde = { version = "0.8", features = ["bincode"], optional = true }
+tokio-serde = { version = "0.9", features = ["bincode"], optional = true }
 tokio-util = { version = "0.7.8", features = ["codec"], optional = true }
 hyper-tungstenite = { version = "0.13", optional = true }
 tokio-tungstenite = { version = "0.21", optional = true }

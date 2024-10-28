@@ -4,6 +4,7 @@ pub(crate) mod package_wizard;
 pub(crate) mod prompts;
 pub(crate) mod render;
 pub(crate) mod timestamp;
+pub(crate) mod unpack;
 
 use std::{
     path::{Path, PathBuf},

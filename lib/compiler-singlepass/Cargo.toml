@@ -43,6 +43,7 @@ core = ["hashbrown", "wasmer-types/core"]
 unwind = ["gimli"]
 sse = []
 avx = []
+enable-serde = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

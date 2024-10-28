@@ -1,5 +1,0 @@
-query WhoAmIQuery {
-  viewer {
-    username
-  }
-}

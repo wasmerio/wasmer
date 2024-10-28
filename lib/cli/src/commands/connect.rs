@@ -36,65 +36,71 @@ pub struct CmdConnect {
 impl AsyncCliCommand for CmdConnect {
     type Output = ();
 
-    #[cfg(all(target_os = "linux", feature = "tun-tap"))]
-    async fn run_async(mut self) -> Result<(), anyhow::Error> {
-        use edge_schema::{AppId, NetworkIdEncodingMethod, WELL_KNOWN_VPN};
-        use virtual_mio::Selector;
+    // Note (xdoardo, 28 Oct 2024):
+    // This part of the code is commented out as we did not manage
+    // to implement tun-tap yet.
+    //
+    //
+    //
+    //#[cfg(all(target_os = "linux", feature = "tun-tap"))]
+    //async fn run_async(mut self) -> Result<(), anyhow::Error> {
+    //    use edge_schema::{AppId, NetworkIdEncodingMethod, WELL_KNOWN_VPN};
+    //    use virtual_mio::Selector;
 
-        use crate::net::TunTapSocket;
+    //    use crate::net::TunTapSocket;
 
-        // If the URL does not include the well known postfix then add it
-        if !self.leave_postfix {
-            self.url.set_path(WELL_KNOWN_VPN);
-        }
+    //    // If the URL does not include the well known postfix then add it
+    //    if !self.leave_postfix {
+    //        self.url.set_path(WELL_KNOWN_VPN);
+    //    }
 
-        if self.print {
-            println!("websocket-url: {}", self.url.as_str());
-            return Ok(());
-        }
+    //    if self.print {
+    //        println!("websocket-url: {}", self.url.as_str());
+    //        return Ok(());
+    //    }
 
-        print!("Connecting...");
-        let socket = TunTapSocket::create(
-            Selector::new(),
-            self.url.clone(),
-            self.leave_down == false,
-            self.ip,
-        )
-        .await
-        .map_err(|err| {
-            println!("failed");
-            err
-        })?;
-        println!("\rConnected to {}    ", self.url.as_str());
+    //    print!("Connecting...");
+    //    let socket = TunTapSocket::create(
+    //        Selector::new(),
+    //        self.url.clone(),
+    //        self.leave_down == false,
+    //        self.ip,
+    //    )
+    //    .await
+    //    .map_err(|err| {
+    //        println!("failed");
+    //        err
+    //    })?;
+    //    println!("\rConnected to {}    ", self.url.as_str());
 
-        for cidr in socket.ips().iter() {
-            println!("Your IP:  {}/{}", cidr.ip, cidr.prefix);
-        }
-        for route in socket.routes().iter() {
-            println!(
-                "Gateway: {}/{} -> {}",
-                route.cidr.ip, route.cidr.prefix, route.via_router
-            );
-        }
-        for cidr in socket.ips().iter() {
-            if let Some((app_id, _)) =
-                AppId::from_ip(&cidr.ip, NetworkIdEncodingMethod::PrivateProjection)
-            {
-                let ip = app_id.into_ip(
-                    cidr.ip,
-                    0x00_1001,
-                    NetworkIdEncodingMethod::PrivateProjection,
-                );
-                println!("Instance: {}/{}", ip, cidr.prefix);
-            }
-        }
-        println!("Press ctrl-c to terminate");
-        socket.await?;
+    //    for cidr in socket.ips().iter() {
+    //        println!("Your IP:  {}/{}", cidr.ip, cidr.prefix);
+    //    }
+    //    for route in socket.routes().iter() {
+    //        println!(
+    //            "Gateway: {}/{} -> {}",
+    //            route.cidr.ip, route.cidr.prefix, route.via_router
+    //        );
+    //    }
+    //    for cidr in socket.ips().iter() {
+    //        if let Some((app_id, _)) =
+    //            AppId::from_ip(&cidr.ip, NetworkIdEncodingMethod::PrivateProjection)
+    //        {
+    //            let ip = app_id.into_ip(
+    //                cidr.ip,
+    //                0x00_1001,
+    //                NetworkIdEncodingMethod::PrivateProjection,
+    //            );
+    //            println!("Instance: {}/{}", ip, cidr.prefix);
+    //        }
+    //    }
+    //    println!("Press ctrl-c to terminate");
+    //    socket.await?;
 
-        Ok(())
-    }
+    //    Ok(())
+    //}
 
-    #[cfg(not(all(target_os = "linux", feature = "tun-tap")))]
+    //#[cfg(not(all(target_os = "linux", feature = "tun-tap")))]
     async fn run_async(self) -> Result<(), anyhow::Error> {
         Err(anyhow::anyhow!(
             "This CLI does not support the 'connect' command: only available on Linux (feature: tun-tap)"

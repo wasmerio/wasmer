@@ -14,7 +14,7 @@ version.workspace = true
 [dependencies]
 wasmer = { version = "=5.0.0-rc.1", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=5.0.0-rc.1", path = "lib/compiler", features = [
-    "compiler",
+	"compiler",
 ], optional = true }
 wasmer-compiler-cranelift = { version = "=5.0.0-rc.1", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=5.0.0-rc.1", path = "lib/compiler-singlepass", optional = true }
@@ -31,9 +31,9 @@ wasmer-middlewares = { version = "=5.0.0-rc.1", path = "lib/middlewares", option
 cfg-if = "1.0"
 
 tokio = { version = "1.39", features = [
-    "rt",
-    "rt-multi-thread",
-    "macros",
+	"rt",
+	"rt-multi-thread",
+	"macros",
 ], optional = true }
 crossbeam-queue = "0.3.8"
 
@@ -57,7 +57,6 @@ members = [
 	"lib/derive",
 	"lib/emscripten",
 	"lib/object",
-	"lib/registry",
 	"lib/sys-utils",
 	"lib/types",
 	"lib/virtual-io",
@@ -67,7 +66,6 @@ members = [
 	"lib/wai-bindgen-wasmer",
 	"lib/wasi-types",
 	"lib/wasix",
-	"lib/wasm-interface",
 	"lib/journal",
 	"lib/swift",
 	"lib/package",
@@ -78,9 +76,7 @@ members = [
 	"tests/wasi-wast",
 	"tests/wasmer-argus",
 ]
-exclude = [
-  "./lib/cli/tests/packages/axum"
-]
+exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
 
 [workspace.package]
@@ -116,16 +112,17 @@ rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
 toml = { version = "0.5.9", features = ["preserve_order"] }
 indexmap = "2"
-serde_yaml = "0.9.34"
+serde_yaml = { package = "serde_yml", version = "0.0.12" }
 libc = { version = "^0.2", default-features = false }
 gimli = { version = "0.28.1" }
 futures-util = { version = "0.3.31" }
 mio = "1"
 # MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
-tokio = { version = "1.39.0", default-features = false}
+tokio = { version = "1.39.0", default-features = false }
 socket2 = "0.5.7"
 pretty_assertions = "1.4.0"
 base64 = "0.22.0"
+time = "0.3.36"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -136,9 +133,9 @@ rustc_version = "0.4"
 
 [dev-dependencies]
 wasmer = { version = "=5.0.0-rc.1", path = "lib/api", features = [
-    "compiler",
-    "singlepass",
-    "sys",
+	"compiler",
+	"singlepass",
+	"sys",
 ] }
 anyhow = "1.0"
 criterion = { version = "0.5", default-features = false }
