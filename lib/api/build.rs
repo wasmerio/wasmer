@@ -96,7 +96,7 @@ fn main() {
         if target_os == "ios" {
             // XXX: Hacky
             //
-            // Compiling wamr targeting `aarch64-apple-ios` results in 
+            // Compiling wamr targeting `aarch64-apple-ios` results in
             //
             // ```
             //  clang: error: unsupported option '-mfloat-abi=' for target 'aarch64-apple-ios'
