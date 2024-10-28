@@ -56,6 +56,7 @@ std = [
 	"wasmer-types/std",
 ]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
+enable-serde = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
