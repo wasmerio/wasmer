@@ -550,8 +550,9 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: ./scripts/alpine-linux-install-deps.sh
-        echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
+        run: |
+          ./scripts/alpine-linux-install-deps.sh
+          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
