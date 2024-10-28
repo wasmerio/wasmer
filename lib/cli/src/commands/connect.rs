@@ -36,6 +36,12 @@ pub struct CmdConnect {
 impl AsyncCliCommand for CmdConnect {
     type Output = ();
 
+    // Note (xdoardo, 28 Oct 2024):
+    // This part of the code is commented out as we did not manage
+    // to implement tun-tap yet.
+    //
+    //
+    //
     //#[cfg(all(target_os = "linux", feature = "tun-tap"))]
     //async fn run_async(mut self) -> Result<(), anyhow::Error> {
     //    use edge_schema::{AppId, NetworkIdEncodingMethod, WELL_KNOWN_VPN};
