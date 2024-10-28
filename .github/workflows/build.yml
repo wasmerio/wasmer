@@ -412,14 +412,14 @@ jobs:
      #  run: |
      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
-        if: startsWith(matrix.build, 'linux-musl-x64')
+        if: $ {{ !startsWith(matrix.build, 'linux-musl-x64') }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "nightly-2024-07-05"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
-        if: startsWith(matrix.build, 'linux-musl-x64')
+        if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         run: |
           cargo install xargo
           echo "" >> Cargo.toml
