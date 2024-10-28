@@ -94,7 +94,16 @@ fn main() {
         }
 
         if target_os == "ios" {
-            // XXX: Hacky..
+            // XXX: Hacky
+            //
+            // Compiling wamr targeting `aarch64-apple-ios` results in 
+            //
+            // ```
+            //  clang: error: unsupported option '-mfloat-abi=' for target 'aarch64-apple-ios'
+            // ```
+            // So, here, we simply remove that setting.
+            //
+            // See: https://github.com/bytecodealliance/wasm-micro-runtime/pull/3889
             let mut lines = vec![];
             let cmake_file_path = wamr_platform_dir.join("CMakeLists.txt");
             for line in std::fs::read_to_string(&cmake_file_path).unwrap().lines() {
