@@ -1123,6 +1123,7 @@ pub(crate) fn create_header_files_in_dir(
 }
 
 /// Given a directory, links all the objects from the directory appropriately
+#[allow(clippy::too_many_arguments)]
 fn link_exe_from_dir(
     env: &WasmerEnv,
     directory: &Path,

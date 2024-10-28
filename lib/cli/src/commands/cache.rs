@@ -20,7 +20,7 @@ impl Cache {
 
         match self.cmd {
             Cmd::Clean => {
-                clean(&cache_dir)?;
+                clean(cache_dir)?;
             }
             Cmd::Dir => {
                 println!("{}", self.env.cache_dir().display());
