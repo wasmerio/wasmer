@@ -1,7 +1,7 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use self::utils::normalize_atom_name;
-use super::AsyncCliCommand;
+use super::CliCommand;
 use crate::{
     common::{normalize_path, HashAlgorithm},
     config::WasmerEnv,
@@ -195,12 +195,11 @@ pub struct Volume {
     pub obj_file: PathBuf,
 }
 
-#[async_trait::async_trait]
-impl AsyncCliCommand for CreateExe {
+impl CliCommand for CreateExe {
     type Output = ();
 
     /// Runs logic for the `compile` subcommand
-    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+    fn run(self) -> Result<Self::Output, anyhow::Error> {
         let path = normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let mut cc = self.cross_compile.clone();
