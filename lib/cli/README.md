@@ -23,13 +23,11 @@ The Wasmer supports the following features:
 * `wast`(default): support for running wast test files.
 * `cache` (default): support or automatically caching compiled artifacts.
 * `wasi` (default): support for [WASI].
-* `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 * `cranelift`: support for the [Cranelift compiler].
 * `llvm`: support for the [LLVM compiler].
 
 [WASI]: https://github.com/wasmerio/wasmer/tree/main/lib/wasi/
-[Emscripten]: https://github.com/wasmerio/wasmer/tree/main/lib/emscripten/
 [Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass/
 [Cranelift compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-cranelift/
 [LLVM compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-llvm/

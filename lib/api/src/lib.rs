@@ -227,8 +227,6 @@
 //! on top of this API that you may be interested in using, including:
 //!
 //! - [`wasmer-cache`] for caching compiled Wasm modules,
-//! - [`wasmer-emscripten`] for running Wasm modules compiled to the
-//!   Emscripten ABI,
 //! - [`wasmer-wasix`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
@@ -383,7 +381,6 @@
 //! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/main/examples
 //! [`wasmer-cache`]: https://docs.rs/wasmer-cache/
 //! [wasmer-compiler]: https://docs.rs/wasmer-compiler/
-//! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/

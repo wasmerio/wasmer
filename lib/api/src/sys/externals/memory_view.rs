@@ -40,7 +40,7 @@ impl<'a> MemoryView<'a> {
 
     /// Returns the pointer to the raw bytes of the `Memory`.
     //
-    // This used by wasmer-emscripten and wasmer-c-api, but should be treated
+    // This used by wasmer-c-api, but should be treated
     // as deprecated and not used in future code.
     #[doc(hidden)]
     pub fn data_ptr(&self) -> *mut u8 {

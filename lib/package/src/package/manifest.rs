@@ -18,8 +18,8 @@ use webc::{
 
 use webc::metadata::{
     annotations::{
-        Atom as AtomAnnotation, Emscripten, FileSystemMapping, FileSystemMappings,
-        VolumeSpecificPath, Wapm, Wasi,
+        Atom as AtomAnnotation, FileSystemMapping, FileSystemMappings, VolumeSpecificPath, Wapm,
+        Wasi,
     },
     Atom, Binding, Command, Manifest as WebcManifest, UrlOrManifest, WaiBindings, WitBindings,
 };
@@ -713,7 +713,6 @@ fn merge_cbor(original: &mut Value, addition: Value) -> Result<(), ()> {
 enum RunnerKind {
     Wasi,
     Wcgi,
-    Emscripten,
     Wasm4,
     Other(Url),
 }
@@ -729,9 +728,6 @@ impl RunnerKind {
                 Ok(RunnerKind::Wasi)
             }
             "wcgi" | webc::metadata::annotations::WCGI_RUNNER_URI => Ok(RunnerKind::Wcgi),
-            "emscripten" | webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI => {
-                Ok(RunnerKind::Emscripten)
-            }
             "wasm4" | webc::metadata::annotations::WASM4_RUNNER_URI => Ok(RunnerKind::Wasm4),
             other => {
                 if let Ok(other) = Url::parse(other) {
@@ -750,7 +746,6 @@ impl RunnerKind {
         match self {
             RunnerKind::Wasi => webc::metadata::annotations::WASI_RUNNER_URI,
             RunnerKind::Wcgi => webc::metadata::annotations::WCGI_RUNNER_URI,
-            RunnerKind::Emscripten => webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI,
             RunnerKind::Wasm4 => webc::metadata::annotations::WASM4_RUNNER_URI,
             RunnerKind::Other(other) => other.as_str(),
         }
@@ -780,16 +775,6 @@ impl RunnerKind {
                 wasi.main_args = main_args;
                 wasi.package = package;
                 insert_annotation(annotations, Wasi::KEY, wasi)?;
-            }
-            RunnerKind::Emscripten => {
-                let emscripten = Emscripten {
-                    atom: Some(module.to_string()),
-                    package,
-                    env: None,
-                    main_args,
-                    mount_atom_in_volume: None,
-                };
-                insert_annotation(annotations, Emscripten::KEY, emscripten)?;
             }
             RunnerKind::Wasm4 | RunnerKind::Other(_) => {
                 // No extra annotations to add

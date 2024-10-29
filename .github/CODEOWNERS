@@ -10,7 +10,6 @@ lib/compiler-cranelift             @syrusakbary
 lib/compiler-llvm                  
 lib/compiler-singlepass            @syrusakbary
 lib/deprecated                     
-lib/emscripten                     
 lib/engine                         @syrusakbary
 lib/engine-jit                     @syrusakbary
 lib/engine-native                  @syrusakbary

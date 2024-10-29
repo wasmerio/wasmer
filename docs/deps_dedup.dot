@@ -8,7 +8,6 @@ digraph dependencies {
 	n8 [label="wasmer-types", color=orange];
 	n9 [label="wasmer-vm", color=orange];
 	n10 [label="wasmer-c-api", color=orange];
-	n11 [label="wasmer-emscripten", color=orange];
 	n12 [label="wasmer-wasi", color=orange];
 	n13 [label="wasmer-cache", color=orange];
 	n14 [label="wasmer-cli", color=orange];
@@ -45,7 +44,6 @@ digraph dependencies {
 		color=brown;
 
 		n12 [label="wasmer-wasi", color=orange];
-		n11 [label="wasmer-emscripten", color=orange];
 	}
 
 	n14 -> n13 [color=orange, style=dashed];

@@ -7,11 +7,9 @@ This crate is the Wasmer Compiler only CLI.
 
 The Compiler only Wasmer supports the following features:
 * `wasi` (default): support for [WASI].
-* `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 
 [WASI]: https://github.com/wasmerio/wasmer/tree/main/lib/wasi/
-[Emscripten]: https://github.com/wasmerio/wasmer/tree/main/lib/emscripten/
 [Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass/
 
 ## CLI commands
