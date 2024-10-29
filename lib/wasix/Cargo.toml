@@ -30,7 +30,6 @@ virtual-net = { path = "../virtual-net", version = "0.10.0", default-features = 
 	"rkyv",
 ] }
 wasmer-journal = { path = "../journal", version = "0.11.0", default-features = false }
-wasmer-emscripten = { path = "../emscripten", version = "=5.0.0-rc.1", optional = true }
 wasmer-config = { version = "0.9.0", path = "../config" }
 
 http.workspace = true
@@ -202,7 +201,6 @@ webc_runner_rt_dproxy = [
 	"tower-http",
 	"journal",
 ]
-webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["webc/mmap", "time", "virtual-mio/sys"]
 sys-default = [
@@ -257,7 +255,6 @@ features = [
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
 	"webc_runner_rt_dproxy",
-	"webc_runner_rt_emscripten",
 	"sys-default",
 ]
 rustc-args = ["--cfg", "docsrs"]

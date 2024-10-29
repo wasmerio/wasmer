@@ -6362,7 +6362,6 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-emscripten",
  "wasmer-inline-c",
  "wasmer-middlewares",
  "wasmer-types",
@@ -6493,7 +6492,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-config",
- "wasmer-emscripten",
  "wasmer-object",
  "wasmer-package",
  "wasmer-types",
@@ -6649,20 +6647,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "wasmer-types",
-]
-
-[[package]]
-name = "wasmer-emscripten"
-version = "5.0.0-rc.1"
-dependencies = [
- "byteorder",
- "getrandom",
- "lazy_static",
- "libc",
- "log",
- "time 0.3.36",
- "wasmer",
  "wasmer-types",
 ]
 
@@ -6950,7 +6934,6 @@ dependencies = [
  "wasm-bindgen-test",
  "wasmer",
  "wasmer-config",
- "wasmer-emscripten",
  "wasmer-journal",
  "wasmer-package",
  "wasmer-types",
@@ -7037,7 +7020,6 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-emscripten",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",

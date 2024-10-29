@@ -50,9 +50,6 @@ const WASI_FEATURE_AS_C_DEFINE: &str = "WASMER_WASI_ENABLED";
 const MIDDLEWARES_FEATURE_AS_C_DEFINE: &str = "WASMER_MIDDLEWARES_ENABLED";
 
 #[allow(unused)]
-const EMSCRIPTEN_FEATURE_AS_C_DEFINE: &str = "WASMER_EMSCRIPTEN_ENABLED";
-
-#[allow(unused)]
 const JSC_FEATURE_AS_C_DEFINE: &str = "WASMER_JSC_BACKEND";
 
 macro_rules! map_feature_as_c_define {
@@ -150,7 +147,6 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("middlewares", MIDDLEWARES_FEATURE_AS_C_DEFINE, pre_header);
-    map_feature_as_c_define!("emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE, pre_header);
 
     add_wasmer_version(&mut pre_header);
 
@@ -227,7 +223,6 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_define("feature", "universal", UNIVERSAL_FEATURE_AS_C_DEFINE)
         .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
         .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
-        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
 }
 
 fn build_inline_c_env_vars() {

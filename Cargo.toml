@@ -19,7 +19,6 @@ wasmer-compiler = { version = "=5.0.0-rc.1", path = "lib/compiler", features = [
 wasmer-compiler-cranelift = { version = "=5.0.0-rc.1", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=5.0.0-rc.1", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=5.0.0-rc.1", path = "lib/compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=5.0.0-rc.1", path = "lib/emscripten", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 wasmer-wast = { version = "=5.0.0-rc.1", path = "tests/lib/wast", optional = true }
 wasi-test-generator = { version = "=5.0.0-rc.1", path = "tests/wasi-wast", optional = true }
@@ -55,7 +54,6 @@ members = [
 	"lib/compiler",
 	"lib/config",
 	"lib/derive",
-	"lib/emscripten",
 	"lib/object",
 	"lib/sys-utils",
 	"lib/types",
@@ -166,7 +164,6 @@ default = [
 	"cache",
 	"wasi",
 	"engine",
-	"emscripten",
 	"middlewares",
 ]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
@@ -181,7 +178,6 @@ universal = []
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasix"]
-emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = ["wasmer/compiler", "backend", "wasmer-compiler/translator"]
 singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]

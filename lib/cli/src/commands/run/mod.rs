@@ -43,7 +43,6 @@ use wasmer_wasix::{
     runners::{
         dcgi::{DcgiInstanceFactory, DcgiRunner},
         dproxy::DProxyRunner,
-        emscripten::EmscriptenRunner,
         wasi::WasiRunner,
         wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
@@ -207,9 +206,7 @@ impl Run {
         mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        if wasmer_emscripten::is_emscripten_module(module) {
-            self.execute_emscripten_module()
-        } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
+        if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
             self.execute_wasi_module(path, module, module_hash, runtime, store)
         } else {
             self.execute_pure_wasm_module(module, &mut store)
@@ -240,8 +237,6 @@ impl Run {
             self.run_wcgi(id, pkg, uses, runtime)
         } else if WasiRunner::can_run_command(cmd.metadata())? {
             self.run_wasi(id, pkg, uses, runtime)
-        } else if EmscriptenRunner::can_run_command(cmd.metadata())? {
-            self.run_emscripten(id, pkg, runtime)
         } else {
             bail!(
                 "Unable to find a runner that supports \"{}\"",
@@ -364,18 +359,6 @@ impl Run {
         runner.run_command(command_name, pkg, runtime)
     }
 
-    fn run_emscripten(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
-        runner.set_args(self.args.clone());
-
-        runner.run_command(command_name, pkg, runtime)
-    }
-
     #[tracing::instrument(skip_all)]
     fn execute_pure_wasm_module(&self, module: &Module, store: &mut Store) -> Result<(), Error> {
         let imports = Imports::default();
@@ -477,11 +460,6 @@ impl Run {
             module_hash,
             self.wasi.enable_async_threads,
         )
-    }
-
-    #[tracing::instrument(skip_all)]
-    fn execute_emscripten_module(&self) -> Result<(), Error> {
-        bail!("Emscripten packages are not currently supported")
     }
 
     #[allow(unused_variables)]

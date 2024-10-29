@@ -27,40 +27,6 @@ pub fn wast_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     })
 }
 
-/// Given a Testsuite and a path, process the path in case is a Emscripten
-/// wasm file.
-pub fn emscripten_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
-    let ext = p.extension()?;
-    // Only look at wast files.
-    if ext != "wasm" {
-        return None;
-    }
-
-    let outfile = {
-        let mut out_ext = p.clone();
-        out_ext.set_extension("out");
-        if out_ext.exists() {
-            out_ext
-        } else {
-            return None;
-        }
-    };
-
-    let testname = extract_name(&p);
-
-    // The implementation of `run_emscripten` lives in /tests/emtest.rs
-    let body = format!(
-        "crate::emscripten::run_emscripten(config, r#\"{}\"#, r#\"{}\"#)",
-        p.display(),
-        outfile.display()
-    );
-
-    Some(Test {
-        name: testname,
-        body,
-    })
-}
-
 /// Given a Testsuite and a path, process the path in case is a WASI
 /// wasm file.
 pub fn wasi_processor(
