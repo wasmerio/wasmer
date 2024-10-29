@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 5.0.0 - 29/10/2024
 
+The main star of this release is the experimental support for three new backends: v8, wamr and wasmi. Also, many dependencies, namely LLVM, Cranelift, and rkyv are updated
+which bring significant enhancements.
+
 ## Added
 
   - [#5185](https://github.com/wasmerio/wasmer/pull/5185) Add execution benchmarks
