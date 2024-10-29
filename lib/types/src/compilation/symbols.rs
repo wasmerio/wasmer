@@ -185,6 +185,8 @@ impl SymbolRegistry for ModuleMetadataSymbolRegistry {
     fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
         if name == self.symbol_to_name(Symbol::Metadata) {
             Some(Symbol::Metadata)
+        } else if name == self.symbol_to_name(Symbol::MetadataSize) {
+            Some(Symbol::MetadataSize)
         } else if let Some(index) = name.strip_prefix(&format!("wasmer_function_{}_", self.prefix))
         {
             index
