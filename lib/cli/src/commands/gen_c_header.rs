@@ -63,18 +63,7 @@ impl GenCHeader {
             None => crate::commands::PrefixMapCompilation::hash_for_bytes(&file),
         };
 
-        let atom = match from_bytes(file.clone()) {
-            Ok(webc) => self.get_atom(&webc)?,
-            Err(WasmerPackageError::ContainerError(ContainerError::Detect(
-                DetectError::InvalidMagic { .. },
-            ))) => {
-                // we've probably got a WebAssembly file
-                file.into()
-            }
-            Err(other) => {
-                return Err(Error::new(other).context("Unable to parse the webc file"));
-            }
-        };
+        let atom: SharedBytes = file.into();
 
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let target = crate::commands::create_exe::utils::target_triple_to_target(

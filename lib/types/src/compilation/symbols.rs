@@ -24,6 +24,7 @@ pub enum Symbol {
     /// A metadata section, indexed by a unique prefix
     /// (usually the wasm file SHA256 hash)
     Metadata,
+    MetadataSize,
 
     /// A function defined in the wasm.
     LocalFunction(LocalFunctionIndex),
@@ -156,6 +157,9 @@ impl SymbolRegistry for ModuleMetadataSymbolRegistry {
         match symbol {
             Symbol::Metadata => {
                 format!("WASMER_METADATA_{}", self.prefix.to_uppercase())
+            }
+            Symbol::MetadataSize => {
+                format!("WASMER_METADATA_{}_SIZE", self.prefix.to_uppercase())
             }
             Symbol::LocalFunction(index) => {
                 format!("wasmer_function_{}_{}", self.prefix, index.index())

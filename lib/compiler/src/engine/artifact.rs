@@ -1028,15 +1028,20 @@ impl Artifact {
         }
         .symbol_to_name(wasmer_types::Symbol::Metadata);
 
-        emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
-            .map_err(to_compile_error)?;
+        let metadata_binary_len = metadata_binary.len();
 
-        emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
-            .map_err(to_compile_error)?;
+        emit_compilation(
+            &mut obj,
+            compilation,
+            &symbol_registry,
+            metadata_binary,
+            target_triple,
+        )
+        .map_err(to_compile_error)?;
         Ok((
             Arc::try_unwrap(metadata.compile_info.module).unwrap(),
             obj,
-            metadata_binary.len(),
+            metadata_binary_len,
             Box::new(symbol_registry),
         ))
     }

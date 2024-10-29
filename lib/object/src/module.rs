@@ -7,12 +7,14 @@ use object::{
     SymbolKind, SymbolScope,
 };
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::LocalFunctionIndex;
 use wasmer_types::{
     Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
     RelocationKind as Reloc, RelocationTarget, SectionIndex, Triple,
 };
+use wasmer_types::{LocalFunctionIndex, PointerWidth};
 use wasmer_types::{Symbol, SymbolRegistry};
+
+struct MReloc(wasmer_types::Relocation, Option<object::write::SymbolId>);
 
 const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 
@@ -114,6 +116,21 @@ pub fn emit_data(
     Ok(())
 }
 
+/// Writes integer
+fn append_usize(size: usize, triple: &Triple, serialized_data: &mut Vec<u8>) {
+    let width = triple.architecture.pointer_width().unwrap();
+    let endianness = triple.architecture.endianness().unwrap();
+    let mut bytes = match (endianness, width) {
+        (Endianness::Little, PointerWidth::U16) => u16::to_le_bytes(size as _).to_vec(),
+        (Endianness::Little, PointerWidth::U32) => u32::to_le_bytes(size as _).to_vec(),
+        (Endianness::Little, PointerWidth::U64) => u64::to_le_bytes(size as _).to_vec(),
+        (Endianness::Big, PointerWidth::U16) => u16::to_be_bytes(size as _).to_vec(),
+        (Endianness::Big, PointerWidth::U32) => u32::to_be_bytes(size as _).to_vec(),
+        (Endianness::Big, PointerWidth::U64) => u64::to_be_bytes(size as _).to_vec(),
+    };
+    serialized_data.append(&mut bytes);
+}
+
 /// Emit the compilation result into an existing object.
 ///
 /// # Usage
@@ -138,6 +155,7 @@ pub fn emit_compilation(
     obj: &mut Object,
     compilation: Compilation,
     symbol_registry: &impl SymbolRegistry,
+    mut serialized_data: Vec<u8>,
     triple: &Triple,
 ) -> Result<(), ObjectError> {
     let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
@@ -214,8 +232,11 @@ pub fn emit_compilation(
         })
         .collect::<PrimaryMap<SectionIndex, _>>();
 
+    let mut all_relocations = Vec::new();
+
     // Add functions
     let function_symbol_ids = function_bodies
+        .clone()
         .into_iter()
         .map(|(function_local_index, function)| {
             let function_name =
@@ -237,60 +258,178 @@ pub fn emit_compilation(
         .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
     // Add function call trampolines
-    for (signature_index, function) in compilation.function_call_trampolines.into_iter() {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(signature_index));
-        let section_id = obj.section_id(StandardSection::Text);
-        let symbol_id = obj.add_symbol(ObjSymbol {
-            name: function_name.into_bytes(),
-            value: 0,
-            size: function.body.len() as _,
-            kind: SymbolKind::Text,
-            scope: SymbolScope::Dynamic,
-            weak: false,
-            section: SymbolSection::Section(section_id),
-            flags: SymbolFlags::None,
-        });
-        obj.add_symbol_data(symbol_id, section_id, &function.body, align);
-    }
+    let function_call_trampoline_symbols = compilation
+        .function_call_trampolines
+        .into_iter()
+        .map(|(signature_index, function)| {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(signature_index));
+            let section_id = obj.section_id(StandardSection::Text);
+            let symbol_id = obj.add_symbol(ObjSymbol {
+                name: function_name.into_bytes(),
+                value: 0,
+                size: function.body.len() as _,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Dynamic,
+                weak: false,
+                section: SymbolSection::Section(section_id),
+                flags: SymbolFlags::None,
+            });
+            obj.add_symbol_data(symbol_id, section_id, &function.body, align);
+            symbol_id
+        })
+        .collect::<Vec<_>>();
 
     // Add dynamic function trampolines
-    for (func_index, function) in compilation.dynamic_function_trampolines.into_iter() {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-        let section_id = obj.section_id(StandardSection::Text);
+    let dynamic_function_trampoline_symbols = compilation
+        .dynamic_function_trampolines
+        .into_iter()
+        .map(|(func_index, function)| {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+            let section_id = obj.section_id(StandardSection::Text);
+            let symbol_id = obj.add_symbol(ObjSymbol {
+                name: function_name.into_bytes(),
+                value: 0,
+                size: function.body.len() as _,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Dynamic,
+                weak: false,
+                section: SymbolSection::Section(section_id),
+                flags: SymbolFlags::None,
+            });
+            obj.add_symbol_data(symbol_id, section_id, &function.body, align);
+            symbol_id
+        })
+        .collect::<Vec<_>>();
+    {
+        let section_id = obj.section_id(StandardSection::Data);
         let symbol_id = obj.add_symbol(ObjSymbol {
-            name: function_name.into_bytes(),
+            name: symbol_registry
+                .symbol_to_name(Symbol::Metadata)
+                .bytes()
+                .collect::<Vec<_>>(),
             value: 0,
-            size: function.body.len() as _,
-            kind: SymbolKind::Text,
+            size: 0,
+            kind: SymbolKind::Data,
             scope: SymbolScope::Dynamic,
             weak: false,
-            section: SymbolSection::Section(section_id),
+            section: SymbolSection::Undefined,
             flags: SymbolFlags::None,
         });
-        obj.add_symbol_data(symbol_id, section_id, &function.body, align);
+        let reloc_kind = match triple.architecture.pointer_width().unwrap() {
+            PointerWidth::U16 => todo!(),
+            PointerWidth::U32 => Reloc::Abs4,
+            PointerWidth::U64 => Reloc::Abs8,
+        };
+        let mut relocations = vec![];
+        append_usize(function_bodies.len(), triple, &mut serialized_data);
+        for (local_function_entry, _) in function_symbol_ids.clone() {
+            relocations.push(MReloc {
+                0: wasmer_types::Relocation {
+                    kind: reloc_kind,
+                    reloc_target: RelocationTarget::LocalFunc(local_function_entry),
+                    offset: serialized_data.len() as _,
+                    addend: 0,
+                },
+                1: None,
+            });
+            append_usize(0, triple, &mut serialized_data);
+        }
+        append_usize(
+            function_call_trampoline_symbols.len(),
+            triple,
+            &mut serialized_data,
+        );
+        for symbol in function_call_trampoline_symbols {
+            // compilation.custom_sections
+            relocations.push(MReloc {
+                0: wasmer_types::Relocation {
+                    kind: reloc_kind,
+                    reloc_target: RelocationTarget::CustomSection(SectionIndex::from_u32(0)),
+                    offset: serialized_data.len() as _,
+                    addend: 0,
+                },
+                1: Some(symbol),
+            });
+            append_usize(0, triple, &mut serialized_data);
+        }
+        append_usize(
+            dynamic_function_trampoline_symbols.len(),
+            triple,
+            &mut serialized_data,
+        );
+        for symbol in dynamic_function_trampoline_symbols {
+            relocations.push(MReloc {
+                0: wasmer_types::Relocation {
+                    kind: reloc_kind,
+                    reloc_target: RelocationTarget::CustomSection(SectionIndex::from_u32(0)),
+                    offset: serialized_data.len() as _,
+                    addend: 0,
+                },
+                1: Some(symbol),
+            });
+            append_usize(0, triple, &mut serialized_data);
+        }
+        obj.add_symbol_data(symbol_id, section_id, &serialized_data, align);
+        all_relocations.push((section_id, symbol_id, relocations));
+        let serialized_data_len = serialized_data.len();
+        serialized_data.clear();
+        append_usize(serialized_data_len, triple, &mut serialized_data);
+        let symbol_id = obj.add_symbol(ObjSymbol {
+            name: symbol_registry
+                .symbol_to_name(Symbol::MetadataSize)
+                .bytes()
+                .collect::<Vec<_>>(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Dynamic,
+            weak: false,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        obj.add_symbol_data(symbol_id, section_id, &serialized_data, align);
     }
-
-    let mut all_relocations = Vec::new();
 
     for (function_local_index, relocations) in function_relocations.into_iter() {
         let (section_id, symbol_id) = function_symbol_ids.get(function_local_index).unwrap();
-        all_relocations.push((*section_id, *symbol_id, relocations))
+        all_relocations.push((
+            *section_id,
+            *symbol_id,
+            relocations
+                .iter()
+                .map(|r| MReloc {
+                    0: r.clone(),
+                    1: None,
+                })
+                .collect::<Vec<_>>(),
+        ))
     }
 
     for (section_index, relocations) in custom_section_relocations.into_iter() {
         if !debug_index.map_or(false, |d| d == section_index) {
             // Skip DWARF relocations just yet
             let (section_id, symbol_id) = custom_section_ids.get(section_index).unwrap();
-            all_relocations.push((*section_id, *symbol_id, relocations));
+            all_relocations.push((
+                *section_id,
+                *symbol_id,
+                relocations
+                    .iter()
+                    .map(|r| MReloc {
+                        0: r.clone(),
+                        1: None,
+                    })
+                    .collect::<Vec<_>>(),
+            ));
         }
     }
 
     for (section_id, symbol_id, relocations) in all_relocations.into_iter() {
         let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
 
-        for r in relocations {
+        for mr in relocations {
+            let r = mr.0;
             let relocation_address = section_offset + r.offset as u64;
 
             let (relocation_kind, relocation_encoding, relocation_size) = match r.kind {
@@ -386,7 +525,7 @@ pub fn emit_compilation(
                             size: relocation_size,
                             kind: relocation_kind,
                             encoding: relocation_encoding,
-                            symbol: *target_symbol,
+                            symbol: mr.1.unwrap_or(*target_symbol),
                             addend: r.addend,
                         },
                     )
