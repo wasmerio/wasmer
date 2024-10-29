@@ -30,14 +30,14 @@ impl AsyncCliCommand for CmdAppDeploymentList {
         let client = self.env.client()?;
 
         let (_ident, app) = self.ident.load_app(&client).await?;
-        let vars = wasmer_api::types::GetAppDeploymentsVariables {
+        let vars = wasmer_backend_api::types::GetAppDeploymentsVariables {
             after: None,
             first: self.limit.map(|x| x as i32),
             name: app.name.clone(),
             offset: self.offset.map(|x| x as i32),
             owner: app.owner.global_name,
         };
-        let items = wasmer_api::query::app_deployments(&client, vars).await?;
+        let items = wasmer_backend_api::query::app_deployments(&client, vars).await?;
 
         if items.is_empty() {
             eprintln!("App {} has no deployments!", app.name);

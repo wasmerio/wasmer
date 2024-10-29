@@ -3,7 +3,7 @@ use crate::utils::render::CliRender;
 use colored::Colorize;
 use comfy_table::{Cell, Table};
 use time::OffsetDateTime;
-use wasmer_api::types::{DateTime, Secret as BackendSecret};
+use wasmer_backend_api::types::{DateTime, Secret as BackendSecret};
 
 impl CliRender for Secret {
     fn render_item_table(&self) -> String {

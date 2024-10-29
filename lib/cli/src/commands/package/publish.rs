@@ -12,7 +12,7 @@ use crate::{
 use colored::Colorize;
 use is_terminal::IsTerminal;
 use std::path::{Path, PathBuf};
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageIdent};
 
 /// Publish (push and tag) a package to the registry.

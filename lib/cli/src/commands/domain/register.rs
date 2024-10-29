@@ -27,7 +27,7 @@ impl AsyncCliCommand for CmdDomainRegister {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
-        let domain = wasmer_api::query::register_domain(
+        let domain = wasmer_backend_api::query::register_domain(
             &client,
             self.name,
             self.namespace,

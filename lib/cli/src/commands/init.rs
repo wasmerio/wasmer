@@ -396,7 +396,7 @@ async fn construct_manifest(
         Some(n) => Some(n),
         None => {
             if let Ok(client) = env.client() {
-                if let Ok(Some(u)) = wasmer_api::query::current_user(&client).await {
+                if let Ok(Some(u)) = wasmer_backend_api::query::current_user(&client).await {
                     Some(u.username)
                 } else {
                     None

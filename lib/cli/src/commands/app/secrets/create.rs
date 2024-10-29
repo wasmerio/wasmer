@@ -11,7 +11,7 @@ use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 
 /// Create a new app secret.
 #[derive(clap::Parser, Debug)]
@@ -95,7 +95,7 @@ impl CmdAppSecretsCreate {
     ) -> anyhow::Result<Vec<Secret>> {
         let names = secrets.iter().map(|s| &s.name);
         let app_secrets =
-            wasmer_api::query::get_all_app_secrets_filtered(client, app_id, names).await?;
+            wasmer_backend_api::query::get_all_app_secrets_filtered(client, app_id, names).await?;
         let mut sset = HashSet::<String>::from_iter(app_secrets.iter().map(|s| s.name.clone()));
         let mut ret = HashMap::new();
 
@@ -142,7 +142,7 @@ impl CmdAppSecretsCreate {
         app_id: &str,
         secrets: Vec<Secret>,
     ) -> Result<(), anyhow::Error> {
-        let res = wasmer_api::query::upsert_app_secrets(
+        let res = wasmer_backend_api::query::upsert_app_secrets(
             client,
             app_id,
             secrets.iter().map(|s| (s.name.as_str(), s.value.as_str())),
@@ -173,7 +173,7 @@ impl CmdAppSecretsCreate {
                 };
 
                 if should_redeploy {
-                    wasmer_api::query::redeploy_app_by_id(client, app_id).await?;
+                    wasmer_backend_api::query::redeploy_app_by_id(client, app_id).await?;
                     eprintln!("{} Deployment complete", "𖥔".yellow().bold());
                 } else {
                     eprintln!(

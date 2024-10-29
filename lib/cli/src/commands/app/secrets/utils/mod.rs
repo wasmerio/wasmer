@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use wasmer_api::{types::Secret as BackendSecret, WasmerClient};
+use wasmer_backend_api::{types::Secret as BackendSecret, WasmerClient};
 
 use crate::commands::app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent};
 
@@ -30,20 +30,20 @@ pub(super) async fn get_secret_by_name(
     app_id: &str,
     secret_name: &str,
 ) -> anyhow::Result<Option<BackendSecret>> {
-    wasmer_api::query::get_app_secret_by_name(client, app_id, secret_name).await
+    wasmer_backend_api::query::get_app_secret_by_name(client, app_id, secret_name).await
 }
 pub(crate) async fn get_secrets(
     client: &WasmerClient,
     app_id: &str,
-) -> anyhow::Result<Vec<wasmer_api::types::Secret>> {
-    wasmer_api::query::get_all_app_secrets(client, app_id).await
+) -> anyhow::Result<Vec<wasmer_backend_api::types::Secret>> {
+    wasmer_backend_api::query::get_all_app_secrets(client, app_id).await
 }
 
 pub(crate) async fn get_secret_value(
     client: &WasmerClient,
-    secret: &wasmer_api::types::Secret,
+    secret: &wasmer_backend_api::types::Secret,
 ) -> anyhow::Result<String> {
-    wasmer_api::query::get_app_secret_value_by_id(client, secret.id.clone().into_inner())
+    wasmer_backend_api::query::get_app_secret_value_by_id(client, secret.id.clone().into_inner())
         .await?
         .ok_or_else(|| {
             anyhow::anyhow!(
@@ -68,7 +68,7 @@ pub(crate) async fn reveal_secrets(
     client: &WasmerClient,
     app_id: &str,
 ) -> anyhow::Result<Vec<Secret>> {
-    let secrets = wasmer_api::query::get_all_app_secrets(client, app_id).await?;
+    let secrets = wasmer_backend_api::query::get_all_app_secrets(client, app_id).await?;
     let mut ret = vec![];
     for secret in secrets {
         let name = secret.name.clone();

@@ -5,7 +5,7 @@ use colored::Colorize;
 use comfy_table::{Cell, Table};
 use futures::StreamExt;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use wasmer_api::types::{Log, LogStream};
+use wasmer_backend_api::types::{Log, LogStream};
 
 use crate::{config::WasmerEnv, opts::ListFormatOpts, utils::render::CliRender};
 
@@ -127,7 +127,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
 
         // Code duplication to avoid a dependency to `OR` streams.
         if let Some(instance_id) = &self.instance_id {
-            let logs_stream = wasmer_api::query::get_app_logs_paginated_filter_instance(
+            let logs_stream = wasmer_backend_api::query::get_app_logs_paginated_filter_instance(
                 &client,
                 app.name.clone(),
                 app.owner.global_name.to_string(),
@@ -162,7 +162,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
                 }
             }
         } else if let Some(request_id) = &self.request_id {
-            let logs_stream = wasmer_api::query::get_app_logs_paginated_filter_request(
+            let logs_stream = wasmer_backend_api::query::get_app_logs_paginated_filter_request(
                 &client,
                 app.name.clone(),
                 app.owner.global_name.to_string(),
@@ -197,7 +197,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
                 }
             }
         } else {
-            let logs_stream = wasmer_api::query::get_app_logs_paginated(
+            let logs_stream = wasmer_backend_api::query::get_app_logs_paginated(
                 &client,
                 app.name.clone(),
                 app.owner.global_name.to_string(),

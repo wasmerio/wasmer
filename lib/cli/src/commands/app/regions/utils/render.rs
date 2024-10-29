@@ -1,6 +1,6 @@
 use crate::utils::render::CliRender;
 use comfy_table::{Cell, Table};
-use wasmer_api::types::AppRegion;
+use wasmer_backend_api::types::AppRegion;
 
 impl CliRender for AppRegion {
     fn render_item_table(&self) -> String {

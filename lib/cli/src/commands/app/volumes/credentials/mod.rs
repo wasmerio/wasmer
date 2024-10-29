@@ -30,7 +30,8 @@ impl AsyncCliCommand for CmdAppVolumesCredentials {
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let creds =
-            wasmer_api::query::get_app_s3_credentials(&client, app.id.clone().into_inner()).await?;
+            wasmer_backend_api::query::get_app_s3_credentials(&client, app.id.clone().into_inner())
+                .await?;
 
         match self.fmt.format {
             CredsItemFormat::Rclone => {

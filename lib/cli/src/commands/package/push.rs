@@ -7,7 +7,7 @@ use anyhow::Context;
 use colored::Colorize;
 use is_terminal::IsTerminal;
 use std::path::{Path, PathBuf};
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageHash};
 use wasmer_package::package::Package;
 
@@ -78,7 +78,7 @@ impl PackagePush {
             anyhow::bail!("No package namespace specified: use --namespace XXX");
         }
 
-        let user = wasmer_api::query::current_user_with_namespaces(client, None).await?;
+        let user = wasmer_backend_api::query::current_user_with_namespaces(client, None).await?;
         let owner = crate::utils::prompts::prompt_for_namespace(
             "Choose a namespace to push the package to",
             None,
@@ -112,7 +112,7 @@ impl PackagePush {
     }
 
     async fn should_push(&self, client: &WasmerClient, hash: &PackageHash) -> anyhow::Result<bool> {
-        let res = wasmer_api::query::get_package_release(client, &hash.to_string()).await;
+        let res = wasmer_backend_api::query::get_package_release(client, &hash.to_string()).await;
         tracing::info!("{:?}", res);
         res.map(|p| p.is_none())
     }
@@ -140,7 +140,7 @@ impl PackagePush {
         spinner_ok!(pb, "Package correctly uploaded");
 
         let pb = make_spinner!(self.quiet, "Waiting for package to become available...");
-        match wasmer_api::query::push_package_release(
+        match wasmer_backend_api::query::push_package_release(
             client,
             name.as_deref(),
             namespace,

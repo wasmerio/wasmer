@@ -16,7 +16,7 @@ impl AsyncCliCommand for CmdNamespaceList {
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
 
-        let namespaces = wasmer_api::query::user_namespaces(&client).await?;
+        let namespaces = wasmer_backend_api::query::user_namespaces(&client).await?;
 
         println!("{}", self.fmt.format.render(&namespaces));
 
