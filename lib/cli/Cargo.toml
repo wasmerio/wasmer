@@ -112,16 +112,16 @@ enable-serde = [
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=5.0.0-rc.1", path = "../api", default-features = false }
-wasmer-compiler = { version = "=5.0.0-rc.1", path = "../compiler", features = [
+wasmer = { version = "=5.0.0", path = "../api", default-features = false }
+wasmer-compiler = { version = "=5.0.0", path = "../compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=5.0.0-rc.1", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=5.0.0-rc.1", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=5.0.0-rc.1", path = "../compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=5.0.0", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=5.0.0", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=5.0.0", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
 
-wasmer-vm = { version = "=5.0.0-rc.1", path = "../vm", optional = true }
+wasmer-vm = { version = "=5.0.0", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.29.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
@@ -130,11 +130,11 @@ wasmer-wasix = { path = "../wasix", version = "=0.29.0", features = [
 	"host-fs",
 	"ctrlc",
 ] }
-wasmer-wast = { version = "=5.0.0-rc.1", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=5.0.0-rc.1", path = "../types", features = [
+wasmer-wast = { version = "=5.0.0", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=5.0.0", path = "../types", features = [
 	"enable-serde",
 ] }
-wasmer-object = { version = "=5.0.0-rc.1", path = "../object", optional = true }
+wasmer-object = { version = "=5.0.0", path = "../object", optional = true }
 virtual-fs = { version = "0.18.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
