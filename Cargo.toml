@@ -230,7 +230,7 @@ opt-level = 3
 opt-level = 3
 
 [[bench]]
-name = "compile_run"
+name = "compiler_run"
 harness = false
 
 [[bench]]
