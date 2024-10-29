@@ -25,7 +25,8 @@ impl AsyncCliCommand for CmdAppVolumesList {
 
         let (_ident, app) = self.ident.load_app(&client).await?;
         let volumes =
-            wasmer_api::query::get_app_volumes(&client, &app.owner.global_name, &app.name).await?;
+            wasmer_backend_api::query::get_app_volumes(&client, &app.owner.global_name, &app.name)
+                .await?;
 
         if volumes.is_empty() {
             eprintln!("App {} has no volumes!", app.name);

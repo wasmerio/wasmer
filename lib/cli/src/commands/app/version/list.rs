@@ -1,4 +1,4 @@
-use wasmer_api::types::{DeployAppVersionsSortBy, GetDeployAppVersionsVars};
+use wasmer_backend_api::types::{DeployAppVersionsSortBy, GetDeployAppVersionsVars};
 
 use crate::{
     commands::{app::util::AppIdentOpts, AsyncCliCommand},
@@ -77,7 +77,8 @@ impl AsyncCliCommand for CmdAppVersionList {
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let versions = if self.all {
-            wasmer_api::query::all_app_versions(&client, app.owner.global_name, app.name).await?
+            wasmer_backend_api::query::all_app_versions(&client, app.owner.global_name, app.name)
+                .await?
         } else {
             let vars = GetDeployAppVersionsVars {
                 owner: app.owner.global_name,
@@ -91,7 +92,7 @@ impl AsyncCliCommand for CmdAppVersionList {
             };
 
             let versions =
-                wasmer_api::query::get_deploy_app_versions(&client, vars.clone()).await?;
+                wasmer_backend_api::query::get_deploy_app_versions(&client, vars.clone()).await?;
 
             versions
                 .edges

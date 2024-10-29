@@ -19,7 +19,8 @@ impl AsyncCliCommand for CmdDomainGet {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
-        if let Some(domain) = wasmer_api::query::get_domain_with_records(&client, self.name).await?
+        if let Some(domain) =
+            wasmer_backend_api::query::get_domain_with_records(&client, self.name).await?
         {
             println!("{}", self.fmt.format.render(&domain));
         } else {

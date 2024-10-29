@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Duration};
-use wasmer_api::types::PackageVersionWithPackage;
+use wasmer_backend_api::types::PackageVersionWithPackage;
 
 use super::ArgusConfig;
 

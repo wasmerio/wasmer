@@ -3,7 +3,7 @@ use anyhow::{Context, Error};
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use url::Url;
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 
 lazy_static! {
     pub static ref DEFAULT_WASMER_CLI_USER_AGENT: String =
@@ -141,7 +141,7 @@ impl WasmerEnv {
 
         let proxy = self.proxy()?;
 
-        let client = wasmer_api::WasmerClient::new_with_proxy(
+        let client = wasmer_backend_api::WasmerClient::new_with_proxy(
             registry_url,
             &DEFAULT_WASMER_CLI_USER_AGENT,
             proxy,

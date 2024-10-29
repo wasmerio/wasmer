@@ -39,7 +39,7 @@ impl AsyncCliCommand for CmdZoneFileGet {
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
         if let Some(domain) =
-            wasmer_api::query::get_domain_zone_file(&client, self.domain_name).await?
+            wasmer_backend_api::query::get_domain_zone_file(&client, self.domain_name).await?
         {
             let zone_file_contents = domain.zone_file;
             if let Some(zone_file_path) = self.zone_file_path {
@@ -62,7 +62,7 @@ impl AsyncCliCommand for CmdZoneFileSync {
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let data = std::fs::read(&self.zone_file_path).context("Unable to read file")?;
         let zone_file_contents = String::from_utf8(data).context("Not a valid UTF-8 sequence")?;
-        let domain = wasmer_api::query::upsert_domain_from_zone_file(
+        let domain = wasmer_backend_api::query::upsert_domain_from_zone_file(
             &self.env.client()?,
             zone_file_contents,
             !self.no_delete_missing_records,

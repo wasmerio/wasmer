@@ -1,4 +1,4 @@
-use wasmer_api::types::GetAllDomainsVariables;
+use wasmer_backend_api::types::GetAllDomainsVariables;
 
 use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
 
@@ -21,7 +21,7 @@ impl AsyncCliCommand for CmdDomainList {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
-        let domains = wasmer_api::query::get_all_domains(
+        let domains = wasmer_backend_api::query::get_all_domains(
             &client,
             GetAllDomainsVariables {
                 first: None,

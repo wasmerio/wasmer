@@ -33,7 +33,7 @@ impl AsyncCliCommand for CmdAppVersionGet {
         let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
-        let version = wasmer_api::query::get_app_version(
+        let version = wasmer_backend_api::query::get_app_version(
             &client,
             app.owner.global_name,
             app.name,

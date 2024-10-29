@@ -21,7 +21,7 @@ impl AsyncCliCommand for CmdAppDeploymentGet {
 
     async fn run_async(mut self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
-        let item = wasmer_api::query::app_deployment(&client, self.id).await?;
+        let item = wasmer_backend_api::query::app_deployment(&client, self.id).await?;
 
         println!("{}", self.fmt.get().render(&item));
         Ok(())

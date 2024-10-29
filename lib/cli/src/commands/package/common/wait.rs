@@ -1,5 +1,5 @@
 use futures::StreamExt;
-use wasmer_api::{types::PackageVersionState, WasmerClient};
+use wasmer_backend_api::{types::PackageVersionState, WasmerClient};
 
 /// Different conditions that can be "awaited" when publishing a package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -79,7 +79,7 @@ impl From<PublishWait> for WaitPackageState {
 pub async fn wait_package(
     client: &WasmerClient,
     to_wait: PublishWait,
-    package_version_id: wasmer_api::types::Id,
+    package_version_id: wasmer_backend_api::types::Id,
     timeout: humantime::Duration,
 ) -> anyhow::Result<()> {
     if let PublishWait::None = to_wait {
@@ -89,7 +89,8 @@ pub async fn wait_package(
     let package_version_id = package_version_id.into_inner();
 
     let mut stream =
-        wasmer_api::subscription::package_version_ready(client, &package_version_id).await?;
+        wasmer_backend_api::subscription::package_version_ready(client, &package_version_id)
+            .await?;
 
     let mut state: WaitPackageState = to_wait.into();
 

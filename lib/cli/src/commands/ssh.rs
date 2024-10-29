@@ -1,7 +1,7 @@
 //! Edge SSH command.
 
 use anyhow::Context;
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 
 use super::AsyncCliCommand;
 use crate::{config::WasmerEnv, edge_config::EdgeConfig};
@@ -122,7 +122,10 @@ async fn acquire_ssh_token(
 
 /// Create a new token for SSH access through the backend API.
 async fn create_ssh_token(client: &WasmerClient) -> Result<RawToken, anyhow::Error> {
-    wasmer_api::query::generate_deploy_config_token_raw(client, wasmer_api::query::TokenKind::SSH)
-        .await
-        .context("Could not create token for ssh access")
+    wasmer_backend_api::query::generate_deploy_config_token_raw(
+        client,
+        wasmer_backend_api::query::TokenKind::SSH,
+    )
+    .await
+    .context("Could not create token for ssh access")
 }

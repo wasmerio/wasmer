@@ -11,7 +11,7 @@ use dialoguer::Confirm;
 use is_terminal::IsTerminal;
 use std::io::Write;
 use std::{path::PathBuf, str::FromStr, time::Duration};
-use wasmer_api::{
+use wasmer_backend_api::{
     types::{DeployApp, DeployAppVersion},
     WasmerClient,
 };
@@ -185,7 +185,7 @@ impl CmdAppDeploy {
             anyhow::bail!("No owner specified: use --owner XXX");
         }
 
-        let user = wasmer_api::query::current_user_with_namespaces(client, None).await?;
+        let user = wasmer_backend_api::query::current_user_with_namespaces(client, None).await?;
         let owner = crate::utils::prompts::prompt_for_namespace(
             "Who should own this app?",
             None,
@@ -274,7 +274,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         // We want to allow the user to specify the app name interactively.
         let mut app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
         let maybe_edge_app = if let Some(app_id) = app_yaml.get("app_id").and_then(|s| s.as_str()) {
-            wasmer_api::query::get_app_by_id(&client, app_id.to_owned())
+            wasmer_backend_api::query::get_app_by_id(&client, app_id.to_owned())
                 .await
                 .ok()
         } else {
@@ -285,12 +285,13 @@ impl AsyncCliCommand for CmdAppDeploy {
             .get_owner(&client, &mut app_yaml, maybe_edge_app.as_ref())
             .await?;
 
-        if !wasmer_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
+        if !wasmer_backend_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
             eprintln!("It seems you don't have access to {}", owner.bold());
             if self.non_interactive {
                 anyhow::bail!("Please, change the owner before deploying or check your current user with `{} whoami`.", std::env::args().next().unwrap_or("wasmer".into()));
             } else {
-                let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+                let user =
+                    wasmer_backend_api::query::current_user_with_namespaces(&client, None).await?;
                 owner = crate::utils::prompts::prompt_for_namespace(
                     "Who should own this app?",
                     None,
@@ -624,9 +625,9 @@ pub async fn deploy_app(
 
     // TODO: respect allow_create flag
 
-    let version = wasmer_api::query::publish_deploy_app(
+    let version = wasmer_backend_api::query::publish_deploy_app(
         client,
-        wasmer_api::types::PublishDeployAppVars {
+        wasmer_backend_api::types::PublishDeployAppVars {
             config: raw_config,
             name: app.name.clone().into(),
             owner: opts.owner.map(|o| o.into()),
@@ -665,7 +666,7 @@ pub async fn wait_app(
         .inner()
         .to_string();
 
-    let app = wasmer_api::query::get_app_by_id(client, app_id.clone())
+    let app = wasmer_backend_api::query::get_app_by_id(client, app_id.clone())
         .await
         .context("could not fetch app from backend")?;
 

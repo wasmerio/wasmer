@@ -6322,7 +6322,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-api"
+name = "wasmer-argus"
+version = "5.0.0-rc.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "cynic",
+ "derive_more",
+ "futures",
+ "indicatif",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "shared-buffer",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "wasmer",
+ "wasmer-backend-api",
+ "webc",
+]
+
+[[package]]
+name = "wasmer-backend-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -6347,31 +6372,6 @@ dependencies = [
  "uuid",
  "wasmer-config",
  "wasmer-package",
- "webc",
-]
-
-[[package]]
-name = "wasmer-argus"
-version = "5.0.0-rc.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "cynic",
- "derive_more",
- "futures",
- "indicatif",
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "shared-buffer",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
- "wasmer",
- "wasmer-api",
  "webc",
 ]
 
@@ -6538,7 +6538,7 @@ dependencies = [
  "walkdir",
  "wasm-coredump-builder",
  "wasmer",
- "wasmer-api",
+ "wasmer-backend-api",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
