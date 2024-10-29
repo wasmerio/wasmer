@@ -9,6 +9,38 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 5.0.0 - 29/10/2024
+
+## Added
+
+  - [#5185](https://github.com/wasmerio/wasmer/pull/5185) Add execution benchmarks
+  - [#5174](https://github.com/wasmerio/wasmer/pull/5174) chore(wasix): Additional logging in wasix HTTP client
+  - [#5152](https://github.com/wasmerio/wasmer/pull/5152) Experimental: add support for loongarch64 on LLVM
+
+## Changed
+
+  - [#5188](https://github.com/wasmerio/wasmer/pull/5188) feat: Rename `wasmer-api` to `wasmer-backend-api`
+  - [#5186](https://github.com/wasmerio/wasmer/pull/5186) Remove support for emscripten
+  - [#5181](https://github.com/wasmerio/wasmer/pull/5181) Sunset `wasmer-registry`, `wasmer-interface` and update misc dependencies
+  - [#5165](https://github.com/wasmerio/wasmer/pull/5165) 5.0.0-rc.1 post release
+  - [#5151](https://github.com/wasmerio/wasmer/pull/5151) Remove negative variant of exit code
+  - [#5153](https://github.com/wasmerio/wasmer/pull/5153) Terminate entire wasix process when a worker thread fails or calls exit
+  - [#5172](https://github.com/wasmerio/wasmer/pull/5172) chore(backend-api): Update GraphQL schema
+  - [#5176](https://github.com/wasmerio/wasmer/pull/5176) Remove unused edge-util dependency
+  - [#5171](https://github.com/wasmerio/wasmer/pull/5171) Refactor webc usage
+  - [#5144](https://github.com/wasmerio/wasmer/pull/5144) Implement app-deployment related CLI commands
+  - [#5163](https://github.com/wasmerio/wasmer/pull/5163) Correct the example of the README in the WASIX crate
+
+## Fixed
+
+  - [#5184](https://github.com/wasmerio/wasmer/pull/5184) fix(api/wamr): Build `wamr` on `iOS`
+  - [#5179](https://github.com/wasmerio/wasmer/pull/5179) Fix build CI
+  - [#5178](https://github.com/wasmerio/wasmer/pull/5178) Fix usage of exit code
+  - [#5162](https://github.com/wasmerio/wasmer/pull/5162) Fix append-ness of new fd affecting old fds
+  - [#5160](https://github.com/wasmerio/wasmer/pull/5160) Fix fd with append flag can't seek correctly
+
+
+
 ## 5.0.0-rc.1 - 21/10/2024
 
 This is a release candidate as we are preparing for the final release of 5.0
