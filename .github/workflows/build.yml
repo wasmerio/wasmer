@@ -119,7 +119,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: false
-            use_llvm: false
+            use_llvm: true
             build_wasm: false
             # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
