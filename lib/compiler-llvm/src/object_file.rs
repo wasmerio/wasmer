@@ -251,6 +251,7 @@ where
                     object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_LO20),
                     0,
                 ) => RelocationKind::LArchAbs64Lo20,
+                (
                     object::Architecture::Aarch64,
                     object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_LO21),
                     0,
