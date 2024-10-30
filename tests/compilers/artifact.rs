@@ -1,6 +1,5 @@
 use std::{fs, path::PathBuf};
 
-use cfg_if::cfg_if;
 use wasmer::{Engine, Module};
 
 #[test]
