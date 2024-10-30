@@ -24,6 +24,7 @@ wasmer = { version = "=5.0.0", path = "../api", default-features = false, featur
 ] }
 wasmer-wasix = { version = "=0.30.0", path = "../wasix" }
 webc.workspace = true
+wasmer-package.workspace = true
 
 
 [build-dependencies]
