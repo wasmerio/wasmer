@@ -108,8 +108,8 @@ fn main() -> anyhow::Result<()> {
     // see how we can do that:
     println!("Growing memory...");
 
-    // 'wamr' does not support direct calls to memory.grow()
-    #[cfg(not(feature = "wamr"))]
+    // 'wasm-c-api' does not support direct calls to memory.grow()
+    #[cfg(not(feature = "wasm-c-api"))]
     {
         // Here we are requesting two more pages for our memory.
         memory.grow(&mut store, 2)?;
