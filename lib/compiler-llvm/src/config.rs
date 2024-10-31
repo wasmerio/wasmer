@@ -119,13 +119,11 @@ impl LLVM {
             //  but not in the case of Aarch64, there the ABI is slightly different
             #[allow(clippy::match_single_binding)]
             match target.triple().architecture {
-                Architecture::Aarch64(_) => wasmer_types::OperatingSystem::Darwin,
                 _ => wasmer_types::OperatingSystem::Linux,
             }
         } else {
             target.triple().operating_system
         };
-
         let binary_format = if self.is_pic {
             target.triple().binary_format
         } else {
