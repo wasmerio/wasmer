@@ -2,7 +2,6 @@
 
 use crate::get_libcall_trampoline;
 use crate::FunctionExtent;
-use core::ops::RangeBounds;
 use std::collections::HashMap;
 use std::ptr::{read_unaligned, write_unaligned};
 use wasmer_types::entity::PrimaryMap;
@@ -170,7 +169,7 @@ fn apply_relocation(
 
             let delta = delta as isize;
             assert!(
-                ((-1 << 20)..(1 << 20)).contains(&delta)
+                ((-1 << 20)..(1 << 20)).contains(&delta),
                 "can't generate an ADR_PREL_LO21 relocation with an immediate larger than 20 bits"
             );
 
