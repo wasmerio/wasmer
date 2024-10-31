@@ -119,7 +119,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: false
-            use_llvm: false
+            use_llvm: true
             build_wasm: false
             # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
@@ -573,70 +573,70 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  # linux_riscv64:
-  #   name: Linux riscv64
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: dtolnay/rust-toolchain@stable
-  #       with:
-  #         target: riscv64gc-unknown-linux-gnu
-  #     - name: Build cross image
-  #       run: |
-  #         docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
-  #       env:
-  #         CROSS_DOCKER_IN_DOCKER: true
-  #     - name: Build Wasmer binary
-  #       run: |
-  #         make build-wasmer
-  #       env:
-  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-  #         CROSS_DOCKER_IN_DOCKER: true
-  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
-  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-  #         PKG_CONFIG_ALLOW_CROSS: true
-  #         ENABLE_LLVM: 0
-  #     - name: Build C API headless
-  #       shell: bash
-  #       run: |
-  #         make package-capi-headless
-  #       env:
-  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-  #         CROSS_DOCKER_IN_DOCKER: true
-  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
-  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-  #         PKG_CONFIG_ALLOW_CROSS: true
-  #         ENABLE_LLVM: 0
-  #         TARGET: riscv64gc-unknown-linux-gnu
-  #         TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
-  #     - name: Build C API
-  #       run: |
-  #         make build-capi
-  #       env:
-  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-  #         CROSS_DOCKER_IN_DOCKER: true
-  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
-  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-  #         PKG_CONFIG_ALLOW_CROSS: true
-  #         ENABLE_LLVM: 0
-  #     - name: Dist
-  #       run: |
-  #         make distribution
-  #       env:
-  #         CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-  #         CROSS_DOCKER_IN_DOCKER: true
-  #         CARGO_TARGET: riscv64gc-unknown-linux-gnu
-  #         PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-  #         PKG_CONFIG_ALLOW_CROSS: true
-  #         TARGET: riscv64gc-unknown-linux-gnu
-  #         TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
-  #     - name: Upload Artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: wasmer-linux-riscv64
-  #         path: dist
-  #         if-no-files-found: error
-  #         retention-days: 2
+  linux_riscv64:
+    name: Linux riscv64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: riscv64gc-unknown-linux-gnu
+      - name: Build cross image
+        run: |
+          docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
+        env:
+          CROSS_DOCKER_IN_DOCKER: true
+      - name: Build Wasmer binary
+        run: |
+          make build-wasmer
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
+      - name: Build C API headless
+        shell: bash
+        run: |
+          make package-capi-headless
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
+          TARGET: riscv64gc-unknown-linux-gnu
+          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
+      - name: Build C API
+        run: |
+          make build-capi
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
+      - name: Dist
+        run: |
+          make distribution
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          TARGET: riscv64gc-unknown-linux-gnu
+          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasmer-linux-riscv64
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
 
   release:
     # needs: [setup, build, linux_aarch64, windows_gnu, linux_riscv64]
