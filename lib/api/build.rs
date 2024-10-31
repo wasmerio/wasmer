@@ -53,7 +53,10 @@ fn main() {
         let _ = std::fs::remove_dir_all(&wamr_dir);
         std::fs::rename(zip_dir, &wamr_dir).expect("failed to rename wamr dir");
 
-        let wamr_platform_dir = wamr_dir.join("product-mini/platforms").join(target_os);
+        let wamr_platform_dir = match target_os {
+            "ios" => PathBuf::from(&crate_root).join("third_party/wamr_ios"),
+            _ => wamr_dir.join("product-mini/platforms").join(target_os),
+        };
         let mut dst = Config::new(wamr_platform_dir.as_path());
 
         dst.always_configure(true)
@@ -84,6 +87,14 @@ fn main() {
             .define("WAMR_BUILD_MULTI_MODULE", "0")
             .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
             .define("WAMR_BUILD_TARGET", target_arch);
+
+        if target_os == "ios" {
+            match env::var("PLATFORM_NAME").expect("PLATFORM_NAME").as_str() {
+                "iphonesimulator" => dst.define("CMAKE_OSX_SYSROOT", "iphonesimulator"),
+                "iphoneos" => dst.define("CMAKE_OSX_SYSROOT", "iphoneos"),
+                _ => unimplemented!(),
+            };
+        }
 
         if target_os == "windows" {
             dst.define("CMAKE_CXX_COMPILER", "cl.exe");
@@ -123,7 +134,7 @@ fn main() {
             "cargo:rustc-link-search=native={}",
             dst.join("build").display()
         );
-        println!("cargo:rustc-link-lib=vmlib");
+        println!("cargo:rustc-link-lib=static=vmlib");
 
         let bindings = bindgen::Builder::default()
             .header(
