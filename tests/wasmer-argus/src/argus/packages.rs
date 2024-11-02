@@ -11,7 +11,7 @@ use tokio::{
 };
 use tracing::*;
 use url::Url;
-use wasmer_api::{
+use wasmer_backend_api::{
     query::get_package_versions_stream,
     types::{AllPackageVersionsVars, PackageVersionSortBy, PackageVersionWithPackage},
 };

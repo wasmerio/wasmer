@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-swift"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Experimental wasmer bindings for swift"
 license = "MIT"
@@ -15,15 +15,16 @@ name = "wasmer_swift"
 thiserror = "1"
 tokio = { version = "1.28.1", features = [ "rt" ], default-features = false }
 uniffi = "0.27"
-virtual-fs = { path = "../virtual-fs", version = "=0.18.0", default-features = false, features = [
+virtual-fs = { path = "../virtual-fs", version = "=0.19.0", default-features = false, features = [
 	"webc-fs",
 ] }
-wasmer = { version = "=5.0.0-rc.1", path = "../api", default-features = false, features = [
+wasmer = { version = "=5.0.0", path = "../api", default-features = false, features = [
 	"wamr",
 	"std",
 ] }
-wasmer-wasix = { version = "=0.29.0", path = "../wasix" }
+wasmer-wasix = { version = "=0.30.0", path = "../wasix" }
 webc.workspace = true
+wasmer-package.workspace = true
 
 
 [build-dependencies]

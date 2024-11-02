@@ -1,4 +1,4 @@
-# wasmer-api
+# wasmer-backend-api
 
 GraphQL API client for the [Wasmer](https://wasmer.io) backend.
 

@@ -11,7 +11,7 @@ use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
 use wasmer_package::package::Package;
 
@@ -51,7 +51,7 @@ pub(super) async fn upload(
 
     let session_uri = {
         let default_timeout_secs = Some(60 * 30);
-        let q = wasmer_api::query::get_signed_url_for_package_upload(
+        let q = wasmer_backend_api::query::get_signed_url_for_package_upload(
             client,
             default_timeout_secs,
             Some(hash_str),

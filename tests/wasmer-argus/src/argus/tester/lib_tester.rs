@@ -5,7 +5,7 @@ use std::{fs::File, io::BufReader, sync::Arc};
 use tokio::time;
 use tracing::*;
 use wasmer::{sys::Features, Engine, NativeEngineExt, Target};
-use wasmer_api::types::PackageVersionWithPackage;
+use wasmer_backend_api::types::PackageVersionWithPackage;
 use webc::{v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3, Container, Version};
 
 pub struct LibRunner<'a> {

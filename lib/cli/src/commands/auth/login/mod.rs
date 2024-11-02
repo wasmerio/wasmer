@@ -10,7 +10,7 @@ use crate::{
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use std::{path::PathBuf, time::Duration};
-use wasmer_api::{types::Nonce, WasmerClient};
+use wasmer_backend_api::{types::Nonce, WasmerClient};
 
 #[derive(Debug, Clone)]
 enum AuthorizationState {
@@ -103,7 +103,7 @@ impl Login {
         };
 
         let Nonce { auth_url, .. } =
-            wasmer_api::query::create_nonce(client, "wasmer-cli".to_string(), server_url)
+            wasmer_backend_api::query::create_nonce(client, "wasmer-cli".to_string(), server_url)
                 .await?
                 .ok_or_else(|| {
                     anyhow::anyhow!("The backend did not return any nonce to auth the login!")
@@ -166,29 +166,30 @@ impl Login {
     async fn do_login(&self, env: &WasmerEnv) -> anyhow::Result<AuthorizationState> {
         let client = env.client_unauthennticated()?;
 
-        let should_login = if let Some(user) = wasmer_api::query::current_user(&client).await? {
-            #[cfg(not(test))]
-            {
-                println!(
-                    "You are already logged in as {} in registry {}.",
-                    user.username.bold(),
-                    env.registry_public_url()?.host_str().unwrap().bold()
-                );
-                let theme = dialoguer::theme::ColorfulTheme::default();
-                let dialog = dialoguer::Confirm::with_theme(&theme).with_prompt("Login again?");
+        let should_login =
+            if let Some(user) = wasmer_backend_api::query::current_user(&client).await? {
+                #[cfg(not(test))]
+                {
+                    println!(
+                        "You are already logged in as {} in registry {}.",
+                        user.username.bold(),
+                        env.registry_public_url()?.host_str().unwrap().bold()
+                    );
+                    let theme = dialoguer::theme::ColorfulTheme::default();
+                    let dialog = dialoguer::Confirm::with_theme(&theme).with_prompt("Login again?");
 
-                dialog.interact()?
-            }
-            #[cfg(test)]
-            {
-                // prevent unused binding warning
-                _ = user;
+                    dialog.interact()?
+                }
+                #[cfg(test)]
+                {
+                    // prevent unused binding warning
+                    _ = user;
 
-                false
-            }
-        } else {
-            true
-        };
+                    false
+                }
+            } else {
+                true
+            };
 
         if !should_login {
             Ok(AuthorizationState::Cancelled)
@@ -228,7 +229,7 @@ impl Login {
         // This will automatically read the config again, picking up the new edits.
         let client = env.client()?;
 
-        wasmer_api::query::current_user(&client)
+        wasmer_backend_api::query::current_user(&client)
             .await?
             .map(|v| v.username)
             .ok_or_else(|| anyhow::anyhow!("Not logged in!"))

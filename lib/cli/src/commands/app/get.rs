@@ -1,6 +1,6 @@
 //! Get information about an edge app.
 
-use wasmer_api::types::DeployApp;
+use wasmer_backend_api::types::DeployApp;
 
 use super::util::AppIdentOpts;
 

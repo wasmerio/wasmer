@@ -1,5 +1,5 @@
 use comfy_table::Table;
-use wasmer_api::types::{
+use wasmer_backend_api::types::{
     DeployApp, DeployAppVersion, Deployment, DnsDomain, DnsDomainWithRecords, Namespace,
 };
 
@@ -163,7 +163,7 @@ impl CliRender for DeployAppVersion {
     }
 }
 
-impl CliRender for wasmer_api::types::AppVersionVolume {
+impl CliRender for wasmer_backend_api::types::AppVersionVolume {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
         table.add_rows([
@@ -189,7 +189,7 @@ impl CliRender for wasmer_api::types::AppVersionVolume {
     }
 }
 
-fn format_disk_size_opt(value: Option<wasmer_api::types::BigInt>) -> String {
+fn format_disk_size_opt(value: Option<wasmer_backend_api::types::BigInt>) -> String {
     let value = value.and_then(|x| {
         let y: Option<u64> = x.0.try_into().ok();
         y
@@ -259,7 +259,7 @@ impl CliRender for Deployment {
     }
 }
 
-impl CliRender for wasmer_api::types::NakedDeployment {
+impl CliRender for wasmer_backend_api::types::NakedDeployment {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
         table.add_rows([
@@ -295,7 +295,7 @@ impl CliRender for wasmer_api::types::NakedDeployment {
     }
 }
 
-impl CliRender for wasmer_api::types::AutobuildRepository {
+impl CliRender for wasmer_backend_api::types::AutobuildRepository {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
         table.add_rows([

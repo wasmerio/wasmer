@@ -14,7 +14,7 @@ use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use futures::stream::TryStreamExt;
 use is_terminal::IsTerminal;
-use wasmer_api::{
+use wasmer_backend_api::{
     types::{AppTemplate, TemplateLanguage},
     WasmerClient,
 };
@@ -190,7 +190,7 @@ impl CmdAppCreate {
         }
 
         let user = if let Some(client) = client {
-            Some(wasmer_api::query::current_user_with_namespaces(client, None).await?)
+            Some(wasmer_backend_api::query::current_user_with_namespaces(client, None).await?)
         } else {
             None
         };
@@ -359,10 +359,10 @@ impl CmdAppCreate {
         // Fetch the first page.
         // If first item matches, then no need to re-fetch.
         //
-        let stream = wasmer_api::query::fetch_all_app_templates_from_language(
+        let stream = wasmer_backend_api::query::fetch_all_app_templates_from_language(
             client,
             10,
-            Some(wasmer_api::types::AppTemplatesSortBy::Newest),
+            Some(wasmer_backend_api::types::AppTemplatesSortBy::Newest),
             language.to_string(),
         );
 
@@ -446,7 +446,7 @@ impl CmdAppCreate {
         // Either no cache present, or cache has exceeded max age.
         // Fetch the first page.
         // If first item matches, then no need to re-fetch.
-        let mut stream = Box::pin(wasmer_api::query::fetch_all_app_template_languages(
+        let mut stream = Box::pin(wasmer_backend_api::query::fetch_all_app_template_languages(
             client, None,
         ));
 
@@ -489,7 +489,8 @@ impl CmdAppCreate {
             if let Ok(url) = url::Url::parse(template) {
                 url
             } else if let Some(template) =
-                wasmer_api::query::fetch_app_template_from_slug(client, template.clone()).await?
+                wasmer_backend_api::query::fetch_app_template_from_slug(client, template.clone())
+                    .await?
             {
                 url::Url::parse(&template.repo_url)?
             } else {

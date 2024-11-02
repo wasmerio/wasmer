@@ -39,7 +39,7 @@ impl AsyncCliCommand for Logout {
             .client()
             .map_err(|_| anyhow::anyhow!("Not logged into registry {host_str}"))?;
 
-        let user = wasmer_api::query::current_user(&client)
+        let user = wasmer_backend_api::query::current_user(&client)
             .await
             .map_err(|e| anyhow::anyhow!("Not logged into registry {host_str}: {e}"))?
             .ok_or_else(|| anyhow::anyhow!("Not logged into registry {host_str}"))?;
@@ -92,7 +92,7 @@ impl AsyncCliCommand for Logout {
                 };
 
                 if should_revoke {
-                    wasmer_api::query::revoke_token(&client, token).await?;
+                    wasmer_backend_api::query::revoke_token(&client, token).await?;
                     println!(
                         "Token for user {} in registry {host_str} correctly revoked",
                         user.username.bold()

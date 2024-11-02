@@ -53,7 +53,10 @@ fn main() {
         let _ = std::fs::remove_dir_all(&wamr_dir);
         std::fs::rename(zip_dir, &wamr_dir).expect("failed to rename wamr dir");
 
-        let wamr_platform_dir = wamr_dir.join("product-mini/platforms").join(target_os);
+        let wamr_platform_dir = match target_os {
+            "ios" => PathBuf::from(&crate_root).join("third_party/wamr_ios"),
+            _ => wamr_dir.join("product-mini/platforms").join(target_os),
+        };
         let mut dst = Config::new(wamr_platform_dir.as_path());
 
         dst.always_configure(true)
@@ -85,12 +88,41 @@ fn main() {
             .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
             .define("WAMR_BUILD_TARGET", target_arch);
 
-        if cfg!(target_os = "windows") {
+        if target_os == "ios" {
+            match env::var("PLATFORM_NAME").expect("PLATFORM_NAME").as_str() {
+                "iphonesimulator" => dst.define("CMAKE_OSX_SYSROOT", "iphonesimulator"),
+                "iphoneos" => dst.define("CMAKE_OSX_SYSROOT", "iphoneos"),
+                _ => unimplemented!(),
+            };
+        }
+
+        if target_os == "windows" {
             dst.define("CMAKE_CXX_COMPILER", "cl.exe");
             dst.define("CMAKE_C_COMPILER", "cl.exe");
             dst.define("CMAKE_LINKER_TYPE", "MSVC");
             dst.define("WAMR_BUILD_PLATFORM", "windows");
             dst.define("WAMR_BUILD_LIBC_UVWASI", "0");
+        }
+
+        if target_os == "ios" {
+            // XXX: Hacky
+            //
+            // Compiling wamr targeting `aarch64-apple-ios` results in
+            //
+            // ```
+            //  clang: error: unsupported option '-mfloat-abi=' for target 'aarch64-apple-ios'
+            // ```
+            // So, here, we simply remove that setting.
+            //
+            // See: https://github.com/bytecodealliance/wasm-micro-runtime/pull/3889
+            let mut lines = vec![];
+            let cmake_file_path = wamr_platform_dir.join("CMakeLists.txt");
+            for line in std::fs::read_to_string(&cmake_file_path).unwrap().lines() {
+                if !line.contains("-mfloat-abi=hard") {
+                    lines.push(line.to_string())
+                }
+            }
+            std::fs::write(cmake_file_path, lines.join("\n")).unwrap();
         }
 
         let dst = dst.build();
@@ -102,7 +134,7 @@ fn main() {
             "cargo:rustc-link-search=native={}",
             dst.join("build").display()
         );
-        println!("cargo:rustc-link-lib=vmlib");
+        println!("cargo:rustc-link-lib=static=vmlib");
 
         let bindings = bindgen::Builder::default()
             .header(

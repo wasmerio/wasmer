@@ -109,7 +109,7 @@ impl PackageDownload {
 
                 let rt = tokio::runtime::Runtime::new()?;
                 let package = rt
-                    .block_on(wasmer_api::query::get_package_version(
+                    .block_on(wasmer_backend_api::query::get_package_version(
                         &client,
                         full_name.clone(),
                         version.clone(),
@@ -147,7 +147,7 @@ impl PackageDownload {
                 let client = self.env.client_unauthennticated()?;
 
                 let rt = tokio::runtime::Runtime::new()?;
-                let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash.to_string()))?
+                let pkg = rt.block_on(wasmer_backend_api::query::get_package_release(&client, &hash.to_string()))?
                     .with_context(|| format!("Package with {hash} does not exist in the registry, or is not accessible"))?;
 
                 let ident = hash.to_string();

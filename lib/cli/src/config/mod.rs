@@ -4,7 +4,7 @@ pub use env::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use url::Url;
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = "wasmer.toml";
 pub static DEFAULT_PROD_REGISTRY: &str = "https://registry.wasmer.io/graphql";
@@ -123,7 +123,9 @@ fn endpoint_from_domain_name(domain_name: &str) -> String {
 async fn test_if_registry_present(registry: &str) -> anyhow::Result<()> {
     let client = WasmerClient::new(url::Url::parse(registry)?, &DEFAULT_WASMER_CLI_USER_AGENT)?;
 
-    wasmer_api::query::current_user(&client).await.map(|_| ())
+    wasmer_backend_api::query::current_user(&client)
+        .await
+        .map(|_| ())
 }
 
 #[derive(PartialEq, Eq, Copy, Clone)]

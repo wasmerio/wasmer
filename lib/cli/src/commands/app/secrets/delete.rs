@@ -6,7 +6,7 @@ use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
 use is_terminal::IsTerminal;
 use std::path::{Path, PathBuf};
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 
 use super::utils::{self, get_secrets};
 
@@ -91,7 +91,8 @@ impl CmdAppSecretsDelete {
                 }
             }
 
-            let res = wasmer_api::query::delete_app_secret(client, secret.id.into_inner()).await?;
+            let res = wasmer_backend_api::query::delete_app_secret(client, secret.id.into_inner())
+                .await?;
 
             match res {
                 Some(res) if !res.success => {

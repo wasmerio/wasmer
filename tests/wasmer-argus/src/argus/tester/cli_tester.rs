@@ -3,7 +3,7 @@ use indicatif::ProgressBar;
 use std::{fs::File, io::BufReader, path::Path, process::Command, sync::Arc};
 use tokio::time::{self, Instant};
 use tracing::*;
-use wasmer_api::types::PackageVersionWithPackage;
+use wasmer_backend_api::types::PackageVersionWithPackage;
 use webc::{v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3, Container, Version};
 
 use super::{TestReport, Tester};

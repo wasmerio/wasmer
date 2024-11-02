@@ -1,7 +1,7 @@
 use anyhow::Context;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Select};
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::NamedPackageIdent;
 
 pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, anyhow::Error> {
@@ -90,7 +90,13 @@ pub async fn prompt_for_package(
     default: Option<&str>,
     check: Option<PackageCheckMode>,
     client: Option<&WasmerClient>,
-) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
+) -> Result<
+    (
+        NamedPackageIdent,
+        Option<wasmer_backend_api::types::Package>,
+    ),
+    anyhow::Error,
+> {
     loop {
         let ident = prompt_for_package_ident(message, default)?;
 
@@ -98,12 +104,16 @@ pub async fn prompt_for_package(
             let api = client.expect("Check mode specified, but no API provided");
 
             let pkg = if let Some(v) = ident.version_opt() {
-                wasmer_api::query::get_package_version(api, ident.full_name(), v.to_string())
-                    .await
-                    .context("could not query backend for package")?
-                    .map(|p| p.package)
+                wasmer_backend_api::query::get_package_version(
+                    api,
+                    ident.full_name(),
+                    v.to_string(),
+                )
+                .await
+                .context("could not query backend for package")?
+                .map(|p| p.package)
             } else {
-                wasmer_api::query::get_package(api, ident.to_string())
+                wasmer_backend_api::query::get_package(api, ident.to_string())
                     .await
                     .context("could not query backend for package")?
             };
@@ -144,7 +154,7 @@ pub async fn prompt_for_package(
 pub fn prompt_for_namespace(
     message: &str,
     default: Option<&str>,
-    user: Option<&wasmer_api::types::UserWithNamespaces>,
+    user: Option<&wasmer_backend_api::types::UserWithNamespaces>,
 ) -> Result<String, anyhow::Error> {
     if let Some(user) = user {
         let namespaces = user
@@ -205,7 +215,8 @@ pub async fn prompt_new_app_name(
                 "WARN".bold().yellow()
             )
         } else if let Some(api) = &api {
-            let app = wasmer_api::query::get_app(api, namespace.to_string(), ident.clone()).await?;
+            let app = wasmer_backend_api::query::get_app(api, namespace.to_string(), ident.clone())
+                .await?;
             eprint!("Checking name availability... ");
             if app.is_some() {
                 eprintln!(
@@ -237,7 +248,7 @@ pub async fn prompt_new_app_alias(
         let ident = prompt_for_ident(message, default)?;
 
         if let Some(api) = &api {
-            let app = wasmer_api::query::get_app_by_alias(api, ident.clone()).await?;
+            let app = wasmer_backend_api::query::get_app_by_alias(api, ident.clone()).await?;
             eprintln!("Checking name availability...");
             if app.is_some() {
                 eprintln!(

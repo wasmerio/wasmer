@@ -3,7 +3,7 @@ use crate::config::WasmerEnv;
 use anyhow::{Context, Error};
 use clap::Parser;
 use std::process::{Command, Stdio};
-use wasmer_api::{
+use wasmer_backend_api::{
     types::{Bindings, ProgrammingLanguage},
     WasmerClient,
 };
@@ -102,7 +102,7 @@ async fn lookup_bindings_for_package(
     pkg: &NamedPackageIdent,
     language: &ProgrammingLanguage,
 ) -> Result<Bindings, Error> {
-    let all_bindings = wasmer_api::query::list_bindings(
+    let all_bindings = wasmer_backend_api::query::list_bindings(
         client,
         &pkg.name,
         pkg.version_opt().map(|v| v.to_string()).as_deref(),

@@ -2,7 +2,7 @@
 //
 // use anyhow::Context;
 // use dialoguer::{theme::ColorfulTheme, Select};
-// use wasmer_api::{types::UserWithNamespaces, WasmerClient};
+// use wasmer_backend_api::{types::UserWithNamespaces, WasmerClient};
 //
 // use super::prompts::PackageCheckMode;
 //
@@ -77,7 +77,7 @@
 // }
 //
 // pub struct PackageWizardOutput {
-//     pub api: Option<wasmer_api::types::Package>,
+//     pub api: Option<wasmer_backend_api::types::Package>,
 //     pub local_path: Option<PathBuf>,
 //     pub local_manifest: Option<wasmer_config::package::Manifest>,
 // }
