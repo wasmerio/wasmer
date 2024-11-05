@@ -40,9 +40,9 @@ jobs:
     name: Build on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: setup
-    strategy:
-      fail-fast: false
-      matrix:
+    # strategy:
+      # fail-fast: false
+      # matrix:
         # include:
           # - build: linux-arm64
           #   os: arm64-ubuntu-latest-8-cores
