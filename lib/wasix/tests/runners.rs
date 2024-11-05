@@ -2,11 +2,14 @@
 // there.
 #![cfg(not(target_family = "wasm"))]
 
+use std::sync::Once;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
+
+static INIT: Once = Once::new();
 
 use reqwest::Client;
 use tokio::runtime::Handle;
@@ -29,6 +32,13 @@ mod wasi {
 
     use super::*;
 
+    fn setup() {
+        INIT.call_once(|| {
+            env_logger::builder()
+                .filter_level(log::LevelFilter::max())
+                .init();
+        });
+    }
     #[tokio::test]
     async fn can_run_wat2wasm() {
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
@@ -40,6 +50,7 @@ mod wasi {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn wat2wasm() {
+        setup();
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
         let container = from_bytes(webc).unwrap();
         let (rt, tasks) = runtime();
@@ -81,6 +92,8 @@ mod wasi {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn python() {
+        setup();
+
         let webc = download_cached("https://wasmer.io/python/python@0.1.0").await;
         let (rt, tasks) = runtime();
         let container = from_bytes(webc).unwrap();
