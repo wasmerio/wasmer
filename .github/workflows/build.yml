@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        # include:
           # - build: linux-arm64
           #   os: arm64-ubuntu-latest-8-cores
           #   artifact_name: 'wasmer-linux-aarch64'
