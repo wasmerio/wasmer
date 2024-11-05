@@ -721,26 +721,26 @@ jobs:
             description: 'Run wast test suite for all compilers',
             make: 'test-stage-0-wast',
           },
-          #{
-          #  description: 'Unit-test packages on std',
-          #  make: 'test-stage-1-test-all',
-          #},
-          #{
-          #  description: 'Unit-test cranelift on no-std',
-          #  make: 'test-stage-2-test-compiler-cranelift-nostd',
-          #},
-          #{
-          #  description: 'Unit-test singlepass on no-std',
-          #  make: 'test-stage-3-test-compiler-singlepass-nostd',
-          #},
-          #{
-          #  description: 'Unit-test wasmer-cli',
-          #  make: 'test-stage-4-wasmer-cli',
-          #},
-          #{
-          #  description: 'Unit-test examples',
-          #  make: 'test-stage-5-test-examples',
-          #}
+          {
+            description: 'Unit-test packages on std',
+            make: 'test-stage-1-test-all',
+          },
+          {
+            description: 'Unit-test cranelift on no-std',
+            make: 'test-stage-2-test-compiler-cranelift-nostd',
+          },
+          {
+            description: 'Unit-test singlepass on no-std',
+            make: 'test-stage-3-test-compiler-singlepass-nostd',
+          },
+          {
+            description: 'Unit-test wasmer-cli',
+            make: 'test-stage-4-wasmer-cli',
+          },
+          {
+            description: 'Unit-test examples',
+            make: 'test-stage-5-test-examples',
+          }
         ]
         metadata: [
           #{
