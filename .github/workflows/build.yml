@@ -6,10 +6,10 @@ env:
   MSRV: "1.81"
 
 on:
+  pull_request:
   push:
     branches:
       - 'main'
-  pull_request:
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
