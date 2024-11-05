@@ -55,7 +55,7 @@ mod wasi {
                 .with_args(["--version"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
-                .with_stderr(Box::<stderr_2>::default())
+                .with_stderr(Box::new(stderr_2) as Box<_>)
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
 
@@ -97,7 +97,7 @@ mod wasi {
                 .with_args(["-c", "import sys; sys.exit(42)"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
-                .with_stderr(Box::<stderr_2>::default())
+                .with_stderr(Box::new(stderr_2) as Box<_>)
                 .run_command("python", &pkg, Arc::new(rt))
         });
 
