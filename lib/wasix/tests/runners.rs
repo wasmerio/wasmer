@@ -45,15 +45,17 @@ mod wasi {
         let (rt, tasks) = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
         let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+        let mut stderr = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
 
         let stdout_2 = stdout.clone();
+        let stderr_2 = stderr.clone();
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["--version"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
-                .with_stderr(Box::<virtual_fs::NullFile>::default())
+                .with_stderr(Box::<stderr_2>::default())
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
 
@@ -63,9 +65,18 @@ mod wasi {
             .expect("The runner encountered an error");
 
         stdout.rewind().await.unwrap();
-        let mut output = Vec::new();
-        stdout.read_to_end(&mut output).await.unwrap();
-        assert_eq!(String::from_utf8(output).unwrap(), "1.0.37 (git~v1.0.37)\n");
+        stderr.rewind().await.unwrap();
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        stdout.read_to_end(&mut stdout_buf).await.unwrap();
+        stderr.read_to_end(&mut stderr_buf).await.unwrap();
+        let stdout = String::from_utf8(stdout_buf).unwrap();
+        let stderr = String::from_utf8(stderr_buf).unwrap();
+
+        eprintln!("{stdout}");
+        eprintln!("{stderr}");
+
+        assert_eq!(stdout, "1.0.37 (git~v1.0.37)\n");
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -74,16 +85,33 @@ mod wasi {
         let (rt, tasks) = runtime();
         let container = from_bytes(webc).unwrap();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
+        let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+        let mut stderr = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+
+        let stdout_2 = stdout.clone();
+        let stderr_2 = stderr.clone();
 
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
-                .with_stdout(Box::<virtual_fs::NullFile>::default())
-                .with_stderr(Box::<virtual_fs::NullFile>::default())
+                .with_stdout(Box::new(stdout_2) as Box<_>)
+                .with_stderr(Box::<stderr_2>::default())
                 .run_command("python", &pkg, Arc::new(rt))
         });
+
+        stdout.rewind().await.unwrap();
+        stderr.rewind().await.unwrap();
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        stdout.read_to_end(&mut stdout_buf).await.unwrap();
+        stderr.read_to_end(&mut stderr_buf).await.unwrap();
+        let stdout = String::from_utf8(stdout_buf).unwrap();
+        let stderr = String::from_utf8(stderr_buf).unwrap();
+
+        eprintln!("{stdout}");
+        eprintln!("{stderr}");
 
         let err = handle.join().unwrap().unwrap_err();
         let runtime_error = err.chain().find_map(|e| e.downcast_ref::<WasiError>());
