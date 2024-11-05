@@ -717,14 +717,14 @@ jobs:
       fail-fast: false
       matrix:
         stage: [
-          #{
-          #  description: 'Run wast test suite for all compilers',
-          #  make: 'test-stage-0-wast',
-          #},
           {
-            description: 'Unit-test packages on std',
-            make: 'test-stage-1-test-all',
+            description: 'Run wast test suite for all compilers',
+            make: 'test-stage-0-wast',
           },
+          #{
+          #  description: 'Unit-test packages on std',
+          #  make: 'test-stage-1-test-all',
+          #},
           #{
           #  description: 'Unit-test cranelift on no-std',
           #  make: 'test-stage-2-test-compiler-cranelift-nostd',
