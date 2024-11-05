@@ -369,7 +369,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.12.1",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -7260,9 +7260,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "7.0.0-rc.1"
+version = "7.0.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c452dd6074574080dea17d228caa5efc24f1e29650895c61333b0900734c20"
+checksum = "e6893cbe58d5b97a0daa2dd77055d621db1c8b94fe0f2bbd719c8de747226ea6"
 dependencies = [
  "anyhow",
  "base64",
