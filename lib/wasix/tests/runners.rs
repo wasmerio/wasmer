@@ -35,7 +35,7 @@ mod wasi {
     fn setup() {
         INIT.call_once(|| {
             env_logger::builder()
-                .filter_level(log::LevelFilter::max())
+                .filter_level(log::LevelFilter::Debug)
                 .init();
         });
     }
