@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/config/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/config/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -333,35 +333,48 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>env;
 <span class="kw">pub use </span>env::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>wasmer_api::WasmerClient;
+<span class="kw">use </span>wasmer_backend_api::WasmerClient;
 
-<span class="kw">pub static </span>GLOBAL_CONFIG_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.toml&quot;</span>;
-<span class="kw">pub static </span>DEFAULT_PROD_REGISTRY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://registry.wasmer.io/graphql&quot;</span>;
+<span class="kw">pub static </span>GLOBAL_CONFIG_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"wasmer.toml"</span>;
+<span class="kw">pub static </span>DEFAULT_PROD_REGISTRY: <span class="kw-2">&amp;</span>str = <span class="string">"https://registry.wasmer.io/graphql"</span>;
 
-<span class="macro">lazy_static::lazy_static! </span>{
+<span class="macro">lazy_static::lazy_static!</span> {
     <span class="doccomment">/// The default value for `$WASMER_DIR`.
     </span><span class="kw">pub static </span><span class="kw-2">ref </span>DEFAULT_WASMER_DIR: PathBuf = <span class="kw">match </span>WasmerConfig::get_wasmer_dir() {
         <span class="prelude-val">Ok</span>(path) =&gt; path,
         <span class="prelude-val">Err</span>(e) =&gt; {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(install_prefix) = <span class="macro">option_env!</span>(<span class="string">&quot;WASMER_INSTALL_PREFIX&quot;</span>) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(install_prefix) = <span class="macro">option_env!</span>(<span class="string">"WASMER_INSTALL_PREFIX"</span>) {
                 <span class="kw">return </span>PathBuf::from(install_prefix);
             }
 
-            <span class="macro">panic!</span>(<span class="string">&quot;Unable to determine the wasmer dir: {e}&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">"Unable to determine the wasmer dir: {e}"</span>);
         }
     };
 
     <span class="doccomment">/// The default value for `$WASMER_DIR`.
-    </span><span class="kw">pub static </span><span class="kw-2">ref </span>DEFAULT_WASMER_CACHE_DIR: PathBuf = DEFAULT_WASMER_DIR.join(<span class="string">&quot;cache&quot;</span>);
+    </span><span class="kw">pub static </span><span class="kw-2">ref </span>DEFAULT_WASMER_CACHE_DIR: PathBuf = DEFAULT_WASMER_DIR.join(<span class="string">"cache"</span>);
 }
 
-<span class="attr">#[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
+<span class="attr">#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>WasmerConfig {
     <span class="doccomment">/// Whether or not telemetry is enabled.
     </span><span class="attr">#[serde(default)]
@@ -379,6 +392,17 @@
     </span><span class="kw">pub </span>proxy: Proxy,
 }
 
+<span class="kw">impl </span>Default <span class="kw">for </span>WasmerConfig {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            telemetry_enabled: <span class="bool-val">true</span>,
+            update_notifications_enabled: <span class="bool-val">true</span>,
+            registry: Default::default(),
+            proxy: Default::default(),
+        }
+    }
+}
+
 <span class="attr">#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
 </span><span class="kw">pub struct </span>Proxy {
     <span class="kw">pub </span>url: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -390,7 +414,7 @@
 </span><span class="kw">pub struct </span>MultiRegistry {
     <span class="doccomment">/// Currently active registry
     </span><span class="kw">pub </span>active_registry: String,
-    <span class="doccomment">/// Map from &quot;RegistryUrl&quot; to &quot;LoginToken&quot;, in order to
+    <span class="doccomment">/// Map from "RegistryUrl" to "LoginToken", in order to
     /// be able to be able to easily switch between registries
     </span><span class="kw">pub </span>tokens: Vec&lt;RegistryLogin&gt;,
 }
@@ -412,42 +436,44 @@
 
 <span class="kw">pub fn </span>format_graphql(registry: <span class="kw-2">&amp;</span>str) -&gt; String {
     <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>url) = Url::parse(registry) {
-        <span class="comment">// Looks like we&#39;ve got a valid URL. Let&#39;s try to use it as-is.
+        <span class="comment">// Looks like we've got a valid URL. Let's try to use it as-is.
         </span><span class="kw">if </span>url.has_host() {
-            <span class="kw">if </span>url.path() == <span class="string">&quot;/&quot; </span>{
+            <span class="kw">if </span>url.path() == <span class="string">"/" </span>{
                 <span class="comment">// make sure we convert http://registry.wasmer.io/ to
                 // http://registry.wasmer.io/graphql
-                </span>url.set_path(<span class="string">&quot;/graphql&quot;</span>);
+                </span>url.set_path(<span class="string">"/graphql"</span>);
             }
 
             <span class="kw">return </span>url.to_string();
         }
     }
 
-    <span class="kw">if </span>!registry.contains(<span class="string">&quot;://&quot;</span>) &amp;&amp; !registry.contains(<span class="string">&#39;/&#39;</span>) {
+    <span class="kw">if </span>!registry.contains(<span class="string">"://"</span>) &amp;&amp; !registry.contains(<span class="string">'/'</span>) {
         <span class="kw">return </span>endpoint_from_domain_name(registry);
     }
 
-    <span class="comment">// looks like we&#39;ve received something we can&#39;t deal with. Just pass it
-    // through as-is and hopefully it&#39;ll either work or the end user can figure
+    <span class="comment">// looks like we've received something we can't deal with. Just pass it
+    // through as-is and hopefully it'll either work or the end user can figure
     // it out
     </span>registry.to_string()
 }
 
-<span class="doccomment">/// By convention, something like `&quot;wasmer.io&quot;` should be converted to
-/// `&quot;https://registry.wasmer.io/graphql&quot;`.
+<span class="doccomment">/// By convention, something like `"wasmer.io"` should be converted to
+/// `"https://registry.wasmer.io/graphql"`.
 </span><span class="kw">fn </span>endpoint_from_domain_name(domain_name: <span class="kw-2">&amp;</span>str) -&gt; String {
-    <span class="kw">if </span>domain_name.contains(<span class="string">&quot;localhost&quot;</span>) {
-        <span class="kw">return </span><span class="macro">format!</span>(<span class="string">&quot;http://{domain_name}/graphql&quot;</span>);
+    <span class="kw">if </span>domain_name.contains(<span class="string">"localhost"</span>) {
+        <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"http://{domain_name}/graphql"</span>);
     }
 
-    <span class="macro">format!</span>(<span class="string">&quot;https://registry.{domain_name}/graphql&quot;</span>)
+    <span class="macro">format!</span>(<span class="string">"https://registry.{domain_name}/graphql"</span>)
 }
 
 <span class="kw">async fn </span>test_if_registry_present(registry: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">let </span>client = WasmerClient::new(url::Url::parse(registry)<span class="question-mark">?</span>, <span class="kw-2">&amp;</span>DEFAULT_WASMER_CLI_USER_AGENT)<span class="question-mark">?</span>;
 
-    wasmer_api::query::current_user(<span class="kw-2">&amp;</span>client).<span class="kw">await</span>.map(|<span class="kw">_</span>| ())
+    wasmer_backend_api::query::current_user(<span class="kw-2">&amp;</span>client)
+        .<span class="kw">await
+        </span>.map(|<span class="kw">_</span>| ())
 }
 
 <span class="attr">#[derive(PartialEq, Eq, Copy, Clone)]
@@ -491,8 +517,8 @@
     </span><span class="kw">pub async fn </span>set_current_registry(<span class="kw-2">&amp;mut </span><span class="self">self</span>, registry: <span class="kw-2">&amp;</span>str) {
         <span class="kw">let </span>registry = format_graphql(registry);
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = test_if_registry_present(<span class="kw-2">&amp;</span>registry).<span class="kw">await </span>{
-            <span class="macro">println!</span>(<span class="string">&quot;Error when trying to ping registry {registry:?}: {e}&quot;</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;WARNING: Registry {registry:?} will be used, but commands may not succeed.&quot;</span>);
+            <span class="macro">println!</span>(<span class="string">"Error when trying to ping registry {registry:?}: {e}"</span>);
+            <span class="macro">println!</span>(<span class="string">"WARNING: Registry {registry:?} will be used, but commands may not succeed."</span>);
         }
         <span class="self">self</span>.active_registry = registry;
     }
@@ -548,18 +574,18 @@
     <span class="doccomment">/// Creates and returns the `WASMER_DIR` directory (or $HOME/.wasmer as a fallback)
     </span><span class="kw">pub fn </span>get_wasmer_dir() -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt; {
         <span class="prelude-val">Ok</span>(
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(folder_str) = std::env::var(<span class="string">&quot;WASMER_DIR&quot;</span>).ok().filter(|s| !s.is_empty()) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(folder_str) = std::env::var(<span class="string">"WASMER_DIR"</span>).ok().filter(|s| !s.is_empty()) {
                 <span class="kw">let </span>folder = PathBuf::from(folder_str);
                 std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;cannot create config directory: {e}&quot;</span>))<span class="question-mark">?</span>;
+                    .map_err(|e| <span class="macro">format!</span>(<span class="string">"cannot create config directory: {e}"</span>))<span class="question-mark">?</span>;
                 folder
             } <span class="kw">else </span>{
                 <span class="kw">let </span>home_dir =
-                    dirs::home_dir().ok_or_else(|| <span class="string">&quot;cannot find home directory&quot;</span>.to_string())<span class="question-mark">?</span>;
+                    dirs::home_dir().ok_or_else(|| <span class="string">"cannot find home directory"</span>.to_string())<span class="question-mark">?</span>;
                 <span class="kw">let </span><span class="kw-2">mut </span>folder = home_dir;
-                folder.push(<span class="string">&quot;.wasmer&quot;</span>);
+                folder.push(<span class="string">".wasmer"</span>);
                 std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;cannot create config directory: {e}&quot;</span>))<span class="question-mark">?</span>;
+                    .map_err(|e| <span class="macro">format!</span>(<span class="string">"cannot create config directory: {e}"</span>))<span class="question-mark">?</span>;
                 folder
             },
         )
@@ -569,11 +595,11 @@
     </span><span class="doccomment">/// Load the config based on environment variables and default config file locations.
     </span><span class="kw">pub fn </span>from_env() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span>dir = <span class="self">Self</span>::get_wasmer_dir()
-            .map_err(|err| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not determine wasmer dir: {err}&quot;</span>))<span class="question-mark">?</span>;
+            .map_err(|err| <span class="macro">anyhow::anyhow!</span>(<span class="string">"Could not determine wasmer dir: {err}"</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>file_path = <span class="self">Self</span>::get_file_location(<span class="kw-2">&amp;</span>dir);
         <span class="self">Self</span>::from_file(<span class="kw-2">&amp;</span>file_path).map_err(|err| {
             <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;Could not load config file at &#39;{}&#39;: {}&quot;</span>,
+                <span class="string">"Could not load config file at '{}': {}"</span>,
                 file_path.display(),
                 err
             )
@@ -602,33 +628,33 @@
         <span class="kw">let </span><span class="kw-2">mut </span>registries = MultiRegistry::default();
 
         registries
-            .set_current_registry(<span class="string">&quot;https://registry.wasmer.wtf&quot;</span>)
+            .set_current_registry(<span class="string">"https://registry.wasmer.wtf"</span>)
             .<span class="kw">await</span>;
         <span class="macro">assert_eq!</span>(
             registries.get_current_registry(),
-            <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>.to_string()
+            <span class="string">"https://registry.wasmer.wtf/graphql"</span>.to_string()
         );
         registries.set_login_token_for_registry(
-            <span class="string">&quot;https://registry.wasmer.io&quot;</span>,
-            <span class="string">&quot;token1&quot;</span>,
+            <span class="string">"https://registry.wasmer.io"</span>,
+            <span class="string">"token1"</span>,
             UpdateRegistry::LeaveAsIs,
         );
         <span class="macro">assert_eq!</span>(
             registries.get_current_registry(),
-            <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>.to_string()
+            <span class="string">"https://registry.wasmer.wtf/graphql"</span>.to_string()
         );
         <span class="macro">assert_eq!</span>(
             registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
             <span class="prelude-val">None
         </span>);
         registries
-            .set_current_registry(<span class="string">&quot;https://registry.wasmer.io&quot;</span>)
+            .set_current_registry(<span class="string">"https://registry.wasmer.io"</span>)
             .<span class="kw">await</span>;
         <span class="macro">assert_eq!</span>(
             registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
-            <span class="prelude-val">Some</span>(<span class="string">&quot;token1&quot;</span>.to_string())
+            <span class="prelude-val">Some</span>(<span class="string">"token1"</span>.to_string())
         );
-        registries.remove_registry(<span class="string">&quot;https://registry.wasmer.io&quot;</span>);
+        registries.remove_registry(<span class="string">"https://registry.wasmer.io"</span>);
         <span class="macro">assert_eq!</span>(
             registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
             <span class="prelude-val">None
@@ -639,27 +665,27 @@
     </span><span class="kw">fn </span>format_registry_urls() {
         <span class="kw">let </span>inputs = [
             <span class="comment">// Domain names work
-            </span>(<span class="string">&quot;wasmer.io&quot;</span>, <span class="string">&quot;https://registry.wasmer.io/graphql&quot;</span>),
-            (<span class="string">&quot;wasmer.wtf&quot;</span>, <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>),
+            </span>(<span class="string">"wasmer.io"</span>, <span class="string">"https://registry.wasmer.io/graphql"</span>),
+            (<span class="string">"wasmer.wtf"</span>, <span class="string">"https://registry.wasmer.wtf/graphql"</span>),
             <span class="comment">// Plain URLs
             </span>(
-                <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>,
-                <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>,
+                <span class="string">"https://registry.wasmer.wtf/graphql"</span>,
+                <span class="string">"https://registry.wasmer.wtf/graphql"</span>,
             ),
             (
-                <span class="string">&quot;https://registry.wasmer.wtf/something/else&quot;</span>,
-                <span class="string">&quot;https://registry.wasmer.wtf/something/else&quot;</span>,
+                <span class="string">"https://registry.wasmer.wtf/something/else"</span>,
+                <span class="string">"https://registry.wasmer.wtf/something/else"</span>,
             ),
-            <span class="comment">// We don&#39;t automatically prepend the domain name with
-            // &quot;registry&quot;, but we will make sure &quot;/&quot; gets turned into &quot;/graphql&quot;
-            </span>(<span class="string">&quot;https://wasmer.wtf/&quot;</span>, <span class="string">&quot;https://wasmer.wtf/graphql&quot;</span>),
-            (<span class="string">&quot;https://wasmer.wtf&quot;</span>, <span class="string">&quot;https://wasmer.wtf/graphql&quot;</span>),
+            <span class="comment">// We don't automatically prepend the domain name with
+            // "registry", but we will make sure "/" gets turned into "/graphql"
+            </span>(<span class="string">"https://wasmer.wtf/"</span>, <span class="string">"https://wasmer.wtf/graphql"</span>),
+            (<span class="string">"https://wasmer.wtf"</span>, <span class="string">"https://wasmer.wtf/graphql"</span>),
             <span class="comment">// local development
             </span>(
-                <span class="string">&quot;http://localhost:8000/graphql&quot;</span>,
-                <span class="string">&quot;http://localhost:8000/graphql&quot;</span>,
+                <span class="string">"http://localhost:8000/graphql"</span>,
+                <span class="string">"http://localhost:8000/graphql"</span>,
             ),
-            (<span class="string">&quot;localhost:8000&quot;</span>, <span class="string">&quot;http://localhost:8000/graphql&quot;</span>),
+            (<span class="string">"localhost:8000"</span>, <span class="string">"http://localhost:8000/graphql"</span>),
         ];
 
         <span class="kw">for </span>(input, expected) <span class="kw">in </span>inputs {

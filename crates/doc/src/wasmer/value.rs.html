@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/value.rs`."><title>value.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/value.rs`."><title>value.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -472,19 +472,13 @@
 <a href="#472" id="472">472</a>
 <a href="#473" id="473">473</a>
 <a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::convert::TryFrom;
-<span class="kw">use </span>std::fmt;
-<span class="kw">use </span>std::string::{String, ToString};
-
-<span class="kw">use </span>wasmer_types::Type;
-
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
 <span class="kw">use </span><span class="kw">crate</span>::vm::{VMExternRef, VMFuncRef};
-
 <span class="kw">use </span><span class="kw">crate</span>::ExternRef;
 <span class="kw">use </span><span class="kw">crate</span>::Function;
-
-<span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
+<span class="kw">use </span>std::convert::TryFrom;
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>wasmer_types::Type;
 
 <span class="kw">pub use </span>wasmer_types::RawValue;
 
@@ -522,7 +516,7 @@
     </span>V128(u128),
 }
 
-<span class="macro">macro_rules! </span>accessors {
+<span class="macro">macro_rules!</span> accessors {
     (<span class="macro-nonterminal">$bind</span>:ident $((<span class="macro-nonterminal">$variant</span>:ident(<span class="macro-nonterminal">$ty</span>:ty) <span class="macro-nonterminal">$get</span>:ident <span class="macro-nonterminal">$unwrap</span>:ident <span class="macro-nonterminal">$cvt</span>:expr))<span class="kw-2">*</span>) =&gt; ($(
         <span class="doccomment">/// Attempt to access the underlying value of this `Value`, returning
         /// `None` if it is not the correct type.
@@ -534,14 +528,14 @@
             </span>}
         }
 
-        <span class="doccomment">/// Returns the underlying value of this `Value`, panicking if it&#39;s the
+        <span class="doccomment">/// Returns the underlying value of this `Value`, panicking if it's the
         /// wrong type.
         ///
         /// # Panics
         ///
         /// Panics if `self` is not of the right type.
         </span><span class="kw">pub fn </span><span class="macro-nonterminal">$unwrap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="macro-nonterminal">$ty </span>{
-            <span class="self">self</span>.<span class="macro-nonterminal">$get</span>().expect(<span class="macro">concat!</span>(<span class="string">&quot;expected &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$ty</span>)))
+            <span class="self">self</span>.<span class="macro-nonterminal">$get</span>().expect(<span class="macro">concat!</span>(<span class="string">"expected "</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$ty</span>)))
         }
     )<span class="kw-2">*</span>)
 }
@@ -622,7 +616,7 @@
         }
     }
 
-    <span class="macro">accessors! </span>{
+    <span class="macro">accessors!</span> {
         e
         (I32(i32) i32 unwrap_i32 <span class="kw-2">*</span>e)
         (I64(i64) i64 unwrap_i64 <span class="kw-2">*</span>e)
@@ -635,32 +629,36 @@
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Value {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::I32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;I32({:?})&quot;</span>, v),
-            <span class="self">Self</span>::I64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;I64({:?})&quot;</span>, v),
-            <span class="self">Self</span>::F32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;F32({:?})&quot;</span>, v),
-            <span class="self">Self</span>::F64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;F64({:?})&quot;</span>, v),
-            <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Null ExternRef&quot;</span>),
-            <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ExternRef({:?})&quot;</span>, v),
-            <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Null FuncRef&quot;</span>),
-            <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;FuncRef({:?})&quot;</span>, v),
-            <span class="self">Self</span>::V128(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;V128({:?})&quot;</span>, v),
+            <span class="self">Self</span>::I32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"I32({:?})"</span>, v),
+            <span class="self">Self</span>::I64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"I64({:?})"</span>, v),
+            <span class="self">Self</span>::F32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"F32({:?})"</span>, v),
+            <span class="self">Self</span>::F64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"F64({:?})"</span>, v),
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Null ExternRef"</span>),
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">"ExternRef({:?})"</span>, v),
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Null FuncRef"</span>),
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">"FuncRef({:?})"</span>, v),
+            <span class="self">Self</span>::V128(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"V128({:?})"</span>, v),
         }
     }
 }
 
-<span class="kw">impl </span>ToString <span class="kw">for </span>Value {
-    <span class="kw">fn </span>to_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::I32(v) =&gt; v.to_string(),
-            <span class="self">Self</span>::I64(v) =&gt; v.to_string(),
-            <span class="self">Self</span>::F32(v) =&gt; v.to_string(),
-            <span class="self">Self</span>::F64(v) =&gt; v.to_string(),
-            <span class="self">Self</span>::ExternRef(<span class="kw">_</span>) =&gt; <span class="string">&quot;externref&quot;</span>.to_string(),
-            <span class="self">Self</span>::FuncRef(<span class="kw">_</span>) =&gt; <span class="string">&quot;funcref&quot;</span>.to_string(),
-            <span class="self">Self</span>::V128(v) =&gt; v.to_string(),
-        }
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>Value {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        <span class="macro">write!</span>(
+            f,
+            <span class="string">"{}"</span>,
+            <span class="kw">match </span><span class="self">self </span>{
+                <span class="self">Self</span>::I32(v) =&gt; v.to_string(),
+                <span class="self">Self</span>::I64(v) =&gt; v.to_string(),
+                <span class="self">Self</span>::F32(v) =&gt; v.to_string(),
+                <span class="self">Self</span>::F64(v) =&gt; v.to_string(),
+                <span class="self">Self</span>::ExternRef(<span class="kw">_</span>) =&gt; <span class="string">"externref"</span>.to_string(),
+                <span class="self">Self</span>::FuncRef(<span class="kw">_</span>) =&gt; <span class="string">"funcref"</span>.to_string(),
+                <span class="self">Self</span>::V128(v) =&gt; v.to_string(),
+            }
+        )
     }
 }
 
@@ -739,15 +737,15 @@
     }
 }
 
-<span class="kw">const </span>NOT_I32: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type i32&quot;</span>;
-<span class="kw">const </span>NOT_I64: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type i64&quot;</span>;
-<span class="kw">const </span>NOT_F32: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type f32&quot;</span>;
-<span class="kw">const </span>NOT_F64: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type f64&quot;</span>;
-<span class="kw">const </span>NOT_FUNCREF: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type funcref&quot;</span>;
-<span class="kw">const </span>NOT_EXTERNREF: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type externref&quot;</span>;
+<span class="kw">const </span>NOT_I32: <span class="kw-2">&amp;</span>str = <span class="string">"Value is not of Wasm type i32"</span>;
+<span class="kw">const </span>NOT_I64: <span class="kw-2">&amp;</span>str = <span class="string">"Value is not of Wasm type i64"</span>;
+<span class="kw">const </span>NOT_F32: <span class="kw-2">&amp;</span>str = <span class="string">"Value is not of Wasm type f32"</span>;
+<span class="kw">const </span>NOT_F64: <span class="kw-2">&amp;</span>str = <span class="string">"Value is not of Wasm type f64"</span>;
+<span class="kw">const </span>NOT_FUNCREF: <span class="kw-2">&amp;</span>str = <span class="string">"Value is not of Wasm type funcref"</span>;
+<span class="kw">const </span>NOT_EXTERNREF: <span class="kw-2">&amp;</span>str = <span class="string">"Value is not of Wasm type externref"</span>;
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>i32 {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         value.i32().ok_or(NOT_I32)
@@ -755,7 +753,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>u32 {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         value.i32().ok_or(NOT_I32).map(|int| int <span class="kw">as </span><span class="self">Self</span>)
@@ -763,7 +761,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>i64 {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         value.i64().ok_or(NOT_I64)
@@ -771,7 +769,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>u64 {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         value.i64().ok_or(NOT_I64).map(|int| int <span class="kw">as </span><span class="self">Self</span>)
@@ -779,7 +777,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>f32 {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         value.f32().ok_or(NOT_F32)
@@ -787,7 +785,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>f64 {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         value.f64().ok_or(NOT_F64)
@@ -795,7 +793,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="kw">match </span>value {
@@ -806,7 +804,7 @@
 }
 
 <span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;ExternRef&gt; {
-    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
     <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="kw">match </span>value {
@@ -870,7 +868,7 @@
 
         <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
         <span class="kw">let </span>result = i32::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i32&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type i32"</span>);
     }
 
     <span class="attr">#[test]
@@ -885,7 +883,7 @@
 
         <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
         <span class="kw">let </span>result = u32::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i32&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type i32"</span>);
     }
 
     <span class="attr">#[test]
@@ -900,7 +898,7 @@
 
         <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
         <span class="kw">let </span>result = i64::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i64&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type i64"</span>);
     }
 
     <span class="attr">#[test]
@@ -915,7 +913,7 @@
 
         <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
         <span class="kw">let </span>result = u64::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i64&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type i64"</span>);
     }
 
     <span class="attr">#[test]
@@ -926,11 +924,11 @@
 
         <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
         <span class="kw">let </span>result = f32::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f32&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type f32"</span>);
 
         <span class="kw">let </span>value = Value::F64(<span class="number">1.234</span>);
         <span class="kw">let </span>result = f32::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f32&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type f32"</span>);
     }
 
     <span class="attr">#[test]
@@ -941,11 +939,11 @@
 
         <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
         <span class="kw">let </span>result = f64::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f64&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type f64"</span>);
 
         <span class="kw">let </span>value = Value::F32(<span class="number">1.234</span>);
         <span class="kw">let </span>result = f64::try_from(value);
-        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f64&quot;</span>);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">"Value is not of Wasm type f64"</span>);
     }
 }
 </code></pre></div></section></main></body></html>

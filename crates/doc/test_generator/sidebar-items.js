@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["emscripten_processor","extract_name","test_directory","test_directory_module","wasi_processor","wast_processor","with_test_module","write_test"],"mod":["processors"],"struct":["Test","Testsuite"]};
+window.SIDEBAR_ITEMS = {"fn":["extract_name","test_directory","test_directory_module","wasi_processor","wast_processor","with_test_module","write_test"],"mod":["processors"],"struct":["Test","Testsuite"]};

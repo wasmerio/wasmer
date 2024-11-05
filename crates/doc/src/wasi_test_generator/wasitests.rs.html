@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/wasi-wast/src/wasitests.rs`."><title>wasitests.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasi_test_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasi_test_generator/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/wasi-wast/src/wasitests.rs`."><title>wasitests.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasi_test_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -483,40 +483,40 @@
 ) -&gt; io::Result&lt;NativeOutput&gt; {
     <span class="kw">let </span>executable_path = temp_dir.join(normalized_name);
     <span class="macro">println!</span>(
-        <span class="string">&quot;Compiling program {} to native at {}&quot;</span>,
+        <span class="string">"Compiling program {} to native at {}"</span>,
         file,
         executable_path.to_string_lossy()
     );
-    <span class="kw">let </span>native_out = Command::new(<span class="string">&quot;rustc&quot;</span>)
+    <span class="kw">let </span>native_out = Command::new(<span class="string">"rustc"</span>)
         .arg(file)
-        .arg(<span class="string">&quot;-o&quot;</span>)
+        .arg(<span class="string">"-o"</span>)
         .args(args)
         .arg(<span class="kw-2">&amp;</span>executable_path)
         .output()
-        .expect(<span class="string">&quot;Failed to compile program to native code&quot;</span>);
-    util::print_info_on_error(<span class="kw-2">&amp;</span>native_out, <span class="string">&quot;COMPILATION FAILED&quot;</span>);
+        .expect(<span class="string">"Failed to compile program to native code"</span>);
+    util::print_info_on_error(<span class="kw-2">&amp;</span>native_out, <span class="string">"COMPILATION FAILED"</span>);
 
     <span class="attr">#[cfg(unix)]
     </span>{
         <span class="kw">use </span>std::os::unix::fs::PermissionsExt;
         <span class="kw">let </span><span class="kw-2">mut </span>perm = executable_path
             .metadata()
-            .expect(<span class="string">&quot;native executable&quot;</span>)
+            .expect(<span class="string">"native executable"</span>)
             .permissions();
         perm.set_mode(<span class="number">0o766</span>);
         <span class="macro">println!</span>(
-            <span class="string">&quot;Setting execute permissions on {}&quot;</span>,
+            <span class="string">"Setting execute permissions on {}"</span>,
             executable_path.to_string_lossy()
         );
         fs::set_permissions(<span class="kw-2">&amp;</span>executable_path, perm)<span class="question-mark">?</span>;
     }
 
     <span class="macro">println!</span>(
-        <span class="string">&quot;Executing native program at {}&quot;</span>,
+        <span class="string">"Executing native program at {}"</span>,
         executable_path.to_string_lossy()
     );
     <span class="comment">// workspace root
-    </span><span class="kw">const </span>EXECUTE_DIR: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/wasi&quot;</span>);
+    </span><span class="kw">const </span>EXECUTE_DIR: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>), <span class="string">"/wasi"</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>native_command = Command::new(<span class="kw-2">&amp;</span>executable_path)
         .current_dir(EXECUTE_DIR)
         .stdin(Stdio::piped())
@@ -526,12 +526,12 @@
         .unwrap();
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(stdin_str) = <span class="kw-2">&amp;</span>options.stdin {
-        <span class="macro">write!</span>(native_command.stdin.as_ref().unwrap(), <span class="string">&quot;{}&quot;</span>, stdin_str).unwrap();
+        <span class="macro">write!</span>(native_command.stdin.as_ref().unwrap(), <span class="string">"{}"</span>, stdin_str).unwrap();
     }
 
     <span class="kw">let </span>result = native_command
         .wait()
-        .expect(<span class="string">&quot;Failed to execute native program&quot;</span>);
+        .expect(<span class="string">"Failed to execute native program"</span>);
 
     <span class="kw">let </span>stdout_str = {
         <span class="kw">let </span><span class="kw-2">mut </span>stdout = native_command.stdout.unwrap();
@@ -546,9 +546,9 @@
         s
     };
     <span class="kw">if </span>!result.success() {
-        <span class="macro">println!</span>(<span class="string">&quot;NATIVE PROGRAM FAILED&quot;</span>);
-        <span class="macro">println!</span>(<span class="string">&quot;stdout:\n{}&quot;</span>, stdout_str);
-        <span class="macro">eprintln!</span>(<span class="string">&quot;stderr:\n{}&quot;</span>, stderr_str);
+        <span class="macro">println!</span>(<span class="string">"NATIVE PROGRAM FAILED"</span>);
+        <span class="macro">println!</span>(<span class="string">"stdout:\n{}"</span>, stdout_str);
+        <span class="macro">eprintln!</span>(<span class="string">"stderr:\n{}"</span>, stderr_str);
     }
 
     <span class="kw">let </span>result = result.code().unwrap() <span class="kw">as </span>i64;
@@ -569,16 +569,16 @@
     rs_mod_name: <span class="kw-2">&amp;</span>str,
     version: WasiVersion,
 ) -&gt; io::Result&lt;PathBuf&gt; {
-    <span class="comment">//let out_dir = base_dir; //base_dir.join(&quot;..&quot;).join(version.get_directory_name());
+    <span class="comment">//let out_dir = base_dir; //base_dir.join("..").join(version.get_directory_name());
     </span><span class="kw">if </span>!out_dir.exists() {
         fs::create_dir(out_dir)<span class="question-mark">?</span>;
     }
     <span class="kw">let </span>wasm_out_name = {
         <span class="kw">let </span><span class="kw-2">mut </span>wasm_out_name = out_dir.join(rs_mod_name);
-        wasm_out_name.set_extension(<span class="string">&quot;wasm&quot;</span>);
+        wasm_out_name.set_extension(<span class="string">"wasm"</span>);
         wasm_out_name
     };
-    <span class="macro">println!</span>(<span class="string">&quot;Reading contents from file `{}`&quot;</span>, file);
+    <span class="macro">println!</span>(<span class="string">"Reading contents from file `{}`"</span>, file);
     <span class="kw">let </span>file_contents: String = {
         <span class="kw">let </span><span class="kw-2">mut </span>fc = String::new();
         <span class="kw">let </span><span class="kw-2">mut </span>f = fs::OpenOptions::new().read(<span class="bool-val">true</span>).open(file)<span class="question-mark">?</span>;
@@ -586,7 +586,7 @@
         fc
     };
 
-    <span class="kw">let </span>temp_wasi_rs_file_name = temp_dir.join(<span class="macro">format!</span>(<span class="string">&quot;wasi_modified_version_{}.rs&quot;</span>, rs_mod_name));
+    <span class="kw">let </span>temp_wasi_rs_file_name = temp_dir.join(<span class="macro">format!</span>(<span class="string">"wasi_modified_version_{}.rs"</span>, rs_mod_name));
     {
         <span class="kw">let </span><span class="kw-2">mut </span>actual_file = fs::OpenOptions::new()
             .write(<span class="bool-val">true</span>)
@@ -598,43 +598,43 @@
     }
 
     <span class="macro">println!</span>(
-        <span class="string">&quot;Compiling wasm module `{}` with toolchain `{}`&quot;</span>,
+        <span class="string">"Compiling wasm module `{}` with toolchain `{}`"</span>,
         <span class="kw-2">&amp;</span>wasm_out_name.to_string_lossy(),
         version.get_compiler_toolchain()
     );
-    <span class="kw">let </span><span class="kw-2">mut </span>command = Command::new(<span class="string">&quot;rustc&quot;</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>command = Command::new(<span class="string">"rustc"</span>);
 
     command
-        .arg(<span class="macro">format!</span>(<span class="string">&quot;+{}&quot;</span>, version.get_compiler_toolchain()))
-        .arg(<span class="string">&quot;--target=wasm32-wasi&quot;</span>)
-        .arg(<span class="string">&quot;-C&quot;</span>)
-        .arg(<span class="string">&quot;opt-level=z&quot;</span>)
+        .arg(<span class="macro">format!</span>(<span class="string">"+{}"</span>, version.get_compiler_toolchain()))
+        .arg(<span class="string">"--target=wasm32-wasi"</span>)
+        .arg(<span class="string">"-C"</span>)
+        .arg(<span class="string">"opt-level=z"</span>)
         .arg(<span class="kw-2">&amp;</span>temp_wasi_rs_file_name)
-        .arg(<span class="string">&quot;-o&quot;</span>)
+        .arg(<span class="string">"-o"</span>)
         .arg(<span class="kw-2">&amp;</span>wasm_out_name);
-    <span class="macro">println!</span>(<span class="string">&quot;Command {:?}&quot;</span>, command);
+    <span class="macro">println!</span>(<span class="string">"Command {:?}"</span>, command);
 
-    <span class="kw">let </span>wasm_compilation_out = command.output().expect(<span class="string">&quot;Failed to compile program to wasm&quot;</span>);
-    util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_compilation_out, <span class="string">&quot;WASM COMPILATION&quot;</span>);
+    <span class="kw">let </span>wasm_compilation_out = command.output().expect(<span class="string">"Failed to compile program to wasm"</span>);
+    util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_compilation_out, <span class="string">"WASM COMPILATION"</span>);
     <span class="macro">println!</span>(
-        <span class="string">&quot;Removing file `{}`&quot;</span>,
+        <span class="string">"Removing file `{}`"</span>,
         <span class="kw-2">&amp;</span>temp_wasi_rs_file_name.to_string_lossy()
     );
 
     <span class="comment">// to prevent commiting huge binary blobs forever
-    </span><span class="kw">let </span>wasm_strip_out = Command::new(<span class="string">&quot;wasm-strip&quot;</span>)
+    </span><span class="kw">let </span>wasm_strip_out = Command::new(<span class="string">"wasm-strip"</span>)
         .arg(<span class="kw-2">&amp;</span>wasm_out_name)
         .output()
-        .expect(<span class="string">&quot;Failed to strip compiled wasm module&quot;</span>);
-    util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_strip_out, <span class="string">&quot;STRIPPING WASM&quot;</span>);
-    <span class="kw">let </span>wasm_opt_out = Command::new(<span class="string">&quot;wasm-opt&quot;</span>)
-        .arg(<span class="string">&quot;-Oz&quot;</span>)
+        .expect(<span class="string">"Failed to strip compiled wasm module"</span>);
+    util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_strip_out, <span class="string">"STRIPPING WASM"</span>);
+    <span class="kw">let </span>wasm_opt_out = Command::new(<span class="string">"wasm-opt"</span>)
+        .arg(<span class="string">"-Oz"</span>)
         .arg(<span class="kw-2">&amp;</span>wasm_out_name)
-        .arg(<span class="string">&quot;-o&quot;</span>)
+        .arg(<span class="string">"-o"</span>)
         .arg(<span class="kw-2">&amp;</span>wasm_out_name)
         .output()
-        .expect(<span class="string">&quot;Failed to optimize compiled wasm module with wasm-opt!&quot;</span>);
-    util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_opt_out, <span class="string">&quot;OPTIMIZING WASM&quot;</span>);
+        .expect(<span class="string">"Failed to optimize compiled wasm module with wasm-opt!"</span>);
+    util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_opt_out, <span class="string">"OPTIMIZING WASM"</span>);
 
     <span class="prelude-val">Ok</span>(wasm_out_name)
 }
@@ -644,7 +644,7 @@
     <span class="kw">let </span>src_code: String = fs::read_to_string(file).unwrap();
     <span class="kw">let </span>options: WasiOptions = extract_args_from_source_file(<span class="kw-2">&amp;</span>src_code).unwrap_or_default();
 
-    <span class="macro">assert!</span>(file.ends_with(<span class="string">&quot;.rs&quot;</span>));
+    <span class="macro">assert!</span>(file.ends_with(<span class="string">".rs"</span>));
     <span class="kw">let </span>rs_mod_name = {
         Path::new(<span class="kw-2">&amp;</span>file.to_lowercase())
             .file_stem()
@@ -658,40 +658,40 @@
         stderr,
         result,
     } = generate_native_output(temp_dir, file, <span class="kw-2">&amp;</span>rs_mod_name, <span class="kw-2">&amp;</span>options.args, <span class="kw-2">&amp;</span>options)
-        .expect(<span class="string">&quot;Generate native output&quot;</span>);
+        .expect(<span class="string">"Generate native output"</span>);
 
     <span class="kw">let </span>test = WasiTest {
-        wasm_prog_name: <span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, rs_mod_name),
+        wasm_prog_name: <span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, rs_mod_name),
         stdout,
         stderr,
         result,
         options,
     };
     <span class="kw">let </span>test_serialized = test.into_wasi_wast();
-    <span class="macro">println!</span>(<span class="string">&quot;Generated test output: {}&quot;</span>, <span class="kw-2">&amp;</span>test_serialized);
+    <span class="macro">println!</span>(<span class="string">"Generated test output: {}"</span>, <span class="kw-2">&amp;</span>test_serialized);
 
     wasi_versions
         .iter()
         .map(|<span class="kw-2">&amp;</span>version| {
-            <span class="kw">let </span>out_dir = base_dir.join(<span class="string">&quot;..&quot;</span>).join(version.get_directory_name());
+            <span class="kw">let </span>out_dir = base_dir.join(<span class="string">".."</span>).join(version.get_directory_name());
             <span class="kw">if </span>!out_dir.exists() {
                 fs::create_dir(<span class="kw-2">&amp;</span>out_dir).unwrap();
             }
             <span class="kw">let </span>wasm_out_name = {
                 <span class="kw">let </span><span class="kw-2">mut </span>wasm_out_name = out_dir.join(rs_mod_name.clone());
-                wasm_out_name.set_extension(<span class="string">&quot;wast&quot;</span>);
+                wasm_out_name.set_extension(<span class="string">"wast"</span>);
                 wasm_out_name
             };
-            <span class="macro">println!</span>(<span class="string">&quot;Writing test output to {}&quot;</span>, wasm_out_name.to_string_lossy());
+            <span class="macro">println!</span>(<span class="string">"Writing test output to {}"</span>, wasm_out_name.to_string_lossy());
             fs::write(<span class="kw-2">&amp;</span>wasm_out_name, test_serialized.clone()).unwrap();
 
-            <span class="macro">println!</span>(<span class="string">&quot;Compiling wasm version {:?}&quot;</span>, version);
+            <span class="macro">println!</span>(<span class="string">"Compiling wasm version {:?}"</span>, version);
             compile_wasm_for_version(temp_dir, file, <span class="kw-2">&amp;</span>out_dir, <span class="kw-2">&amp;</span>rs_mod_name, version)
-                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;Could not compile Wasm to WASI version {:?}, perhaps you need to install the `{}` rust toolchain&quot;</span>, version, version.get_compiler_toolchain()));
+                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"Could not compile Wasm to WASI version {:?}, perhaps you need to install the `{}` rust toolchain"</span>, version, version.get_compiler_toolchain()));
         }).for_each(drop); <span class="comment">// Do nothing with it, but let the iterator be consumed/iterated.
 </span>}
 
-<span class="kw">const </span>WASI_TEST_SRC_DIR: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/wasi/tests/*.rs&quot;</span>);
+<span class="kw">const </span>WASI_TEST_SRC_DIR: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>), <span class="string">"/wasi/tests/*.rs"</span>);
 <span class="kw">pub fn </span>build(wasi_versions: <span class="kw-2">&amp;</span>[WasiVersion], specific_tests: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) {
     <span class="kw">let </span>temp_dir = tempfile::TempDir::new().unwrap();
     <span class="kw">for </span>entry <span class="kw">in </span>glob(WASI_TEST_SRC_DIR).unwrap() {
@@ -708,10 +708,10 @@
                     compile(temp_dir.path(), test, wasi_versions);
                 }
             }
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">"{:?}"</span>, e),
         }
     }
-    <span class="macro">println!</span>(<span class="string">&quot;All modules generated.&quot;</span>);
+    <span class="macro">println!</span>(<span class="string">"All modules generated."</span>);
 }
 
 <span class="doccomment">/// This is the structure of the `.wast` file
@@ -734,8 +734,8 @@
         <span class="kw">use </span>std::fmt::Write;
 
         <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="macro">format!</span>(
-            <span class="string">&quot;;; This file was generated by https://github.com/wasmerio/wasi-tests\n
-(wasi_test \&quot;{}\&quot;&quot;</span>,
+            <span class="string">";; This file was generated by https://github.com/wasmerio/wasi-tests\n
+(wasi_test \"{}\""</span>,
             <span class="self">self</span>.wasm_prog_name
         );
         <span class="kw">if </span>!<span class="self">self</span>.options.env.is_empty() {
@@ -743,20 +743,20 @@
                 </span>.options
                 .env
                 .iter()
-                .map(|(name, value)| <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}={}\&quot;&quot;</span>, name, value))
+                .map(|(name, value)| <span class="macro">format!</span>(<span class="string">"\"{}={}\""</span>, name, value))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
-                .join(<span class="string">&quot; &quot;</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (envs {})&quot;</span>, envs);
+                .join(<span class="string">" "</span>);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (envs {})"</span>, envs);
         }
         <span class="kw">if </span>!<span class="self">self</span>.options.args.is_empty() {
             <span class="kw">let </span>args = <span class="self">self
                 </span>.options
                 .args
                 .iter()
-                .map(|v| <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}\&quot;&quot;</span>, v))
+                .map(|v| <span class="macro">format!</span>(<span class="string">"\"{}\""</span>, v))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
-                .join(<span class="string">&quot; &quot;</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (args {})&quot;</span>, args);
+                .join(<span class="string">" "</span>);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (args {})"</span>, args);
         }
 
         <span class="kw">if </span>!<span class="self">self</span>.options.dir.is_empty() {
@@ -764,45 +764,45 @@
                 </span>.options
                 .dir
                 .iter()
-                .map(|v| <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}\&quot;&quot;</span>, v))
+                .map(|v| <span class="macro">format!</span>(<span class="string">"\"{}\""</span>, v))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
-                .join(<span class="string">&quot; &quot;</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (preopens {})&quot;</span>, preopens);
+                .join(<span class="string">" "</span>);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (preopens {})"</span>, preopens);
         }
         <span class="kw">if </span>!<span class="self">self</span>.options.mapdir.is_empty() {
             <span class="kw">let </span>map_dirs = <span class="self">self
                 </span>.options
                 .mapdir
                 .iter()
-                .map(|(a, b)| <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}:{}\&quot;&quot;</span>, a, b))
+                .map(|(a, b)| <span class="macro">format!</span>(<span class="string">"\"{}:{}\""</span>, a, b))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
-                .join(<span class="string">&quot; &quot;</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (map_dirs {})&quot;</span>, map_dirs);
+                .join(<span class="string">" "</span>);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (map_dirs {})"</span>, map_dirs);
         }
         <span class="kw">if </span>!<span class="self">self</span>.options.tempdir.is_empty() {
             <span class="kw">let </span>temp_dirs = <span class="self">self
                 </span>.options
                 .tempdir
                 .iter()
-                .map(|td| <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}\&quot;&quot;</span>, td))
+                .map(|td| <span class="macro">format!</span>(<span class="string">"\"{}\""</span>, td))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
-                .join(<span class="string">&quot; &quot;</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (temp_dirs {})&quot;</span>, temp_dirs);
+                .join(<span class="string">" "</span>);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (temp_dirs {})"</span>, temp_dirs);
         }
 
-        <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (assert_return (i64.const {}))&quot;</span>, <span class="self">self</span>.result);
+        <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (assert_return (i64.const {}))"</span>, <span class="self">self</span>.result);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(stdin) = <span class="kw-2">&amp;</span><span class="self">self</span>.options.stdin {
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (stdin {:?})&quot;</span>, stdin);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (stdin {:?})"</span>, stdin);
         }
 
         <span class="kw">if </span>!<span class="self">self</span>.stdout.is_empty() {
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (assert_stdout {:?})&quot;</span>, <span class="self">self</span>.stdout);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (assert_stdout {:?})"</span>, <span class="self">self</span>.stdout);
         }
         <span class="kw">if </span>!<span class="self">self</span>.stderr.is_empty() {
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n  (assert_stderr {:?})&quot;</span>, <span class="self">self</span>.stderr);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (assert_stderr {:?})"</span>, <span class="self">self</span>.stderr);
         }
 
-        <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">&quot;\n)\n&quot;</span>);
+        <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n)\n"</span>);
 
         out
     }
@@ -825,66 +825,66 @@
     </span><span class="kw">pub </span>stdin: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="doccomment">/// Pulls args to the program out of a comment at the top of the file starting with &quot;// WasiOptions:&quot;
+<span class="doccomment">/// Pulls args to the program out of a comment at the top of the file starting with "// WasiOptions:"
 </span><span class="kw">fn </span>extract_args_from_source_file(source_code: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;WasiOptions&gt; {
-    <span class="kw">if </span>source_code.starts_with(<span class="string">&quot;// WASI:&quot;</span>) {
+    <span class="kw">if </span>source_code.starts_with(<span class="string">"// WASI:"</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>args = WasiOptions::default();
         <span class="kw">for </span>arg_line <span class="kw">in </span>source_code
             .lines()
             .skip(<span class="number">1</span>)
-            .take_while(|line| line.starts_with(<span class="string">&quot;// &quot;</span>))
+            .take_while(|line| line.starts_with(<span class="string">"// "</span>))
         {
-            <span class="kw">let </span>arg_line = arg_line.strip_prefix(<span class="string">&quot;// &quot;</span>).unwrap();
+            <span class="kw">let </span>arg_line = arg_line.strip_prefix(<span class="string">"// "</span>).unwrap();
             <span class="kw">let </span>arg_line = arg_line.trim();
             <span class="kw">let </span>colon_idx = arg_line
-                .find(<span class="string">&#39;:&#39;</span>)
-                .expect(<span class="string">&quot;directives provided at the top must be separated by a `:`&quot;</span>);
+                .find(<span class="string">':'</span>)
+                .expect(<span class="string">"directives provided at the top must be separated by a `:`"</span>);
 
             <span class="kw">let </span>(command_name, value) = arg_line.split_at(colon_idx);
-            <span class="kw">let </span>value = value.strip_prefix(<span class="string">&#39;:&#39;</span>).unwrap();
+            <span class="kw">let </span>value = value.strip_prefix(<span class="string">':'</span>).unwrap();
             <span class="kw">let </span>value = value.trim();
 
             <span class="kw">match </span>command_name {
-                <span class="string">&quot;mapdir&quot; </span>=&gt;
+                <span class="string">"mapdir" </span>=&gt;
                 <span class="comment">// We try first splitting by `::`
                 </span>{
-                    <span class="kw">if let </span>[alias, real_dir] = value.split(<span class="string">&quot;::&quot;</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
+                    <span class="kw">if let </span>[alias, real_dir] = value.split(<span class="string">"::"</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
                         args.mapdir.push((alias.to_string(), real_dir.to_string()));
-                    } <span class="kw">else if let </span>[alias, real_dir] = value.split(<span class="string">&#39;:&#39;</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
+                    } <span class="kw">else if let </span>[alias, real_dir] = value.split(<span class="string">':'</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
                         <span class="comment">// And then we try splitting by `:` (for compatibility with previous API)
                         </span>args.mapdir.push((alias.to_string(), real_dir.to_string()));
                     } <span class="kw">else </span>{
-                        <span class="macro">eprintln!</span>(<span class="string">&quot;Parse error in mapdir {} not parsed correctly&quot;</span>, value);
+                        <span class="macro">eprintln!</span>(<span class="string">"Parse error in mapdir {} not parsed correctly"</span>, value);
                     }
                 }
-                <span class="string">&quot;env&quot; </span>=&gt; {
-                    <span class="kw">if let </span>[name, val] = value.split(<span class="string">&#39;=&#39;</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
+                <span class="string">"env" </span>=&gt; {
+                    <span class="kw">if let </span>[name, val] = value.split(<span class="string">'='</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
                         args.env.push((name.to_string(), val.to_string()));
                     } <span class="kw">else </span>{
-                        <span class="macro">eprintln!</span>(<span class="string">&quot;Parse error in env {} not parsed correctly&quot;</span>, value);
+                        <span class="macro">eprintln!</span>(<span class="string">"Parse error in env {} not parsed correctly"</span>, value);
                     }
                 }
-                <span class="string">&quot;dir&quot; </span>=&gt; {
+                <span class="string">"dir" </span>=&gt; {
                     args.dir.push(value.to_string());
                 }
-                <span class="string">&quot;arg&quot; </span>=&gt; {
+                <span class="string">"arg" </span>=&gt; {
                     args.args.push(value.to_string());
                 }
-                <span class="string">&quot;tempdir&quot; </span>=&gt; {
+                <span class="string">"tempdir" </span>=&gt; {
                     args.tempdir.push(value.to_string());
                 }
-                <span class="string">&quot;stdin&quot; </span>=&gt; {
-                    <span class="macro">assert!</span>(args.stdin.is_none(), <span class="string">&quot;Only the first `stdin` directive is used! Please correct this or update this code&quot;</span>);
+                <span class="string">"stdin" </span>=&gt; {
+                    <span class="macro">assert!</span>(args.stdin.is_none(), <span class="string">"Only the first `stdin` directive is used! Please correct this or update this code"</span>);
                     <span class="kw">let </span>s = value;
-                    <span class="kw">let </span>s = s.strip_prefix(<span class="string">&#39;&quot;&#39;</span>).expect(<span class="string">&quot;expected leading &#39;\&quot;&#39; in stdin&quot;</span>);
+                    <span class="kw">let </span>s = s.strip_prefix(<span class="string">'"'</span>).expect(<span class="string">"expected leading '\"' in stdin"</span>);
                     <span class="kw">let </span>s = s
                         .trim_end()
-                        .strip_suffix(<span class="string">&#39;\&quot;&#39;</span>)
-                        .expect(<span class="string">&quot;expected trailing &#39;\&quot;&#39; in stdin&quot;</span>);
+                        .strip_suffix(<span class="string">'\"'</span>)
+                        .expect(<span class="string">"expected trailing '\"' in stdin"</span>);
                     args.stdin = <span class="prelude-val">Some</span>(s.to_string());
                 }
                 e =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;WARN: comment arg: `{}` is not supported&quot;</span>, e);
+                    <span class="macro">eprintln!</span>(<span class="string">"WARN: comment arg: `{}` is not supported"</span>, e);
                 }
             }
         }

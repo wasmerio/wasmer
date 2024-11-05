@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CmdApp"],"mod":["create","delete","deploy","get","info","list","logs","purge_cache","regions","secrets","util","version","volumes"]};
+window.SIDEBAR_ITEMS = {"enum":["CmdApp"],"mod":["create","delete","deploy","deployments","get","info","list","logs","purge_cache","regions","secrets","util","version","volumes"]};

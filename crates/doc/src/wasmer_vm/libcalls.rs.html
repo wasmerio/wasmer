@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/libcalls.rs`."><title>libcalls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/libcalls.rs`."><title>libcalls.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -869,7 +869,7 @@
 //! These functions are called by compiled Wasm code, and therefore must take
 //! certain care about some things:
 //!
-//! * They must always be `pub extern &quot;C&quot;` and should only contain basic, raw
+//! * They must always be `pub extern "C"` and should only contain basic, raw
 //!   i32/i64/f32/f64/pointer parameters that are safe to pass across the system
 //!   ABI!
 //!
@@ -882,7 +882,7 @@
 //!   drops run before raising a trap:
 //!
 //!   ```ignore
-//!   pub extern &quot;C&quot; fn my_lib_function(...) {
+//!   pub extern "C" fn my_lib_function(...) {
 //!       let result = {
 //!           // Do everything in here so drops run at the end of the block.
 //!           ...
@@ -909,27 +909,27 @@
 
 <span class="doccomment">/// Implementation of f32.ceil
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_ceil(x: f32) -&gt; f32 {
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f32_ceil(x: f32) -&gt; f32 {
     x.ceil()
 }
 
 <span class="doccomment">/// Implementation of f32.floor
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_floor(x: f32) -&gt; f32 {
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f32_floor(x: f32) -&gt; f32 {
     x.floor()
 }
 
 <span class="doccomment">/// Implementation of f32.trunc
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_trunc(x: f32) -&gt; f32 {
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f32_trunc(x: f32) -&gt; f32 {
     x.trunc()
 }
 
 <span class="doccomment">/// Implementation of f32.nearest
 </span><span class="attr">#[allow(clippy::float_arithmetic, clippy::float_cmp)]
 #[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_nearest(x: f32) -&gt; f32 {
-    <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f32_nearest(x: f32) -&gt; f32 {
+    <span class="comment">// Rust doesn't have a nearest function, so do it manually.
     </span><span class="kw">if </span>x == <span class="number">0.0 </span>{
         <span class="comment">// Preserve the sign of zero.
         </span>x
@@ -954,27 +954,27 @@
 
 <span class="doccomment">/// Implementation of f64.ceil
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_ceil(x: f64) -&gt; f64 {
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f64_ceil(x: f64) -&gt; f64 {
     x.ceil()
 }
 
 <span class="doccomment">/// Implementation of f64.floor
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_floor(x: f64) -&gt; f64 {
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f64_floor(x: f64) -&gt; f64 {
     x.floor()
 }
 
 <span class="doccomment">/// Implementation of f64.trunc
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_trunc(x: f64) -&gt; f64 {
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f64_trunc(x: f64) -&gt; f64 {
     x.trunc()
 }
 
 <span class="doccomment">/// Implementation of f64.nearest
 </span><span class="attr">#[allow(clippy::float_arithmetic, clippy::float_cmp)]
 #[no_mangle]
-</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_nearest(x: f64) -&gt; f64 {
-    <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.
+</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_f64_nearest(x: f64) -&gt; f64 {
+    <span class="comment">// Rust doesn't have a nearest function, so do it manually.
     </span><span class="kw">if </span>x == <span class="number">0.0 </span>{
         <span class="comment">// Preserve the sign of zero.
         </span>x
@@ -1003,7 +1003,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_grow(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_grow(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     delta: u32,
     memory_index: u32,
@@ -1015,7 +1015,7 @@
         instance
             .memory_grow(memory_index, delta)
             .map(|pages| pages.<span class="number">0</span>)
-            .unwrap_or(u32::max_value())
+            .unwrap_or(u32::MAX)
     })
 }
 
@@ -1025,7 +1025,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_grow(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_grow(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     delta: u32,
     memory_index: u32,
@@ -1037,7 +1037,7 @@
         instance
             .imported_memory_grow(memory_index, delta)
             .map(|pages| pages.<span class="number">0</span>)
-            .unwrap_or(u32::max_value())
+            .unwrap_or(u32::MAX)
     })
 }
 
@@ -1047,7 +1047,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_size(vmctx: <span class="kw-2">*mut </span>VMContext, memory_index: u32) -&gt; u32 {
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_size(vmctx: <span class="kw-2">*mut </span>VMContext, memory_index: u32) -&gt; u32 {
     <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
     <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
 
@@ -1060,7 +1060,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_size(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_size(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
 ) -&gt; u32 {
@@ -1076,7 +1076,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_copy(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_table_copy(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     dst_table_index: u32,
     src_table_index: u32,
@@ -1107,7 +1107,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_init(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_table_init(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     table_index: u32,
     elem_index: u32,
@@ -1132,7 +1132,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_fill(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_table_fill(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     table_index: u32,
     start_idx: u32,
@@ -1145,7 +1145,7 @@
         <span class="kw">let </span>elem = <span class="kw">match </span>instance.get_table(table_index).ty().ty {
             Type::ExternRef =&gt; TableElement::ExternRef(item.extern_ref),
             Type::FuncRef =&gt; TableElement::FuncRef(item.func_ref),
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unrecognized table type: does not contain references"</span>),
         };
 
         instance.table_fill(table_index, start_idx, elem, len)
@@ -1161,7 +1161,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_size(vmctx: <span class="kw-2">*mut </span>VMContext, table_index: u32) -&gt; u32 {
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_table_size(vmctx: <span class="kw-2">*mut </span>VMContext, table_index: u32) -&gt; u32 {
     <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
     <span class="kw">let </span>table_index = LocalTableIndex::from_u32(table_index);
 
@@ -1174,7 +1174,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_size(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_table_size(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     table_index: u32,
 ) -&gt; u32 {
@@ -1190,7 +1190,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_get(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_table_get(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     table_index: u32,
     elem_index: u32,
@@ -1211,7 +1211,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_get(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_table_get(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     table_index: u32,
     elem_index: u32,
@@ -1232,10 +1232,10 @@
 ///
 /// `vmctx` must be dereferenceable.
 ///
-/// It is the caller&#39;s responsibility to increment the ref count of any ref counted
+/// It is the caller's responsibility to increment the ref count of any ref counted
 /// type before passing it to this function.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_set(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_table_set(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     table_index: u32,
     elem_index: u32,
@@ -1251,7 +1251,7 @@
     <span class="kw">let </span>elem = <span class="kw">match </span>instance.get_local_table(table_index).ty().ty {
         Type::ExternRef =&gt; TableElement::ExternRef(value.extern_ref),
         Type::FuncRef =&gt; TableElement::FuncRef(value.func_ref),
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unrecognized table type: does not contain references"</span>),
     };
 
     <span class="comment">// TODO: type checking, maybe have specialized accessors
@@ -1268,7 +1268,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_set(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_table_set(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     table_index: u32,
     elem_index: u32,
@@ -1279,7 +1279,7 @@
     <span class="kw">let </span>elem = <span class="kw">match </span>instance.get_table(table_index).ty().ty {
         Type::ExternRef =&gt; TableElement::ExternRef(value.extern_ref),
         Type::FuncRef =&gt; TableElement::FuncRef(value.func_ref),
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unrecognized table type: does not contain references"</span>),
     };
 
     <span class="kw">let </span>result = instance.imported_table_set(table_index, elem_index, elem);
@@ -1295,7 +1295,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_grow(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_table_grow(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     init_value: RawTableElement,
     delta: u32,
@@ -1308,12 +1308,12 @@
         <span class="kw">let </span>init_value = <span class="kw">match </span>instance.get_local_table(table_index).ty().ty {
             Type::ExternRef =&gt; TableElement::ExternRef(init_value.extern_ref),
             Type::FuncRef =&gt; TableElement::FuncRef(init_value.func_ref),
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unrecognized table type: does not contain references"</span>),
         };
 
         instance
             .table_grow(table_index, delta, init_value)
-            .unwrap_or(u32::max_value())
+            .unwrap_or(u32::MAX)
     })
 }
 
@@ -1323,7 +1323,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_grow(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_table_grow(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     init_value: RawTableElement,
     delta: u32,
@@ -1335,12 +1335,12 @@
         <span class="kw">let </span>init_value = <span class="kw">match </span>instance.get_table(table_index).ty().ty {
             Type::ExternRef =&gt; TableElement::ExternRef(init_value.extern_ref),
             Type::FuncRef =&gt; TableElement::FuncRef(init_value.func_ref),
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unrecognized table type: does not contain references"</span>),
         };
 
         instance
             .imported_table_grow(table_index, delta, init_value)
-            .unwrap_or(u32::max_value())
+            .unwrap_or(u32::MAX)
     })
 }
 
@@ -1350,7 +1350,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_func_ref(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_func_ref(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     function_index: u32,
 ) -&gt; VMFuncRef {
@@ -1366,7 +1366,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_elem_drop(vmctx: <span class="kw-2">*mut </span>VMContext, elem_index: u32) {
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_elem_drop(vmctx: <span class="kw-2">*mut </span>VMContext, elem_index: u32) {
     on_host_stack(|| {
         <span class="kw">let </span>elem_index = ElemIndex::from_u32(elem_index);
         <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
@@ -1380,7 +1380,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_copy(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_copy(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1403,7 +1403,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_copy(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_copy(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1426,7 +1426,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_fill(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_fill(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1449,7 +1449,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_fill(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_fill(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1472,7 +1472,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_init(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_init(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     data_index: u32,
@@ -1497,7 +1497,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_data_drop(vmctx: <span class="kw-2">*mut </span>VMContext, data_index: u32) {
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_data_drop(vmctx: <span class="kw-2">*mut </span>VMContext, data_index: u32) {
     on_host_stack(|| {
         <span class="kw">let </span>data_index = DataIndex::from_u32(data_index);
         <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
@@ -1512,7 +1512,7 @@
 /// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
 /// `wasmer_call_trampoline` must have been previously called.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_raise_trap(trap_code: TrapCode) -&gt; ! {
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_raise_trap(trap_code: TrapCode) -&gt; ! {
     <span class="kw">let </span>trap = Trap::lib(trap_code);
     raise_lib_trap(trap)
 }
@@ -1524,7 +1524,7 @@
 /// This function does not follow the standard function ABI, and is called as
 /// part of the function prologue.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub static </span>wasmer_vm_probestack: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>() = PROBESTACK;
+</span><span class="kw">pub static </span>wasmer_vm_probestack: <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>() = PROBESTACK;
 
 <span class="doccomment">/// Implementation of memory.wait32 for locally-defined 32-bit memories.
 ///
@@ -1532,7 +1532,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait32(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait32(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1557,7 +1557,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait32(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait32(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1582,7 +1582,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait64(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait64(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1607,7 +1607,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait64(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait64(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1632,7 +1632,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_notify(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_notify(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,
@@ -1656,7 +1656,7 @@
 ///
 /// `vmctx` must be dereferenceable.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_notify(
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_notify(
     vmctx: <span class="kw-2">*mut </span>VMContext,
     memory_index: u32,
     dst: u32,

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_obj.rs`."><title>create_obj.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_obj.rs`."><title>create_obj.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -168,6 +168,7 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 </span><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
@@ -176,6 +177,7 @@
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer_package::utils::from_disk;
 
 <span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
 
@@ -183,44 +185,44 @@
 </span><span class="doccomment">/// The options for the `wasmer create-exe` subcommand
 </span><span class="kw">pub struct </span>CreateObj {
     <span class="doccomment">/// Input file
-    </span><span class="attr">#[clap(name = <span class="string">&quot;FILE&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"FILE"</span>)]
     </span>path: PathBuf,
 
     <span class="doccomment">/// Output file or directory if the input is a pirita file
-    </span><span class="attr">#[clap(name = <span class="string">&quot;OUTPUT_PATH&quot;</span>, short = <span class="string">&#39;o&#39;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"OUTPUT_PATH"</span>, short = <span class="string">'o'</span>)]
     </span>output: PathBuf,
 
     <span class="doccomment">/// Optional directorey used for debugging: if present, will
     /// output the files to a debug instead of a temp directory
-    </span><span class="attr">#[clap(long, name = <span class="string">&quot;DEBUG PATH&quot;</span>)]
+    </span><span class="attr">#[clap(long, name = <span class="string">"DEBUG PATH"</span>)]
     </span>debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Prefix for the function names in the input file in the compiled object file.
     ///
     /// Default value = sha256 of the input file
-    </span><span class="attr">#[clap(long, name = <span class="string">&quot;PREFIX&quot;</span>)]
+    </span><span class="attr">#[clap(long, name = <span class="string">"PREFIX"</span>)]
     </span>prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Atom name to compile when compiling multi-atom pirita files
-    </span><span class="attr">#[clap(long, name = <span class="string">&quot;ATOM&quot;</span>)]
+    </span><span class="attr">#[clap(long, name = <span class="string">"ATOM"</span>)]
     </span>atom: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Compilation Target triple
     ///
     /// Accepted target triple values must follow the
-    /// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.
+    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
     ///
     /// The recommended targets we try to support are:
     ///
-    /// - &quot;x86_64-linux-gnu&quot;
-    /// - &quot;aarch64-linux-gnu&quot;
-    /// - &quot;x86_64-apple-darwin&quot;
-    /// - &quot;arm64-apple-darwin&quot;
-    /// - &quot;x86_64-windows-gnu&quot;
-    </span><span class="attr">#[clap(long = <span class="string">&quot;target&quot;</span>)]
+    /// - "x86_64-linux-gnu"
+    /// - "aarch64-linux-gnu"
+    /// - "x86_64-apple-darwin"
+    /// - "arm64-apple-darwin"
+    /// - "x86_64-windows-gnu"
+    </span><span class="attr">#[clap(long = <span class="string">"target"</span>)]
     </span>target_triple: <span class="prelude-ty">Option</span>&lt;Triple&gt;,
 
-    <span class="attr">#[clap(long, short = <span class="string">&#39;m&#39;</span>, number_of_values = <span class="number">1</span>)]
+    <span class="attr">#[clap(long, short = <span class="string">'m'</span>, number_of_values = <span class="number">1</span>)]
     </span>cpu_features: Vec&lt;CpuFeature&gt;,
 
     <span class="attr">#[clap(flatten)]
@@ -230,7 +232,7 @@
 <span class="kw">impl </span>CreateObj {
     <span class="doccomment">/// Runs logic for the `create-obj` subcommand
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>path = <span class="kw">crate</span>::common::normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.path.display()));
+        <span class="kw">let </span>path = <span class="kw">crate</span>::common::normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="self">self</span>.path.display()));
         <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple.clone().unwrap_or_else(Triple::host);
         <span class="kw">let </span>starting_cd = env::current_dir()<span class="question-mark">?</span>;
         <span class="kw">let </span>input_path = starting_cd.join(path);
@@ -250,10 +252,10 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
         );
         <span class="kw">let </span>(<span class="kw">_</span>, compiler_type) = <span class="self">self</span>.compiler.get_store_for_target(target.clone())<span class="question-mark">?</span>;
-        <span class="macro">println!</span>(<span class="string">&quot;Compiler: {}&quot;</span>, compiler_type.to_string());
-        <span class="macro">println!</span>(<span class="string">&quot;Target: {}&quot;</span>, target.triple());
+        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, compiler_type);
+        <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
 
-        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(webc) = webc::compat::Container::from_disk(<span class="kw-2">&amp;</span>input_path) {
+        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(webc) = from_disk(<span class="kw-2">&amp;</span>input_path) {
             <span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory(
                 <span class="kw-2">&amp;</span>webc,
                 <span class="kw-2">&amp;</span>output_directory_path,
@@ -278,11 +280,11 @@
 
         <span class="comment">// Copy output files into target path, depending on whether
         // there are one or many files being compiled
-        </span><span class="kw">let </span>file_paths = std::fs::read_dir(output_directory_path.join(<span class="string">&quot;atoms&quot;</span>))
+        </span><span class="kw">let </span>file_paths = std::fs::read_dir(output_directory_path.join(<span class="string">"atoms"</span>))
             .map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;could not read {}: {e}&quot;</span>,
-                    output_directory_path.join(<span class="string">&quot;atoms&quot;</span>).display()
+                    <span class="string">"could not read {}: {e}"</span>,
+                    output_directory_path.join(<span class="string">"atoms"</span>).display()
                 )
             })<span class="question-mark">?
             </span>.filter_map(|path| path.ok()<span class="question-mark">?</span>.path().canonicalize().ok())
@@ -290,8 +292,8 @@
 
         <span class="kw">if </span>file_paths.is_empty() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;could not compile object file: no output objects in {}&quot;</span>,
-                output_directory_path.join(<span class="string">&quot;atoms&quot;</span>).display()
+                <span class="string">"could not compile object file: no output objects in {}"</span>,
+                output_directory_path.join(<span class="string">"atoms"</span>).display()
             ));
         }
 
@@ -305,7 +307,7 @@
             )
             .map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;{} -&gt; {}: {e}&quot;</span>,
+                    <span class="string">"{} -&gt; {}: {e}"</span>,
                     <span class="kw-2">&amp;</span>file_paths[<span class="number">0</span>].display(),
                     <span class="self">self</span>.output.display()
                 )
@@ -316,24 +318,24 @@
                 .map(|(name, <span class="kw">_</span>)| name.clone())
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;where &lt;ATOM&gt; is one of: {}&quot;</span>,
-                keys.join(<span class="string">&quot;, &quot;</span>)
+                <span class="string">"where &lt;ATOM&gt; is one of: {}"</span>,
+                keys.join(<span class="string">", "</span>)
             ))
             .context(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;note: use --atom &lt;ATOM&gt; to specify which atom to compile&quot;
+                <span class="string">"note: use --atom &lt;ATOM&gt; to specify which atom to compile"
             </span>))
             .context(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;cannot compile more than one atom at a time&quot;
+                <span class="string">"cannot compile more than one atom at a time"
             </span>));
         }
 
         <span class="kw">let </span>output_file = <span class="self">self</span>.output.canonicalize().unwrap().display().to_string();
         <span class="kw">let </span>output_file = output_file
-            .strip_prefix(<span class="string">r&quot;\\?\&quot;</span>)
+            .strip_prefix(<span class="string">r"\\?\"</span>)
             .unwrap_or(<span class="kw-2">&amp;</span>output_file)
             .to_string();
 
-        <span class="macro">eprintln!</span>(<span class="string">&quot;✔ Object compiled successfully to `{output_file}`&quot;</span>);
+        <span class="macro">eprintln!</span>(<span class="string">"✔ Object compiled successfully to `{output_file}`"</span>);
 
         <span class="prelude-val">Ok</span>(())
     }

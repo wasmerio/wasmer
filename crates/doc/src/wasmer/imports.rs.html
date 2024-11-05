@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/imports.rs`."><title>imports.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/imports.rs`."><title>imports.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -474,8 +474,9 @@
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
 <a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The import module contains the implementation data structures and helper functions used to
-//! manipulate and access a wasm module&#39;s imports including memories, tables, globals, and
+//! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
 </span><span class="kw">use crate</span>::{Exports, Extern, LinkError, Module};
 <span class="kw">use </span>std::collections::HashMap;
@@ -484,7 +485,7 @@
 
 <span class="doccomment">/// All of the import data used when instantiating.
 ///
-/// It&#39;s suggested that you use the [`imports!`] macro
+/// It's suggested that you use the [`imports!`] macro
 /// instead of creating an `Imports` by hand.
 ///
 /// [`imports!`]: macro.imports.html
@@ -496,12 +497,12 @@
 ///
 /// let host_fn = Function::new_typed(&amp;mut store, foo);
 /// let import_object: Imports = imports! {
-///     &quot;env&quot; =&gt; {
-///         &quot;foo&quot; =&gt; host_fn,
+///     "env" =&gt; {
+///         "foo" =&gt; host_fn,
 ///     },
 /// };
 ///
-/// let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).expect(&quot;Could not instantiate module.&quot;);
+/// let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).expect("Could not instantiate module.");
 ///
 /// fn foo(n: i32) -&gt; i32 {
 ///     n
@@ -526,7 +527,7 @@
     /// ```no_run
     /// # use wasmer::Imports;
     /// let mut import_object = Imports::new();
-    /// import_object.get_export(&quot;module&quot;, &quot;name&quot;);
+    /// import_object.get_export("module", "name");
     /// ```
     </span><span class="kw">pub fn </span>get_export(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Extern&gt; {
         <span class="kw">if </span><span class="self">self</span>.exists(module, name) {
@@ -542,7 +543,7 @@
     /// ```no_run
     /// # use wasmer::Imports;
     /// let mut import_object = Imports::new();
-    /// import_object.exists(&quot;module&quot;, &quot;name&quot;);
+    /// import_object.exists("module", "name");
     /// ```
     </span><span class="kw">pub fn </span>exists(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
         <span class="self">self</span>.map
@@ -561,10 +562,10 @@
     /// # use wasmer::{Imports, Exports, Memory};
     /// # fn foo_test(memory: Memory) {
     /// let mut exports = Exports::new();
-    /// exports.insert(&quot;memory&quot;, memory);
+    /// exports.insert("memory", memory);
     ///
     /// let mut import_object = Imports::new();
-    /// import_object.register_namespace(&quot;env&quot;, exports);
+    /// import_object.register_namespace("env", exports);
     /// // ...
     /// # }
     /// ```
@@ -589,7 +590,7 @@
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define(&quot;env&quot;, &quot;foo&quot;, Function::new_typed(&amp;mut store, foo));
+    /// import_object.define("env", "foo", Function::new_typed(&amp;mut store, foo));
     /// ```
     </span><span class="kw">pub fn </span>define(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ns: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str, val: <span class="kw">impl </span>Into&lt;Extern&gt;) {
         <span class="self">self</span>.map
@@ -598,7 +599,7 @@
 
     <span class="doccomment">/// Returns the contents of a namespace as an `Exports`.
     ///
-    /// Returns `None` if the namespace doesn&#39;t exist.
+    /// Returns `None` if the namespace doesn't exist.
     </span><span class="kw">pub fn </span>get_namespace_exports(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Exports&gt; {
         <span class="kw">let </span>ret: Exports = <span class="self">self
             </span>.map
@@ -613,7 +614,7 @@
         }
     }
 
-    <span class="doccomment">/// Resolve and return a vector of imports in the order they are defined in the `module`&#39;s source code.
+    <span class="doccomment">/// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec&lt;Extern&gt;` might be a subset of the imports contained in `self`.
     </span><span class="attr">#[allow(clippy::result_large_err)]
@@ -637,24 +638,24 @@
     }
 
     <span class="doccomment">/// Iterates through all the imports in this structure
-    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="lifetime">&#39;_</span>&gt; {
+    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="lifetime">'_</span>&gt; {
         ImportsIterator::new(<span class="self">self</span>)
     }
 }
 
-<span class="kw">pub struct </span>ImportsIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
-    iter: std::collections::hash_map::Iter&lt;<span class="lifetime">&#39;a</span>, (String, String), Extern&gt;,
+<span class="kw">pub struct </span>ImportsIterator&lt;<span class="lifetime">'a</span>&gt; {
+    iter: std::collections::hash_map::Iter&lt;<span class="lifetime">'a</span>, (String, String), Extern&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ImportsIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">fn </span>new(imports: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Imports) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ImportsIterator&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">fn </span>new(imports: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Imports) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>iter = imports.map.iter();
         <span class="self">Self </span>{ iter }
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Iterator <span class="kw">for </span>ImportsIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">type </span>Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern);
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Iterator <span class="kw">for </span>ImportsIterator&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">type </span>Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Extern);
 
     <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
         <span class="self">self</span>.iter
@@ -700,14 +701,14 @@
         <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>SecretMap {
             <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
                 <span class="kw">match </span><span class="self">self </span>{
-                    <span class="self">Self</span>::Empty =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(empty)&quot;</span>),
-                    <span class="self">Self</span>::Some(len) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;(... {} item(s) ...)&quot;</span>, len),
+                    <span class="self">Self</span>::Empty =&gt; <span class="macro">write!</span>(f, <span class="string">"(empty)"</span>),
+                    <span class="self">Self</span>::Some(len) =&gt; <span class="macro">write!</span>(f, <span class="string">"(... {} item(s) ...)"</span>, len),
                 }
             }
         }
 
-        f.debug_struct(<span class="string">&quot;Imports&quot;</span>)
-            .field(<span class="string">&quot;map&quot;</span>, <span class="kw-2">&amp;</span>SecretMap::new(<span class="self">self</span>.map.len()))
+        f.debug_struct(<span class="string">"Imports"</span>)
+            .field(<span class="string">"map"</span>, <span class="kw-2">&amp;</span>SecretMap::new(<span class="self">self</span>.map.len()))
             .finish()
     }
 }
@@ -726,8 +727,8 @@
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
-///     &quot;env&quot; =&gt; {
-///         &quot;foo&quot; =&gt; Function::new_typed(&amp;mut store, foo)
+///     "env" =&gt; {
+///         "foo" =&gt; Function::new_typed(&amp;mut store, foo)
 ///     },
 /// };
 ///
@@ -736,7 +737,7 @@
 /// }
 /// ```
 </span><span class="attr">#[macro_export]
-</span><span class="macro">macro_rules! </span>imports {
+</span><span class="macro">macro_rules!</span> imports {
     ( $( <span class="macro-nonterminal">$ns_name</span>:expr =&gt; <span class="macro-nonterminal">$ns</span>:tt ),* $(,)<span class="question-mark">? </span>) =&gt; {
         {
             <span class="attr">#[allow(unused_mut)]
@@ -755,7 +756,7 @@
 
 <span class="attr">#[macro_export]
 #[doc(hidden)]
-</span><span class="macro">macro_rules! </span>namespace {
+</span><span class="macro">macro_rules!</span> namespace {
     ($( <span class="macro-nonterminal">$import_name</span>:expr =&gt; <span class="macro-nonterminal">$import_item</span>:expr ),* $(,)<span class="question-mark">? </span>) =&gt; {
         <span class="macro-nonterminal">$</span><span class="macro">crate::import_namespace!</span>( { $( <span class="macro-nonterminal">$import_name </span>=&gt; <span class="macro-nonterminal">$import_item</span>, )* } )
     };
@@ -763,7 +764,7 @@
 
 <span class="attr">#[macro_export]
 #[doc(hidden)]
-</span><span class="macro">macro_rules! </span>import_namespace {
+</span><span class="macro">macro_rules!</span> import_namespace {
     ( { $( <span class="macro-nonterminal">$import_name</span>:expr =&gt; <span class="macro-nonterminal">$import_item</span>:expr ),* $(,)<span class="question-mark">? </span>} ) =&gt; {{
         <span class="kw">let </span><span class="kw-2">mut </span>namespace = <span class="macro-nonterminal">$crate::Exports::new</span>();
 
@@ -791,14 +792,14 @@
     </span><span class="kw">fn </span>namespace() {
         <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
         <span class="kw">let </span>g1 = Global::new(<span class="kw-2">&amp;mut </span>store, Value::I32(<span class="number">0</span>));
-        <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
-            <span class="string">&quot;happy&quot; </span>=&gt; g1
+        <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
+            <span class="string">"happy" </span>=&gt; g1
         };
-        <span class="kw">let </span>imports1 = <span class="macro">imports! </span>{
-            <span class="string">&quot;dog&quot; </span>=&gt; namespace
+        <span class="kw">let </span>imports1 = <span class="macro">imports!</span> {
+            <span class="string">"dog" </span>=&gt; namespace
         };
 
-        <span class="kw">let </span>happy_dog_entry = imports1.get_export(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;happy&quot;</span>).unwrap();
+        <span class="kw">let </span>happy_dog_entry = imports1.get_export(<span class="string">"dog"</span>, <span class="string">"happy"</span>).unwrap();
 
         <span class="macro">assert!</span>(<span class="kw">if let </span>Extern::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.get(<span class="kw-2">&amp;mut </span>store).ty() == Type::I32
@@ -817,44 +818,44 @@
             arg + <span class="number">1
         </span>}
 
-        <span class="kw">let _ </span>= <span class="macro">imports! </span>{
-            <span class="string">&quot;env&quot; </span>=&gt; {
-                <span class="string">&quot;func&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
+        <span class="kw">let _ </span>= <span class="macro">imports!</span> {
+            <span class="string">"env" </span>=&gt; {
+                <span class="string">"func" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
             },
         };
-        <span class="kw">let _ </span>= <span class="macro">imports! </span>{
-            <span class="string">&quot;env&quot; </span>=&gt; {
-                <span class="string">&quot;func&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
+        <span class="kw">let _ </span>= <span class="macro">imports!</span> {
+            <span class="string">"env" </span>=&gt; {
+                <span class="string">"func" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
             }
         };
-        <span class="kw">let _ </span>= <span class="macro">imports! </span>{
-            <span class="string">&quot;env&quot; </span>=&gt; {
-                <span class="string">&quot;func&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
+        <span class="kw">let _ </span>= <span class="macro">imports!</span> {
+            <span class="string">"env" </span>=&gt; {
+                <span class="string">"func" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
             },
-            <span class="string">&quot;abc&quot; </span>=&gt; {
-                <span class="string">&quot;def&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
+            <span class="string">"abc" </span>=&gt; {
+                <span class="string">"def" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
             }
         };
-        <span class="kw">let _ </span>= <span class="macro">imports! </span>{
-            <span class="string">&quot;env&quot; </span>=&gt; {
-                <span class="string">&quot;func&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func)
+        <span class="kw">let _ </span>= <span class="macro">imports!</span> {
+            <span class="string">"env" </span>=&gt; {
+                <span class="string">"func" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func)
             },
         };
-        <span class="kw">let _ </span>= <span class="macro">imports! </span>{
-            <span class="string">&quot;env&quot; </span>=&gt; {
-                <span class="string">&quot;func&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func)
+        <span class="kw">let _ </span>= <span class="macro">imports!</span> {
+            <span class="string">"env" </span>=&gt; {
+                <span class="string">"func" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func)
             }
         };
-        <span class="kw">let _ </span>= <span class="macro">imports! </span>{
-            <span class="string">&quot;env&quot; </span>=&gt; {
-                <span class="string">&quot;func1&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
-                <span class="string">&quot;func2&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func)
+        <span class="kw">let _ </span>= <span class="macro">imports!</span> {
+            <span class="string">"env" </span>=&gt; {
+                <span class="string">"func1" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
+                <span class="string">"func2" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func)
             }
         };
-        <span class="kw">let _ </span>= <span class="macro">imports! </span>{
-            <span class="string">&quot;env&quot; </span>=&gt; {
-                <span class="string">&quot;func1&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
-                <span class="string">&quot;func2&quot; </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
+        <span class="kw">let _ </span>= <span class="macro">imports!</span> {
+            <span class="string">"env" </span>=&gt; {
+                <span class="string">"func1" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
+                <span class="string">"func2" </span>=&gt; Function::new_typed(<span class="kw-2">&amp;mut </span>store, func),
             }
         };
     }
@@ -865,28 +866,28 @@
 
         <span class="kw">let </span>g = Global::new(<span class="kw-2">&amp;mut </span>store, Value::I32(<span class="number">0</span>));
 
-        <span class="kw">let </span><span class="kw-2">mut </span>imports1 = <span class="macro">imports! </span>{
-            <span class="string">&quot;dog&quot; </span>=&gt; {
-                <span class="string">&quot;happy&quot; </span>=&gt; g.clone()
+        <span class="kw">let </span><span class="kw-2">mut </span>imports1 = <span class="macro">imports!</span> {
+            <span class="string">"dog" </span>=&gt; {
+                <span class="string">"happy" </span>=&gt; g.clone()
             }
         };
 
-        <span class="kw">let </span>imports2 = <span class="macro">imports! </span>{
-            <span class="string">&quot;dog&quot; </span>=&gt; {
-                <span class="string">&quot;small&quot; </span>=&gt; g.clone()
+        <span class="kw">let </span>imports2 = <span class="macro">imports!</span> {
+            <span class="string">"dog" </span>=&gt; {
+                <span class="string">"small" </span>=&gt; g.clone()
             },
-            <span class="string">&quot;cat&quot; </span>=&gt; {
-                <span class="string">&quot;small&quot; </span>=&gt; g
+            <span class="string">"cat" </span>=&gt; {
+                <span class="string">"small" </span>=&gt; g
             }
         };
 
         imports1.extend(<span class="kw-2">&amp;</span>imports2);
 
-        <span class="kw">let </span>small_cat_export = imports1.get_export(<span class="string">&quot;cat&quot;</span>, <span class="string">&quot;small&quot;</span>);
+        <span class="kw">let </span>small_cat_export = imports1.get_export(<span class="string">"cat"</span>, <span class="string">"small"</span>);
         <span class="macro">assert!</span>(small_cat_export.is_some());
 
-        <span class="kw">let </span>happy = imports1.get_export(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;happy&quot;</span>);
-        <span class="kw">let </span>small = imports1.get_export(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;small&quot;</span>);
+        <span class="kw">let </span>happy = imports1.get_export(<span class="string">"dog"</span>, <span class="string">"happy"</span>);
+        <span class="kw">let </span>small = imports1.get_export(<span class="string">"dog"</span>, <span class="string">"small"</span>);
         <span class="macro">assert!</span>(happy.is_some());
         <span class="macro">assert!</span>(small.is_some());
     }
@@ -897,20 +898,20 @@
         <span class="kw">let </span>g1 = Global::new(<span class="kw-2">&amp;mut </span>store, Value::I32(<span class="number">0</span>));
         <span class="kw">let </span>g2 = Global::new(<span class="kw-2">&amp;mut </span>store, Value::I64(<span class="number">0</span>));
 
-        <span class="kw">let </span><span class="kw-2">mut </span>imports1 = <span class="macro">imports! </span>{
-            <span class="string">&quot;dog&quot; </span>=&gt; {
-                <span class="string">&quot;happy&quot; </span>=&gt; g1,
+        <span class="kw">let </span><span class="kw-2">mut </span>imports1 = <span class="macro">imports!</span> {
+            <span class="string">"dog" </span>=&gt; {
+                <span class="string">"happy" </span>=&gt; g1,
             },
         };
 
-        <span class="kw">let </span>imports2 = <span class="macro">imports! </span>{
-            <span class="string">&quot;dog&quot; </span>=&gt; {
-                <span class="string">&quot;happy&quot; </span>=&gt; g2,
+        <span class="kw">let </span>imports2 = <span class="macro">imports!</span> {
+            <span class="string">"dog" </span>=&gt; {
+                <span class="string">"happy" </span>=&gt; g2,
             },
         };
 
         imports1.extend(<span class="kw-2">&amp;</span>imports2);
-        <span class="kw">let </span>_happy_dog_entry = imports1.get_export(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;happy&quot;</span>).unwrap();
+        <span class="kw">let </span>_happy_dog_entry = imports1.get_export(<span class="string">"dog"</span>, <span class="string">"happy"</span>).unwrap();
         <span class="comment">/*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
@@ -925,20 +926,21 @@
         <span class="kw">let </span>g1 = Global::new(<span class="kw-2">&amp;mut </span>store, Value::I32(<span class="number">0</span>));
         <span class="kw">let </span>g2 = Global::new(<span class="kw-2">&amp;mut </span>store, Value::I64(<span class="number">0</span>));
 
-        <span class="kw">let </span>imports1 = <span class="macro">imports! </span>{
-            <span class="string">&quot;dog&quot; </span>=&gt; {
-                <span class="string">&quot;happy&quot; </span>=&gt; g1,
+        <span class="kw">let </span>imports1 = <span class="macro">imports!</span> {
+            <span class="string">"dog" </span>=&gt; {
+                <span class="string">"happy" </span>=&gt; g1,
             },
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>imports2 = <span class="macro">imports! </span>{
-            <span class="string">&quot;dog&quot; </span>=&gt; {
-                <span class="string">&quot;happy&quot; </span>=&gt; g2,
+        <span class="kw">let </span><span class="kw-2">mut </span>imports2 = <span class="macro">imports!</span> {
+            <span class="string">"dog" </span>=&gt; {
+                <span class="string">"happy" </span>=&gt; g2,
             },
         };
 
         imports2.extend(<span class="kw-2">&amp;</span>imports1);
-        <span class="kw">let </span>_happy_dog_entry = imports2.get_export(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;happy&quot;</span>).unwrap();
+
+        <span class="kw">let </span>_happy_dog_entry = imports2.get_export(<span class="string">"dog"</span>, <span class="string">"happy"</span>).unwrap();
         <span class="comment">/*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {

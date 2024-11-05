@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/module.rs`."><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/module.rs`."><title>module.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -483,6 +483,8 @@
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
 <a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::fs;
@@ -491,7 +493,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::engine::AsEngineRef;
 <span class="kw">use </span>thiserror::Error;
-<span class="attr">#[cfg(feature = <span class="string">&quot;wat&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"wat"</span>)]
 </span><span class="kw">use </span>wasmer_types::WasmError;
 <span class="kw">use </span>wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
@@ -500,11 +502,13 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::into_bytes::IntoBytes;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"wasm-c-api"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::c_api::module <span class="kw">as </span>module_imp;
+<span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::module <span class="kw">as </span>module_imp;
-<span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::jsc::module <span class="kw">as </span>module_imp;
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::module <span class="kw">as </span>module_imp;
 
 <span class="doccomment">/// IO Error on a Module Compilation
@@ -527,15 +531,15 @@
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Module(<span class="kw">pub</span>(<span class="kw">crate</span>) module_imp::Module);
 
 <span class="kw">impl </span>Module {
     <span class="doccomment">/// Creates a new WebAssembly Module given the configuration
     /// in the store.
     ///
-    /// If the provided bytes are not WebAssembly-like (start with `b&quot;\0asm&quot;`),
-    /// and the &quot;wat&quot; feature is enabled for this crate, this function will try to
+    /// If the provided bytes are not WebAssembly-like (start with `b"\0asm"`),
+    /// and the "wat" feature is enabled for this crate, this function will try to
     /// to convert the bytes assuming they correspond to the WebAssembly text
     /// format.
     ///
@@ -558,7 +562,7 @@
     /// use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// let wat = &quot;(module)&quot;;
+    /// let wat = "(module)";
     /// let module = Module::new(&amp;store, wat)?;
     /// # Ok(())
     /// # }
@@ -573,7 +577,7 @@
     /// // The following is the same as:
     /// // (module
     /// //   (type $t0 (func (param i32) (result i32)))
-    /// //   (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)
+    /// //   (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
     /// //     get_local $p0
     /// //     i32.const 1
     /// //     i32.add)
@@ -597,13 +601,13 @@
     /// #
     /// # let engine: Engine = Cranelift::default().into();
     ///
-    /// let module = Module::from_file(&amp;engine, &quot;path/to/foo.wasm&quot;);
+    /// let module = Module::from_file(&amp;engine, "path/to/foo.wasm");
     /// ```
     </span><span class="kw">pub fn </span>new(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, bytes: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
-        <span class="attr">#[cfg(feature = <span class="string">&quot;wat&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"wat"</span>)]
         </span><span class="kw">let </span>bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(<span class="macro">format!</span>(
-                <span class="string">&quot;Error when converting wat: {}&quot;</span>,
+                <span class="string">"Error when converting wat: {}"</span>,
                 e
             )))
         })<span class="question-mark">?</span>;
@@ -629,7 +633,7 @@
     <span class="doccomment">/// Creates a new WebAssembly module from a Wasm binary.
     ///
     /// Opposed to [`Module::new`], this function is not compatible with
-    /// the WebAssembly text format (if the &quot;wat&quot; feature is enabled for
+    /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     </span><span class="kw">pub fn </span>from_binary(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::from_binary(engine, binary)<span class="question-mark">?</span>))
@@ -676,7 +680,7 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;
+    /// # let module = Module::from_file(&amp;store, "path/to/foo.wasm")?;
     /// let serialized = module.serialize()?;
     /// # Ok(())
     /// # }
@@ -694,8 +698,8 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;
-    /// module.serialize_to_file(&quot;path/to/foo.so&quot;)?;
+    /// # let module = Module::from_file(&amp;store, "path/to/foo.wasm")?;
+    /// module.serialize_to_file("path/to/foo.so")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -842,9 +846,9 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// let wat = &quot;(module $moduleName)&quot;;
+    /// let wat = "(module $moduleName)";
     /// let module = Module::new(&amp;store, wat)?;
-    /// assert_eq!(module.name(), Some(&quot;moduleName&quot;));
+    /// assert_eq!(module.name(), Some("moduleName"));
     /// # Ok(())
     /// # }
     /// ```
@@ -865,11 +869,11 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// let wat = &quot;(module)&quot;;
+    /// let wat = "(module)";
     /// let mut module = Module::new(&amp;store, wat)?;
     /// assert_eq!(module.name(), None);
-    /// module.set_name(&quot;foo&quot;);
-    /// assert_eq!(module.name(), Some(&quot;foo&quot;));
+    /// module.set_name("foo");
+    /// assert_eq!(module.name(), Some("foo"));
     /// # Ok(())
     /// # }
     /// ```
@@ -888,20 +892,20 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// let wat = r#&quot;(module
-    ///     (import &quot;host&quot; &quot;func1&quot; (func))
-    ///     (import &quot;host&quot; &quot;func2&quot; (func))
-    /// )&quot;#;
+    /// let wat = r#"(module
+    ///     (import "host" "func1" (func))
+    ///     (import "host" "func2" (func))
+    /// )"#;
     /// let module = Module::new(&amp;store, wat)?;
     /// for import in module.imports() {
-    ///     assert_eq!(import.module(), &quot;host&quot;);
-    ///     assert!(import.name().contains(&quot;func&quot;));
+    ///     assert_eq!(import.module(), "host");
+    ///     assert!(import.name().contains("func"));
     ///     import.ty();
     /// }
     /// # Ok(())
     /// # }
     /// ```
-    </span><span class="kw">pub fn </span>imports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">&#39;_</span>&gt; {
+    </span><span class="kw">pub fn </span>imports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">'_</span>&gt; {
         <span class="self">self</span>.<span class="number">0</span>.imports()
     }
 
@@ -916,19 +920,19 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// let wat = r#&quot;(module
-    ///     (func (export &quot;namedfunc&quot;))
-    ///     (memory (export &quot;namedmemory&quot;) 1)
-    /// )&quot;#;
+    /// let wat = r#"(module
+    ///     (func (export "namedfunc"))
+    ///     (memory (export "namedmemory") 1)
+    /// )"#;
     /// let module = Module::new(&amp;store, wat)?;
     /// for export_ in module.exports() {
-    ///     assert!(export_.name().contains(&quot;named&quot;));
+    ///     assert!(export_.name().contains("named"));
     ///     export_.ty();
     /// }
     /// # Ok(())
     /// # }
     /// ```
-    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">&#39;_</span>&gt; {
+    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">'_</span>&gt; {
         <span class="self">self</span>.<span class="number">0</span>.exports()
     }
 
@@ -937,9 +941,9 @@
     /// # Important
     ///
     /// Following the WebAssembly spec, one name can have multiple
-    /// custom sections. That&#39;s why an iterator (rather than one element)
+    /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
-    </span><span class="kw">pub fn </span>custom_sections&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">&#39;a </span>{
+    </span><span class="kw">pub fn </span>custom_sections&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">'a </span>{
         <span class="self">self</span>.<span class="number">0</span>.custom_sections(name)
     }
 
@@ -955,14 +959,14 @@
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Module {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        f.debug_struct(<span class="string">&quot;Module&quot;</span>)
-            .field(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name())
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">"Module"</span>)
+            .field(<span class="string">"name"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name())
             .finish()
     }
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
 </span><span class="kw">impl </span>From&lt;Module&gt; <span class="kw">for </span>wasm_bindgen::JsValue {
     <span class="kw">fn </span>from(value: Module) -&gt; <span class="self">Self </span>{
         wasm_bindgen::JsValue::from(value.<span class="number">0</span>)

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/integration/cli/src/fixtures.rs`."><title>fixtures.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_integration_tests_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_integration_tests_cli/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/integration/cli/src/fixtures.rs`."><title>fixtures.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_integration_tests_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -89,81 +89,81 @@
 <span class="kw">use crate</span>::{asset_path, c_asset_path};
 
 <span class="kw">pub fn </span>resources() -&gt; PathBuf {
-    Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>)).join(<span class="string">&quot;resources&quot;</span>)
+    Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>)).join(<span class="string">"resources"</span>)
 }
 
 <span class="kw">pub fn </span>packages() -&gt; PathBuf {
-    Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>))
-        .join(<span class="string">&quot;tests&quot;</span>)
-        .join(<span class="string">&quot;packages&quot;</span>)
+    Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>))
+        .join(<span class="string">"tests"</span>)
+        .join(<span class="string">"packages"</span>)
 }
 
 <span class="kw">pub fn </span>php() -&gt; (PathBuf, PathBuf, PathBuf) {
-    <span class="kw">let </span>root = Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>));
-    <span class="kw">let </span>resources = resources().join(<span class="string">&quot;php&quot;</span>);
+    <span class="kw">let </span>root = Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>));
+    <span class="kw">let </span>resources = resources().join(<span class="string">"php"</span>);
     (
-        root.join(<span class="string">&quot;tests&quot;</span>).join(<span class="string">&quot;wasm&quot;</span>).join(<span class="string">&quot;php.wasm&quot;</span>),
+        root.join(<span class="string">"tests"</span>).join(<span class="string">"wasm"</span>).join(<span class="string">"php.wasm"</span>),
         resources.clone(),
-        resources.join(<span class="string">&quot;db&quot;</span>),
+        resources.join(<span class="string">"db"</span>),
     )
 }
 
 <span class="doccomment">/// A WEBC file containing the Python interpreter, compiled to WASI.
 </span><span class="kw">pub fn </span>python() -&gt; PathBuf {
-    c_asset_path().join(<span class="string">&quot;python-0.1.0.wasmer&quot;</span>)
+    c_asset_path().join(<span class="string">"python-0.1.0.wasmer"</span>)
 }
 
 <span class="doccomment">/// A WEBC file containing the coreutils.
 </span><span class="kw">pub fn </span>coreutils() -&gt; PathBuf {
-    Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>))
-        .join(<span class="string">&quot;tests&quot;</span>)
-        .join(<span class="string">&quot;webc&quot;</span>)
-        .join(<span class="string">&quot;coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc&quot;</span>)
+    Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>))
+        .join(<span class="string">"tests"</span>)
+        .join(<span class="string">"webc"</span>)
+        .join(<span class="string">"coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"</span>)
 }
 
 <span class="doccomment">/// A WEBC file containing bash.
 </span><span class="kw">pub fn </span>bash() -&gt; PathBuf {
-    Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>))
-        .join(<span class="string">&quot;tests&quot;</span>)
-        .join(<span class="string">&quot;webc&quot;</span>)
-        .join(<span class="string">&quot;bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc&quot;</span>)
+    Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>))
+        .join(<span class="string">"tests"</span>)
+        .join(<span class="string">"webc"</span>)
+        .join(<span class="string">"bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc"</span>)
 }
 
 <span class="doccomment">/// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful
 /// WebAssembly-related commands.
 </span><span class="kw">pub fn </span>wabt() -&gt; PathBuf {
-    c_asset_path().join(<span class="string">&quot;wabt-1.0.37.wasmer&quot;</span>)
+    c_asset_path().join(<span class="string">"wabt-1.0.37.wasmer"</span>)
 }
 
 <span class="doccomment">/// A WEBC file containing the WCGI static server.
 </span><span class="kw">pub fn </span>static_server() -&gt; PathBuf {
-    c_asset_path().join(<span class="string">&quot;staticserver.webc&quot;</span>)
+    c_asset_path().join(<span class="string">"staticserver.webc"</span>)
 }
 
 <span class="doccomment">/// The QuickJS interpreter, compiled to a WASI module.
 </span><span class="kw">pub fn </span>qjs() -&gt; PathBuf {
-    c_asset_path().join(<span class="string">&quot;qjs.wasm&quot;</span>)
+    c_asset_path().join(<span class="string">"qjs.wasm"</span>)
 }
 
 <span class="kw">pub fn </span>hello() -&gt; PathBuf {
-    Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>))
-        .join(<span class="string">&quot;tests&quot;</span>)
-        .join(<span class="string">&quot;webc&quot;</span>)
-        .join(<span class="string">&quot;hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc&quot;</span>)
+    Path::new(<span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>))
+        .join(<span class="string">"tests"</span>)
+        .join(<span class="string">"webc"</span>)
+        .join(<span class="string">"hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc"</span>)
 }
 
 <span class="doccomment">/// The `wasmer.toml` file for QuickJS.
 </span><span class="kw">pub fn </span>qjs_wasmer_toml() -&gt; PathBuf {
-    c_asset_path().join(<span class="string">&quot;qjs-wasmer.toml&quot;</span>)
+    c_asset_path().join(<span class="string">"qjs-wasmer.toml"</span>)
 }
 
 <span class="doccomment">/// A `*.wat` file which calculates fib(40) and exits with no output.
 </span><span class="kw">pub fn </span>fib() -&gt; PathBuf {
-    asset_path().join(<span class="string">&quot;fib.wat&quot;</span>)
+    asset_path().join(<span class="string">"fib.wat"</span>)
 }
 
 <span class="doccomment">/// A `*.wat` file with no `_start()` function.
 </span><span class="kw">pub fn </span>wat_no_start() -&gt; PathBuf {
-    asset_path().join(<span class="string">&quot;no_start.wat&quot;</span>)
+    asset_path().join(<span class="string">"no_start.wat"</span>)
 }
 </code></pre></div></section></main></body></html>

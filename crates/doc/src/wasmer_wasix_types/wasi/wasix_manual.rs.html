@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/wasi/wasix_manual.rs`."><title>wasix_manual.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix_types/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/wasi/wasix_manual.rs`."><title>wasix_manual.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -481,19 +481,7 @@
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
 
@@ -536,10 +524,10 @@
     <span class="kw">pub </span>u: Snapshot0SubscriptionUnion,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Snapshot0Subscription {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;Snapshot0Subscription&quot;</span>)
-            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
-            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"Snapshot0Subscription"</span>)
+            .field(<span class="string">"userdata"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">"type"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
             .finish()
     }
 }
@@ -551,10 +539,10 @@
     <span class="kw">pub </span>data: SubscriptionUnion,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Subscription {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;Subscription&quot;</span>)
-            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
-            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"Subscription"</span>)
+            .field(<span class="string">"userdata"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">"type"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
             .finish()
     }
 }
@@ -620,11 +608,11 @@
     </span><span class="kw">pub </span>u: EventUnion,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Event {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;Event&quot;</span>)
-            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
-            .field(<span class="string">&quot;error&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
-            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"Event"</span>)
+            .field(<span class="string">"userdata"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">"error"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
+            .field(<span class="string">"type"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
             .finish()
     }
 }
@@ -643,12 +631,12 @@
     </span><span class="kw">pub </span>fd_readwrite: EventFdReadwrite,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Snapshot0Event {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;Snapshot0Event&quot;</span>)
-            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
-            .field(<span class="string">&quot;error&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
-            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
-            .field(<span class="string">&quot;fd-readwrite&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fd_readwrite)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"Snapshot0Event"</span>)
+            .field(<span class="string">"userdata"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">"error"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
+            .field(<span class="string">"type"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+            .field(<span class="string">"fd-readwrite"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fd_readwrite)
             .finish()
     }
 }
@@ -693,15 +681,15 @@
     <span class="kw">pub </span>u: JoinStatusUnion,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>JoinStatus {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        <span class="kw">let </span><span class="kw-2">mut </span>binding = f.debug_struct(<span class="string">&quot;JoinStatus&quot;</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>f = binding.field(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag);
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">let </span><span class="kw-2">mut </span>binding = f.debug_struct(<span class="string">"JoinStatus"</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>f = binding.field(<span class="string">"tag"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag);
         f = <span class="kw">unsafe </span>{
             <span class="kw">match </span><span class="self">self</span>.tag {
-                JoinStatusType::Nothing =&gt; f.field(<span class="string">&quot;nothing&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.nothing),
-                JoinStatusType::ExitNormal =&gt; f.field(<span class="string">&quot;exit_normal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_normal),
-                JoinStatusType::ExitSignal =&gt; f.field(<span class="string">&quot;exit_signal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_signal),
-                JoinStatusType::Stopped =&gt; f.field(<span class="string">&quot;stopped&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.stopped),
+                JoinStatusType::Nothing =&gt; f.field(<span class="string">"nothing"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.nothing),
+                JoinStatusType::ExitNormal =&gt; f.field(<span class="string">"exit_normal"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_normal),
+                JoinStatusType::ExitSignal =&gt; f.field(<span class="string">"exit_signal"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_signal),
+                JoinStatusType::Stopped =&gt; f.field(<span class="string">"stopped"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.stopped),
             }
         };
         f.finish()
@@ -712,7 +700,7 @@
     </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="attr">#[doc = <span class="string">&quot; Represents the thread start object&quot;</span>]
+<span class="attr">#[doc = <span class="string">" Represents the thread start object"</span>]
 #[repr(C)]
 #[derive(Copy, Clone)]
 </span><span class="kw">pub struct </span>ThreadStart&lt;M: MemorySize&gt; {
@@ -725,14 +713,14 @@
     <span class="kw">pub </span>guard_size: M::Offset,
 }
 <span class="kw">impl</span>&lt;M: MemorySize&gt; core::fmt::Debug <span class="kw">for </span>ThreadStart&lt;M&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;ThreadStart&quot;</span>)
-            .field(<span class="string">&quot;stack_upper&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_upper)
-            .field(<span class="string">&quot;tls-base&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tls_base)
-            .field(<span class="string">&quot;start-funct&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_funct)
-            .field(<span class="string">&quot;start-args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_args)
-            .field(<span class="string">&quot;stack_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_size)
-            .field(<span class="string">&quot;guard_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.guard_size)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"ThreadStart"</span>)
+            .field(<span class="string">"stack_upper"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_upper)
+            .field(<span class="string">"tls-base"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tls_base)
+            .field(<span class="string">"start-funct"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_funct)
+            .field(<span class="string">"start-args"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_args)
+            .field(<span class="string">"stack_size"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_size)
+            .field(<span class="string">"guard_size"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.guard_size)
             .finish()
     }
 }
@@ -744,17 +732,12 @@
 }
 
 <span class="attr">#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-</span><span class="kw">pub enum </span>ExitCode {
-    Errno(Errno),
-    Other(i32),
-}
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>ExitCode(u16);
+
 <span class="kw">impl </span>ExitCode {
     <span class="kw">pub fn </span>raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i32 {
-        <span class="kw">match </span><span class="self">self </span>{
-            ExitCode::Errno(err) =&gt; err.to_native(),
-            ExitCode::Other(code) =&gt; <span class="kw-2">*</span>code,
-        }
+        <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>i32
     }
 
     <span class="kw">pub fn </span>is_success(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -762,15 +745,12 @@
     </span>}
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>ExitCode {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        <span class="kw">match </span><span class="self">self </span>{
-            ExitCode::Errno(a) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ExitCode::{}&quot;</span>, a),
-            ExitCode::Other(a) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ExitCode::{}&quot;</span>, a),
-        }
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"ExitCode::{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
     }
 }
 <span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>ExitCode {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         core::fmt::Debug::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f)
     }
 }
@@ -793,35 +773,31 @@
 
 <span class="kw">impl </span>From&lt;Errno&gt; <span class="kw">for </span>ExitCode {
     <span class="kw">fn </span>from(val: Errno) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::Errno(val)
+        <span class="self">Self</span>((val.to_native() % <span class="number">256</span>) <span class="kw">as </span>u16)
     }
 }
 
 <span class="kw">impl </span>From&lt;i32&gt; <span class="kw">for </span>ExitCode {
     <span class="kw">fn </span>from(val: i32) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>err = Errno::from_native(val);
-        <span class="kw">match </span>err {
-            Errno::Unknown =&gt; <span class="self">Self</span>::Other(val),
-            err =&gt; <span class="self">Self</span>::Errno(err),
-        }
+        <span class="self">Self</span>((val % <span class="number">256</span>) <span class="kw">as </span>u16)
+    }
+}
+
+<span class="kw">impl </span>From&lt;u16&gt; <span class="kw">for </span>ExitCode {
+    <span class="kw">fn </span>from(value: u16) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(value)
     }
 }
 
 <span class="kw">impl </span>From&lt;ExitCode&gt; <span class="kw">for </span>Errno {
     <span class="kw">fn </span>from(code: ExitCode) -&gt; <span class="self">Self </span>{
-        <span class="kw">match </span>code {
-            ExitCode::Errno(err) =&gt; err,
-            ExitCode::Other(code) =&gt; Errno::from_native(code),
-        }
+        Errno::from_native(code.<span class="number">0 </span><span class="kw">as </span>i32)
     }
 }
 
 <span class="kw">impl </span>From&lt;ExitCode&gt; <span class="kw">for </span>i32 {
     <span class="kw">fn </span>from(val: ExitCode) -&gt; <span class="self">Self </span>{
-        <span class="kw">match </span>val {
-            ExitCode::Errno(err) =&gt; err.to_native(),
-            ExitCode::Other(code) =&gt; code,
-        }
+        val.<span class="number">0 </span><span class="kw">as </span>i32
     }
 }
 
@@ -831,65 +807,65 @@
     </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="macro">wai_bindgen_rust::bitflags::bitflags! </span>{
-    <span class="attr">#[doc = <span class="string">&quot; Epoll available event types.&quot;</span>]
-    #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+<span class="macro">wai_bindgen_rust::bitflags::bitflags!</span> {
+    <span class="attr">#[doc = <span class="string">" Epoll available event types."</span>]
+    #[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
     </span><span class="kw">pub struct </span>EpollType : u32 {
-        <span class="attr">#[doc = <span class="string">&quot; The associated file is available for read(2) operations.&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" The associated file is available for read(2) operations."</span>]
         </span><span class="kw">const </span>EPOLLIN = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
-        <span class="attr">#[doc = <span class="string">&quot; The associated file is available for write(2) operations.&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" The associated file is available for write(2) operations."</span>]
         </span><span class="kw">const </span>EPOLLOUT = <span class="number">1 </span>&lt;&lt; <span class="number">1</span>;
-        <span class="attr">#[doc = <span class="string">&quot; Stream socket peer closed connection, or shut down writing&quot;</span>]
-        #[doc = <span class="string">&quot; half of connection.  (This flag is especially useful for&quot;</span>]
-        #[doc = <span class="string">&quot; writing simple code to detect peer shutdown when using&quot;</span>]
-        #[doc = <span class="string">&quot; edge-triggered monitoring.)&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" Stream socket peer closed connection, or shut down writing"</span>]
+        #[doc = <span class="string">" half of connection.  (This flag is especially useful for"</span>]
+        #[doc = <span class="string">" writing simple code to detect peer shutdown when using"</span>]
+        #[doc = <span class="string">" edge-triggered monitoring.)"</span>]
         </span><span class="kw">const </span>EPOLLRDHUP = <span class="number">1 </span>&lt;&lt; <span class="number">2</span>;
-        <span class="attr">#[doc = <span class="string">&quot; There is an exceptional condition on the file descriptor.&quot;</span>]
-        #[doc = <span class="string">&quot; See the discussion of POLLPRI in poll(2).&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" There is an exceptional condition on the file descriptor."</span>]
+        #[doc = <span class="string">" See the discussion of POLLPRI in poll(2)."</span>]
         </span><span class="kw">const </span>EPOLLPRI = <span class="number">1 </span>&lt;&lt; <span class="number">3</span>;
-        <span class="attr">#[doc = <span class="string">&quot; Error condition happened on the associated file&quot;</span>]
-        #[doc = <span class="string">&quot; descriptor.  This event is also reported for the write end&quot;</span>]
-        #[doc = <span class="string">&quot; of a pipe when the read end has been closed.&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" Error condition happened on the associated file"</span>]
+        #[doc = <span class="string">" descriptor.  This event is also reported for the write end"</span>]
+        #[doc = <span class="string">" of a pipe when the read end has been closed."</span>]
         </span><span class="kw">const </span>EPOLLERR = <span class="number">1 </span>&lt;&lt; <span class="number">4</span>;
-        <span class="attr">#[doc = <span class="string">&quot; Hang up happened on the associated file descriptor.&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" Hang up happened on the associated file descriptor."</span>]
         </span><span class="kw">const </span>EPOLLHUP = <span class="number">1 </span>&lt;&lt; <span class="number">5</span>;
-        <span class="attr">#[doc = <span class="string">&quot; Requests edge-triggered notification for the associated&quot;</span>]
-        #[doc = <span class="string">&quot; file descriptor.  The default behavior for epoll is level-&quot;</span>]
-        #[doc = <span class="string">&quot; triggered.  See epoll(7) for more detailed information&quot;</span>]
-        #[doc = <span class="string">&quot; about edge-triggered and level-triggered notification.&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" Requests edge-triggered notification for the associated"</span>]
+        #[doc = <span class="string">" file descriptor.  The default behavior for epoll is level-"</span>]
+        #[doc = <span class="string">" triggered.  See epoll(7) for more detailed information"</span>]
+        #[doc = <span class="string">" about edge-triggered and level-triggered notification."</span>]
         </span><span class="kw">const </span>EPOLLET = <span class="number">1 </span>&lt;&lt; <span class="number">6</span>;
-        <span class="attr">#[doc = <span class="string">&quot; Requests one-shot notification for the associated file&quot;</span>]
-        #[doc = <span class="string">&quot; descriptor.  This means that after an event notified for&quot;</span>]
-        #[doc = <span class="string">&quot; the file descriptor by epoll_wait(2), the file descriptor&quot;</span>]
-        #[doc = <span class="string">&quot; is disabled in the interest list and no other events will&quot;</span>]
-        #[doc = <span class="string">&quot; be reported by the epoll interface.  The user must call&quot;</span>]
-        #[doc = <span class="string">&quot; epoll_ctl() with EPOLL_CTL_MOD to rearm the file&quot;</span>]
-        #[doc = <span class="string">&quot; descriptor with a new event mask.&quot;</span>]
+        <span class="attr">#[doc = <span class="string">" Requests one-shot notification for the associated file"</span>]
+        #[doc = <span class="string">" descriptor.  This means that after an event notified for"</span>]
+        #[doc = <span class="string">" the file descriptor by epoll_wait(2), the file descriptor"</span>]
+        #[doc = <span class="string">" is disabled in the interest list and no other events will"</span>]
+        #[doc = <span class="string">" be reported by the epoll interface.  The user must call"</span>]
+        #[doc = <span class="string">" epoll_ctl() with EPOLL_CTL_MOD to rearm the file"</span>]
+        #[doc = <span class="string">" descriptor with a new event mask."</span>]
         </span><span class="kw">const </span>EPOLLONESHOT = <span class="number">1 </span>&lt;&lt; <span class="number">7</span>;
     }
 }
 
-<span class="attr">#[doc = <span class="string">&quot; Epoll operation.&quot;</span>]
+<span class="attr">#[doc = <span class="string">" Epoll operation."</span>]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>EpollCtl {
-    <span class="attr">#[doc = <span class="string">&quot; Add an entry to the interest list of the epoll file descriptor, epfd.&quot;</span>]
+    <span class="attr">#[doc = <span class="string">" Add an entry to the interest list of the epoll file descriptor, epfd."</span>]
     </span>Add,
-    <span class="attr">#[doc = <span class="string">&quot; Change the settings associated with fd in the interest list to the new settings specified in event.&quot;</span>]
+    <span class="attr">#[doc = <span class="string">" Change the settings associated with fd in the interest list to the new settings specified in event."</span>]
     </span>Mod,
-    <span class="attr">#[doc = <span class="string">&quot; Remove (deregister) the target file descriptor fd from the interest list.&quot;</span>]
+    <span class="attr">#[doc = <span class="string">" Remove (deregister) the target file descriptor fd from the interest list."</span>]
     </span>Del,
-    <span class="attr">#[doc = <span class="string">&quot; Unknown.&quot;</span>]
+    <span class="attr">#[doc = <span class="string">" Unknown."</span>]
     </span>Unknown,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>EpollCtl {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            EpollCtl::Add =&gt; f.debug_tuple(<span class="string">&quot;EPOLL_CTL_ADD&quot;</span>).finish(),
-            EpollCtl::Mod =&gt; f.debug_tuple(<span class="string">&quot;EPOLL_CTL_MOD&quot;</span>).finish(),
-            EpollCtl::Del =&gt; f.debug_tuple(<span class="string">&quot;EPOLL_CTL_DEL&quot;</span>).finish(),
-            EpollCtl::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Unknown&quot;</span>).finish(),
+            EpollCtl::Add =&gt; f.debug_tuple(<span class="string">"EPOLL_CTL_ADD"</span>).finish(),
+            EpollCtl::Mod =&gt; f.debug_tuple(<span class="string">"EPOLL_CTL_MOD"</span>).finish(),
+            EpollCtl::Del =&gt; f.debug_tuple(<span class="string">"EPOLL_CTL_DEL"</span>).finish(),
+            EpollCtl::Unknown =&gt; f.debug_tuple(<span class="string">"Unknown"</span>).finish(),
         }
     }
 }
@@ -913,7 +889,7 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::Del,
 
             q =&gt; {
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum EpollCtl&quot;</span>);
+                <span class="macro">tracing::debug!</span>(<span class="string">"could not serialize number {q} to enum EpollCtl"</span>);
                 <span class="self">Self</span>::Unknown
             }
         }
@@ -925,7 +901,7 @@
 }
 
 <span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>EpollEventCtl {
     <span class="kw">pub </span>events: EpollType,
     <span class="kw">pub </span>ptr: u64,
@@ -951,12 +927,12 @@
 <span class="kw">where
     </span>M: MemorySize,
 {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;EpollData&quot;</span>)
-            .field(<span class="string">&quot;ptr&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.ptr)
-            .field(<span class="string">&quot;fd&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fd)
-            .field(<span class="string">&quot;data1&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data1)
-            .field(<span class="string">&quot;data2&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data2)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"EpollData"</span>)
+            .field(<span class="string">"ptr"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.ptr)
+            .field(<span class="string">"fd"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fd)
+            .field(<span class="string">"data1"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data1)
+            .field(<span class="string">"data2"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data2)
             .finish()
     }
 }
@@ -974,10 +950,10 @@
 <span class="kw">where
     </span>M: MemorySize,
 {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;EpollData&quot;</span>)
-            .field(<span class="string">&quot;events&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.events)
-            .field(<span class="string">&quot;data&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"EpollData"</span>)
+            .field(<span class="string">"events"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.events)
+            .field(<span class="string">"data"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data)
             .finish()
     }
 }

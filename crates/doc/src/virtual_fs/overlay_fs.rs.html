@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/overlay_fs.rs`."><title>overlay_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/overlay_fs.rs`."><title>overlay_fs.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1739,7 +1739,7 @@
 ///     .unwrap();
 /// let _guard = runtime.enter();
 ///
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(tokio::runtime::Handle::current(), &quot;/&quot;).unwrap()]);
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(tokio::runtime::Handle::current(), "/").unwrap()]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
@@ -1758,8 +1758,8 @@
 
 <span class="kw">impl</span>&lt;P, S&gt; OverlayFileSystem&lt;P, S&gt;
 <span class="kw">where
-    </span>P: FileSystem + Send + Sync + <span class="lifetime">&#39;static</span>,
-    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    </span>P: FileSystem + Send + Sync + <span class="lifetime">'static</span>,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; FileSystems&lt;<span class="lifetime">'a</span>&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
     <span class="doccomment">/// Create a new [`FileSystem`] using a primary [`crate::FileSystem`] and a
     /// chain of secondary [`FileSystems`].
@@ -1798,9 +1798,9 @@
 
 <span class="kw">impl</span>&lt;P, S&gt; FileSystem <span class="kw">for </span>OverlayFileSystem&lt;P, S&gt;
 <span class="kw">where
-    </span>P: FileSystem + Send + <span class="lifetime">&#39;static</span>,
-    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-    <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; &lt;&lt;S <span class="kw">as </span>FileSystems&lt;<span class="lifetime">&#39;a</span>&gt;&gt;::Iter <span class="kw">as </span>IntoIterator&gt;::IntoIter: Send,
+    </span>P: FileSystem + Send + <span class="lifetime">'static</span>,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; FileSystems&lt;<span class="lifetime">'a</span>&gt; + Send + Sync + <span class="lifetime">'static</span>,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;S <span class="kw">as </span>FileSystems&lt;<span class="lifetime">'a</span>&gt;&gt;::Iter <span class="kw">as </span>IntoIterator&gt;::IntoIter: Send,
 {
     <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="kw">crate</span>::Result&lt;PathBuf&gt; {
         <span class="comment">// Whiteout files can not be read, they are just markers
@@ -1851,14 +1851,14 @@
                         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(path) = entry.is_white_out() {
                             <span class="macro">tracing::trace!</span>(
                                 path=%path.display(),
-                                <span class="string">&quot;Found whiteout file&quot;</span>,
+                                <span class="string">"Found whiteout file"</span>,
                             );
                             white_outs.insert(path);
                             <span class="kw">continue</span>;
                         } <span class="kw">else if </span>white_outs.contains(<span class="kw-2">&amp;</span>entry.path) {
                             <span class="macro">tracing::trace!</span>(
                                 path=%path.display(),
-                                <span class="string">&quot;Skipping path because a whiteout exists&quot;</span>,
+                                <span class="string">"Skipping path because a whiteout exists"</span>,
                             );
                             <span class="kw">continue</span>;
                         }
@@ -1875,7 +1875,7 @@
         <span class="kw">if </span>had_at_least_one_success {
             <span class="comment">// Make sure later entries are removed in favour of earlier ones.
             // Note: this sort is guaranteed to be stable, meaning filesystems
-            // &quot;higher up&quot; the chain will be further towards the start and kept
+            // "higher up" the chain will be further towards the start and kept
             // when deduplicating.
             </span>entries.sort_by(|a, b| a.path.cmp(<span class="kw-2">&amp;</span>b.path));
             entries.dedup_by(|a, b| a.path == b.path);
@@ -1920,7 +1920,7 @@
         </span><span class="kw">if </span>ops::is_white_out(path).is_some() {
             <span class="macro">tracing::trace!</span>(
                 path=%path.display(),
-                <span class="string">&quot;Unable to remove a whited out directory&quot;</span>,
+                <span class="string">"Unable to remove a whited out directory"</span>,
             );
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
         }
@@ -1946,7 +1946,7 @@
         <span class="self">self</span>.permission_error_or_not_found(path)
     }
 
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
         <span class="kw">let </span>from = from.to_owned();
         <span class="kw">let </span>to = to.to_owned();
         Box::pin(<span class="kw">async move </span>{
@@ -1955,7 +1955,7 @@
                 <span class="macro">tracing::trace!</span>(
                     from=%from.display(),
                     to=%to.display(),
-                    <span class="string">&quot;Attempting to rename a file that was whited out&quot;
+                    <span class="string">"Attempting to rename a file that was whited out"
                 </span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
             }
@@ -1964,7 +1964,7 @@
                 <span class="macro">tracing::trace!</span>(
                     from=%from.display(),
                     to=%to.display(),
-                    <span class="string">&quot;Attempting to rename a file into a whiteout file&quot;
+                    <span class="string">"Attempting to rename a file into a whiteout file"
                 </span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
             }
@@ -2002,7 +2002,7 @@
                     <span class="kw">if </span>fs.metadata(<span class="kw-2">&amp;</span>from).is_ok() {
                         <span class="macro">tracing::trace!</span>(
                             path=%from.display(),
-                            <span class="string">&quot;Creating a whiteout for the file that was renamed&quot;</span>,
+                            <span class="string">"Creating a whiteout for the file that was renamed"</span>,
                         );
                         ops::create_white_out(<span class="kw-2">&amp;</span><span class="self">self</span>.primary, <span class="kw-2">&amp;</span>from).ok();
                         <span class="kw">break</span>;
@@ -2100,7 +2100,7 @@
         <span class="self">self</span>.permission_error_or_not_found(path)
     }
 
-    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions&lt;<span class="lifetime">&#39;_</span>&gt; {
+    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions&lt;<span class="lifetime">'_</span>&gt; {
         OpenOptions::new(<span class="self">self</span>)
     }
 
@@ -2116,21 +2116,21 @@
 
 <span class="kw">impl</span>&lt;P, S&gt; FileOpener <span class="kw">for </span>OverlayFileSystem&lt;P, S&gt;
 <span class="kw">where
-    </span>P: FileSystem + Send + <span class="lifetime">&#39;static</span>,
-    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-    <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; &lt;&lt;S <span class="kw">as </span>FileSystems&lt;<span class="lifetime">&#39;a</span>&gt;&gt;::Iter <span class="kw">as </span>IntoIterator&gt;::IntoIter: Send,
+    </span>P: FileSystem + Send + <span class="lifetime">'static</span>,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; FileSystems&lt;<span class="lifetime">'a</span>&gt; + Send + Sync + <span class="lifetime">'static</span>,
+    <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; &lt;&lt;S <span class="kw">as </span>FileSystems&lt;<span class="lifetime">'a</span>&gt;&gt;::Iter <span class="kw">as </span>IntoIterator&gt;::IntoIter: Send,
 {
     <span class="kw">fn </span>open(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;, FsError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;, FsError&gt; {
         <span class="comment">// Whiteout files can not be read, they are just markers
         </span><span class="kw">if </span>ops::is_white_out(path).is_some() {
             <span class="macro">tracing::trace!</span>(
                 path=%path.display(),
                 options=<span class="question-mark">?</span>conf,
-                <span class="string">&quot;Whiteout files can&#39;t be opened&quot;</span>,
+                <span class="string">"Whiteout files can't be opened"</span>,
             );
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
         }
@@ -2182,7 +2182,7 @@
         </span><span class="kw">if </span>!conf.create &amp;&amp; ops::has_white_out(<span class="kw-2">&amp;</span><span class="self">self</span>.primary, path) {
             <span class="macro">tracing::trace!</span>(
                 path=%path.display(),
-                <span class="string">&quot;The file has been whited out&quot;</span>,
+                <span class="string">"The file has been whited out"</span>,
             );
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
         }
@@ -2317,7 +2317,7 @@
 
     <span class="kw">impl</span>&lt;P&gt; CopyOnWriteFile&lt;P&gt;
     <span class="kw">where
-        </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+        </span>P: FileSystem + <span class="lifetime">'static</span>,
     {
         <span class="kw">fn </span>poll_copy_progress(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
             <span class="comment">// Enter a loop until we go pending
@@ -2512,7 +2512,7 @@
         <span class="kw">fn </span>poll_copy_start_and_progress(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
             replace_with_or_abort(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, |state| <span class="kw">match </span>state {
                 CowState::ReadOnly(inner) =&gt; {
-                    <span class="macro">tracing::trace!</span>(<span class="string">&quot;COW file touched, starting file clone&quot;</span>,);
+                    <span class="macro">tracing::trace!</span>(<span class="string">"COW file touched, starting file clone"</span>,);
                     CowState::SeekingGet(inner)
                 }
                 state =&gt; state,
@@ -2523,16 +2523,16 @@
 
     <span class="kw">impl</span>&lt;P&gt; Debug <span class="kw">for </span>CopyOnWriteFile&lt;P&gt;
     <span class="kw">where
-        </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+        </span>P: FileSystem + <span class="lifetime">'static</span>,
     {
-        <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-            f.debug_struct(<span class="string">&quot;CopyOnWriteFile&quot;</span>).finish()
+        <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+            f.debug_struct(<span class="string">"CopyOnWriteFile"</span>).finish()
         }
     }
 
     <span class="kw">impl</span>&lt;P&gt; VirtualFile <span class="kw">for </span>CopyOnWriteFile&lt;P&gt;
     <span class="kw">where
-        </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+        </span>P: FileSystem + <span class="lifetime">'static</span>,
     {
         <span class="kw">fn </span>last_accessed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
             <span class="self">self</span>.state.as_ref().last_accessed()
@@ -2602,7 +2602,7 @@
 
         <span class="kw">fn </span>poll_read_ready(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
@@ -2614,7 +2614,7 @@
 
         <span class="kw">fn </span>poll_write_ready(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
@@ -2627,11 +2627,11 @@
 
     <span class="kw">impl</span>&lt;P&gt; AsyncWrite <span class="kw">for </span>CopyOnWriteFile&lt;P&gt;
     <span class="kw">where
-        </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+        </span>P: FileSystem + <span class="lifetime">'static</span>,
     {
         <span class="kw">fn </span>poll_write(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             buf: <span class="kw-2">&amp;</span>[u8],
         ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, std::io::Error&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_start_and_progress(cx) {
@@ -2644,8 +2644,8 @@
 
         <span class="kw">fn </span>poll_write_vectored(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-            bufs: <span class="kw-2">&amp;</span>[io::IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;],
+            cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
+            bufs: <span class="kw-2">&amp;</span>[io::IoSlice&lt;<span class="lifetime">'_</span>&gt;],
         ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, io::Error&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_start_and_progress(cx) {
                 Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
@@ -2657,7 +2657,7 @@
 
         <span class="kw">fn </span>poll_flush(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_start_and_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
@@ -2668,7 +2668,7 @@
 
         <span class="kw">fn </span>poll_shutdown(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_start_and_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
@@ -2680,12 +2680,12 @@
 
     <span class="kw">impl</span>&lt;P&gt; AsyncRead <span class="kw">for </span>CopyOnWriteFile&lt;P&gt;
     <span class="kw">where
-        </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+        </span>P: FileSystem + <span class="lifetime">'static</span>,
     {
         <span class="kw">fn </span>poll_read(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-            buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
+            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+            buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;std::io::Result&lt;()&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
@@ -2697,7 +2697,7 @@
 
     <span class="kw">impl</span>&lt;P&gt; AsyncSeek <span class="kw">for </span>CopyOnWriteFile&lt;P&gt;
     <span class="kw">where
-        </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+        </span>P: FileSystem + <span class="lifetime">'static</span>,
     {
         <span class="kw">fn </span>start_seek(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
@@ -2738,7 +2738,7 @@
 
         <span class="kw">fn </span>poll_complete(
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;std::io::Result&lt;u64&gt;&gt; {
             <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
@@ -2752,7 +2752,7 @@
     <span class="macro">tracing::trace!</span>(
         path=%path.display(),
         options=<span class="question-mark">?</span>conf,
-        <span class="string">&quot;Opening the file in copy-on-write mode&quot;</span>,
+        <span class="string">"Opening the file in copy-on-write mode"</span>,
     );
     <span class="prelude-val">Ok</span>(Box::new(CopyOnWriteFile::&lt;P&gt; {
         path: path.to_path_buf(),
@@ -2767,15 +2767,15 @@
 <span class="kw">impl</span>&lt;P, S&gt; Debug <span class="kw">for </span>OverlayFileSystem&lt;P, S&gt;
 <span class="kw">where
     </span>P: FileSystem,
-    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt;,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; FileSystems&lt;<span class="lifetime">'a</span>&gt;,
 {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="kw">struct </span>IterFilesystems&lt;<span class="lifetime">&#39;a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>S);
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, S&gt; Debug <span class="kw">for </span>IterFilesystems&lt;<span class="lifetime">&#39;a</span>, S&gt;
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">struct </span>IterFilesystems&lt;<span class="lifetime">'a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>S);
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, S&gt; Debug <span class="kw">for </span>IterFilesystems&lt;<span class="lifetime">'a</span>, S&gt;
         <span class="kw">where
-            </span>S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;b</span>&gt; FileSystems&lt;<span class="lifetime">&#39;b</span>&gt;,
+            </span>S: <span class="kw">for</span>&lt;<span class="lifetime">'b</span>&gt; FileSystems&lt;<span class="lifetime">'b</span>&gt;,
         {
-            <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+            <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
                 <span class="kw">let </span><span class="kw-2">mut </span>f = f.debug_list();
 
                 <span class="kw">for </span>fs <span class="kw">in </span><span class="self">self</span>.<span class="number">0</span>.filesystems() {
@@ -2786,18 +2786,18 @@
             }
         }
 
-        f.debug_struct(<span class="string">&quot;OverlayFileSystem&quot;</span>)
-            .field(<span class="string">&quot;primary&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.primary)
-            .field(<span class="string">&quot;secondaries&quot;</span>, <span class="kw-2">&amp;</span>IterFilesystems(<span class="kw-2">&amp;</span><span class="self">self</span>.secondaries))
+        f.debug_struct(<span class="string">"OverlayFileSystem"</span>)
+            .field(<span class="string">"primary"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.primary)
+            .field(<span class="string">"secondaries"</span>, <span class="kw-2">&amp;</span>IterFilesystems(<span class="kw-2">&amp;</span><span class="self">self</span>.secondaries))
             .finish()
     }
 }
 
 <span class="kw">fn </span>should_continue(e: FsError) -&gt; bool {
-    <span class="comment">// HACK: We shouldn&#39;t really be ignoring FsError::BaseNotDirectory, but
-    // it&#39;s needed because the mem_fs::FileSystem doesn&#39;t return
-    // FsError::EntryNotFound when an intermediate directory doesn&#39;t exist
-    // (i.e. the &quot;/path/to&quot; in &quot;/path/to/file.txt&quot;).
+    <span class="comment">// HACK: We shouldn't really be ignoring FsError::BaseNotDirectory, but
+    // it's needed because the mem_fs::FileSystem doesn't return
+    // FsError::EntryNotFound when an intermediate directory doesn't exist
+    // (i.e. the "/path/to" in "/path/to/file.txt").
     </span><span class="macro">matches!</span>(
         e,
         FsError::EntryNotFound | FsError::InvalidInput | FsError::BaseNotDirectory
@@ -2816,10 +2816,10 @@
     </span><span class="kw">async fn </span>remove_directory() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        <span class="kw">let </span>first = Path::new(<span class="string">&quot;/first&quot;</span>);
-        <span class="kw">let </span>second = Path::new(<span class="string">&quot;/second&quot;</span>);
-        <span class="kw">let </span>file_txt = second.join(<span class="string">&quot;file.txt&quot;</span>);
-        <span class="kw">let </span>third = Path::new(<span class="string">&quot;/third&quot;</span>);
+        <span class="kw">let </span>first = Path::new(<span class="string">"/first"</span>);
+        <span class="kw">let </span>second = Path::new(<span class="string">"/second"</span>);
+        <span class="kw">let </span>file_txt = second.join(<span class="string">"file.txt"</span>);
+        <span class="kw">let </span>third = Path::new(<span class="string">"/third"</span>);
         primary.create_dir(first).unwrap();
         primary.create_dir(second).unwrap();
         primary
@@ -2828,7 +2828,7 @@
             .write(<span class="bool-val">true</span>)
             .open(<span class="kw-2">&amp;</span>file_txt)
             .unwrap()
-            .write_all(<span class="string">b&quot;Hello, World!&quot;</span>)
+            .write_all(<span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
         secondary.create_dir(third).unwrap();
@@ -2840,11 +2840,11 @@
         <span class="macro">assert_eq!</span>(
             overlay.primary().metadata(first).unwrap_err(),
             FsError::EntryNotFound,
-            <span class="string">&quot;Deleted from primary&quot;
+            <span class="string">"Deleted from primary"
         </span>);
         <span class="macro">assert!</span>(!ops::exists(<span class="kw-2">&amp;</span>overlay.secondaries[<span class="number">0</span>], second));
 
-        <span class="comment">// Directory on the primary fs isn&#39;t empty
+        <span class="comment">// Directory on the primary fs isn't empty
         </span><span class="macro">assert_eq!</span>(
             overlay.remove_dir(second).unwrap_err(),
             FsError::DirectoryNotEmpty,
@@ -2863,14 +2863,14 @@
     </span><span class="kw">async fn </span>open_files() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/read.txt&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/write.txt&quot;</span>).unwrap();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/read.txt&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/write.txt&quot;</span>).unwrap();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/primary&quot;</span>).unwrap();
-        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/primary/read.txt&quot;</span>, <span class="string">&quot;This is shadowed&quot;</span>)
+        ops::create_dir_all(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary/read.txt"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary/write.txt"</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/read.txt"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/write.txt"</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/primary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/primary/read.txt"</span>, <span class="string">"This is shadowed"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -2881,10 +2881,10 @@
             .new_open_options()
             .create(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/new.txt&quot;</span>)
+            .open(<span class="string">"/new.txt"</span>)
             .unwrap();
-        <span class="macro">assert!</span>(ops::exists(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/new.txt&quot;</span>));
-        <span class="macro">assert!</span>(!ops::exists(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/new.txt&quot;</span>));
+        <span class="macro">assert!</span>(ops::exists(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/new.txt"</span>));
+        <span class="macro">assert!</span>(!ops::exists(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/new.txt"</span>));
 
         <span class="comment">// You can open a file for reading and writing on the primary fs
         </span><span class="kw">let _ </span>= fs
@@ -2892,27 +2892,27 @@
             .create(<span class="bool-val">false</span>)
             .write(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/primary/write.txt&quot;</span>)
+            .open(<span class="string">"/primary/write.txt"</span>)
             .unwrap();
 
         <span class="comment">// Files on the primary should always shadow the secondary
-        </span><span class="kw">let </span>content = ops::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/primary/read.txt&quot;</span>).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_ne!</span>(content, <span class="string">&quot;This is shadowed&quot;</span>);
+        </span><span class="kw">let </span>content = ops::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">"/primary/read.txt"</span>).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_ne!</span>(content, <span class="string">"This is shadowed"</span>);
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/path/to/&quot;</span>).unwrap();
-        <span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/path/to/&quot;</span>));
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/path/to/"</span>).unwrap();
+        <span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>primary, <span class="string">"/path/to/"</span>));
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        ops::touch(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/path/to/file.txt&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>fs, <span class="string">"/path/to/file.txt"</span>).unwrap();
 
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/path/to/&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/path/to/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/path/to/file.txt&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/path/to/"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/path/to/file.txt"</span>));
+        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/path/to/file.txt"</span>));
     }
 
     <span class="attr">#[tokio::test]
@@ -2920,30 +2920,30 @@
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
         <span class="kw">let </span>secondary_overlayed = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/read.txt&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/write.txt&quot;</span>).unwrap();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/read.txt&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/write.txt&quot;</span>).unwrap();
-        <span class="comment">// This second &quot;secondary&quot; filesystem should share the same folders as
+        ops::create_dir_all(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary/read.txt"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary/write.txt"</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/read.txt"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/write.txt"</span>).unwrap();
+        <span class="comment">// This second "secondary" filesystem should share the same folders as
         // the first one.
-        </span>ops::create_dir_all(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::touch(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">&quot;/secondary/overlayed.txt&quot;</span>).unwrap();
+        </span>ops::create_dir_all(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">"/secondary"</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">"/secondary/overlayed.txt"</span>).unwrap();
 
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary, secondary_overlayed]);
 
-        <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = ops::walk(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/&quot;</span>).map(|entry| entry.path()).collect();
+        <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = ops::walk(<span class="kw-2">&amp;</span>fs, <span class="string">"/"</span>).map(|entry| entry.path()).collect();
         <span class="macro">assert_eq!</span>(
             paths,
             <span class="macro">vec!</span>[
-                PathBuf::from(<span class="string">&quot;/secondary&quot;</span>),
-                PathBuf::from(<span class="string">&quot;/secondary/write.txt&quot;</span>),
-                PathBuf::from(<span class="string">&quot;/secondary/read.txt&quot;</span>),
-                PathBuf::from(<span class="string">&quot;/secondary/overlayed.txt&quot;</span>),
-                PathBuf::from(<span class="string">&quot;/primary&quot;</span>),
-                PathBuf::from(<span class="string">&quot;/primary/write.txt&quot;</span>),
-                PathBuf::from(<span class="string">&quot;/primary/read.txt&quot;</span>),
+                PathBuf::from(<span class="string">"/secondary"</span>),
+                PathBuf::from(<span class="string">"/secondary/write.txt"</span>),
+                PathBuf::from(<span class="string">"/secondary/read.txt"</span>),
+                PathBuf::from(<span class="string">"/secondary/overlayed.txt"</span>),
+                PathBuf::from(<span class="string">"/primary"</span>),
+                PathBuf::from(<span class="string">"/primary/write.txt"</span>),
+                PathBuf::from(<span class="string">"/primary/read.txt"</span>),
             ]
         );
     }
@@ -2952,8 +2952,8 @@
     </span><span class="kw">async fn </span>open_secondary_fs_files_in_write_mode() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/file.txt&quot;</span>, <span class="string">b&quot;Hello, World!&quot;</span>)
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -2963,16 +2963,16 @@
             .new_open_options()
             .write(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/secondary/file.txt&quot;</span>)
+            .open(<span class="string">"/secondary/file.txt"</span>)
             .unwrap();
         <span class="comment">// reading is fine
         </span><span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
         f.read_to_string(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(buf, <span class="string">&quot;Hello, World!&quot;</span>);
+        <span class="macro">assert_eq!</span>(buf, <span class="string">"Hello, World!"</span>);
         f.seek(SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>.unwrap();
         <span class="comment">// next we will write a new set of bytes
         </span>f.set_len(<span class="number">0</span>).unwrap();
-        <span class="macro">assert_eq!</span>(f.write(<span class="string">b&quot;Hi&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(f.write(<span class="string">b"Hi"</span>).<span class="kw">await</span>.unwrap(), <span class="number">2</span>);
         <span class="comment">// Same with flushing
         </span><span class="macro">assert_eq!</span>(f.flush().<span class="kw">await</span>.unwrap(), (),);
 
@@ -2980,37 +2980,37 @@
         </span>buf = String::new();
         f.seek(SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>.unwrap();
         f.read_to_string(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(buf, <span class="string">&quot;Hi&quot;</span>);
+        <span class="macro">assert_eq!</span>(buf, <span class="string">"Hi"</span>);
         drop(f);
 
         <span class="comment">// including if we open it again
         </span><span class="kw">let </span><span class="kw-2">mut </span>f = fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/secondary/file.txt&quot;</span>)
+            .open(<span class="string">"/secondary/file.txt"</span>)
             .unwrap();
         buf = String::new();
         f.read_to_string(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(buf, <span class="string">&quot;Hi&quot;</span>);
+        <span class="macro">assert_eq!</span>(buf, <span class="string">"Hi"</span>);
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>open_secondary_fs_files_unlink() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/file.txt&quot;</span>, <span class="string">b&quot;Hello, World!&quot;</span>)
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.metadata(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>)).unwrap();
+        fs.metadata(Path::new(<span class="string">"/secondary/file.txt"</span>)).unwrap();
 
         <span class="comment">// Now delete the file and make sure its not found
-        </span>fs.remove_file(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>)).unwrap();
+        </span>fs.remove_file(Path::new(<span class="string">"/secondary/file.txt"</span>)).unwrap();
         <span class="macro">assert_eq!</span>(
-            fs.metadata(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>)).unwrap_err(),
+            fs.metadata(Path::new(<span class="string">"/secondary/file.txt"</span>)).unwrap_err(),
             FsError::EntryNotFound
         )
     }
@@ -3019,8 +3019,8 @@
     </span><span class="kw">async fn </span>open_secondary_fs_without_cow() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/file.txt&quot;</span>, <span class="string">b&quot;Hello, World!&quot;</span>)
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -3030,27 +3030,27 @@
             .new_open_options()
             .create(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>))
+            .open(Path::new(<span class="string">"/secondary/file.txt"</span>))
             .unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">13</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
         f.read_to_string(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(buf, <span class="string">&quot;Hello, World!&quot;</span>);
+        <span class="macro">assert_eq!</span>(buf, <span class="string">"Hello, World!"</span>);
 
         <span class="comment">// it should not be in the primary and nor should the secondary folder
-        </span><span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary/file.txt&quot;</span>));
+        </span><span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary/file.txt"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary/file.txt"</span>));
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>create_and_append_secondary_fs_with_cow() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/file.txt&quot;</span>, <span class="string">b&quot;Hello, World!&quot;</span>)
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -3061,18 +3061,18 @@
             .create(<span class="bool-val">true</span>)
             .append(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>))
+            .open(Path::new(<span class="string">"/secondary/file.txt"</span>))
             .unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">13</span>);
 
-        f.write_all(<span class="string">b&quot;asdf&quot;</span>).<span class="kw">await</span>.unwrap();
+        f.write_all(<span class="string">b"asdf"</span>).<span class="kw">await</span>.unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">17</span>);
 
         f.seek(SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
         f.read_to_string(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(buf, <span class="string">&quot;Hello, World!asdf&quot;</span>);
+        <span class="macro">assert_eq!</span>(buf, <span class="string">"Hello, World!asdf"</span>);
 
         <span class="comment">// Now lets check the file systems under
         </span><span class="kw">let </span>f = fs
@@ -3081,7 +3081,7 @@
             .create(<span class="bool-val">true</span>)
             .append(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>))
+            .open(Path::new(<span class="string">"/secondary/file.txt"</span>))
             .unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">17</span>);
         <span class="kw">let </span>f = fs.secondaries[<span class="number">0</span>]
@@ -3089,33 +3089,33 @@
             .create(<span class="bool-val">true</span>)
             .append(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>))
+            .open(Path::new(<span class="string">"/secondary/file.txt"</span>))
             .unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">13</span>);
 
         <span class="comment">// it should now exist in both the primary and secondary
-        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary/file.txt&quot;</span>));
+        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary/file.txt"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary/file.txt"</span>));
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>unlink_file_from_secondary_fs() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/file.txt&quot;</span>, <span class="string">b&quot;Hello, World!&quot;</span>)
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.remove_file(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>)).unwrap();
-        <span class="macro">assert_eq!</span>(ops::exists(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>)), <span class="bool-val">false</span>);
+        fs.remove_file(Path::new(<span class="string">"/secondary/file.txt"</span>)).unwrap();
+        <span class="macro">assert_eq!</span>(ops::exists(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">"/secondary/file.txt"</span>)), <span class="bool-val">false</span>);
 
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary/.wh.file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary/file.txt&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary/.wh.file.txt"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary/file.txt"</span>));
 
         <span class="comment">// Now create the file again after the unlink
         </span><span class="kw">let </span><span class="kw-2">mut </span>f = fs
@@ -3123,68 +3123,68 @@
             .create(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>))
+            .open(Path::new(<span class="string">"/secondary/file.txt"</span>))
             .unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">0</span>);
-        f.write_all(<span class="string">b&quot;asdf&quot;</span>).<span class="kw">await</span>.unwrap();
+        f.write_all(<span class="string">b"asdf"</span>).<span class="kw">await</span>.unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">4</span>);
 
         <span class="comment">// The whiteout should be gone and new file exist
-        </span><span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary/.wh.file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary/file.txt&quot;</span>));
+        </span><span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary/.wh.file.txt"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary/file.txt"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary/file.txt"</span>));
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>rmdir_from_secondary_fs() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
 
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/secondary&quot;</span>));
-        fs.remove_dir(Path::new(<span class="string">&quot;/secondary&quot;</span>)).unwrap();
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/secondary"</span>));
+        fs.remove_dir(Path::new(<span class="string">"/secondary"</span>)).unwrap();
 
-        <span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/.wh.secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary&quot;</span>));
+        <span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/.wh.secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary"</span>));
 
-        fs.create_dir(Path::new(<span class="string">&quot;/secondary&quot;</span>)).unwrap();
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/.wh.secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary&quot;</span>));
+        fs.create_dir(Path::new(<span class="string">"/secondary"</span>)).unwrap();
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/.wh.secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary"</span>));
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>rmdir_sub_from_secondary_fs() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/first/secondary&quot;</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/first/secondary"</span>).unwrap();
 
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/secondary&quot;</span>));
-        fs.remove_dir(Path::new(<span class="string">&quot;/first/secondary&quot;</span>)).unwrap();
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/first/secondary"</span>));
+        fs.remove_dir(Path::new(<span class="string">"/first/secondary"</span>)).unwrap();
 
-        <span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/first/.wh.secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/first/secondary&quot;</span>));
+        <span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/first/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/first/.wh.secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/first/secondary"</span>));
 
-        fs.create_dir(Path::new(<span class="string">&quot;/first/secondary&quot;</span>)).unwrap();
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/first/secondary&quot;</span>));
-        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/first/.wh.secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/first/secondary&quot;</span>));
+        fs.create_dir(Path::new(<span class="string">"/first/secondary"</span>)).unwrap();
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/first/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/first/secondary"</span>));
+        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/first/.wh.secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/first/secondary"</span>));
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>create_new_secondary_fs_without_cow() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
-        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/file.txt&quot;</span>, <span class="string">b&quot;Hello, World!&quot;</span>)
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -3194,35 +3194,35 @@
             .new_open_options()
             .create_new(<span class="bool-val">true</span>)
             .read(<span class="bool-val">true</span>)
-            .open(Path::new(<span class="string">&quot;/secondary/file.txt&quot;</span>))
+            .open(Path::new(<span class="string">"/secondary/file.txt"</span>))
             .unwrap();
         <span class="macro">assert_eq!</span>(f.size() <span class="kw">as </span>usize, <span class="number">0</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
         f.read_to_string(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(buf, <span class="string">&quot;&quot;</span>);
+        <span class="macro">assert_eq!</span>(buf, <span class="string">""</span>);
 
         <span class="comment">// it should now exist in both the primary and secondary
-        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/secondary/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/secondary/file.txt&quot;</span>));
+        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary/file.txt"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">"/secondary/file.txt"</span>));
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>open_secondary_fs_files_remove_dir() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
-        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
 
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.metadata(Path::new(<span class="string">&quot;/secondary&quot;</span>)).unwrap();
+        fs.metadata(Path::new(<span class="string">"/secondary"</span>)).unwrap();
 
         <span class="comment">// Now delete the file and make sure its not found
-        </span>fs.remove_dir(Path::new(<span class="string">&quot;/secondary&quot;</span>)).unwrap();
+        </span>fs.remove_dir(Path::new(<span class="string">"/secondary"</span>)).unwrap();
         <span class="macro">assert_eq!</span>(
-            fs.metadata(Path::new(<span class="string">&quot;/secondary&quot;</span>)).unwrap_err(),
+            fs.metadata(Path::new(<span class="string">"/secondary"</span>)).unwrap_err(),
             FsError::EntryNotFound
         )
     }
@@ -3233,11 +3233,11 @@
     // async fn wasi_runner_use_case() {
     //     // Set up some dummy files on the host
     //     let temp = TempDir::new().unwrap();
-    //     let first = temp.path().join(&quot;first&quot;);
-    //     let file_txt = first.join(&quot;file.txt&quot;);
-    //     let second = temp.path().join(&quot;second&quot;);
+    //     let first = temp.path().join("first");
+    //     let file_txt = first.join("file.txt");
+    //     let second = temp.path().join("second");
     //     std::fs::create_dir_all(&amp;first).unwrap();
-    //     std::fs::write(&amp;file_txt, b&quot;First!&quot;).unwrap();
+    //     std::fs::write(&amp;file_txt, b"First!").unwrap();
     //     std::fs::create_dir_all(&amp;second).unwrap();
     //     // configure the union FS so things are saved in memory by default
     //     // (initialized with a set of unix-like folders), but certain folders
@@ -3245,7 +3245,7 @@
     //     let primary = RootFileSystemBuilder::new().build();
     //     let host_fs: Arc&lt;dyn FileSystem + Send + Sync&gt; =
     //         Arc::new(crate::host_fs::FileSystem::default());
-    //     let first_dirs = [(&amp;first, &quot;/first&quot;), (&amp;second, &quot;/second&quot;)];
+    //     let first_dirs = [(&amp;first, "/first"), (&amp;second, "/second")];
     //     for (host, guest) in first_dirs {
     //         primary
     //             .mount(PathBuf::from(guest), &amp;host_fs, host.clone())
@@ -3258,71 +3258,71 @@
     //     let fs = OverlayFileSystem::new(primary, [webc]);
     //
     //     // We should get all the normal directories from rootfs (primary)
-    //     assert!(ops::is_dir(&amp;fs, &quot;/lib&quot;));
-    //     assert!(ops::is_dir(&amp;fs, &quot;/bin&quot;));
-    //     assert!(ops::is_file(&amp;fs, &quot;/dev/stdin&quot;));
-    //     assert!(ops::is_file(&amp;fs, &quot;/dev/stdout&quot;));
+    //     assert!(ops::is_dir(&amp;fs, "/lib"));
+    //     assert!(ops::is_dir(&amp;fs, "/bin"));
+    //     assert!(ops::is_file(&amp;fs, "/dev/stdin"));
+    //     assert!(ops::is_file(&amp;fs, "/dev/stdout"));
     //     // We also want to see files from the WEBC volumes (secondary)
-    //     assert!(ops::is_dir(&amp;fs, &quot;/lib/python3.6&quot;));
-    //     assert!(ops::is_file(&amp;fs, &quot;/lib/python3.6/collections/__init__.py&quot;));
+    //     assert!(ops::is_dir(&amp;fs, "/lib/python3.6"));
+    //     assert!(ops::is_file(&amp;fs, "/lib/python3.6/collections/__init__.py"));
     //     #[cfg(never)]
     //     {
-    //         // files on a secondary fs aren&#39;t writable
+    //         // files on a secondary fs aren't writable
     //         // TODO(Michael-F-Bryan): re-enable this if/when we fix
     //         // open_readonly_file_hack()
     //         assert_eq!(
     //             fs.new_open_options()
     //                 .append(true)
-    //                 .open(&quot;/lib/python3.6/collections/__init__.py&quot;)
+    //                 .open("/lib/python3.6/collections/__init__.py")
     //                 .unwrap_err(),
     //             FsError::PermissionDenied,
     //         );
     //     }
     //     // you are allowed to create files that look like they are in a secondary
     //     // folder, though
-    //     ops::touch(&amp;fs, &quot;/lib/python3.6/collections/something-else.py&quot;).unwrap();
-    //     // But it&#39;ll be on the primary filesystem, not the secondary one
+    //     ops::touch(&amp;fs, "/lib/python3.6/collections/something-else.py").unwrap();
+    //     // But it'll be on the primary filesystem, not the secondary one
     //     assert!(ops::is_file(
     //         &amp;fs.primary,
-    //         &quot;/lib/python3.6/collections/something-else.py&quot;
+    //         "/lib/python3.6/collections/something-else.py"
     //     ));
     //     assert!(!ops::is_file(
     //         &amp;fs.secondaries[0],
-    //         &quot;/lib/python3.6/collections/something-else.py&quot;
+    //         "/lib/python3.6/collections/something-else.py"
     //     ));
     //     // You can do the same thing with folders
-    //     fs.create_dir(&quot;/lib/python3.6/something-else&quot;.as_ref())
+    //     fs.create_dir("/lib/python3.6/something-else".as_ref())
     //         .unwrap();
-    //     assert!(ops::is_dir(&amp;fs.primary, &quot;/lib/python3.6/something-else&quot;));
+    //     assert!(ops::is_dir(&amp;fs.primary, "/lib/python3.6/something-else"));
     //     assert!(!ops::is_dir(
     //         &amp;fs.secondaries[0],
-    //         &quot;/lib/python3.6/something-else&quot;
+    //         "/lib/python3.6/something-else"
     //     ));
     //     // It only works when you are directly inside an existing directory
     //     // on the secondary filesystem, though
     //     assert_eq!(
-    //         ops::touch(&amp;fs, &quot;/lib/python3.6/collections/this/doesnt/exist.txt&quot;).unwrap_err(),
+    //         ops::touch(&amp;fs, "/lib/python3.6/collections/this/doesnt/exist.txt").unwrap_err(),
     //         FsError::EntryNotFound
     //     );
     //     // you should also be able to read files mounted from the host
-    //     assert!(ops::is_dir(&amp;fs, &quot;/first&quot;));
-    //     assert!(ops::is_file(&amp;fs, &quot;/first/file.txt&quot;));
+    //     assert!(ops::is_dir(&amp;fs, "/first"));
+    //     assert!(ops::is_file(&amp;fs, "/first/file.txt"));
     //     assert_eq!(
-    //         ops::read_to_string(&amp;fs, &quot;/first/file.txt&quot;).await.unwrap(),
-    //         &quot;First!&quot;
+    //         ops::read_to_string(&amp;fs, "/first/file.txt").await.unwrap(),
+    //         "First!"
     //     );
-    //     // Overwriting them is fine and we&#39;ll see the changes on the host
-    //     ops::write(&amp;fs, &quot;/first/file.txt&quot;, &quot;Updated&quot;).await.unwrap();
-    //     assert_eq!(std::fs::read_to_string(&amp;file_txt).unwrap(), &quot;Updated&quot;);
+    //     // Overwriting them is fine and we'll see the changes on the host
+    //     ops::write(&amp;fs, "/first/file.txt", "Updated").await.unwrap();
+    //     assert_eq!(std::fs::read_to_string(&amp;file_txt).unwrap(), "Updated");
     //     // The filesystem will see changes on the host that happened after it was
     //     // set up
-    //     let another = second.join(&quot;another.txt&quot;);
-    //     std::fs::write(&amp;another, &quot;asdf&quot;).unwrap();
+    //     let another = second.join("another.txt");
+    //     std::fs::write(&amp;another, "asdf").unwrap();
     //     assert_eq!(
-    //         ops::read_to_string(&amp;fs, &quot;/second/another.txt&quot;)
+    //         ops::read_to_string(&amp;fs, "/second/another.txt")
     //             .await
     //             .unwrap(),
-    //         &quot;asdf&quot;
+    //         "asdf"
     //     );
     // }
     //
@@ -3330,29 +3330,29 @@
     // async fn absolute_and_relative_paths_are_passed_through() {
     //     let python = Arc::new(load_webc(PYTHON));
     //
-    //     // The underlying filesystem doesn&#39;t care about absolute/relative paths
-    //     assert_eq!(python.read_dir(&quot;/lib&quot;.as_ref()).unwrap().count(), 4);
-    //     assert_eq!(python.read_dir(&quot;lib&quot;.as_ref()).unwrap().count(), 4);
+    //     // The underlying filesystem doesn't care about absolute/relative paths
+    //     assert_eq!(python.read_dir("/lib".as_ref()).unwrap().count(), 4);
+    //     assert_eq!(python.read_dir("lib".as_ref()).unwrap().count(), 4);
     //
     //     // read_dir() should be passed through to the primary
     //     let webc_primary =
     //         OverlayFileSystem::new(Arc::clone(&amp;python), [crate::EmptyFileSystem::default()]);
-    //     assert_same_directory_contents(&amp;python, &quot;/lib&quot;, &amp;webc_primary);
-    //     assert_same_directory_contents(&amp;python, &quot;lib&quot;, &amp;webc_primary);
+    //     assert_same_directory_contents(&amp;python, "/lib", &amp;webc_primary);
+    //     assert_same_directory_contents(&amp;python, "lib", &amp;webc_primary);
     //
     //     // read_dir() should also be passed through to the secondary
     //     let webc_secondary =
     //         OverlayFileSystem::new(crate::EmptyFileSystem::default(), [Arc::clone(&amp;python)]);
-    //     assert_same_directory_contents(&amp;python, &quot;/lib&quot;, &amp;webc_secondary);
-    //     assert_same_directory_contents(&amp;python, &quot;lib&quot;, &amp;webc_secondary);
+    //     assert_same_directory_contents(&amp;python, "/lib", &amp;webc_secondary);
+    //     assert_same_directory_contents(&amp;python, "lib", &amp;webc_secondary);
     //
     //     // It should be fine to overlay the root fs on top of our webc file
     //     let overlay_rootfs = OverlayFileSystem::new(
     //         RootFileSystemBuilder::default().build(),
     //         [Arc::clone(&amp;python)],
     //     );
-    //     assert_same_directory_contents(&amp;python, &quot;/lib&quot;, &amp;overlay_rootfs);
-    //     assert_same_directory_contents(&amp;python, &quot;lib&quot;, &amp;overlay_rootfs);
+    //     assert_same_directory_contents(&amp;python, "/lib", &amp;overlay_rootfs);
+    //     assert_same_directory_contents(&amp;python, "lib", &amp;overlay_rootfs);
     // }
     // #[track_caller]
     // fn assert_same_directory_contents(

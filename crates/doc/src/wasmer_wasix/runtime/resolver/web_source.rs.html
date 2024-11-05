@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/resolver/web_source.rs`."><title>web_source.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/resolver/web_source.rs`."><title>web_source.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -616,7 +616,7 @@
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>wasmer_config::package::{PackageHash, PackageId, PackageSource};
-<span class="kw">use </span>webc::compat::Container;
+<span class="kw">use </span>wasmer_package::utils::from_disk;
 
 <span class="kw">use crate</span>::{
     http::{HttpClient, HttpRequest},
@@ -657,7 +657,7 @@
         }
     }
 
-    <span class="doccomment">/// Set the period after which an item should be marked as &quot;possibly dirty&quot;
+    <span class="doccomment">/// Set the period after which an item should be marked as "possibly dirty"
     /// in the cache.
     </span><span class="kw">pub fn </span>with_retry_period(<span class="self">self</span>, retry_period: Duration) -&gt; <span class="self">Self </span>{
         WebSource {
@@ -667,7 +667,7 @@
     }
 
     <span class="doccomment">/// Download a package and cache it locally.
-    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%url))]
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%url))]
     </span><span class="kw">async fn </span>get_locally_cached_file(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt; {
         <span class="comment">// This function is a bit tricky because we go to great lengths to avoid
         // unnecessary downloads.
@@ -680,13 +680,13 @@
         <span class="comment">// Next we check if we definitely got a cache hit
         </span><span class="kw">let </span>state = <span class="kw">match </span>classify_cache_using_mtime(cache_info, <span class="self">self</span>.retry_period) {
             <span class="prelude-val">Ok</span>(path) =&gt; {
-                <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Cache hit!&quot;</span>);
+                <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">"Cache hit!"</span>);
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
             }
             <span class="prelude-val">Err</span>(s) =&gt; s,
         };
 
-        <span class="comment">// Let&#39;s check if the ETag is still valid
+        <span class="comment">// Let's check if the ETag is still valid
         </span><span class="kw">if let </span>CacheState::PossiblyDirty { etag, path } = <span class="kw-2">&amp;</span>state {
             <span class="kw">match </span><span class="self">self</span>.get_etag(url).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(new_etag) <span class="kw">if </span>new_etag == <span class="kw-2">*</span>etag =&gt; {
@@ -697,7 +697,7 @@
                         original_etag=%etag,
                         new_etag=%different_etag,
                         path=%path.display(),
-                        <span class="string">&quot;File has been updated. Redownloading.&quot;</span>,
+                        <span class="string">"File has been updated. Redownloading."</span>,
                     );
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -705,22 +705,22 @@
                         error=<span class="kw-2">&amp;*</span>e,
                         path=%path.display(),
                         original_etag=%etag,
-                        <span class="string">&quot;Unable to check if the etag is out of date&quot;</span>,
+                        <span class="string">"Unable to check if the etag is out of date"</span>,
                     )
                 }
             }
         }
 
-        <span class="comment">// Oh well, looks like we&#39;ll need to download it again
+        <span class="comment">// Oh well, looks like we'll need to download it again
         </span><span class="kw">let </span>(bytes, etag) = <span class="kw">match </span><span class="self">self</span>.fetch(url).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>((bytes, etag)) =&gt; (bytes, etag),
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::warn!</span>(error = <span class="kw-2">&amp;*</span>e, <span class="string">&quot;Download failed&quot;</span>);
+                <span class="macro">tracing::warn!</span>(error = <span class="kw-2">&amp;*</span>e, <span class="string">"Download failed"</span>);
                 <span class="kw">match </span>state.take_path() {
                     <span class="prelude-val">Some</span>(path) =&gt; {
                         <span class="macro">tracing::debug!</span>(
                             path=%path.display(),
-                            <span class="string">&quot;Using a possibly stale cached file&quot;</span>,
+                            <span class="string">"Using a possibly stale cached file"</span>,
                         );
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
                     }
@@ -736,14 +736,14 @@
             .<span class="kw">await
             </span>.with_context(|| {
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;Unable to save the downloaded file to \&quot;{}\&quot;&quot;</span>,
+                    <span class="string">"Unable to save the downloaded file to \"{}\""</span>,
                     path.display()
                 )
             })<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(etag) = etag {
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
-                </span>.atomically_save_file(path.with_extension(<span class="string">&quot;etag&quot;</span>), etag.as_bytes())
+                </span>.atomically_save_file(path.with_extension(<span class="string">"etag"</span>), etag.as_bytes())
                 .<span class="kw">await
             </span>{
                 <span class="macro">tracing::warn!</span>(
@@ -751,7 +751,7 @@
                     %etag,
                     %url,
                     path=%path.display(),
-                    <span class="string">&quot;Unable to save the etag file&quot;</span>,
+                    <span class="string">"Unable to save the etag file"</span>,
                 )
             }
         }
@@ -766,7 +766,7 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
             std::fs::create_dir_all(parent)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to create \&quot;{}\&quot;&quot;</span>, parent.display()))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to create \"{}\""</span>, parent.display()))<span class="question-mark">?</span>;
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>temp = NamedTempFile::new_in(<span class="kw-2">&amp;</span><span class="self">self</span>.cache_dir)<span class="question-mark">?</span>;
@@ -790,15 +790,15 @@
 
         <span class="kw">if </span>!response.is_ok() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">super</span>::utils::http_error(<span class="kw-2">&amp;</span>response)
-                .context(<span class="macro">format!</span>(<span class="string">&quot;The HEAD request to \&quot;{url}\&quot; failed&quot;</span>)));
+                .context(<span class="macro">format!</span>(<span class="string">"The HEAD request to \"{url}\" failed"</span>)));
         }
 
         <span class="kw">let </span>etag = response
             .headers
-            .get(<span class="string">&quot;ETag&quot;</span>)
-            .context(<span class="string">&quot;The HEAD request didn&#39;t contain an ETag header`&quot;</span>)<span class="question-mark">?
+            .get(<span class="string">"ETag"</span>)
+            .context(<span class="string">"The HEAD request didn't contain an ETag header`"</span>)<span class="question-mark">?
             </span>.to_str()
-            .context(<span class="string">&quot;The ETag wasn&#39;t valid UTF-8&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"The ETag wasn't valid UTF-8"</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(etag.to_string())
     }
@@ -815,14 +815,14 @@
 
         <span class="kw">if </span>!response.is_ok() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">super</span>::utils::http_error(<span class="kw-2">&amp;</span>response)
-                .context(<span class="macro">format!</span>(<span class="string">&quot;The GET request to \&quot;{url}\&quot; failed&quot;</span>)));
+                .context(<span class="macro">format!</span>(<span class="string">"The GET request to \"{url}\" failed"</span>)));
         }
 
-        <span class="kw">let </span>body = response.body.context(<span class="string">&quot;Response didn&#39;t contain a body&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>body = response.body.context(<span class="string">"Response didn't contain a body"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>etag = response
             .headers
-            .get(<span class="string">&quot;ETag&quot;</span>)
+            .get(<span class="string">"ETag"</span>)
             .and_then(|etag| etag.to_str().ok())
             .map(|etag| etag.to_string());
 
@@ -833,21 +833,21 @@
         <span class="kw">let </span>local_path = <span class="self">self
             </span>.get_locally_cached_file(url)
             .<span class="kw">await
-            </span>.context(<span class="string">&quot;Unable to get the locally cached file&quot;</span>)<span class="question-mark">?</span>;
+            </span>.context(<span class="string">"Unable to get the locally cached file"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>webc_sha256 = <span class="kw">crate</span>::block_in_place(|| WebcHash::for_file(<span class="kw-2">&amp;</span>local_path))
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to hash \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to hash \"{}\""</span>, local_path.display()))<span class="question-mark">?</span>;
 
         <span class="comment">// Note: We want to use Container::from_disk() rather than the bytes
         // our HTTP client gave us because then we can use memory-mapped files
-        </span><span class="kw">let </span>container = <span class="kw">crate</span>::block_in_place(|| Container::from_disk(<span class="kw-2">&amp;</span>local_path))
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>container = <span class="kw">crate</span>::block_in_place(|| from_disk(<span class="kw-2">&amp;</span>local_path))
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{}\""</span>, local_path.display()))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>id = PackageInfo::package_id_from_manifest(container.manifest())<span class="question-mark">?
             </span>.unwrap_or_else(|| PackageId::Hash(PackageHash::from_sha256_bytes(webc_sha256.<span class="number">0</span>)));
 
         <span class="kw">let </span>pkg = PackageInfo::from_manifest(id, container.manifest(), container.version())
-            .context(<span class="string">&quot;Unable to determine the package&#39;s metadata&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Unable to determine the package's metadata"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>dist = DistributionInfo {
             webc: url.clone(),
@@ -860,7 +860,7 @@
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>WebSource {
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%package))]
     </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSource) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">let </span>url = <span class="kw">match </span>package {
             PackageSource::Url(url) =&gt; url,
@@ -883,7 +883,7 @@
     <span class="kw">let </span>hash = hasher.finalize();
     <span class="kw">let </span><span class="kw-2">mut </span>buffer = String::with_capacity(hash.len() * <span class="number">2</span>);
     <span class="kw">for </span>byte <span class="kw">in </span>hash {
-        <span class="macro">write!</span>(buffer, <span class="string">&quot;{byte:02X}&quot;</span>).expect(<span class="string">&quot;Unreachable&quot;</span>);
+        <span class="macro">write!</span>(buffer, <span class="string">"{byte:02X}"</span>).expect(<span class="string">"Unreachable"</span>);
     }
 
     buffer
@@ -891,7 +891,7 @@
 
 <span class="attr">#[derive(Debug, Clone, PartialEq)]
 </span><span class="kw">enum </span>CacheInfo {
-    <span class="doccomment">/// An item isn&#39;t in the cache, but could be cached later on.
+    <span class="doccomment">/// An item isn't in the cache, but could be cached later on.
     </span>Miss,
     <span class="doccomment">/// An item in the cache.
     </span>Hit {
@@ -909,7 +909,7 @@
             <span class="kw">return </span>CacheInfo::Miss;
         }
 
-        <span class="kw">let </span>etag = std::fs::read_to_string(path.with_extension(<span class="string">&quot;etag&quot;</span>)).ok();
+        <span class="kw">let </span>etag = std::fs::read_to_string(path.with_extension(<span class="string">"etag"</span>)).ok();
         <span class="kw">let </span>last_modified = path.metadata().and_then(|m| m.modified()).ok();
 
         CacheInfo::Hit {
@@ -963,13 +963,13 @@
 <span class="doccomment">/// Classification of how valid an item is based on filesystem metadata.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">enum </span>CacheState {
-    <span class="doccomment">/// The item isn&#39;t in the cache.
+    <span class="doccomment">/// The item isn't in the cache.
     </span>Miss,
     <span class="doccomment">/// The cached item might be invalid, but it has an ETag we can use for
     /// further validation.
     </span>PossiblyDirty { etag: String, path: PathBuf },
-    <span class="doccomment">/// The cached item exists on disk, but we weren&#39;t able to tell whether it is still
-    /// valid, and there aren&#39;t any other ways to validate it further. You can
+    <span class="doccomment">/// The cached item exists on disk, but we weren't able to tell whether it is still
+    /// valid, and there aren't any other ways to validate it further. You can
     /// probably reuse this if you are having internet issues.
     </span>UnableToVerify { path: PathBuf },
 }
@@ -997,10 +997,10 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
-    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc&quot;</span>);
-    <span class="kw">const </span>DUMMY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;http://my-registry.io/some/package&quot;</span>;
-    <span class="kw">const </span>DUMMY_URL_HASH: <span class="kw-2">&amp;</span>str = <span class="string">&quot;4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D&quot;</span>;
+    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
+    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"</span>);
+    <span class="kw">const </span>DUMMY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"http://my-registry.io/some/package"</span>;
+    <span class="kw">const </span>DUMMY_URL_HASH: <span class="kw-2">&amp;</span>str = <span class="string">"4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D"</span>;
 
     <span class="attr">#[derive(Debug)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DummyClient {
@@ -1021,7 +1021,7 @@
         <span class="kw">fn </span>request(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             request: HttpRequest,
-        ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
+        ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
             <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().pop_front().unwrap();
             <span class="self">self</span>.requests.lock().unwrap().push(request);
             Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })
@@ -1051,7 +1051,7 @@
         </span>}
 
         <span class="kw">pub fn </span>with_etag(<span class="self">self</span>, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
-            <span class="self">self</span>.with_header(<span class="string">&quot;ETag&quot;</span>, value)
+            <span class="self">self</span>.with_header(<span class="string">"ETag"</span>, value)
         }
 
         <span class="kw">pub fn </span>with_header(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw">impl </span>IntoHeaderName, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
@@ -1065,7 +1065,7 @@
     }
 
     <span class="kw">async fn </span>empty_cache_does_a_full_download_internal() {
-        <span class="kw">let </span>dummy_etag = <span class="string">&quot;This is an etag&quot;</span>;
+        <span class="kw">let </span>dummy_etag = <span class="string">"This is an etag"</span>;
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = DummyClient::with_responses([ResponseBuilder::new()
             .with_body(PYTHON)
@@ -1078,22 +1078,22 @@
 
         <span class="comment">// We got the right response, as expected
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">&quot;python&quot;</span>);
+        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
         <span class="comment">// But we should have also cached the file and etag
         </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
         <span class="macro">assert!</span>(path.exists());
-        <span class="kw">let </span>etag_path = path.with_extension(<span class="string">&quot;etag&quot;</span>);
+        <span class="kw">let </span>etag_path = path.with_extension(<span class="string">"etag"</span>);
         <span class="macro">assert!</span>(etag_path.exists());
         <span class="comment">// And they should contain the correct content
         </span><span class="macro">assert_eq!</span>(std::fs::read_to_string(etag_path).unwrap(), dummy_etag);
         <span class="macro">assert_eq!</span>(std::fs::read(path).unwrap(), PYTHON);
     }
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
     </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
         empty_cache_does_a_full_download_internal().<span class="kw">await
     </span>}
-    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
     #[tokio::test()]
     </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
         empty_cache_does_a_full_download_internal().<span class="kw">await
@@ -1111,16 +1111,16 @@
 
         <span class="comment">// We got the right response, as expected
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">&quot;python&quot;</span>);
+        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
         <span class="comment">// And no requests were sent
         </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">0</span>);
     }
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
     </span><span class="kw">async fn </span>cache_hit() {
         cache_hit_internal().<span class="kw">await
     </span>}
-    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
     #[tokio::test()]
     </span><span class="kw">async fn </span>cache_hit() {
         cache_hit_internal().<span class="kw">await
@@ -1141,18 +1141,18 @@
 
         <span class="comment">// We got the right response, as expected
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">&quot;python&quot;</span>);
+        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
         <span class="comment">// And one request was sent
         </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">1</span>);
-        <span class="comment">// The etag file wasn&#39;t written
-        </span><span class="macro">assert!</span>(!python_path.with_extension(<span class="string">&quot;etag&quot;</span>).exists());
+        <span class="comment">// The etag file wasn't written
+        </span><span class="macro">assert!</span>(!python_path.with_extension(<span class="string">"etag"</span>).exists());
     }
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
     </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
         fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
     </span>}
-    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
     #[tokio::test()]
     </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
         fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
@@ -1161,16 +1161,16 @@
     <span class="kw">async fn </span>download_again_if_etag_is_different_internal() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([
-            ResponseBuilder::new().with_etag(<span class="string">&quot;coreutils&quot;</span>).build(),
+            ResponseBuilder::new().with_etag(<span class="string">"coreutils"</span>).build(),
             ResponseBuilder::new()
                 .with_body(COREUTILS)
-                .with_etag(<span class="string">&quot;coreutils&quot;</span>)
+                .with_etag(<span class="string">"coreutils"</span>)
                 .build(),
         ]));
         <span class="comment">// Add Python to the cache
         </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
         std::fs::write(<span class="kw-2">&amp;</span>path, PYTHON).unwrap();
-        std::fs::write(path.with_extension(<span class="string">&quot;etag&quot;</span>), <span class="string">&quot;python&quot;</span>).unwrap();
+        std::fs::write(path.with_extension(<span class="string">"etag"</span>), <span class="string">"python"</span>).unwrap();
         <span class="comment">// but create a source that will always want to re-check the etags
         </span><span class="kw">let </span>source =
             WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::new(<span class="number">0</span>, <span class="number">0</span>));
@@ -1182,25 +1182,25 @@
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(
             summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name,
-            <span class="string">&quot;sharrattj/coreutils&quot;
+            <span class="string">"sharrattj/coreutils"
         </span>);
         <span class="comment">// both a HEAD and GET request were sent
         </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
         <span class="macro">assert_eq!</span>(requests.len(), <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(requests[<span class="number">0</span>].method, <span class="string">&quot;HEAD&quot;</span>);
-        <span class="macro">assert_eq!</span>(requests[<span class="number">1</span>].method, <span class="string">&quot;GET&quot;</span>);
+        <span class="macro">assert_eq!</span>(requests[<span class="number">0</span>].method, <span class="string">"HEAD"</span>);
+        <span class="macro">assert_eq!</span>(requests[<span class="number">1</span>].method, <span class="string">"GET"</span>);
         <span class="comment">// The etag file was also updated
         </span><span class="macro">assert_eq!</span>(
-            std::fs::read_to_string(path.with_extension(<span class="string">&quot;etag&quot;</span>)).unwrap(),
-            <span class="string">&quot;coreutils&quot;
+            std::fs::read_to_string(path.with_extension(<span class="string">"etag"</span>)).unwrap(),
+            <span class="string">"coreutils"
         </span>);
     }
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
     </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
         download_again_if_etag_is_different_internal().<span class="kw">await
     </span>}
-    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
     #[tokio::test()]
     </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
         download_again_if_etag_is_different_internal().<span class="kw">await

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine.rs`."><title>machine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine.rs`."><title>machine.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2502,6 +2502,8 @@
 <a href="#2502" id="2502">2502</a>
 <a href="#2503" id="2503">2503</a>
 <a href="#2504" id="2504">2504</a>
+<a href="#2505" id="2505">2505</a>
+<a href="#2506" id="2506">2506</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::common_decl::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::location::{Location, Reg};
 <span class="kw">use </span><span class="kw">crate</span>::machine_arm64::MachineARM64;
@@ -2532,11 +2534,12 @@
 }
 
 <span class="attr">#[macro_export]
-</span><span class="macro">macro_rules! </span>codegen_error {
+</span><span class="macro">macro_rules!</span> codegen_error {
     ($(<span class="macro-nonterminal">$arg</span>:tt)<span class="kw-2">*</span>) =&gt; {<span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>($(<span class="macro-nonterminal">$arg</span>)<span class="kw-2">*</span>)))}
 }
 
-<span class="kw">pub trait </span>MaybeImmediate {
+<span class="attr">#[allow(unused)]
+</span><span class="kw">pub trait </span>MaybeImmediate {
     <span class="kw">fn </span>imm_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Value&gt;;
     <span class="kw">fn </span>is_imm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.imm_value().is_some()
@@ -2555,7 +2558,8 @@
 
 <span class="kw">pub struct </span>MachineStackOffset(<span class="kw">pub </span>usize);
 
-<span class="kw">pub trait </span>Machine {
+<span class="attr">#[allow(unused)]
+</span><span class="kw">pub trait </span>Machine {
     <span class="kw">type </span>GPR: Copy + Eq + Debug + Reg;
     <span class="kw">type </span>SIMD: Copy + Eq + Debug + Reg;
     <span class="doccomment">/// Get current assembler offset
@@ -2616,7 +2620,7 @@
     </span><span class="kw">fn </span>mark_address_range_with_trap_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code: TrapCode, begin: usize, end: usize);
     <span class="doccomment">/// Marks one address as trappable with trap code `code`.
     </span><span class="kw">fn </span>mark_address_with_trap_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code: TrapCode);
-    <span class="doccomment">/// Marks the instruction as trappable with trap code `code`. return &quot;begin&quot; offset
+    <span class="doccomment">/// Marks the instruction as trappable with trap code `code`. return "begin" offset
     </span><span class="kw">fn </span>mark_instruction_with_trap_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code: TrapCode) -&gt; usize;
     <span class="doccomment">/// Pushes the instruction to the address map, calculating the offset from a
     /// provided beginning address.
@@ -2656,7 +2660,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
     <span class="doccomment">/// Determine whether a local should be allocated on the stack.
     </span><span class="kw">fn </span>is_local_on_stack(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize) -&gt; bool;
-    <span class="doccomment">/// Determine a local&#39;s location.
+    <span class="doccomment">/// Determine a local's location.
     </span><span class="kw">fn </span>get_local_location(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         idx: usize,
@@ -2745,9 +2749,9 @@
     <span class="doccomment">/// finalize a function
     </span><span class="kw">fn </span>finalize_function(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 
-    <span class="doccomment">/// emit native function prolog (depending on the calling Convention, like &quot;PUSH RBP / MOV RSP, RBP&quot;)
+    <span class="doccomment">/// emit native function prolog (depending on the calling Convention, like "PUSH RBP / MOV RSP, RBP")
     </span><span class="kw">fn </span>emit_function_prolog(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-    <span class="doccomment">/// emit native function epilog (depending on the calling Convention, like &quot;MOV RBP, RSP / POP RBP&quot;)
+    <span class="doccomment">/// emit native function epilog (depending on the calling Convention, like "MOV RBP, RSP / POP RBP")
     </span><span class="kw">fn </span>emit_function_epilog(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
     <span class="doccomment">/// handle return value, with optionnal cannonicalization if wanted
     </span><span class="kw">fn </span>emit_function_return_value(
@@ -4919,7 +4923,7 @@
             machine.gen_std_trampoline(sig, calling_convention)
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
-            <span class="string">&quot;singlepass unimplemented arch for gen_std_trampoline&quot;</span>.to_owned(),
+            <span class="string">"singlepass unimplemented arch for gen_std_trampoline"</span>.to_owned(),
         )),
     }
 }
@@ -4941,7 +4945,7 @@
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
-            <span class="string">&quot;singlepass unimplemented arch for gen_std_dynamic_import_trampoline&quot;</span>.to_owned(),
+            <span class="string">"singlepass unimplemented arch for gen_std_dynamic_import_trampoline"</span>.to_owned(),
         )),
     }
 }
@@ -4963,7 +4967,7 @@
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
-            <span class="string">&quot;singlepass unimplemented arch for gen_import_call_trampoline&quot;</span>.to_owned(),
+            <span class="string">"singlepass unimplemented arch for gen_import_call_trampoline"</span>.to_owned(),
         )),
     }
 }

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_translator.rs`."><title>func_translator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_translator.rs`."><title>func_translator.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -273,8 +273,6 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -284,10 +282,11 @@
 //! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the
 //! WebAssembly module and the runtime environment.
 
-</span><span class="kw">use </span><span class="kw">super</span>::code_translator::{bitcast_arguments, translate_operator, wasm_param_types};
+</span><span class="kw">use </span><span class="kw">super</span>::code_translator::translate_operator;
 <span class="kw">use </span><span class="kw">super</span>::func_environ::{FuncEnvironment, ReturnMode};
 <span class="kw">use </span><span class="kw">super</span>::func_state::FuncTranslationState;
 <span class="kw">use </span><span class="kw">super</span>::translation_utils::get_vmctx_value_label;
+<span class="kw">use </span><span class="kw">crate</span>::translator::code_translator::bitcast_wasm_returns;
 <span class="kw">use </span>cranelift_codegen::entity::EntityRef;
 <span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, Block, InstBuilder, ValueLabel};
 <span class="kw">use </span>cranelift_codegen::timing;
@@ -355,13 +354,13 @@
     ) -&gt; WasmResult&lt;()&gt; {
         <span class="kw">let </span>_tt = timing::wasm_translate_function();
         <span class="macro">tracing::trace!</span>(
-            <span class="string">&quot;translate({} bytes, {}{})&quot;</span>,
+            <span class="string">"translate({} bytes, {}{})"</span>,
             reader.bytes_remaining(),
             func.name,
             func.signature
         );
-        <span class="macro">debug_assert_eq!</span>(func.dfg.num_blocks(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
-        <span class="macro">debug_assert_eq!</span>(func.dfg.num_insts(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
+        <span class="macro">debug_assert_eq!</span>(func.dfg.num_blocks(), <span class="number">0</span>, <span class="string">"Function must be empty"</span>);
+        <span class="macro">debug_assert_eq!</span>(func.dfg.num_insts(), <span class="number">0</span>, <span class="string">"Function must be empty"</span>);
 
         <span class="comment">// This clears the `FunctionBuilderContext`.
         </span><span class="kw">let </span><span class="kw-2">mut </span>builder = FunctionBuilder::new(func, <span class="kw-2">&amp;mut </span><span class="self">self</span>.func_ctx);
@@ -475,7 +474,7 @@
             <span class="kw">if </span>ty.is_func_ref() || ty.is_extern_ref() {
                 builder.ins().null(environ.reference_type())
             } <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;unsupported reference type: {:?}&quot;</span>, ty));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"unsupported reference type: {:?}"</span>, ty));
             }
         }
     };
@@ -505,7 +504,7 @@
     environ: <span class="kw-2">&amp;mut </span>FE,
 ) -&gt; WasmResult&lt;()&gt; {
     <span class="comment">// The control stack is initialized with a single block representing the whole function.
-    </span><span class="macro">debug_assert_eq!</span>(state.control_stack.len(), <span class="number">1</span>, <span class="string">&quot;State not initialized&quot;</span>);
+    </span><span class="macro">debug_assert_eq!</span>(state.control_stack.len(), <span class="number">1</span>, <span class="string">"State not initialized"</span>);
 
     <span class="comment">// Keep going until the final `End` operator which pops the outermost block.
     </span><span class="kw">while </span>!state.control_stack.is_empty() {
@@ -520,16 +519,13 @@
     // instruction.
     //
     // If the exit block is unreachable, it may not have the correct arguments, so we would
-    // generate a return instruction that doesn&#39;t match the signature.
+    // generate a return instruction that doesn't match the signature.
     </span><span class="kw">if </span>state.reachable {
         <span class="comment">//debug_assert!(builder.is_pristine());
         </span><span class="kw">if </span>!builder.is_unreachable() {
             <span class="kw">match </span>environ.return_mode() {
                 ReturnMode::NormalReturns =&gt; {
-                    <span class="kw">let </span>return_types = wasm_param_types(<span class="kw-2">&amp;</span>builder.func.signature.returns, |i| {
-                        environ.is_wasm_return(<span class="kw-2">&amp;</span>builder.func.signature, i)
-                    });
-                    bitcast_arguments(<span class="kw-2">&amp;mut </span>state.stack, <span class="kw-2">&amp;</span>return_types, builder);
+                    bitcast_wasm_returns(environ, <span class="kw-2">&amp;mut </span>state.stack, builder);
                     builder.ins().return_(<span class="kw-2">&amp;</span>state.stack)
                 }
             };

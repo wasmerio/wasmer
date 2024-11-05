@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/wasi.rs`."><title>wasi.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/wasi.rs`."><title>wasi.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -548,6 +548,25 @@
 <a href="#548" id="548">548</a>
 <a href="#549" id="549">549</a>
 <a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -583,6 +602,20 @@
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         WasiRunner::default()
     }
+
+    <span class="doccomment">/// Returns the current entry function for this `WasiRunner`
+    </span><span class="kw">pub fn </span>entry_function(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+        <span class="self">self</span>.wasi.entry_function.clone()
+    }
+
+    <span class="doccomment">/// Builder method to set the name of the entry function for this `WasiRunner`
+    </span><span class="kw">pub fn </span>with_entry_function&lt;S&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, entry_function: S) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
+    </span><span class="kw">where
+        </span>S: Into&lt;String&gt;,
+    {
+        <span class="self">self</span>.wasi.entry_function = <span class="prelude-val">Some</span>(entry_function.into());
+        <span class="self">self
+    </span>}
 
     <span class="doccomment">/// Returns the current arguments for this `WasiRunner`
     </span><span class="kw">pub fn </span>get_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
@@ -778,7 +811,7 @@
         <span class="self">self
     </span>}
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">pub fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         program_name: <span class="kw-2">&amp;</span>str,
@@ -834,12 +867,12 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self</span>.prepare_webc_env(program_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>, runtime, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;ctrlc&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
         </span>{
             builder = builder.attach_ctrl_c();
         }
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
             <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                 builder.add_snapshot_trigger(trigger);
@@ -852,7 +885,7 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
                 <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                            <span class="string">&quot;If you specify a snapshot interval then you must also specify a journal file&quot;
+                            <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
                         </span>));
                 }
                 builder.with_snapshot_interval(period);
@@ -885,10 +918,10 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>cmd = pkg
             .get_command(command_name)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The package doesn&#39;t contain a \&quot;{command_name}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"The package doesn't contain a \"{command_name}\" command"</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>wasi = cmd
             .metadata()
-            .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
+            .annotation(<span class="string">"wasi"</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
 
         <span class="kw">let </span>exec_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(exec_name) = wasi.exec_name.as_ref() {
@@ -900,9 +933,9 @@
         <span class="attr">#[allow(unused_mut)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>env = <span class="self">self
             </span>.prepare_webc_env(exec_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">Some</span>(pkg), Arc::clone(<span class="kw-2">&amp;</span>runtime), <span class="prelude-val">None</span>)
-            .context(<span class="string">&quot;Unable to prepare the WASI environment&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Unable to prepare the WASI environment"</span>)<span class="question-mark">?</span>;
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
             <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.journals.clone() {
                 env.add_journal(journal);
@@ -929,9 +962,9 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
                     <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, store, env, <span class="kw-2">&amp;</span>runtime)
                         .<span class="kw">await
-                        </span>.context(<span class="string">&quot;Spawn failed&quot;</span>)<span class="question-mark">?</span>;
+                        </span>.context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
 
-                <span class="attr">#[cfg(feature = <span class="string">&quot;ctrlc&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
                 </span>task_handle.install_ctrlc_handler();
 
                 task_handle
@@ -954,12 +987,15 @@
                                     WasiRuntimeError::Wasi(WasiError::Exit(a)) =&gt; {
                                         WasiRuntimeError::Wasi(WasiError::Exit(<span class="kw-2">*</span>a))
                                     }
+                                    WasiRuntimeError::Wasi(WasiError::ThreadExit) =&gt; {
+                                        WasiRuntimeError::Wasi(WasiError::ThreadExit)
+                                    }
                                     WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) =&gt; {
                                         WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
                                     }
                                     WasiRuntimeError::Wasi(WasiError::DeepSleep(<span class="kw">_</span>)) =&gt; {
                                         WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
-                                            <span class="string">&quot;deep-sleep&quot;
+                                            <span class="string">"deep-sleep"
                                         </span>)))
                                     }
                                     WasiRuntimeError::ControlPlane(a) =&gt; {
@@ -977,12 +1013,12 @@
                                 })
                                 .unwrap_or_else(|| {
                                     WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
-                                        <span class="string">&quot;{}&quot;</span>, msg
+                                        <span class="string">"{}"</span>, msg
                                     )))
                                 })
                         })
                     })
-                    .context(<span class="string">&quot;Unable to wait for the process to exit&quot;</span>)
+                    .context(<span class="string">"Unable to wait for the process to exit"</span>)
             }
             .in_current_span(),
         )<span class="question-mark">??</span>;
@@ -1008,7 +1044,7 @@
         assert_sync::&lt;WasiRunner&gt;();
     }
 
-    <span class="attr">#[cfg(all(feature = <span class="string">&quot;host-fs&quot;</span>, feature = <span class="string">&quot;sys&quot;</span>))]
+    <span class="attr">#[cfg(all(feature = <span class="string">"host-fs"</span>, feature = <span class="string">"sys"</span>))]
     #[tokio::test]
     </span><span class="kw">async fn </span>test_volume_mount_without_webcs() {
         <span class="kw">use </span>std::sync::Arc;
@@ -1017,16 +1053,16 @@
 
         <span class="kw">let </span>tokrt = tokio::runtime::Handle::current();
 
-        <span class="kw">let </span>hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), <span class="string">&quot;/&quot;</span>).unwrap();
+        <span class="kw">let </span>hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), <span class="string">"/"</span>).unwrap();
         <span class="kw">let </span>hostdir_dyn: Arc&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt; = Arc::new(hostdir);
 
         root_fs
-            .mount(<span class="string">&quot;/host&quot;</span>.into(), <span class="kw-2">&amp;</span>hostdir_dyn, <span class="string">&quot;/&quot;</span>.into())
+            .mount(<span class="string">"/host"</span>.into(), <span class="kw-2">&amp;</span>hostdir_dyn, <span class="string">"/"</span>.into())
             .unwrap();
 
         <span class="kw">let </span>envb = <span class="kw">crate</span>::runners::wasi::WasiRunner::new();
 
-        <span class="kw">let </span>annotations = webc::metadata::annotations::Wasi::new(<span class="string">&quot;test&quot;</span>);
+        <span class="kw">let </span>annotations = webc::metadata::annotations::Wasi::new(<span class="string">"test"</span>);
 
         <span class="kw">let </span>tm = Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::new(
             tokrt.clone(),
@@ -1034,35 +1070,37 @@
         <span class="kw">let </span>rt = <span class="kw">crate</span>::PluggableRuntime::new(tm);
 
         <span class="kw">let </span>envb = envb
-            .prepare_webc_env(<span class="string">&quot;test&quot;</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>, Arc::new(rt), <span class="prelude-val">Some</span>(root_fs))
+            .prepare_webc_env(<span class="string">"test"</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>, Arc::new(rt), <span class="prelude-val">Some</span>(root_fs))
             .unwrap();
 
         <span class="kw">let </span>init = envb.build_init().unwrap();
 
         <span class="kw">let </span>fs = <span class="kw-2">&amp;</span>init.state.fs.root_fs;
 
-        fs.read_dir(std::path::Path::new(<span class="string">&quot;/host&quot;</span>)).unwrap();
+        fs.read_dir(std::path::Path::new(<span class="string">"/host"</span>)).unwrap();
     }
 
-    <span class="attr">#[cfg(all(feature = <span class="string">&quot;host-fs&quot;</span>, feature = <span class="string">&quot;sys&quot;</span>))]
+    <span class="attr">#[cfg(all(feature = <span class="string">"host-fs"</span>, feature = <span class="string">"sys"</span>))]
     #[tokio::test]
     </span><span class="kw">async fn </span>test_volume_mount_with_webcs() {
         <span class="kw">use </span>std::sync::Arc;
+
+        <span class="kw">use </span>wasmer_package::utils::from_bytes;
 
         <span class="kw">let </span>root_fs = virtual_fs::RootFileSystemBuilder::new().build();
 
         <span class="kw">let </span>tokrt = tokio::runtime::Handle::current();
 
-        <span class="kw">let </span>hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), <span class="string">&quot;/&quot;</span>).unwrap();
+        <span class="kw">let </span>hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), <span class="string">"/"</span>).unwrap();
         <span class="kw">let </span>hostdir_dyn: Arc&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt; = Arc::new(hostdir);
 
         root_fs
-            .mount(<span class="string">&quot;/host&quot;</span>.into(), <span class="kw-2">&amp;</span>hostdir_dyn, <span class="string">&quot;/&quot;</span>.into())
+            .mount(<span class="string">"/host"</span>.into(), <span class="kw-2">&amp;</span>hostdir_dyn, <span class="string">"/"</span>.into())
             .unwrap();
 
         <span class="kw">let </span>envb = <span class="kw">crate</span>::runners::wasi::WasiRunner::new();
 
-        <span class="kw">let </span>annotations = webc::metadata::annotations::Wasi::new(<span class="string">&quot;test&quot;</span>);
+        <span class="kw">let </span>annotations = webc::metadata::annotations::Wasi::new(<span class="string">"test"</span>);
 
         <span class="kw">let </span>tm = Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::new(
             tokrt.clone(),
@@ -1070,9 +1108,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>rt = <span class="kw">crate</span>::PluggableRuntime::new(tm);
         rt.set_package_loader(<span class="kw">crate</span>::runtime::package_loader::BuiltinPackageLoader::new());
 
-        <span class="kw">let </span>webc_path = std::path::PathBuf::from(std::env::var(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>).unwrap()).join(<span class="string">&quot;../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc&quot;</span>);
+        <span class="kw">let </span>webc_path = std::path::PathBuf::from(std::env::var(<span class="string">"CARGO_MANIFEST_DIR"</span>).unwrap()).join(<span class="string">"../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc"</span>);
         <span class="kw">let </span>webc_data = std::fs::read(webc_path).unwrap();
-        <span class="kw">let </span>container = webc::Container::from_bytes(webc_data).unwrap();
+        <span class="kw">let </span>container = from_bytes(webc_data).unwrap();
 
         <span class="kw">let </span>binpkg = <span class="kw">crate</span>::bin_factory::BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, <span class="kw-2">&amp;</span>rt)
             .<span class="kw">await
@@ -1080,7 +1118,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>envb = envb
             .prepare_webc_env(
-                <span class="string">&quot;test&quot;</span>,
+                <span class="string">"test"</span>,
                 <span class="kw-2">&amp;</span>annotations,
                 <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>binpkg),
                 Arc::new(rt),
@@ -1088,14 +1126,14 @@
             )
             .unwrap();
 
-        envb = envb.preopen_dir(<span class="string">&quot;/host&quot;</span>).unwrap();
+        envb = envb.preopen_dir(<span class="string">"/host"</span>).unwrap();
 
         <span class="kw">let </span>init = envb.build_init().unwrap();
 
         <span class="kw">let </span>fs = <span class="kw-2">&amp;</span>init.state.fs.root_fs;
 
-        fs.read_dir(std::path::Path::new(<span class="string">&quot;/host&quot;</span>)).unwrap();
-        fs.read_dir(std::path::Path::new(<span class="string">&quot;/settings&quot;</span>)).unwrap();
+        fs.read_dir(std::path::Path::new(<span class="string">"/host"</span>)).unwrap();
+        fs.read_dir(std::path::Path::new(<span class="string">"/settings"</span>)).unwrap();
     }
 }
 </code></pre></div></section></main></body></html>

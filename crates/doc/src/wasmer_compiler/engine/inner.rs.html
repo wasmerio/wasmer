@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/inner.rs`."><title>inner.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/inner.rs`."><title>inner.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -531,34 +531,34 @@
 </pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::Artifact;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::BaseTunables;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::CodeMemory;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::GlobalFrameInfoRegistration;
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use crate</span>::{Compiler, CompilerConfig};
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use crate</span>::{FunctionExtent, Tunables};
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>shared_buffer::OwnedBuffer;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <span class="kw">use </span>std::sync::{Arc, Mutex};
 <span class="kw">use </span>wasmer_types::HashAlgorithm;
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionBodyLike, FunctionIndex, FunctionType,
     LocalFunctionIndex, SignatureIndex,
 };
 <span class="kw">use </span>wasmer_types::{CompileError, Features, ModuleInfo, Target};
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_types::{CustomSectionLike, CustomSectionProtection, SectionIndex};
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
@@ -571,7 +571,7 @@
     <span class="doccomment">/// The target for the compiler
     </span>target: Arc&lt;Target&gt;,
     engine_id: EngineId,
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span>tunables: Arc&lt;<span class="kw">dyn </span>Tunables + Send + Sync&gt;,
     name: String,
     hash_algorithm: <span class="prelude-ty">Option</span>&lt;HashAlgorithm&gt;,
@@ -579,41 +579,41 @@
 
 <span class="kw">impl </span>Engine {
     <span class="doccomment">/// Create a new `Engine` with the given config
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">pub fn </span>new(
         compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;,
         target: Target,
         features: Features,
     ) -&gt; <span class="self">Self </span>{
-        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
         </span><span class="kw">let </span>tunables = BaseTunables::for_target(<span class="kw-2">&amp;</span>target);
         <span class="kw">let </span>compiler = compiler_config.compiler();
-        <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">&quot;engine-{}&quot;</span>, compiler.name());
+        <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"engine-{}"</span>, compiler.name());
         <span class="self">Self </span>{
             inner: Arc::new(Mutex::new(EngineInner {
                 compiler: <span class="prelude-val">Some</span>(compiler),
                 features,
-                <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+                <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
                 </span>code_memory: <span class="macro">vec!</span>[],
-                <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+                <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
                 </span>signatures: SignatureRegistry::new(),
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
-            <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+            <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
             </span>tunables: Arc::new(tunables),
             name,
             hash_algorithm: <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="attr">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
+    <span class="attr">#[cfg(not(feature = <span class="string">"compiler"</span>))]
     </span><span class="kw">pub fn </span>new(
         compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;,
         target: Target,
         features: Features,
     ) -&gt; <span class="self">Self </span>{
-        <span class="macro">panic!</span>(<span class="string">&quot;The engine is not compiled with any compiler support&quot;</span>)
+        <span class="macro">panic!</span>(<span class="string">"The engine is not compiled with any compiler support"</span>)
     }
 
     <span class="doccomment">/// Returns the name of this engine
@@ -651,39 +651,39 @@
     ///
     /// # Important
     ///
-    /// Headless engines can&#39;t compile or validate any modules,
+    /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
     </span><span class="kw">pub fn </span>headless() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>target = Target::default();
-        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
         </span><span class="kw">let </span>tunables = BaseTunables::for_target(<span class="kw-2">&amp;</span>target);
         <span class="self">Self </span>{
             inner: Arc::new(Mutex::new(EngineInner {
-                <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
                 </span>compiler: <span class="prelude-val">None</span>,
-                <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
                 </span>features: Features::default(),
-                <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+                <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
                 </span>code_memory: <span class="macro">vec!</span>[],
-                <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+                <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
                 </span>signatures: SignatureRegistry::new(),
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
-            <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+            <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
             </span>tunables: Arc::new(tunables),
-            name: <span class="string">&quot;engine-headless&quot;</span>.to_string(),
+            name: <span class="string">"engine-headless"</span>.to_string(),
             hash_algorithm: <span class="prelude-val">None</span>,
         }
     }
 
     <span class="doccomment">/// Get reference to `EngineInner`.
-    </span><span class="kw">pub fn </span>inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::sync::MutexGuard&lt;<span class="lifetime">&#39;_</span>, EngineInner&gt; {
+    </span><span class="kw">pub fn </span>inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::sync::MutexGuard&lt;<span class="lifetime">'_</span>, EngineInner&gt; {
         <span class="self">self</span>.inner.lock().unwrap()
     }
 
     <span class="doccomment">/// Get mutable reference to `EngineInner`.
-    </span><span class="kw">pub fn </span>inner_mut(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::sync::MutexGuard&lt;<span class="lifetime">&#39;_</span>, EngineInner&gt; {
+    </span><span class="kw">pub fn </span>inner_mut(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::sync::MutexGuard&lt;<span class="lifetime">'_</span>, EngineInner&gt; {
         <span class="self">self</span>.inner.lock().unwrap()
     }
 
@@ -693,28 +693,28 @@
     }
 
     <span class="doccomment">/// Register a signature
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub fn </span>register_signature(<span class="kw-2">&amp;</span><span class="self">self</span>, func_type: <span class="kw-2">&amp;</span>FunctionType) -&gt; VMSharedSignatureIndex {
         <span class="kw">let </span>compiler = <span class="self">self</span>.inner();
         compiler.signatures().register(func_type)
     }
 
     <span class="doccomment">/// Lookup a signature
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub fn </span>lookup_signature(<span class="kw-2">&amp;</span><span class="self">self</span>, sig: VMSharedSignatureIndex) -&gt; <span class="prelude-ty">Option</span>&lt;FunctionType&gt; {
         <span class="kw">let </span>compiler = <span class="self">self</span>.inner();
         compiler.signatures().lookup(sig)
     }
 
     <span class="doccomment">/// Validates a WebAssembly module
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="self">self</span>.inner().validate(binary)
     }
 
     <span class="doccomment">/// Compile a WebAssembly binary
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
-    #[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+    #[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub fn </span>compile(<span class="kw-2">&amp;</span><span class="self">self</span>, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, CompileError&gt; {
         <span class="prelude-val">Ok</span>(Arc::new(Artifact::new(
             <span class="self">self</span>,
@@ -725,19 +725,19 @@
     }
 
     <span class="doccomment">/// Compile a WebAssembly binary
-    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
-    #[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"compiler"</span>))]
+    #[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub fn </span>compile(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _binary: <span class="kw-2">&amp;</span>[u8],
         _tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, CompileError&gt; {
         <span class="prelude-val">Err</span>(CompileError::Codegen(
-            <span class="string">&quot;The Engine is operating in headless mode, so it can not compile Modules.&quot;</span>.to_string(),
+            <span class="string">"The Engine is operating in headless mode, so it can not compile Modules."</span>.to_string(),
         ))
     }
 
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="doccomment">/// Deserializes a WebAssembly module which was previously serialized with
     /// [`Module::serialize`].
     ///
@@ -757,7 +757,7 @@
     /// # Safety
     ///
     /// See [`Artifact::deserialize`].
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub unsafe fn </span>deserialize(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         bytes: OwnedBuffer,
@@ -769,7 +769,7 @@
     ///
     /// # Safety
     /// See [`Artifact::deserialize`].
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub unsafe fn </span>deserialize_from_file(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
@@ -785,7 +785,7 @@
     /// # Safety
     ///
     /// See [`Artifact::deserialize_unchecked`].
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub unsafe fn </span>deserialize_from_file_unchecked(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
@@ -811,81 +811,81 @@
     }
 
     <span class="doccomment">/// Attach a Tunable to this engine
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    </span><span class="kw">pub fn </span>set_tunables(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tunables: <span class="kw">impl </span>Tunables + Send + Sync + <span class="lifetime">&#39;static</span>) {
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+    </span><span class="kw">pub fn </span>set_tunables(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tunables: <span class="kw">impl </span>Tunables + Send + Sync + <span class="lifetime">'static</span>) {
         <span class="self">self</span>.tunables = Arc::new(tunables);
     }
 
     <span class="doccomment">/// Get a reference to attached Tunable of this engine
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables {
         <span class="self">self</span>.tunables.as_ref()
     }
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Engine {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;Engine&quot;</span>)
-            .field(<span class="string">&quot;target&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.target)
-            .field(<span class="string">&quot;engine_id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.engine_id)
-            .field(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"Engine"</span>)
+            .field(<span class="string">"target"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.target)
+            .field(<span class="string">"engine_id"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.engine_id)
+            .field(<span class="string">"name"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name)
             .finish()
     }
 }
 
 <span class="doccomment">/// The inner contents of `Engine`
 </span><span class="kw">pub struct </span>EngineInner {
-    <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="doccomment">/// The compiler and cpu features
     </span>compiler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>Compiler&gt;&gt;,
-    <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="doccomment">/// The compiler and cpu features
     </span>features: Features,
     <span class="doccomment">/// The code memory is responsible of publishing the compiled
     /// functions to memory.
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span>code_memory: Vec&lt;CodeMemory&gt;,
     <span class="doccomment">/// The signature registry is used mainly to operate with trampolines
     /// performantly.
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span>signatures: SignatureRegistry,
 }
 
 <span class="kw">impl </span>EngineInner {
     <span class="doccomment">/// Gets the compiler associated to this engine.
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">pub fn </span>compiler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler, CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.compiler.as_ref() {
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;No compiler compiled into executable&quot;</span>.to_string(),
+                <span class="string">"No compiler compiled into executable"</span>.to_string(),
             )),
             <span class="prelude-val">Some</span>(compiler) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;**</span>compiler),
         }
     }
 
     <span class="doccomment">/// Validate the module
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>compiler = <span class="self">self</span>.compiler()<span class="question-mark">?</span>;
         compiler.validate_module(<span class="kw-2">&amp;</span><span class="self">self</span>.features, data)
     }
 
     <span class="doccomment">/// The Wasm features
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">pub fn </span>features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features {
         <span class="kw-2">&amp;</span><span class="self">self</span>.features
     }
 
     <span class="doccomment">/// Allocate compiled functions into memory
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     #[allow(clippy::type_complexity)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate&lt;<span class="lifetime">&#39;a</span>, FunctionBody, CustomSection&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate&lt;<span class="lifetime">'a</span>, FunctionBody, CustomSection&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>,
         _module: <span class="kw-2">&amp;</span>ModuleInfo,
-        functions: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionBody&gt; + <span class="lifetime">&#39;a</span>,
-        function_call_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionBody&gt; + <span class="lifetime">&#39;a</span>,
-        dynamic_function_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionBody&gt; + <span class="lifetime">&#39;a</span>,
-        custom_sections: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CustomSection&gt; + Clone + <span class="lifetime">&#39;a</span>,
+        functions: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
+        function_call_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
+        dynamic_function_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
+        custom_sections: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CustomSection&gt; + Clone + <span class="lifetime">'a</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
@@ -896,8 +896,8 @@
         CompileError,
     &gt;
     <span class="kw">where
-        </span>FunctionBody: FunctionBodyLike&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;a</span>,
-        CustomSection: CustomSectionLike&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;a</span>,
+        </span>FunctionBody: FunctionBodyLike&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'a</span>,
+        CustomSection: CustomSectionLike&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'a</span>,
     {
         <span class="kw">let </span>functions_len = functions.len();
         <span class="kw">let </span>function_call_trampolines_len = function_call_trampolines.len();
@@ -908,7 +908,7 @@
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         <span class="kw">let </span>(executable_sections, data_sections): (Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>) = custom_sections
             .clone()
-            .partition(|section| <span class="kw-2">*</span>section.protection() == CustomSectionProtection::ReadExecute);
+            .partition(|section| section.protection() == CustomSectionProtection::ReadExecute);
         <span class="self">self</span>.code_memory.push(CodeMemory::new());
 
         <span class="kw">let </span>(<span class="kw-2">mut </span>allocated_functions, allocated_executable_sections, allocated_data_sections) =
@@ -922,7 +922,7 @@
                 )
                 .map_err(|message| {
                     CompileError::Resource(<span class="macro">format!</span>(
-                        <span class="string">&quot;failed to allocate memory for functions: {}&quot;</span>,
+                        <span class="string">"failed to allocate memory for functions: {}"</span>,
                         message
                     ))
                 })<span class="question-mark">?</span>;
@@ -956,7 +956,7 @@
         <span class="kw">let </span>allocated_custom_sections = custom_sections
             .map(|section| {
                 SectionBodyPtr(
-                    <span class="kw">if </span><span class="kw-2">*</span>section.protection() == CustomSectionProtection::ReadExecute {
+                    <span class="kw">if </span>section.protection() == CustomSectionProtection::ReadExecute {
                         exec_iter.next()
                     } <span class="kw">else </span>{
                         data_iter.next()
@@ -975,13 +975,13 @@
         ))
     }
 
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="doccomment">/// Make memory containing compiled code executable.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_compiled_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.code_memory.last_mut().unwrap().publish();
     }
 
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="doccomment">/// Register DWARF-type exception handling information associated with the code.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_eh_frame(<span class="kw-2">&amp;mut </span><span class="self">self</span>, eh_frame: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="self">self</span>.code_memory
@@ -990,18 +990,18 @@
             .unwind_registry_mut()
             .publish(eh_frame)
             .map_err(|e| {
-                CompileError::Resource(<span class="macro">format!</span>(<span class="string">&quot;Error while publishing the unwind code: {}&quot;</span>, e))
+                CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {}"</span>, e))
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Shared signature registry.
-    </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="kw">pub fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SignatureRegistry {
         <span class="kw-2">&amp;</span><span class="self">self</span>.signatures
     }
 
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
     </span><span class="doccomment">/// Register the frame info for the code memory
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_frame_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, frame_info: GlobalFrameInfoRegistration) {
         <span class="self">self</span>.code_memory
@@ -1011,7 +1011,7 @@
     }
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">impl </span>From&lt;Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;&gt; <span class="kw">for </span>Engine {
     <span class="kw">fn </span>from(config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;) -&gt; <span class="self">Self </span>{
         EngineBuilder::new(config).engine()
@@ -1040,7 +1040,7 @@
 <span class="kw">impl </span>EngineId {
     <span class="doccomment">/// Format this identifier as a string.
     </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+        <span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
     }
 }
 

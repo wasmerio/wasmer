@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/package/push.rs`."><title>push.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/package/push.rs`."><title>push.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -275,9 +275,9 @@
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>is_terminal::IsTerminal;
 <span class="kw">use </span>std::path::{Path, PathBuf};
-<span class="kw">use </span>wasmer_api::WasmerClient;
+<span class="kw">use </span>wasmer_backend_api::WasmerClient;
 <span class="kw">use </span>wasmer_config::package::{Manifest, PackageHash};
-<span class="kw">use </span>webc::wasmer_package::Package;
+<span class="kw">use </span>wasmer_package::package::Package;
 
 <span class="doccomment">/// Push a package to the registry.
 ///
@@ -289,7 +289,7 @@
     </span><span class="kw">pub </span>env: WasmerEnv,
 
     <span class="doccomment">/// Run the publish logic without sending anything to the registry server
-    </span><span class="attr">#[clap(long, name = <span class="string">&quot;dry-run&quot;</span>)]
+    </span><span class="attr">#[clap(long, name = <span class="string">"dry-run"</span>)]
     </span><span class="kw">pub </span>dry_run: bool,
 
     <span class="doccomment">/// Run the publish command without any output
@@ -297,19 +297,19 @@
     </span><span class="kw">pub </span>quiet: bool,
 
     <span class="doccomment">/// Override the namespace of the package to upload
-    </span><span class="attr">#[clap(long = <span class="string">&quot;namespace&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"namespace"</span>)]
     </span><span class="kw">pub </span>package_namespace: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Override the name of the package to upload. If a name is specified,
     /// no version will be attached to the package.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;name&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"name"</span>)]
     </span><span class="kw">pub </span>package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Timeout (in seconds) for the publish query to the registry.
     ///
     /// Note that this is not the timeout for the entire publish process, but
     /// for each individual query to the registry during the publish flow.
-    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;5m&quot;</span>)]
+    </span><span class="attr">#[clap(long, default_value = <span class="string">"5m"</span>)]
     </span><span class="kw">pub </span>timeout: humantime::Duration,
 
     <span class="doccomment">/// Do not prompt for user input.
@@ -319,7 +319,7 @@
     <span class="doccomment">/// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
     ///
     /// Defaults to current working directory.
-    </span><span class="attr">#[clap(name = <span class="string">&quot;path&quot;</span>, default_value = <span class="string">&quot;.&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"path"</span>, default_value = <span class="string">"."</span>)]
     </span><span class="kw">pub </span>package_path: PathBuf,
 }
 
@@ -335,20 +335,20 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span>pkg.name {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(first) = ns.split(<span class="string">&#39;/&#39;</span>).next() {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(first) = ns.split(<span class="string">'/'</span>).next() {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(first.to_string());
                 }
             }
         }
 
         <span class="kw">if </span><span class="self">self</span>.non_interactive {
-            <span class="comment">// if not interactive we can&#39;t prompt the user to choose the owner of the app.
-            </span><span class="macro">anyhow::bail!</span>(<span class="string">&quot;No package namespace specified: use --namespace XXX&quot;</span>);
+            <span class="comment">// if not interactive we can't prompt the user to choose the owner of the app.
+            </span><span class="macro">anyhow::bail!</span>(<span class="string">"No package namespace specified: use --namespace XXX"</span>);
         }
 
-        <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>user = wasmer_backend_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>owner = <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
-            <span class="string">&quot;Choose a namespace to push the package to&quot;</span>,
+            <span class="string">"Choose a namespace to push the package to"</span>,
             <span class="prelude-val">None</span>,
             <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
         )<span class="question-mark">?</span>;
@@ -363,7 +363,7 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span>pkg.name {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = ns.split(<span class="string">&#39;/&#39;</span>).nth(<span class="number">1</span>) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = ns.split(<span class="string">'/'</span>).nth(<span class="number">1</span>) {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(name.to_string()));
                 }
             }
@@ -380,8 +380,8 @@
     }
 
     <span class="kw">async fn </span>should_push(<span class="kw-2">&amp;</span><span class="self">self</span>, client: <span class="kw-2">&amp;</span>WasmerClient, hash: <span class="kw-2">&amp;</span>PackageHash) -&gt; anyhow::Result&lt;bool&gt; {
-        <span class="kw">let </span>res = wasmer_api::query::get_package_release(client, <span class="kw-2">&amp;</span>hash.to_string()).<span class="kw">await</span>;
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;{:?}&quot;</span>, res);
+        <span class="kw">let </span>res = wasmer_backend_api::query::get_package_release(client, <span class="kw-2">&amp;</span>hash.to_string()).<span class="kw">await</span>;
+        <span class="macro">tracing::info!</span>(<span class="string">"{:?}"</span>, res);
         res.map(|p| p.is_none())
     }
 
@@ -394,7 +394,7 @@
         package_hash: <span class="kw-2">&amp;</span>PackageHash,
         private: bool,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Uploading the package..&quot;</span>);
+        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">"Uploading the package.."</span>);
 
         <span class="kw">let </span>signed_url = upload(
             client,
@@ -405,10 +405,10 @@
             <span class="self">self</span>.env.proxy()<span class="question-mark">?</span>,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package correctly uploaded&quot;</span>);
+        <span class="macro">spinner_ok!</span>(pb, <span class="string">"Package correctly uploaded"</span>);
 
-        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Waiting for package to become available...&quot;</span>);
-        <span class="kw">match </span>wasmer_api::query::push_package_release(
+        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">"Waiting for package to become available..."</span>);
+        <span class="kw">match </span>wasmer_backend_api::query::push_package_release(
             client,
             name.as_deref(),
             namespace,
@@ -421,13 +421,13 @@
                 <span class="kw">if </span>r.success {
                     r.package_webc.unwrap().id
                 } <span class="kw">else </span>{
-                    <span class="macro">anyhow::bail!</span>(<span class="string">&quot;An unidentified error occurred while publishing the package. (response had success: false)&quot;</span>)
+                    <span class="macro">anyhow::bail!</span>(<span class="string">"An unidentified error occurred while publishing the package. (response had success: false)"</span>)
                 }
             }
-            <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;An unidentified error occurred while publishing the package.&quot;</span>), <span class="comment">// &lt;- This is extremely bad..
+            <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">"An unidentified error occurred while publishing the package."</span>), <span class="comment">// &lt;- This is extremely bad..
         </span>};
 
-        <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Succesfully pushed release to namespace {namespace} on the registry&quot;</span>);
+        <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Succesfully pushed release to namespace {namespace} on the registry"</span>);
         <span class="macro">spinner_ok!</span>(pb, msg);
 
         <span class="prelude-val">Ok</span>(())
@@ -439,50 +439,50 @@
         manifest: <span class="kw-2">&amp;</span>Manifest,
         manifest_path: <span class="kw-2">&amp;</span>Path,
     ) -&gt; anyhow::Result&lt;(String, PackageHash)&gt; {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Building package&quot;</span>);
-        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Creating the package locally...&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Building package"</span>);
+        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">"Creating the package locally..."</span>);
         <span class="kw">let </span>(package, hash) = PackageBuild::check(manifest_path.to_path_buf())
             .execute()
-            .context(<span class="string">&quot;While trying to build the package locally&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"While trying to build the package locally"</span>)<span class="question-mark">?</span>;
 
-        <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Correctly built package locally&quot;</span>);
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Package has hash: {hash}&quot;</span>);
+        <span class="macro">spinner_ok!</span>(pb, <span class="string">"Correctly built package locally"</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Package has hash: {hash}"</span>);
 
         <span class="kw">let </span>namespace = <span class="self">self</span>.get_namespace(client, manifest).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>name = <span class="self">self</span>.get_name(manifest).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>private = <span class="self">self</span>.get_privacy(manifest);
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;If published, package privacy is {private}, namespace is {namespace} and name is {name:?}&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"If published, package privacy is {private}, namespace is {namespace} and name is {name:?}"</span>);
 
         <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(
             <span class="self">self</span>.quiet,
-            <span class="string">&quot;Checking if package is already in the registry..&quot;
+            <span class="string">"Checking if package is already in the registry.."
         </span>);
         <span class="kw">if </span><span class="self">self</span>.should_push(client, <span class="kw-2">&amp;</span>hash).<span class="kw">await</span>.map_err(on_error)<span class="question-mark">? </span>{
             <span class="kw">if </span>!<span class="self">self</span>.dry_run {
-                <span class="macro">tracing::info!</span>(<span class="string">&quot;Package should be published&quot;</span>);
+                <span class="macro">tracing::info!</span>(<span class="string">"Package should be published"</span>);
                 pb.finish_and_clear();
-                <span class="comment">// spinner_ok!(pb, &quot;Package not in the registry yet!&quot;);
+                <span class="comment">// spinner_ok!(pb, "Package not in the registry yet!");
 
                 </span><span class="self">self</span>.do_push(client, <span class="kw-2">&amp;</span>namespace, name, <span class="kw-2">&amp;</span>package, <span class="kw-2">&amp;</span>hash, private)
                     .<span class="kw">await
                     </span>.map_err(on_error)<span class="question-mark">?</span>;
             } <span class="kw">else </span>{
-                <span class="macro">tracing::info!</span>(<span class="string">&quot;Package should be published, but dry-run is set&quot;</span>);
-                <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Skipping push as dry-run is set&quot;</span>);
+                <span class="macro">tracing::info!</span>(<span class="string">"Package should be published, but dry-run is set"</span>);
+                <span class="macro">spinner_ok!</span>(pb, <span class="string">"Skipping push as dry-run is set"</span>);
             }
         } <span class="kw">else </span>{
-            <span class="macro">tracing::info!</span>(<span class="string">&quot;Package should not be published&quot;</span>);
-            <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package was already in the registry, no push needed&quot;</span>);
+            <span class="macro">tracing::info!</span>(<span class="string">"Package should not be published"</span>);
+            <span class="macro">spinner_ok!</span>(pb, <span class="string">"Package was already in the registry, no push needed"</span>);
         }
 
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Proceeding to invalidate query cache..&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Proceeding to invalidate query cache.."</span>);
 
         <span class="comment">// Prevent `wasmer run` from using stale (cached) package versions after wasmer publish.
         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = invalidate_graphql_query_cache(<span class="kw-2">&amp;</span><span class="self">self</span>.env.cache_dir) {
             <span class="macro">tracing::warn!</span>(
                 error = <span class="kw-2">&amp;*</span>e,
-                <span class="string">&quot;Unable to invalidate the cache used for package version queries&quot;</span>,
+                <span class="string">"Unable to invalidate the cache used for package version queries"</span>,
             );
         }
 
@@ -495,12 +495,12 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Checking if user is logged in&quot;</span>);
-        <span class="kw">let </span>client = login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;push a package&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="macro">tracing::info!</span>(<span class="string">"Checking if user is logged in"</span>);
+        <span class="kw">let </span>client = login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">"push a package"</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Loading manifest&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"Loading manifest"</span>);
         <span class="kw">let </span>(manifest_path, manifest) = get_manifest(<span class="kw-2">&amp;</span><span class="self">self</span>.package_path)<span class="question-mark">?</span>;
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;Got manifest at path {}&quot;</span>, manifest_path.display());
+        <span class="macro">tracing::info!</span>(<span class="string">"Got manifest at path {}"</span>, manifest_path.display());
 
         <span class="kw">let </span>(<span class="kw">_</span>, hash) = <span class="self">self</span>.push(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -511,24 +511,24 @@
                 manifest_path_dir.pop();
 
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;{} You can now tag your package with `{}`&quot;</span>,
-                    <span class="string">&quot;𖥔&quot;</span>.yellow().bold(),
+                    <span class="string">"{} You can now tag your package with `{}`"</span>,
+                    <span class="string">"𖥔"</span>.yellow().bold(),
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;{bin_name} package tag {}{}&quot;</span>,
+                        <span class="string">"{bin_name} package tag {}{}"</span>,
                         hash,
                         <span class="kw">if </span>manifest_path_dir.canonicalize()<span class="question-mark">? </span>== std::env::current_dir()<span class="question-mark">? </span>{
                             String::new()
                         } <span class="kw">else </span>{
-                            <span class="macro">format!</span>(<span class="string">&quot; {}&quot;</span>, manifest_path_dir.display())
+                            <span class="macro">format!</span>(<span class="string">" {}"</span>, manifest_path_dir.display())
                         }
                     )
                     .bold()
                 )
             } <span class="kw">else </span>{
-                <span class="macro">eprintln!</span>(<span class="string">&quot;{} Succesfully pushed package ({hash})&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
+                <span class="macro">eprintln!</span>(<span class="string">"{} Succesfully pushed package ({hash})"</span>, <span class="string">"✔"</span>.green().bold());
             }
         } <span class="kw">else </span>{
-            <span class="macro">eprintln!</span>(<span class="string">&quot;{} Succesfully pushed package ({hash})&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
+            <span class="macro">eprintln!</span>(<span class="string">"{} Succesfully pushed package ({hash})"</span>, <span class="string">"✔"</span>.green().bold());
         }
 
         <span class="prelude-val">Ok</span>(())

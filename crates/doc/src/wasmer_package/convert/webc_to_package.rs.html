@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/package/src/convert/webc_to_package.rs`."><title>webc_to_package.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_package" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_package/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/package/src/convert/webc_to_package.rs`."><title>webc_to_package.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_package" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -334,14 +334,13 @@
 
 <span class="kw">use </span>wasmer_config::package::ModuleReference;
 
+<span class="kw">use </span>webc::Container;
+
 <span class="kw">use </span><span class="kw">super</span>::ConversionError;
 
 <span class="doccomment">/// Convert a webc image into a directory with a wasmer.toml file that can
 /// be used for generating a new pacakge.
-</span><span class="kw">pub fn </span>webc_to_package_dir(
-    webc: <span class="kw-2">&amp;</span>webc::Container,
-    target_dir: <span class="kw-2">&amp;</span>Path,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConversionError&gt; {
+</span><span class="kw">pub fn </span>webc_to_package_dir(webc: <span class="kw-2">&amp;</span>Container, target_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConversionError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>pkg_manifest = wasmer_config::package::Manifest::new_empty();
 
     <span class="kw">let </span>manifest = webc.manifest();
@@ -349,7 +348,7 @@
 
     </span><span class="kw">let </span>pkg_annotation = manifest
         .wapm()
-        .map_err(|err| ConversionError::with_cause(<span class="string">&quot;could not read package annotation&quot;</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| ConversionError::with_cause(<span class="string">"could not read package annotation"</span>, err))<span class="question-mark">?</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(ann) = pkg_annotation {
         <span class="kw">let </span><span class="kw-2">mut </span>pkg = wasmer_config::package::Package::new_empty();
 
@@ -357,7 +356,7 @@
         pkg.version = <span class="kw">if let </span><span class="prelude-val">Some</span>(raw) = ann.version {
             <span class="kw">let </span>v = raw
                 .parse()
-                .map_err(|e| ConversionError::with_cause(<span class="string">&quot;invalid package version&quot;</span>, e))<span class="question-mark">?</span>;
+                .map_err(|e| ConversionError::with_cause(<span class="string">"invalid package version"</span>, e))<span class="question-mark">?</span>;
             <span class="prelude-val">Some</span>(v)
         } <span class="kw">else </span>{
             <span class="prelude-val">None
@@ -386,16 +385,16 @@
                 <span class="comment">// Not supported.
             </span>}
             webc::metadata::UrlOrManifest::RegistryDependentUrl(raw) =&gt; {
-                <span class="kw">let </span>(name, version) = <span class="kw">if let </span><span class="prelude-val">Some</span>((name, version_raw)) = raw.split_once(<span class="string">&#39;@&#39;</span>) {
+                <span class="kw">let </span>(name, version) = <span class="kw">if let </span><span class="prelude-val">Some</span>((name, version_raw)) = raw.split_once(<span class="string">'@'</span>) {
                     <span class="kw">let </span>version = version_raw.parse().map_err(|err| {
                         ConversionError::with_cause(
-                            <span class="macro">format!</span>(<span class="string">&quot;Could not parse version of dependency: &#39;{}&#39;&quot;</span>, raw),
+                            <span class="macro">format!</span>(<span class="string">"Could not parse version of dependency: '{}'"</span>, raw),
                             err,
                         )
                     })<span class="question-mark">?</span>;
                     (name.to_string(), version)
                 } <span class="kw">else </span>{
-                    (raw.to_string(), <span class="string">&quot;*&quot;</span>.parse().unwrap())
+                    (raw.to_string(), <span class="string">"*"</span>.parse().unwrap())
                 };
 
                 pkg_manifest.dependencies.insert(name, version);
@@ -407,7 +406,7 @@
 
     </span><span class="kw">let </span>fs_annotation = manifest
         .filesystem()
-        .map_err(|err| ConversionError::with_cause(<span class="string">&quot;could n ot read fs annotation&quot;</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| ConversionError::with_cause(<span class="string">"could n ot read fs annotation"</span>, err))<span class="question-mark">?</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(ann) = fs_annotation {
         <span class="kw">for </span>mapping <span class="kw">in </span>ann.<span class="number">0 </span>{
             <span class="kw">if </span>mapping.from.is_some() {
@@ -415,42 +414,42 @@
                 </span><span class="kw">continue</span>;
             }
 
-            <span class="comment">// Extract the volume to &quot;&lt;target-dir&gt;/&lt;volume-name&gt;&quot;.
+            <span class="comment">// Extract the volume to "&lt;target-dir&gt;/&lt;volume-name&gt;".
             </span><span class="kw">let </span>volume = webc.get_volume(<span class="kw-2">&amp;</span>mapping.volume_name).ok_or_else(|| {
                 ConversionError::msg(<span class="macro">format!</span>(
-                    <span class="string">&quot;Package annotations specify a volume that does not exist: &#39;{}&#39;&quot;</span>,
+                    <span class="string">"Package annotations specify a volume that does not exist: '{}'"</span>,
                     mapping.volume_name
                 ))
             })<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>volume_path = target_dir.join(mapping.volume_name.trim_start_matches(<span class="string">&#39;/&#39;</span>));
+            <span class="kw">let </span>volume_path = target_dir.join(mapping.volume_name.trim_start_matches(<span class="string">'/'</span>));
 
             std::fs::create_dir_all(<span class="kw-2">&amp;</span>volume_path).map_err(|err| {
                 ConversionError::with_cause(
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;could not create volume directory &#39;{}&#39;&quot;</span>,
+                        <span class="string">"could not create volume directory '{}'"</span>,
                         volume_path.display()
                     ),
                     err,
                 )
             })<span class="question-mark">?</span>;
 
-            volume.unpack(<span class="string">&quot;/&quot;</span>, <span class="kw-2">&amp;</span>volume_path).map_err(|err| {
-                ConversionError::with_cause(<span class="string">&quot;could not unpack volume to filesystemt&quot;</span>, err)
+            volume.unpack(<span class="string">"/"</span>, <span class="kw-2">&amp;</span>volume_path).map_err(|err| {
+                ConversionError::with_cause(<span class="string">"could not unpack volume to filesystemt"</span>, err)
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span><span class="kw-2">mut </span>source_path = mapping
                 .volume_name
-                .trim_start_matches(<span class="string">&#39;/&#39;</span>)
-                .trim_end_matches(<span class="string">&#39;/&#39;</span>)
+                .trim_start_matches(<span class="string">'/'</span>)
+                .trim_end_matches(<span class="string">'/'</span>)
                 .to_string();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(subpath) = mapping.host_path {
-                <span class="kw">if </span>!source_path.ends_with(<span class="string">&#39;/&#39;</span>) {
-                    source_path.push(<span class="string">&#39;/&#39;</span>);
+                <span class="kw">if </span>!source_path.ends_with(<span class="string">'/'</span>) {
+                    source_path.push(<span class="string">'/'</span>);
                 }
                 source_path.push_str(<span class="kw-2">&amp;</span>subpath);
             }
-            source_path.insert_str(<span class="number">0</span>, <span class="string">&quot;./&quot;</span>);
+            source_path.insert_str(<span class="number">0</span>, <span class="string">"./"</span>);
 
             pkg_manifest
                 .fs
@@ -460,14 +459,14 @@
 
     <span class="comment">// Convert modules.
 
-    </span><span class="kw">let </span>module_dir_name = <span class="string">&quot;modules&quot;</span>;
+    </span><span class="kw">let </span>module_dir_name = <span class="string">"modules"</span>;
     <span class="kw">let </span>module_dir = target_dir.join(module_dir_name);
 
     <span class="kw">let </span>atoms = webc.atoms();
     <span class="kw">if </span>!atoms.is_empty() {
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>module_dir).map_err(|err| {
             ConversionError::with_cause(
-                <span class="macro">format!</span>(<span class="string">&quot;Could not create directory &#39;{}&#39;&quot;</span>, module_dir.display(),),
+                <span class="macro">format!</span>(<span class="string">"Could not create directory '{}'"</span>, module_dir.display(),),
                 err,
             )
         })<span class="question-mark">?</span>;
@@ -476,12 +475,12 @@
 
             std::fs::write(<span class="kw-2">&amp;</span>atom_path, <span class="kw-2">&amp;</span>data).map_err(|err| {
                 ConversionError::with_cause(
-                    <span class="macro">format!</span>(<span class="string">&quot;Could not write atom to path &#39;{}&#39;&quot;</span>, atom_path.display()),
+                    <span class="macro">format!</span>(<span class="string">"Could not write atom to path '{}'"</span>, atom_path.display()),
                     err,
                 )
             })<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>relative_path = <span class="macro">format!</span>(<span class="string">&quot;./{module_dir_name}/{atom_name}&quot;</span>);
+            <span class="kw">let </span>relative_path = <span class="macro">format!</span>(<span class="string">"./{module_dir_name}/{atom_name}"</span>);
 
             pkg_manifest.modules.push(wasmer_config::package::Module {
                 name: atom_name,
@@ -511,13 +510,13 @@
             .annotation::&lt;webc::metadata::annotations::Atom&gt;(webc::metadata::annotations::Atom::KEY)
             .map_err(|err| {
                 ConversionError::with_cause(
-                    <span class="macro">format!</span>(<span class="string">&quot;could not read atom annotation for command &#39;{}&#39;&quot;</span>, name),
+                    <span class="macro">format!</span>(<span class="string">"could not read atom annotation for command '{}'"</span>, name),
                     err,
                 )
             })<span class="question-mark">?
             </span>.ok_or_else(|| {
                 ConversionError::msg(<span class="macro">format!</span>(
-                    <span class="string">&quot;Command &#39;{name}&#39; is missing the required atom annotation&quot;
+                    <span class="string">"Command '{name}' is missing the required atom annotation"
                 </span>))
             })<span class="question-mark">?</span>;
 
@@ -546,9 +545,9 @@
 
     <span class="comment">// Write out the manifest.
     </span><span class="kw">let </span>manifest_toml = toml::to_string(<span class="kw-2">&amp;</span>pkg_manifest)
-        .map_err(|err| ConversionError::with_cause(<span class="string">&quot;could not serialize package manifest&quot;</span>, err))<span class="question-mark">?</span>;
-    std::fs::write(target_dir.join(<span class="string">&quot;wasmer.toml&quot;</span>), manifest_toml)
-        .map_err(|err| ConversionError::with_cause(<span class="string">&quot;could not write wasmer.toml&quot;</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| ConversionError::with_cause(<span class="string">"could not serialize package manifest"</span>, err))<span class="question-mark">?</span>;
+    std::fs::write(target_dir.join(<span class="string">"wasmer.toml"</span>), manifest_toml)
+        .map_err(|err| ConversionError::with_cause(<span class="string">"could not write wasmer.toml"</span>, err))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
@@ -558,6 +557,8 @@
     <span class="kw">use </span>std::fs::create_dir_all;
 
     <span class="kw">use </span>pretty_assertions::assert_eq;
+
+    <span class="kw">use crate</span>::{package::Package, utils::from_bytes};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -569,95 +570,94 @@
         <span class="kw">let </span>dir = tmpdir.path();
 
         <span class="kw">let </span>webc = {
-            <span class="kw">let </span>dir_input = dir.join(<span class="string">&quot;input&quot;</span>);
-            <span class="kw">let </span>dir_public = dir_input.join(<span class="string">&quot;public&quot;</span>);
+            <span class="kw">let </span>dir_input = dir.join(<span class="string">"input"</span>);
+            <span class="kw">let </span>dir_public = dir_input.join(<span class="string">"public"</span>);
 
             create_dir_all(<span class="kw-2">&amp;</span>dir_public).unwrap();
 
-            std::fs::write(dir_public.join(<span class="string">&quot;index.html&quot;</span>), <span class="string">&quot;INDEX&quot;</span>).unwrap();
+            std::fs::write(dir_public.join(<span class="string">"index.html"</span>), <span class="string">"INDEX"</span>).unwrap();
 
-            std::fs::write(dir_input.join(<span class="string">&quot;mywasm.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
+            std::fs::write(dir_input.join(<span class="string">"mywasm.wasm"</span>), <span class="string">"()"</span>).unwrap();
 
             std::fs::write(
-                dir_input.join(<span class="string">&quot;wasmer.toml&quot;</span>),
-                <span class="string">r#&quot;
+                dir_input.join(<span class="string">"wasmer.toml"</span>),
+                <span class="string">r#"
 [package]
-name = &quot;testns/testpkg&quot;
-version = &quot;0.0.1&quot;
-description = &quot;descr1&quot;
-license = &quot;MIT&quot;
+name = "testns/testpkg"
+version = "0.0.1"
+description = "descr1"
+license = "MIT"
 
 [dependencies]
-&quot;wasmer/python&quot; = &quot;8.12.0&quot;
+"wasmer/python" = "8.12.0"
 
 [fs]
-public = &quot;./public&quot;
+public = "./public"
 
 [[module]]
-name = &quot;mywasm&quot;
-source = &quot;./mywasm.wasm&quot;
+name = "mywasm"
+source = "./mywasm.wasm"
 
 [[command]]
-name = &quot;run&quot;
-module = &quot;mywasm&quot;
-runner = &quot;wasi&quot;
+name = "run"
+module = "mywasm"
+runner = "wasi"
 
 [command.annotations.wasi]
-env =  [&quot;A=B&quot;]
-main-args = [&quot;/mounted/script.py&quot;]
-&quot;#</span>,
+env =  ["A=B"]
+main-args = ["/mounted/script.py"]
+"#</span>,
             )
             .unwrap();
 
-            <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(dir_input.join(<span class="string">&quot;wasmer.toml&quot;</span>))
-                .unwrap();
+            <span class="kw">let </span>pkg = Package::from_manifest(dir_input.join(<span class="string">"wasmer.toml"</span>)).unwrap();
             <span class="kw">let </span>raw = pkg.serialize().unwrap();
-            webc::Container::from_bytes(raw).unwrap()
+            from_bytes(raw).unwrap()
         };
 
-        <span class="kw">let </span>dir_output = dir.join(<span class="string">&quot;output&quot;</span>);
+        <span class="kw">let </span>dir_output = dir.join(<span class="string">"output"</span>);
         webc_to_package_dir(<span class="kw-2">&amp;</span>webc, <span class="kw-2">&amp;</span>dir_output).unwrap();
 
         <span class="macro">assert_eq!</span>(
-            std::fs::read_to_string(dir_output.join(<span class="string">&quot;public/index.html&quot;</span>)).unwrap(),
-            <span class="string">&quot;INDEX&quot;</span>,
+            std::fs::read_to_string(dir_output.join(<span class="string">"public/index.html"</span>)).unwrap(),
+            <span class="string">"INDEX"</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            std::fs::read_to_string(dir_output.join(<span class="string">&quot;modules/mywasm&quot;</span>)).unwrap(),
-            <span class="string">&quot;()&quot;</span>,
+            std::fs::read_to_string(dir_output.join(<span class="string">"modules/mywasm"</span>)).unwrap(),
+            <span class="string">"()"</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            std::fs::read_to_string(dir_output.join(<span class="string">&quot;wasmer.toml&quot;</span>))
+            std::fs::read_to_string(dir_output.join(<span class="string">"wasmer.toml"</span>))
                 .unwrap()
                 .trim(),
-            <span class="string">r#&quot;
+            <span class="string">r#"
 
 [package]
-license = &quot;MIT&quot;
-entrypoint = &quot;run&quot;
+license = "MIT"
+entrypoint = "run"
 
 [dependencies]
-&quot;wasmer/python&quot; = &quot;^8.12.0&quot;
+"wasmer/python" = "^8.12.0"
 
 [fs]
-&quot;/public&quot; = &quot;./public&quot;
+"/public" = "./public"
 
 [[module]]
-name = &quot;mywasm&quot;
-source = &quot;./modules/mywasm&quot;
+name = "mywasm"
+source = "./modules/mywasm"
 
 [[command]]
-name = &quot;run&quot;
-module = &quot;mywasm&quot;
-runner = &quot;https://webc.org/runner/wasi&quot;
+name = "run"
+module = "mywasm"
+runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]
-atom = &quot;mywasm&quot;
-env = [&quot;A=B&quot;]
-main-args = [&quot;/mounted/script.py&quot;]
-            &quot;#
+atom = "mywasm"
+env = ["A=B"]
+main-args = ["/mounted/script.py"]
+            "#
             </span>.trim(),
         );
     }

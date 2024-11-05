@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/module.rs`."><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/module.rs`."><title>module.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -653,7 +653,6 @@
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -669,12 +668,9 @@
 };
 
 <span class="kw">use </span>indexmap::IndexMap;
-<span class="kw">use </span>rkyv::{
-    de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
-    ser::SharedSerializeRegistry, Archive, Archived, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize,
-    Fallible, Serialize <span class="kw">as </span>RkyvSerialize,
-};
-<span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+<span class="kw">use </span>rkyv::rancor::{Fallible, Source, Trace};
+<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::collections::HashMap;
@@ -683,15 +679,15 @@
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 <span class="attr">#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub struct </span>ModuleId {
     id: usize,
 }
 
 <span class="kw">impl </span>ModuleId {
     <span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+        <span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
     }
 }
 
@@ -706,8 +702,8 @@
 
 <span class="doccomment">/// Hash key of an import
 </span><span class="attr">#[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash, Debug))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+#[rkyv(derive(PartialOrd, Ord, PartialEq, Eq, Hash, Debug))]
 </span><span class="kw">pub struct </span>ImportKey {
     <span class="doccomment">/// Module name
     </span><span class="kw">pub </span>module: String,
@@ -727,7 +723,7 @@
     }
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">mod </span>serde_imports {
 
     <span class="kw">use </span><span class="kw">crate</span>::ImportIndex;
@@ -747,7 +743,7 @@
         vec.serialize(serializer)
     }
 
-    <span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">&#39;de</span>, D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;&gt;(
+    <span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D: Deserializer&lt;<span class="lifetime">'de</span>&gt;&gt;(
         deserializer: D,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InitialType, D::Error&gt; {
         <span class="kw">let </span>serialized = &lt;SerializedType <span class="kw">as </span>Deserialize&gt;::deserialize(deserializer)<span class="question-mark">?</span>;
@@ -760,18 +756,18 @@
 ///
 /// IMPORTANT: since this struct will be serialized as part of the compiled module artifact,
 /// if you change this struct, do not forget to update [`MetadataHeader::version`](crate::serialize::MetadataHeader)
-/// to make sure we don&#39;t break compatibility between versions.
+/// to make sure we don't break compatibility between versions.
 </span><span class="attr">#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>ModuleInfo {
     <span class="doccomment">/// A unique identifier (within this process) for this module.
     ///
     /// We skip serialization/deserialization of this field, as it
     /// should be computed by the process.
-    /// It&#39;s not skipped in rkyv, but that is okay, because even though it&#39;s skipped in bincode/serde
-    /// it&#39;s still deserialized back as a garbage number, and later override from computed by the process
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip_serializing, skip_deserializing))]
+    /// It's not skipped in rkyv, but that is okay, because even though it's skipped in bincode/serde
+    /// it's still deserialized back as a garbage number, and later override from computed by the process
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip_serializing, skip_deserializing))]
     </span><span class="kw">pub </span>id: ModuleId,
 
     <span class="doccomment">/// hash of the module
@@ -783,15 +779,15 @@
     <span class="doccomment">/// Imported entities with the (module, field, index_of_the_import)
     ///
     /// Keeping the `index_of_the_import` is important, as there can be
-    /// two same references to the same import, and we don&#39;t want to confuse
+    /// two same references to the same import, and we don't want to confuse
     /// them.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(with = <span class="string">&quot;serde_imports&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(with = <span class="string">"serde_imports"</span>))]
     </span><span class="kw">pub </span>imports: IndexMap&lt;ImportKey, ImportIndex&gt;,
 
     <span class="doccomment">/// Exported entities.
     </span><span class="kw">pub </span>exports: IndexMap&lt;String, ExportIndex&gt;,
 
-    <span class="doccomment">/// The module &quot;start&quot; function, if present.
+    <span class="doccomment">/// The module "start" function, if present.
     </span><span class="kw">pub </span>start_function: <span class="prelude-ty">Option</span>&lt;FunctionIndex&gt;,
 
     <span class="doccomment">/// WebAssembly table initializers.
@@ -845,7 +841,7 @@
 
 <span class="doccomment">/// Mirror version of ModuleInfo that can derive rkyv traits
 </span><span class="attr">#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub struct </span>ArchivableModuleInfo {
     name: <span class="prelude-ty">Option</span>&lt;String&gt;,
     hash: <span class="prelude-ty">Option</span>&lt;ModuleHash&gt;,
@@ -937,26 +933,28 @@
     <span class="kw">type </span>Archived = &lt;ArchivableModuleInfo <span class="kw">as </span>Archive&gt;::Archived;
     <span class="kw">type </span>Resolver = &lt;ArchivableModuleInfo <span class="kw">as </span>Archive&gt;::Resolver;
 
-    <span class="kw">unsafe fn </span>resolve(<span class="kw-2">&amp;</span><span class="self">self</span>, pos: usize, resolver: <span class="self">Self</span>::Resolver, out: <span class="kw-2">*mut </span><span class="self">Self</span>::Archived) {
-        ArchivableModuleInfo::from(<span class="self">self</span>).resolve(pos, resolver, out)
+    <span class="kw">fn </span>resolve(<span class="kw-2">&amp;</span><span class="self">self</span>, resolver: <span class="self">Self</span>::Resolver, out: rkyv::Place&lt;<span class="self">Self</span>::Archived&gt;) {
+        ArchivableModuleInfo::from(<span class="self">self</span>).resolve(resolver, out)
     }
 }
 
-<span class="kw">impl</span>&lt;S: Serializer + SharedSerializeRegistry + ScratchSpace + <span class="question-mark">?</span>Sized&gt; RkyvSerialize&lt;S&gt;
+<span class="kw">impl</span>&lt;S: rkyv::ser::Allocator + rkyv::ser::Writer + Fallible + <span class="question-mark">?</span>Sized&gt; RkyvSerialize&lt;S&gt;
     <span class="kw">for </span>ModuleInfo
+<span class="kw">where
+    </span>&lt;S <span class="kw">as </span>Fallible&gt;::Error: rkyv::rancor::Source + rkyv::rancor::Trace,
 {
     <span class="kw">fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: <span class="kw-2">&amp;mut </span>S) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Resolver, S::Error&gt; {
         ArchivableModuleInfo::from(<span class="self">self</span>).serialize(serializer)
     }
 }
 
-<span class="kw">impl</span>&lt;D: Fallible + <span class="question-mark">?</span>Sized + SharedDeserializeRegistry&gt; RkyvDeserialize&lt;ModuleInfo, D&gt;
-    <span class="kw">for </span>Archived&lt;ModuleInfo&gt;
+<span class="kw">impl</span>&lt;D: Fallible + <span class="question-mark">?</span>Sized&gt; RkyvDeserialize&lt;ModuleInfo, D&gt; <span class="kw">for </span>ArchivedArchivableModuleInfo
+<span class="kw">where
+    </span>D::Error: Source + Trace,
 {
     <span class="kw">fn </span>deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>, deserializer: <span class="kw-2">&amp;mut </span>D) -&gt; <span class="prelude-ty">Result</span>&lt;ModuleInfo, D::Error&gt; {
-        <span class="kw">let </span>r: ArchivableModuleInfo =
-            RkyvDeserialize::&lt;ArchivableModuleInfo, D&gt;::deserialize(<span class="self">self</span>, deserializer)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(ModuleInfo::from(r))
+        <span class="kw">let </span>archived = RkyvDeserialize::&lt;ArchivableModuleInfo, D&gt;::deserialize(<span class="self">self</span>, deserializer)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(ModuleInfo::from(archived))
     }
 }
 
@@ -1020,7 +1018,7 @@
     }
 
     <span class="doccomment">/// Get the export types of the module
-    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; ExportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">&#39;_</span>&gt; {
+    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; ExportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">'_</span>&gt; {
         <span class="kw">let </span>iter = <span class="self">self</span>.exports.iter().map(<span class="kw">move </span>|(name, export_index)| {
             <span class="kw">let </span>extern_type = <span class="kw">match </span>export_index {
                 ExportIndex::Function(i) =&gt; {
@@ -1047,7 +1045,7 @@
     }
 
     <span class="doccomment">/// Get the import types of the module
-    </span><span class="kw">pub fn </span>imports(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">&#39;_</span>&gt; {
+    </span><span class="kw">pub fn </span>imports(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">'_</span>&gt; {
         <span class="kw">let </span>iter =
             <span class="self">self</span>.imports
                 .iter()
@@ -1077,7 +1075,7 @@
     }
 
     <span class="doccomment">/// Get the custom sections of the module given a `name`.
-    </span><span class="kw">pub fn </span>custom_sections&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">&#39;a </span>{
+    </span><span class="kw">pub fn </span>custom_sections&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">'a </span>{
         <span class="self">self</span>.custom_sections
             .iter()
             .filter_map(<span class="kw">move </span>|(section_name, section_index)| {
@@ -1167,12 +1165,12 @@
     </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">match </span><span class="self">self</span>.name {
             <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>name) =&gt; name.to_string(),
-            <span class="prelude-val">None </span>=&gt; <span class="string">&quot;&lt;module&gt;&quot;</span>.to_string(),
+            <span class="prelude-val">None </span>=&gt; <span class="string">"&lt;module&gt;"</span>.to_string(),
         }
     }
 
     <span class="doccomment">/// Get the imported function types of the module.
-    </span><span class="kw">pub fn </span>imported_function_types(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = FunctionType&gt; + <span class="lifetime">&#39;_ </span>{
+    </span><span class="kw">pub fn </span>imported_function_types(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = FunctionType&gt; + <span class="lifetime">'_ </span>{
         <span class="self">self</span>.functions
             .values()
             .take(<span class="self">self</span>.num_imported_functions)
@@ -1181,8 +1179,8 @@
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>ModuleInfo {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.name())
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.name())
     }
 }
 

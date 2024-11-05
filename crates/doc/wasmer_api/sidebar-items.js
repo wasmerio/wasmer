@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["ENDPOINT_DEV","ENDPOINT_PROD"],"fn":["endpoint_dev","endpoint_prod"],"mod":["client","error","global_id","query","stream","types"],"struct":["GraphQLApiFailure","WasmerClient"]};

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/translator/intrinsics.rs`."><title>intrinsics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_llvm/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/translator/intrinsics.rs`."><title>intrinsics.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2022,102 +2022,6 @@
 <a href="#2022" id="2022">2022</a>
 <a href="#2023" id="2023">2023</a>
 <a href="#2024" id="2024">2024</a>
-<a href="#2025" id="2025">2025</a>
-<a href="#2026" id="2026">2026</a>
-<a href="#2027" id="2027">2027</a>
-<a href="#2028" id="2028">2028</a>
-<a href="#2029" id="2029">2029</a>
-<a href="#2030" id="2030">2030</a>
-<a href="#2031" id="2031">2031</a>
-<a href="#2032" id="2032">2032</a>
-<a href="#2033" id="2033">2033</a>
-<a href="#2034" id="2034">2034</a>
-<a href="#2035" id="2035">2035</a>
-<a href="#2036" id="2036">2036</a>
-<a href="#2037" id="2037">2037</a>
-<a href="#2038" id="2038">2038</a>
-<a href="#2039" id="2039">2039</a>
-<a href="#2040" id="2040">2040</a>
-<a href="#2041" id="2041">2041</a>
-<a href="#2042" id="2042">2042</a>
-<a href="#2043" id="2043">2043</a>
-<a href="#2044" id="2044">2044</a>
-<a href="#2045" id="2045">2045</a>
-<a href="#2046" id="2046">2046</a>
-<a href="#2047" id="2047">2047</a>
-<a href="#2048" id="2048">2048</a>
-<a href="#2049" id="2049">2049</a>
-<a href="#2050" id="2050">2050</a>
-<a href="#2051" id="2051">2051</a>
-<a href="#2052" id="2052">2052</a>
-<a href="#2053" id="2053">2053</a>
-<a href="#2054" id="2054">2054</a>
-<a href="#2055" id="2055">2055</a>
-<a href="#2056" id="2056">2056</a>
-<a href="#2057" id="2057">2057</a>
-<a href="#2058" id="2058">2058</a>
-<a href="#2059" id="2059">2059</a>
-<a href="#2060" id="2060">2060</a>
-<a href="#2061" id="2061">2061</a>
-<a href="#2062" id="2062">2062</a>
-<a href="#2063" id="2063">2063</a>
-<a href="#2064" id="2064">2064</a>
-<a href="#2065" id="2065">2065</a>
-<a href="#2066" id="2066">2066</a>
-<a href="#2067" id="2067">2067</a>
-<a href="#2068" id="2068">2068</a>
-<a href="#2069" id="2069">2069</a>
-<a href="#2070" id="2070">2070</a>
-<a href="#2071" id="2071">2071</a>
-<a href="#2072" id="2072">2072</a>
-<a href="#2073" id="2073">2073</a>
-<a href="#2074" id="2074">2074</a>
-<a href="#2075" id="2075">2075</a>
-<a href="#2076" id="2076">2076</a>
-<a href="#2077" id="2077">2077</a>
-<a href="#2078" id="2078">2078</a>
-<a href="#2079" id="2079">2079</a>
-<a href="#2080" id="2080">2080</a>
-<a href="#2081" id="2081">2081</a>
-<a href="#2082" id="2082">2082</a>
-<a href="#2083" id="2083">2083</a>
-<a href="#2084" id="2084">2084</a>
-<a href="#2085" id="2085">2085</a>
-<a href="#2086" id="2086">2086</a>
-<a href="#2087" id="2087">2087</a>
-<a href="#2088" id="2088">2088</a>
-<a href="#2089" id="2089">2089</a>
-<a href="#2090" id="2090">2090</a>
-<a href="#2091" id="2091">2091</a>
-<a href="#2092" id="2092">2092</a>
-<a href="#2093" id="2093">2093</a>
-<a href="#2094" id="2094">2094</a>
-<a href="#2095" id="2095">2095</a>
-<a href="#2096" id="2096">2096</a>
-<a href="#2097" id="2097">2097</a>
-<a href="#2098" id="2098">2098</a>
-<a href="#2099" id="2099">2099</a>
-<a href="#2100" id="2100">2100</a>
-<a href="#2101" id="2101">2101</a>
-<a href="#2102" id="2102">2102</a>
-<a href="#2103" id="2103">2103</a>
-<a href="#2104" id="2104">2104</a>
-<a href="#2105" id="2105">2105</a>
-<a href="#2106" id="2106">2106</a>
-<a href="#2107" id="2107">2107</a>
-<a href="#2108" id="2108">2108</a>
-<a href="#2109" id="2109">2109</a>
-<a href="#2110" id="2110">2110</a>
-<a href="#2111" id="2111">2111</a>
-<a href="#2112" id="2112">2112</a>
-<a href="#2113" id="2113">2113</a>
-<a href="#2114" id="2114">2114</a>
-<a href="#2115" id="2115">2115</a>
-<a href="#2116" id="2116">2116</a>
-<a href="#2117" id="2117">2117</a>
-<a href="#2118" id="2118">2118</a>
-<a href="#2119" id="2119">2119</a>
-<a href="#2120" id="2120">2120</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
@@ -2125,6 +2029,7 @@
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
 </span><span class="kw">use </span><span class="kw">crate</span>::abi::Abi;
+<span class="kw">use </span><span class="kw">crate</span>::error::err;
 <span class="kw">use </span>inkwell::values::BasicMetadataValueEnum;
 <span class="kw">use </span>inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -2150,261 +2055,228 @@
 };
 <span class="kw">use </span>wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
-<span class="kw">pub fn </span>type_to_llvm_ptr&lt;<span class="lifetime">&#39;ctx</span>&gt;(
-    intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ty: Type,
-) -&gt; <span class="prelude-ty">Result</span>&lt;PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
-    <span class="kw">match </span>ty {
-        Type::I32 =&gt; <span class="prelude-val">Ok</span>(intrinsics.i32_ptr_ty),
-        Type::I64 =&gt; <span class="prelude-val">Ok</span>(intrinsics.i64_ptr_ty),
-        Type::F32 =&gt; <span class="prelude-val">Ok</span>(intrinsics.f32_ptr_ty),
-        Type::F64 =&gt; <span class="prelude-val">Ok</span>(intrinsics.f64_ptr_ty),
-        Type::V128 =&gt; <span class="prelude-val">Ok</span>(intrinsics.i128_ptr_ty),
-        Type::FuncRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.funcref_ty.ptr_type(AddressSpace::default())),
-        Type::ExternRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.externref_ty.ptr_type(AddressSpace::default())),
-    }
+<span class="kw">pub fn </span>type_to_llvm_ptr&lt;<span class="lifetime">'ctx</span>&gt;(
+    intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    _ty: Type,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PointerType&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
+    <span class="comment">// LLVM v. &gt; 15 has a single pointer type.
+    </span><span class="prelude-val">Ok</span>(intrinsics.ptr_ty)
 }
 
-<span class="kw">pub fn </span>type_to_llvm&lt;<span class="lifetime">&#39;ctx</span>&gt;(
-    intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+<span class="kw">pub fn </span>type_to_llvm&lt;<span class="lifetime">'ctx</span>&gt;(
+    intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ty: Type,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BasicTypeEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;BasicTypeEnum&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
     <span class="kw">match </span>ty {
         Type::I32 =&gt; <span class="prelude-val">Ok</span>(intrinsics.i32_ty.as_basic_type_enum()),
         Type::I64 =&gt; <span class="prelude-val">Ok</span>(intrinsics.i64_ty.as_basic_type_enum()),
         Type::F32 =&gt; <span class="prelude-val">Ok</span>(intrinsics.f32_ty.as_basic_type_enum()),
         Type::F64 =&gt; <span class="prelude-val">Ok</span>(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 =&gt; <span class="prelude-val">Ok</span>(intrinsics.i128_ty.as_basic_type_enum()),
-        Type::FuncRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.funcref_ty.as_basic_type_enum()),
-        Type::ExternRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.externref_ty.as_basic_type_enum()),
+        Type::FuncRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum()),
+        Type::ExternRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum()),
     }
 }
 
 <span class="doccomment">/// Struct containing LLVM and VM intrinsics.
-</span><span class="kw">pub struct </span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt; {
-    <span class="kw">pub </span>ctlz_i32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>ctlz_i64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+</span><span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub struct </span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt; {
+    <span class="kw">pub </span>ctlz_i32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>ctlz_i64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>cttz_i32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>cttz_i64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>cttz_i32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>cttz_i64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>ctpop_i32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>ctpop_i64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>ctpop_i8x16: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>ctpop_i32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>ctpop_i64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>ctpop_i8x16: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>fp_rounding_md: BasicMetadataValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fp_exception_md: BasicMetadataValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fp_ogt_md: BasicMetadataValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fp_olt_md: BasicMetadataValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fp_uno_md: BasicMetadataValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>fp_rounding_md: BasicMetadataValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fp_exception_md: BasicMetadataValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fp_ogt_md: BasicMetadataValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fp_olt_md: BasicMetadataValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fp_uno_md: BasicMetadataValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>add_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>add_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>add_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>add_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>add_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>add_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>add_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>add_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>sub_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>sub_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>sub_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>sub_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>sub_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>sub_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>sub_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>sub_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>mul_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>mul_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>mul_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>mul_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>mul_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>mul_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>mul_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>mul_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>div_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>div_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>div_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>div_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>div_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>div_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>div_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>div_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>sqrt_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>sqrt_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>sqrt_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>sqrt_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>sqrt_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>sqrt_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>sqrt_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>sqrt_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>cmp_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>cmp_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>cmp_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>cmp_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>cmp_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>cmp_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>cmp_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>cmp_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>ceil_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>ceil_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>ceil_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>ceil_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>ceil_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>ceil_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>ceil_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>ceil_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>floor_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>floor_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>floor_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>floor_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>floor_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>floor_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>floor_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>floor_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>trunc_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trunc_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trunc_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trunc_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>trunc_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trunc_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trunc_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trunc_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>fpext_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fptrunc_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>fpext_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fptrunc_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>nearbyint_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>nearbyint_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>nearbyint_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>nearbyint_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>nearbyint_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>nearbyint_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>nearbyint_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>nearbyint_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>fabs_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fabs_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fabs_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>fabs_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>fabs_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fabs_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fabs_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>fabs_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>copysign_f32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>copysign_f64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>copysign_f32x4: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>copysign_f64x2: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>copysign_f32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>copysign_f64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>copysign_f32x4: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>copysign_f64x2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>sadd_sat_i8x16: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>sadd_sat_i16x8: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>uadd_sat_i8x16: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>uadd_sat_i16x8: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>sadd_sat_i8x16: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>sadd_sat_i16x8: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>uadd_sat_i8x16: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>uadd_sat_i16x8: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>ssub_sat_i8x16: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>ssub_sat_i16x8: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>usub_sat_i8x16: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>usub_sat_i16x8: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>ssub_sat_i8x16: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>ssub_sat_i16x8: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>usub_sat_i8x16: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>usub_sat_i16x8: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>expect_i1: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>debug_trap: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>expect_i1: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>debug_trap: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>personality: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>personality: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>readonly: Attribute,
     <span class="kw">pub </span>stack_probe: Attribute,
 
-    <span class="kw">pub </span>void_ty: VoidType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i1_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i2_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i4_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i8_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i16_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i32_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i64_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i128_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>isize_ty: IntType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f32_ty: FloatType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f64_ty: FloatType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>void_ty: VoidType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i1_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i2_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i4_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i8_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i16_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i32_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i64_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i128_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>isize_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f32_ty: FloatType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f64_ty: FloatType&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>i1x128_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i8x16_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i16x8_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i32x4_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i64x2_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f32x4_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f64x2_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i32x8_ty: VectorType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>i1x128_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i8x16_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i16x8_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i32x4_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i64x2_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f32x4_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f64x2_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i32x8_ty: VectorType&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>i8_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i16_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i32_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i64_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i128_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>isize_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f32_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f64_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>ptr_ty: PointerType&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>anyfunc_ty: StructType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>anyfunc_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>funcref_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>externref_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>anyref_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>i1_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i8_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i32_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i64_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i128_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>isize_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f32_zero: FloatValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f64_zero: FloatValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f32x4_zero: VectorValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>f64x2_zero: VectorValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>i32_consts: [IntValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">16</span>],
 
-    <span class="kw">pub </span>i1_zero: IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i8_zero: IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i32_zero: IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i64_zero: IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i128_zero: IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>isize_zero: IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f32_zero: FloatValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f64_zero: FloatValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f32x4_zero: VectorValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>f64x2_zero: VectorValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>i32_consts: [IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">16</span>],
+    <span class="kw">pub </span>trap_unreachable: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_call_indirect_null: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_call_indirect_sig: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_memory_oob: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_illegal_arithmetic: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_integer_division_by_zero: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_bad_conversion_to_integer: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_unaligned_atomic: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>trap_table_access_oob: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>trap_unreachable: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_call_indirect_null: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_call_indirect_sig: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_memory_oob: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_illegal_arithmetic: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_integer_division_by_zero: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_bad_conversion_to_integer: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_unaligned_atomic: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>trap_table_access_oob: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-
-    <span class="kw">pub </span>experimental_stackmap: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>experimental_stackmap: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
     <span class="comment">// VM libcalls.
-    </span><span class="kw">pub </span>table_copy: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>table_init: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>table_fill: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>table_size: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_table_size: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>table_get: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_table_get: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>table_set: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_table_set: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>table_grow: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_table_grow: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_init: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>data_drop: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>func_ref: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>elem_drop: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_copy: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory_copy: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_fill: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory_fill: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_size_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_grow_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_wait32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_wait32_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory_wait32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_wait64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_wait64_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory_wait64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_notify: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory_notify_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory_notify: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    </span><span class="kw">pub </span>table_copy: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>table_init: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>table_fill: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>table_size: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_table_size: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>table_get: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_table_get: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>table_set: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_table_set: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>table_grow: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_table_grow: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_init: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>data_drop: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>func_ref: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>elem_drop: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_copy: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_memory_copy: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_fill: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_memory_fill: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_size_ty: FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_grow_ty: FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_wait32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_wait32_ty: FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_memory_wait32: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_wait64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_wait64_ty: FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_memory_wait64: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_notify: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>memory_notify_ty: FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>imported_memory_notify: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    <span class="kw">pub </span>throw_trap: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>throw_trap: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
     <span class="comment">// VM builtins.
-    </span><span class="kw">pub </span>vmfunction_import_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>vmfunction_import_ty: StructType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    </span><span class="kw">pub </span>vmfunction_import_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>vmfunction_import_body_element: u32,
     <span class="kw">pub </span>vmfunction_import_vmctx_element: u32,
 
-    <span class="kw">pub </span>vmmemory_definition_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>vmmemory_definition_ty: StructType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>vmmemory_definition_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>vmmemory_definition_base_element: u32,
     <span class="kw">pub </span>vmmemory_definition_current_length_element: u32,
-
-    <span class="kw">pub </span>memory32_grow_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory32_grow_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory32_size_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory32_size_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory32_wait32_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory32_wait32_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory32_wait64_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory32_wait64_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>memory32_notify_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>imported_memory32_notify_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-
-    <span class="comment">// Pointer to the VM.
-    </span><span class="kw">pub </span>ctx_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;ctx</span>&gt; Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'ctx</span>&gt; Intrinsics&lt;<span class="lifetime">'ctx</span>&gt; {
     <span class="doccomment">/// Create an [`Intrinsics`] for the given [`Context`].
     </span><span class="kw">pub fn </span>declare(
-        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+        context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
         target_data: <span class="kw-2">&amp;</span>TargetData,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>void_ty = context.void_type();
@@ -2431,14 +2303,7 @@
         <span class="kw">let </span>f64x2_ty = f64_ty.vec_type(<span class="number">2</span>);
         <span class="kw">let </span>i32x8_ty = i32_ty.vec_type(<span class="number">8</span>);
 
-        <span class="kw">let </span>i8_ptr_ty = i8_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>i16_ptr_ty = i16_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>i32_ptr_ty = i32_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>i64_ptr_ty = i64_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>i128_ptr_ty = i128_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>isize_ptr_ty = isize_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>f32_ptr_ty = f32_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>f64_ptr_ty = f64_ty.ptr_type(AddressSpace::default());
+        <span class="kw">let </span>ptr_ty = context.ptr_type(AddressSpace::default());
 
         <span class="kw">let </span>i1_zero = i1_ty.const_int(<span class="number">0</span>, <span class="bool-val">false</span>);
         <span class="kw">let </span>i8_zero = i8_ty.const_int(<span class="number">0</span>, <span class="bool-val">false</span>);
@@ -2471,7 +2336,7 @@
 
         <span class="kw">let </span>md_ty = context.metadata_type();
 
-        <span class="kw">let </span>i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
+        <span class="kw">let </span>i8_ptr_ty_basic = ptr_ty.as_basic_type_enum();
 
         <span class="kw">let </span>i1_ty_basic_md: BasicMetadataTypeEnum = i1_ty.into();
         <span class="kw">let </span>i32_ty_basic_md: BasicMetadataTypeEnum = i32_ty.into();
@@ -2484,8 +2349,7 @@
         <span class="kw">let </span>f64x2_ty_basic_md: BasicMetadataTypeEnum = f64x2_ty.into();
         <span class="kw">let </span>md_ty_basic_md: BasicMetadataTypeEnum = md_ty.into();
 
-        <span class="kw">let </span>ctx_ty = i8_ty;
-        <span class="kw">let </span>ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::default());
+        <span class="kw">let </span>ctx_ptr_ty = ptr_ty;
         <span class="kw">let </span>ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         <span class="kw">let </span>ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
@@ -2495,9 +2359,8 @@
             <span class="kw-2">&amp;</span>[i8_ptr_ty_basic, sigindex_ty.into(), ctx_ptr_ty_basic],
             <span class="bool-val">false</span>,
         );
-        <span class="kw">let </span>funcref_ty = anyfunc_ty.ptr_type(AddressSpace::default());
-        <span class="kw">let </span>externref_ty = funcref_ty;
-        <span class="kw">let </span>anyref_ty = i8_ptr_ty;
+        <span class="kw">let </span>funcref_ty = ptr_ty;
+        <span class="kw">let </span>anyref_ty = ptr_ty;
         <span class="kw">let </span>anyref_ty_basic_md: BasicMetadataTypeEnum = anyref_ty.into();
 
         <span class="kw">let </span>ret_i8x16_take_i8x16 = i8x16_ty.fn_type(<span class="kw-2">&amp;</span>[i8x16_ty_basic_md], <span class="bool-val">false</span>);
@@ -2605,243 +2468,243 @@
         );
 
         <span class="kw">let </span>intrinsics = <span class="self">Self </span>{
-            ctlz_i32: module.add_function(<span class="string">&quot;llvm.ctlz.i32&quot;</span>, ret_i32_take_i32_i1, <span class="prelude-val">None</span>),
-            ctlz_i64: module.add_function(<span class="string">&quot;llvm.ctlz.i64&quot;</span>, ret_i64_take_i64_i1, <span class="prelude-val">None</span>),
+            ctlz_i32: module.add_function(<span class="string">"llvm.ctlz.i32"</span>, ret_i32_take_i32_i1, <span class="prelude-val">None</span>),
+            ctlz_i64: module.add_function(<span class="string">"llvm.ctlz.i64"</span>, ret_i64_take_i64_i1, <span class="prelude-val">None</span>),
 
-            cttz_i32: module.add_function(<span class="string">&quot;llvm.cttz.i32&quot;</span>, ret_i32_take_i32_i1, <span class="prelude-val">None</span>),
-            cttz_i64: module.add_function(<span class="string">&quot;llvm.cttz.i64&quot;</span>, ret_i64_take_i64_i1, <span class="prelude-val">None</span>),
+            cttz_i32: module.add_function(<span class="string">"llvm.cttz.i32"</span>, ret_i32_take_i32_i1, <span class="prelude-val">None</span>),
+            cttz_i64: module.add_function(<span class="string">"llvm.cttz.i64"</span>, ret_i64_take_i64_i1, <span class="prelude-val">None</span>),
 
-            ctpop_i32: module.add_function(<span class="string">&quot;llvm.ctpop.i32&quot;</span>, ret_i32_take_i32, <span class="prelude-val">None</span>),
-            ctpop_i64: module.add_function(<span class="string">&quot;llvm.ctpop.i64&quot;</span>, ret_i64_take_i64, <span class="prelude-val">None</span>),
-            ctpop_i8x16: module.add_function(<span class="string">&quot;llvm.ctpop.v16i8&quot;</span>, ret_i8x16_take_i8x16, <span class="prelude-val">None</span>),
+            ctpop_i32: module.add_function(<span class="string">"llvm.ctpop.i32"</span>, ret_i32_take_i32, <span class="prelude-val">None</span>),
+            ctpop_i64: module.add_function(<span class="string">"llvm.ctpop.i64"</span>, ret_i64_take_i64, <span class="prelude-val">None</span>),
+            ctpop_i8x16: module.add_function(<span class="string">"llvm.ctpop.v16i8"</span>, ret_i8x16_take_i8x16, <span class="prelude-val">None</span>),
 
-            fp_rounding_md: context.metadata_string(<span class="string">&quot;round.tonearest&quot;</span>).into(),
-            fp_exception_md: context.metadata_string(<span class="string">&quot;fpexcept.strict&quot;</span>).into(),
+            fp_rounding_md: context.metadata_string(<span class="string">"round.tonearest"</span>).into(),
+            fp_exception_md: context.metadata_string(<span class="string">"fpexcept.strict"</span>).into(),
 
-            fp_ogt_md: context.metadata_string(<span class="string">&quot;ogt&quot;</span>).into(),
-            fp_olt_md: context.metadata_string(<span class="string">&quot;olt&quot;</span>).into(),
-            fp_uno_md: context.metadata_string(<span class="string">&quot;uno&quot;</span>).into(),
+            fp_ogt_md: context.metadata_string(<span class="string">"ogt"</span>).into(),
+            fp_olt_md: context.metadata_string(<span class="string">"olt"</span>).into(),
+            fp_uno_md: context.metadata_string(<span class="string">"uno"</span>).into(),
 
-            sqrt_f32: module.add_function(<span class="string">&quot;llvm.sqrt.f32&quot;</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
-            sqrt_f64: module.add_function(<span class="string">&quot;llvm.sqrt.f64&quot;</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
-            sqrt_f32x4: module.add_function(<span class="string">&quot;llvm.sqrt.v4f32&quot;</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
-            sqrt_f64x2: module.add_function(<span class="string">&quot;llvm.sqrt.v2f64&quot;</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
+            sqrt_f32: module.add_function(<span class="string">"llvm.sqrt.f32"</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
+            sqrt_f64: module.add_function(<span class="string">"llvm.sqrt.f64"</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
+            sqrt_f32x4: module.add_function(<span class="string">"llvm.sqrt.v4f32"</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
+            sqrt_f64x2: module.add_function(<span class="string">"llvm.sqrt.v2f64"</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
 
-            ceil_f32: module.add_function(<span class="string">&quot;llvm.ceil.f32&quot;</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
-            ceil_f64: module.add_function(<span class="string">&quot;llvm.ceil.f64&quot;</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
-            ceil_f32x4: module.add_function(<span class="string">&quot;llvm.ceil.v4f32&quot;</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
-            ceil_f64x2: module.add_function(<span class="string">&quot;llvm.ceil.v2f64&quot;</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
+            ceil_f32: module.add_function(<span class="string">"llvm.ceil.f32"</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
+            ceil_f64: module.add_function(<span class="string">"llvm.ceil.f64"</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
+            ceil_f32x4: module.add_function(<span class="string">"llvm.ceil.v4f32"</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
+            ceil_f64x2: module.add_function(<span class="string">"llvm.ceil.v2f64"</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
 
-            floor_f32: module.add_function(<span class="string">&quot;llvm.floor.f32&quot;</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
-            floor_f64: module.add_function(<span class="string">&quot;llvm.floor.f64&quot;</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
-            floor_f32x4: module.add_function(<span class="string">&quot;llvm.floor.v4f32&quot;</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
-            floor_f64x2: module.add_function(<span class="string">&quot;llvm.floor.v2f64&quot;</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
+            floor_f32: module.add_function(<span class="string">"llvm.floor.f32"</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
+            floor_f64: module.add_function(<span class="string">"llvm.floor.f64"</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
+            floor_f32x4: module.add_function(<span class="string">"llvm.floor.v4f32"</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
+            floor_f64x2: module.add_function(<span class="string">"llvm.floor.v2f64"</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
 
-            trunc_f32: module.add_function(<span class="string">&quot;llvm.trunc.f32&quot;</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
-            trunc_f64: module.add_function(<span class="string">&quot;llvm.trunc.f64&quot;</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
-            trunc_f32x4: module.add_function(<span class="string">&quot;llvm.trunc.v4f32&quot;</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
-            trunc_f64x2: module.add_function(<span class="string">&quot;llvm.trunc.v2f64&quot;</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
+            trunc_f32: module.add_function(<span class="string">"llvm.trunc.f32"</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
+            trunc_f64: module.add_function(<span class="string">"llvm.trunc.f64"</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
+            trunc_f32x4: module.add_function(<span class="string">"llvm.trunc.v4f32"</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
+            trunc_f64x2: module.add_function(<span class="string">"llvm.trunc.v2f64"</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
 
-            nearbyint_f32: module.add_function(<span class="string">&quot;llvm.nearbyint.f32&quot;</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
-            nearbyint_f64: module.add_function(<span class="string">&quot;llvm.nearbyint.f64&quot;</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
+            nearbyint_f32: module.add_function(<span class="string">"llvm.nearbyint.f32"</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
+            nearbyint_f64: module.add_function(<span class="string">"llvm.nearbyint.f64"</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
             nearbyint_f32x4: module.add_function(
-                <span class="string">&quot;llvm.nearbyint.v4f32&quot;</span>,
+                <span class="string">"llvm.nearbyint.v4f32"</span>,
                 ret_f32x4_take_f32x4,
                 <span class="prelude-val">None</span>,
             ),
             nearbyint_f64x2: module.add_function(
-                <span class="string">&quot;llvm.nearbyint.v2f64&quot;</span>,
+                <span class="string">"llvm.nearbyint.v2f64"</span>,
                 ret_f64x2_take_f64x2,
                 <span class="prelude-val">None</span>,
             ),
 
             add_f32: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fadd.f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fadd.f32"</span>,
                 ret_f32_take_f32_f32_md_md,
                 <span class="prelude-val">None</span>,
             ),
             add_f64: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fadd.f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fadd.f64"</span>,
                 ret_f64_take_f64_f64_md_md,
                 <span class="prelude-val">None</span>,
             ),
             add_f32x4: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fadd.v4f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fadd.v4f32"</span>,
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 <span class="prelude-val">None</span>,
             ),
             add_f64x2: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fadd.v2f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fadd.v2f64"</span>,
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 <span class="prelude-val">None</span>,
             ),
 
             sub_f32: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fsub.f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fsub.f32"</span>,
                 ret_f32_take_f32_f32_md_md,
                 <span class="prelude-val">None</span>,
             ),
             sub_f64: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fsub.f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fsub.f64"</span>,
                 ret_f64_take_f64_f64_md_md,
                 <span class="prelude-val">None</span>,
             ),
             sub_f32x4: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fsub.v4f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fsub.v4f32"</span>,
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 <span class="prelude-val">None</span>,
             ),
             sub_f64x2: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fsub.v2f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fsub.v2f64"</span>,
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 <span class="prelude-val">None</span>,
             ),
 
             mul_f32: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fmul.f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fmul.f32"</span>,
                 ret_f32_take_f32_f32_md_md,
                 <span class="prelude-val">None</span>,
             ),
             mul_f64: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fmul.f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fmul.f64"</span>,
                 ret_f64_take_f64_f64_md_md,
                 <span class="prelude-val">None</span>,
             ),
             mul_f32x4: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fmul.v4f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fmul.v4f32"</span>,
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 <span class="prelude-val">None</span>,
             ),
             mul_f64x2: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fmul.v2f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fmul.v2f64"</span>,
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 <span class="prelude-val">None</span>,
             ),
 
             div_f32: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fdiv.f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fdiv.f32"</span>,
                 ret_f32_take_f32_f32_md_md,
                 <span class="prelude-val">None</span>,
             ),
             div_f64: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fdiv.f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fdiv.f64"</span>,
                 ret_f64_take_f64_f64_md_md,
                 <span class="prelude-val">None</span>,
             ),
             div_f32x4: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fdiv.v4f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fdiv.v4f32"</span>,
                 ret_f32x4_take_f32x4_f32x4_md_md,
                 <span class="prelude-val">None</span>,
             ),
             div_f64x2: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fdiv.v2f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fdiv.v2f64"</span>,
                 ret_f64x2_take_f64x2_f64x2_md_md,
                 <span class="prelude-val">None</span>,
             ),
 
             cmp_f32: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fcmp.f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fcmp.f32"</span>,
                 ret_i1_take_f32_f32_md_md,
                 <span class="prelude-val">None</span>,
             ),
             cmp_f64: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fcmp.f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fcmp.f64"</span>,
                 ret_i1_take_f64_f64_md_md,
                 <span class="prelude-val">None</span>,
             ),
             cmp_f32x4: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fcmp.v4f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fcmp.v4f32"</span>,
                 ret_i1x4_take_f32x4_f32x4_md_md,
                 <span class="prelude-val">None</span>,
             ),
             cmp_f64x2: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fcmp.v2f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fcmp.v2f64"</span>,
                 ret_i1x2_take_f64x2_f64x2_md_md,
                 <span class="prelude-val">None</span>,
             ),
 
             fpext_f32: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fpext.f64.f32&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fpext.f64.f32"</span>,
                 ret_f64_take_f32_md,
                 <span class="prelude-val">None</span>,
             ),
             fptrunc_f64: module.add_function(
-                <span class="string">&quot;llvm.experimental.constrained.fptrunc.f32.f64&quot;</span>,
+                <span class="string">"llvm.experimental.constrained.fptrunc.f32.f64"</span>,
                 ret_f32_take_f64_md_md,
                 <span class="prelude-val">None</span>,
             ),
 
-            fabs_f32: module.add_function(<span class="string">&quot;llvm.fabs.f32&quot;</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
-            fabs_f64: module.add_function(<span class="string">&quot;llvm.fabs.f64&quot;</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
-            fabs_f32x4: module.add_function(<span class="string">&quot;llvm.fabs.v4f32&quot;</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
-            fabs_f64x2: module.add_function(<span class="string">&quot;llvm.fabs.v2f64&quot;</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
+            fabs_f32: module.add_function(<span class="string">"llvm.fabs.f32"</span>, ret_f32_take_f32, <span class="prelude-val">None</span>),
+            fabs_f64: module.add_function(<span class="string">"llvm.fabs.f64"</span>, ret_f64_take_f64, <span class="prelude-val">None</span>),
+            fabs_f32x4: module.add_function(<span class="string">"llvm.fabs.v4f32"</span>, ret_f32x4_take_f32x4, <span class="prelude-val">None</span>),
+            fabs_f64x2: module.add_function(<span class="string">"llvm.fabs.v2f64"</span>, ret_f64x2_take_f64x2, <span class="prelude-val">None</span>),
 
-            copysign_f32: module.add_function(<span class="string">&quot;llvm.copysign.f32&quot;</span>, ret_f32_take_f32_f32, <span class="prelude-val">None</span>),
-            copysign_f64: module.add_function(<span class="string">&quot;llvm.copysign.f64&quot;</span>, ret_f64_take_f64_f64, <span class="prelude-val">None</span>),
+            copysign_f32: module.add_function(<span class="string">"llvm.copysign.f32"</span>, ret_f32_take_f32_f32, <span class="prelude-val">None</span>),
+            copysign_f64: module.add_function(<span class="string">"llvm.copysign.f64"</span>, ret_f64_take_f64_f64, <span class="prelude-val">None</span>),
             copysign_f32x4: module.add_function(
-                <span class="string">&quot;llvm.copysign.v4f32&quot;</span>,
+                <span class="string">"llvm.copysign.v4f32"</span>,
                 ret_f32x4_take_f32x4_f32x4,
                 <span class="prelude-val">None</span>,
             ),
             copysign_f64x2: module.add_function(
-                <span class="string">&quot;llvm.copysign.v2f64&quot;</span>,
+                <span class="string">"llvm.copysign.v2f64"</span>,
                 ret_f64x2_take_f64x2_f64x2,
                 <span class="prelude-val">None</span>,
             ),
 
             sadd_sat_i8x16: module.add_function(
-                <span class="string">&quot;llvm.sadd.sat.v16i8&quot;</span>,
+                <span class="string">"llvm.sadd.sat.v16i8"</span>,
                 ret_i8x16_take_i8x16_i8x16,
                 <span class="prelude-val">None</span>,
             ),
             sadd_sat_i16x8: module.add_function(
-                <span class="string">&quot;llvm.sadd.sat.v8i16&quot;</span>,
+                <span class="string">"llvm.sadd.sat.v8i16"</span>,
                 ret_i16x8_take_i16x8_i16x8,
                 <span class="prelude-val">None</span>,
             ),
             uadd_sat_i8x16: module.add_function(
-                <span class="string">&quot;llvm.uadd.sat.v16i8&quot;</span>,
+                <span class="string">"llvm.uadd.sat.v16i8"</span>,
                 ret_i8x16_take_i8x16_i8x16,
                 <span class="prelude-val">None</span>,
             ),
             uadd_sat_i16x8: module.add_function(
-                <span class="string">&quot;llvm.uadd.sat.v8i16&quot;</span>,
+                <span class="string">"llvm.uadd.sat.v8i16"</span>,
                 ret_i16x8_take_i16x8_i16x8,
                 <span class="prelude-val">None</span>,
             ),
 
             ssub_sat_i8x16: module.add_function(
-                <span class="string">&quot;llvm.ssub.sat.v16i8&quot;</span>,
+                <span class="string">"llvm.ssub.sat.v16i8"</span>,
                 ret_i8x16_take_i8x16_i8x16,
                 <span class="prelude-val">None</span>,
             ),
             ssub_sat_i16x8: module.add_function(
-                <span class="string">&quot;llvm.ssub.sat.v8i16&quot;</span>,
+                <span class="string">"llvm.ssub.sat.v8i16"</span>,
                 ret_i16x8_take_i16x8_i16x8,
                 <span class="prelude-val">None</span>,
             ),
             usub_sat_i8x16: module.add_function(
-                <span class="string">&quot;llvm.usub.sat.v16i8&quot;</span>,
+                <span class="string">"llvm.usub.sat.v16i8"</span>,
                 ret_i8x16_take_i8x16_i8x16,
                 <span class="prelude-val">None</span>,
             ),
             usub_sat_i16x8: module.add_function(
-                <span class="string">&quot;llvm.usub.sat.v8i16&quot;</span>,
+                <span class="string">"llvm.usub.sat.v8i16"</span>,
                 ret_i16x8_take_i16x8_i16x8,
                 <span class="prelude-val">None</span>,
             ),
 
-            expect_i1: module.add_function(<span class="string">&quot;llvm.expect.i1&quot;</span>, ret_i1_take_i1_i1, <span class="prelude-val">None</span>),
-            trap: module.add_function(<span class="string">&quot;llvm.trap&quot;</span>, void_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>), <span class="prelude-val">None</span>),
-            debug_trap: module.add_function(<span class="string">&quot;llvm.debugtrap&quot;</span>, void_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>), <span class="prelude-val">None</span>),
+            expect_i1: module.add_function(<span class="string">"llvm.expect.i1"</span>, ret_i1_take_i1_i1, <span class="prelude-val">None</span>),
+            trap: module.add_function(<span class="string">"llvm.trap"</span>, void_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>), <span class="prelude-val">None</span>),
+            debug_trap: module.add_function(<span class="string">"llvm.debugtrap"</span>, void_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>), <span class="prelude-val">None</span>),
             personality: module.add_function(
-                <span class="string">&quot;__gxx_personality_v0&quot;</span>,
+                <span class="string">"__gxx_personality_v0"</span>,
                 i32_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>),
                 <span class="prelude-val">Some</span>(Linkage::External),
             ),
             readonly: context
-                .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">&quot;readonly&quot;</span>), <span class="number">0</span>),
-            stack_probe: context.create_string_attribute(<span class="string">&quot;probe-stack&quot;</span>, <span class="string">&quot;inline-asm&quot;</span>),
+                .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"readonly"</span>), <span class="number">0</span>),
+            stack_probe: context.create_string_attribute(<span class="string">"probe-stack"</span>, <span class="string">"inline-asm"</span>),
 
             void_ty,
             i1_ty,
@@ -2865,21 +2728,7 @@
             f64x2_ty,
             i32x8_ty,
 
-            i8_ptr_ty,
-            i16_ptr_ty,
-            i32_ptr_ty,
-            i64_ptr_ty,
-            i128_ptr_ty,
-            isize_ptr_ty,
-            f32_ptr_ty,
-            f64_ptr_ty,
-
             anyfunc_ty,
-
-            funcref_ty,
-            externref_ty,
-            anyref_ty,
-
             i1_zero,
             i8_zero,
             i32_zero,
@@ -2921,7 +2770,7 @@
                 .as_basic_value_enum(),
 
             experimental_stackmap: module.add_function(
-                <span class="string">&quot;llvm.experimental.stackmap&quot;</span>,
+                <span class="string">"llvm.experimental.stackmap"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         i64_ty_basic_md, <span class="comment">/* id */
@@ -2934,7 +2783,7 @@
 
             <span class="comment">// VM libcalls.
             </span>table_copy: module.add_function(
-                <span class="string">&quot;wasmer_vm_table_copy&quot;</span>,
+                <span class="string">"wasmer_vm_table_copy"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -2949,7 +2798,7 @@
                 <span class="prelude-val">None</span>,
             ),
             table_init: module.add_function(
-                <span class="string">&quot;wasmer_vm_table_init&quot;</span>,
+                <span class="string">"wasmer_vm_table_init"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -2964,7 +2813,7 @@
                 <span class="prelude-val">None</span>,
             ),
             table_fill: module.add_function(
-                <span class="string">&quot;wasmer_vm_table_fill&quot;</span>,
+                <span class="string">"wasmer_vm_table_fill"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -2978,17 +2827,17 @@
                 <span class="prelude-val">None</span>,
             ),
             table_size: module.add_function(
-                <span class="string">&quot;wasmer_vm_table_size&quot;</span>,
+                <span class="string">"wasmer_vm_table_size"</span>,
                 i32_ty.fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             imported_table_size: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>,
+                <span class="string">"wasmer_vm_imported_table_size"</span>,
                 i32_ty.fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             table_get: module.add_function(
-                <span class="string">&quot;wasmer_vm_table_get&quot;</span>,
+                <span class="string">"wasmer_vm_table_get"</span>,
                 anyref_ty.fn_type(
                     <span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     <span class="bool-val">false</span>,
@@ -2996,7 +2845,7 @@
                 <span class="prelude-val">None</span>,
             ),
             imported_table_get: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>,
+                <span class="string">"wasmer_vm_imported_table_get"</span>,
                 anyref_ty.fn_type(
                     <span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     <span class="bool-val">false</span>,
@@ -3004,7 +2853,7 @@
                 <span class="prelude-val">None</span>,
             ),
             table_set: module.add_function(
-                <span class="string">&quot;wasmer_vm_table_set&quot;</span>,
+                <span class="string">"wasmer_vm_table_set"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3017,7 +2866,7 @@
                 <span class="prelude-val">None</span>,
             ),
             imported_table_set: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>,
+                <span class="string">"wasmer_vm_imported_table_set"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3030,7 +2879,7 @@
                 <span class="prelude-val">None</span>,
             ),
             table_grow: module.add_function(
-                <span class="string">&quot;wasmer_vm_table_grow&quot;</span>,
+                <span class="string">"wasmer_vm_table_grow"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3043,7 +2892,7 @@
                 <span class="prelude-val">None</span>,
             ),
             imported_table_grow: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>,
+                <span class="string">"wasmer_vm_imported_table_grow"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3056,7 +2905,7 @@
                 <span class="prelude-val">None</span>,
             ),
             memory_init: module.add_function(
-                <span class="string">&quot;wasmer_vm_memory32_init&quot;</span>,
+                <span class="string">"wasmer_vm_memory32_init"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3071,7 +2920,7 @@
                 <span class="prelude-val">None</span>,
             ),
             memory_copy: module.add_function(
-                <span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>,
+                <span class="string">"wasmer_vm_memory32_copy"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3085,7 +2934,7 @@
                 <span class="prelude-val">None</span>,
             ),
             imported_memory_copy: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>,
+                <span class="string">"wasmer_vm_imported_memory32_copy"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3099,7 +2948,7 @@
                 <span class="prelude-val">None</span>,
             ),
             memory_fill: module.add_function(
-                <span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>,
+                <span class="string">"wasmer_vm_memory32_fill"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3113,7 +2962,7 @@
                 <span class="prelude-val">None</span>,
             ),
             imported_memory_fill: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>,
+                <span class="string">"wasmer_vm_imported_memory32_fill"</span>,
                 void_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3132,27 +2981,27 @@
                 <span class="bool-val">false</span>,
             ),
             data_drop: module.add_function(
-                <span class="string">&quot;wasmer_vm_data_drop&quot;</span>,
+                <span class="string">"wasmer_vm_data_drop"</span>,
                 void_ty.fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             func_ref: module.add_function(
-                <span class="string">&quot;wasmer_vm_func_ref&quot;</span>,
+                <span class="string">"wasmer_vm_func_ref"</span>,
                 funcref_ty.fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             elem_drop: module.add_function(
-                <span class="string">&quot;wasmer_vm_elem_drop&quot;</span>,
+                <span class="string">"wasmer_vm_elem_drop"</span>,
                 void_ty.fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             throw_trap: module.add_function(
-                <span class="string">&quot;wasmer_vm_raise_trap&quot;</span>,
+                <span class="string">"wasmer_vm_raise_trap"</span>,
                 void_ty.fn_type(<span class="kw-2">&amp;</span>[i32_ty_basic_md], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             memory_wait32: module.add_function(
-                <span class="string">&quot;wasmer_vm_memory32_atomic_wait32&quot;</span>,
+                <span class="string">"wasmer_vm_memory32_atomic_wait32"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3176,7 +3025,7 @@
                 <span class="bool-val">false</span>,
             ),
             imported_memory_wait32: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait32&quot;</span>,
+                <span class="string">"wasmer_vm_imported_memory32_atomic_wait32"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3190,7 +3039,7 @@
                 <span class="prelude-val">None</span>,
             ),
             memory_wait64: module.add_function(
-                <span class="string">&quot;wasmer_vm_memory32_atomic_wait64&quot;</span>,
+                <span class="string">"wasmer_vm_memory32_atomic_wait64"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3214,7 +3063,7 @@
                 <span class="bool-val">false</span>,
             ),
             imported_memory_wait64: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait64&quot;</span>,
+                <span class="string">"wasmer_vm_imported_memory32_atomic_wait64"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3228,7 +3077,7 @@
                 <span class="prelude-val">None</span>,
             ),
             memory_notify: module.add_function(
-                <span class="string">&quot;wasmer_vm_memory32_atomic_notify&quot;</span>,
+                <span class="string">"wasmer_vm_memory32_atomic_notify"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3250,7 +3099,7 @@
                 <span class="bool-val">false</span>,
             ),
             imported_memory_notify: module.add_function(
-                <span class="string">&quot;wasmer_vm_imported_memory32_atomic_notify&quot;</span>,
+                <span class="string">"wasmer_vm_imported_memory32_atomic_notify"</span>,
                 i32_ty.fn_type(
                     <span class="kw-2">&amp;</span>[
                         ctx_ptr_ty_basic_md,
@@ -3263,185 +3112,87 @@
                 <span class="prelude-val">None</span>,
             ),
 
-            vmfunction_import_ptr_ty: context
-                .struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, i8_ptr_ty_basic], <span class="bool-val">false</span>)
-                .ptr_type(AddressSpace::default()),
             vmfunction_import_ty: context.struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, i8_ptr_ty_basic], <span class="bool-val">false</span>),
             vmfunction_import_body_element: <span class="number">0</span>,
             vmfunction_import_vmctx_element: <span class="number">1</span>,
-
-            vmmemory_definition_ptr_ty: context
-                .struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, isize_ty.into()], <span class="bool-val">false</span>)
-                .ptr_type(AddressSpace::default()),
             vmmemory_definition_ty: context.struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, isize_ty.into()], <span class="bool-val">false</span>),
             vmmemory_definition_base_element: <span class="number">0</span>,
             vmmemory_definition_current_length_element: <span class="number">1</span>,
 
-            memory32_grow_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-            imported_memory32_grow_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-            memory32_size_ptr_ty: i32_ty
-                .fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>)
-                .ptr_type(AddressSpace::default()),
-            imported_memory32_size_ptr_ty: i32_ty
-                .fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>)
-                .ptr_type(AddressSpace::default()),
-            memory32_wait32_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i64_ty_basic_md,
-                    ],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-            imported_memory32_wait32_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i64_ty_basic_md,
-                    ],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-            memory32_wait64_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i64_ty_basic_md,
-                        i64_ty_basic_md,
-                    ],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-            imported_memory32_wait64_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i64_ty_basic_md,
-                        i64_ty_basic_md,
-                    ],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-            memory32_notify_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                    ],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-            imported_memory32_notify_ptr_ty: i32_ty
-                .fn_type(
-                    <span class="kw-2">&amp;</span>[
-                        ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                    ],
-                    <span class="bool-val">false</span>,
-                )
-                .ptr_type(AddressSpace::default()),
-
-            ctx_ptr_ty,
+            <span class="comment">// LLVM &gt; 15 has a single type for pointers.
+            </span>ptr_ty,
         };
 
         <span class="kw">let </span>noreturn =
-            context.create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">&quot;noreturn&quot;</span>), <span class="number">0</span>);
+            context.create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"noreturn"</span>), <span class="number">0</span>);
         intrinsics
             .throw_trap
             .add_attribute(AttributeLoc::Function, noreturn);
-        intrinsics
-            .func_ref
-            .add_attribute(AttributeLoc::Function, intrinsics.readonly);
-
         intrinsics
     }
 }
 
 <span class="attr">#[derive(Clone, Copy)]
-</span><span class="kw">pub enum </span>MemoryCache&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+</span><span class="kw">pub enum </span>MemoryCache&lt;<span class="lifetime">'ctx</span>&gt; {
     <span class="doccomment">/// The memory moves around.
     </span>Dynamic {
-        ptr_to_base_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        ptr_to_current_length: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        ptr_to_base_ptr: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+        ptr_to_current_length: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
     },
     <span class="doccomment">/// The memory is always in the same place.
-    </span>Static { base_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; },
+    </span>Static { base_ptr: PointerValue&lt;<span class="lifetime">'ctx</span>&gt; },
 }
 
-<span class="kw">struct </span>TableCache&lt;<span class="lifetime">&#39;ctx</span>&gt; {
-    ptr_to_base_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ptr_to_bounds: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">struct </span>TableCache&lt;<span class="lifetime">'ctx</span>&gt; {
+    ptr_to_base_ptr: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    ptr_to_bounds: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
 }
 
 <span class="attr">#[derive(Clone, Copy)]
-</span><span class="kw">pub enum </span>GlobalCache&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+</span><span class="kw">pub enum </span>GlobalCache&lt;<span class="lifetime">'ctx</span>&gt; {
     Mut {
-        ptr_to_value: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        value_type: BasicTypeEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        ptr_to_value: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+        value_type: BasicTypeEnum&lt;<span class="lifetime">'ctx</span>&gt;,
     },
     Const {
-        value: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        value: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
     },
 }
 
 <span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>FunctionCache&lt;<span class="lifetime">&#39;ctx</span>&gt; {
-    <span class="kw">pub </span>func: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>llvm_func_type: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    <span class="kw">pub </span>vmctx: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+</span><span class="kw">pub struct </span>FunctionCache&lt;<span class="lifetime">'ctx</span>&gt; {
+    <span class="kw">pub </span>func: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>llvm_func_type: FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>vmctx: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>attrs: Vec&lt;(Attribute, AttributeLoc)&gt;,
 }
 
-<span class="kw">pub struct </span>CtxType&lt;<span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;a</span>&gt; {
-    ctx_ptr_value: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+<span class="kw">pub struct </span>CtxType&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; {
+    ctx_ptr_value: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
-    wasm_module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>WasmerCompilerModule,
-    cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    abi: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Abi,
+    wasm_module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasmerCompilerModule,
+    cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
+    abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
 
-    cached_memories: HashMap&lt;MemoryIndex, MemoryCache&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
-    cached_tables: HashMap&lt;TableIndex, TableCache&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
-    cached_sigindices: HashMap&lt;SignatureIndex, IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
-    cached_globals: HashMap&lt;GlobalIndex, GlobalCache&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
-    cached_functions: HashMap&lt;FunctionIndex, FunctionCache&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
-    cached_memory_grow: HashMap&lt;MemoryIndex, PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
-    cached_memory_size: HashMap&lt;MemoryIndex, PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
+    cached_memories: HashMap&lt;MemoryIndex, MemoryCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    cached_tables: HashMap&lt;TableIndex, TableCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    cached_sigindices: HashMap&lt;SignatureIndex, IntValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    cached_globals: HashMap&lt;GlobalIndex, GlobalCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    cached_functions: HashMap&lt;FunctionIndex, FunctionCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    cached_memory_grow: HashMap&lt;MemoryIndex, PointerValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    cached_memory_size: HashMap&lt;MemoryIndex, PointerValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
 
     offsets: VMOffsets,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;a</span>&gt; CtxType&lt;<span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; CtxType&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; {
     <span class="kw">pub fn </span>new(
-        wasm_module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>WasmerCompilerModule,
-        func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        abi: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Abi,
-    ) -&gt; CtxType&lt;<span class="lifetime">&#39;ctx</span>, <span class="lifetime">&#39;a</span>&gt; {
+        wasm_module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasmerCompilerModule,
+        func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+        cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
+        abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
+    ) -&gt; CtxType&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; {
         CtxType {
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
@@ -3462,17 +3213,17 @@
         }
     }
 
-    <span class="kw">pub fn </span>basic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+    <span class="kw">pub fn </span>basic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt; {
         <span class="self">self</span>.ctx_ptr_value.as_basic_value_enum()
     }
 
     <span class="kw">pub fn </span>memory(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         index: MemoryIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
         memory_styles: <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
-    ) -&gt; MemoryCache&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;MemoryCache&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_memories, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memories,
             <span class="self">self</span>.wasm_module,
@@ -3481,86 +3232,99 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
         );
         <span class="kw">let </span>memory_style = <span class="kw-2">&amp;</span>memory_styles[index];
-        <span class="kw-2">*</span>cached_memories.entry(index).or_insert_with(|| {
-            <span class="kw">let </span>memory_definition_ptr = <span class="kw">if let </span><span class="prelude-val">Some</span>(local_memory_index) =
-                wasm_module.local_memory_index(index)
-            {
-                <span class="kw">let </span>offset = offsets.vmctx_vmmemory_definition(local_memory_index);
-                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) }
-            } <span class="kw">else </span>{
-                <span class="kw">let </span>offset = offsets.vmctx_vmmemory_import(index);
-                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-                <span class="kw">let </span>memory_definition_ptr_ptr = <span class="kw">unsafe </span>{
-                    cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
-                };
-                <span class="kw">let </span>memory_definition_ptr_ptr = cache_builder
-                    .build_bitcast(
-                        memory_definition_ptr_ptr,
-                        intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
-                        <span class="string">&quot;&quot;</span>,
-                    )
-                    .into_pointer_value();
-                <span class="kw">let </span>memory_definition_ptr = cache_builder
-                    .build_load(intrinsics.i8_ptr_ty, memory_definition_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                    .into_pointer_value();
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    <span class="macro">format!</span>(<span class="string">&quot;memory {} definition&quot;</span>, index.as_u32()),
-                    memory_definition_ptr.as_instruction_value().unwrap(),
-                );
-                memory_definition_ptr
-            };
-            <span class="kw">let </span>memory_definition_ptr = cache_builder
-                .build_bitcast(
+        <span class="kw">match </span>cached_memories.get(<span class="kw-2">&amp;</span>index) {
+            <span class="prelude-val">Some</span>(r) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>r),
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">let </span>memory_definition_ptr =
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(local_memory_index) = wasm_module.local_memory_index(index) {
+                        <span class="kw">let </span>offset = offsets.vmctx_vmmemory_definition(local_memory_index);
+                        <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                        <span class="kw">unsafe </span>{
+                            <span class="macro">err!</span>(cache_builder.build_gep(
+                                intrinsics.i8_ty,
+                                ctx_ptr_value,
+                                <span class="kw-2">&amp;</span>[offset],
+                                <span class="string">""
+                            </span>))
+                        }
+                    } <span class="kw">else </span>{
+                        <span class="kw">let </span>offset = offsets.vmctx_vmmemory_import(index);
+                        <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                        <span class="kw">let </span>memory_definition_ptr_ptr = <span class="kw">unsafe </span>{
+                            <span class="macro">err!</span>(cache_builder.build_gep(
+                                intrinsics.i8_ty,
+                                ctx_ptr_value,
+                                <span class="kw-2">&amp;</span>[offset],
+                                <span class="string">""
+                            </span>))
+                        };
+                        <span class="kw">let </span>memory_definition_ptr_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(
+                            memory_definition_ptr_ptr,
+                            intrinsics.ptr_ty,
+                            <span class="string">""</span>,
+                        ))
+                        .into_pointer_value();
+                        <span class="kw">let </span>memory_definition_ptr = <span class="macro">err!</span>(cache_builder.build_load(
+                            intrinsics.ptr_ty,
+                            memory_definition_ptr_ptr,
+                            <span class="string">""
+                        </span>))
+                        .into_pointer_value();
+                        tbaa_label(
+                            module,
+                            intrinsics,
+                            <span class="macro">format!</span>(<span class="string">"memory {} definition"</span>, index.as_u32()),
+                            memory_definition_ptr.as_instruction_value().unwrap(),
+                        );
+                        memory_definition_ptr
+                    };
+                <span class="kw">let </span>memory_definition_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(
                     memory_definition_ptr,
-                    intrinsics.vmmemory_definition_ptr_ty,
-                    <span class="string">&quot;&quot;</span>,
-                )
+                    intrinsics.ptr_ty,
+                    <span class="string">""</span>,
+                ))
                 .into_pointer_value();
-            <span class="kw">let </span>base_ptr = cache_builder
-                .build_struct_gep(
+                <span class="kw">let </span>base_ptr = <span class="macro">err!</span>(cache_builder.build_struct_gep(
                     intrinsics.vmmemory_definition_ty,
                     memory_definition_ptr,
                     intrinsics.vmmemory_definition_base_element,
-                    <span class="string">&quot;&quot;</span>,
-                )
-                .unwrap();
-            <span class="kw">if let </span>MemoryStyle::Dynamic { .. } = memory_style {
-                <span class="kw">let </span>current_length_ptr = cache_builder
-                    .build_struct_gep(
+                    <span class="string">""</span>,
+                ));
+                <span class="kw">let </span>value = <span class="kw">if let </span>MemoryStyle::Dynamic { .. } = memory_style {
+                    <span class="kw">let </span>current_length_ptr = <span class="macro">err!</span>(cache_builder.build_struct_gep(
                         intrinsics.vmmemory_definition_ty,
                         memory_definition_ptr,
                         intrinsics.vmmemory_definition_current_length_element,
-                        <span class="string">&quot;&quot;</span>,
-                    )
-                    .unwrap();
-                MemoryCache::Dynamic {
-                    ptr_to_base_ptr: base_ptr,
-                    ptr_to_current_length: current_length_ptr,
-                }
-            } <span class="kw">else </span>{
-                <span class="kw">let </span>base_ptr = cache_builder
-                    .build_load(intrinsics.i8_ptr_ty, base_ptr, <span class="string">&quot;&quot;</span>)
-                    .into_pointer_value();
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    <span class="macro">format!</span>(<span class="string">&quot;memory base_ptr {}&quot;</span>, index.as_u32()),
-                    base_ptr.as_instruction_value().unwrap(),
-                );
-                MemoryCache::Static { base_ptr }
+                        <span class="string">""</span>,
+                    ));
+                    MemoryCache::Dynamic {
+                        ptr_to_base_ptr: base_ptr,
+                        ptr_to_current_length: current_length_ptr,
+                    }
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>base_ptr = <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, base_ptr, <span class="string">""</span>))
+                        .into_pointer_value();
+                    tbaa_label(
+                        module,
+                        intrinsics,
+                        <span class="macro">format!</span>(<span class="string">"memory base_ptr {}"</span>, index.as_u32()),
+                        base_ptr.as_instruction_value().unwrap(),
+                    );
+                    MemoryCache::Static { base_ptr }
+                };
+
+                <span class="self">self</span>.cached_memories.insert(index, value);
+                <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="self">self</span>.cached_memories.get(<span class="kw-2">&amp;</span>index).unwrap())
             }
-        })
+        }
     }
 
     <span class="kw">fn </span>table_prepare(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         table_index: TableIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; (PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;, PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;) {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, PointerValue&lt;<span class="lifetime">'ctx</span>&gt;), CompileError&gt; {
         <span class="kw">let </span>(cached_tables, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_tables,
             <span class="self">self</span>.wasm_module,
@@ -3571,9 +3335,12 @@
         <span class="kw">let </span>TableCache {
             ptr_to_base_ptr,
             ptr_to_bounds,
-        } = <span class="kw-2">*</span>cached_tables.entry(table_index).or_insert_with(|| {
-            <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) =
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(local_table_index) = wasm_module.local_table_index(table_index) {
+        } = <span class="kw">match </span>cached_tables.entry(table_index) {
+            Entry::Occupied(entry) =&gt; entry.get().clone(),
+            Entry::Vacant(entry) =&gt; {
+                <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) = <span class="kw">if let </span><span class="prelude-val">Some</span>(local_table_index) =
+                    wasm_module.local_table_index(table_index)
+                {
                     <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
                         offsets
                             .vmctx_vmtable_definition_base(local_table_index)
@@ -3581,15 +3348,16 @@
                         <span class="bool-val">false</span>,
                     );
                     <span class="kw">let </span>ptr_to_base_ptr = <span class="kw">unsafe </span>{
-                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                        <span class="macro">err!</span>(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            ctx_ptr_value,
+                            <span class="kw-2">&amp;</span>[offset],
+                            <span class="string">""
+                        </span>))
                     };
-                    <span class="kw">let </span>ptr_to_base_ptr = cache_builder
-                        .build_bitcast(
-                            ptr_to_base_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
-                            <span class="string">&quot;&quot;</span>,
-                        )
-                        .into_pointer_value();
+                    <span class="kw">let </span>ptr_to_base_ptr =
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                            .into_pointer_value();
                     <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
                         offsets
                             .vmctx_vmtable_definition_current_elements(local_table_index)
@@ -3597,11 +3365,16 @@
                         <span class="bool-val">false</span>,
                     );
                     <span class="kw">let </span>ptr_to_bounds = <span class="kw">unsafe </span>{
-                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                        <span class="macro">err!</span>(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            ctx_ptr_value,
+                            <span class="kw-2">&amp;</span>[offset],
+                            <span class="string">""
+                        </span>))
                     };
-                    <span class="kw">let </span>ptr_to_bounds = cache_builder
-                        .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, <span class="string">&quot;&quot;</span>)
-                        .into_pointer_value();
+                    <span class="kw">let </span>ptr_to_bounds =
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, <span class="string">""</span>))
+                            .into_pointer_value();
                     (ptr_to_base_ptr, ptr_to_bounds)
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
@@ -3609,22 +3382,26 @@
                         <span class="bool-val">false</span>,
                     );
                     <span class="kw">let </span>definition_ptr_ptr = <span class="kw">unsafe </span>{
-                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                        <span class="macro">err!</span>(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            ctx_ptr_value,
+                            <span class="kw-2">&amp;</span>[offset],
+                            <span class="string">""
+                        </span>))
                     };
-                    <span class="kw">let </span>definition_ptr_ptr = cache_builder
-                        .build_bitcast(
-                            definition_ptr_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
-                            <span class="string">&quot;&quot;</span>,
-                        )
-                        .into_pointer_value();
-                    <span class="kw">let </span>definition_ptr = cache_builder
-                        .build_load(intrinsics.i8_ptr_ty, definition_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                        .into_pointer_value();
+                    <span class="kw">let </span>definition_ptr_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(
+                        definition_ptr_ptr,
+                        intrinsics.ptr_ty,
+                        <span class="string">""</span>,
+                    ))
+                    .into_pointer_value();
+                    <span class="kw">let </span>definition_ptr =
+                        <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, definition_ptr_ptr, <span class="string">""</span>))
+                            .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
-                        <span class="macro">format!</span>(<span class="string">&quot;table {} definition&quot;</span>, table_index.as_u32()),
+                        <span class="macro">format!</span>(<span class="string">"table {} definition"</span>, table_index.as_u32()),
                         definition_ptr.as_instruction_value().unwrap(),
                     );
 
@@ -3632,112 +3409,134 @@
                         .i64_ty
                         .const_int(offsets.vmtable_definition_base().into(), <span class="bool-val">false</span>);
                     <span class="kw">let </span>ptr_to_base_ptr = <span class="kw">unsafe </span>{
-                        cache_builder.build_gep(intrinsics.i8_ty, definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                        <span class="macro">err!</span>(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            definition_ptr,
+                            <span class="kw-2">&amp;</span>[offset],
+                            <span class="string">""
+                        </span>))
                     };
-                    <span class="kw">let </span>ptr_to_base_ptr = cache_builder
-                        .build_bitcast(
-                            ptr_to_base_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
-                            <span class="string">&quot;&quot;</span>,
-                        )
-                        .into_pointer_value();
+                    <span class="kw">let </span>ptr_to_base_ptr =
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                            .into_pointer_value();
                     <span class="kw">let </span>offset = intrinsics
                         .i64_ty
                         .const_int(offsets.vmtable_definition_current_elements().into(), <span class="bool-val">false</span>);
                     <span class="kw">let </span>ptr_to_bounds = <span class="kw">unsafe </span>{
-                        cache_builder.build_gep(intrinsics.i8_ty, definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                        <span class="macro">err!</span>(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            definition_ptr,
+                            <span class="kw-2">&amp;</span>[offset],
+                            <span class="string">""
+                        </span>))
                     };
-                    <span class="kw">let </span>ptr_to_bounds = cache_builder
-                        .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, <span class="string">&quot;&quot;</span>)
-                        .into_pointer_value();
+                    <span class="kw">let </span>ptr_to_bounds =
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, <span class="string">""</span>))
+                            .into_pointer_value();
                     (ptr_to_base_ptr, ptr_to_bounds)
                 };
-            TableCache {
-                ptr_to_base_ptr,
-                ptr_to_bounds,
-            }
-        });
 
-        (ptr_to_base_ptr, ptr_to_bounds)
+                <span class="kw">let </span>v = TableCache {
+                    ptr_to_base_ptr,
+                    ptr_to_bounds,
+                };
+
+                entry.insert(v.clone());
+
+                v
+            }
+        };
+
+        <span class="prelude-val">Ok</span>((ptr_to_base_ptr, ptr_to_bounds))
     }
 
     <span class="kw">pub fn </span>table(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         index: TableIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; (PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;, IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;) {
-        <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) = <span class="self">self</span>.table_prepare(index, intrinsics, module);
-        <span class="kw">let </span>base_ptr = <span class="self">self
-            </span>.cache_builder
-            .build_load(intrinsics.i8_ptr_ty, ptr_to_base_ptr, <span class="string">&quot;base_ptr&quot;</span>)
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, IntValue&lt;<span class="lifetime">'ctx</span>&gt;), CompileError&gt; {
+        <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) = <span class="self">self</span>.table_prepare(index, intrinsics, module)<span class="question-mark">?</span>;
+        <span class="kw">let </span>base_ptr =
+            <span class="macro">err!</span>(<span class="self">self
+                </span>.cache_builder
+                .build_load(intrinsics.ptr_ty, ptr_to_base_ptr, <span class="string">"base_ptr"</span>))
             .into_pointer_value();
-        <span class="kw">let </span>bounds = <span class="self">self
-            </span>.cache_builder
-            .build_load(intrinsics.isize_ty, ptr_to_bounds, <span class="string">&quot;bounds&quot;</span>)
+        <span class="kw">let </span>bounds =
+            <span class="macro">err!</span>(<span class="self">self
+                </span>.cache_builder
+                .build_load(intrinsics.isize_ty, ptr_to_bounds, <span class="string">"bounds"</span>))
             .into_int_value();
         tbaa_label(
             module,
             intrinsics,
-            <span class="macro">format!</span>(<span class="string">&quot;table_base_ptr {}&quot;</span>, index.index()),
+            <span class="macro">format!</span>(<span class="string">"table_base_ptr {}"</span>, index.index()),
             base_ptr.as_instruction_value().unwrap(),
         );
         tbaa_label(
             module,
             intrinsics,
-            <span class="macro">format!</span>(<span class="string">&quot;table_bounds {}&quot;</span>, index.index()),
+            <span class="macro">format!</span>(<span class="string">"table_bounds {}"</span>, index.index()),
             bounds.as_instruction_value().unwrap(),
         );
-        (base_ptr, bounds)
+        <span class="prelude-val">Ok</span>((base_ptr, bounds))
     }
 
     <span class="kw">pub fn </span>dynamic_sigindex(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         index: SignatureIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;IntValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_sigindices, ctx_ptr_value, cache_builder, offsets) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_sigindices,
             <span class="self">self</span>.ctx_ptr_value,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
         );
-        <span class="kw-2">*</span>cached_sigindices.entry(index).or_insert_with(|| {
-            <span class="kw">let </span>byte_offset = intrinsics
-                .i64_ty
-                .const_int(offsets.vmctx_vmshared_signature_id(index).into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>sigindex_ptr = <span class="kw">unsafe </span>{
-                cache_builder.build_gep(
-                    intrinsics.i8_ty,
-                    ctx_ptr_value,
-                    <span class="kw-2">&amp;</span>[byte_offset],
-                    <span class="string">&quot;dynamic_sigindex&quot;</span>,
-                )
-            };
-            <span class="kw">let </span>sigindex_ptr = cache_builder
-                .build_bitcast(sigindex_ptr, intrinsics.i32_ptr_ty, <span class="string">&quot;&quot;</span>)
-                .into_pointer_value();
 
-            <span class="kw">let </span>sigindex = cache_builder
-                .build_load(intrinsics.i32_ty, sigindex_ptr, <span class="string">&quot;sigindex&quot;</span>)
-                .into_int_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                <span class="macro">format!</span>(<span class="string">&quot;sigindex {}&quot;</span>, index.as_u32()),
-                sigindex.as_instruction_value().unwrap(),
-            );
-            sigindex
-        })
+        <span class="kw">match </span>cached_sigindices.entry(index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
+            Entry::Vacant(entry) =&gt; {
+                <span class="kw">let </span>byte_offset = intrinsics
+                    .i64_ty
+                    .const_int(offsets.vmctx_vmshared_signature_id(index).into(), <span class="bool-val">false</span>);
+
+                <span class="kw">let </span>sigindex_ptr = <span class="kw">unsafe </span>{
+                    <span class="macro">err!</span>(cache_builder.build_gep(
+                        intrinsics.i8_ty,
+                        ctx_ptr_value,
+                        <span class="kw-2">&amp;</span>[byte_offset],
+                        <span class="string">"dynamic_sigindex"</span>,
+                    ))
+                };
+
+                <span class="kw">let </span>sigindex_ptr =
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(sigindex_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
+                        .into_pointer_value();
+
+                <span class="kw">let </span>sigindex =
+                    <span class="macro">err!</span>(cache_builder.build_load(intrinsics.i32_ty, sigindex_ptr, <span class="string">"sigindex"</span>))
+                        .into_int_value();
+                tbaa_label(
+                    module,
+                    intrinsics,
+                    <span class="macro">format!</span>(<span class="string">"sigindex {}"</span>, index.as_u32()),
+                    sigindex.as_instruction_value().unwrap(),
+                );
+
+                entry.insert(sigindex);
+                <span class="prelude-val">Ok</span>(sigindex)
+            }
+        }
     }
 
     <span class="kw">pub fn </span>global(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         index: GlobalIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>GlobalCache&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>GlobalCache&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_globals, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_globals,
             <span class="self">self</span>.wasm_module,
@@ -3745,8 +3544,8 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
         );
-        <span class="prelude-val">Ok</span>(<span class="kw">match </span>cached_globals.entry(index) {
-            Entry::Occupied(entry) =&gt; entry.into_mut(),
+        <span class="kw">match </span>cached_globals.entry(index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(entry.into_mut()),
             Entry::Vacant(entry) =&gt; {
                 <span class="kw">let </span>global_type = wasm_module.globals[index];
                 <span class="kw">let </span>global_value_type = global_type.ty;
@@ -3761,45 +3560,45 @@
                 <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
                 <span class="kw">let </span>global_ptr = {
                     <span class="kw">let </span>global_ptr_ptr = <span class="kw">unsafe </span>{
-                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                        <span class="macro">err!</span>(cache_builder.build_gep(
+                            intrinsics.i8_ty,
+                            ctx_ptr_value,
+                            <span class="kw-2">&amp;</span>[offset],
+                            <span class="string">""
+                        </span>))
                     };
-                    <span class="kw">let </span>global_ptr_ptr = cache_builder
-                        .build_bitcast(
-                            global_ptr_ptr,
-                            intrinsics.i32_ptr_ty.ptr_type(AddressSpace::default()),
-                            <span class="string">&quot;&quot;</span>,
-                        )
-                        .into_pointer_value();
-                    <span class="kw">let </span>global_ptr = cache_builder
-                        .build_load(intrinsics.i32_ptr_ty, global_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                        .into_pointer_value();
+                    <span class="kw">let </span>global_ptr_ptr =
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                            .into_pointer_value();
+                    <span class="kw">let </span>global_ptr =
+                        <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, <span class="string">""</span>))
+                            .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
-                        <span class="macro">format!</span>(<span class="string">&quot;global_ptr {}&quot;</span>, index.as_u32()),
+                        <span class="macro">format!</span>(<span class="string">"global_ptr {}"</span>, index.as_u32()),
                         global_ptr.as_instruction_value().unwrap(),
                     );
                     global_ptr
                 };
-                <span class="kw">let </span>global_ptr = cache_builder
-                    .build_bitcast(
-                        global_ptr,
-                        type_to_llvm_ptr(intrinsics, global_value_type)<span class="question-mark">?</span>,
-                        <span class="string">&quot;&quot;</span>,
-                    )
-                    .into_pointer_value();
+                <span class="kw">let </span>global_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(
+                    global_ptr,
+                    type_to_llvm_ptr(intrinsics, global_value_type)<span class="question-mark">?</span>,
+                    <span class="string">""</span>,
+                ))
+                .into_pointer_value();
 
-                entry.insert(<span class="kw">match </span>global_mutability {
+                <span class="kw">let </span>ret = entry.insert(<span class="kw">match </span>global_mutability {
                     Mutability::Const =&gt; {
-                        <span class="kw">let </span>value = cache_builder.build_load(
+                        <span class="kw">let </span>value = <span class="macro">err!</span>(cache_builder.build_load(
                             type_to_llvm(intrinsics, global_value_type)<span class="question-mark">?</span>,
                             global_ptr,
-                            <span class="string">&quot;&quot;</span>,
-                        );
+                            <span class="string">""</span>,
+                        ));
                         tbaa_label(
                             module,
                             intrinsics,
-                            <span class="macro">format!</span>(<span class="string">&quot;global {}&quot;</span>, index.as_u32()),
+                            <span class="macro">format!</span>(<span class="string">"global {}"</span>, index.as_u32()),
                             value.as_instruction_value().unwrap(),
                         );
                         GlobalCache::Const { value }
@@ -3808,21 +3607,23 @@
                         ptr_to_value: global_ptr,
                         value_type: type_to_llvm(intrinsics, global_value_type)<span class="question-mark">?</span>,
                     },
-                })
+                });
+
+                <span class="prelude-val">Ok</span>(ret)
             }
-        })
+        }
     }
 
     <span class="kw">pub fn </span>add_func(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         function_index: FunctionIndex,
-        func: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        llvm_func_type: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        vmctx: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        func: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+        llvm_func_type: FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+        vmctx: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
         attrs: <span class="kw-2">&amp;</span>[(Attribute, AttributeLoc)],
     ) {
         <span class="kw">match </span><span class="self">self</span>.cached_functions.entry(function_index) {
-            Entry::Occupied(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;duplicate function&quot;</span>),
+            Entry::Occupied(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"duplicate function"</span>),
             Entry::Vacant(entry) =&gt; {
                 entry.insert(FunctionCache {
                     func,
@@ -3839,12 +3640,12 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _local_function_index: LocalFunctionIndex,
         function_index: FunctionIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+        context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
         func_type: <span class="kw-2">&amp;</span>FuncType,
         function_name: <span class="kw-2">&amp;</span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>FunctionCache&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>FunctionCache&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_functions, ctx_ptr_value, offsets) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_functions,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
@@ -3875,10 +3676,10 @@
     <span class="kw">pub fn </span>func(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         function_index: FunctionIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
         func_type: <span class="kw-2">&amp;</span>FuncType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>FunctionCache&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>FunctionCache&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_functions,
             <span class="self">self</span>.wasm_module,
@@ -3886,8 +3687,8 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
         );
-        <span class="prelude-val">Ok</span>(<span class="kw">match </span>cached_functions.entry(function_index) {
-            Entry::Occupied(entry) =&gt; entry.into_mut(),
+        <span class="kw">match </span>cached_functions.entry(function_index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(entry.into_mut()),
             Entry::Vacant(entry) =&gt; {
                 <span class="kw">let </span>(llvm_func_type, llvm_func_attrs) =
                     <span class="self">self</span>.abi
@@ -3896,56 +3697,48 @@
                 <span class="kw">let </span>offset = offsets.vmctx_vmfunction_import(function_index);
                 <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
                 <span class="kw">let </span>vmfunction_import_ptr = <span class="kw">unsafe </span>{
-                    cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                    <span class="macro">err!</span>(cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>))
                 };
-                <span class="kw">let </span>vmfunction_import_ptr = cache_builder
-                    .build_bitcast(
-                        vmfunction_import_ptr,
-                        intrinsics.vmfunction_import_ptr_ty,
-                        <span class="string">&quot;&quot;</span>,
-                    )
-                    .into_pointer_value();
+                <span class="kw">let </span>vmfunction_import_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(
+                    vmfunction_import_ptr,
+                    intrinsics.ptr_ty,
+                    <span class="string">""</span>,
+                ))
+                .into_pointer_value();
 
-                <span class="kw">let </span>body_ptr_ptr = cache_builder
-                    .build_struct_gep(
-                        intrinsics.vmfunction_import_ty,
-                        vmfunction_import_ptr,
-                        intrinsics.vmfunction_import_body_element,
-                        <span class="string">&quot;&quot;</span>,
-                    )
-                    .unwrap();
-                <span class="kw">let </span>body_ptr = cache_builder.build_load(intrinsics.i8_ptr_ty, body_ptr_ptr, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>body_ptr = cache_builder
-                    .build_bitcast(
-                        body_ptr,
-                        llvm_func_type.ptr_type(AddressSpace::default()),
-                        <span class="string">&quot;&quot;</span>,
-                    )
+                <span class="kw">let </span>body_ptr_ptr = <span class="macro">err!</span>(cache_builder.build_struct_gep(
+                    intrinsics.vmfunction_import_ty,
+                    vmfunction_import_ptr,
+                    intrinsics.vmfunction_import_body_element,
+                    <span class="string">""</span>,
+                ));
+                <span class="kw">let </span>body_ptr = <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, body_ptr_ptr, <span class="string">""</span>));
+                <span class="kw">let </span>body_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
                     .into_pointer_value();
-                <span class="kw">let </span>vmctx_ptr_ptr = cache_builder
-                    .build_struct_gep(
-                        intrinsics.vmfunction_import_ty,
-                        vmfunction_import_ptr,
-                        intrinsics.vmfunction_import_vmctx_element,
-                        <span class="string">&quot;&quot;</span>,
-                    )
-                    .unwrap();
-                <span class="kw">let </span>vmctx_ptr = cache_builder.build_load(intrinsics.ctx_ptr_ty, vmctx_ptr_ptr, <span class="string">&quot;&quot;</span>);
-                entry.insert(FunctionCache {
+                <span class="kw">let </span>vmctx_ptr_ptr = <span class="macro">err!</span>(cache_builder.build_struct_gep(
+                    intrinsics.vmfunction_import_ty,
+                    vmfunction_import_ptr,
+                    intrinsics.vmfunction_import_vmctx_element,
+                    <span class="string">""</span>,
+                ));
+                <span class="kw">let </span>vmctx_ptr =
+                    <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, vmctx_ptr_ptr, <span class="string">""</span>));
+
+                <span class="prelude-val">Ok</span>(entry.insert(FunctionCache {
                     func: body_ptr,
                     llvm_func_type,
                     vmctx: vmctx_ptr,
                     attrs: llvm_func_attrs,
-                })
+                }))
             }
-        })
+        }
     }
 
     <span class="kw">pub fn </span>memory_grow(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         memory_index: MemoryIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_memory_grow, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_grow,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
@@ -3953,41 +3746,44 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw-2">*</span>cached_memory_grow.entry(memory_index).or_insert_with(|| {
-            <span class="kw">let </span>(grow_fn, grow_fn_ty) = <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
-                (
-                    VMBuiltinFunctionIndex::get_memory32_grow_index(),
-                    intrinsics.memory32_grow_ptr_ty,
-                )
-            } <span class="kw">else </span>{
-                (
-                    VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
-                    intrinsics.imported_memory32_grow_ptr_ty,
-                )
-            };
-            <span class="kw">let </span>offset = offsets.vmctx_builtin_function(grow_fn);
-            <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>grow_fn_ptr_ptr =
-                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+        <span class="kw">match </span>cached_memory_grow.entry(memory_index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
+            Entry::Vacant(entry) =&gt; {
+                <span class="kw">let </span>(grow_fn, grow_fn_ty) =
+                    <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory32_grow_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    } <span class="kw">else </span>{
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    };
+                <span class="kw">let </span>offset = offsets.vmctx_builtin_function(grow_fn);
+                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                <span class="kw">let </span>grow_fn_ptr_ptr = <span class="kw">unsafe </span>{
+                    <span class="macro">err!</span>(cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>))
+                };
 
-            <span class="kw">let </span>grow_fn_ptr_ptr = cache_builder
-                .build_bitcast(
-                    grow_fn_ptr_ptr,
-                    grow_fn_ty.ptr_type(AddressSpace::default()),
-                    <span class="string">&quot;&quot;</span>,
-                )
-                .into_pointer_value();
-            cache_builder
-                .build_load(grow_fn_ty, grow_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                .into_pointer_value()
-        })
+                <span class="kw">let </span>grow_fn_ptr_ptr =
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(grow_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                        .into_pointer_value();
+                <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(grow_fn_ty, grow_fn_ptr_ptr, <span class="string">""</span>))
+                    .into_pointer_value();
+
+                entry.insert(val);
+                <span class="prelude-val">Ok</span>(val)
+            }
+        }
     }
 
     <span class="kw">pub fn </span>memory_size(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         memory_index: MemoryIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
@@ -3995,42 +3791,45 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw-2">*</span>cached_memory_size.entry(memory_index).or_insert_with(|| {
-            <span class="kw">let </span>(size_fn, size_fn_ty) = <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
-                (
-                    VMBuiltinFunctionIndex::get_memory32_size_index(),
-                    intrinsics.memory32_size_ptr_ty,
-                )
-            } <span class="kw">else </span>{
-                (
-                    VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
-                    intrinsics.imported_memory32_size_ptr_ty,
-                )
-            };
-            <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
-            <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr =
-                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
 
-            <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
-                .build_bitcast(
-                    size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::default()),
-                    <span class="string">&quot;&quot;</span>,
-                )
-                .into_pointer_value();
+        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
+            Entry::Vacant(entry) =&gt; {
+                <span class="kw">let </span>(size_fn, size_fn_ty) =
+                    <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory32_size_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    } <span class="kw">else </span>{
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    };
+                <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
+                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{
+                    <span class="macro">err!</span>(cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>))
+                };
 
-            cache_builder
-                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                .into_pointer_value()
-        })
+                <span class="kw">let </span>size_fn_ptr_ptr =
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                        .into_pointer_value();
+
+                <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">""</span>))
+                    .into_pointer_value();
+                entry.insert(val);
+                <span class="prelude-val">Ok</span>(val)
+            }
+        }
     }
 
     <span class="kw">pub fn </span>memory_wait32(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         memory_index: MemoryIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
@@ -4038,42 +3837,45 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw-2">*</span>cached_memory_size.entry(memory_index).or_insert_with(|| {
-            <span class="kw">let </span>(size_fn, size_fn_ty) = <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
-                (
-                    VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
-                    intrinsics.memory32_wait32_ptr_ty,
-                )
-            } <span class="kw">else </span>{
-                (
-                    VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
-                    intrinsics.imported_memory32_wait32_ptr_ty,
-                )
-            };
-            <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
-            <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr =
-                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
+            Entry::Vacant(entry) =&gt; {
+                <span class="kw">let </span>(size_fn, size_fn_ty) =
+                    <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    } <span class="kw">else </span>{
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    };
+                <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
+                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{
+                    <span class="macro">err!</span>(cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>))
+                };
 
-            <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
-                .build_bitcast(
-                    size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::default()),
-                    <span class="string">&quot;&quot;</span>,
-                )
-                .into_pointer_value();
+                <span class="kw">let </span>size_fn_ptr_ptr =
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                        .into_pointer_value();
 
-            cache_builder
-                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                .into_pointer_value()
-        })
+                <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">""</span>))
+                    .into_pointer_value();
+
+                entry.insert(val);
+                <span class="prelude-val">Ok</span>(val)
+            }
+        }
     }
 
     <span class="kw">pub fn </span>memory_wait64(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         memory_index: MemoryIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
@@ -4081,42 +3883,45 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw-2">*</span>cached_memory_size.entry(memory_index).or_insert_with(|| {
-            <span class="kw">let </span>(size_fn, size_fn_ty) = <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
-                (
-                    VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
-                    intrinsics.memory32_wait64_ptr_ty,
-                )
-            } <span class="kw">else </span>{
-                (
-                    VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
-                    intrinsics.imported_memory32_wait64_ptr_ty,
-                )
-            };
-            <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
-            <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr =
-                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
 
-            <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
-                .build_bitcast(
-                    size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::default()),
-                    <span class="string">&quot;&quot;</span>,
-                )
-                .into_pointer_value();
+        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
+            Entry::Vacant(entry) =&gt; {
+                <span class="kw">let </span>(size_fn, size_fn_ty) =
+                    <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    } <span class="kw">else </span>{
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    };
+                <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
+                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{
+                    <span class="macro">err!</span>(cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>))
+                };
 
-            cache_builder
-                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                .into_pointer_value()
-        })
+                <span class="kw">let </span>size_fn_ptr_ptr =
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
+                        .into_pointer_value();
+
+                <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">""</span>))
+                    .into_pointer_value();
+                entry.insert(val);
+                <span class="prelude-val">Ok</span>(val)
+            }
+        }
     }
 
     <span class="kw">pub fn </span>memory_notify(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         memory_index: MemoryIndex,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
@@ -4124,35 +3929,38 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw-2">*</span>cached_memory_size.entry(memory_index).or_insert_with(|| {
-            <span class="kw">let </span>(size_fn, size_fn_ty) = <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
-                (
-                    VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
-                    intrinsics.memory32_notify_ptr_ty,
-                )
-            } <span class="kw">else </span>{
-                (
-                    VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
-                    intrinsics.imported_memory32_notify_ptr_ty,
-                )
-            };
-            <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
-            <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr =
-                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+            Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
+            Entry::Vacant(entry) =&gt; {
+                <span class="kw">let </span>(size_fn, size_fn_ty) =
+                    <span class="kw">if </span>wasm_module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    } <span class="kw">else </span>{
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
+                            intrinsics.ptr_ty,
+                        )
+                    };
+                <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
+                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{
+                    <span class="macro">err!</span>(cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>))
+                };
 
-            <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
-                .build_bitcast(
-                    size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::default()),
-                    <span class="string">&quot;&quot;</span>,
-                )
-                .into_pointer_value();
+                <span class="kw">let </span>size_fn_ptr_ptr =
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                        .into_pointer_value();
 
-            cache_builder
-                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                .into_pointer_value()
-        })
+                <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">""</span>))
+                    .into_pointer_value();
+
+                entry.insert(val);
+                <span class="prelude-val">Ok</span>(val)
+            }
+        }
     }
 
     <span class="kw">pub fn </span>get_offsets(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VMOffsets {
@@ -4162,14 +3970,14 @@
 
 <span class="comment">// Given an instruction that operates on memory, mark the access as not aliasing
 // other memory accesses which have a different label.
-</span><span class="kw">pub fn </span>tbaa_label&lt;<span class="lifetime">&#39;ctx</span>&gt;(
-    module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+</span><span class="kw">pub fn </span>tbaa_label&lt;<span class="lifetime">'ctx</span>&gt;(
+    module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+    intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     label: String,
-    instruction: InstructionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    instruction: InstructionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 ) {
     <span class="comment">// To convey to LLVM that two pointers must be pointing to distinct memory,
-    // we use LLVM&#39;s Type Based Aliasing Analysis, or TBAA, to mark the memory
+    // we use LLVM's Type Based Aliasing Analysis, or TBAA, to mark the memory
     // operations as having different types whose pointers may not alias.
     //
     // See the LLVM documentation at
@@ -4185,17 +3993,17 @@
 
     <span class="comment">// `!wasmer_tbaa_root = {}`, the TBAA root node for wasmer.
     </span><span class="kw">let </span>tbaa_root = module
-        .get_global_metadata(<span class="string">&quot;wasmer_tbaa_root&quot;</span>)
+        .get_global_metadata(<span class="string">"wasmer_tbaa_root"</span>)
         .pop()
         .unwrap_or_else(|| {
             module
-                .add_global_metadata(<span class="string">&quot;wasmer_tbaa_root&quot;</span>, <span class="kw-2">&amp;</span>context.metadata_node(<span class="kw-2">&amp;</span>[]))
+                .add_global_metadata(<span class="string">"wasmer_tbaa_root"</span>, <span class="kw-2">&amp;</span>context.metadata_node(<span class="kw-2">&amp;</span>[]))
                 .unwrap();
-            module.get_global_metadata(<span class="string">&quot;wasmer_tbaa_root&quot;</span>)[<span class="number">0</span>]
+            module.get_global_metadata(<span class="string">"wasmer_tbaa_root"</span>)[<span class="number">0</span>]
         });
 
     <span class="comment">// Construct (or look up) the type descriptor, for example
-    //   `!&quot;local 0&quot; = !{!&quot;local 0&quot;, !wasmer_tbaa_root}`.
+    //   `!"local 0" = !{!"local 0", !wasmer_tbaa_root}`.
     </span><span class="kw">let </span>type_label = context.metadata_string(label.as_str());
     <span class="kw">let </span>type_tbaa = module
         .get_global_metadata(label.as_str())
@@ -4213,10 +4021,10 @@
     <span class="comment">// Construct (or look up) the access tag, which is a struct of the form
     // (base type, access type, offset).
     //
-    // &quot;If BaseTy is a scalar type, Offset must be 0 and BaseTy and AccessTy
-    // must be the same&quot;.
+    // "If BaseTy is a scalar type, Offset must be 0 and BaseTy and AccessTy
+    // must be the same".
     //   -- https://llvm.org/docs/LangRef.html#tbaa-metadata
-    </span><span class="kw">let </span>label = label + <span class="string">&quot;_memop&quot;</span>;
+    </span><span class="kw">let </span>label = label + <span class="string">"_memop"</span>;
     <span class="kw">let </span>type_tbaa = module
         .get_global_metadata(label.as_str())
         .pop()
@@ -4235,7 +4043,7 @@
         });
 
     <span class="comment">// Attach the access tag to the instruction.
-    </span><span class="kw">let </span>tbaa_kind = context.get_kind_id(<span class="string">&quot;tbaa&quot;</span>);
+    </span><span class="kw">let </span>tbaa_kind = context.get_kind_id(<span class="string">"tbaa"</span>);
     instruction.set_metadata(type_tbaa, tbaa_kind).unwrap();
 }
 </code></pre></div></section></main></body></html>

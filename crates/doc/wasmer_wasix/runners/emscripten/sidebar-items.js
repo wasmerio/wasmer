@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["exec_module","prepare_emscripten_env"],"struct":["EmscriptenRunner"]};

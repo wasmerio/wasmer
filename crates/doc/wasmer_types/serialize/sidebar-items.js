@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["to_serialize_error"],"struct":["ArchivedSerializableCompilation","ArchivedSerializableModule","MetadataHeader","SerializableCompilation","SerializableCompilationResolver","SerializableModule","SerializableModuleResolver"]};
+window.SIDEBAR_ITEMS = {"struct":["ArchivedSerializableCompilation","ArchivedSerializableModule","MetadataHeader","SerializableCompilation","SerializableCompilationResolver","SerializableModule","SerializableModuleResolver"]};

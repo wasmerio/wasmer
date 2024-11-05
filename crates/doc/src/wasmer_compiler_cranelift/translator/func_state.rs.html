@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_state.rs`."><title>func_state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_state.rs`."><title>func_state.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -531,24 +531,6 @@
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
-<a href="#547" id="547">547</a>
-<a href="#548" id="548">548</a>
-<a href="#549" id="549">549</a>
-<a href="#550" id="550">550</a>
-<a href="#551" id="551">551</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -561,12 +543,11 @@
 //! value and control stacks during the translation of a single function.
 
 </span><span class="kw">use </span><span class="kw">super</span>::func_environ::{FuncEnvironment, GlobalVariable};
+<span class="kw">use </span><span class="kw">crate</span>::heap::Heap;
 <span class="kw">use crate</span>::{HashMap, Occupied, Vacant};
 <span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, Block, Inst, Value};
 <span class="kw">use </span>std::vec::Vec;
-<span class="kw">use </span>wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
-};
+<span class="kw">use </span>wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
 
 <span class="doccomment">/// Information about the presence of an associated `else` for an `if`, or the
 /// lack thereof.
@@ -574,20 +555,23 @@
 </span><span class="kw">pub enum </span>ElseData {
     <span class="doccomment">/// The `if` does not already have an `else` block.
     ///
-    /// This doesn&#39;t mean that it will never have an `else`, just that we
-    /// haven&#39;t seen it yet.
+    /// This doesn't mean that it will never have an `else`, just that we
+    /// haven't seen it yet.
     </span>NoElse {
         <span class="doccomment">/// If we discover that we need an `else` block, this is the jump
         /// instruction that needs to be fixed up to point to the new `else`
         /// block rather than the destination block after the `if...end`.
         </span>branch_inst: Inst,
+
+        <span class="doccomment">/// The placeholder block we're replacing.
+        </span>placeholder: Block,
     },
 
     <span class="doccomment">/// We have already allocated an `else` block.
     ///
-    /// Usually we don&#39;t know whether we will hit an `if .. end` or an `if
-    /// .. else .. end`, but sometimes we can tell based on the block&#39;s type
-    /// signature that the signature is not valid if there isn&#39;t an `else`. In
+    /// Usually we don't know whether we will hit an `if .. end` or an `if
+    /// .. else .. end`, but sometimes we can tell based on the block's type
+    /// signature that the signature is not valid if there isn't an `else`. In
     /// these cases, we pre-allocate the `else` block.
     </span>WithElse {
         <span class="doccomment">/// This is the `else` block.
@@ -619,7 +603,7 @@
         </span>head_is_reachable: bool,
         <span class="doccomment">/// What was the reachability at the end of the consequent?
         ///
-        /// This is `None` until we&#39;re finished translating the consequent, and
+        /// This is `None` until we're finished translating the consequent, and
         /// is set to `Some` either by hitting an `else` when we will begin
         /// translating the alternative, or by hitting an `end` in which case
         /// there is no alternative.
@@ -747,7 +731,7 @@
     <span class="doccomment">/// Pop values from the value stack so that it is left at the state it was
     /// before this control-flow frame.
     </span><span class="kw">pub fn </span>truncate_value_stack_to_original_size(<span class="kw-2">&amp;</span><span class="self">self</span>, stack: <span class="kw-2">&amp;mut </span>Vec&lt;Value&gt;) {
-        <span class="comment">// The &quot;If&quot; frame pushes its parameters twice, so they&#39;re available to the else block
+        <span class="comment">// The "If" frame pushes its parameters twice, so they're available to the else block
         // (see also `FuncTranslationState::push_if`).
         // Yet, the original_stack_size member accounts for them only once, so that the else
         // block can see the same number of parameters as the consequent block. As a matter of
@@ -765,7 +749,7 @@
     }
 }
 
-<span class="doccomment">/// Contains information passed along during a function&#39;s translation and that records:
+<span class="doccomment">/// Contains information passed along during a function's translation and that records:
 ///
 /// - The current value and control stacks.
 /// - The depth of the two unreachable control blocks stacks, that are manipulated when translating
@@ -784,10 +768,7 @@
     </span>globals: HashMap&lt;GlobalIndex, GlobalVariable&gt;,
 
     <span class="comment">// Map of heaps that have been created by `FuncEnvironment::make_heap`.
-    </span>heaps: HashMap&lt;MemoryIndex, ir::Heap&gt;,
-
-    <span class="comment">// Map of tables that have been created by `FuncEnvironment::make_table`.
-    </span>tables: HashMap&lt;TableIndex, ir::Table&gt;,
+    </span>heaps: HashMap&lt;MemoryIndex, Heap&gt;,
 
     <span class="comment">// Map of indirect call signatures that have been created by
     // `FuncEnvironment::make_indirect_sig()`.
@@ -821,7 +802,6 @@
             reachable: <span class="bool-val">true</span>,
             globals: HashMap::new(),
             heaps: HashMap::new(),
-            tables: HashMap::new(),
             signatures: HashMap::new(),
             functions: HashMap::new(),
         }
@@ -833,7 +813,6 @@
         <span class="self">self</span>.reachable = <span class="bool-val">true</span>;
         <span class="self">self</span>.globals.clear();
         <span class="self">self</span>.heaps.clear();
-        <span class="self">self</span>.tables.clear();
         <span class="self">self</span>.signatures.clear();
         <span class="self">self</span>.functions.clear();
     }
@@ -868,7 +847,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pop1(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Value {
         <span class="self">self</span>.stack
             .pop()
-            .expect(<span class="string">&quot;attempted to pop a value from an empty stack&quot;</span>)
+            .expect(<span class="string">"attempted to pop a value from an empty stack"</span>)
     }
 
     <span class="doccomment">/// Peek at the top of the stack without popping it.
@@ -876,7 +855,7 @@
         <span class="kw-2">*</span><span class="self">self
             </span>.stack
             .last()
-            .expect(<span class="string">&quot;attempted to peek at a value on an empty stack&quot;</span>)
+            .expect(<span class="string">"attempted to peek at a value on an empty stack"</span>)
     }
 
     <span class="doccomment">/// Pop two values. Return them in the order they were pushed.
@@ -900,7 +879,7 @@
     </span><span class="kw">fn </span>ensure_length_is_at_least(<span class="kw-2">&amp;</span><span class="self">self</span>, n: usize) {
         <span class="macro">debug_assert!</span>(
             n &lt;= <span class="self">self</span>.stack.len(),
-            <span class="string">&quot;attempted to access {} values but stack only has {} values&quot;</span>,
+            <span class="string">"attempted to access {} values but stack only has {} values"</span>,
             n,
             <span class="self">self</span>.stack.len()
         );
@@ -974,7 +953,7 @@
     ) {
         <span class="macro">debug_assert!</span>(num_param_types &lt;= <span class="self">self</span>.stack.len());
 
-        <span class="comment">// Push a second copy of our `if`&#39;s parameters on the stack. This lets
+        <span class="comment">// Push a second copy of our `if`'s parameters on the stack. This lets
         // us avoid saving them on the side in the `ControlStackFrame` for our
         // `else` block (if it exists), which would require a second heap
         // allocation. See also the comment in `translate_operator` for
@@ -1024,26 +1003,11 @@
         func: <span class="kw-2">&amp;mut </span>ir::Function,
         index: u32,
         environ: <span class="kw-2">&amp;mut </span>FE,
-    ) -&gt; WasmResult&lt;ir::Heap&gt; {
+    ) -&gt; WasmResult&lt;Heap&gt; {
         <span class="kw">let </span>index = MemoryIndex::from_u32(index);
         <span class="kw">match </span><span class="self">self</span>.heaps.entry(index) {
             Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
             Vacant(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.insert(environ.make_heap(func, index)<span class="question-mark">?</span>)),
-        }
-    }
-
-    <span class="doccomment">/// Get the `Table` reference that should be used to access table `index`.
-    /// Create the reference if necessary.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_or_create_table&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        func: <span class="kw-2">&amp;mut </span>ir::Function,
-        index: u32,
-        environ: <span class="kw-2">&amp;mut </span>FE,
-    ) -&gt; WasmResult&lt;ir::Table&gt; {
-        <span class="kw">let </span>index = TableIndex::from_u32(index);
-        <span class="kw">match </span><span class="self">self</span>.tables.entry(index) {
-            Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
-            Vacant(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.insert(environ.make_table(func, index)<span class="question-mark">?</span>)),
         }
     }
 

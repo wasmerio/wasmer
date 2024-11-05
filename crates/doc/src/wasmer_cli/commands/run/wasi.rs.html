@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/wasi.rs`."><title>wasi.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/wasi.rs`."><title>wasi.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -749,6 +749,7 @@
 <a href="#749" id="749">749</a>
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -765,9 +766,8 @@
 <span class="kw">use </span>virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 <span class="kw">use </span>wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 <span class="kw">use </span>wasmer_config::package::PackageSource <span class="kw">as </span>PackageSpecifier;
-<span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 <span class="kw">use </span>wasmer_types::ModuleHash;
-<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use </span>wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 <span class="kw">use </span>wasmer_wasix::{
     bin_factory::BinaryPackage,
@@ -796,7 +796,10 @@
     WasiVersion,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
+<span class="kw">use crate</span>::{
+    config::{UserRegistry, WasmerEnv},
+    utils::{parse_envvar, parse_mapdir},
+};
 
 <span class="kw">use super</span>::{
     capabilities::{<span class="self">self</span>, PkgCapabilityCache},
@@ -809,21 +812,21 @@
 </span><span class="doccomment">/// WASI Options
 </span><span class="kw">pub struct </span>Wasi {
     <span class="doccomment">/// WASI pre-opened directory
-    </span><span class="attr">#[clap(long = <span class="string">&quot;dir&quot;</span>, name = <span class="string">&quot;DIR&quot;</span>, group = <span class="string">&quot;wasi&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"dir"</span>, name = <span class="string">"DIR"</span>, group = <span class="string">"wasi"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) pre_opened_directories: Vec&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Map a host directory to a different location for the Wasm module
     </span><span class="attr">#[clap(
-        long = <span class="string">&quot;mapdir&quot;</span>,
-        name = <span class="string">&quot;GUEST_DIR:HOST_DIR&quot;</span>,
+        long = <span class="string">"mapdir"</span>,
+        name = <span class="string">"GUEST_DIR:HOST_DIR"</span>,
         value_parser=parse_mapdir,
     )]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) mapped_dirs: Vec&lt;MappedDirectory&gt;,
 
     <span class="doccomment">/// Pass custom environment variables
     </span><span class="attr">#[clap(
-        long = <span class="string">&quot;env&quot;</span>,
-        name = <span class="string">&quot;KEY=VALUE&quot;</span>,
+        long = <span class="string">"env"</span>,
+        name = <span class="string">"KEY=VALUE"</span>,
         value_parser=parse_envvar,
     )]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) env_vars: Vec&lt;(String, String)&gt;,
@@ -833,37 +836,37 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) forward_host_env: bool,
 
     <span class="doccomment">/// List of other containers this module depends on
-    </span><span class="attr">#[clap(long = <span class="string">&quot;use&quot;</span>, name = <span class="string">&quot;USE&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"use"</span>, name = <span class="string">"USE"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) uses: Vec&lt;String&gt;,
 
     <span class="doccomment">/// List of webc packages that are explicitly included for execution
     /// Note: these packages will be used instead of those in the registry
-    </span><span class="attr">#[clap(long = <span class="string">&quot;include-webc&quot;</span>, name = <span class="string">&quot;WEBC&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"include-webc"</span>, name = <span class="string">"WEBC"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) include_webcs: Vec&lt;PathBuf&gt;,
 
     <span class="doccomment">/// List of injected atoms
-    </span><span class="attr">#[clap(long = <span class="string">&quot;map-command&quot;</span>, name = <span class="string">&quot;MAPCMD&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"map-command"</span>, name = <span class="string">"MAPCMD"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: Vec&lt;String&gt;,
 
     <span class="doccomment">/// Enable networking with the host network.
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
-    </span><span class="attr">#[clap(long = <span class="string">&quot;net&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"net"</span>)]
     </span><span class="kw">pub </span>networking: bool,
 
     <span class="doccomment">/// Disables the TTY bridge
-    </span><span class="attr">#[clap(long = <span class="string">&quot;no-tty&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"no-tty"</span>)]
     </span><span class="kw">pub </span>no_tty: bool,
 
     <span class="doccomment">/// Enables asynchronous threading
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-async-threads&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-async-threads"</span>)]
     </span><span class="kw">pub </span>enable_async_threads: bool,
 
     <span class="doccomment">/// Enables an exponential backoff (measured in milli-seconds) of
     /// the process CPU usage when there are no active run tokens (when set
     /// holds the maximum amount of time that it will pause the CPU)
     /// (default = off)
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-cpu-backoff&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-cpu-backoff"</span>)]
     </span><span class="kw">pub </span>enable_cpu_backoff: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 
     <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
@@ -875,28 +878,28 @@
     /// The last journal file specified will be created if it does not exist
     /// and opened for read and write. New journal events will be written to this
     /// file
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-    #[clap(long = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"journal"</span>)]
     </span><span class="kw">pub </span>journals: Vec&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Flag that indicates if the journal will be automatically compacted
     /// as it fills up and when the process exits
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-    #[clap(long = <span class="string">&quot;enable-compaction&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"enable-compaction"</span>)]
     </span><span class="kw">pub </span>enable_compaction: bool,
 
     <span class="doccomment">/// Tells the compactor not to compact when the journal log file is closed
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-    #[clap(long = <span class="string">&quot;without-compact-on-drop&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"without-compact-on-drop"</span>)]
     </span><span class="kw">pub </span>without_compact_on_drop: bool,
 
     <span class="doccomment">/// Tells the compactor to compact when it grows by a certain factor of
-    /// its original size. (i.e. &#39;0.2&#39; would be it compacts after the journal
+    /// its original size. (i.e. '0.2' would be it compacts after the journal
     /// has grown by 20 percent)
     ///
     /// Default is to compact on growth that exceeds 15%
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-    #[clap(long = <span class="string">&quot;with-compact-on-growth&quot;</span>, default_value = <span class="string">&quot;0.15&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"with-compact-on-growth"</span>, default_value = <span class="string">"0.15"</span>)]
     </span><span class="kw">pub </span>with_compact_on_growth: f32,
 
     <span class="doccomment">/// Indicates what events will cause a snapshot to be taken
@@ -908,15 +911,15 @@
     /// Additionally if the snapshot-on is not specified it will also take a snapshot
     /// on the first stdin, environ or socket listen - this can be used to accelerate
     /// the boot up time of WASM processes.
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-    #[clap(long = <span class="string">&quot;snapshot-on&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"snapshot-on"</span>)]
     </span><span class="kw">pub </span>snapshot_on: Vec&lt;SnapshotTrigger&gt;,
 
     <span class="doccomment">/// Adds a periodic interval (measured in milli-seconds) that the runtime will automatically
     /// take snapshots of the running process and write them to the journal. When specifying
     /// this parameter it implies that `--snapshot-on interval` has also been specified.
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-    #[clap(long = <span class="string">&quot;snapshot-period&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"snapshot-period"</span>)]
     </span><span class="kw">pub </span>snapshot_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 
     <span class="doccomment">/// Allow instances to send http requests.
@@ -926,7 +929,7 @@
     </span><span class="kw">pub </span>http_client: bool,
 
     <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;deny-multiple-wasi-versions&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"deny-multiple-wasi-versions"</span>)]
     </span><span class="kw">pub </span>deny_multiple_wasi_versions: bool,
 }
 
@@ -978,21 +981,21 @@
         <span class="kw">let </span>map_commands = <span class="self">self
             </span>.map_commands
             .iter()
-            .map(|map| map.split_once(<span class="string">&#39;=&#39;</span>).unwrap())
+            .map(|map| map.split_once(<span class="string">'='</span>).unwrap())
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
         <span class="kw">let </span><span class="kw-2">mut </span>uses = Vec::new();
         <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.uses {
             <span class="kw">let </span>specifier = PackageSpecifier::from_str(name)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{name}\&quot; as a package specifier&quot;</span>))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{name}\" as a package specifier"</span>))<span class="question-mark">?</span>;
             <span class="kw">let </span>pkg = {
                 <span class="kw">let </span>inner_rt = rt.clone();
                 rt.task_manager()
                     .spawn_and_block_on(<span class="kw">async move </span>{
                         BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, <span class="kw-2">&amp;*</span>inner_rt).<span class="kw">await
                     </span>})
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">??
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{name}\""</span>))<span class="question-mark">??
             </span>};
             uses.push(pkg);
         }
@@ -1015,14 +1018,14 @@
             <span class="comment">// Process the --dirs flag and merge it with --mapdir.
             </span><span class="kw">let </span><span class="kw-2">mut </span>have_current_dir = <span class="bool-val">false</span>;
             <span class="kw">for </span>dir <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.pre_opened_directories {
-                <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">&quot;.&quot;</span>) {
+                <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">"."</span>) {
                     <span class="kw">if </span>have_current_dir {
-                        <span class="macro">bail!</span>(<span class="string">&quot;Cannot pre-open the current directory twice: --dir=. must only be specified once&quot;</span>);
+                        <span class="macro">bail!</span>(<span class="string">"Cannot pre-open the current directory twice: --dir=. must only be specified once"</span>);
                     }
                     have_current_dir = <span class="bool-val">true</span>;
 
                     <span class="kw">let </span>current_dir =
-                        std::env::current_dir().context(<span class="string">&quot;could not determine current directory&quot;</span>)<span class="question-mark">?</span>;
+                        std::env::current_dir().context(<span class="string">"could not determine current directory"</span>)<span class="question-mark">?</span>;
 
                     MappedDirectory {
                         host: current_dir,
@@ -1031,14 +1034,14 @@
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
                         <span class="macro">format!</span>(
-                            <span class="string">&quot;could not canonicalize path for argument &#39;--dir {}&#39;&quot;</span>,
+                            <span class="string">"could not canonicalize path for argument '--dir {}'"</span>,
                             dir.display()
                         )
                     })<span class="question-mark">?</span>;
 
                     <span class="kw">if </span><span class="kw-2">&amp;</span>resolved != dir {
                         <span class="macro">bail!</span>(
-                            <span class="string">&quot;Invalid argument &#39;--dir {}&#39;: path must either be absolute, or &#39;.&#39;&quot;</span>,
+                            <span class="string">"Invalid argument '--dir {}': path must either be absolute, or '.'"</span>,
                             dir.display(),
                         );
                     }
@@ -1047,7 +1050,7 @@
                         .to_str()
                         .with_context(|| {
                             <span class="macro">format!</span>(
-                                <span class="string">&quot;invalid argument &#39;--dir {}&#39;: path must be valid utf-8&quot;</span>,
+                                <span class="string">"invalid argument '--dir {}': path must be valid utf-8"</span>,
                                 dir.display(),
                             )
                         })<span class="question-mark">?
@@ -1065,15 +1068,15 @@
             <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
                 <span class="kw">let </span>resolved_host = host.canonicalize().with_context(|| {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;could not canonicalize path for argument &#39;--mapdir {}:{}&#39;&quot;</span>,
+                        <span class="string">"could not canonicalize path for argument '--mapdir {}:{}'"</span>,
                         host.display(),
                         guest,
                     )
                 })<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">&quot;.&quot; </span>{
+                <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">"." </span>{
                     <span class="kw">if </span>have_current_dir {
-                        <span class="macro">bail!</span>(<span class="string">&quot;Cannot pre-open the current directory twice: &#39;--mapdir=?:.&#39; / &#39;--dir=.&#39; must only be specified once&quot;</span>);
+                        <span class="macro">bail!</span>(<span class="string">"Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"</span>);
                     }
                     have_current_dir = <span class="bool-val">true</span>;
 
@@ -1096,7 +1099,7 @@
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="self">self</span>.mapped_dirs.clone() {
                     <span class="kw">let </span>host = <span class="kw">if </span>!host.is_absolute() {
-                        Path::new(<span class="string">&quot;/&quot;</span>).join(host)
+                        Path::new(<span class="string">"/"</span>).join(host)
                     } <span class="kw">else </span>{
                         host
                     };
@@ -1107,19 +1110,19 @@
             <span class="comment">// Open the root of the new filesystem
             </span><span class="kw">let </span>b = builder
                 .sandbox_fs(root_fs)
-                .preopen_dir(Path::new(<span class="string">&quot;/&quot;</span>))
+                .preopen_dir(Path::new(<span class="string">"/"</span>))
                 .unwrap();
 
             <span class="kw">if </span>have_current_dir {
-                b.map_dir(<span class="string">&quot;.&quot;</span>, MAPPED_CURRENT_DIR_DEFAULT_PATH)<span class="question-mark">?
+                b.map_dir(<span class="string">"."</span>, MAPPED_CURRENT_DIR_DEFAULT_PATH)<span class="question-mark">?
             </span>} <span class="kw">else </span>{
-                b.map_dir(<span class="string">&quot;.&quot;</span>, <span class="string">&quot;/&quot;</span>)<span class="question-mark">?
+                b.map_dir(<span class="string">"."</span>, <span class="string">"/"</span>)<span class="question-mark">?
             </span>}
         };
 
         <span class="kw-2">*</span>builder.capabilities_mut() = <span class="self">self</span>.capabilities();
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
             <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.snapshot_on.iter().cloned() {
                 builder.add_snapshot_trigger(trigger);
@@ -1135,7 +1138,7 @@
         <span class="prelude-val">Ok</span>(builder)
     }
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>build_journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>ret = Vec::new();
         <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.journals.clone() {
@@ -1155,7 +1158,7 @@
         <span class="prelude-val">Ok</span>(ret)
     }
 
-    <span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
+    <span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
     </span><span class="kw">pub fn </span>build_journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt; {
         <span class="prelude-val">Ok</span>(Vec::new())
     }
@@ -1168,14 +1171,14 @@
         <span class="comment">// Process the --dirs flag and merge it with --mapdir.
         </span><span class="kw">let </span><span class="kw-2">mut </span>have_current_dir = <span class="bool-val">false</span>;
         <span class="kw">for </span>dir <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.pre_opened_directories {
-            <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">&quot;.&quot;</span>) {
+            <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">"."</span>) {
                 <span class="kw">if </span>have_current_dir {
-                    <span class="macro">bail!</span>(<span class="string">&quot;Cannot pre-open the current directory twice: --dir=. must only be specified once&quot;</span>);
+                    <span class="macro">bail!</span>(<span class="string">"Cannot pre-open the current directory twice: --dir=. must only be specified once"</span>);
                 }
                 have_current_dir = <span class="bool-val">true</span>;
 
                 <span class="kw">let </span>current_dir =
-                    std::env::current_dir().context(<span class="string">&quot;could not determine current directory&quot;</span>)<span class="question-mark">?</span>;
+                    std::env::current_dir().context(<span class="string">"could not determine current directory"</span>)<span class="question-mark">?</span>;
 
                 MappedDirectory {
                     host: current_dir,
@@ -1184,14 +1187,14 @@
             } <span class="kw">else </span>{
                 <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;could not canonicalize path for argument &#39;--dir {}&#39;&quot;</span>,
+                        <span class="string">"could not canonicalize path for argument '--dir {}'"</span>,
                         dir.display()
                     )
                 })<span class="question-mark">?</span>;
 
                 <span class="kw">if </span><span class="kw-2">&amp;</span>resolved != dir {
                     <span class="macro">bail!</span>(
-                        <span class="string">&quot;Invalid argument &#39;--dir {}&#39;: path must either be absolute, or &#39;.&#39;&quot;</span>,
+                        <span class="string">"Invalid argument '--dir {}': path must either be absolute, or '.'"</span>,
                         dir.display(),
                     );
                 }
@@ -1200,7 +1203,7 @@
                     .to_str()
                     .with_context(|| {
                         <span class="macro">format!</span>(
-                            <span class="string">&quot;invalid argument &#39;--dir {}&#39;: path must be valid utf-8&quot;</span>,
+                            <span class="string">"invalid argument '--dir {}': path must be valid utf-8"</span>,
                             dir.display(),
                         )
                     })<span class="question-mark">?
@@ -1218,15 +1221,15 @@
         <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
             <span class="kw">let </span>resolved_host = host.canonicalize().with_context(|| {
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;could not canonicalize path for argument &#39;--mapdir {}:{}&#39;&quot;</span>,
+                    <span class="string">"could not canonicalize path for argument '--mapdir {}:{}'"</span>,
                     host.display(),
                     guest,
                 )
             })<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">&quot;.&quot; </span>{
+            <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">"." </span>{
                 <span class="kw">if </span>have_current_dir {
-                    <span class="macro">bail!</span>(<span class="string">&quot;Cannot pre-open the current directory twice: &#39;--mapdir=?:.&#39; / &#39;--dir=.&#39; must only be specified once&quot;</span>);
+                    <span class="macro">bail!</span>(<span class="string">"Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"</span>);
                 }
                 have_current_dir = <span class="bool-val">true</span>;
 
@@ -1243,7 +1246,7 @@
             mapped_dirs.push(mapping);
         }
 
-        <span class="kw">let </span>is_tmp_mapped = mapped_dirs.iter().any(|d| d.guest == <span class="string">&quot;/tmp&quot;</span>);
+        <span class="kw">let </span>is_tmp_mapped = mapped_dirs.iter().any(|d| d.guest == <span class="string">"/tmp"</span>);
 
         <span class="prelude-val">Ok</span>((have_current_dir, is_tmp_mapped, mapped_dirs))
     }
@@ -1252,9 +1255,9 @@
         <span class="self">self</span>.map_commands
             .iter()
             .map(|item| {
-                <span class="kw">let </span>(a, b) = item.split_once(<span class="string">&#39;=&#39;</span>).with_context(|| {
+                <span class="kw">let </span>(a, b) = item.split_once(<span class="string">'='</span>).with_context(|| {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;Invalid --map-command flag: expected &lt;ALIAS&gt;=&lt;HOST_PATH&gt;, got &#39;{item}&#39;&quot;
+                        <span class="string">"Invalid --map-command flag: expected &lt;ALIAS&gt;=&lt;HOST_PATH&gt;, got '{item}'"
                     </span>)
                 })<span class="question-mark">?</span>;
 
@@ -1262,11 +1265,11 @@
                 <span class="kw">let </span>b = b.trim();
 
                 <span class="kw">if </span>a.is_empty() {
-                    <span class="macro">bail!</span>(<span class="string">&quot;Invalid --map-command flag - alias cannot be empty: &#39;{item}&#39;&quot;</span>);
+                    <span class="macro">bail!</span>(<span class="string">"Invalid --map-command flag - alias cannot be empty: '{item}'"</span>);
                 }
                 <span class="comment">// TODO(theduke): check if host command exists, and canonicalize PathBuf.
                 </span><span class="kw">if </span>b.is_empty() {
-                    <span class="macro">bail!</span>(<span class="string">&quot;Invalid --map-command flag - host path cannot be empty: &#39;{item}&#39;&quot;</span>);
+                    <span class="macro">bail!</span>(<span class="string">"Invalid --map-command flag - host path cannot be empty: '{item}'"</span>);
                 }
 
                 <span class="prelude-val">Ok</span>(MappedCommand {
@@ -1321,7 +1324,7 @@
             rt.set_networking_implementation(net);
         }
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.build_journals()<span class="question-mark">? </span>{
             rt.add_journal(journal);
         }
@@ -1333,16 +1336,16 @@
         }
 
         <span class="kw">let </span>client =
-            wasmer_wasix::http::default_http_client().context(<span class="string">&quot;No HTTP client available&quot;</span>)<span class="question-mark">?</span>;
+            wasmer_wasix::http::default_http_client().context(<span class="string">"No HTTP client available"</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>client = Arc::new(client);
 
         <span class="kw">let </span>package_loader = <span class="self">self
             </span>.prepare_package_loader(env, client.clone())
-            .context(<span class="string">&quot;Unable to prepare the package loader&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Unable to prepare the package loader"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client, preferred_webc_version)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;compiled&quot;</span>);
+        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"compiled"</span>);
         <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
 
@@ -1371,9 +1374,9 @@
     }
 
     <span class="kw">pub fn </span>for_binfmt_interpreter() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>dir = std::env::var_os(<span class="string">&quot;WASMER_BINFMT_MISC_PREOPEN&quot;</span>)
+        <span class="kw">let </span>dir = std::env::var_os(<span class="string">"WASMER_BINFMT_MISC_PREOPEN"</span>)
             .map(Into::into)
-            .unwrap_or_else(|| PathBuf::from(<span class="string">&quot;.&quot;</span>));
+            .unwrap_or_else(|| PathBuf::from(<span class="string">"."</span>));
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             deny_multiple_wasi_versions: <span class="bool-val">true</span>,
             env_vars: std::env::vars().collect(),
@@ -1386,8 +1389,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         env: <span class="kw-2">&amp;</span>WasmerEnv,
         client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>PackageLoader + Send + Sync&gt; {
-        <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">&quot;checkouts&quot;</span>);
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>PackageLoader&gt; {
+        <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">"checkouts"</span>);
         <span class="kw">let </span>tokens = tokens_by_authority(env)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>loader = BuiltinPackageLoader::new()
@@ -1403,21 +1406,21 @@
         env: <span class="kw-2">&amp;</span>WasmerEnv,
         client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
         preferred_webc_version: webc::Version,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Source + Send + Sync&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::new();
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Source + Send&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::default();
 
-        <span class="comment">// Note: This should be first so our &quot;preloaded&quot; sources get a chance to
+        <span class="comment">// Note: This should be first so our "preloaded" sources get a chance to
         // override the main registry.
         </span><span class="kw">let </span><span class="kw-2">mut </span>preloaded = InMemorySource::new();
         <span class="kw">for </span>path <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs {
             preloaded
                 .add_webc(path)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
         }
         source.add_source(preloaded);
 
         <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
-        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;queries&quot;</span>);
+        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"queries"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
             .with_preferred_webc_version(preferred_webc_version);
@@ -1430,7 +1433,7 @@
         }
         source.add_source(wapm_source);
 
-        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;downloads&quot;</span>);
+        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"downloads"</span>);
         source.add_source(WebSource::new(cache_dir, client));
 
         source.add_source(FileSystemSource::default());
@@ -1447,15 +1450,14 @@
         <span class="kw">let </span>graphql_endpoint = config.registry.get_graphql_url();
         <span class="kw">let </span>graphql_endpoint = graphql_endpoint
             .parse()
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{graphql_endpoint}\&quot; as a URL&quot;</span>))<span class="question-mark">?</span>;
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{graphql_endpoint}\" as a URL"</span>))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(graphql_endpoint)
     }
 }
 
 <span class="kw">fn </span>parse_registry(r: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
-    <span class="kw">let </span>url = wasmer_registry::format_graphql(r).parse()<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(url)
+    UserRegistry::from(r).graphql_endpoint()
 }
 
 <span class="kw">fn </span>tokens_by_authority(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, String&gt;&gt; {
@@ -1477,20 +1479,20 @@
     }
 
     <span class="comment">// Note: The global wasmer.toml config file stores URLs for the GraphQL
-    // endpoint, however that&#39;s often on the backend (i.e.
+    // endpoint, however that's often on the backend (i.e.
     // https://registry.wasmer.io/graphql) and we also want to use the same API
     // token when sending requests to the frontend (e.g. downloading a package
     // using the `Accept: application/webc` header).
     //
     // As a workaround to avoid needing to query *all* backends to find out
-    // their frontend URL every time the `wasmer` CLI runs, we&#39;ll assume that
+    // their frontend URL every time the `wasmer` CLI runs, we'll assume that
     // when a backend is called something like `registry.wasmer.io`, the
     // frontend will be at `wasmer.io`. This works everywhere except for people
     // developing the backend locally... Sorry, Ayush.
 
     </span><span class="kw">let </span><span class="kw-2">mut </span>frontend_tokens = HashMap::new();
     <span class="kw">for </span>(hostname, token) <span class="kw">in </span><span class="kw-2">&amp;</span>tokens {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(frontend_url) = hostname.strip_prefix(<span class="string">&quot;registry.&quot;</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(frontend_url) = hostname.strip_prefix(<span class="string">"registry."</span>) {
             <span class="kw">if </span>!tokens.contains_key(frontend_url) {
                 frontend_tokens.insert(frontend_url.to_string(), token.clone());
             }

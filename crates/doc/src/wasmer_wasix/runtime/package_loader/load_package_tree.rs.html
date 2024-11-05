@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/package_loader/load_package_tree.rs`."><title>load_package_tree.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/package_loader/load_package_tree.rs`."><title>load_package_tree.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -627,8 +627,6 @@
 <a href="#627" id="627">627</a>
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -642,10 +640,8 @@
 <span class="kw">use </span>petgraph::visit::EdgeRef;
 <span class="kw">use </span>virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
 <span class="kw">use </span>wasmer_config::package::PackageId;
-<span class="kw">use </span>webc::{
-    compat::{Container, Volume},
-    metadata::annotations::Atom <span class="kw">as </span>AtomAnnotation,
-};
+<span class="kw">use </span>webc::metadata::annotations::Atom <span class="kw">as </span>AtomAnnotation;
+<span class="kw">use </span>webc::{Container, Volume};
 
 <span class="kw">use crate</span>::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
@@ -664,7 +660,7 @@
 </span><span class="kw">const </span>MAX_PARALLEL_DOWNLOADS: usize = <span class="number">32</span>;
 
 <span class="doccomment">/// Given a fully resolved package, load it into memory for execution.
-</span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+</span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
 </span><span class="kw">pub async fn </span>load_package_tree(
     root: <span class="kw-2">&amp;</span>Container,
     loader: <span class="kw-2">&amp;</span><span class="kw">dyn </span>PackageLoader,
@@ -680,7 +676,7 @@
     <span class="kw">let </span>commands: Vec&lt;BinaryPackageCommand&gt; =
         commands(<span class="kw-2">&amp;</span>resolution.package.commands, <span class="kw-2">&amp;</span>containers, resolution)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>file_system_memory_footprint = count_file_system(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">&quot;/&quot;</span>));
+    <span class="kw">let </span>file_system_memory_footprint = count_file_system(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">"/"</span>));
 
     <span class="kw">let </span>loaded = BinaryPackage {
         id: root.clone(),
@@ -753,7 +749,7 @@
             <span class="macro">tracing::warn!</span>(
                 cmd.name=command_name,
                 cmd.runner=%cmd.runner,
-                <span class="string">&quot;Skipping unsupported command&quot;</span>,
+                <span class="string">"Skipping unsupported command"</span>,
             );
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         }
@@ -773,7 +769,7 @@
             <span class="kw">let </span>edge_reference = graph
                 .edges_directed(ix, petgraph::Direction::Outgoing)
                 .find(|edge| edge.weight().alias == dep)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to find the \&quot;{dep}\&quot; dependency for the \&quot;{command_name}\&quot; command in \&quot;{package_id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to find the \"{dep}\" dependency for the \"{command_name}\" command in \"{package_id}\""</span>))<span class="question-mark">?</span>;
 
             <span class="kw">let </span>other_package = graph.node_weight(edge_reference.target()).unwrap();
             <span class="kw">let </span>id = <span class="kw-2">&amp;</span>other_package.id;
@@ -781,7 +777,7 @@
             <span class="macro">tracing::debug!</span>(
                 dependency=%dep,
                 resolved_package_id=%id,
-                <span class="string">&quot;command atom resolution: resolved dependency&quot;</span>,
+                <span class="string">"command atom resolution: resolved dependency"</span>,
             );
             (<span class="kw-2">&amp;</span>containers[id], id)
         }
@@ -791,7 +787,7 @@
     <span class="kw">let </span>atom = webc.get_atom(<span class="kw-2">&amp;</span>atom_name);
 
     <span class="kw">if </span>atom.is_none() &amp;&amp; cmd.annotations.is_empty() {
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;applying legacy atom hack&quot;</span>);
+        <span class="macro">tracing::info!</span>(<span class="string">"applying legacy atom hack"</span>);
         <span class="kw">return </span>legacy_atom_hack(webc, command_name, cmd);
     }
 
@@ -799,17 +795,17 @@
 
     <span class="kw">let </span>atom = atom.with_context(|| {
 
-        <span class="kw">let </span>available_atoms = webc.atoms().keys().map(|x| x.as_str()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">&quot;,&quot;</span>);
+        <span class="kw">let </span>available_atoms = webc.atoms().keys().map(|x| x.as_str()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">","</span>);
 
         <span class="macro">tracing::warn!</span>(
             %atom_name,
             %resolved_package_id,
             %available_atoms,
-            <span class="string">&quot;invalid command: could not find atom in package&quot;</span>,
+            <span class="string">"invalid command: could not find atom in package"</span>,
         );
 
         <span class="macro">format!</span>(
-            <span class="string">&quot;The &#39;{command_name}&#39; command uses the &#39;{atom_name}&#39; atom, but it isn&#39;t present in the package: {resolved_package_id})&quot;
+            <span class="string">"The '{command_name}' command uses the '{atom_name}' atom, but it isn't present in the package: {resolved_package_id})"
         </span>)
     })<span class="question-mark">?</span>;
 
@@ -822,16 +818,16 @@
     command_name: <span class="kw-2">&amp;</span>str,
     cmd: <span class="kw-2">&amp;</span>webc::metadata::Command,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;AtomAnnotation&gt;, anyhow::Error&gt; {
-    <span class="kw">use </span>webc::metadata::annotations::{EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI};
+    <span class="kw">use </span>webc::metadata::annotations::{WASI_RUNNER_URI, WCGI_RUNNER_URI};
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(atom) = cmd
         .atom()
-        .context(<span class="string">&quot;Unable to deserialize atom annotations&quot;</span>)<span class="question-mark">?
+        .context(<span class="string">"Unable to deserialize atom annotations"</span>)<span class="question-mark">?
     </span>{
         <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(atom));
     }
 
-    <span class="kw">if </span>[WASI_RUNNER_URI, WCGI_RUNNER_URI, EMSCRIPTEN_RUNNER_URI]
+    <span class="kw">if </span>[WASI_RUNNER_URI, WCGI_RUNNER_URI]
         .iter()
         .any(|uri| cmd.runner.starts_with(uri))
     {
@@ -840,7 +836,7 @@
         // a manifest by hand instead of using wapm2pirita.
         </span><span class="macro">tracing::debug!</span>(
             command = command_name,
-            <span class="string">&quot;No annotations specifying the atom name found. Falling back to the command name&quot;
+            <span class="string">"No annotations specifying the atom name found. Falling back to the command name"
         </span>);
         <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(AtomAnnotation::new(command_name, <span class="prelude-val">None</span>)));
     }
@@ -867,13 +863,13 @@
         .atoms()
         .into_iter()
         .next()
-        .ok_or_else(|| anyhow::Error::msg(<span class="string">&quot;container does not have any atom&quot;</span>))<span class="question-mark">?</span>;
+        .ok_or_else(|| anyhow::Error::msg(<span class="string">"container does not have any atom"</span>))<span class="question-mark">?</span>;
 
     <span class="macro">tracing::debug!</span>(
         command_name,
         atom.name = name.as_str(),
         atom.len = atom.len(),
-        <span class="string">&quot;(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file&quot;</span>,
+        <span class="string">"(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file"</span>,
     );
 
     <span class="kw">let </span>hash = to_module_hash(webc.manifest().atom_signature(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>);
@@ -901,7 +897,7 @@
         packages.insert(mapping.package.clone());
     }
 
-    <span class="comment">// We don&#39;t need to download the root package
+    <span class="comment">// We don't need to download the root package
     </span>packages.remove(<span class="kw-2">&amp;</span>pkg.root_package);
 
     <span class="kw">let </span>packages = packages.into_iter().filter_map(|id| {
@@ -971,7 +967,7 @@
     <span class="kw">for </span>ResolvedFileSystemMapping { package, .. } <span class="kw">in </span><span class="kw-2">&amp;</span>pkg.filesystem {
         <span class="kw">let </span>container = packages.get(package).with_context(|| {
             <span class="macro">format!</span>(
-                <span class="string">&quot;\&quot;{}\&quot; wants to use the \&quot;{}\&quot; package, but it isn&#39;t in the dependency tree&quot;</span>,
+                <span class="string">"\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree"</span>,
                 pkg.root_package, package,
             )
         })<span class="question-mark">?</span>;
@@ -1017,7 +1013,7 @@
         // looks like we need to insert it
         </span><span class="kw">let </span>container = packages.get(package).with_context(|| {
             <span class="macro">format!</span>(
-                <span class="string">&quot;\&quot;{}\&quot; wants to use the \&quot;{}\&quot; package, but it isn&#39;t in the dependency tree&quot;</span>,
+                <span class="string">"\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree"</span>,
                 pkg.root_package, package,
             )
         })<span class="question-mark">?</span>;
@@ -1027,7 +1023,7 @@
         };
 
         <span class="kw">let </span>volume = container_volumes.get(volume_name).with_context(|| {
-            <span class="macro">format!</span>(<span class="string">&quot;The \&quot;{package}\&quot; package doesn&#39;t have a \&quot;{volume_name}\&quot; volume&quot;</span>)
+            <span class="macro">format!</span>(<span class="string">"The \"{package}\" package doesn't have a \"{volume_name}\" volume"</span>)
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>webc_vol = WebcVolumeFileSystem::new(volume.clone());
@@ -1043,25 +1039,25 @@
 ///
 </span><span class="comment">// # Note to future readers
 //
-// Sooo... this code is a bit convoluted because we&#39;re constrained by the
-// filesystem implementations we&#39;ve got available.
+// Sooo... this code is a bit convoluted because we're constrained by the
+// filesystem implementations we've got available.
 //
-// Ideally, we would create a WebcVolumeFileSystem for each volume we&#39;re
-// using, then we&#39;d have a single &quot;union&quot; filesystem which lets you mount
+// Ideally, we would create a WebcVolumeFileSystem for each volume we're
+// using, then we'd have a single "union" filesystem which lets you mount
 // filesystem objects under various paths and can deal with conflicts.
 //
 // The OverlayFileSystem lets us make files from multiple filesystem
 // implementations available at the same time, however all of the
-// filesystems will be mounted at &quot;/&quot;, when the user wants to mount volumes
+// filesystems will be mounted at "/", when the user wants to mount volumes
 // at arbitrary locations.
 //
-// The TmpFileSystem *does* allow mounting at non-root paths, however it can&#39;t
-// handle nested paths (e.g. mounting to &quot;/lib&quot; and &quot;/lib/python3.10&quot; - see
-// &lt;https://github.com/wasmerio/wasmer/issues/3678&gt; for more) and you aren&#39;t
-// allowed to mount to &quot;/&quot; because it&#39;s a special directory that already
+// The TmpFileSystem *does* allow mounting at non-root paths, however it can't
+// handle nested paths (e.g. mounting to "/lib" and "/lib/python3.10" - see
+// &lt;https://github.com/wasmerio/wasmer/issues/3678&gt; for more) and you aren't
+// allowed to mount to "/" because it's a special directory that already
 // exists.
 //
-// As a result, we&#39;ll duct-tape things together and hope for the best 🤞
+// As a result, we'll duct-tape things together and hope for the best 🤞
 </span><span class="kw">fn </span>filesystem_v2(
     packages: <span class="kw-2">&amp;</span>HashMap&lt;PackageId, Container&gt;,
     pkg: <span class="kw-2">&amp;</span>ResolvedPackage,
@@ -1093,7 +1089,7 @@
                 <span class="comment">// looks like we need to insert it
                 </span><span class="kw">let </span>container = packages.get(package)
                     .with_context(|| <span class="macro">format!</span>(
-                        <span class="string">&quot;\&quot;{}\&quot; wants to use the \&quot;{}\&quot; package, but it isn&#39;t in the dependency tree&quot;</span>,
+                        <span class="string">"\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree"</span>,
                         pkg.root_package,
                         package,
                     ))<span class="question-mark">?</span>;
@@ -1102,12 +1098,12 @@
         };
 
         <span class="kw">let </span>volume = container_volumes.get(volume_name).with_context(|| {
-            <span class="macro">format!</span>(<span class="string">&quot;The \&quot;{package}\&quot; package doesn&#39;t have a \&quot;{volume_name}\&quot; volume&quot;</span>)
+            <span class="macro">format!</span>(<span class="string">"The \"{package}\" package doesn't have a \"{volume_name}\" volume"</span>)
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>mount_path = mount_path.clone();
-        <span class="comment">// Get a filesystem which will map &quot;$mount_dir/some-path&quot; to
-        // &quot;$original_path/some-path&quot; on the original volume
+        <span class="comment">// Get a filesystem which will map "$mount_dir/some-path" to
+        // "$original_path/some-path" on the original volume
         </span><span class="kw">let </span>fs = <span class="kw">if let </span><span class="prelude-val">Some</span>(original) = original_path {
             <span class="kw">let </span>original = PathBuf::from(original);
 
@@ -1152,7 +1148,7 @@
 
 <span class="kw">impl</span>&lt;F, M&gt; MappedPathFileSystem&lt;F, M&gt;
 <span class="kw">where
-    </span>M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    </span>M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
     <span class="kw">fn </span>new(inner: F, map: M) -&gt; <span class="self">Self </span>{
         MappedPathFileSystem { inner, map }
@@ -1161,15 +1157,15 @@
     <span class="kw">fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; {
         <span class="kw">let </span>path = (<span class="self">self</span>.map)(path)<span class="question-mark">?</span>;
 
-        <span class="comment">// Don&#39;t forget to make the path absolute again.
-        </span><span class="prelude-val">Ok</span>(Path::new(<span class="string">&quot;/&quot;</span>).join(path))
+        <span class="comment">// Don't forget to make the path absolute again.
+        </span><span class="prelude-val">Ok</span>(Path::new(<span class="string">"/"</span>).join(path))
     }
 }
 
 <span class="kw">impl</span>&lt;M, F&gt; FileSystem <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
 <span class="kw">where
     </span>F: FileSystem,
-    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
     <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;PathBuf&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
@@ -1191,7 +1187,7 @@
         <span class="self">self</span>.inner.remove_dir(<span class="kw-2">&amp;</span>path)
     }
 
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, virtual_fs::Result&lt;()&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, virtual_fs::Result&lt;()&gt;&gt; {
         <span class="kw">let </span>from = from.to_owned();
         <span class="kw">let </span>to = to.to_owned();
         Box::pin(<span class="kw">async move </span>{
@@ -1234,13 +1230,13 @@
 <span class="kw">impl</span>&lt;F, M&gt; virtual_fs::FileOpener <span class="kw">for </span>MappedPathFileSystem&lt;F, M&gt;
 <span class="kw">where
     </span>F: FileSystem,
-    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    M: Fn(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, virtual_fs::FsError&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
     <span class="kw">fn </span>open(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
-    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
         <span class="self">self</span>.inner
             .new_open_options()
@@ -1253,10 +1249,10 @@
 <span class="kw">where
     </span>F: Debug,
 {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        f.debug_struct(<span class="string">&quot;MappedPathFileSystem&quot;</span>)
-            .field(<span class="string">&quot;inner&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner)
-            .field(<span class="string">&quot;map&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;M&gt;())
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"MappedPathFileSystem"</span>)
+            .field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner)
+            .field(<span class="string">"map"</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;M&gt;())
             .finish()
     }
 }

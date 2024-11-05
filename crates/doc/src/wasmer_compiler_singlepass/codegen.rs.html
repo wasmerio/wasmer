@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/codegen.rs`."><title>codegen.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/codegen.rs`."><title>codegen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -6743,15 +6743,16 @@
 <a href="#6743" id="6743">6743</a>
 <a href="#6744" id="6744">6744</a>
 <a href="#6745" id="6745">6745</a>
+<a href="#6746" id="6746">6746</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::address_map::get_function_address_map;
 <span class="kw">use </span><span class="kw">crate</span>::codegen_error;
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
 <span class="kw">use </span><span class="kw">crate</span>::location::{Location, Reg};
 <span class="kw">use </span><span class="kw">crate</span>::machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
 <span class="kw">use </span><span class="kw">crate</span>::unwind::UnwindFrame;
 <span class="kw">use crate</span>::{common_decl::<span class="kw-2">*</span>, config::Singlepass};
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::write::Address;
 <span class="kw">use </span>smallvec::{smallvec, SmallVec};
 <span class="kw">use </span>std::cmp;
@@ -6761,7 +6762,7 @@
     ValType <span class="kw">as </span>WpType,
 };
 <span class="kw">use </span>wasmer_compiler::FunctionBodyData;
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfo;
 <span class="kw">use </span>wasmer_types::{
     entity::{EntityRef, PrimaryMap},
@@ -6773,22 +6774,22 @@
 <span class="kw">use </span>wasmer_types::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 <span class="doccomment">/// The singlepass per-function code generator.
-</span><span class="kw">pub struct </span>FuncGen&lt;<span class="lifetime">&#39;a</span>, M: Machine&gt; {
+</span><span class="kw">pub struct </span>FuncGen&lt;<span class="lifetime">'a</span>, M: Machine&gt; {
     <span class="comment">// Immutable properties assigned at creation time.
     </span><span class="doccomment">/// Static module information.
-    </span>module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ModuleInfo,
+    </span>module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ModuleInfo,
 
     <span class="doccomment">/// ModuleInfo compilation config.
-    </span>config: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Singlepass,
+    </span>config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Singlepass,
 
     <span class="doccomment">/// Offsets of vmctx fields.
-    </span>vmoffsets: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VMOffsets,
+    </span>vmoffsets: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VMOffsets,
 
     <span class="comment">// // Memory plans.
-    </span>memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+    </span>memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
 
     <span class="comment">// // Table plans.
-    // table_styles: &amp;&#39;a PrimaryMap&lt;TableIndex, TableStyle&gt;,
+    // table_styles: &amp;'a PrimaryMap&lt;TableIndex, TableStyle&gt;,
     </span><span class="doccomment">/// Function signature.
     </span>signature: FunctionType,
 
@@ -6822,7 +6823,7 @@
     <span class="doccomment">/// Nesting level of unreachable code.
     </span>unreachable_depth: usize,
 
-    <span class="doccomment">/// Function state map. Not yet used in the reborn version but let&#39;s keep it.
+    <span class="doccomment">/// Function state map. Not yet used in the reborn version but let's keep it.
     </span>fsm: FunctionStateMap,
 
     <span class="doccomment">/// Relocation information.
@@ -6881,7 +6882,7 @@
         <span class="kw">let </span>ret = FloatValue {
             canonicalization: <span class="kw">match </span><span class="self">self</span>.canonicalization {
                 <span class="prelude-val">Some</span>(CanonicalizeType::F32) =&gt; <span class="prelude-val">Some</span>(CanonicalizeType::F64),
-                <span class="prelude-val">Some</span>(CanonicalizeType::F64) =&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;cannot promote F64&quot;</span>),
+                <span class="prelude-val">Some</span>(CanonicalizeType::F64) =&gt; <span class="macro">codegen_error!</span>(<span class="string">"cannot promote F64"</span>),
                 <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
             },
             depth,
@@ -6893,7 +6894,7 @@
         <span class="kw">let </span>ret = FloatValue {
             canonicalization: <span class="kw">match </span><span class="self">self</span>.canonicalization {
                 <span class="prelude-val">Some</span>(CanonicalizeType::F64) =&gt; <span class="prelude-val">Some</span>(CanonicalizeType::F32),
-                <span class="prelude-val">Some</span>(CanonicalizeType::F32) =&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;cannot demote F32&quot;</span>),
+                <span class="prelude-val">Some</span>(CanonicalizeType::F32) =&gt; <span class="macro">codegen_error!</span>(<span class="string">"cannot demote F32"</span>),
                 <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
             },
             depth,
@@ -6903,7 +6904,7 @@
 }
 
 <span class="doccomment">/// Type of a pending canonicalization floating point value.
-/// Sometimes we don&#39;t have the type information elsewhere and therefore we need to track it here.
+/// Sometimes we don't have the type information elsewhere and therefore we need to track it here.
 </span><span class="attr">#[derive(Copy, Clone, Debug)]
 </span><span class="kw">enum </span>CanonicalizeType {
     F32,
@@ -6928,16 +6929,16 @@
 <span class="kw">impl</span>&lt;T&gt; PopMany&lt;T&gt; <span class="kw">for </span>Vec&lt;T&gt; {
     <span class="kw">fn </span>peek1(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>T, CompileError&gt; {
         <span class="self">self</span>.last()
-            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;peek1() expects at least 1 element&quot;</span>.to_owned()))
+            .ok_or_else(|| CompileError::Codegen(<span class="string">"peek1() expects at least 1 element"</span>.to_owned()))
     }
     <span class="kw">fn </span>pop1(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, CompileError&gt; {
         <span class="self">self</span>.pop()
-            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;pop1() expects at least 1 element&quot;</span>.to_owned()))
+            .ok_or_else(|| CompileError::Codegen(<span class="string">"pop1() expects at least 1 element"</span>.to_owned()))
     }
     <span class="kw">fn </span>pop2(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(T, T), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.len() &lt; <span class="number">2 </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;pop2() expects at least 2 elements&quot;</span>.to_owned(),
+                <span class="string">"pop2() expects at least 2 elements"</span>.to_owned(),
             ));
         }
 
@@ -6983,8 +6984,8 @@
         Type::F32 =&gt; WpType::F32,
         Type::F64 =&gt; WpType::F64,
         Type::V128 =&gt; WpType::V128,
-        Type::ExternRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Extern).unwrap()),
-        Type::FuncRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Func).unwrap()),
+        Type::ExternRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::EXTERN).unwrap()),
+        Type::FuncRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::FUNC).unwrap()),
     }
 }
 
@@ -6996,7 +6997,7 @@
     ret: Location&lt;R, S&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, M: Machine&gt; FuncGen&lt;<span class="lifetime">&#39;a</span>, M&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, M: Machine&gt; FuncGen&lt;<span class="lifetime">'a</span>, M&gt; {
     <span class="kw">fn </span>get_stack_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.stack_offset.<span class="number">0
     </span>}
@@ -7021,7 +7022,7 @@
                 WpType::Ref(ty) <span class="kw">if </span>ty.is_extern_ref() || ty.is_func_ref() =&gt; {
                     <span class="self">self</span>.machine.pick_gpr().map(Location::GPR)
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;can&#39;t acquire location for type {:?}&quot;</span>, ty),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"can't acquire location for type {:?}"</span>, ty),
             };
 
             <span class="kw">let </span>loc = <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = loc {
@@ -7078,12 +7079,12 @@
                 Location::Memory(y, x) =&gt; {
                     <span class="kw">if </span>y == <span class="self">self</span>.machine.local_pointer() {
                         <span class="kw">if </span>x &gt;= <span class="number">0 </span>{
-                            <span class="macro">codegen_error!</span>(<span class="string">&quot;Invalid memory offset {}&quot;</span>, x);
+                            <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {}"</span>, x);
                         }
                         <span class="kw">let </span>offset = (-x) <span class="kw">as </span>usize;
                         <span class="kw">if </span>offset != <span class="self">self</span>.stack_offset.<span class="number">0 </span>{
                             <span class="macro">codegen_error!</span>(
-                                <span class="string">&quot;Invalid memory offset {}!={}&quot;</span>,
+                                <span class="string">"Invalid memory offset {}!={}"</span>,
                                 offset,
                                 <span class="self">self</span>.stack_offset.<span class="number">0
                             </span>);
@@ -7093,7 +7094,7 @@
                         <span class="self">self</span>.state
                             .stack_values
                             .pop()
-                            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;Empty stack_value&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+                            .ok_or_else(|| CompileError::Codegen(<span class="string">"Empty stack_value"</span>.to_owned()))<span class="question-mark">?</span>;
                     }
                 }
                 <span class="kw">_ </span>=&gt; {}
@@ -7101,7 +7102,7 @@
             <span class="self">self</span>.state
                 .wasm_stack
                 .pop()
-                .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;Pop with wasm stack empty&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+                .ok_or_else(|| CompileError::Codegen(<span class="string">"Pop with wasm stack empty"</span>.to_owned()))<span class="question-mark">?</span>;
         }
         <span class="kw">let </span>delta_stack_offset = <span class="self">self</span>.machine.round_stack_adjust(delta_stack_offset);
         <span class="kw">if </span>delta_stack_offset != <span class="number">0 </span>{
@@ -7129,12 +7130,12 @@
                 Location::Memory(y, x) =&gt; {
                     <span class="kw">if </span>y == <span class="self">self</span>.machine.local_pointer() {
                         <span class="kw">if </span>x &gt;= <span class="number">0 </span>{
-                            <span class="macro">codegen_error!</span>(<span class="string">&quot;Invalid memory offset {}&quot;</span>, x);
+                            <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {}"</span>, x);
                         }
                         <span class="kw">let </span>offset = (-x) <span class="kw">as </span>usize;
                         <span class="kw">if </span>offset != <span class="self">self</span>.stack_offset.<span class="number">0 </span>{
                             <span class="macro">codegen_error!</span>(
-                                <span class="string">&quot;Invalid memory offset {}!={}&quot;</span>,
+                                <span class="string">"Invalid memory offset {}!={}"</span>,
                                 offset,
                                 <span class="self">self</span>.stack_offset.<span class="number">0
                             </span>);
@@ -7142,7 +7143,7 @@
                         <span class="self">self</span>.stack_offset.<span class="number">0 </span>-= <span class="number">8</span>;
                         delta_stack_offset += <span class="number">8</span>;
                         <span class="self">self</span>.state.stack_values.pop().ok_or_else(|| {
-                            CompileError::Codegen(<span class="string">&quot;Pop with values stack empty&quot;</span>.to_owned())
+                            CompileError::Codegen(<span class="string">"Pop with values stack empty"</span>.to_owned())
                         })<span class="question-mark">?</span>;
                     }
                 }
@@ -7151,7 +7152,7 @@
             <span class="self">self</span>.state
                 .wasm_stack
                 .pop()
-                .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;Pop with wasm stack empty&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+                .ok_or_else(|| CompileError::Codegen(<span class="string">"Pop with wasm stack empty"</span>.to_owned()))<span class="question-mark">?</span>;
         }
 
         <span class="kw">let </span>delta_stack_offset = <span class="self">self</span>.machine.round_stack_adjust(delta_stack_offset);
@@ -7194,16 +7195,16 @@
             <span class="kw">if let </span>Location::Memory(y, x) = <span class="kw-2">*</span>loc {
                 <span class="kw">if </span>y == <span class="self">self</span>.machine.local_pointer() {
                     <span class="kw">if </span>x &gt;= <span class="number">0 </span>{
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;Invalid memory offset {}&quot;</span>, x);
+                        <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {}"</span>, x);
                     }
                     <span class="kw">let </span>offset = (-x) <span class="kw">as </span>usize;
                     <span class="kw">if </span>offset != <span class="self">self</span>.stack_offset.<span class="number">0 </span>{
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;Invalid memory offset {}!={}&quot;</span>, offset, <span class="self">self</span>.stack_offset.<span class="number">0</span>);
+                        <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {}!={}"</span>, offset, <span class="self">self</span>.stack_offset.<span class="number">0</span>);
                     }
                     <span class="self">self</span>.stack_offset.<span class="number">0 </span>-= <span class="number">8</span>;
                     delta_stack_offset += <span class="number">8</span>;
                     <span class="self">self</span>.state.stack_values.pop().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;Pop on empty value stack&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"Pop on empty value stack"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                 }
             }
@@ -7223,7 +7224,7 @@
             .wasm_stack
             .len()
             .checked_sub(n)
-            .expect(<span class="string">&quot;release_locations_only_osr_state: length underflow&quot;</span>);
+            .expect(<span class="string">"release_locations_only_osr_state: length underflow"</span>);
         <span class="self">self</span>.state.wasm_stack.truncate(new_length);
         <span class="prelude-val">Ok</span>(())
     }
@@ -7237,11 +7238,11 @@
             <span class="kw">if let </span>Location::Memory(y, x) = <span class="kw-2">*</span>loc {
                 <span class="kw">if </span>y == <span class="self">self</span>.machine.local_pointer() {
                     <span class="kw">if </span>x &gt;= <span class="number">0 </span>{
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;Invalid memory offset {}&quot;</span>, x);
+                        <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {}"</span>, x);
                     }
                     <span class="kw">let </span>offset = (-x) <span class="kw">as </span>usize;
                     <span class="kw">if </span>offset != stack_offset {
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;Invalid memory offset {}!={}&quot;</span>, offset, <span class="self">self</span>.stack_offset.<span class="number">0</span>);
+                        <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {}!={}"</span>, offset, <span class="self">self</span>.stack_offset.<span class="number">0</span>);
                     }
                     stack_offset -= <span class="number">8</span>;
                     delta_stack_offset += <span class="number">8</span>;
@@ -7268,12 +7269,12 @@
             .filter(|<span class="kw-2">&amp;</span>x| <span class="self">self</span>.machine.is_local_on_stack(x))
             .count();
 
-        <span class="comment">// Total size (in bytes) of the pre-allocated &quot;static area&quot; for this function&#39;s
+        <span class="comment">// Total size (in bytes) of the pre-allocated "static area" for this function's
         // locals and callee-saved registers.
         </span><span class="kw">let </span><span class="kw-2">mut </span>static_area_size: usize = <span class="number">0</span>;
 
         <span class="comment">// Callee-saved registers used for locals.
-        // Keep this consistent with the &quot;Save callee-saved registers&quot; code below.
+        // Keep this consistent with the "Save callee-saved registers" code below.
         </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
             <span class="comment">// If a local is not stored on stack, then it is allocated to a callee-saved register.
             </span><span class="kw">if </span>!<span class="self">self</span>.machine.is_local_on_stack(i) {
@@ -7355,20 +7356,20 @@
                 Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                     <span class="self">self</span>.state.stack_values.push(MachineValue::WasmLocal(i));
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlpass init_local unreachable&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlpass init_local unreachable"</span>),
             }
         }
 
         <span class="comment">// Load in-register parameters into the allocated locations.
         // Locals are allocated on the stack from higher address to lower address,
-        // so we won&#39;t skip the stack guard page here.
+        // so we won't skip the stack guard page here.
         </span><span class="kw">let </span><span class="kw-2">mut </span>stack_offset: usize = <span class="number">0</span>;
         <span class="kw">for </span>(i, param) <span class="kw">in </span>sig.params().iter().enumerate() {
             <span class="kw">let </span>sz = <span class="kw">match </span><span class="kw-2">*</span>param {
                 Type::I32 | Type::F32 =&gt; Size::S32,
                 Type::I64 | Type::F64 =&gt; Size::S64,
                 Type::ExternRef | Type::FuncRef =&gt; Size::S64,
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass init_local unimplemented&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass init_local unimplemented"</span>),
             };
             <span class="kw">let </span>loc = <span class="self">self</span>.machine.get_call_param_location(
                 i + <span class="number">1</span>,
@@ -7380,7 +7381,7 @@
                 .move_location_extend(sz, <span class="bool-val">false</span>, loc, Size::S64, locations[i])<span class="question-mark">?</span>;
         }
 
-        <span class="comment">// Load vmctx into it&#39;s GPR.
+        <span class="comment">// Load vmctx into it's GPR.
         </span><span class="self">self</span>.machine.move_location(
             Size::S64,
             <span class="self">self</span>.machine
@@ -7400,7 +7401,7 @@
                 Location::GPR(<span class="kw">_</span>) =&gt; {
                     <span class="self">self</span>.machine.zero_location(Size::S64, <span class="kw-2">*</span>location)<span class="question-mark">?</span>;
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass init_local unreachable&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass init_local unreachable"</span>),
             }
         }
         <span class="kw">if </span>init_stack_loc_cnt &gt; <span class="number">0 </span>{
@@ -7418,7 +7419,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         calling_convention: CallingConvention,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="comment">// Unwind stack to the &quot;save area&quot;.
+        <span class="comment">// Unwind stack to the "save area".
         </span><span class="self">self</span>.machine
             .restore_saved_area(<span class="self">self</span>.save_area_offset.as_ref().unwrap().<span class="number">0 </span><span class="kw">as </span>i32)<span class="question-mark">?</span>;
 
@@ -7455,7 +7456,7 @@
 
     <span class="kw">fn </span>pop_value_released(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Location&lt;M::GPR, M::SIMD&gt;, CompileError&gt; {
         <span class="kw">let </span>loc = <span class="self">self</span>.value_stack.pop().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;pop_value_released: value stack is empty&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"pop_value_released: value stack is empty"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.get_location_released(loc)
     }
@@ -7537,7 +7538,7 @@
             <span class="kw">let </span>content = <span class="self">self</span>.state.register_values[<span class="self">self</span>.machine.index_from_gpr(<span class="kw-2">*</span>r).<span class="number">0</span>].clone();
             <span class="kw">if </span>content == MachineValue::Undefined {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                    <span class="string">&quot;emit_call_native: Undefined used_gprs content&quot;</span>.to_owned(),
+                    <span class="string">"emit_call_native: Undefined used_gprs content"</span>.to_owned(),
                 ));
             }
             <span class="self">self</span>.state.stack_values.push(content);
@@ -7553,7 +7554,7 @@
                     <span class="self">self</span>.state.register_values[<span class="self">self</span>.machine.index_from_simd(<span class="kw-2">*</span>r).<span class="number">0</span>].clone();
                 <span class="kw">if </span>content == MachineValue::Undefined {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                        <span class="string">&quot;emit_call_native: Undefined used_simds content&quot;</span>.to_owned(),
+                        <span class="string">"emit_call_native: Undefined used_simds content"</span>.to_owned(),
                     ));
                 }
                 <span class="self">self</span>.state.stack_values.push(content);
@@ -7624,7 +7625,7 @@
                         Location::Memory(reg, offset) =&gt; {
                             <span class="kw">if </span>reg != <span class="self">self</span>.machine.local_pointer() {
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                                    <span class="string">&quot;emit_call_native loc param: unreachable code&quot;</span>.to_owned(),
+                                    <span class="string">"emit_call_native loc param: unreachable code"</span>.to_owned(),
                                 ));
                             }
                             <span class="self">self</span>.state
@@ -7641,7 +7642,7 @@
                 }
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                        <span class="string">&quot;emit_call_native loc: unreachable code&quot;</span>.to_owned(),
+                        <span class="string">"emit_call_native loc: unreachable code"</span>.to_owned(),
                     ))
                 }
             }
@@ -7673,7 +7674,7 @@
         </span><span class="self">self</span>.machine.release_gpr(<span class="self">self</span>.machine.get_grp_for_call());
         cb(<span class="self">self</span>)<span class="question-mark">?</span>;
 
-        <span class="comment">// Offset needs to be after the &#39;call&#39; instruction.
+        <span class="comment">// Offset needs to be after the 'call' instruction.
         // TODO: Now the state information is also inserted for internal calls (e.g. MemoryGrow). Is this expected?
         </span>{
             <span class="kw">let </span>state_diff_id = <span class="self">self</span>.get_state_diff();
@@ -7699,14 +7700,14 @@
             )<span class="question-mark">?</span>;
             <span class="kw">if </span>(stack_offset % <span class="number">8</span>) != <span class="number">0 </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                    <span class="string">&quot;emit_call_native: Bad restoring stack alignement&quot;</span>.to_owned(),
+                    <span class="string">"emit_call_native: Bad restoring stack alignement"</span>.to_owned(),
                 ));
             }
             <span class="kw">for _ in </span><span class="number">0</span>..pushed_args {
                 <span class="self">self</span>.state
                     .stack_values
                     .pop()
-                    .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;Pop an empty value stack&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+                    .ok_or_else(|| CompileError::Codegen(<span class="string">"Pop an empty value stack"</span>.to_owned()))<span class="question-mark">?</span>;
             }
         }
 
@@ -7717,7 +7718,7 @@
                 <span class="self">self</span>.state
                     .stack_values
                     .pop()
-                    .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;Pop an empty value stack&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+                    .ok_or_else(|| CompileError::Codegen(<span class="string">"Pop an empty value stack"</span>.to_owned()))<span class="question-mark">?</span>;
             }
         }
 
@@ -7727,18 +7728,18 @@
             <span class="self">self</span>.state
                 .stack_values
                 .pop()
-                .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;Pop an empty value stack&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+                .ok_or_else(|| CompileError::Codegen(<span class="string">"Pop an empty value stack"</span>.to_owned()))<span class="question-mark">?</span>;
         }
 
         <span class="kw">if </span><span class="self">self
             </span>.state
             .stack_values
             .pop()
-            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;Pop an empty value stack&quot;</span>.to_owned()))<span class="question-mark">?
+            .ok_or_else(|| CompileError::Codegen(<span class="string">"Pop an empty value stack"</span>.to_owned()))<span class="question-mark">?
             </span>!= MachineValue::ExplicitShadow
         {
             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;emit_call_native: Popped value is not ExplicitShadow&quot;</span>.to_owned(),
+                <span class="string">"emit_call_native: Popped value is not ExplicitShadow"</span>.to_owned(),
             ));
         }
         <span class="prelude-val">Ok</span>(())
@@ -7793,7 +7794,7 @@
 
     <span class="kw">pub fn </span>get_state_diff(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
         <span class="kw">if </span>!<span class="self">self</span>.track_state {
-            <span class="kw">return </span>std::usize::MAX;
+            <span class="kw">return </span>usize::MAX;
         }
         <span class="kw">let </span>last_frame = <span class="self">self</span>.control_stack.last_mut().unwrap();
         <span class="kw">let </span><span class="kw-2">mut </span>diff = <span class="self">self</span>.state.diff(<span class="kw-2">&amp;</span>last_frame.state);
@@ -7824,7 +7825,7 @@
         <span class="kw">let </span>state_diff_id = <span class="self">self</span>.fsm.diffs.len();
         <span class="self">self</span>.fsm.diffs.push(diff);
 
-        <span class="comment">// simulate &quot;red zone&quot; if not supported by the platform
+        <span class="comment">// simulate "red zone" if not supported by the platform
         </span><span class="self">self</span>.machine.adjust_stack(<span class="number">32</span>)<span class="question-mark">?</span>;
 
         <span class="self">self</span>.control_stack.push(ControlFrame {
@@ -7849,9 +7850,9 @@
         // anywhere in the function prologue.
         </span><span class="self">self</span>.machine.insert_stackoverflow();
 
-        <span class="kw">if </span><span class="self">self</span>.state.wasm_inst_offset != std::usize::MAX {
+        <span class="kw">if </span><span class="self">self</span>.state.wasm_inst_offset != usize::MAX {
             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;emit_head: wasm_inst_offset not std::usize::MAX&quot;</span>.to_owned(),
+                <span class="string">"emit_head: wasm_inst_offset not usize::MAX"</span>.to_owned(),
             ));
         }
         <span class="prelude-val">Ok</span>(())
@@ -7859,16 +7860,16 @@
 
     <span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>new(
-        module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ModuleInfo,
-        config: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Singlepass,
-        vmoffsets: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VMOffsets,
-        memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
-        _table_styles: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
+        module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ModuleInfo,
+        config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Singlepass,
+        vmoffsets: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VMOffsets,
+        memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+        _table_styles: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: <span class="kw-2">&amp;</span>[WpType],
         machine: M,
         calling_convention: CallingConvention,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;FuncGen&lt;<span class="lifetime">&#39;a</span>, M&gt;, CompileError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;FuncGen&lt;<span class="lifetime">'a</span>, M&gt;, CompileError&gt; {
         <span class="kw">let </span>func_index = module.func_index(local_func_index);
         <span class="kw">let </span>sig_index = module.functions[func_index];
         <span class="kw">let </span>signature = module.signatures[sig_index].clone();
@@ -7936,7 +7937,7 @@
 
         <span class="self">self</span>.state.wasm_inst_offset = <span class="self">self</span>.state.wasm_inst_offset.wrapping_add(<span class="number">1</span>);
 
-        <span class="comment">//println!(&quot;{:?} {}&quot;, op, self.value_stack.len());
+        <span class="comment">//println!("{:?} {}", op, self.value_stack.len());
         </span><span class="kw">let </span>was_unreachable;
 
         <span class="kw">if </span><span class="self">self</span>.unreachable_depth &gt; <span class="number">0 </span>{
@@ -8048,7 +8049,7 @@
                             <span class="kw">match </span>ty {
                                 WpType::F32 =&gt; Size::S32,
                                 WpType::F64 =&gt; Size::S64,
-                                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass Operator::GlobalSet unreachable&quot;</span>),
+                                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass Operator::GlobalSet unreachable"</span>),
                             },
                             loc,
                             dst,
@@ -8089,7 +8090,7 @@
                             <span class="kw">match </span><span class="self">self</span>.local_types[local_index] {
                                 WpType::F32 =&gt; Size::S32,
                                 WpType::F64 =&gt; Size::S64,
-                                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass Operator::LocalSet unreachable&quot;</span>),
+                                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass Operator::LocalSet unreachable"</span>),
                             },
                             loc,
                             <span class="self">self</span>.locals[local_index],
@@ -8117,7 +8118,7 @@
                             <span class="kw">match </span><span class="self">self</span>.local_types[local_index] {
                                 WpType::F32 =&gt; Size::S32,
                                 WpType::F64 =&gt; Size::S64,
-                                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass Operator::LocalTee unreachable&quot;</span>),
+                                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass Operator::LocalTee unreachable"</span>),
                             },
                             loc,
                             <span class="self">self</span>.locals[local_index],
@@ -9464,7 +9465,6 @@
             Operator::CallIndirect {
                 type_index,
                 table_index,
-                table_byte: <span class="kw">_</span>,
             } =&gt; {
                 <span class="comment">// TODO: removed restriction on always being table idx 0;
                 // does any code depend on this?
@@ -9705,7 +9705,7 @@
                         WpTypeOrFuncType::Type(inner_ty) =&gt; <span class="macro">smallvec!</span>[inner_ty],
                         <span class="kw">_ </span>=&gt; {
                             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                                <span class="string">&quot;If: multi-value returns not yet implemented&quot;</span>.to_owned(),
+                                <span class="string">"If: multi-value returns not yet implemented"</span>.to_owned(),
                             ))
                         }
                     },
@@ -9753,13 +9753,13 @@
                     }
                     <span class="kw">_ </span>=&gt; {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                            <span class="string">&quot;Else: frame.if_else unreachable code&quot;</span>.to_owned(),
+                            <span class="string">"Else: frame.if_else unreachable code"</span>.to_owned(),
                         ))
                     }
                 }
             }
             <span class="comment">// `TypedSelect` must be used for extern refs so ref counting should
-            // be done with TypedSelect. But otherwise they&#39;re the same.
+            // be done with TypedSelect. But otherwise they're the same.
             </span>Operator::TypedSelect { .. } | Operator::Select =&gt; {
                 <span class="kw">let </span>cond = <span class="self">self</span>.pop_value_released()<span class="question-mark">?</span>;
                 <span class="kw">let </span>v_b = <span class="self">self</span>.pop_value_released()<span class="question-mark">?</span>;
@@ -9828,7 +9828,7 @@
                         WpTypeOrFuncType::Type(inner_ty) =&gt; <span class="macro">smallvec!</span>[inner_ty],
                         <span class="kw">_ </span>=&gt; {
                             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                                <span class="string">&quot;Block: multi-value returns not yet implemented&quot;</span>.to_owned(),
+                                <span class="string">"Block: multi-value returns not yet implemented"</span>.to_owned(),
                             ))
                         }
                     },
@@ -9854,7 +9854,7 @@
                         WpTypeOrFuncType::Type(inner_ty) =&gt; <span class="macro">smallvec!</span>[inner_ty],
                         <span class="kw">_ </span>=&gt; {
                             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                                <span class="string">&quot;Loop: multi-value returns not yet implemented&quot;</span>.to_owned(),
+                                <span class="string">"Loop: multi-value returns not yet implemented"</span>.to_owned(),
                             ))
                         }
                     },
@@ -9868,7 +9868,7 @@
                 <span class="comment">// TODO: Re-enable interrupt signal check without branching
             </span>}
             Operator::Nop =&gt; {}
-            Operator::MemorySize { mem, mem_byte: <span class="kw">_ </span>} =&gt; {
+            Operator::MemorySize { mem } =&gt; {
                 <span class="kw">let </span>memory_index = MemoryIndex::new(mem <span class="kw">as </span>usize);
                 <span class="self">self</span>.machine.move_location(
                     Size::S64,
@@ -10074,7 +10074,7 @@
                 )<span class="question-mark">?</span>;
                 <span class="self">self</span>.release_locations_only_stack(<span class="kw-2">&amp;</span>[dst, val, len])<span class="question-mark">?</span>;
             }
-            Operator::MemoryGrow { mem, mem_byte: <span class="kw">_ </span>} =&gt; {
+            Operator::MemoryGrow { mem } =&gt; {
                 <span class="kw">let </span>memory_index = MemoryIndex::new(mem <span class="kw">as </span>usize);
                 <span class="kw">let </span>param_pages = <span class="self">self</span>.value_stack.pop().unwrap();
 
@@ -10728,7 +10728,7 @@
                 <span class="kw">if </span>!frame.returns.is_empty() {
                     <span class="kw">if </span>frame.returns.len() != <span class="number">1 </span>{
                         <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                            <span class="string">&quot;Return: incorrect frame.returns&quot;</span>.to_owned(),
+                            <span class="string">"Return: incorrect frame.returns"</span>.to_owned(),
                         ));
                     }
                     <span class="kw">let </span>first_return = frame.returns[<span class="number">0</span>];
@@ -10757,7 +10757,7 @@
                 <span class="kw">if </span>!frame.loop_like &amp;&amp; !frame.returns.is_empty() {
                     <span class="kw">if </span>frame.returns.len() != <span class="number">1 </span>{
                         <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                            <span class="string">&quot;Br: incorrect frame.returns&quot;</span>.to_owned(),
+                            <span class="string">"Br: incorrect frame.returns"</span>.to_owned(),
                         ));
                     }
                     <span class="kw">let </span>first_return = frame.returns[<span class="number">0</span>];
@@ -10794,7 +10794,7 @@
                 <span class="kw">if </span>!frame.loop_like &amp;&amp; !frame.returns.is_empty() {
                     <span class="kw">if </span>frame.returns.len() != <span class="number">1 </span>{
                         <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                            <span class="string">&quot;BrIf: incorrect frame.returns&quot;</span>.to_owned(),
+                            <span class="string">"BrIf: incorrect frame.returns"</span>.to_owned(),
                         ));
                     }
 
@@ -10825,7 +10825,7 @@
                 <span class="kw">let </span>targets = targets
                     .targets()
                     .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()
-                    .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;BrTable read_table: {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+                    .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"BrTable read_table: {:?}"</span>, e)))<span class="question-mark">?</span>;
                 <span class="kw">let </span>cond = <span class="self">self</span>.pop_value_released()<span class="question-mark">?</span>;
                 <span class="kw">let </span>table_label = <span class="self">self</span>.machine.get_label();
                 <span class="kw">let </span><span class="kw-2">mut </span>table: Vec&lt;Label&gt; = <span class="macro">vec!</span>[];
@@ -10848,7 +10848,7 @@
                     <span class="kw">if </span>!frame.loop_like &amp;&amp; !frame.returns.is_empty() {
                         <span class="kw">if </span>frame.returns.len() != <span class="number">1 </span>{
                             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                                <span class="string">&quot;BrTable: incorrect frame.returns for {:?}&quot;</span>,
+                                <span class="string">"BrTable: incorrect frame.returns for {:?}"</span>,
                                 target
                             )));
                         }
@@ -10881,7 +10881,7 @@
                     <span class="kw">if </span>!frame.loop_like &amp;&amp; !frame.returns.is_empty() {
                         <span class="kw">if </span>frame.returns.len() != <span class="number">1 </span>{
                             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                                <span class="string">&quot;BrTable: incorrect frame.returns&quot;</span>.to_owned(),
+                                <span class="string">"BrTable: incorrect frame.returns"</span>.to_owned(),
                             ));
                         }
 
@@ -10967,7 +10967,7 @@
                     <span class="kw">if </span>!frame.returns.is_empty() {
                         <span class="kw">if </span>frame.returns.len() != <span class="number">1 </span>{
                             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                                <span class="string">&quot;End: incorrect frame.returns&quot;</span>.to_owned(),
+                                <span class="string">"End: incorrect frame.returns"</span>.to_owned(),
                             ));
                         }
                         <span class="kw">let </span>loc = <span class="self">self</span>.acquire_locations(
@@ -10996,8 +10996,8 @@
                 //
                 // Fence was added to preserve information about fences from
                 // source languages. If in the future Wasm extends the memory
-                // model, and if we hadn&#39;t recorded what fences used to be there,
-                // it would lead to data races that weren&#39;t present in the
+                // model, and if we hadn't recorded what fences used to be there,
+                // it would lead to data races that weren't present in the
                 // original source language.
                 </span><span class="self">self</span>.machine.emit_memory_fence()<span class="question-mark">?</span>;
             }
@@ -12817,7 +12817,7 @@
 
                 <span class="kw">let </span>ret = <span class="self">self</span>.acquire_locations(
                     <span class="kw-2">&amp;</span>[(
-                        WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Func).unwrap()),
+                        WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::FUNC).unwrap()),
                         MachineValue::WasmStack(<span class="self">self</span>.value_stack.len()),
                     )],
                     <span class="bool-val">false</span>,
@@ -12842,6 +12842,7 @@
                 <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
                 <span class="kw">let </span>value = <span class="self">self</span>.value_stack.pop().unwrap();
                 <span class="kw">let </span>index = <span class="self">self</span>.value_stack.pop().unwrap();
+
                 <span class="comment">// double check this does what I think it does
                 </span><span class="self">self</span>.release_locations_only_regs(<span class="kw-2">&amp;</span>[value, index])<span class="question-mark">?</span>;
 
@@ -12879,6 +12880,7 @@
             Operator::TableGet { table: index } =&gt; {
                 <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
                 <span class="kw">let </span>index = <span class="self">self</span>.value_stack.pop().unwrap();
+
                 <span class="self">self</span>.release_locations_only_regs(<span class="kw-2">&amp;</span>[index])<span class="question-mark">?</span>;
 
                 <span class="self">self</span>.machine.move_location(
@@ -12913,7 +12915,7 @@
 
                 <span class="kw">let </span>ret = <span class="self">self</span>.acquire_locations(
                     <span class="kw-2">&amp;</span>[(
-                        WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Func).unwrap()),
+                        WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::FUNC).unwrap()),
                         MachineValue::WasmStack(<span class="self">self</span>.value_stack.len()),
                     )],
                     <span class="bool-val">false</span>,
@@ -12978,7 +12980,7 @@
                             <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
                                 VMBuiltinFunctionIndex::get_table_grow_index()
                             } <span class="kw">else </span>{
-                                VMBuiltinFunctionIndex::get_imported_table_get_index()
+                                VMBuiltinFunctionIndex::get_imported_table_grow_index()
                             },
                         ) <span class="kw">as </span>i32,
                     ),
@@ -13351,7 +13353,7 @@
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                    <span class="string">&quot;not yet implemented: {:?}&quot;</span>,
+                    <span class="string">"not yet implemented: {:?}"</span>,
                     op
                 )));
             }
@@ -13402,7 +13404,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>unwind_info = <span class="prelude-val">None</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>fde = <span class="prelude-val">None</span>;
-        <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
         </span><span class="kw">match </span><span class="self">self</span>.calling_convention {
             CallingConvention::SystemV | CallingConvention::AppleAarch64 =&gt; {
                 <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_dwarf_unwind_info(body_len);
@@ -13478,7 +13480,7 @@
                 let empty_set = HashSet::new();
                 for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
                     if black.contains(x) {
-                        panic!(&quot;cycle detected&quot;);
+                        panic!("cycle detected");
                     }
                     q.push_back(*x);
                     black.insert(*x);

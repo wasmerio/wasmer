@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -987,18 +987,6 @@
 <a href="#987" id="987">987</a>
 <a href="#988" id="988">988</a>
 <a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
-<a href="#993" id="993">993</a>
-<a href="#994" id="994">994</a>
-<a href="#995" id="995">995</a>
-<a href="#996" id="996">996</a>
-<a href="#997" id="997">997</a>
-<a href="#998" id="998">998</a>
-<a href="#999" id="999">999</a>
-<a href="#1000" id="1000">1000</a>
-<a href="#1001" id="1001">1001</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1023,19 +1011,20 @@
 <span class="kw">use </span>once_cell::sync::Lazy;
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>url::Url;
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">use </span>wasmer::NativeEngineExt;
 <span class="kw">use </span>wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span>wasmer_compiler::ArtifactBuild;
 <span class="kw">use </span>wasmer_config::package::PackageSource <span class="kw">as </span>PackageSpecifier;
-<span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, Package};
+<span class="kw">use </span>wasmer_package::utils::from_disk;
 <span class="kw">use </span>wasmer_types::ModuleHash;
-<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+
+<span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use </span>wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 <span class="kw">use </span>wasmer_wasix::{
     bin_factory::BinaryPackage,
@@ -1043,7 +1032,6 @@
     runners::{
         dcgi::{DcgiInstanceFactory, DcgiRunner},
         dproxy::DProxyRunner,
-        emscripten::EmscriptenRunner,
         wasi::WasiRunner,
         wcgi::{<span class="self">self</span>, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
@@ -1054,11 +1042,12 @@
     },
     Runtime, WasiError,
 };
-<span class="kw">use </span>webc::{metadata::Manifest, Container};
+<span class="kw">use </span>webc::metadata::Manifest;
+<span class="kw">use </span>webc::Container;
 
 <span class="kw">use crate</span>::{
-    commands::run::wasi::Wasi, common::HashAlgorithm, error::PrettyError, logging::Output,
-    store::StoreOptions,
+    commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
+    logging::Output, store::StoreOptions,
 };
 
 <span class="kw">const </span>TICK: Duration = Duration::from_millis(<span class="number">250</span>);
@@ -1075,13 +1064,16 @@
     <span class="attr">#[clap(flatten)]
     </span>wcgi: WcgiOptions,
     <span class="doccomment">/// Set the default stack size (default is 1048576)
-    </span><span class="attr">#[clap(long = <span class="string">&quot;stack-size&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"stack-size"</span>)]
     </span>stack_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-    <span class="doccomment">/// The function or command to invoke.
-    </span><span class="attr">#[clap(short, long, aliases = <span class="kw-2">&amp;</span>[<span class="string">&quot;command&quot;</span>, <span class="string">&quot;invoke&quot;</span>, <span class="string">&quot;command-name&quot;</span>]</span>)]
+    <span class="doccomment">/// The entrypoint module for webc packages.
+    </span><span class="attr">#[clap(short, long, aliases = <span class="kw-2">&amp;</span>[<span class="string">"command"</span>, <span class="string">"command-name"</span>]</span>)]
     entrypoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// The function to invoke.
+    </span><span class="attr">#[clap(short, long)]
+    </span>invoke: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Generate a coredump at this path if a WebAssembly trap occurs
-    </span><span class="attr">#[clap(name = <span class="string">&quot;COREDUMP_PATH&quot;</span>, long)]
+    </span><span class="attr">#[clap(name = <span class="string">"COREDUMP_PATH"</span>, long)]
     </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
     <span class="doccomment">/// The file, URL, or package to run.
     </span><span class="attr">#[clap(value_parser = PackageSource::infer)]
@@ -1099,39 +1091,39 @@
         exit_with_wasi_exit_code(result);
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, name = <span class="string">&quot;wasmer_run&quot;</span>, skip_all)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, name = <span class="string">"wasmer_run"</span>, skip_all)]
     </span><span class="kw">fn </span>execute_inner(<span class="kw-2">mut </span><span class="self">self</span>, output: Output) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
         pb.enable_steady_tick(TICK);
 
-        pb.set_message(<span class="string">&quot;Initializing the WebAssembly VM&quot;</span>);
+        pb.set_message(<span class="string">"Initializing the WebAssembly VM"</span>);
 
         <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()<span class="question-mark">?</span>;
         <span class="kw">let </span>handle = runtime.handle().clone();
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
         </span><span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
             wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
         }
 
         <span class="comment">// Check for the preferred webc version.
         // Default to v3.
-        </span><span class="kw">let </span>webc_version_var = std::env::var(<span class="string">&quot;WASMER_WEBC_VERSION&quot;</span>);
+        </span><span class="kw">let </span>webc_version_var = std::env::var(<span class="string">"WASMER_WEBC_VERSION"</span>);
         <span class="kw">let </span>preferred_webc_version = <span class="kw">match </span>webc_version_var.as_deref() {
-            <span class="prelude-val">Ok</span>(<span class="string">&quot;2&quot;</span>) =&gt; webc::Version::V2,
-            <span class="prelude-val">Ok</span>(<span class="string">&quot;3&quot;</span>) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; webc::Version::V3,
+            <span class="prelude-val">Ok</span>(<span class="string">"2"</span>) =&gt; webc::Version::V2,
+            <span class="prelude-val">Ok</span>(<span class="string">"3"</span>) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; webc::Version::V3,
             <span class="prelude-val">Ok</span>(other) =&gt; {
-                <span class="macro">bail!</span>(<span class="string">&quot;unknown webc version: &#39;{other}&#39;&quot;</span>);
+                <span class="macro">bail!</span>(<span class="string">"unknown webc version: '{other}'"</span>);
             }
         };
 
         <span class="kw">let </span>_guard = handle.enter();
         <span class="kw">let </span>(store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
         </span><span class="kw">let </span>engine = {
             <span class="kw">let </span><span class="kw-2">mut </span>engine = store.engine().clone();
             <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
@@ -1139,7 +1131,7 @@
 
             engine
         };
-        <span class="attr">#[cfg(not(feature = <span class="string">&quot;sys&quot;</span>))]
+        <span class="attr">#[cfg(not(feature = <span class="string">"sys"</span>))]
         </span><span class="kw">let </span>engine = store.engine().clone();
 
         <span class="kw">let </span>runtime = <span class="self">self</span>.wasi.prepare_runtime(
@@ -1150,7 +1142,7 @@
             preferred_webc_version,
         )<span class="question-mark">?</span>;
 
-        <span class="comment">// This is a slow operation, so let&#39;s temporarily wrap the runtime with
+        <span class="comment">// This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
         </span><span class="kw">let </span>monitoring_runtime = Arc::new(MonitoringRuntime::new(runtime, pb.clone()));
         <span class="kw">let </span>runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt; = monitoring_runtime.runtime.clone();
@@ -1203,9 +1195,7 @@
         <span class="kw-2">mut </span>store: Store,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">if </span>wasmer_emscripten::is_emscripten_module(module) {
-            <span class="self">self</span>.execute_emscripten_module()
-        } <span class="kw">else if </span>wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
+        <span class="kw">if </span>wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
             <span class="self">self</span>.execute_wasi_module(path, module, module_hash, runtime, store)
         } <span class="kw">else </span>{
             <span class="self">self</span>.execute_pure_wasm_module(module, <span class="kw-2">&amp;mut </span>store)
@@ -1224,7 +1214,7 @@
         };
         <span class="kw">let </span>cmd = pkg
             .get_command(id)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to get metadata for the \&quot;{id}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to get metadata for the \"{id}\" command"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>uses = <span class="self">self</span>.load_injected_packages(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
 
@@ -1236,17 +1226,15 @@
             <span class="self">self</span>.run_wcgi(id, pkg, uses, runtime)
         } <span class="kw">else if </span>WasiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
             <span class="self">self</span>.run_wasi(id, pkg, uses, runtime)
-        } <span class="kw">else if </span>EmscriptenRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
-            <span class="self">self</span>.run_emscripten(id, pkg, runtime)
         } <span class="kw">else </span>{
             <span class="macro">bail!</span>(
-                <span class="string">&quot;Unable to find a runner that supports \&quot;{}\&quot;&quot;</span>,
+                <span class="string">"Unable to find a runner that supports \"{}\""</span>,
                 cmd.metadata().runner
             );
         }
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">fn </span>load_injected_packages(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
@@ -1255,7 +1243,7 @@
 
         <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.wasi.uses {
             <span class="kw">let </span>specifier = PackageSpecifier::from_str(name)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{name}\&quot; as a package specifier&quot;</span>))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{name}\" as a package specifier"</span>))<span class="question-mark">?</span>;
             <span class="kw">let </span>pkg = {
                 <span class="kw">let </span>specifier = specifier.clone();
                 <span class="kw">let </span>inner_runtime = runtime.clone();
@@ -1264,7 +1252,7 @@
                     .spawn_and_block_on(<span class="kw">async move </span>{
                         BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, inner_runtime.as_ref()).<span class="kw">await
                     </span>})
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">??
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{name}\""</span>))<span class="question-mark">??
             </span>};
             dependencies.push(pkg);
         }
@@ -1312,7 +1300,7 @@
             config.forward_host_env();
         }
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
             <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                 config.add_snapshot_trigger(trigger);
@@ -1323,7 +1311,7 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
                 <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                        <span class="string">&quot;If you specify a snapshot interval then you must also specify a journal file&quot;
+                        <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
                     </span>));
                 }
                 config.with_snapshot_interval(Duration::from_millis(period));
@@ -1360,45 +1348,33 @@
         runner.run_command(command_name, pkg, runtime)
     }
 
-    <span class="kw">fn </span>run_emscripten(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        command_name: <span class="kw-2">&amp;</span>str,
-        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
-        runner.set_args(<span class="self">self</span>.args.clone());
-
-        runner.run_command(command_name, pkg, runtime)
-    }
-
     <span class="attr">#[tracing::instrument(skip_all)]
     </span><span class="kw">fn </span>execute_pure_wasm_module(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>imports = Imports::default();
         <span class="kw">let </span>instance = Instance::new(store, module, <span class="kw-2">&amp;</span>imports)
-            .context(<span class="string">&quot;Unable to instantiate the WebAssembly module&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Unable to instantiate the WebAssembly module"</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>entrypoint  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.entrypoint {
+        <span class="kw">let </span>entry_function  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.invoke {
             <span class="prelude-val">Some</span>(entry) =&gt; {
                 instance.exports
                     .get_function(entry)
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The module doesn&#39;t contain a \&quot;{entry}\&quot; function&quot;</span>))<span class="question-mark">?
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">"The module doesn't export a function named \"{entry}\""</span>))<span class="question-mark">?
             </span>},
             <span class="prelude-val">None </span>=&gt; {
-                instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)
-                    .context(<span class="string">&quot;The module doesn&#39;t contain a \&quot;_start\&quot; function. Either implement it or specify an entrypoint function.&quot;</span>)<span class="question-mark">?
+                instance.exports.get_function(<span class="string">"_start"</span>)
+                    .context(<span class="string">"The module doesn't export a \"_start\" function. Either implement it or specify an entry function with --invoke"</span>)<span class="question-mark">?
             </span>}
         };
 
-        <span class="kw">let </span>return_values = invoke_function(<span class="kw-2">&amp;</span>instance, store, entrypoint, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
+        <span class="kw">let </span>return_values = invoke_function(<span class="kw-2">&amp;</span>instance, store, entry_function, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
 
         <span class="macro">println!</span>(
-            <span class="string">&quot;{}&quot;</span>,
+            <span class="string">"{}"</span>,
             return_values
                 .iter()
                 .map(|val| val.to_string())
                 .collect::&lt;Vec&lt;String&gt;&gt;()
-                .join(<span class="string">&quot; &quot;</span>)
+                .join(<span class="string">" "</span>)
         );
 
         <span class="prelude-val">Ok</span>(())
@@ -1426,7 +1402,11 @@
             .with_forward_host_env(<span class="self">self</span>.wasi.forward_host_env)
             .with_capabilities(<span class="self">self</span>.wasi.capabilities());
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>entry_function) = <span class="self">self</span>.invoke {
+            runner.with_entry_function(entry_function);
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
             <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                 runner.with_snapshot_trigger(trigger);
@@ -1437,7 +1417,7 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
                 <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                        <span class="string">&quot;If you specify a snapshot interval then you must also specify a journal file&quot;
+                        <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
                     </span>));
                 }
                 runner.with_snapshot_interval(Duration::from_millis(period));
@@ -1471,45 +1451,40 @@
         )
     }
 
-    <span class="attr">#[tracing::instrument(skip_all)]
-    </span><span class="kw">fn </span>execute_emscripten_module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">bail!</span>(<span class="string">&quot;Emscripten packages are not currently supported&quot;</span>)
-    }
-
     <span class="attr">#[allow(unused_variables)]
     </span><span class="kw">fn </span>maybe_save_coredump(<span class="kw-2">&amp;</span><span class="self">self</span>, e: <span class="kw-2">&amp;</span>Error) {
-        <span class="attr">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap {
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = generate_coredump(e, <span class="self">self</span>.input.to_string(), coredump) {
                 <span class="macro">tracing::warn!</span>(
                     error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
                     coredump_path=%coredump.display(),
-                    <span class="string">&quot;Unable to generate a coredump&quot;</span>,
+                    <span class="string">"Unable to generate a coredump"</span>,
                 );
             }
         }
     }
 
-    <span class="doccomment">/// Create Run instance for arguments/env, assuming we&#39;re being run from a
+    <span class="doccomment">/// Create Run instance for arguments/env, assuming we're being run from a
     /// CFP binfmt interpreter.
     </span><span class="kw">pub fn </span>from_binfmt_args() -&gt; <span class="self">Self </span>{
         Run::from_binfmt_args_fallible().unwrap_or_else(|e| {
             <span class="kw">crate</span>::error::PrettyError::report::&lt;()&gt;(
-                <span class="prelude-val">Err</span>(e).context(<span class="string">&quot;Failed to set up wasmer binfmt invocation&quot;</span>),
+                <span class="prelude-val">Err</span>(e).context(<span class="string">"Failed to set up wasmer binfmt invocation"</span>),
             )
         })
     }
 
     <span class="kw">fn </span>from_binfmt_args_fallible() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-        <span class="kw">if </span>!<span class="macro">cfg!</span>(linux) {
-            <span class="macro">bail!</span>(<span class="string">&quot;binfmt_misc is only available on linux.&quot;</span>);
+        <span class="kw">if </span><span class="macro">cfg!</span>(not(target_os = <span class="string">"linux"</span>)) {
+            <span class="macro">bail!</span>(<span class="string">"binfmt_misc is only available on linux."</span>);
         }
 
         <span class="kw">let </span>argv = std::env::args().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         <span class="kw">let </span>(_interpreter, executable, original_executable, args) = <span class="kw">match </span><span class="kw-2">&amp;</span>argv[..] {
             [a, b, c, rest @ ..] =&gt; (a, b, c, rest),
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">bail!</span>(<span class="string">&quot;Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})&quot;</span>, argv);
+                <span class="macro">bail!</span>(<span class="string">"Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})"</span>, argv);
             }
         };
         <span class="kw">let </span>store = StoreOptions::default();
@@ -1520,6 +1495,7 @@
             wcgi: WcgiOptions::default(),
             stack_size: <span class="prelude-val">None</span>,
             entrypoint: <span class="prelude-val">Some</span>(original_executable.to_string()),
+            invoke: <span class="prelude-val">None</span>,
             coredump_on_trap: <span class="prelude-val">None</span>,
             input: PackageSource::infer(executable)<span class="question-mark">?</span>,
             args: args.to_vec(),
@@ -1540,7 +1516,7 @@
 
     <span class="macro">anyhow::ensure!</span>(
         required_arguments == provided_arguments,
-        <span class="string">&quot;Function expected {} arguments, but received {}&quot;</span>,
+        <span class="string">"Function expected {} arguments, but received {}"</span>,
         required_arguments,
         provided_arguments,
     );
@@ -1550,7 +1526,7 @@
         .zip(func_ty.params().iter())
         .map(|(arg, param_type)| {
             parse_value(arg, <span class="kw-2">*</span>param_type)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to convert {arg:?} to {param_type:?}&quot;</span>))
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to convert {arg:?} to {param_type:?}"</span>))
         })
         .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
@@ -1566,7 +1542,7 @@
         Type::F32 =&gt; Value::F32(s.parse()<span class="question-mark">?</span>),
         Type::F64 =&gt; Value::F64(s.parse()<span class="question-mark">?</span>),
         Type::V128 =&gt; Value::V128(s.parse()<span class="question-mark">?</span>),
-        <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;There is no known conversion from {s:?} to {ty:?}&quot;</span>),
+        <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"There is no known conversion from {s:?} to {ty:?}"</span>),
     };
     <span class="prelude-val">Ok</span>(value)
 }
@@ -1596,7 +1572,7 @@
         }
 
         <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;Unable to resolve \&quot;{s}\&quot; as a URL, package name, or file on disk&quot;
+            <span class="string">"Unable to resolve \"{s}\" as a URL, package name, or file on disk"
         </span>))
     }
 
@@ -1604,7 +1580,7 @@
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
-    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">fn </span>resolve_target(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rt: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
@@ -1614,7 +1590,7 @@
             PackageSource::File(path) =&gt; ExecutableTarget::from_file(path, rt, pb),
             PackageSource::Dir(d) =&gt; ExecutableTarget::from_dir(d, rt, pb),
             PackageSource::Package(pkg) =&gt; {
-                pb.set_message(<span class="string">&quot;Loading from the registry&quot;</span>);
+                pb.set_message(<span class="string">"Loading from the registry"</span>);
                 <span class="kw">let </span>inner_pck = pkg.clone();
                 <span class="kw">let </span>inner_rt = rt.clone();
                 <span class="kw">let </span>pkg = rt.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
@@ -1627,15 +1603,15 @@
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>PackageSource {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            PackageSource::File(path) | PackageSource::Dir(path) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, path.display()),
-            PackageSource::Package(p) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{p}&quot;</span>),
+            PackageSource::File(path) | PackageSource::Dir(path) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, path.display()),
+            PackageSource::Package(p) =&gt; <span class="macro">write!</span>(f, <span class="string">"{p}"</span>),
         }
     }
 }
 
-<span class="doccomment">/// We&#39;ve been given the path for a file... What does it contain and how should
+<span class="doccomment">/// We've been given the path for a file... What does it contain and how should
 /// that be run?
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">enum </span>TargetOnDisk {
@@ -1652,7 +1628,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0_u8</span>; <span class="number">512</span>];
 
         <span class="kw">let </span><span class="kw-2">mut </span>f = File::open(path)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to open \&quot;{}\&quot; for reading&quot;</span>, path.display(),))<span class="question-mark">?</span>;
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to open \"{}\" for reading"</span>, path.display(),))<span class="question-mark">?</span>;
         <span class="kw">let </span>bytes_read = f.read(<span class="kw-2">&amp;mut </span>buffer)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>leading_bytes = <span class="kw-2">&amp;</span>buffer[..bytes_read];
@@ -1665,20 +1641,20 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(TargetOnDisk::LocalWebc);
         }
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
         </span><span class="kw">if </span>ArtifactBuild::is_deserializable(leading_bytes) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(TargetOnDisk::Artifact);
         }
 
-        <span class="comment">// If we can&#39;t figure out the file type based on its content, fall back
+        <span class="comment">// If we can't figure out the file type based on its content, fall back
         // to checking the extension.
 
         </span><span class="kw">match </span>path.extension().and_then(|s| s.to_str()) {
-            <span class="prelude-val">Some</span>(<span class="string">&quot;wat&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::Wat),
-            <span class="prelude-val">Some</span>(<span class="string">&quot;wasm&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary),
-            <span class="prelude-val">Some</span>(<span class="string">&quot;webc&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::LocalWebc),
-            <span class="prelude-val">Some</span>(<span class="string">&quot;wasmu&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary),
-            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unable to determine how to execute \&quot;{}\&quot;&quot;</span>, path.display()),
+            <span class="prelude-val">Some</span>(<span class="string">"wat"</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::Wat),
+            <span class="prelude-val">Some</span>(<span class="string">"wasm"</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary),
+            <span class="prelude-val">Some</span>(<span class="string">"webc"</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::LocalWebc),
+            <span class="prelude-val">Some</span>(<span class="string">"wasmu"</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary),
+            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">"Unable to determine how to execute \"{}\""</span>, path.display()),
         }
     }
 }
@@ -1696,14 +1672,14 @@
 <span class="kw">impl </span>ExecutableTarget {
     <span class="doccomment">/// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
-    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">fn </span>from_dir(
         dir: <span class="kw-2">&amp;</span>Path,
         runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         pb: <span class="kw-2">&amp;</span>ProgressBar,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-        pb.set_message(<span class="macro">format!</span>(<span class="string">&quot;Loading \&quot;{}\&quot; into memory&quot;</span>, dir.display()));
-        pb.set_message(<span class="string">&quot;Resolving dependencies&quot;</span>);
+        pb.set_message(<span class="macro">format!</span>(<span class="string">"Loading \"{}\" into memory"</span>, dir.display()));
+        pb.set_message(<span class="string">"Resolving dependencies"</span>);
         <span class="kw">let </span>inner_runtime = runtime.clone();
         <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on({
             <span class="kw">let </span>path = dir.to_path_buf();
@@ -1715,22 +1691,22 @@
     }
 
     <span class="doccomment">/// Try to load a file into something that can be used to run it.
-    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">fn </span>from_file(
         path: <span class="kw-2">&amp;</span>Path,
         runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         pb: <span class="kw-2">&amp;</span>ProgressBar,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-        pb.set_message(<span class="macro">format!</span>(<span class="string">&quot;Loading from \&quot;{}\&quot;&quot;</span>, path.display()));
+        pb.set_message(<span class="macro">format!</span>(<span class="string">"Loading from \"{}\""</span>, path.display()));
 
         <span class="kw">match </span>TargetOnDisk::from_file(path)<span class="question-mark">? </span>{
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat =&gt; {
                 <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
 
-                pb.set_message(<span class="string">&quot;Compiling to WebAssembly&quot;</span>);
+                pb.set_message(<span class="string">"Compiling to WebAssembly"</span>);
                 <span class="kw">let </span>module = runtime
                     .load_module_sync(<span class="kw-2">&amp;</span>wasm)
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to compile \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to compile \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
                     module,
@@ -1740,11 +1716,11 @@
             }
             TargetOnDisk::Artifact =&gt; {
                 <span class="kw">let </span>engine = runtime.engine();
-                pb.set_message(<span class="string">&quot;Deserializing pre-compiled WebAssembly module&quot;</span>);
+                pb.set_message(<span class="string">"Deserializing pre-compiled WebAssembly module"</span>);
                 <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>engine, path)<span class="question-mark">? </span>};
 
                 <span class="kw">let </span>module_hash = module.info().hash.ok_or_else(|| {
-                    anyhow::Error::msg(<span class="string">&quot;module hash is not present in the artifact&quot;</span>)
+                    anyhow::Error::msg(<span class="string">"module hash is not present in the artifact"</span>)
                 })<span class="question-mark">?</span>;
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
@@ -1754,8 +1730,8 @@
                 })
             }
             TargetOnDisk::LocalWebc =&gt; {
-                <span class="kw">let </span>container = Container::from_disk(path)<span class="question-mark">?</span>;
-                pb.set_message(<span class="string">&quot;Resolving dependencies&quot;</span>);
+                <span class="kw">let </span>container = from_disk(path)<span class="question-mark">?</span>;
+                pb.set_message(<span class="string">"Resolving dependencies"</span>);
 
                 <span class="kw">let </span>inner_runtime = runtime.clone();
                 <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
@@ -1767,12 +1743,12 @@
     }
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
 </span><span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source_name: String, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
     <span class="kw">let </span>err: <span class="kw-2">&amp;</span>wasmer::RuntimeError = <span class="kw">match </span>err.downcast_ref() {
         <span class="prelude-val">Some</span>(e) =&gt; e,
         <span class="prelude-val">None </span>=&gt; {
-            <span class="macro">log::warn!</span>(<span class="string">&quot;no runtime error found to generate coredump with&quot;</span>);
+            <span class="macro">log::warn!</span>(<span class="string">"no runtime error found to generate coredump with"</span>);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
     };
@@ -1780,7 +1756,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>coredump_builder =
         wasm_coredump_builder::CoredumpBuilder::new().executable_name(<span class="kw-2">&amp;</span>source_name);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">&quot;main&quot;</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">"main"</span>);
 
     <span class="kw">for </span>frame <span class="kw">in </span>err.trace() {
         <span class="kw">let </span>coredump_frame = wasm_coredump_builder::FrameBuilder::new()
@@ -1795,11 +1771,11 @@
     <span class="kw">let </span>coredump = coredump_builder
         .serialize()
         .map_err(Error::msg)
-        .context(<span class="string">&quot;Coredump serializing failed&quot;</span>)<span class="question-mark">?</span>;
+        .context(<span class="string">"Coredump serializing failed"</span>)<span class="question-mark">?</span>;
 
     std::fs::write(coredump_path, <span class="kw-2">&amp;</span>coredump).with_context(|| {
         <span class="macro">format!</span>(
-            <span class="string">&quot;Unable to save the coredump to \&quot;{}\&quot;&quot;</span>,
+            <span class="string">"Unable to save the coredump to \"{}\""</span>,
             coredump_path.display()
         )
     })<span class="question-mark">?</span>;
@@ -1839,7 +1815,7 @@
 
 <span class="kw">impl </span>wasmer_wasix::runners::wcgi::Callbacks <span class="kw">for </span>Callbacks {
     <span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {
-        <span class="macro">println!</span>(<span class="string">&quot;WCGI Server running at http://{}/&quot;</span>, <span class="self">self</span>.addr);
+        <span class="macro">println!</span>(<span class="string">"WCGI Server running at http://{}/"</span>, <span class="self">self</span>.addr);
     }
 
     <span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_message: <span class="kw-2">&amp;</span>[u8]) {
@@ -1862,7 +1838,7 @@
             <span class="kw">match </span>error.chain().find_map(get_exit_code) {
                 <span class="prelude-val">Some</span>(exit_code) =&gt; exit_code.raw(),
                 <span class="prelude-val">None </span>=&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;{:?}&quot;</span>, PrettyError::new(error));
+                    <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, PrettyError::new(error));
                     <span class="comment">// Something else happened
                     </span><span class="number">1
                 </span>}
@@ -1877,7 +1853,7 @@
 }
 
 <span class="kw">fn </span>get_exit_code(
-    error: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>),
+    error: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>),
 ) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_wasix::types::wasi::ExitCode&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(WasiError::Exit(exit_code)) = error.downcast_ref() {
         <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>exit_code);
@@ -1966,7 +1942,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         package: <span class="kw-2">&amp;</span>PackageSpecifier,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;wasmer_wasix::runtime::resolver::PackageSummary&gt;, QueryError&gt; {
-        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">&quot;Looking up {package}&quot;</span>));
+        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">"Looking up {package}"</span>));
         <span class="self">self</span>.inner.query(package).<span class="kw">await
     </span>}
 }
@@ -1984,7 +1960,7 @@
         summary: <span class="kw-2">&amp;</span>wasmer_wasix::runtime::resolver::PackageSummary,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
         <span class="kw">let </span>pkg_id = summary.package_id();
-        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">&quot;Downloading {pkg_id}&quot;</span>));
+        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">"Downloading {pkg_id}"</span>));
 
         <span class="self">self</span>.inner.load(summary).<span class="kw">await
     </span>}

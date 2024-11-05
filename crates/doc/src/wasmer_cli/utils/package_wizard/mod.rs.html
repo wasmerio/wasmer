@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/utils/package_wizard/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/utils/package_wizard/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -428,35 +428,35 @@
 //
 // use anyhow::Context;
 // use dialoguer::{theme::ColorfulTheme, Select};
-// use wasmer_api::{types::UserWithNamespaces, WasmerClient};
+// use wasmer_backend_api::{types::UserWithNamespaces, WasmerClient};
 //
 // use super::prompts::PackageCheckMode;
 //
-// const WASM_STATIC_SERVER_PACKAGE: &amp;str = &quot;wasmer/static-web-server&quot;;
-// const WASM_STATIC_SERVER_VERSION: &amp;str = &quot;1&quot;;
+// const WASM_STATIC_SERVER_PACKAGE: &amp;str = "wasmer/static-web-server";
+// const WASM_STATIC_SERVER_VERSION: &amp;str = "1";
 //
-// const WASMER_WINTER_JS_PACKAGE: &amp;str = &quot;wasmer/winterjs&quot;;
-// const WASMER_WINTER_JS_VERSION: &amp;str = &quot;*&quot;;
+// const WASMER_WINTER_JS_PACKAGE: &amp;str = "wasmer/winterjs";
+// const WASMER_WINTER_JS_VERSION: &amp;str = "*";
 //
-// const WASM_PYTHON_PACKAGE: &amp;str = &quot;wasmer/python&quot;;
-// const WASM_PYTHON_VERSION: &amp;str = &quot;3.12.6&quot;;
+// const WASM_PYTHON_PACKAGE: &amp;str = "wasmer/python";
+// const WASM_PYTHON_VERSION: &amp;str = "3.12.6";
 //
-// const SAMPLE_INDEX_HTML: &amp;str = include_str!(&quot;./templates/static-site/index.html&quot;);
-// const SAMPLE_JS_WORKER: &amp;str = include_str!(&quot;./templates/js-worker/index.js&quot;);
-// const SAMPLE_PY_APPLICATION: &amp;str = include_str!(&quot;./templates/py-application/main.py&quot;);
+// const SAMPLE_INDEX_HTML: &amp;str = include_str!("./templates/static-site/index.html");
+// const SAMPLE_JS_WORKER: &amp;str = include_str!("./templates/js-worker/index.js");
+// const SAMPLE_PY_APPLICATION: &amp;str = include_str!("./templates/py-application/main.py");
 //
 // #[derive(clap::ValueEnum, Clone, Copy, Debug)]
 // pub enum PackageType {
-//     #[clap(name = &quot;regular&quot;)]
+//     #[clap(name = "regular")]
 //     Regular,
 //     /// A static website.
-//     #[clap(name = &quot;static-website&quot;)]
+//     #[clap(name = "static-website")]
 //     StaticWebsite,
 //     /// A js-worker
-//     #[clap(name = &quot;js-worker&quot;)]
+//     #[clap(name = "js-worker")]
 //     JsWorker,
 //     /// A py-worker
-//     #[clap(name = &quot;py-application&quot;)]
+//     #[clap(name = "py-application")]
 //     PyApplication,
 // }
 //
@@ -471,8 +471,8 @@
 // fn prompt_for_package_type() -&gt; Result&lt;PackageType, anyhow::Error&gt; {
 //     let theme = ColorfulTheme::default();
 //     Select::with_theme(&amp;theme)
-//         .with_prompt(&quot;What type of package do you want to create?&quot;)
-//         .items(&amp;[&quot;Basic pacakge&quot;, &quot;Static website&quot;])
+//         .with_prompt("What type of package do you want to create?")
+//         .items(&amp;["Basic pacakge", "Static website"])
 //         .interact()
 //         .map(|idx| match idx {
 //             0 =&gt; PackageType::Regular,
@@ -503,7 +503,7 @@
 // }
 //
 // pub struct PackageWizardOutput {
-//     pub api: Option&lt;wasmer_api::types::Package&gt;,
+//     pub api: Option&lt;wasmer_backend_api::types::Package&gt;,
 //     pub local_path: Option&lt;PathBuf&gt;,
 //     pub local_manifest: Option&lt;wasmer_config::package::Manifest&gt;,
 // }
@@ -517,7 +517,7 @@
 //
 //         if !self.path.is_dir() {
 //             std::fs::create_dir_all(&amp;self.path).with_context(|| {
-//                 format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, self.path.display())
+//                 format!("Failed to create directory: '{}'", self.path.display())
 //             })?;
 //         }
 //
@@ -528,12 +528,12 @@
 //             PackageType::PyApplication =&gt; initialize_py_worker(&amp;self.path)?,
 //         };
 //
-//         let manifest_path = self.path.join(&quot;wasmer.toml&quot;);
+//         let manifest_path = self.path.join("wasmer.toml");
 //         let manifest_raw = manifest
 //             .to_string()
-//             .context(&quot;could not serialize package manifest&quot;)?;
+//             .context("could not serialize package manifest")?;
 //         std::fs::write(manifest_path, manifest_raw)
-//             .with_context(|| format!(&quot;Failed to write manifest to &#39;{}&#39;&quot;, self.path.display()))?;
+//             .with_context(|| format!("Failed to write manifest to '{}'", self.path.display()))?;
 //
 //         Ok(PackageWizardOutput {
 //             api: None,
@@ -553,8 +553,8 @@
 //             None
 //         };
 //
-//         eprintln!(&quot;Enter the name of an existing package:&quot;);
-//         let (_ident, api) = super::prompts::prompt_for_package(&quot;Package&quot;, None, check, api).await?;
+//         eprintln!("Enter the name of an existing package:");
+//         let (_ident, api) = super::prompts::prompt_for_package("Package", None, check, api).await?;
 //         Ok(PackageWizardOutput {
 //             api,
 //             local_path: None,
@@ -572,8 +572,8 @@
 //             CreateMode::CreateOrSelect =&gt; {
 //                 let theme = ColorfulTheme::default();
 //                 let index = Select::with_theme(&amp;theme)
-//                     .with_prompt(&quot;What package do you want to use?&quot;)
-//                     .items(&amp;[&quot;Create new package&quot;, &quot;Use existing package&quot;])
+//                     .with_prompt("What package do you want to use?")
+//                     .items(&amp;["Create new package", "Use existing package"])
 //                     .default(0)
 //                     .interact()?;
 //
@@ -581,7 +581,7 @@
 //                     0 =&gt; self.build_new_package(),
 //                     1 =&gt; self.prompt_existing_package(api).await,
 //                     other =&gt; {
-//                         unreachable!(&quot;Unexpected index: {other}&quot;);
+//                         unreachable!("Unexpected index: {other}");
 //                     }
 //                 }
 //             }
@@ -590,149 +590,149 @@
 // }
 //
 // fn initialize_static_site(path: &amp;Path) -&gt; Result&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
-//     let pubdir_name = &quot;public&quot;;
+//     let pubdir_name = "public";
 //     let pubdir = path.join(pubdir_name);
 //     if !pubdir.is_dir() {
 //         std::fs::create_dir_all(&amp;pubdir)
-//             .with_context(|| format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, pubdir.display()))?;
+//             .with_context(|| format!("Failed to create directory: '{}'", pubdir.display()))?;
 //     }
-//     let index = pubdir.join(&quot;index.html&quot;);
+//     let index = pubdir.join("index.html");
 //
-//     let static_html = SAMPLE_INDEX_HTML.replace(&quot;{{title}}&quot;, &quot;My static website&quot;);
+//     let static_html = SAMPLE_INDEX_HTML.replace("{{title}}", "My static website");
 //
 //     if !index.is_file() {
 //         std::fs::write(&amp;index, static_html.as_str())
-//             .with_context(|| &quot;Could not write index.html file&quot;.to_string())?;
+//             .with_context(|| "Could not write index.html file".to_string())?;
 //     } else {
 //         // The index.js file already exists, so we can ask the user if they want to overwrite it
 //         let theme = dialoguer::theme::ColorfulTheme::default();
 //         let should_overwrite = dialoguer::Confirm::with_theme(&amp;theme)
-//             .with_prompt(&quot;index.html already exists. Do you want to overwrite it?&quot;)
+//             .with_prompt("index.html already exists. Do you want to overwrite it?")
 //             .interact()
 //             .unwrap();
 //         if should_overwrite {
 //             std::fs::write(&amp;index, static_html.as_str())
-//                 .with_context(|| &quot;Could not write index.html file&quot;.to_string())?;
+//                 .with_context(|| "Could not write index.html file".to_string())?;
 //         }
 //     }
 //
 //     let raw_static_site_toml = format!(
-//         r#&quot;
+//         r#"
 // [dependencies]
-// &quot;{}&quot; = &quot;{}&quot;
+// "{}" = "{}"
 //
 // [fs]
-// public = &quot;{}&quot;
-// &quot;#,
+// public = "{}"
+// "#,
 //         WASM_STATIC_SERVER_PACKAGE, WASM_STATIC_SERVER_VERSION, pubdir_name
 //     );
 //
 //     let manifest = wasmer_config::package::Manifest::parse(raw_static_site_toml.as_str())
-//         .map_err(|e| anyhow::anyhow!(&quot;Could not parse js worker manifest: {}&quot;, e))?;
+//         .map_err(|e| anyhow::anyhow!("Could not parse js worker manifest: {}", e))?;
 //
 //     Ok(manifest)
 // }
 //
 // fn initialize_js_worker(path: &amp;Path) -&gt; Result&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
-//     let srcdir_name = &quot;src&quot;;
+//     let srcdir_name = "src";
 //     let srcdir = path.join(srcdir_name);
 //     if !srcdir.is_dir() {
 //         std::fs::create_dir_all(&amp;srcdir)
-//             .with_context(|| format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, srcdir.display()))?;
+//             .with_context(|| format!("Failed to create directory: '{}'", srcdir.display()))?;
 //     }
 //
-//     let index_js = srcdir.join(&quot;index.js&quot;);
+//     let index_js = srcdir.join("index.js");
 //
-//     let sample_js = SAMPLE_JS_WORKER.replace(&quot;{{package}}&quot;, &quot;My JS worker&quot;);
+//     let sample_js = SAMPLE_JS_WORKER.replace("{{package}}", "My JS worker");
 //
 //     if !index_js.is_file() {
 //         std::fs::write(&amp;index_js, sample_js.as_str())
-//             .with_context(|| &quot;Could not write index.js file&quot;.to_string())?;
+//             .with_context(|| "Could not write index.js file".to_string())?;
 //     }
 //
 //     // get the remote repository if it exists
 //     // Todo: add this to the manifest
-//     // let remote_repo_url = Command::new(&quot;git&quot;)
-//     //     .arg(&quot;remote&quot;)
-//     //     .arg(&quot;get-url&quot;)
-//     //     .arg(&quot;origin&quot;)
+//     // let remote_repo_url = Command::new("git")
+//     //     .arg("remote")
+//     //     .arg("get-url")
+//     //     .arg("origin")
 //     //     .output()
-//     //     .map_or(&quot;&quot;.to_string(), |f| String::from_utf8(f.stdout).unwrap());
+//     //     .map_or("".to_string(), |f| String::from_utf8(f.stdout).unwrap());
 //
 //     let raw_js_worker_toml = format!(
-//         r#&quot;
+//         r#"
 // [dependencies]
-// &quot;{winterjs_pkg}&quot; = &quot;{winterjs_version}&quot;
+// "{winterjs_pkg}" = "{winterjs_version}"
 //
 // [fs]
-// &quot;/src&quot; = &quot;./src&quot;
+// "/src" = "./src"
 //
 // [[command]]
-// name = &quot;script&quot;
-// module = &quot;{winterjs_pkg}:winterjs&quot;
-// runner = &quot;https://webc.org/runner/wasi&quot;
+// name = "script"
+// module = "{winterjs_pkg}:winterjs"
+// runner = "https://webc.org/runner/wasi"
 //
 // [command.annotations.wasi]
-// main-args = [&quot;/src/index.js&quot;]
-// env = [&quot;JS_PATH=/src/index.js&quot;]
-// &quot;#,
+// main-args = ["/src/index.js"]
+// env = ["JS_PATH=/src/index.js"]
+// "#,
 //         winterjs_pkg = WASMER_WINTER_JS_PACKAGE,
 //         winterjs_version = WASMER_WINTER_JS_VERSION,
 //     );
 //
 //     let manifest = wasmer_config::package::Manifest::parse(raw_js_worker_toml.as_str())
-//         .map_err(|e| anyhow::anyhow!(&quot;Could not parse js worker manifest: {}&quot;, e))?;
+//         .map_err(|e| anyhow::anyhow!("Could not parse js worker manifest: {}", e))?;
 //
 //     Ok(manifest)
 // }
 //
 // fn initialize_py_worker(path: &amp;Path) -&gt; Result&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
-//     let appdir_name = &quot;src&quot;;
+//     let appdir_name = "src";
 //     let appdir = path.join(appdir_name);
 //     if !appdir.is_dir() {
 //         std::fs::create_dir_all(&amp;appdir)
-//             .with_context(|| format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, appdir.display()))?;
+//             .with_context(|| format!("Failed to create directory: '{}'", appdir.display()))?;
 //     }
-//     let main_py = appdir.join(&quot;main.py&quot;);
+//     let main_py = appdir.join("main.py");
 //
-//     let sample_main = SAMPLE_PY_APPLICATION.replace(&quot;{{package}}&quot;, &quot;My Python Worker&quot;);
+//     let sample_main = SAMPLE_PY_APPLICATION.replace("{{package}}", "My Python Worker");
 //
 //     if !main_py.is_file() {
 //         std::fs::write(&amp;main_py, sample_main.as_str())
-//             .with_context(|| &quot;Could not write main.py file&quot;.to_string())?;
+//             .with_context(|| "Could not write main.py file".to_string())?;
 //     }
 //
 //     // Todo: add this to the manifest
-//     // let remote_repo_url = Command::new(&quot;git&quot;)
-//     //     .arg(&quot;remote&quot;)
-//     //     .arg(&quot;get-url&quot;)
-//     //     .arg(&quot;origin&quot;)
+//     // let remote_repo_url = Command::new("git")
+//     //     .arg("remote")
+//     //     .arg("get-url")
+//     //     .arg("origin")
 //     //     .output()
-//     //     .map_or(&quot;&quot;.to_string(), |f| String::from_utf8(f.stdout).unwrap());
+//     //     .map_or("".to_string(), |f| String::from_utf8(f.stdout).unwrap());
 //
 //     let raw_py_worker_toml = format!(
-//         r#&quot;
+//         r#"
 // [dependencies]
-// &quot;{}&quot; = &quot;{}&quot;
+// "{}" = "{}"
 //
 // [fs]
-// &quot;/src&quot; = &quot;./src&quot;
-// # &quot;/.env&quot; = &quot;./.env/&quot; # Bundle the virtualenv
+// "/src" = "./src"
+// # "/.env" = "./.env/" # Bundle the virtualenv
 //
 // [[command]]
-// name = &quot;script&quot;
-// module = &quot;{}:python&quot; # The &quot;python&quot; atom from &quot;wasmer/python&quot;
-// runner = &quot;wasi&quot;
+// name = "script"
+// module = "{}:python" # The "python" atom from "wasmer/python"
+// runner = "wasi"
 //
 // [command.annotations.wasi]
-// main-args = [&quot;/src/main.py&quot;]
-// # env = [&quot;PYTHON_PATH=/app/.env:/etc/python3.12/site-packages&quot;] # Make our virtualenv accessible
-// &quot;#,
+// main-args = ["/src/main.py"]
+// # env = ["PYTHON_PATH=/app/.env:/etc/python3.12/site-packages"] # Make our virtualenv accessible
+// "#,
 //         WASM_PYTHON_PACKAGE, WASM_PYTHON_VERSION, WASM_PYTHON_PACKAGE
 //     );
 //
 //     let manifest = wasmer_config::package::Manifest::parse(raw_py_worker_toml.as_str())
-//         .map_err(|e| anyhow::anyhow!(&quot;Could not parse py worker manifest: {}&quot;, e))?;
+//         .map_err(|e| anyhow::anyhow!("Could not parse py worker manifest: {}", e))?;
 //
 //     Ok(manifest)
 // }
@@ -757,18 +757,18 @@
 //         .await
 //         .unwrap();
 //
-//         let manifest = std::fs::read_to_string(dir.path().join(&quot;wasmer.toml&quot;)).unwrap();
+//         let manifest = std::fs::read_to_string(dir.path().join("wasmer.toml")).unwrap();
 //         pretty_assertions::assert_eq!(
 //             manifest,
-//             r#&quot;[dependencies]
-// &quot;wasmer/static-web-server&quot; = &quot;^1&quot;
+//             r#"[dependencies]
+// "wasmer/static-web-server" = "^1"
 //
 // [fs]
-// public = &quot;public&quot;
-// &quot;#,
+// public = "public"
+// "#,
 //         );
 //
-//         assert!(dir.path().join(&quot;public&quot;).join(&quot;index.html&quot;).is_file());
+//         assert!(dir.path().join("public").join("index.html").is_file());
 //     }
 //
 //     #[tokio::test]
@@ -787,28 +787,28 @@
 //         .run(None)
 //         .await
 //         .unwrap();
-//         let manifest = std::fs::read_to_string(dir.path().join(&quot;wasmer.toml&quot;)).unwrap();
+//         let manifest = std::fs::read_to_string(dir.path().join("wasmer.toml")).unwrap();
 //
 //         pretty_assertions::assert_eq!(
 //             manifest,
-//             r#&quot;[dependencies]
-// &quot;wasmer/winterjs&quot; = &quot;*&quot;
+//             r#"[dependencies]
+// "wasmer/winterjs" = "*"
 //
 // [fs]
-// &quot;/src&quot; = &quot;./src&quot;
+// "/src" = "./src"
 //
 // [[command]]
-// name = &quot;script&quot;
-// module = &quot;wasmer/winterjs:winterjs&quot;
-// runner = &quot;https://webc.org/runner/wasi&quot;
+// name = "script"
+// module = "wasmer/winterjs:winterjs"
+// runner = "https://webc.org/runner/wasi"
 //
 // [command.annotations.wasi]
-// env = [&quot;JS_PATH=/src/index.js&quot;]
-// main-args = [&quot;/src/index.js&quot;]
-// &quot;#,
+// env = ["JS_PATH=/src/index.js"]
+// main-args = ["/src/index.js"]
+// "#,
 //         );
 //
-//         assert!(dir.path().join(&quot;src&quot;).join(&quot;index.js&quot;).is_file());
+//         assert!(dir.path().join("src").join("index.js").is_file());
 //     }
 //
 //     #[tokio::test]
@@ -827,27 +827,27 @@
 //         .run(None)
 //         .await
 //         .unwrap();
-//         let manifest = std::fs::read_to_string(dir.path().join(&quot;wasmer.toml&quot;)).unwrap();
+//         let manifest = std::fs::read_to_string(dir.path().join("wasmer.toml")).unwrap();
 //
 //         pretty_assertions::assert_eq!(
 //             manifest,
-//             r#&quot;[dependencies]
-// &quot;wasmer/python&quot; = &quot;^3.12.6&quot;
+//             r#"[dependencies]
+// "wasmer/python" = "^3.12.6"
 //
 // [fs]
-// &quot;/src&quot; = &quot;./src&quot;
+// "/src" = "./src"
 //
 // [[command]]
-// name = &quot;script&quot;
-// module = &quot;wasmer/python:python&quot;
-// runner = &quot;wasi&quot;
+// name = "script"
+// module = "wasmer/python:python"
+// runner = "wasi"
 //
 // [command.annotations.wasi]
-// main-args = [&quot;/src/main.py&quot;]
-// &quot;#,
+// main-args = ["/src/main.py"]
+// "#,
 //         );
 //
-//         assert!(dir.path().join(&quot;src&quot;).join(&quot;main.py&quot;).is_file());
+//         assert!(dir.path().join("src").join("main.py").is_file());
 //     }
 // }
 </span></code></pre></div></section></main></body></html>

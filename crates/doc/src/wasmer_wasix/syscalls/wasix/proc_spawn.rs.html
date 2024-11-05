@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasix/proc_spawn.rs`."><title>proc_spawn.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasix/proc_spawn.rs`."><title>proc_spawn.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -280,14 +280,14 @@
 /// * `stdout` - How will stdout be handled
 /// * `stderr` - How will stderr be handled
 /// * `working_dir` - Working directory where this process should run
-///   (passing &#39;.&#39; will use the current directory)
+///   (passing '.' will use the current directory)
 ///
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(name = field::Empty, working_dir = field::Empty), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(name = field::Empty, working_dir = field::Empty), ret)]
 </span><span class="kw">pub fn </span>proc_spawn&lt;M: MemorySize&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     name: WasmPtr&lt;u8, M&gt;,
     name_len: M::Offset,
     chroot: Bool,
@@ -311,22 +311,22 @@
     <span class="kw">let </span>working_dir = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, working_dir, working_dir_len) };
 
     Span::current()
-        .record(<span class="string">&quot;name&quot;</span>, name.as_str())
-        .record(<span class="string">&quot;working_dir&quot;</span>, working_dir.as_str());
+        .record(<span class="string">"name"</span>, name.as_str())
+        .record(<span class="string">"working_dir"</span>, working_dir.as_str());
 
     <span class="kw">if </span>chroot == Bool::True {
-        <span class="macro">warn!</span>(<span class="string">&quot;chroot is not currently supported&quot;</span>,);
+        <span class="macro">warn!</span>(<span class="string">"chroot is not currently supported"</span>,);
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notsup);
     }
 
     <span class="kw">let </span>args: Vec&lt;<span class="kw">_</span>&gt; = args
-        .split(<span class="kw-2">&amp;</span>[<span class="string">&#39;\n&#39;</span>, <span class="string">&#39;\r&#39;</span>])
+        .split(<span class="kw-2">&amp;</span>[<span class="string">'\n'</span>, <span class="string">'\r'</span>])
         .map(|a| a.to_string())
         .filter(|a| !a.is_empty())
         .collect();
 
     <span class="kw">let </span>preopen: Vec&lt;<span class="kw">_</span>&gt; = preopen
-        .split(<span class="kw-2">&amp;</span>[<span class="string">&#39;\n&#39;</span>, <span class="string">&#39;\r&#39;</span>])
+        .split(<span class="kw-2">&amp;</span>[<span class="string">'\n'</span>, <span class="string">'\r'</span>])
         .map(|a| a.to_string())
         .filter(|a| !a.is_empty())
         .collect();
@@ -354,7 +354,7 @@
 }
 
 <span class="kw">pub fn </span>proc_spawn_internal(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     name: String,
     args: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
     preopen: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
@@ -362,7 +362,7 @@
     stdin: WasiStdioMode,
     stdout: WasiStdioMode,
     stderr: WasiStdioMode,
-) -&gt; WasiResult&lt;(ProcessHandles, FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;)&gt; {
+) -&gt; WasiResult&lt;(ProcessHandles, FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;)&gt; {
     <span class="kw">let </span>env = ctx.data();
 
     <span class="comment">// Build a new store that will be passed to the thread
@@ -392,7 +392,7 @@
         <span class="kw">if </span>!preopen.is_empty() {
             <span class="kw">for </span>preopen <span class="kw">in </span>preopen {
                 <span class="macro">warn!</span>(
-                    <span class="string">&quot;preopens are not yet supported for spawned processes [{}]&quot;</span>,
+                    <span class="string">"preopens are not yet supported for spawned processes [{}]"</span>,
                     preopen
                 );
             }
@@ -416,13 +416,13 @@
                         child_inodes,
                         Kind::Pipe { pipe: pipe1 },
                         <span class="bool-val">false</span>,
-                        <span class="string">&quot;pipe&quot;</span>.into(),
+                        <span class="string">"pipe"</span>.into(),
                     );
                     <span class="kw">let </span>inode2 = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
                         Kind::Pipe { pipe: pipe2 },
                         <span class="bool-val">false</span>,
-                        <span class="string">&quot;pipe&quot;</span>.into(),
+                        <span class="string">"pipe"</span>.into(),
                     );
 
                     <span class="kw">let </span>rights = <span class="kw">crate</span>::net::socket::all_socket_rights();
@@ -443,7 +443,7 @@
                         <span class="bool-val">false</span>,
                     )<span class="question-mark">?</span>;
 
-                    <span class="macro">trace!</span>(<span class="string">&quot;fd_pipe (fd1={}, fd2={})&quot;</span>, pipe, fd);
+                    <span class="macro">trace!</span>(<span class="string">"fd_pipe (fd1={}, fd2={})"</span>, pipe, fd);
                     <span class="prelude-val">Ok</span>(OptionFd {
                         tag: OptionTag::Some,
                         fd: pipe,
@@ -490,7 +490,7 @@
             <span class="prelude-val">Ok</span>(a) =&gt; a,
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="kw">if </span>!err.is_not_found() {
-                    <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
+                    <span class="macro">error!</span>(<span class="string">"builtin failed - {}"</span>, err);
                 }
                 <span class="comment">// Now we actually spawn the process
                 </span><span class="kw">let </span>child_work =

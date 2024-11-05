@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["login_and_save_token"]};

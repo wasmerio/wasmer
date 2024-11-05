@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -859,13 +859,15 @@
 <a href="#859" id="859">859</a>
 <a href="#860" id="860">860</a>
 <a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
-</span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
-#![doc(html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]
+</span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
+#![doc(html_logo_url = <span class="string">"https://github.com/wasmerio.png?size=200"</span>)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-</span><span class="doccomment">//! Wasmer&#39;s WASI implementation
+</span><span class="doccomment">//! Wasmer's WASI implementation
 //!
 //! Use `generate_import_object` to create an [`Imports`].  This [`Imports`]
 //! can be combined with a module to create an `Instance` which can execute WASI
@@ -875,23 +877,23 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;sys&quot;</span>), not(feature = <span class="string">&quot;js&quot;</span>)))]
-</span><span class="macro">compile_error!</span>(<span class="string">&quot;At least the `sys` or the `js` feature must be enabled. Please, pick one.&quot;</span>);
+</span><span class="attr">#[cfg(all(not(feature = <span class="string">"sys"</span>), not(feature = <span class="string">"js"</span>)))]
+</span><span class="macro">compile_error!</span>(<span class="string">"At least the `sys` or the `js` feature must be enabled. Please, pick one."</span>);
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, feature = <span class="string">&quot;js&quot;</span>))]
+<span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, feature = <span class="string">"js"</span>))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">&quot;Cannot have both `sys` and `js` features enabled at the same time. Please, pick one.&quot;
+    <span class="string">"Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
 </span>);
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="macro">compile_error!</span>(<span class="string">&quot;The `sys` feature must be enabled only for non-`wasm32` target.&quot;</span>);
+<span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, target_arch = <span class="string">"wasm32"</span>))]
+</span><span class="macro">compile_error!</span>(<span class="string">"The `sys` feature must be enabled only for non-`wasm32` target."</span>);
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;js&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
+<span class="attr">#[cfg(all(feature = <span class="string">"js"</span>, not(target_arch = <span class="string">"wasm32"</span>)))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">&quot;The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`).&quot;
+    <span class="string">"The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 </span>);
 
-<span class="attr">#[cfg(all(test, target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+<span class="attr">#[cfg(all(test, target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="macro">wasm_bindgen_test::wasm_bindgen_test_configure!</span>(run_in_browser);
 
 <span class="attr">#[cfg(test)]
@@ -937,7 +939,7 @@
 <span class="kw">pub use </span>virtual_net;
 <span class="kw">pub use </span>virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;host-vnet&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"host-vnet"</span>)]
 </span><span class="kw">pub use </span>virtual_net::{
     host::{LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket},
     io_err_into_net_error,
@@ -973,11 +975,13 @@
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
 </span><span class="attr">#[derive(Error, Debug)]
 </span><span class="kw">pub enum </span>WasiError {
-    <span class="attr">#[error(<span class="string">&quot;WASI exited with code: {0}&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"WASI exited with code: {0}"</span>)]
     </span>Exit(ExitCode),
-    <span class="attr">#[error(<span class="string">&quot;WASI deep sleep: {0:?}&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"WASI thread exited"</span>)]
+    </span>ThreadExit,
+    <span class="attr">#[error(<span class="string">"WASI deep sleep: {0:?}"</span>)]
     </span>DeepSleep(DeepSleepWork),
-    <span class="attr">#[error(<span class="string">&quot;The WASI version could not be determined&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"The WASI version could not be determined"</span>)]
     </span>UnknownWasiVersion,
 }
 
@@ -987,69 +991,69 @@
 #[derive(Error, Debug)]
 </span><span class="kw">pub enum </span>SpawnError {
     <span class="doccomment">/// Failed during serialization
-    </span><span class="attr">#[error(<span class="string">&quot;serialization failed&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"serialization failed"</span>)]
     </span>Serialization,
     <span class="doccomment">/// Failed during deserialization
-    </span><span class="attr">#[error(<span class="string">&quot;deserialization failed&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"deserialization failed"</span>)]
     </span>Deserialization,
     <span class="doccomment">/// Invalid Wasmer process
-    </span><span class="attr">#[error(<span class="string">&quot;invalid wasmer&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"invalid wasmer"</span>)]
     </span>InvalidWasmer,
     <span class="doccomment">/// Failed to fetch the Wasmer process
-    </span><span class="attr">#[error(<span class="string">&quot;fetch failed&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"fetch failed"</span>)]
     </span>FetchFailed,
     <span class="attr">#[error(transparent)]
     </span>CacheError(<span class="kw">crate</span>::runtime::module_cache::CacheError),
     <span class="doccomment">/// Failed to compile the Wasmer process
-    </span><span class="attr">#[error(<span class="string">&quot;compile error: {error:?}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"compile error: {error:?}"</span>)]
     </span>CompileError {
         module_hash: wasmer_types::ModuleHash,
         error: wasmer::CompileError,
     },
     <span class="doccomment">/// Invalid ABI
-    </span><span class="attr">#[error(<span class="string">&quot;Wasmer process has an invalid ABI&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"Wasmer process has an invalid ABI"</span>)]
     </span>InvalidABI,
     <span class="doccomment">/// Bad handle
-    </span><span class="attr">#[error(<span class="string">&quot;bad handle&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"bad handle"</span>)]
     </span>BadHandle,
     <span class="doccomment">/// Call is unsupported
-    </span><span class="attr">#[error(<span class="string">&quot;unsupported&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"unsupported"</span>)]
     </span>Unsupported,
     <span class="doccomment">/// Not found
-    </span><span class="attr">#[error(<span class="string">&quot;not found: {message}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"not found: {message}"</span>)]
     </span>NotFound { message: String },
     <span class="doccomment">/// Tried to run the specified binary as a new WASI thread/process, but
     /// the binary name was not found.
-    </span><span class="attr">#[error(<span class="string">&quot;could not find binary &#39;{binary}&#39;&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"could not find binary '{binary}'"</span>)]
     </span>BinaryNotFound { binary: String },
-    <span class="attr">#[error(<span class="string">&quot;could not find an entrypoint in the package &#39;{package_id}&#39;&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"could not find an entrypoint in the package '{package_id}'"</span>)]
     </span>MissingEntrypoint {
         package_id: wasmer_config::package::PackageId,
     },
-    <span class="attr">#[error(<span class="string">&quot;could not load &quot;</span>)]
+    <span class="attr">#[error(<span class="string">"could not load "</span>)]
     </span>ModuleLoad { message: String },
     <span class="doccomment">/// Bad request
-    </span><span class="attr">#[error(<span class="string">&quot;bad request&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"bad request"</span>)]
     </span>BadRequest,
     <span class="doccomment">/// Access denied
-    </span><span class="attr">#[error(<span class="string">&quot;access denied&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"access denied"</span>)]
     </span>AccessDenied,
     <span class="doccomment">/// Internal error has occurred
-    </span><span class="attr">#[error(<span class="string">&quot;internal error&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"internal error"</span>)]
     </span>InternalError,
     <span class="doccomment">/// An error occurred while preparing the file system
     </span><span class="attr">#[error(transparent)]
     </span>FileSystemError(ExtendedFsError),
     <span class="doccomment">/// Memory allocation failed
-    </span><span class="attr">#[error(<span class="string">&quot;memory allocation failed&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"memory allocation failed"</span>)]
     </span>MemoryAllocationFailed,
     <span class="doccomment">/// Memory access violation
-    </span><span class="attr">#[error(<span class="string">&quot;memory access violation&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"memory access violation"</span>)]
     </span>MemoryAccessViolation,
-    <span class="doccomment">/// Some other unhandled error. If you see this, it&#39;s probably a bug.
-    </span><span class="attr">#[error(<span class="string">&quot;unknown error found&quot;</span>)]
+    <span class="doccomment">/// Some other unhandled error. If you see this, it's probably a bug.
+    </span><span class="attr">#[error(<span class="string">"unknown error found"</span>)]
     </span>UnknownError,
-    <span class="attr">#[error(<span class="string">&quot;runtime error&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"runtime error"</span>)]
     </span>Runtime(<span class="attr">#[from] </span>WasiRuntimeError),
     <span class="attr">#[error(transparent)]
     </span>Other(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
@@ -1078,11 +1082,11 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>ExtendedFsError {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::fmt::Error&gt; {
-        <span class="macro">write!</span>(f, <span class="string">&quot;fs error: {}&quot;</span>, <span class="self">self</span>.error)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::fmt::Error&gt; {
+        <span class="macro">write!</span>(f, <span class="string">"fs error: {}"</span>, <span class="self">self</span>.error)<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = <span class="kw-2">&amp;</span><span class="self">self</span>.message {
-            <span class="macro">write!</span>(f, <span class="string">&quot; | {}&quot;</span>, msg)<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(f, <span class="string">" | {}"</span>, msg)<span class="question-mark">?</span>;
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -1107,21 +1111,21 @@
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>WasiRuntimeError {
-    <span class="attr">#[error(<span class="string">&quot;WASI state setup failed&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"WASI state setup failed"</span>)]
     </span>Init(<span class="attr">#[from] </span>WasiStateCreationError),
-    <span class="attr">#[error(<span class="string">&quot;Loading exports failed&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Loading exports failed"</span>)]
     </span>Export(<span class="attr">#[from] </span>wasmer::ExportError),
-    <span class="attr">#[error(<span class="string">&quot;Instantiation failed&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Instantiation failed"</span>)]
     </span>Instantiation(<span class="attr">#[from] </span>wasmer::InstantiationError),
-    <span class="attr">#[error(<span class="string">&quot;WASI error&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"WASI error"</span>)]
     </span>Wasi(<span class="attr">#[from] </span>WasiError),
-    <span class="attr">#[error(<span class="string">&quot;Process manager error&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Process manager error"</span>)]
     </span>ControlPlane(<span class="attr">#[from] </span>ControlPlaneError),
-    <span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>Runtime(<span class="attr">#[from] </span>RuntimeError),
-    <span class="attr">#[error(<span class="string">&quot;Memory access error&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Memory access error"</span>)]
     </span>Thread(<span class="attr">#[from] </span>WasiThreadError),
-    <span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>Anyhow(<span class="attr">#[from] </span>Arc&lt;anyhow::Error&gt;),
 }
 
@@ -1162,7 +1166,7 @@
 
 <span class="doccomment">/// Run a main function.
 ///
-/// This is usually called &quot;_start&quot; in WASI modules.
+/// This is usually called "_start" in WASI modules.
 /// The function will not receive arguments or return values.
 ///
 /// An exit code that is not 0 will be returned as a `WasiError::Exit`.
@@ -1223,8 +1227,8 @@
     <span class="kw">let </span>exports_wasi_generic = wasi_exports_generic(store, ctx);
 
     <span class="attr">#[allow(unused_mut)]
-    </span><span class="kw">let </span><span class="kw-2">mut </span>imports_wasi_generic = <span class="macro">imports! </span>{
-        <span class="string">&quot;wasi&quot; </span>=&gt; exports_wasi_generic,
+    </span><span class="kw">let </span><span class="kw-2">mut </span>imports_wasi_generic = <span class="macro">imports!</span> {
+        <span class="string">"wasi" </span>=&gt; exports_wasi_generic,
     };
 
     imports.extend(<span class="kw-2">&amp;</span>imports_wasi_generic);
@@ -1234,61 +1238,61 @@
 
 <span class="kw">fn </span>wasi_exports_generic(<span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;) -&gt; Exports {
     <span class="kw">use </span>syscalls::<span class="kw-2">*</span>;
-    <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
-        <span class="string">&quot;thread-spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn::&lt;Memory32&gt;),
+    <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
+        <span class="string">"thread-spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn::&lt;Memory32&gt;),
     };
     namespace
 }
 
 <span class="kw">fn </span>wasi_unstable_exports(<span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;) -&gt; Exports {
     <span class="kw">use </span>syscalls::<span class="kw-2">*</span>;
-    <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
-        <span class="string">&quot;args_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
-        <span class="string">&quot;args_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
-        <span class="string">&quot;clock_res_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
-        <span class="string">&quot;clock_time_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
-        <span class="string">&quot;environ_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
-        <span class="string">&quot;environ_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_advise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
-        <span class="string">&quot;fd_allocate&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
-        <span class="string">&quot;fd_close&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
-        <span class="string">&quot;fd_datasync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
-        <span class="string">&quot;fd_fdstat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_fdstat_set_flags&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
-        <span class="string">&quot;fd_fdstat_set_rights&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
-        <span class="string">&quot;fd_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::fd_filestat_get),
-        <span class="string">&quot;fd_filestat_set_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
-        <span class="string">&quot;fd_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
-        <span class="string">&quot;fd_pread&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_prestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_prestat_dir_name&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_pwrite&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_read&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_readdir&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_renumber&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
-        <span class="string">&quot;fd_seek&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::fd_seek),
-        <span class="string">&quot;fd_sync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
-        <span class="string">&quot;fd_tell&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_write&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory32&gt;),
-        <span class="string">&quot;path_create_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory32&gt;),
-        <span class="string">&quot;path_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::path_filestat_get),
-        <span class="string">&quot;path_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory32&gt;),
-        <span class="string">&quot;path_link&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory32&gt;),
-        <span class="string">&quot;path_open&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory32&gt;),
-        <span class="string">&quot;path_readlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory32&gt;),
-        <span class="string">&quot;path_remove_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory32&gt;),
-        <span class="string">&quot;path_rename&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
-        <span class="string">&quot;path_symlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory32&gt;),
-        <span class="string">&quot;path_unlink_file&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory32&gt;),
-        <span class="string">&quot;poll_oneoff&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::poll_oneoff::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
-        <span class="string">&quot;random_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
-        <span class="string">&quot;thread-spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn::&lt;Memory32&gt;),
+    <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
+        <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
+        <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
+        <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
+        <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
+        <span class="string">"environ_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
+        <span class="string">"environ_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
+        <span class="string">"fd_advise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
+        <span class="string">"fd_allocate" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
+        <span class="string">"fd_close" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
+        <span class="string">"fd_datasync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
+        <span class="string">"fd_fdstat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_fdstat_set_flags" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
+        <span class="string">"fd_fdstat_set_rights" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
+        <span class="string">"fd_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::fd_filestat_get),
+        <span class="string">"fd_filestat_set_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
+        <span class="string">"fd_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
+        <span class="string">"fd_pread" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory32&gt;),
+        <span class="string">"fd_prestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_prestat_dir_name" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory32&gt;),
+        <span class="string">"fd_pwrite" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory32&gt;),
+        <span class="string">"fd_read" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory32&gt;),
+        <span class="string">"fd_readdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory32&gt;),
+        <span class="string">"fd_renumber" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
+        <span class="string">"fd_seek" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::fd_seek),
+        <span class="string">"fd_sync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
+        <span class="string">"fd_tell" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory32&gt;),
+        <span class="string">"fd_write" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory32&gt;),
+        <span class="string">"path_create_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory32&gt;),
+        <span class="string">"path_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::path_filestat_get),
+        <span class="string">"path_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory32&gt;),
+        <span class="string">"path_link" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory32&gt;),
+        <span class="string">"path_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory32&gt;),
+        <span class="string">"path_readlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory32&gt;),
+        <span class="string">"path_remove_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory32&gt;),
+        <span class="string">"path_rename" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
+        <span class="string">"path_symlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory32&gt;),
+        <span class="string">"path_unlink_file" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory32&gt;),
+        <span class="string">"poll_oneoff" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::poll_oneoff::&lt;Memory32&gt;),
+        <span class="string">"proc_exit" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
+        <span class="string">"proc_raise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
+        <span class="string">"random_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
+        <span class="string">"sched_yield" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
+        <span class="string">"sock_recv" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
+        <span class="string">"sock_send" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
+        <span class="string">"sock_shutdown" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
+        <span class="string">"thread-spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn::&lt;Memory32&gt;),
     };
     namespace
 }
@@ -1298,298 +1302,298 @@
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
 ) -&gt; Exports {
     <span class="kw">use </span>syscalls::<span class="kw-2">*</span>;
-    <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
-        <span class="string">&quot;args_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
-        <span class="string">&quot;args_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
-        <span class="string">&quot;clock_res_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
-        <span class="string">&quot;clock_time_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
-        <span class="string">&quot;environ_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
-        <span class="string">&quot;environ_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_advise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
-        <span class="string">&quot;fd_allocate&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
-        <span class="string">&quot;fd_close&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
-        <span class="string">&quot;fd_datasync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
-        <span class="string">&quot;fd_fdstat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_fdstat_set_flags&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
-        <span class="string">&quot;fd_fdstat_set_rights&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
-        <span class="string">&quot;fd_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_filestat_set_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
-        <span class="string">&quot;fd_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
-        <span class="string">&quot;fd_pread&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_prestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_prestat_dir_name&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_pwrite&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_read&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_readdir&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_renumber&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
-        <span class="string">&quot;fd_seek&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_sync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
-        <span class="string">&quot;fd_tell&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_write&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory32&gt;),
-        <span class="string">&quot;path_create_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory32&gt;),
-        <span class="string">&quot;path_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;path_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory32&gt;),
-        <span class="string">&quot;path_link&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory32&gt;),
-        <span class="string">&quot;path_open&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory32&gt;),
-        <span class="string">&quot;path_readlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory32&gt;),
-        <span class="string">&quot;path_remove_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory32&gt;),
-        <span class="string">&quot;path_rename&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
-        <span class="string">&quot;path_symlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory32&gt;),
-        <span class="string">&quot;path_unlink_file&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory32&gt;),
-        <span class="string">&quot;poll_oneoff&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, poll_oneoff::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
-        <span class="string">&quot;random_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
-        <span class="string">&quot;thread-spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn::&lt;Memory32&gt;),
+    <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
+        <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
+        <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
+        <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
+        <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
+        <span class="string">"environ_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
+        <span class="string">"environ_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
+        <span class="string">"fd_advise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
+        <span class="string">"fd_allocate" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
+        <span class="string">"fd_close" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
+        <span class="string">"fd_datasync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
+        <span class="string">"fd_fdstat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_fdstat_set_flags" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
+        <span class="string">"fd_fdstat_set_rights" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
+        <span class="string">"fd_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_filestat_set_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
+        <span class="string">"fd_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
+        <span class="string">"fd_pread" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory32&gt;),
+        <span class="string">"fd_prestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_prestat_dir_name" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory32&gt;),
+        <span class="string">"fd_pwrite" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory32&gt;),
+        <span class="string">"fd_read" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory32&gt;),
+        <span class="string">"fd_readdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory32&gt;),
+        <span class="string">"fd_renumber" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
+        <span class="string">"fd_seek" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory32&gt;),
+        <span class="string">"fd_sync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
+        <span class="string">"fd_tell" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory32&gt;),
+        <span class="string">"fd_write" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory32&gt;),
+        <span class="string">"path_create_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory32&gt;),
+        <span class="string">"path_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_get::&lt;Memory32&gt;),
+        <span class="string">"path_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory32&gt;),
+        <span class="string">"path_link" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory32&gt;),
+        <span class="string">"path_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory32&gt;),
+        <span class="string">"path_readlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory32&gt;),
+        <span class="string">"path_remove_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory32&gt;),
+        <span class="string">"path_rename" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
+        <span class="string">"path_symlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory32&gt;),
+        <span class="string">"path_unlink_file" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory32&gt;),
+        <span class="string">"poll_oneoff" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, poll_oneoff::&lt;Memory32&gt;),
+        <span class="string">"proc_exit" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
+        <span class="string">"proc_raise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
+        <span class="string">"random_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
+        <span class="string">"sched_yield" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
+        <span class="string">"sock_accept" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept::&lt;Memory32&gt;),
+        <span class="string">"sock_recv" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
+        <span class="string">"sock_send" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
+        <span class="string">"sock_shutdown" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
+        <span class="string">"thread-spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn::&lt;Memory32&gt;),
     };
     namespace
 }
 
 <span class="kw">fn </span>wasix_exports_32(<span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;) -&gt; Exports {
     <span class="kw">use </span>syscalls::<span class="kw-2">*</span>;
-    <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
-        <span class="string">&quot;args_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
-        <span class="string">&quot;args_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
-        <span class="string">&quot;clock_res_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
-        <span class="string">&quot;clock_time_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
-        <span class="string">&quot;clock_time_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory32&gt;),
-        <span class="string">&quot;environ_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
-        <span class="string">&quot;environ_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
-        <span class="string">&quot;epoll_create&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory32&gt;),
-        <span class="string">&quot;epoll_ctl&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_ctl::&lt;Memory32&gt;),
-        <span class="string">&quot;epoll_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_wait::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_advise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
-        <span class="string">&quot;fd_allocate&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
-        <span class="string">&quot;fd_close&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
-        <span class="string">&quot;fd_datasync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
-        <span class="string">&quot;fd_fdstat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_fdstat_set_flags&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
-        <span class="string">&quot;fd_fdstat_set_rights&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
-        <span class="string">&quot;fd_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_filestat_set_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
-        <span class="string">&quot;fd_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
-        <span class="string">&quot;fd_pread&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_prestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_prestat_dir_name&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_pwrite&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_read&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_readdir&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_renumber&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
-        <span class="string">&quot;fd_dup&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_event&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_event::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_seek&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_sync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
-        <span class="string">&quot;fd_tell&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_write&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory32&gt;),
-        <span class="string">&quot;fd_pipe&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pipe::&lt;Memory32&gt;),
-        <span class="string">&quot;path_create_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory32&gt;),
-        <span class="string">&quot;path_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_get::&lt;Memory32&gt;),
-        <span class="string">&quot;path_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory32&gt;),
-        <span class="string">&quot;path_link&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory32&gt;),
-        <span class="string">&quot;path_open&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory32&gt;),
-        <span class="string">&quot;path_readlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory32&gt;),
-        <span class="string">&quot;path_remove_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory32&gt;),
-        <span class="string">&quot;path_rename&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
-        <span class="string">&quot;path_symlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory32&gt;),
-        <span class="string">&quot;path_unlink_file&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory32&gt;),
-        <span class="string">&quot;poll_oneoff&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, poll_oneoff::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_fork&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_fork::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_exec&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_exec2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
-        <span class="string">&quot;proc_raise_interval&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
-        <span class="string">&quot;proc_spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_id&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_id::&lt;Memory32&gt;),
-        <span class="string">&quot;proc_parent&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_parent::&lt;Memory32&gt;),
-        <span class="string">&quot;random_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
-        <span class="string">&quot;tty_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_get::&lt;Memory32&gt;),
-        <span class="string">&quot;tty_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_set::&lt;Memory32&gt;),
-        <span class="string">&quot;getcwd&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, getcwd::&lt;Memory32&gt;),
-        <span class="string">&quot;chdir&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, chdir::&lt;Memory32&gt;),
-        <span class="string">&quot;callback_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, callback_signal::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_spawn_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_sleep&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_id&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_id::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_signal),
-        <span class="string">&quot;thread_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_parallelism&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_parallelism::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_exit),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
-        <span class="string">&quot;stack_checkpoint&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_checkpoint::&lt;Memory32&gt;),
-        <span class="string">&quot;stack_restore&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_restore::&lt;Memory32&gt;),
-        <span class="string">&quot;futex_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wait::&lt;Memory32&gt;),
-        <span class="string">&quot;futex_wake&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake::&lt;Memory32&gt;),
-        <span class="string">&quot;futex_wake_all&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake_all::&lt;Memory32&gt;),
-        <span class="string">&quot;port_bridge&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_bridge::&lt;Memory32&gt;),
-        <span class="string">&quot;port_unbridge&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_unbridge),
-        <span class="string">&quot;port_dhcp_acquire&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_dhcp_acquire),
-        <span class="string">&quot;port_addr_add&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_add::&lt;Memory32&gt;),
-        <span class="string">&quot;port_addr_remove&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_remove::&lt;Memory32&gt;),
-        <span class="string">&quot;port_addr_clear&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_clear),
-        <span class="string">&quot;port_addr_list&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_list::&lt;Memory32&gt;),
-        <span class="string">&quot;port_mac&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_mac::&lt;Memory32&gt;),
-        <span class="string">&quot;port_gateway_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_gateway_set::&lt;Memory32&gt;),
-        <span class="string">&quot;port_route_add&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_add::&lt;Memory32&gt;),
-        <span class="string">&quot;port_route_remove&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_remove::&lt;Memory32&gt;),
-        <span class="string">&quot;port_route_clear&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_clear),
-        <span class="string">&quot;port_route_list&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_list::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_status&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_status::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_addr_local&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_local::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_addr_peer&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_peer::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_open&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_open::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_set_opt_flag&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_flag),
-        <span class="string">&quot;sock_get_opt_flag&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_flag::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_set_opt_time&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_time::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_get_opt_time&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_time::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_set_opt_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_size),
-        <span class="string">&quot;sock_get_opt_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_size::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_join_multicast_v4&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v4::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_leave_multicast_v4&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v4::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_join_multicast_v6&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v6::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_leave_multicast_v6&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v6::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_bind&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_bind::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_listen&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_listen::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_accept_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_connect&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_connect::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_recv_from&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv_from::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_send_to&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_to::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_send_file&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_file::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
-        <span class="string">&quot;resolve&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, resolve::&lt;Memory32&gt;),
+    <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
+        <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
+        <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
+        <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
+        <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
+        <span class="string">"clock_time_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory32&gt;),
+        <span class="string">"environ_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
+        <span class="string">"environ_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
+        <span class="string">"epoll_create" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory32&gt;),
+        <span class="string">"epoll_ctl" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_ctl::&lt;Memory32&gt;),
+        <span class="string">"epoll_wait" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_wait::&lt;Memory32&gt;),
+        <span class="string">"fd_advise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
+        <span class="string">"fd_allocate" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
+        <span class="string">"fd_close" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
+        <span class="string">"fd_datasync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
+        <span class="string">"fd_fdstat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_fdstat_set_flags" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
+        <span class="string">"fd_fdstat_set_rights" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
+        <span class="string">"fd_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_filestat_set_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
+        <span class="string">"fd_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
+        <span class="string">"fd_pread" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory32&gt;),
+        <span class="string">"fd_prestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory32&gt;),
+        <span class="string">"fd_prestat_dir_name" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory32&gt;),
+        <span class="string">"fd_pwrite" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory32&gt;),
+        <span class="string">"fd_read" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory32&gt;),
+        <span class="string">"fd_readdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory32&gt;),
+        <span class="string">"fd_renumber" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
+        <span class="string">"fd_dup" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup::&lt;Memory32&gt;),
+        <span class="string">"fd_event" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_event::&lt;Memory32&gt;),
+        <span class="string">"fd_seek" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory32&gt;),
+        <span class="string">"fd_sync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
+        <span class="string">"fd_tell" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory32&gt;),
+        <span class="string">"fd_write" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory32&gt;),
+        <span class="string">"fd_pipe" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pipe::&lt;Memory32&gt;),
+        <span class="string">"path_create_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory32&gt;),
+        <span class="string">"path_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_get::&lt;Memory32&gt;),
+        <span class="string">"path_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory32&gt;),
+        <span class="string">"path_link" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory32&gt;),
+        <span class="string">"path_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory32&gt;),
+        <span class="string">"path_readlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory32&gt;),
+        <span class="string">"path_remove_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory32&gt;),
+        <span class="string">"path_rename" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
+        <span class="string">"path_symlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory32&gt;),
+        <span class="string">"path_unlink_file" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory32&gt;),
+        <span class="string">"poll_oneoff" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, poll_oneoff::&lt;Memory32&gt;),
+        <span class="string">"proc_exit" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
+        <span class="string">"proc_fork" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_fork::&lt;Memory32&gt;),
+        <span class="string">"proc_join" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory32&gt;),
+        <span class="string">"proc_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory32&gt;),
+        <span class="string">"proc_exec" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory32&gt;),
+        <span class="string">"proc_exec2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory32&gt;),
+        <span class="string">"proc_raise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
+        <span class="string">"proc_raise_interval" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
+        <span class="string">"proc_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory32&gt;),
+        <span class="string">"proc_id" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_id::&lt;Memory32&gt;),
+        <span class="string">"proc_parent" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_parent::&lt;Memory32&gt;),
+        <span class="string">"random_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
+        <span class="string">"tty_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_get::&lt;Memory32&gt;),
+        <span class="string">"tty_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_set::&lt;Memory32&gt;),
+        <span class="string">"getcwd" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, getcwd::&lt;Memory32&gt;),
+        <span class="string">"chdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, chdir::&lt;Memory32&gt;),
+        <span class="string">"callback_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, callback_signal::&lt;Memory32&gt;),
+        <span class="string">"thread_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory32&gt;),
+        <span class="string">"thread_spawn_v2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory32&gt;),
+        <span class="string">"thread_sleep" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep::&lt;Memory32&gt;),
+        <span class="string">"thread_id" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_id::&lt;Memory32&gt;),
+        <span class="string">"thread_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_signal),
+        <span class="string">"thread_join" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join::&lt;Memory32&gt;),
+        <span class="string">"thread_parallelism" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_parallelism::&lt;Memory32&gt;),
+        <span class="string">"thread_exit" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_exit),
+        <span class="string">"sched_yield" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
+        <span class="string">"stack_checkpoint" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_checkpoint::&lt;Memory32&gt;),
+        <span class="string">"stack_restore" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_restore::&lt;Memory32&gt;),
+        <span class="string">"futex_wait" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wait::&lt;Memory32&gt;),
+        <span class="string">"futex_wake" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake::&lt;Memory32&gt;),
+        <span class="string">"futex_wake_all" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake_all::&lt;Memory32&gt;),
+        <span class="string">"port_bridge" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_bridge::&lt;Memory32&gt;),
+        <span class="string">"port_unbridge" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_unbridge),
+        <span class="string">"port_dhcp_acquire" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_dhcp_acquire),
+        <span class="string">"port_addr_add" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_add::&lt;Memory32&gt;),
+        <span class="string">"port_addr_remove" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_remove::&lt;Memory32&gt;),
+        <span class="string">"port_addr_clear" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_clear),
+        <span class="string">"port_addr_list" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_list::&lt;Memory32&gt;),
+        <span class="string">"port_mac" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_mac::&lt;Memory32&gt;),
+        <span class="string">"port_gateway_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_gateway_set::&lt;Memory32&gt;),
+        <span class="string">"port_route_add" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_add::&lt;Memory32&gt;),
+        <span class="string">"port_route_remove" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_remove::&lt;Memory32&gt;),
+        <span class="string">"port_route_clear" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_clear),
+        <span class="string">"port_route_list" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_list::&lt;Memory32&gt;),
+        <span class="string">"sock_status" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_status::&lt;Memory32&gt;),
+        <span class="string">"sock_addr_local" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_local::&lt;Memory32&gt;),
+        <span class="string">"sock_addr_peer" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_peer::&lt;Memory32&gt;),
+        <span class="string">"sock_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_open::&lt;Memory32&gt;),
+        <span class="string">"sock_set_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_flag),
+        <span class="string">"sock_get_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_flag::&lt;Memory32&gt;),
+        <span class="string">"sock_set_opt_time" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_time::&lt;Memory32&gt;),
+        <span class="string">"sock_get_opt_time" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_time::&lt;Memory32&gt;),
+        <span class="string">"sock_set_opt_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_size),
+        <span class="string">"sock_get_opt_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_size::&lt;Memory32&gt;),
+        <span class="string">"sock_join_multicast_v4" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v4::&lt;Memory32&gt;),
+        <span class="string">"sock_leave_multicast_v4" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v4::&lt;Memory32&gt;),
+        <span class="string">"sock_join_multicast_v6" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v6::&lt;Memory32&gt;),
+        <span class="string">"sock_leave_multicast_v6" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v6::&lt;Memory32&gt;),
+        <span class="string">"sock_bind" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_bind::&lt;Memory32&gt;),
+        <span class="string">"sock_listen" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_listen::&lt;Memory32&gt;),
+        <span class="string">"sock_accept" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory32&gt;),
+        <span class="string">"sock_accept_v2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory32&gt;),
+        <span class="string">"sock_connect" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_connect::&lt;Memory32&gt;),
+        <span class="string">"sock_recv" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
+        <span class="string">"sock_recv_from" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv_from::&lt;Memory32&gt;),
+        <span class="string">"sock_send" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
+        <span class="string">"sock_send_to" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_to::&lt;Memory32&gt;),
+        <span class="string">"sock_send_file" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_file::&lt;Memory32&gt;),
+        <span class="string">"sock_shutdown" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
+        <span class="string">"resolve" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, resolve::&lt;Memory32&gt;),
     };
     namespace
 }
 
 <span class="kw">fn </span>wasix_exports_64(<span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;) -&gt; Exports {
     <span class="kw">use </span>syscalls::<span class="kw-2">*</span>;
-    <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
-        <span class="string">&quot;args_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory64&gt;),
-        <span class="string">&quot;args_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory64&gt;),
-        <span class="string">&quot;clock_res_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory64&gt;),
-        <span class="string">&quot;clock_time_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory64&gt;),
-        <span class="string">&quot;clock_time_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory64&gt;),
-        <span class="string">&quot;environ_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory64&gt;),
-        <span class="string">&quot;environ_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory64&gt;),
-        <span class="string">&quot;epoll_create&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory64&gt;),
-        <span class="string">&quot;epoll_ctl&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_ctl::&lt;Memory64&gt;),
-        <span class="string">&quot;epoll_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_wait::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_advise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
-        <span class="string">&quot;fd_allocate&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
-        <span class="string">&quot;fd_close&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
-        <span class="string">&quot;fd_datasync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
-        <span class="string">&quot;fd_fdstat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_fdstat_set_flags&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
-        <span class="string">&quot;fd_fdstat_set_rights&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
-        <span class="string">&quot;fd_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_get::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_filestat_set_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
-        <span class="string">&quot;fd_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
-        <span class="string">&quot;fd_pread&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_prestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_prestat_dir_name&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_pwrite&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_read&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_readdir&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_renumber&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
-        <span class="string">&quot;fd_dup&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_event&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_event::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_seek&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_sync&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
-        <span class="string">&quot;fd_tell&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_write&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory64&gt;),
-        <span class="string">&quot;fd_pipe&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pipe::&lt;Memory64&gt;),
-        <span class="string">&quot;path_create_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory64&gt;),
-        <span class="string">&quot;path_filestat_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_get::&lt;Memory64&gt;),
-        <span class="string">&quot;path_filestat_set_times&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory64&gt;),
-        <span class="string">&quot;path_link&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory64&gt;),
-        <span class="string">&quot;path_open&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory64&gt;),
-        <span class="string">&quot;path_readlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory64&gt;),
-        <span class="string">&quot;path_remove_directory&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory64&gt;),
-        <span class="string">&quot;path_rename&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory64&gt;),
-        <span class="string">&quot;path_symlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory64&gt;),
-        <span class="string">&quot;path_unlink_file&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory64&gt;),
-        <span class="string">&quot;poll_oneoff&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, poll_oneoff::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_fork&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_fork::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_exec&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_exec2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
-        <span class="string">&quot;proc_raise_interval&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
-        <span class="string">&quot;proc_spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_id&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_id::&lt;Memory64&gt;),
-        <span class="string">&quot;proc_parent&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_parent::&lt;Memory64&gt;),
-        <span class="string">&quot;random_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory64&gt;),
-        <span class="string">&quot;tty_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_get::&lt;Memory64&gt;),
-        <span class="string">&quot;tty_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_set::&lt;Memory64&gt;),
-        <span class="string">&quot;getcwd&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, getcwd::&lt;Memory64&gt;),
-        <span class="string">&quot;chdir&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, chdir::&lt;Memory64&gt;),
-        <span class="string">&quot;callback_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, callback_signal::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_spawn_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_sleep&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_id&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_id::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_signal),
-        <span class="string">&quot;thread_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_parallelism&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_parallelism::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_exit),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory64&gt;),
-        <span class="string">&quot;stack_checkpoint&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_checkpoint::&lt;Memory64&gt;),
-        <span class="string">&quot;stack_restore&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_restore::&lt;Memory64&gt;),
-        <span class="string">&quot;futex_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wait::&lt;Memory64&gt;),
-        <span class="string">&quot;futex_wake&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake::&lt;Memory64&gt;),
-        <span class="string">&quot;futex_wake_all&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake_all::&lt;Memory64&gt;),
-        <span class="string">&quot;port_bridge&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_bridge::&lt;Memory64&gt;),
-        <span class="string">&quot;port_unbridge&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_unbridge),
-        <span class="string">&quot;port_dhcp_acquire&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_dhcp_acquire),
-        <span class="string">&quot;port_addr_add&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_add::&lt;Memory64&gt;),
-        <span class="string">&quot;port_addr_remove&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_remove::&lt;Memory64&gt;),
-        <span class="string">&quot;port_addr_clear&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_clear),
-        <span class="string">&quot;port_addr_list&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_list::&lt;Memory64&gt;),
-        <span class="string">&quot;port_mac&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_mac::&lt;Memory64&gt;),
-        <span class="string">&quot;port_gateway_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_gateway_set::&lt;Memory64&gt;),
-        <span class="string">&quot;port_route_add&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_add::&lt;Memory64&gt;),
-        <span class="string">&quot;port_route_remove&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_remove::&lt;Memory64&gt;),
-        <span class="string">&quot;port_route_clear&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_clear),
-        <span class="string">&quot;port_route_list&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_list::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_status&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_status::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_addr_local&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_local::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_addr_peer&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_peer::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_open&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_open::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_set_opt_flag&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_flag),
-        <span class="string">&quot;sock_get_opt_flag&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_flag::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_set_opt_time&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_time::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_get_opt_time&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_time::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_set_opt_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_size),
-        <span class="string">&quot;sock_get_opt_size&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_size::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_join_multicast_v4&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v4::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_leave_multicast_v4&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v4::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_join_multicast_v6&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v6::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_leave_multicast_v6&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v6::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_bind&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_bind::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_listen&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_listen::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_accept_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_connect&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_connect::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_recv_from&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv_from::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_send_to&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_to::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_send_file&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_file::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
-        <span class="string">&quot;resolve&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, resolve::&lt;Memory64&gt;),
+    <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
+        <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory64&gt;),
+        <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory64&gt;),
+        <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory64&gt;),
+        <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory64&gt;),
+        <span class="string">"clock_time_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory64&gt;),
+        <span class="string">"environ_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory64&gt;),
+        <span class="string">"environ_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory64&gt;),
+        <span class="string">"epoll_create" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory64&gt;),
+        <span class="string">"epoll_ctl" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_ctl::&lt;Memory64&gt;),
+        <span class="string">"epoll_wait" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_wait::&lt;Memory64&gt;),
+        <span class="string">"fd_advise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
+        <span class="string">"fd_allocate" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
+        <span class="string">"fd_close" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
+        <span class="string">"fd_datasync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_datasync),
+        <span class="string">"fd_fdstat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_get::&lt;Memory64&gt;),
+        <span class="string">"fd_fdstat_set_flags" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_flags),
+        <span class="string">"fd_fdstat_set_rights" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdstat_set_rights),
+        <span class="string">"fd_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_get::&lt;Memory64&gt;),
+        <span class="string">"fd_filestat_set_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_size),
+        <span class="string">"fd_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_filestat_set_times),
+        <span class="string">"fd_pread" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pread::&lt;Memory64&gt;),
+        <span class="string">"fd_prestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_get::&lt;Memory64&gt;),
+        <span class="string">"fd_prestat_dir_name" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_prestat_dir_name::&lt;Memory64&gt;),
+        <span class="string">"fd_pwrite" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pwrite::&lt;Memory64&gt;),
+        <span class="string">"fd_read" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_read::&lt;Memory64&gt;),
+        <span class="string">"fd_readdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory64&gt;),
+        <span class="string">"fd_renumber" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
+        <span class="string">"fd_dup" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup::&lt;Memory64&gt;),
+        <span class="string">"fd_event" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_event::&lt;Memory64&gt;),
+        <span class="string">"fd_seek" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory64&gt;),
+        <span class="string">"fd_sync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
+        <span class="string">"fd_tell" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_tell::&lt;Memory64&gt;),
+        <span class="string">"fd_write" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_write::&lt;Memory64&gt;),
+        <span class="string">"fd_pipe" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_pipe::&lt;Memory64&gt;),
+        <span class="string">"path_create_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_create_directory::&lt;Memory64&gt;),
+        <span class="string">"path_filestat_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_get::&lt;Memory64&gt;),
+        <span class="string">"path_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory64&gt;),
+        <span class="string">"path_link" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory64&gt;),
+        <span class="string">"path_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory64&gt;),
+        <span class="string">"path_readlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory64&gt;),
+        <span class="string">"path_remove_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory64&gt;),
+        <span class="string">"path_rename" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory64&gt;),
+        <span class="string">"path_symlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory64&gt;),
+        <span class="string">"path_unlink_file" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory64&gt;),
+        <span class="string">"poll_oneoff" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, poll_oneoff::&lt;Memory64&gt;),
+        <span class="string">"proc_exit" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory64&gt;),
+        <span class="string">"proc_fork" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_fork::&lt;Memory64&gt;),
+        <span class="string">"proc_join" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory64&gt;),
+        <span class="string">"proc_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory64&gt;),
+        <span class="string">"proc_exec" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory64&gt;),
+        <span class="string">"proc_exec2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory64&gt;),
+        <span class="string">"proc_raise" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
+        <span class="string">"proc_raise_interval" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
+        <span class="string">"proc_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory64&gt;),
+        <span class="string">"proc_id" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_id::&lt;Memory64&gt;),
+        <span class="string">"proc_parent" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_parent::&lt;Memory64&gt;),
+        <span class="string">"random_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory64&gt;),
+        <span class="string">"tty_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_get::&lt;Memory64&gt;),
+        <span class="string">"tty_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_set::&lt;Memory64&gt;),
+        <span class="string">"getcwd" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, getcwd::&lt;Memory64&gt;),
+        <span class="string">"chdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, chdir::&lt;Memory64&gt;),
+        <span class="string">"callback_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, callback_signal::&lt;Memory64&gt;),
+        <span class="string">"thread_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory64&gt;),
+        <span class="string">"thread_spawn_v2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory64&gt;),
+        <span class="string">"thread_sleep" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep::&lt;Memory64&gt;),
+        <span class="string">"thread_id" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_id::&lt;Memory64&gt;),
+        <span class="string">"thread_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_signal),
+        <span class="string">"thread_join" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join::&lt;Memory64&gt;),
+        <span class="string">"thread_parallelism" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_parallelism::&lt;Memory64&gt;),
+        <span class="string">"thread_exit" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_exit),
+        <span class="string">"sched_yield" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory64&gt;),
+        <span class="string">"stack_checkpoint" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_checkpoint::&lt;Memory64&gt;),
+        <span class="string">"stack_restore" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_restore::&lt;Memory64&gt;),
+        <span class="string">"futex_wait" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wait::&lt;Memory64&gt;),
+        <span class="string">"futex_wake" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake::&lt;Memory64&gt;),
+        <span class="string">"futex_wake_all" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wake_all::&lt;Memory64&gt;),
+        <span class="string">"port_bridge" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_bridge::&lt;Memory64&gt;),
+        <span class="string">"port_unbridge" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_unbridge),
+        <span class="string">"port_dhcp_acquire" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_dhcp_acquire),
+        <span class="string">"port_addr_add" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_add::&lt;Memory64&gt;),
+        <span class="string">"port_addr_remove" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_remove::&lt;Memory64&gt;),
+        <span class="string">"port_addr_clear" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_clear),
+        <span class="string">"port_addr_list" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_addr_list::&lt;Memory64&gt;),
+        <span class="string">"port_mac" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_mac::&lt;Memory64&gt;),
+        <span class="string">"port_gateway_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_gateway_set::&lt;Memory64&gt;),
+        <span class="string">"port_route_add" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_add::&lt;Memory64&gt;),
+        <span class="string">"port_route_remove" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_remove::&lt;Memory64&gt;),
+        <span class="string">"port_route_clear" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_clear),
+        <span class="string">"port_route_list" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, port_route_list::&lt;Memory64&gt;),
+        <span class="string">"sock_status" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_status::&lt;Memory64&gt;),
+        <span class="string">"sock_addr_local" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_local::&lt;Memory64&gt;),
+        <span class="string">"sock_addr_peer" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_peer::&lt;Memory64&gt;),
+        <span class="string">"sock_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_open::&lt;Memory64&gt;),
+        <span class="string">"sock_set_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_flag),
+        <span class="string">"sock_get_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_flag::&lt;Memory64&gt;),
+        <span class="string">"sock_set_opt_time" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_time::&lt;Memory64&gt;),
+        <span class="string">"sock_get_opt_time" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_time::&lt;Memory64&gt;),
+        <span class="string">"sock_set_opt_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_size),
+        <span class="string">"sock_get_opt_size" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_size::&lt;Memory64&gt;),
+        <span class="string">"sock_join_multicast_v4" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v4::&lt;Memory64&gt;),
+        <span class="string">"sock_leave_multicast_v4" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v4::&lt;Memory64&gt;),
+        <span class="string">"sock_join_multicast_v6" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_join_multicast_v6::&lt;Memory64&gt;),
+        <span class="string">"sock_leave_multicast_v6" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v6::&lt;Memory64&gt;),
+        <span class="string">"sock_bind" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_bind::&lt;Memory64&gt;),
+        <span class="string">"sock_listen" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_listen::&lt;Memory64&gt;),
+        <span class="string">"sock_accept" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory64&gt;),
+        <span class="string">"sock_accept_v2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory64&gt;),
+        <span class="string">"sock_connect" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_connect::&lt;Memory64&gt;),
+        <span class="string">"sock_recv" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory64&gt;),
+        <span class="string">"sock_recv_from" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv_from::&lt;Memory64&gt;),
+        <span class="string">"sock_send" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory64&gt;),
+        <span class="string">"sock_send_to" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_to::&lt;Memory64&gt;),
+        <span class="string">"sock_send_file" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send_file::&lt;Memory64&gt;),
+        <span class="string">"sock_shutdown" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
+        <span class="string">"resolve" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, resolve::&lt;Memory64&gt;),
     };
     namespace
 }
@@ -1623,12 +1627,12 @@
 
     <span class="comment">// Allowed due to JS feature flag complications.
     </span><span class="attr">#[allow(unused_mut)]
-    </span><span class="kw">let </span><span class="kw-2">mut </span>imports = <span class="macro">imports! </span>{
-        <span class="string">&quot;wasi&quot; </span>=&gt; exports_wasi_generic,
-        <span class="string">&quot;wasi_unstable&quot; </span>=&gt; exports_wasi_unstable,
-        <span class="string">&quot;wasi_snapshot_preview1&quot; </span>=&gt; exports_wasi_snapshot_preview1,
-        <span class="string">&quot;wasix_32v1&quot; </span>=&gt; exports_wasix_32v1,
-        <span class="string">&quot;wasix_64v1&quot; </span>=&gt; exports_wasix_64v1,
+    </span><span class="kw">let </span><span class="kw-2">mut </span>imports = <span class="macro">imports!</span> {
+        <span class="string">"wasi" </span>=&gt; exports_wasi_generic,
+        <span class="string">"wasi_unstable" </span>=&gt; exports_wasi_unstable,
+        <span class="string">"wasi_snapshot_preview1" </span>=&gt; exports_wasi_snapshot_preview1,
+        <span class="string">"wasix_32v1" </span>=&gt; exports_wasix_32v1,
+        <span class="string">"wasix_64v1" </span>=&gt; exports_wasix_64v1,
     };
 
     <span class="kw">let </span>init = Box::new(stub_initializer) <span class="kw">as </span>ModuleInitializer;
@@ -1642,8 +1646,8 @@
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
 ) -&gt; Imports {
     <span class="kw">let </span>exports_unstable = wasi_unstable_exports(store, env);
-    <span class="macro">imports! </span>{
-        <span class="string">&quot;wasi_unstable&quot; </span>=&gt; exports_unstable
+    <span class="macro">imports!</span> {
+        <span class="string">"wasi_unstable" </span>=&gt; exports_unstable
     }
 }
 
@@ -1652,8 +1656,8 @@
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
 ) -&gt; Imports {
     <span class="kw">let </span>exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
-    <span class="macro">imports! </span>{
-        <span class="string">&quot;wasi_snapshot_preview1&quot; </span>=&gt; exports_wasi_snapshot_preview1
+    <span class="macro">imports!</span> {
+        <span class="string">"wasi_snapshot_preview1" </span>=&gt; exports_wasi_snapshot_preview1
     }
 }
 
@@ -1663,8 +1667,8 @@
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
 ) -&gt; Imports {
     <span class="kw">let </span>exports_wasix_32v1 = wasix_exports_32(store, env);
-    <span class="macro">imports! </span>{
-        <span class="string">&quot;wasix_32v1&quot; </span>=&gt; exports_wasix_32v1
+    <span class="macro">imports!</span> {
+        <span class="string">"wasix_32v1" </span>=&gt; exports_wasix_32v1
     }
 }
 
@@ -1673,8 +1677,8 @@
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
 ) -&gt; Imports {
     <span class="kw">let </span>exports_wasix_64v1 = wasix_exports_64(store, env);
-    <span class="macro">imports! </span>{
-        <span class="string">&quot;wasix_64v1&quot; </span>=&gt; exports_wasix_64v1
+    <span class="macro">imports!</span> {
+        <span class="string">"wasix_64v1" </span>=&gt; exports_wasix_64v1
     }
 }
 
@@ -1693,8 +1697,8 @@
 /// [`tokio::task::block_in_place()`]. Otherwise, it calls the function
 /// immediately.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>block_in_place&lt;Ret&gt;(thunk: <span class="kw">impl </span>FnOnce() -&gt; Ret) -&gt; Ret {
-    <span class="macro">cfg_if::cfg_if! </span>{
-        <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)] </span>{
+    <span class="macro">cfg_if::cfg_if!</span> {
+        <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)] </span>{
             tokio::task::block_in_place(thunk)
         } <span class="kw">else </span>{
             thunk()
@@ -1706,14 +1710,14 @@
 ///
 /// The closure is executed on a separate thread, allowing it to perform blocking operations
 /// without blocking the main thread. The closure is wrapped in a `Future` that resolves to the
-/// result of the closure&#39;s execution.
+/// result of the closure's execution.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>spawn_blocking&lt;F, R&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;R, tokio::task::JoinError&gt;
 <span class="kw">where
-    </span>F: FnOnce() -&gt; R + Send + <span class="lifetime">&#39;static</span>,
-    R: Send + <span class="lifetime">&#39;static</span>,
+    </span>F: FnOnce() -&gt; R + Send + <span class="lifetime">'static</span>,
+    R: Send + <span class="lifetime">'static</span>,
 {
-    <span class="macro">cfg_if::cfg_if! </span>{
-        <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)] </span>{
+    <span class="macro">cfg_if::cfg_if!</span> {
+        <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)] </span>{
             <span class="prelude-val">Ok</span>(block_in_place(f))
         } <span class="kw">else </span>{
             tokio::task::spawn_blocking(f).<span class="kw">await

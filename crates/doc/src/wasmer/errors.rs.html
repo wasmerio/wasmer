@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/errors.rs`."><title>errors.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/errors.rs`."><title>errors.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -285,15 +285,19 @@
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"wasm-c-api"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::c_api::trap::Trap;
+<span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::trap::Trap;
-<span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::jsc::trap::Trap;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>wasmer_types::{FrameInfo, TrapCode};
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">use </span>wasmer_vm::Trap;
 
 <span class="kw">use </span>wasmer_types::ImportError;
@@ -305,18 +309,18 @@
 ///
 /// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
 </span><span class="attr">#[derive(Debug, Clone)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Link error: {0}&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Link error: {0}"</span>))]
 </span><span class="kw">pub enum </span>LinkError {
     <span class="doccomment">/// An error occurred when checking the import types.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Error while importing {0:?}.{1:?}: {2}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error while importing {0:?}.{1:?}: {2}"</span>))]
     </span>Import(String, String, ImportError),
 
     <span class="doccomment">/// A trap ocurred during linking.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;RuntimeError occurred during linking: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"RuntimeError occurred during linking: {0}"</span>))]
     </span>Trap(<span class="attr">#[source] </span>RuntimeError),
     <span class="doccomment">/// Insufficient resources available for linking.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Insufficient resources: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Insufficient resources: {0}"</span>))]
     </span>Resource(String),
 }
 
@@ -326,32 +330,32 @@
 /// we need to differentiate from a `LinkError` (an error
 /// that happens while linking, on instantiation), a
 /// Trap that occurs when calling the WebAssembly module
-/// start function, and an error when initializing the user&#39;s
+/// start function, and an error when initializing the user's
 /// host environments.
 </span><span class="attr">#[derive(Debug, Clone)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Error))]
 </span><span class="kw">pub enum </span>InstantiationError {
     <span class="doccomment">/// A linking ocurred during instantiation.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(transparent))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(transparent))]
     </span>Link(LinkError),
 
     <span class="doccomment">/// A runtime error occured while invoking the start function
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(transparent))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(transparent))]
     </span>Start(RuntimeError),
 
     <span class="doccomment">/// The module was compiled with a CPU feature that is not available on
     /// the current host.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;missing required CPU features: {0:?}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"missing required CPU features: {0:?}"</span>))]
     </span>CpuFeature(String),
 
     <span class="doccomment">/// Import from a different [`Store`][super::Store].
     /// This error occurs when an import from a different store is used.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;cannot mix imports from different stores&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"cannot mix imports from different stores"</span>))]
     </span>DifferentStores,
 
     <span class="doccomment">/// Import from a different Store.
     /// This error occurs when an import from a different store is used.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;incorrect OS or architecture&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"incorrect OS or architecture"</span>))]
     </span>DifferentArchOS,
 }
 
@@ -375,7 +379,7 @@
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>RuntimeStringError {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.details)
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.details)
     }
 }
 
@@ -399,8 +403,8 @@
     ///
     /// # Example
     /// ```
-    /// let trap = wasmer::RuntimeError::new(&quot;unexpected error&quot;);
-    /// assert_eq!(&quot;unexpected error&quot;, trap.message());
+    /// let trap = wasmer::RuntimeError::new("unexpected error");
+    /// assert_eq!("unexpected error", trap.message());
     /// ```
     </span><span class="kw">pub fn </span>new&lt;I: Into&lt;String&gt;&gt;(message: I) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>msg = message.into();
@@ -413,14 +417,14 @@
     /// # Example
     /// ```ignore
     /// let wasm_trace = vec![wasmer_types::FrameInfo::new(
-    ///   &quot;my_module&quot;.to_string(),
+    ///   "my_module".to_string(),
     ///   0,
-    ///   Some(&quot;my_function&quot;.to_string()),
+    ///   Some("my_function".to_string()),
     ///   0.into(),
     ///   2.into()
     /// )];
     /// let trap = wasmer::RuntimeError::new_from_source(my_error, wasm_trace, None);
-    /// assert_eq!(&quot;unexpected error&quot;, trap.message());
+    /// assert_eq!("unexpected error", trap.message());
     /// ```
     </span><span class="kw">pub fn </span>new_from_source(
         source: Trap,
@@ -462,18 +466,18 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.wasm_trace
     }
 
-    <span class="doccomment">/// Returns trap code, if it&#39;s a Trap
+    <span class="doccomment">/// Returns trap code, if it's a Trap
     </span><span class="kw">pub fn </span>to_trap(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TrapCode&gt; {
         <span class="self">self</span>.inner.trap_code
     }
 
-    <span class="comment">// /// Returns trap code, if it&#39;s a Trap
-    // pub fn to_source(self) -&gt; &amp;&#39;static Trap {
+    <span class="comment">// /// Returns trap code, if it's a Trap
+    // pub fn to_source(self) -&gt; &amp;'static Trap {
     //     &amp;self.inner.as_ref().source
     // }
 
     </span><span class="doccomment">/// Attempts to downcast the `RuntimeError` to a concrete type.
-    </span><span class="kw">pub fn </span>downcast&lt;T: std::error::Error + <span class="lifetime">&#39;static</span>&gt;(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, <span class="self">Self</span>&gt; {
+    </span><span class="kw">pub fn </span>downcast&lt;T: std::error::Error + <span class="lifetime">'static</span>&gt;(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, <span class="self">Self</span>&gt; {
         <span class="kw">match </span>Arc::try_unwrap(<span class="self">self</span>.inner) {
             <span class="prelude-val">Ok</span>(inner) <span class="kw">if </span>inner.source.is::&lt;T&gt;() =&gt; <span class="prelude-val">Ok</span>(inner.source.downcast::&lt;T&gt;().unwrap()),
             <span class="prelude-val">Ok</span>(inner) =&gt; <span class="prelude-val">Err</span>(<span class="self">Self </span>{
@@ -484,28 +488,28 @@
     }
 
     <span class="doccomment">/// Attempts to downcast the `RuntimeError` to a concrete type.
-    </span><span class="kw">pub fn </span>downcast_ref&lt;T: std::error::Error + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>T&gt; {
+    </span><span class="kw">pub fn </span>downcast_ref&lt;T: std::error::Error + <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>T&gt; {
         <span class="self">self</span>.inner.as_ref().source.downcast_ref::&lt;T&gt;()
     }
 
     <span class="doccomment">/// Returns true if the `RuntimeError` is the same as T
-    </span><span class="kw">pub fn </span>is&lt;T: std::error::Error + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    </span><span class="kw">pub fn </span>is&lt;T: std::error::Error + <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.inner.source.is::&lt;T&gt;()
     }
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>RuntimeError {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        f.debug_struct(<span class="string">&quot;RuntimeError&quot;</span>)
-            .field(<span class="string">&quot;source&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.source)
-            .field(<span class="string">&quot;wasm_trace&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.wasm_trace)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">"RuntimeError"</span>)
+            .field(<span class="string">"source"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.source)
+            .field(<span class="string">"wasm_trace"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.wasm_trace)
             .finish()
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>RuntimeError {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;RuntimeError: {}&quot;</span>, <span class="self">self</span>.message())<span class="question-mark">?</span>;
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"RuntimeError: {}"</span>, <span class="self">self</span>.message())<span class="question-mark">?</span>;
         <span class="kw">let </span>trace = <span class="self">self</span>.trace();
         <span class="kw">if </span>trace.is_empty() {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
@@ -514,17 +518,17 @@
             <span class="kw">let </span>name = frame.module_name();
             <span class="kw">let </span>func_index = frame.func_index();
             <span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
-            <span class="macro">write!</span>(f, <span class="string">&quot;    at &quot;</span>)<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(f, <span class="string">"    at "</span>)<span class="question-mark">?</span>;
             <span class="kw">match </span>frame.function_name() {
                 <span class="prelude-val">Some</span>(name) =&gt; <span class="kw">match </span>rustc_demangle::try_demangle(name) {
-                    <span class="prelude-val">Ok</span>(name) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, name)<span class="question-mark">?</span>,
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, name)<span class="question-mark">?</span>,
+                    <span class="prelude-val">Ok</span>(name) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, name)<span class="question-mark">?</span>,
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, name)<span class="question-mark">?</span>,
                 },
-                <span class="prelude-val">None </span>=&gt; <span class="macro">write!</span>(f, <span class="string">&quot;&lt;unnamed&gt;&quot;</span>)<span class="question-mark">?</span>,
+                <span class="prelude-val">None </span>=&gt; <span class="macro">write!</span>(f, <span class="string">"&lt;unnamed&gt;"</span>)<span class="question-mark">?</span>,
             }
             <span class="macro">write!</span>(
                 f,
-                <span class="string">&quot; ({}[{}]:0x{:x})&quot;</span>,
+                <span class="string">" ({}[{}]:0x{:x})"</span>,
                 name,
                 func_index,
                 frame.module_offset()
@@ -535,7 +539,7 @@
 }
 
 <span class="kw">impl </span>std::error::Error <span class="kw">for </span>RuntimeError {
-    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)&gt; {
+    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>)&gt; {
         <span class="self">self</span>.inner.source.source()
     }
 }
@@ -564,11 +568,11 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>AtomicsError {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Unimplemented =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Atomic operations are not supported&quot;</span>),
-            <span class="self">Self</span>::TooManyWaiters =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Too many waiters for address&quot;</span>),
-            <span class="self">Self</span>::AtomicsDisabled =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Atomic operations are disabled&quot;</span>),
+            <span class="self">Self</span>::Unimplemented =&gt; <span class="macro">write!</span>(f, <span class="string">"Atomic operations are not supported"</span>),
+            <span class="self">Self</span>::TooManyWaiters =&gt; <span class="macro">write!</span>(f, <span class="string">"Too many waiters for address"</span>),
+            <span class="self">Self</span>::AtomicsDisabled =&gt; <span class="macro">write!</span>(f, <span class="string">"Atomic operations are disabled"</span>),
         }
     }
 }

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasi/poll_oneoff.rs`."><title>poll_oneoff.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasi/poll_oneoff.rs`."><title>poll_oneoff.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -489,6 +489,10 @@
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
@@ -535,6 +539,7 @@
 
 <span class="doccomment">/// ### `poll_oneoff()`
 /// Concurrently poll for a set of events
+///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
 ///     The events to subscribe to
@@ -542,12 +547,13 @@
 ///     The events that have occured
 /// - `u32 nsubscriptions`
 ///     The number of subscriptions and the number of events
+///
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-</span><span class="comment">//#[instrument(level = &quot;trace&quot;, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
-</span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+</span><span class="comment">//#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
+</span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize + <span class="lifetime">'static</span>&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     in_: WasmPtr&lt;Subscription, M&gt;,
     out_: WasmPtr&lt;Event, M&gt;,
     nsubscriptions: M::Offset,
@@ -575,7 +581,7 @@
     </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, M::ZERO));
 
     <span class="comment">// Function to invoke once the poll is finished
-    </span><span class="kw">let </span>process_events = |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, triggered_events: Vec&lt;Event&gt;| {
+    </span><span class="kw">let </span>process_events = |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, triggered_events: Vec&lt;Event&gt;| {
         <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
         <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
@@ -586,7 +592,7 @@
             <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
             events_seen += <span class="number">1</span>;
         }
-        <span class="kw">let </span>events_seen: M::Offset = <span class="macro">wasi_try!</span>(events_seen.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+        <span class="kw">let </span>events_seen: M::Offset = events_seen.into();
         <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>memory);
         <span class="macro">wasi_try_mem!</span>(out_ptr.write(events_seen));
         Errno::Success
@@ -617,7 +623,7 @@
 }
 <span class="kw">impl </span>Future <span class="kw">for </span>PollBatch {
     <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;EventResult&gt;, Errno&gt;;
-    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         <span class="kw">let </span>pid = <span class="self">self</span>.pid;
         <span class="kw">let </span>tid = <span class="self">self</span>.tid;
         <span class="kw">let </span><span class="kw-2">mut </span>done = <span class="bool-val">false</span>;
@@ -637,7 +643,7 @@
                             userdata = evt.userdata,
                             ty = evt.type_ <span class="kw">as </span>u8,
                             peb,
-                            <span class="string">&quot;triggered&quot;
+                            <span class="string">"triggered"
                         </span>);
                         evts.push(evt);
                     }
@@ -689,6 +695,7 @@
 
 <span class="doccomment">/// ### `poll_oneoff()`
 /// Concurrently poll for a set of events
+///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
 ///     The events to subscribe to
@@ -696,16 +703,17 @@
 ///     The events that have occured
 /// - `u32 nsubscriptions`
 ///     The number of subscriptions and the number of events
+///
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poll_oneoff_internal&lt;<span class="lifetime">&#39;a</span>, M: MemorySize, After&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poll_oneoff_internal&lt;<span class="lifetime">'a</span>, M: MemorySize, After&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;,
     <span class="kw-2">mut </span>subs: Vec&lt;(<span class="prelude-ty">Option</span>&lt;WasiFd&gt;, PollEventSet, Subscription)&gt;,
     process_events: After,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt;
 <span class="kw">where
-    </span>After: FnOnce(<span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;, Vec&lt;Event&gt;) -&gt; Errno,
+    </span>After: FnOnce(<span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;, Vec&lt;Event&gt;) -&gt; Errno,
 {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
 
@@ -813,7 +821,7 @@
                     }
                     <span class="kw">continue</span>;
                 } <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;polling not implemented for these clocks yet&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"polling not implemented for these clocks yet"</span>);
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
                 }
             }
@@ -844,9 +852,9 @@
 
             <span class="kw">if </span>fd_guards.len() &gt; <span class="number">10 </span>{
                 <span class="kw">let </span>small_list: Vec&lt;<span class="kw">_</span>&gt; = fd_guards.iter().take(<span class="number">10</span>).collect();
-                tracing::Span::current().record(<span class="string">&quot;fd_guards&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}...&quot;</span>, small_list));
+                tracing::Span::current().record(<span class="string">"fd_guards"</span>, <span class="macro">format!</span>(<span class="string">"{:?}..."</span>, small_list));
             } <span class="kw">else </span>{
-                tracing::Span::current().record(<span class="string">&quot;fd_guards&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, fd_guards));
+                tracing::Span::current().record(<span class="string">"fd_guards"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, fd_guards));
             }
 
             fd_guards
@@ -859,15 +867,15 @@
     <span class="comment">// If the time is infinite then we omit the time_to_sleep parameter
     </span><span class="kw">let </span>timeout = <span class="kw">match </span>time_to_sleep {
         Duration::ZERO =&gt; {
-            Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;nonblocking&quot;</span>);
+            Span::current().record(<span class="string">"timeout_ns"</span>, <span class="string">"nonblocking"</span>);
             <span class="prelude-val">Some</span>(Duration::ZERO)
         }
         Duration::MAX =&gt; {
-            Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;infinite&quot;</span>);
+            Span::current().record(<span class="string">"timeout_ns"</span>, <span class="string">"infinite"</span>);
             <span class="prelude-val">None
         </span>}
         time =&gt; {
-            Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, time.as_millis());
+            Span::current().record(<span class="string">"timeout_ns"</span>, time.as_millis());
             <span class="prelude-val">Some</span>(time)
         }
     };
@@ -875,10 +883,10 @@
     <span class="comment">// Function to process a timeout
     </span><span class="kw">let </span>process_timeout = {
         <span class="kw">let </span>clock_subs = clock_subs.clone();
-        |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;| {
+        |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;| {
             <span class="comment">// The timeout has triggered so lets add that event
             </span><span class="kw">if </span>clock_subs.is_empty() {
-                <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
+                <span class="macro">tracing::warn!</span>(<span class="string">"triggered_timeout (without any clock subscriptions)"</span>,);
             }
             <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
             <span class="kw">for </span>(clock_info, userdata) <span class="kw">in </span>clock_subs {
@@ -889,9 +897,9 @@
                     u: EventUnion { clock: <span class="number">0 </span>},
                 };
                 Span::current().record(
-                    <span class="string">&quot;seen&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                        <span class="string">&quot;clock(id={},userdata={})&quot;</span>,
+                    <span class="string">"seen"</span>,
+                    <span class="macro">format!</span>(
+                        <span class="string">"clock(id={},userdata={})"</span>,
                         clock_info.clock_id <span class="kw">as </span>u32, evt.userdata
                     ),
                 );
@@ -901,7 +909,7 @@
         }
     };
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
     </span><span class="kw">if </span>env.capabilities.threading.enable_blocking_sleep &amp;&amp; subs_len == <span class="number">1 </span>{
         <span class="comment">// Here, `poll_oneoff` is merely in a sleeping state
         // due to a single relative timer event. This particular scenario was
@@ -926,7 +934,7 @@
 
     <span class="comment">// Build the trigger using the timeout
     </span><span class="kw">let </span>trigger = <span class="kw">async move </span>{
-        <span class="macro">tokio::select! </span>{
+        <span class="macro">tokio::select!</span> {
             res = batch =&gt; res,
             <span class="kw">_ </span>= timeout =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
         }
@@ -936,15 +944,15 @@
     // which will interpret the error codes
     </span><span class="kw">let </span>process_events = {
         <span class="kw">let </span>clock_subs = clock_subs.clone();
-        |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;, events: <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&gt;, Errno&gt;| {
+        |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;, events: <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&gt;, Errno&gt;| {
             <span class="comment">// Process the result
             </span><span class="kw">match </span>events {
                 <span class="prelude-val">Ok</span>(evts) =&gt; {
                     <span class="comment">// If its a timeout then return an event for it
                     </span><span class="kw">if </span>evts.len() == <span class="number">1 </span>{
-                        Span::current().record(<span class="string">&quot;seen&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, evts.first().unwrap()));
+                        Span::current().record(<span class="string">"seen"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, evts.first().unwrap()));
                     } <span class="kw">else </span>{
-                        Span::current().record(<span class="string">&quot;seen&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;trigger_cnt=({})&quot;</span>, evts.len()));
+                        Span::current().record(<span class="string">"seen"</span>, <span class="macro">format!</span>(<span class="string">"trigger_cnt=({})"</span>, evts.len()));
                     }
 
                     <span class="comment">// Process the events
@@ -955,7 +963,7 @@
                 </span><span class="prelude-val">Err</span>(Errno::Again) =&gt; process_events(ctx, Default::default()),
                 <span class="comment">// Otherwise process the error
                 </span><span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to poll during deep sleep - {}&quot;</span>, err);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"failed to poll during deep sleep - {}"</span>, err);
                     err
                 }
             }

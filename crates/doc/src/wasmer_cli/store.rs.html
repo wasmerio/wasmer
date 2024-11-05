@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/store.rs`."><title>store.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -402,6 +402,19 @@
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -415,18 +428,18 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">use </span>wasmer::sys::Features;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span>wasmer_compiler::CompilerConfig;
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span>wasmer_compiler::Engine;
 
 <span class="attr">#[derive(Debug, Clone, clap::Parser, Default)]
 </span><span class="doccomment">/// The compiler options
 </span><span class="kw">pub struct </span>StoreOptions {
-    <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     #[clap(flatten)]
     </span>compiler: CompilerOptions,
 }
@@ -436,48 +449,48 @@
 /// Command Line args.
 </span><span class="kw">pub struct </span>WasmFeatures {
     <span class="doccomment">/// Enable support for the SIMD proposal.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-simd&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-simd"</span>)]
     </span><span class="kw">pub </span>simd: bool,
 
     <span class="doccomment">/// Disable support for the threads proposal.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;disable-threads&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"disable-threads"</span>)]
     </span><span class="kw">pub </span>disable_threads: bool,
 
     <span class="doccomment">/// Deprecated, threads are enabled by default.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-threads&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-threads"</span>)]
     </span><span class="kw">pub </span>_threads: bool,
 
     <span class="doccomment">/// Enable support for the reference types proposal.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-reference-types&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-reference-types"</span>)]
     </span><span class="kw">pub </span>reference_types: bool,
 
     <span class="doccomment">/// Enable support for the multi value proposal.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-multi-value&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-multi-value"</span>)]
     </span><span class="kw">pub </span>multi_value: bool,
 
     <span class="doccomment">/// Enable support for the bulk memory proposal.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-bulk-memory&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-bulk-memory"</span>)]
     </span><span class="kw">pub </span>bulk_memory: bool,
 
     <span class="doccomment">/// Enable support for all pre-standard proposals.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-all&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"enable-all"</span>)]
     </span><span class="kw">pub </span>all: bool,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 #[derive(Debug, Clone, clap::Parser, Default)]
 </span><span class="doccomment">/// The compiler options
 </span><span class="kw">pub struct </span>CompilerOptions {
     <span class="doccomment">/// Use Singlepass compiler.
-    </span><span class="attr">#[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;cranelift&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"cranelift"</span>, <span class="string">"llvm"</span>]</span>)]
     singlepass: bool,
 
     <span class="doccomment">/// Use Cranelift compiler.
-    </span><span class="attr">#[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"singlepass"</span>, <span class="string">"llvm"</span>]</span>)]
     cranelift: bool,
 
     <span class="doccomment">/// Use LLVM compiler.
-    </span><span class="attr">#[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;cranelift&quot;</span>]</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"singlepass"</span>, <span class="string">"cranelift"</span>]</span>)]
     llvm: bool,
 
     <span class="doccomment">/// Enable compiler internal verification.
@@ -496,7 +509,7 @@
     </span>features: WasmFeatures,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">impl </span>CompilerOptions {
     <span class="kw">fn </span>get_compiler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;CompilerType&gt; {
         <span class="kw">if </span><span class="self">self</span>.cranelift {
@@ -507,17 +520,17 @@
             <span class="prelude-val">Ok</span>(CompilerType::Singlepass)
         } <span class="kw">else </span>{
             <span class="comment">// Auto mode, we choose the best compiler for that platform
-            </span><span class="macro">cfg_if::cfg_if! </span>{
-                <span class="kw">if </span><span class="attr">#[cfg(all(feature = <span class="string">&quot;cranelift&quot;</span>, any(target_arch = <span class="string">&quot;x86_64&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>)))] </span>{
+            </span><span class="macro">cfg_if::cfg_if!</span> {
+                <span class="kw">if </span><span class="attr">#[cfg(all(feature = <span class="string">"cranelift"</span>, any(target_arch = <span class="string">"x86_64"</span>, target_arch = <span class="string">"aarch64"</span>)))] </span>{
                     <span class="prelude-val">Ok</span>(CompilerType::Cranelift)
                 }
-                <span class="kw">else if </span><span class="attr">#[cfg(all(feature = <span class="string">&quot;singlepass&quot;</span>, any(target_arch = <span class="string">&quot;x86_64&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>)))] </span>{
+                <span class="kw">else if </span><span class="attr">#[cfg(all(feature = <span class="string">"singlepass"</span>, any(target_arch = <span class="string">"x86_64"</span>, target_arch = <span class="string">"aarch64"</span>)))] </span>{
                     <span class="prelude-val">Ok</span>(CompilerType::Singlepass)
                 }
-                <span class="kw">else if </span><span class="attr">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)] </span>{
+                <span class="kw">else if </span><span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)] </span>{
                     <span class="prelude-val">Ok</span>(CompilerType::LLVM)
                 } <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">&quot;There are no available compilers for your architecture&quot;</span>);
+                    <span class="macro">bail!</span>(<span class="string">"There are no available compilers for your architecture"</span>);
                 }
             }
         }
@@ -561,7 +574,7 @@
         <span class="prelude-val">Ok</span>((engine, compiler_type))
     }
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">fn </span>get_engine(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         target: Target,
@@ -581,8 +594,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_compiler_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;, CompilerType)&gt; {
         <span class="kw">let </span>compiler = <span class="self">self</span>.get_compiler()<span class="question-mark">?</span>;
         <span class="kw">let </span>compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt; = <span class="kw">match </span>compiler {
-            CompilerType::Headless =&gt; <span class="macro">bail!</span>(<span class="string">&quot;The headless engine can&#39;t be chosen&quot;</span>),
-            <span class="attr">#[cfg(feature = <span class="string">&quot;singlepass&quot;</span>)]
+            CompilerType::Headless =&gt; <span class="macro">bail!</span>(<span class="string">"The headless engine can't be chosen"</span>),
+            <span class="attr">#[cfg(feature = <span class="string">"singlepass"</span>)]
             </span>CompilerType::Singlepass =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>config = wasmer_compiler_singlepass::Singlepass::new();
                 <span class="kw">if </span><span class="self">self</span>.enable_verifier {
@@ -590,7 +603,7 @@
                 }
                 Box::new(config)
             }
-            <span class="attr">#[cfg(feature = <span class="string">&quot;cranelift&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
             </span>CompilerType::Cranelift =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>config = wasmer_compiler_cranelift::Cranelift::new();
                 <span class="kw">if </span><span class="self">self</span>.enable_verifier {
@@ -598,7 +611,7 @@
                 }
                 Box::new(config)
             }
-            <span class="attr">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
             </span>CompilerType::LLVM =&gt; {
                 <span class="kw">use </span>std::{fmt, fs::File, io::Write};
 
@@ -612,7 +625,7 @@
                 }
                 <span class="kw">impl </span>Callbacks {
                     <span class="kw">fn </span>new(debug_dir: PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-                        <span class="comment">// Create the debug dir in case it doesn&#39;t exist
+                        <span class="comment">// Create the debug dir in case it doesn't exist
                         </span>std::fs::create_dir_all(<span class="kw-2">&amp;</span>debug_dir)<span class="question-mark">?</span>;
                         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ debug_dir })
                     }
@@ -623,51 +636,51 @@
                     types
                         .iter()
                         .map(|ty| <span class="kw">match </span>ty {
-                            Type::I32 =&gt; <span class="string">&quot;i&quot;</span>.to_string(),
-                            Type::I64 =&gt; <span class="string">&quot;I&quot;</span>.to_string(),
-                            Type::F32 =&gt; <span class="string">&quot;f&quot;</span>.to_string(),
-                            Type::F64 =&gt; <span class="string">&quot;F&quot;</span>.to_string(),
-                            Type::V128 =&gt; <span class="string">&quot;v&quot;</span>.to_string(),
-                            Type::ExternRef =&gt; <span class="string">&quot;e&quot;</span>.to_string(),
-                            Type::FuncRef =&gt; <span class="string">&quot;r&quot;</span>.to_string(),
+                            Type::I32 =&gt; <span class="string">"i"</span>.to_string(),
+                            Type::I64 =&gt; <span class="string">"I"</span>.to_string(),
+                            Type::F32 =&gt; <span class="string">"f"</span>.to_string(),
+                            Type::F64 =&gt; <span class="string">"F"</span>.to_string(),
+                            Type::V128 =&gt; <span class="string">"v"</span>.to_string(),
+                            Type::ExternRef =&gt; <span class="string">"e"</span>.to_string(),
+                            Type::FuncRef =&gt; <span class="string">"r"</span>.to_string(),
                         })
                         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                        .join(<span class="string">&quot;&quot;</span>)
+                        .join(<span class="string">""</span>)
                 }
                 <span class="comment">// Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
                 </span><span class="kw">fn </span>function_kind_to_filename(kind: <span class="kw-2">&amp;</span>CompiledKind) -&gt; String {
                     <span class="kw">match </span>kind {
                         CompiledKind::Local(local_index) =&gt; {
-                            <span class="macro">format!</span>(<span class="string">&quot;function_{}&quot;</span>, local_index.index())
+                            <span class="macro">format!</span>(<span class="string">"function_{}"</span>, local_index.index())
                         }
                         CompiledKind::FunctionCallTrampoline(func_type) =&gt; <span class="macro">format!</span>(
-                            <span class="string">&quot;trampoline_call_{}_{}&quot;</span>,
+                            <span class="string">"trampoline_call_{}_{}"</span>,
                             types_to_signature(func_type.params()),
                             types_to_signature(func_type.results())
                         ),
                         CompiledKind::DynamicFunctionTrampoline(func_type) =&gt; <span class="macro">format!</span>(
-                            <span class="string">&quot;trampoline_dynamic_{}_{}&quot;</span>,
+                            <span class="string">"trampoline_dynamic_{}_{}"</span>,
                             types_to_signature(func_type.params()),
                             types_to_signature(func_type.results())
                         ),
-                        CompiledKind::Module =&gt; <span class="string">&quot;module&quot;</span>.into(),
+                        CompiledKind::Module =&gt; <span class="string">"module"</span>.into(),
                     }
                 }
                 <span class="kw">impl </span>LLVMCallbacks <span class="kw">for </span>Callbacks {
                     <span class="kw">fn </span>preopt_ir(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: <span class="kw-2">&amp;</span>CompiledKind, module: <span class="kw-2">&amp;</span>InkwellModule) {
                         <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
-                        path.push(<span class="macro">format!</span>(<span class="string">&quot;{}.preopt.ll&quot;</span>, function_kind_to_filename(kind)));
+                        path.push(<span class="macro">format!</span>(<span class="string">"{}.preopt.ll"</span>, function_kind_to_filename(kind)));
                         module
                             .print_to_file(<span class="kw-2">&amp;</span>path)
-                            .expect(<span class="string">&quot;Error while dumping pre optimized LLVM IR&quot;</span>);
+                            .expect(<span class="string">"Error while dumping pre optimized LLVM IR"</span>);
                     }
                     <span class="kw">fn </span>postopt_ir(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: <span class="kw-2">&amp;</span>CompiledKind, module: <span class="kw-2">&amp;</span>InkwellModule) {
                         <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
-                        path.push(<span class="macro">format!</span>(<span class="string">&quot;{}.postopt.ll&quot;</span>, function_kind_to_filename(kind)));
+                        path.push(<span class="macro">format!</span>(<span class="string">"{}.postopt.ll"</span>, function_kind_to_filename(kind)));
                         module
                             .print_to_file(<span class="kw-2">&amp;</span>path)
-                            .expect(<span class="string">&quot;Error while dumping post optimized LLVM IR&quot;</span>);
+                            .expect(<span class="string">"Error while dumping post optimized LLVM IR"</span>);
                     }
                     <span class="kw">fn </span>obj_memory_buffer(
                         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -675,10 +688,10 @@
                         memory_buffer: <span class="kw-2">&amp;</span>InkwellMemoryBuffer,
                     ) {
                         <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
-                        path.push(<span class="macro">format!</span>(<span class="string">&quot;{}.o&quot;</span>, function_kind_to_filename(kind)));
+                        path.push(<span class="macro">format!</span>(<span class="string">"{}.o"</span>, function_kind_to_filename(kind)));
                         <span class="kw">let </span>mem_buf_slice = memory_buffer.as_slice();
                         <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(path)
-                            .expect(<span class="string">&quot;Error while creating debug object file from LLVM IR&quot;</span>);
+                            .expect(<span class="string">"Error while creating debug object file from LLVM IR"</span>);
                         <span class="kw">let </span><span class="kw-2">mut </span>pos = <span class="number">0</span>;
                         <span class="kw">while </span>pos &lt; mem_buf_slice.len() {
                             pos += file.write(<span class="kw-2">&amp;</span>mem_buf_slice[pos..]).unwrap();
@@ -688,7 +701,7 @@
 
                 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Callbacks {
                     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-                        <span class="macro">write!</span>(f, <span class="string">&quot;LLVMCallbacks&quot;</span>)
+                        <span class="macro">write!</span>(f, <span class="string">"LLVMCallbacks"</span>)
                     }
                 }
 
@@ -700,10 +713,10 @@
                 }
                 Box::new(config)
             }
-            <span class="attr">#[cfg(not(all(feature = <span class="string">&quot;singlepass&quot;</span>, feature = <span class="string">&quot;cranelift&quot;</span>, feature = <span class="string">&quot;llvm&quot;</span>,)))]
+            <span class="attr">#[cfg(not(all(feature = <span class="string">"singlepass"</span>, feature = <span class="string">"cranelift"</span>, feature = <span class="string">"llvm"</span>,)))]
             </span>compiler =&gt; {
                 <span class="macro">bail!</span>(
-                    <span class="string">&quot;The `{}` compiler is not included in this binary.&quot;</span>,
+                    <span class="string">"The `{}` compiler is not included in this binary."</span>,
                     compiler.to_string()
                 )
             }
@@ -734,28 +747,32 @@
     </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">pub fn </span>enabled() -&gt; Vec&lt;CompilerType&gt; {
         <span class="macro">vec!</span>[
-            <span class="attr">#[cfg(feature = <span class="string">&quot;singlepass&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"singlepass"</span>)]
             </span><span class="self">Self</span>::Singlepass,
-            <span class="attr">#[cfg(feature = <span class="string">&quot;cranelift&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
             </span><span class="self">Self</span>::Cranelift,
-            <span class="attr">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
             </span><span class="self">Self</span>::LLVM,
         ]
     }
 }
 
-<span class="kw">impl </span>ToString <span class="kw">for </span>CompilerType {
-    <span class="kw">fn </span>to_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Singlepass =&gt; <span class="string">&quot;singlepass&quot;</span>.to_string(),
-            <span class="self">Self</span>::Cranelift =&gt; <span class="string">&quot;cranelift&quot;</span>.to_string(),
-            <span class="self">Self</span>::LLVM =&gt; <span class="string">&quot;llvm&quot;</span>.to_string(),
-            <span class="self">Self</span>::Headless =&gt; <span class="string">&quot;headless&quot;</span>.to_string(),
-        }
+<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>CompilerType {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(
+            f,
+            <span class="string">"{}"</span>,
+            <span class="kw">match </span><span class="self">self </span>{
+                <span class="self">Self</span>::Singlepass =&gt; <span class="string">"singlepass"</span>,
+                <span class="self">Self</span>::Cranelift =&gt; <span class="string">"cranelift"</span>,
+                <span class="self">Self</span>::LLVM =&gt; <span class="string">"llvm"</span>,
+                <span class="self">Self</span>::Headless =&gt; <span class="string">"headless"</span>,
+            }
+        )
     }
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">impl </span>StoreOptions {
     <span class="doccomment">/// Gets the store for the host target, with the compiler name selected
     </span><span class="kw">pub fn </span>get_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Store, CompilerType)&gt; {
@@ -771,7 +788,7 @@
         <span class="prelude-val">Ok</span>((store, compiler_type))
     }
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">fn </span>get_engine_with_compiler(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         target: Target,
@@ -782,8 +799,14 @@
     }
 }
 
-<span class="comment">// If we don&#39;t have a compiler, but we have an engine
-</span><span class="attr">#[cfg(not(any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>)))]
+<span class="comment">// If we don't have a compiler, but we have an engine
+</span><span class="attr">#[cfg(not(any(
+    feature = <span class="string">"compiler"</span>,
+    feature = <span class="string">"jsc"</span>,
+    feature = <span class="string">"wamr"</span>,
+    feature = <span class="string">"v8"</span>,
+    feature = <span class="string">"wasmi"
+</span>)))]
 </span><span class="kw">impl </span>StoreOptions {
     <span class="kw">fn </span>get_engine_headless(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_compiler::Engine&gt; {
         <span class="kw">let </span>engine: wasmer_compiler::Engine = wasmer_compiler::EngineBuilder::headless().engine();
@@ -798,7 +821,10 @@
     }
 }
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;compiler&quot;</span>), feature = <span class="string">&quot;jsc&quot;</span>))]
+<span class="attr">#[cfg(all(
+    not(feature = <span class="string">"compiler"</span>),
+    any(feature = <span class="string">"jsc"</span>, feature = <span class="string">"wamr"</span>, feature = <span class="string">"wasmi"</span>, feature = <span class="string">"v8"</span>)
+))]
 </span><span class="kw">impl </span>StoreOptions {
     <span class="doccomment">/// Get the store (headless engine)
     </span><span class="kw">pub fn </span>get_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Store, CompilerType)&gt; {

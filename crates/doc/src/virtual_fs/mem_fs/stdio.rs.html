@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/stdio.rs`."><title>stdio.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../virtual_fs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/stdio.rs`."><title>stdio.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -334,7 +334,7 @@
 </span><span class="kw">use crate</span>::{FsError, <span class="prelude-ty">Result</span>, VirtualFile};
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 
-<span class="macro">macro_rules! </span>impl_virtualfile_on_std_streams {
+<span class="macro">macro_rules!</span> impl_virtualfile_on_std_streams {
     (<span class="macro-nonterminal">$name</span>:ident { readable: <span class="macro-nonterminal">$readable</span>:expr, writable: <span class="macro-nonterminal">$writable</span>:expr $(,)* }) =&gt; {
         <span class="doccomment">/// A wrapper type around the standard I/O stream of the same
         /// name that implements `VirtualFile`.
@@ -379,11 +379,11 @@
                 <span class="prelude-val">Ok</span>(())
             }
 
-            <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::task::Poll&lt;std::io::Result&lt;usize&gt;&gt; {
+            <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::task::Poll&lt;std::io::Result&lt;usize&gt;&gt; {
                 std::task::Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.buf.len()))
             }
 
-            <span class="kw">fn </span>poll_write_ready(<span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::task::Poll&lt;std::io::Result&lt;usize&gt;&gt; {
+            <span class="kw">fn </span>poll_write_ready(<span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::task::Poll&lt;std::io::Result&lt;usize&gt;&gt; {
                 std::task::Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
             }
         }
@@ -401,18 +401,18 @@
             ) -&gt; io::Result&lt;()&gt; {
                 <span class="prelude-val">Err</span>(io::Error::new(
                     io::ErrorKind::PermissionDenied,
-                    <span class="macro">concat!</span>(<span class="string">&quot;cannot seek `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot;`&quot;</span>),
+                    <span class="macro">concat!</span>(<span class="string">"cannot seek `"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">"`"</span>),
                 ))
             }
             <span class="kw">fn </span>poll_complete(
                 <span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;
+                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;
             ) -&gt; std::task::Poll&lt;io::Result&lt;u64&gt;&gt;
             {
                 std::task::Poll::Ready(
                     <span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::PermissionDenied,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot seek `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot;`&quot;</span>),
+                        <span class="macro">concat!</span>(<span class="string">"cannot seek `"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">"`"</span>),
                     ))
                 )
             }
@@ -423,8 +423,8 @@
         <span class="kw">impl </span>tokio::io::AsyncRead <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
             <span class="kw">fn </span>poll_read(
                 <span class="kw-2">mut </span><span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-                buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
+                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+                buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; std::task::Poll&lt;io::Result&lt;()&gt;&gt; {
                 std::task::Poll::Ready(
                     <span class="kw">if </span><span class="self">self</span>.is_readable() {
@@ -438,7 +438,7 @@
                     } <span class="kw">else </span>{
                         <span class="prelude-val">Err</span>(io::Error::new(
                             io::ErrorKind::PermissionDenied,
-                            <span class="macro">concat!</span>(<span class="string">&quot;cannot read from `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot;`&quot;</span>),
+                            <span class="macro">concat!</span>(<span class="string">"cannot read from `"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">"`"</span>),
                         ))
                     }
                 )
@@ -450,7 +450,7 @@
         <span class="kw">impl </span>tokio::io::AsyncWrite <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
             <span class="kw">fn </span>poll_write(
                 <span class="kw-2">mut </span><span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
                 buf: <span class="kw-2">&amp;</span>[u8],
             ) -&gt; std::task::Poll&lt;io::Result&lt;usize&gt;&gt; {
                 std::task::Poll::Ready(
@@ -459,7 +459,7 @@
                     } <span class="kw">else </span>{
                         <span class="prelude-val">Err</span>(io::Error::new(
                             io::ErrorKind::PermissionDenied,
-                            <span class="macro">concat!</span>(<span class="string">&quot;cannot write to `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot;`&quot;</span>),
+                            <span class="macro">concat!</span>(<span class="string">"cannot write to `"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">"`"</span>),
                         ))
                     }
                 )
@@ -467,7 +467,7 @@
 
             <span class="kw">fn </span>poll_flush(
                 <span class="kw-2">mut </span><span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;
+                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;
             ) -&gt; std::task::Poll&lt;io::Result&lt;()&gt;&gt; {
                 std::task::Poll::Ready(
                     <span class="kw">if </span><span class="self">self</span>.is_writable() {
@@ -475,7 +475,7 @@
                     } <span class="kw">else </span>{
                         <span class="prelude-val">Err</span>(io::Error::new(
                             io::ErrorKind::PermissionDenied,
-                            <span class="macro">concat!</span>(<span class="string">&quot;cannot flush `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot;`&quot;</span>),
+                            <span class="macro">concat!</span>(<span class="string">"cannot flush `"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">"`"</span>),
                         ))
                     }
                 )
@@ -483,7 +483,7 @@
 
             <span class="kw">fn </span>poll_shutdown(
                 <span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;
+                _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;
             ) -&gt; std::task::Poll&lt;io::Result&lt;()&gt;&gt; {
                 std::task::Poll::Ready(<span class="prelude-val">Ok</span>(()))
             }
@@ -514,37 +514,37 @@
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_read_stdin() {
         <span class="kw">let </span><span class="kw-2">mut </span>stdin = Stdin {
-            buf: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
+            buf: <span class="macro">vec!</span>[<span class="string">b'f'</span>, <span class="string">b'o'</span>, <span class="string">b'o'</span>, <span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
         };
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">3</span>];
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(stdin.read(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;reading bytes from `stdin`&quot;</span>,
+            <span class="string">"reading bytes from `stdin`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             buffer,
-            [<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>],
-            <span class="string">&quot;checking the bytes read from `stdin`&quot;
+            [<span class="string">b'f'</span>, <span class="string">b'o'</span>, <span class="string">b'o'</span>],
+            <span class="string">"checking the bytes read from `stdin`"
         </span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(stdin.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;reading bytes again from `stdin`&quot;</span>,
+            <span class="string">"reading bytes again from `stdin`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             buffer,
-            <span class="kw-2">&amp;</span>[<span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
-            <span class="string">&quot;checking the bytes read from `stdin`&quot;
+            <span class="kw-2">&amp;</span>[<span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
+            <span class="string">"checking the bytes read from `stdin`"
         </span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">1</span>];
 
         <span class="macro">assert!</span>(
             stdin.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;cannot read bytes again because `stdin` has fully consumed&quot;</span>,
+            <span class="string">"cannot read bytes again because `stdin` has fully consumed"</span>,
         );
     }
 
@@ -553,33 +553,33 @@
         <span class="kw">let </span><span class="kw-2">mut </span>stdin = Stdin { buf: <span class="macro">vec!</span>[] };
 
         <span class="macro">assert!</span>(
-            stdin.write(<span class="string">b&quot;bazqux&quot;</span>).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;cannot write into `stdin`&quot;
+            stdin.write(<span class="string">b"bazqux"</span>).<span class="kw">await</span>.is_err(),
+            <span class="string">"cannot write into `stdin`"
         </span>);
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_seek_stdin() {
         <span class="kw">let </span><span class="kw-2">mut </span>stdin = Stdin {
-            buf: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
+            buf: <span class="macro">vec!</span>[<span class="string">b'f'</span>, <span class="string">b'o'</span>, <span class="string">b'o'</span>, <span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
         };
 
         <span class="macro">assert!</span>(
             stdin.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;cannot seek `stdin`&quot;</span>,
+            <span class="string">"cannot seek `stdin`"</span>,
         );
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_read_stdout() {
         <span class="kw">let </span><span class="kw-2">mut </span>stdout = Stdout {
-            buf: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
+            buf: <span class="macro">vec!</span>[<span class="string">b'f'</span>, <span class="string">b'o'</span>, <span class="string">b'o'</span>, <span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
         };
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = String::new();
 
         <span class="macro">assert!</span>(
             stdout.read_to_string(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;cannot read from `stdout`&quot;
+            <span class="string">"cannot read from `stdout`"
         </span>);
     }
 
@@ -588,42 +588,42 @@
         <span class="kw">let </span><span class="kw-2">mut </span>stdout = Stdout { buf: <span class="macro">vec!</span>[] };
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(stdout.write(<span class="string">b&quot;baz&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing into `stdout`&quot;</span>,
+            <span class="macro">matches!</span>(stdout.write(<span class="string">b"baz"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing into `stdout`"</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(stdout.write(<span class="string">b&quot;qux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing again into `stdout`&quot;</span>,
+            <span class="macro">matches!</span>(stdout.write(<span class="string">b"qux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing again into `stdout`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             stdout.buf,
-            <span class="kw-2">&amp;</span>[<span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;z&#39;</span>, <span class="string">b&#39;q&#39;</span>, <span class="string">b&#39;u&#39;</span>, <span class="string">b&#39;x&#39;</span>],
-            <span class="string">&quot;checking the content of `stdout`&quot;</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'z'</span>, <span class="string">b'q'</span>, <span class="string">b'u'</span>, <span class="string">b'x'</span>],
+            <span class="string">"checking the content of `stdout`"</span>,
         );
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_seek_stdout() {
         <span class="kw">let </span><span class="kw-2">mut </span>stdout = Stdout {
-            buf: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
+            buf: <span class="macro">vec!</span>[<span class="string">b'f'</span>, <span class="string">b'o'</span>, <span class="string">b'o'</span>, <span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
         };
 
         <span class="macro">assert!</span>(
             stdout.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;cannot seek `stdout`&quot;</span>,
+            <span class="string">"cannot seek `stdout`"</span>,
         );
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_read_stderr() {
         <span class="kw">let </span><span class="kw-2">mut </span>stderr = Stderr {
-            buf: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
+            buf: <span class="macro">vec!</span>[<span class="string">b'f'</span>, <span class="string">b'o'</span>, <span class="string">b'o'</span>, <span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
         };
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = String::new();
 
         <span class="macro">assert!</span>(
             stderr.read_to_string(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;cannot read from `stderr`&quot;
+            <span class="string">"cannot read from `stderr`"
         </span>);
     }
 
@@ -632,29 +632,29 @@
         <span class="kw">let </span><span class="kw-2">mut </span>stderr = Stderr { buf: <span class="macro">vec!</span>[] };
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(stderr.write(<span class="string">b&quot;baz&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing into `stderr`&quot;</span>,
+            <span class="macro">matches!</span>(stderr.write(<span class="string">b"baz"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing into `stderr`"</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(stderr.write(<span class="string">b&quot;qux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing again into `stderr`&quot;</span>,
+            <span class="macro">matches!</span>(stderr.write(<span class="string">b"qux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing again into `stderr`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             stderr.buf,
-            <span class="kw-2">&amp;</span>[<span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;z&#39;</span>, <span class="string">b&#39;q&#39;</span>, <span class="string">b&#39;u&#39;</span>, <span class="string">b&#39;x&#39;</span>],
-            <span class="string">&quot;checking the content of `stderr`&quot;</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'z'</span>, <span class="string">b'q'</span>, <span class="string">b'u'</span>, <span class="string">b'x'</span>],
+            <span class="string">"checking the content of `stderr`"</span>,
         );
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_seek_stderr() {
         <span class="kw">let </span><span class="kw-2">mut </span>stderr = Stderr {
-            buf: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
+            buf: <span class="macro">vec!</span>[<span class="string">b'f'</span>, <span class="string">b'o'</span>, <span class="string">b'o'</span>, <span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
         };
 
         <span class="macro">assert!</span>(
             stderr.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;cannot seek `stderr`&quot;</span>,
+            <span class="string">"cannot seek `stderr`"</span>,
         );
     }
 }

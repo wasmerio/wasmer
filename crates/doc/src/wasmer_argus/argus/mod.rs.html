@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/wasmer-argus/src/argus/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_argus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_argus/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/wasmer-argus/src/argus/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_argus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -276,7 +276,7 @@
 };
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>wasmer_api::{types::PackageVersionWithPackage, WasmerClient};
+<span class="kw">use </span>wasmer_backend_api::{types::PackageVersionWithPackage, WasmerClient};
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Argus {
@@ -288,7 +288,7 @@
     <span class="kw">type </span>Error = anyhow::Error;
 
     <span class="kw">fn </span>try_from(config: ArgusConfig) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-        <span class="kw">let </span>client = WasmerClient::new(Url::parse(<span class="kw-2">&amp;</span>config.registry_url)<span class="question-mark">?</span>, <span class="string">&quot;wasmer-argus&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = WasmerClient::new(Url::parse(<span class="kw-2">&amp;</span>config.registry_url)<span class="question-mark">?</span>, <span class="string">"wasmer-argus"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>client = client.with_auth_token(config.auth_token.clone());
         <span class="prelude-val">Ok</span>(Argus { client, config })
@@ -298,7 +298,7 @@
 <span class="kw">impl </span>Argus {
     <span class="doccomment">/// Start the testsuite using the configuration in [`Self::config`]
     </span><span class="kw">pub async fn </span>run(<span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;fetching packages from {}&quot;</span>, <span class="self">self</span>.config.registry_url);
+        <span class="macro">info!</span>(<span class="string">"fetching packages from {}"</span>, <span class="self">self</span>.config.registry_url);
 
         <span class="kw">let </span>m = MultiProgress::new();
         <span class="kw">let </span>(s, <span class="kw-2">mut </span>r) = mpsc::unbounded_channel();
@@ -356,7 +356,7 @@
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(t) = pool.join_next().<span class="kw">await </span>{
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = t {
-                <span class="macro">error!</span>(<span class="string">&quot;{:?}&quot;</span>, e)
+                <span class="macro">error!</span>(<span class="string">"{:?}"</span>, e)
             }
         }
 
@@ -364,9 +364,9 @@
             <span class="kw">let </span>url = url::Url::parse(<span class="kw-2">&amp;</span>webhook_url)<span class="question-mark">?</span>;
             reqwest::Client::new()
                 .post(url)
-                .header(CONTENT_TYPE, <span class="string">&quot;application/json&quot;</span>)
+                .header(CONTENT_TYPE, <span class="string">"application/json"</span>)
                 .body(<span class="macro">format!</span>(
-                    <span class="string">r#&quot;{{&quot;text&quot;:&quot;Argus run report: {} tests succeeded, {} failed&quot;}}&quot;#</span>,
+                    <span class="string">r#"{{"text":"Argus run report: {} tests succeeded, {} failed"}}"#</span>,
                     successes.lock().<span class="kw">await</span>,
                     failures.lock().<span class="kw">await
                 </span>))
@@ -374,7 +374,7 @@
                 .<span class="kw">await</span><span class="question-mark">?</span>;
         }
 
-        <span class="macro">info!</span>(<span class="string">&quot;done!&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">"done!"</span>);
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -389,10 +389,10 @@
     ) -&gt; anyhow::Result&lt;bool&gt; {
         p.set_style(
             indicatif::ProgressStyle::with_template(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">&quot;[{test_id}] {{spinner:.blue}} {{msg}}&quot;
+                <span class="string">"[{test_id}] {{spinner:.blue}} {{msg}}"
             </span>))
             .unwrap()
-            .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">&quot;✶&quot;</span>, <span class="string">&quot;✸&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✺&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✷&quot;</span>, <span class="string">&quot;✶&quot;</span>]),
+            .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">"✶"</span>, <span class="string">"✸"</span>, <span class="string">"✹"</span>, <span class="string">"✺"</span>, <span class="string">"✹"</span>, <span class="string">"✷"</span>, <span class="string">"✶"</span>]),
         );
 
         p.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
@@ -401,7 +401,7 @@
         <span class="kw">let </span>webc_v2_url: Url = <span class="kw">match </span><span class="kw-2">&amp;</span>package.distribution_v2.pirita_download_url {
             <span class="prelude-val">Some</span>(url) =&gt; url.parse().unwrap(),
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;package {} has no download url, skipping&quot;</span>, package_name);
+                <span class="macro">info!</span>(<span class="string">"package {} has no download url, skipping"</span>, package_name);
                 p.finish_and_clear();
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
             }
@@ -410,26 +410,26 @@
         <span class="kw">let </span>webc_v3_url: Url = <span class="kw">match </span><span class="kw-2">&amp;</span>package.distribution_v3.pirita_download_url {
             <span class="prelude-val">Some</span>(url) =&gt; url.parse().unwrap(),
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;package {} has no download url, skipping&quot;</span>, package_name);
+                <span class="macro">info!</span>(<span class="string">"package {} has no download url, skipping"</span>, package_name);
                 p.finish_and_clear();
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
             }
         };
 
-        p.set_message(<span class="macro">format!</span>(<span class="string">&quot;[{test_id}] testing package {package_name}&quot;</span>,));
+        p.set_message(<span class="macro">format!</span>(<span class="string">"[{test_id}] testing package {package_name}"</span>,));
 
         <span class="kw">let </span>path = Argus::get_path(config.clone(), package).<span class="kw">await</span>;
         p.set_message(<span class="macro">format!</span>(
-            <span class="string">&quot;testing package {package_name} -- path to download to is: {:?}&quot;</span>,
+            <span class="string">"testing package {package_name} -- path to download to is: {:?}"</span>,
             path
         ));
 
-        <span class="attr">#[cfg(not(feature = <span class="string">&quot;wasmer_lib&quot;</span>))]
+        <span class="attr">#[cfg(not(feature = <span class="string">"wasmer_lib"</span>))]
         </span><span class="kw">let </span>runner = Box::new(tester::cli_tester::CLIRunner::new(
             test_id, config, <span class="kw-2">&amp;</span>p, package,
         )) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Tester&gt;;
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;wasmer_lib&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"wasmer_lib"</span>)]
         </span><span class="kw">let </span>runner = <span class="kw">if </span>config.use_lib {
             Box::new(tester::lib_tester::LibRunner::new(
                 test_id, config, <span class="kw-2">&amp;</span>p, package,
@@ -446,20 +446,20 @@
 
         Argus::download_webcs(test_id, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>webc_v2_url, <span class="kw-2">&amp;</span>webc_v3_url, <span class="kw-2">&amp;</span>p).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="macro">info!</span>(<span class="string">&quot;package downloaded!&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">"package downloaded!"</span>);
 
         p.reset();
         p.set_style(
             indicatif::ProgressStyle::with_template(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">&quot;[{test_id}/{package_name}] {{spinner:.blue}} {{msg}}&quot;
+                <span class="string">"[{test_id}/{package_name}] {{spinner:.blue}} {{msg}}"
             </span>))
             .unwrap()
-            .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">&quot;✶&quot;</span>, <span class="string">&quot;✸&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✺&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✷&quot;</span>, <span class="string">&quot;✶&quot;</span>]),
+            .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">"✶"</span>, <span class="string">"✸"</span>, <span class="string">"✹"</span>, <span class="string">"✺"</span>, <span class="string">"✹"</span>, <span class="string">"✷"</span>, <span class="string">"✶"</span>]),
         );
 
         p.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
 
-        p.set_message(<span class="string">&quot;package downloaded&quot;</span>);
+        p.set_message(<span class="string">"package downloaded"</span>);
 
         <span class="kw">let </span>report = runner.run_test().<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -472,7 +472,7 @@
         };
         Argus::write_report(<span class="kw-2">&amp;</span>path, report).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        p.finish_with_message(<span class="macro">format!</span>(<span class="string">&quot;test for package {package_name} done!&quot;</span>));
+        p.finish_with_message(<span class="macro">format!</span>(<span class="string">"test for package {package_name} done!"</span>));
         p.finish_and_clear();
 
         <span class="prelude-val">Ok</span>(outcome)
@@ -482,7 +482,7 @@
     </span><span class="kw">async fn </span>to_test(<span class="kw-2">&amp;</span><span class="self">self</span>, pkg: <span class="kw-2">&amp;</span>PackageVersionWithPackage) -&gt; bool {
         <span class="kw">let </span>name = Argus::get_package_id(pkg);
 
-        <span class="macro">info!</span>(<span class="string">&quot;checking if package {name} needs to be tested or not&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">"checking if package {name} needs to be tested or not"</span>);
 
         <span class="kw">let </span>dir_path = std::path::PathBuf::from(<span class="kw-2">&amp;</span><span class="self">self</span>.config.outdir);
 
@@ -491,7 +491,7 @@
         }
 
         <span class="kw">if </span>pkg.distribution_v2.pirita_sha256_hash.is_none() {
-            <span class="macro">info!</span>(<span class="string">&quot;skipping test for {name} as it has no hash&quot;</span>);
+            <span class="macro">info!</span>(<span class="string">"skipping test for {name} as it has no hash"</span>);
             <span class="kw">return </span><span class="bool-val">false</span>;
         }
 
@@ -501,7 +501,7 @@
     <span class="attr">#[tracing::instrument]
     </span><span class="kw">async fn </span>write_report(path: <span class="kw-2">&amp;</span>Path, result: TestReport) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>test_results_path = path.join(<span class="macro">format!</span>(
-            <span class="string">&quot;result-{}-{}--{}-{}.json&quot;</span>,
+            <span class="string">"result-{}-{}--{}-{}.json"</span>,
             result.runner_id,
             result.runner_version,
             std::env::consts::ARCH,

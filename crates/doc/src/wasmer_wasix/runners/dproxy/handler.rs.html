@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/dproxy/handler.rs`."><title>handler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/dproxy/handler.rs`."><title>handler.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -149,7 +149,7 @@
 </span><span class="kw">pub struct </span>SharedState {
     <span class="kw">pub</span>(<span class="kw">crate</span>) config: Config,
     <span class="kw">pub</span>(<span class="kw">crate</span>) command_name: String,
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) factory: DProxyInstanceFactory,
 }
@@ -173,21 +173,21 @@
         }))
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, err)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, err)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle&lt;T&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="kw-2">mut </span>req: Request&lt;hyper::body::Incoming&gt;,
         _token: T,
     ) -&gt; anyhow::Result&lt;Response&lt;Body&gt;&gt;
     <span class="kw">where
-        </span>T: Send + <span class="lifetime">&#39;static</span>,
+        </span>T: Send + <span class="lifetime">'static</span>,
     {
         <span class="macro">tracing::debug!</span>(headers=<span class="question-mark">?</span>req.headers());
 
         <span class="comment">// Determine the shard we are using
         </span><span class="kw">let </span>shard = req
             .headers()
-            .get(<span class="string">&quot;X-Shard&quot;</span>)
+            .get(<span class="string">"X-Shard"</span>)
             .map(|v| String::from_utf8_lossy(v.as_bytes()))
             .map(|s| <span class="kw">match </span>s.parse::&lt;u64&gt;() {
                 <span class="prelude-val">Ok</span>(id) =&gt; <span class="prelude-val">Ok</span>(Shard::ById(id)),
@@ -197,28 +197,28 @@
 
         <span class="comment">// Modify the request URI so that it will work with the hyper proxy
         </span><span class="kw">let </span><span class="kw-2">mut </span>new_uri = Uri::builder()
-            .scheme(<span class="string">&quot;http&quot;</span>)
+            .scheme(<span class="string">"http"</span>)
             .authority(
                 req.uri()
                     .authority()
                     .cloned()
-                    .unwrap_or_else(|| <span class="string">&quot;localhost&quot;</span>.parse().unwrap()),
+                    .unwrap_or_else(|| <span class="string">"localhost"</span>.parse().unwrap()),
             )
             .path_and_query(
                 req.uri()
                     .path_and_query()
                     .cloned()
-                    .unwrap_or_else(|| <span class="string">&quot;/&quot;</span>.parse().unwrap()),
+                    .unwrap_or_else(|| <span class="string">"/"</span>.parse().unwrap()),
             )
             .build()
             .unwrap();
         std::mem::swap(req.uri_mut(), <span class="kw-2">&amp;mut </span>new_uri);
 
         <span class="comment">// Acquire a DProxy instance
-        </span><span class="macro">tracing::debug!</span>(<span class="string">&quot;Acquiring DProxy instance instance&quot;</span>);
+        </span><span class="macro">tracing::debug!</span>(<span class="string">"Acquiring DProxy instance instance"</span>);
         <span class="kw">let </span>instance = <span class="self">self</span>.factory.acquire(<span class="self">self</span>, shard).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Calling into the DProxy instance&quot;</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"Calling into the DProxy instance"</span>);
         <span class="kw">let </span>client = instance.client.clone();
 
         <span class="comment">// Perform the request
@@ -227,7 +227,7 @@
         <span class="kw">let </span>body = body
             .collect()
             .<span class="kw">await</span><span class="question-mark">?
-            </span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Infallible&quot;</span>))
+            </span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">"Infallible"</span>))
             .boxed();
 
         <span class="prelude-val">Ok</span>(Response::from_parts(parts, body))
@@ -247,7 +247,7 @@
     <span class="kw">type </span>Error = anyhow::Error;
     <span class="kw">type </span>Future = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = anyhow::Result&lt;Response&lt;Body&gt;&gt;&gt; + Send&gt;&gt;;
 
-    <span class="kw">fn </span>poll_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
+    <span class="kw">fn </span>poll_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
         Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 

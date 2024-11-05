@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["execute_query","execute_query_modifier_inner","execute_query_modifier_inner_check_json","execute_query_with_timeout","setup_client","whoami_distro"],"mod":["mutations","proxy","queries","subscriptions"]};

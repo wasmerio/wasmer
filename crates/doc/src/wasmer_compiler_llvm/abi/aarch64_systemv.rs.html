@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/abi/aarch64_systemv.rs`."><title>aarch64_systemv.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_llvm/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/abi/aarch64_systemv.rs`."><title>aarch64_systemv.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -636,7 +636,19 @@
 <a href="#636" id="636">636</a>
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::abi::Abi;
+<span class="kw">use </span><span class="kw">crate</span>::error::{err, err_nt};
 <span class="kw">use </span><span class="kw">crate</span>::translator::intrinsics::{type_to_llvm, Intrinsics};
 <span class="kw">use </span>inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -657,13 +669,13 @@
 
 <span class="kw">impl </span>Abi <span class="kw">for </span>Aarch64SystemV {
     <span class="comment">// Given a function definition, retrieve the parameter that is the vmctx pointer.
-    </span><span class="kw">fn </span>get_vmctx_ptr_param&lt;<span class="lifetime">&#39;ctx</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;) -&gt; PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+    </span><span class="kw">fn </span>get_vmctx_ptr_param&lt;<span class="lifetime">'ctx</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;) -&gt; PointerValue&lt;<span class="lifetime">'ctx</span>&gt; {
         func_value
             .get_nth_param(u32::from(
                 func_value
                     .get_enum_attribute(
                         AttributeLoc::Param(<span class="number">0</span>),
-                        Attribute::get_named_enum_kind_id(<span class="string">&quot;sret&quot;</span>),
+                        Attribute::get_named_enum_kind_id(<span class="string">"sret"</span>),
                     )
                     .is_some(),
             ))
@@ -672,39 +684,39 @@
     }
 
     <span class="comment">// Given a wasm function type, produce an llvm function declaration.
-    </span><span class="kw">fn </span>func_type_to_llvm&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    </span><span class="kw">fn </span>func_type_to_llvm&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
         offsets: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>VMOffsets&gt;,
         sig: <span class="kw-2">&amp;</span>FuncSig,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;, Vec&lt;(Attribute, AttributeLoc)&gt;), CompileError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(FunctionType&lt;<span class="lifetime">'ctx</span>&gt;, Vec&lt;(Attribute, AttributeLoc)&gt;), CompileError&gt; {
         <span class="kw">let </span>user_param_types = sig.params().iter().map(|<span class="kw-2">&amp;</span>ty| type_to_llvm(intrinsics, ty));
 
         <span class="kw">let </span>param_types =
-            std::iter::once(<span class="prelude-val">Ok</span>(intrinsics.ctx_ptr_ty.as_basic_type_enum())).chain(user_param_types);
+            std::iter::once(<span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum())).chain(user_param_types);
 
         <span class="kw">let </span>vmctx_attributes = |i: u32| {
             <span class="macro">vec!</span>[
                 (
-                    context.create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">&quot;nofree&quot;</span>), <span class="number">0</span>),
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"nofree"</span>), <span class="number">0</span>),
                     AttributeLoc::Param(i),
                 ),
                 (
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(offsets) = offsets {
                         context.create_enum_attribute(
-                            Attribute::get_named_enum_kind_id(<span class="string">&quot;dereferenceable&quot;</span>),
+                            Attribute::get_named_enum_kind_id(<span class="string">"dereferenceable"</span>),
                             offsets.size_of_vmctx().into(),
                         )
                     } <span class="kw">else </span>{
                         context
-                            .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">&quot;nonnull&quot;</span>), <span class="number">0</span>)
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"nonnull"</span>), <span class="number">0</span>)
                     },
                     AttributeLoc::Param(i),
                 ),
                 (
                     context.create_enum_attribute(
-                        Attribute::get_named_enum_kind_id(<span class="string">&quot;align&quot;</span>),
+                        Attribute::get_named_enum_kind_id(<span class="string">"align"</span>),
                         std::mem::align_of::&lt;wasmer_vm::VMContext&gt;()
                             .try_into()
                             .unwrap(),
@@ -840,14 +852,14 @@
                             .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
                         <span class="kw">let </span>sret = context.struct_type(<span class="kw-2">&amp;</span>basic_types, <span class="bool-val">false</span>);
-                        <span class="kw">let </span>sret_ptr = sret.ptr_type(AddressSpace::default());
+                        <span class="kw">let </span>sret_ptr = context.ptr_type(AddressSpace::default());
 
                         <span class="kw">let </span>param_types =
                             std::iter::once(<span class="prelude-val">Ok</span>(sret_ptr.as_basic_type_enum())).chain(param_types);
 
                         <span class="kw">let </span><span class="kw-2">mut </span>attributes = <span class="macro">vec!</span>[(
                             context.create_type_attribute(
-                                Attribute::get_named_enum_kind_id(<span class="string">&quot;sret&quot;</span>),
+                                Attribute::get_named_enum_kind_id(<span class="string">"sret"</span>),
                                 sret.as_any_type_enum(),
                             ),
                             AttributeLoc::Param(<span class="number">0</span>),
@@ -871,16 +883,16 @@
     }
 
     <span class="comment">// Marshall wasm stack values into function parameters.
-    </span><span class="kw">fn </span>args_to_call&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    </span><span class="kw">fn </span>args_to_call&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        alloca_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        alloca_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
         func_sig: <span class="kw-2">&amp;</span>FuncSig,
-        llvm_fn_ty: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        ctx_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;],
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; Vec&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt; {
-        <span class="comment">// If it&#39;s an sret, allocate the return space.
+        llvm_fn_ty: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+        ctx_ptr: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;],
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;, CompileError&gt; {
+        <span class="comment">// If it's an sret, allocate the return space.
         </span><span class="kw">let </span>sret = <span class="kw">if </span>llvm_fn_ty.get_return_type().is_none() &amp;&amp; func_sig.results().len() &gt; <span class="number">1 </span>{
             <span class="kw">let </span>llvm_params: Vec&lt;<span class="kw">_</span>&gt; = func_sig
                 .results()
@@ -890,103 +902,111 @@
             <span class="kw">let </span>llvm_params = llvm_fn_ty
                 .get_context()
                 .struct_type(llvm_params.as_slice(), <span class="bool-val">false</span>);
-            <span class="prelude-val">Some</span>(alloca_builder.build_alloca(llvm_params, <span class="string">&quot;sret&quot;</span>))
+            <span class="prelude-val">Some</span>(<span class="macro">err!</span>(alloca_builder.build_alloca(llvm_params, <span class="string">"sret"</span>)))
         } <span class="kw">else </span>{
             <span class="prelude-val">None
         </span>};
 
         <span class="kw">let </span>values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(sret) = sret {
+        <span class="kw">let </span>ret = <span class="kw">if let </span><span class="prelude-val">Some</span>(sret) = sret {
             std::iter::once(sret.as_basic_value_enum())
                 .chain(values)
                 .collect()
         } <span class="kw">else </span>{
             values.collect()
-        }
+        };
+
+        <span class="prelude-val">Ok</span>(ret)
     }
 
     <span class="comment">// Given a CallSite, extract the returned values and return them in a Vec.
-    </span><span class="kw">fn </span>rets_from_call&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    </span><span class="kw">fn </span>rets_from_call&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        call_site: CallSiteValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        call_site: CallSiteValue&lt;<span class="lifetime">'ctx</span>&gt;,
         func_sig: <span class="kw-2">&amp;</span>FuncSig,
-    ) -&gt; Vec&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt; {
-        <span class="kw">let </span>split_i64 = |value: IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;| -&gt; (IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;, IntValue&lt;<span class="lifetime">&#39;ctx</span>&gt;) {
-            <span class="macro">assert!</span>(value.get_type() == intrinsics.i64_ty);
-            <span class="kw">let </span>low = builder.build_int_truncate(value, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-            <span class="kw">let </span>lshr =
-                builder.build_right_shift(value, intrinsics.i64_ty.const_int(<span class="number">32</span>, <span class="bool-val">false</span>), <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>);
-            <span class="kw">let </span>high = builder.build_int_truncate(lshr, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-            (low, high)
-        };
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;, CompileError&gt; {
+        <span class="kw">let </span>split_i64 =
+            |value: IntValue&lt;<span class="lifetime">'ctx</span>&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;(IntValue&lt;<span class="lifetime">'ctx</span>&gt;, IntValue&lt;<span class="lifetime">'ctx</span>&gt;), CompileError&gt; {
+                <span class="macro">assert!</span>(value.get_type() == intrinsics.i64_ty);
+                <span class="kw">let </span>low = <span class="macro">err!</span>(builder.build_int_truncate(value, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>lshr = <span class="macro">err!</span>(builder.build_right_shift(
+                    value,
+                    intrinsics.i64_ty.const_int(<span class="number">32</span>, <span class="bool-val">false</span>),
+                    <span class="bool-val">false</span>,
+                    <span class="string">""</span>,
+                ));
+                <span class="kw">let </span>high = <span class="macro">err!</span>(builder.build_int_truncate(lshr, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="prelude-val">Ok</span>((low, high))
+            };
 
-        <span class="kw">let </span>casted = |value: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ty: Type| -&gt; BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt; {
-            <span class="kw">match </span>ty {
-                Type::I32 =&gt; {
-                    <span class="macro">assert!</span>(
-                        value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>)
+        <span class="kw">let </span>casted =
+            |value: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, ty: Type| -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
+                <span class="kw">match </span>ty {
+                    Type::I32 =&gt; {
+                        <span class="macro">assert!</span>(
+                            value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
+                        );
+                        <span class="macro">err_nt!</span>(builder.build_bit_cast(value, intrinsics.i32_ty, <span class="string">""</span>))
+                    }
+                    Type::F32 =&gt; {
+                        <span class="macro">assert!</span>(
+                            value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
+                        );
+                        <span class="macro">err_nt!</span>(builder.build_bit_cast(value, intrinsics.f32_ty, <span class="string">""</span>))
+                    }
+                    Type::I64 =&gt; {
+                        <span class="macro">assert!</span>(
+                            value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
+                        );
+                        <span class="macro">err_nt!</span>(builder.build_bit_cast(value, intrinsics.i64_ty, <span class="string">""</span>))
+                    }
+                    Type::F64 =&gt; {
+                        <span class="macro">assert!</span>(
+                            value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
+                                || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
+                        );
+                        <span class="macro">err_nt!</span>(builder.build_bit_cast(value, intrinsics.f64_ty, <span class="string">""</span>))
+                    }
+                    Type::V128 =&gt; {
+                        <span class="macro">assert!</span>(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
+                        <span class="prelude-val">Ok</span>(value)
+                    }
+                    Type::ExternRef | Type::FuncRef =&gt; {
+                        <span class="macro">assert!</span>(value.get_type() == intrinsics.ptr_ty.as_basic_type_enum());
+                        <span class="prelude-val">Ok</span>(value)
+                    }
                 }
-                Type::F32 =&gt; {
-                    <span class="macro">assert!</span>(
-                        value.get_type() == intrinsics.i32_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f32_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.f32_ty, <span class="string">&quot;&quot;</span>)
-                }
-                Type::I64 =&gt; {
-                    <span class="macro">assert!</span>(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.i64_ty, <span class="string">&quot;&quot;</span>)
-                }
-                Type::F64 =&gt; {
-                    <span class="macro">assert!</span>(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.f64_ty, <span class="string">&quot;&quot;</span>)
-                }
-                Type::V128 =&gt; {
-                    <span class="macro">assert!</span>(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
-                    value
-                }
-                Type::ExternRef | Type::FuncRef =&gt; {
-                    <span class="macro">assert!</span>(value.get_type() == intrinsics.funcref_ty.as_basic_type_enum());
-                    value
-                }
-            }
-        };
+            };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(basic_value) = call_site.try_as_basic_value().left() {
             <span class="kw">if </span>func_sig.results().len() &gt; <span class="number">1 </span>{
                 <span class="kw">if </span>basic_value.get_type() == intrinsics.i64_ty.as_basic_type_enum() {
                     <span class="macro">assert!</span>(func_sig.results().len() == <span class="number">2</span>);
                     <span class="kw">let </span>value = basic_value.into_int_value();
-                    <span class="kw">let </span>(low, high) = split_i64(value);
-                    <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>]);
-                    <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>]);
-                    <span class="kw">return </span><span class="macro">vec!</span>[low, high];
+                    <span class="kw">let </span>(low, high) = split_i64(value)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                    <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[low, high]);
                 }
                 <span class="kw">if </span>basic_value.is_struct_value() {
                     <span class="kw">let </span>struct_value = basic_value.into_struct_value();
-                    <span class="kw">return </span>(<span class="number">0</span>..struct_value.get_type().count_fields())
-                        .map(|i| builder.build_extract_value(struct_value, i, <span class="string">&quot;&quot;</span>).unwrap())
-                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>((<span class="number">0</span>..struct_value.get_type().count_fields())
+                        .map(|i| builder.build_extract_value(struct_value, i, <span class="string">""</span>).unwrap())
+                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
                 }
                 <span class="kw">let </span>array_value = basic_value.into_array_value();
                 <span class="kw">let </span>low = builder
-                    .build_extract_value(array_value, <span class="number">0</span>, <span class="string">&quot;&quot;</span>)
+                    .build_extract_value(array_value, <span class="number">0</span>, <span class="string">""</span>)
                     .unwrap()
                     .into_int_value();
                 <span class="kw">let </span>high = builder
-                    .build_extract_value(array_value, <span class="number">1</span>, <span class="string">&quot;&quot;</span>)
+                    .build_extract_value(array_value, <span class="number">1</span>, <span class="string">""</span>)
                     .unwrap()
                     .into_int_value();
                 <span class="kw">let </span>func_sig_returns_bitwidths = func_sig
@@ -1002,65 +1022,65 @@
 
                 <span class="kw">match </span>func_sig_returns_bitwidths.as_slice() {
                     [<span class="number">32</span>, <span class="number">64</span>] =&gt; {
-                        <span class="kw">let </span>(low, <span class="kw">_</span>) = split_i64(low);
-                        <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>]);
-                        <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>]);
-                        <span class="macro">vec!</span>[low, high]
+                        <span class="kw">let </span>(low, <span class="kw">_</span>) = split_i64(low)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[low, high])
                     }
                     [<span class="number">64</span>, <span class="number">32</span>] =&gt; {
-                        <span class="kw">let </span>(high, <span class="kw">_</span>) = split_i64(high);
-                        <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>]);
-                        <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>]);
-                        <span class="macro">vec!</span>[low, high]
+                        <span class="kw">let </span>(high, <span class="kw">_</span>) = split_i64(high)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[low, high])
                     }
                     [<span class="number">64</span>, <span class="number">64</span>] =&gt; {
-                        <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>]);
-                        <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>]);
-                        <span class="macro">vec!</span>[low, high]
+                        <span class="kw">let </span>low = casted(low.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>high = casted(high.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[low, high])
                     }
                     [<span class="number">32</span>, <span class="number">32</span>, <span class="number">32</span>] =&gt; {
-                        <span class="kw">let </span>(v1, v2) = split_i64(low);
-                        <span class="kw">let </span>(v3, <span class="kw">_</span>) = split_i64(high);
-                        <span class="kw">let </span>v1 = casted(v1.into(), func_sig.results()[<span class="number">0</span>]);
-                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>]);
-                        <span class="kw">let </span>v3 = casted(v3.into(), func_sig.results()[<span class="number">2</span>]);
-                        <span class="macro">vec!</span>[v1, v2, v3]
+                        <span class="kw">let </span>(v1, v2) = split_i64(low)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>(v3, <span class="kw">_</span>) = split_i64(high)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v1 = casted(v1.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v3 = casted(v3.into(), func_sig.results()[<span class="number">2</span>])<span class="question-mark">?</span>;
+                        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[v1, v2, v3])
                     }
                     [<span class="number">32</span>, <span class="number">32</span>, <span class="number">64</span>] =&gt; {
-                        <span class="kw">let </span>(v1, v2) = split_i64(low);
-                        <span class="kw">let </span>v1 = casted(v1.into(), func_sig.results()[<span class="number">0</span>]);
-                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>]);
-                        <span class="kw">let </span>v3 = casted(high.into(), func_sig.results()[<span class="number">2</span>]);
-                        <span class="macro">vec!</span>[v1, v2, v3]
+                        <span class="kw">let </span>(v1, v2) = split_i64(low)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v1 = casted(v1.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v3 = casted(high.into(), func_sig.results()[<span class="number">2</span>])<span class="question-mark">?</span>;
+                        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[v1, v2, v3])
                     }
                     [<span class="number">64</span>, <span class="number">32</span>, <span class="number">32</span>] =&gt; {
-                        <span class="kw">let </span>v1 = casted(low.into(), func_sig.results()[<span class="number">0</span>]);
-                        <span class="kw">let </span>(v2, v3) = split_i64(high);
-                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>]);
-                        <span class="kw">let </span>v3 = casted(v3.into(), func_sig.results()[<span class="number">2</span>]);
-                        <span class="macro">vec!</span>[v1, v2, v3]
+                        <span class="kw">let </span>v1 = casted(low.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>(v2, v3) = split_i64(high)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v3 = casted(v3.into(), func_sig.results()[<span class="number">2</span>])<span class="question-mark">?</span>;
+                        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[v1, v2, v3])
                     }
                     [<span class="number">32</span>, <span class="number">32</span>, <span class="number">32</span>, <span class="number">32</span>] =&gt; {
-                        <span class="kw">let </span>(v1, v2) = split_i64(low);
-                        <span class="kw">let </span>(v3, v4) = split_i64(high);
-                        <span class="kw">let </span>v1 = casted(v1.into(), func_sig.results()[<span class="number">0</span>]);
-                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>]);
-                        <span class="kw">let </span>v3 = casted(v3.into(), func_sig.results()[<span class="number">2</span>]);
-                        <span class="kw">let </span>v4 = casted(v4.into(), func_sig.results()[<span class="number">3</span>]);
-                        <span class="macro">vec!</span>[v1, v2, v3, v4]
+                        <span class="kw">let </span>(v1, v2) = split_i64(low)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>(v3, v4) = split_i64(high)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v1 = casted(v1.into(), func_sig.results()[<span class="number">0</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v2 = casted(v2.into(), func_sig.results()[<span class="number">1</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v3 = casted(v3.into(), func_sig.results()[<span class="number">2</span>])<span class="question-mark">?</span>;
+                        <span class="kw">let </span>v4 = casted(v4.into(), func_sig.results()[<span class="number">3</span>])<span class="question-mark">?</span>;
+                        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[v1, v2, v3, v4])
                     }
-                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;expected an sret for this type&quot;</span>),
+                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"expected an sret for this type"</span>),
                 }
             } <span class="kw">else </span>{
                 <span class="macro">assert!</span>(func_sig.results().len() == <span class="number">1</span>);
-                <span class="macro">vec!</span>[basic_value]
+                <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[basic_value])
             }
         } <span class="kw">else </span>{
             <span class="macro">assert!</span>(call_site.count_arguments() &gt; <span class="number">0</span>); <span class="comment">// Either sret or vmctx.
             </span><span class="kw">if </span>call_site
                 .get_enum_attribute(
                     AttributeLoc::Param(<span class="number">0</span>),
-                    Attribute::get_named_enum_kind_id(<span class="string">&quot;sret&quot;</span>),
+                    Attribute::get_named_enum_kind_id(<span class="string">"sret"</span>),
                 )
                 .is_some()
             {
@@ -1084,19 +1104,18 @@
                     .get_context()
                     .struct_type(llvm_results.as_slice(), <span class="bool-val">false</span>);
 
-                <span class="kw">let </span>struct_value = builder
-                    .build_load(struct_type, sret, <span class="string">&quot;&quot;</span>)
-                    .into_struct_value();
+                <span class="kw">let </span>struct_value =
+                    <span class="macro">err!</span>(builder.build_load(struct_type, sret, <span class="string">""</span>)).into_struct_value();
                 <span class="kw">let </span><span class="kw-2">mut </span>rets: Vec&lt;<span class="kw">_</span>&gt; = Vec::new();
                 <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..struct_value.get_type().count_fields() {
-                    <span class="kw">let </span>value = builder.build_extract_value(struct_value, i, <span class="string">&quot;&quot;</span>).unwrap();
+                    <span class="kw">let </span>value = <span class="macro">err!</span>(builder.build_extract_value(struct_value, i, <span class="string">""</span>));
                     rets.push(value);
                 }
                 <span class="macro">assert!</span>(func_sig.results().len() == rets.len());
-                rets
+                <span class="prelude-val">Ok</span>(rets)
             } <span class="kw">else </span>{
                 <span class="macro">assert!</span>(func_sig.results().is_empty());
-                <span class="macro">vec!</span>[]
+                <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[])
             }
         }
     }
@@ -1127,13 +1146,13 @@
         ))
     }
 
-    <span class="kw">fn </span>pack_values_for_register_return&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    <span class="kw">fn </span>pack_values_for_register_return&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;],
-        func_type: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
+        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;],
+        func_type: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
         <span class="kw">let </span>is_32 = |value: BasicValueEnum| {
             (value.is_int_value() &amp;&amp; value.into_int_value().get_type() == intrinsics.i32_ty)
                 || (value.is_float_value()
@@ -1145,60 +1164,63 @@
                     &amp;&amp; value.into_float_value().get_type() == intrinsics.f64_ty)
         };
 
-        <span class="kw">let </span>pack_i32s = |low: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, high: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;| {
+        <span class="kw">let </span>pack_i32s = |low: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, high: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;| {
             <span class="macro">assert!</span>(low.get_type() == intrinsics.i32_ty.as_basic_type_enum());
             <span class="macro">assert!</span>(high.get_type() == intrinsics.i32_ty.as_basic_type_enum());
             <span class="kw">let </span>(low, high) = (low.into_int_value(), high.into_int_value());
-            <span class="kw">let </span>low = builder.build_int_z_extend(low, intrinsics.i64_ty, <span class="string">&quot;&quot;</span>);
-            <span class="kw">let </span>high = builder.build_int_z_extend(high, intrinsics.i64_ty, <span class="string">&quot;&quot;</span>);
-            <span class="kw">let </span>high = builder.build_left_shift(high, intrinsics.i64_ty.const_int(<span class="number">32</span>, <span class="bool-val">false</span>), <span class="string">&quot;&quot;</span>);
-            builder.build_or(low, high, <span class="string">&quot;&quot;</span>).as_basic_value_enum()
+            <span class="kw">let </span>low = <span class="macro">err!</span>(builder.build_int_z_extend(low, intrinsics.i64_ty, <span class="string">""</span>));
+            <span class="kw">let </span>high = <span class="macro">err!</span>(builder.build_int_z_extend(high, intrinsics.i64_ty, <span class="string">""</span>));
+            <span class="kw">let </span>high =
+                <span class="macro">err!</span>(builder.build_left_shift(high, intrinsics.i64_ty.const_int(<span class="number">32</span>, <span class="bool-val">false</span>), <span class="string">""</span>));
+            <span class="macro">err_nt!</span>(builder
+                .build_or(low, high, <span class="string">""</span>)
+                .map(|v| v.as_basic_value_enum()))
         };
 
-        <span class="kw">let </span>to_i64 = |v: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;| {
+        <span class="kw">let </span>to_i64 = |v: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">'_</span>&gt;, CompileError&gt; {
             <span class="kw">if </span>v.is_float_value() {
                 <span class="kw">let </span>v = v.into_float_value();
                 <span class="kw">if </span>v.get_type() == intrinsics.f32_ty {
-                    <span class="kw">let </span>v = builder
-                        .build_bitcast(v, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>)
-                        .into_int_value();
-                    <span class="kw">let </span>v = builder.build_int_z_extend(v, intrinsics.i64_ty, <span class="string">&quot;&quot;</span>);
-                    v.as_basic_value_enum()
+                    <span class="kw">let </span>v = <span class="macro">err!</span>(builder.build_bit_cast(v, intrinsics.i32_ty, <span class="string">""</span>)).into_int_value();
+                    <span class="kw">let </span>v = <span class="macro">err!</span>(builder.build_int_z_extend(v, intrinsics.i64_ty, <span class="string">""</span>));
+                    <span class="prelude-val">Ok</span>(v.as_basic_value_enum())
                 } <span class="kw">else </span>{
                     <span class="macro">debug_assert!</span>(v.get_type() == intrinsics.f64_ty);
-                    <span class="kw">let </span>v = builder.build_bitcast(v, intrinsics.i64_ty, <span class="string">&quot;&quot;</span>);
-                    v.as_basic_value_enum()
+                    <span class="kw">let </span>v = <span class="macro">err!</span>(builder.build_bit_cast(v, intrinsics.i64_ty, <span class="string">""</span>));
+                    <span class="prelude-val">Ok</span>(v.as_basic_value_enum())
                 }
             } <span class="kw">else </span>{
                 <span class="kw">let </span>v = v.into_int_value();
                 <span class="kw">if </span>v.get_type() == intrinsics.i32_ty {
-                    <span class="kw">let </span>v = builder.build_int_z_extend(v, intrinsics.i64_ty, <span class="string">&quot;&quot;</span>);
-                    v.as_basic_value_enum()
+                    <span class="kw">let </span>v = <span class="macro">err!</span>(builder.build_int_z_extend(v, intrinsics.i64_ty, <span class="string">""</span>));
+                    <span class="prelude-val">Ok</span>(v.as_basic_value_enum())
                 } <span class="kw">else </span>{
                     <span class="macro">debug_assert!</span>(v.get_type() == intrinsics.i64_ty);
-                    v.as_basic_value_enum()
+                    <span class="prelude-val">Ok</span>(v.as_basic_value_enum())
                 }
             }
         };
 
-        <span class="kw">let </span>build_struct = |ty: StructType&lt;<span class="lifetime">&#39;ctx</span>&gt;, values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;]| {
+        <span class="kw">let </span>build_struct = |ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
+                            values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;]|
+         -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">'_</span>&gt;, CompileError&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>struct_value = ty.get_undef();
             <span class="kw">for </span>(i, v) <span class="kw">in </span>values.iter().enumerate() {
-                struct_value = builder
-                    .build_insert_value(struct_value, <span class="kw-2">*</span>v, i <span class="kw">as </span>u32, <span class="string">&quot;&quot;</span>)
-                    .unwrap()
+                struct_value = <span class="macro">err!</span>(builder.build_insert_value(struct_value, <span class="kw-2">*</span>v, i <span class="kw">as </span>u32, <span class="string">""</span>))
                     .into_struct_value();
             }
-            struct_value.as_basic_value_enum()
+            <span class="prelude-val">Ok</span>(struct_value.as_basic_value_enum())
         };
 
-        <span class="kw">let </span>build_2xi64 = |low: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, high: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;| {
-            <span class="kw">let </span>low = to_i64(low);
-            <span class="kw">let </span>high = to_i64(high);
+        <span class="kw">let </span>build_2xi64 = |low: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;,
+                           high: BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;|
+         -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">'_</span>&gt;, CompileError&gt; {
+            <span class="kw">let </span>low = to_i64(low)<span class="question-mark">?</span>;
+            <span class="kw">let </span>high = to_i64(high)<span class="question-mark">?</span>;
             <span class="kw">let </span>value = intrinsics.i64_ty.array_type(<span class="number">2</span>).get_undef();
-            <span class="kw">let </span>value = builder.build_insert_value(value, low, <span class="number">0</span>, <span class="string">&quot;&quot;</span>).unwrap();
-            <span class="kw">let </span>value = builder.build_insert_value(value, high, <span class="number">1</span>, <span class="string">&quot;&quot;</span>).unwrap();
-            value.as_basic_value_enum()
+            <span class="kw">let </span>value = <span class="macro">err!</span>(builder.build_insert_value(value, low, <span class="number">0</span>, <span class="string">""</span>));
+            <span class="kw">let </span>value = <span class="macro">err!</span>(builder.build_insert_value(value, high, <span class="number">1</span>, <span class="string">""</span>));
+            <span class="prelude-val">Ok</span>(value.as_basic_value_enum())
         };
 
         <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="kw-2">*</span>values {
@@ -1211,14 +1233,14 @@
                 build_struct(
                     func_type.get_return_type().unwrap().into_struct_type(),
                     <span class="kw-2">&amp;</span>[v1, v2],
-                )
-            }
+                )<span class="question-mark">?
+            </span>}
             [v1, v2] <span class="kw">if </span>is_32(v1) &amp;&amp; is_32(v2) =&gt; {
-                <span class="kw">let </span>v1 = builder.build_bitcast(v1, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v2 = builder.build_bitcast(v2, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                pack_i32s(v1, v2)
-            }
-            [v1, v2] =&gt; build_2xi64(v1, v2),
+                <span class="kw">let </span>v1 = <span class="macro">err!</span>(builder.build_bit_cast(v1, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v2 = <span class="macro">err!</span>(builder.build_bit_cast(v2, intrinsics.i32_ty, <span class="string">""</span>));
+                pack_i32s(v1, v2)<span class="question-mark">?
+            </span>}
+            [v1, v2] =&gt; build_2xi64(v1, v2)<span class="question-mark">?</span>,
             [v1, v2, v3]
                 <span class="kw">if </span>is_32(v1)
                     &amp;&amp; is_32(v2)
@@ -1230,20 +1252,20 @@
                 build_struct(
                     func_type.get_return_type().unwrap().into_struct_type(),
                     <span class="kw-2">&amp;</span>[v1, v2, v3],
-                )
-            }
+                )<span class="question-mark">?
+            </span>}
             [v1, v2, v3] <span class="kw">if </span>is_32(v1) &amp;&amp; is_32(v2) =&gt; {
-                <span class="kw">let </span>v1 = builder.build_bitcast(v1, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v2 = builder.build_bitcast(v2, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v1v2_pack = pack_i32s(v1, v2);
-                build_2xi64(v1v2_pack, v3)
-            }
+                <span class="kw">let </span>v1 = <span class="macro">err!</span>(builder.build_bit_cast(v1, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v2 = <span class="macro">err!</span>(builder.build_bit_cast(v2, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v1v2_pack = pack_i32s(v1, v2)<span class="question-mark">?</span>;
+                build_2xi64(v1v2_pack, v3)<span class="question-mark">?
+            </span>}
             [v1, v2, v3] <span class="kw">if </span>is_64(v1) &amp;&amp; is_32(v2) &amp;&amp; is_32(v3) =&gt; {
-                <span class="kw">let </span>v2 = builder.build_bitcast(v2, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v3 = builder.build_bitcast(v3, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v2v3_pack = pack_i32s(v2, v3);
-                build_2xi64(v1, v2v3_pack)
-            }
+                <span class="kw">let </span>v2 = <span class="macro">err!</span>(builder.build_bit_cast(v2, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v3 = <span class="macro">err!</span>(builder.build_bit_cast(v3, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v2v3_pack = pack_i32s(v2, v3)<span class="question-mark">?</span>;
+                build_2xi64(v1, v2v3_pack)<span class="question-mark">?
+            </span>}
             [v1, v2, v3, v4]
                 <span class="kw">if </span>is_32(v1)
                     &amp;&amp; is_32(v2)
@@ -1257,19 +1279,19 @@
                 build_struct(
                     func_type.get_return_type().unwrap().into_struct_type(),
                     <span class="kw-2">&amp;</span>[v1, v2, v3, v4],
-                )
-            }
+                )<span class="question-mark">?
+            </span>}
             [v1, v2, v3, v4] <span class="kw">if </span>is_32(v1) &amp;&amp; is_32(v2) &amp;&amp; is_32(v3) &amp;&amp; is_32(v4) =&gt; {
-                <span class="kw">let </span>v1 = builder.build_bitcast(v1, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v2 = builder.build_bitcast(v2, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v1v2_pack = pack_i32s(v1, v2);
-                <span class="kw">let </span>v3 = builder.build_bitcast(v3, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v4 = builder.build_bitcast(v4, intrinsics.i32_ty, <span class="string">&quot;&quot;</span>);
-                <span class="kw">let </span>v3v4_pack = pack_i32s(v3, v4);
-                build_2xi64(v1v2_pack, v3v4_pack)
-            }
+                <span class="kw">let </span>v1 = <span class="macro">err!</span>(builder.build_bit_cast(v1, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v2 = <span class="macro">err!</span>(builder.build_bit_cast(v2, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v1v2_pack = pack_i32s(v1, v2)<span class="question-mark">?</span>;
+                <span class="kw">let </span>v3 = <span class="macro">err!</span>(builder.build_bit_cast(v3, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v4 = <span class="macro">err!</span>(builder.build_bit_cast(v4, intrinsics.i32_ty, <span class="string">""</span>));
+                <span class="kw">let </span>v3v4_pack = pack_i32s(v3, v4)<span class="question-mark">?</span>;
+                build_2xi64(v1v2_pack, v3v4_pack)<span class="question-mark">?
+            </span>}
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">unreachable!</span>(<span class="string">&quot;called to perform register return on struct return or void function&quot;</span>)
+                <span class="macro">unreachable!</span>(<span class="string">"called to perform register return on struct return or void function"</span>)
             }
         })
     }

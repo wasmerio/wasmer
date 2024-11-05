@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["emscripten_processor","wasi_processor","wast_processor"]};
+window.SIDEBAR_ITEMS = {"fn":["wasi_processor","wast_processor"]};

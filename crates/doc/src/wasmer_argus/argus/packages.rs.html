@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/wasmer-argus/src/argus/packages.rs`."><title>packages.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_argus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_argus/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/wasmer-argus/src/argus/packages.rs`."><title>packages.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_argus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -255,7 +255,7 @@
 };
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>wasmer_api::{
+<span class="kw">use </span>wasmer_backend_api::{
     query::get_package_versions_stream,
     types::{AllPackageVersionsVars, PackageVersionSortBy, PackageVersionWithPackage},
 };
@@ -271,16 +271,16 @@
         successes_rx: UnboundedReceiver&lt;()&gt;,
         failures_rx: UnboundedReceiver&lt;()&gt;,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;starting to fetch packages..&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">"starting to fetch packages.."</span>);
         <span class="kw">let </span>vars = AllPackageVersionsVars {
             sort_by: <span class="prelude-val">Some</span>(PackageVersionSortBy::Oldest),
             ..Default::default()
         };
 
         p.set_style(
-            ProgressStyle::with_template(<span class="string">&quot;{spinner:.blue} {msg}&quot;</span>)
+            ProgressStyle::with_template(<span class="string">"{spinner:.blue} {msg}"</span>)
                 .unwrap()
-                .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">&quot;✶&quot;</span>, <span class="string">&quot;✸&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✺&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✷&quot;</span>, <span class="string">&quot;✶&quot;</span>]),
+                .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">"✶"</span>, <span class="string">"✸"</span>, <span class="string">"✹"</span>, <span class="string">"✺"</span>, <span class="string">"✹"</span>, <span class="string">"✷"</span>, <span class="string">"✶"</span>]),
         );
         p.enable_steady_tick(Duration::from_millis(<span class="number">1000</span>));
 
@@ -288,19 +288,19 @@
 
         <span class="kw">let </span>call = get_package_versions_stream(<span class="kw-2">&amp;</span><span class="self">self</span>.client, vars.clone());
         <span class="macro">futures::pin_mut!</span>(call);
-        p.set_message(<span class="string">&quot;starting to fetch packages..&quot;</span>.to_string());
+        p.set_message(<span class="string">"starting to fetch packages.."</span>.to_string());
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(pkgs) = call.next().<span class="kw">await </span>{
             <span class="kw">let </span>pkgs = <span class="kw">match </span>pkgs {
                 <span class="prelude-val">Ok</span>(pkgs) =&gt; pkgs,
                 <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">error!</span>(<span class="string">&quot;failed to fetch packages: {e}&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">"failed to fetch packages: {e}"</span>);
                     p.finish_and_clear();
-                    <span class="macro">anyhow::bail!</span>(<span class="string">&quot;failed to fetch packages: {e}&quot;</span>)
+                    <span class="macro">anyhow::bail!</span>(<span class="string">"failed to fetch packages: {e}"</span>)
                 }
             };
             p.set_message(<span class="macro">format!</span>(
-                <span class="string">&quot;fetched {} packages [ok: {}, err: {}]&quot;</span>,
+                <span class="string">"fetched {} packages [ok: {}, err: {}]"</span>,
                 count,
                 successes_rx.len(),
                 failures_rx.len()
@@ -310,42 +310,42 @@
             <span class="kw">for </span>pkg <span class="kw">in </span>pkgs {
                 <span class="kw">if </span><span class="self">self</span>.to_test(<span class="kw-2">&amp;</span>pkg).<span class="kw">await </span>{
                     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = s.send(pkg) {
-                        <span class="macro">error!</span>(<span class="string">&quot;failed to send packages: {e}&quot;</span>);
+                        <span class="macro">error!</span>(<span class="string">"failed to send packages: {e}"</span>);
                         p.finish_and_clear();
-                        <span class="macro">anyhow::bail!</span>(<span class="string">&quot;failed to send packages: {e}&quot;</span>)
+                        <span class="macro">anyhow::bail!</span>(<span class="string">"failed to send packages: {e}"</span>)
                     };
                 }
             }
         }
 
-        p.finish_with_message(<span class="macro">format!</span>(<span class="string">&quot;fetched {count} packages&quot;</span>));
-        <span class="macro">info!</span>(<span class="string">&quot;finished fetching packages: fetched {count} packages, closing channel&quot;</span>);
+        p.finish_with_message(<span class="macro">format!</span>(<span class="string">"fetched {count} packages"</span>));
+        <span class="macro">info!</span>(<span class="string">"finished fetching packages: fetched {count} packages, closing channel"</span>);
         drop(s);
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="attr">#[tracing::instrument(skip(p))]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>download_webcs&lt;<span class="lifetime">&#39;a</span>&gt;(
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>download_webcs&lt;<span class="lifetime">'a</span>&gt;(
         test_id: u64,
-        path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PathBuf,
-        webc_v2_url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Url,
-        webc_v3_url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Url,
-        p: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ProgressBar,
+        path: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PathBuf,
+        webc_v2_url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Url,
+        webc_v3_url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Url,
+        p: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ProgressBar,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        Argus::download_package(test_id, <span class="kw-2">&amp;</span>path.join(<span class="string">&quot;package_v2.webc&quot;</span>), webc_v2_url, p).<span class="kw">await</span><span class="question-mark">?</span>;
-        Argus::download_package(test_id, <span class="kw-2">&amp;</span>path.join(<span class="string">&quot;package_v3.webc&quot;</span>), webc_v3_url, p).<span class="kw">await</span><span class="question-mark">?</span>;
+        Argus::download_package(test_id, <span class="kw-2">&amp;</span>path.join(<span class="string">"package_v2.webc"</span>), webc_v2_url, p).<span class="kw">await</span><span class="question-mark">?</span>;
+        Argus::download_package(test_id, <span class="kw-2">&amp;</span>path.join(<span class="string">"package_v3.webc"</span>), webc_v3_url, p).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>download_package&lt;<span class="lifetime">&#39;a</span>&gt;(
+    <span class="kw">async fn </span>download_package&lt;<span class="lifetime">'a</span>&gt;(
         test_id: u64,
-        path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PathBuf,
-        url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Url,
-        p: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ProgressBar,
+        path: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PathBuf,
+        url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Url,
+        p: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ProgressBar,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="macro">info!</span>(<span class="string">&quot;downloading package from {} to file {:?}&quot;</span>, url, path);
+        <span class="macro">info!</span>(<span class="string">"downloading package from {} to file {:?}"</span>, url, path);
         <span class="kw">static </span>APP_USER_AGENT: <span class="kw-2">&amp;</span>str =
-            <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>), <span class="string">&quot;/&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>),);
+            <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"CARGO_PKG_NAME"</span>), <span class="string">"/"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>),);
 
         <span class="kw">let </span><span class="kw-2">mut </span>dir_path = path.clone();
         dir_path.pop();
@@ -353,7 +353,7 @@
         <span class="kw">if </span>!dir_path.exists() {
             tokio::fs::create_dir_all(dir_path).<span class="kw">await</span><span class="question-mark">?</span>;
         } <span class="kw">else if </span>dir_path.exists() &amp;&amp; !dir_path.is_dir() {
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;path {:?} exists, but it is not a directory!&quot;</span>, path)
+            <span class="macro">anyhow::bail!</span>(<span class="string">"path {:?} exists, but it is not a directory!"</span>, path)
         }
 
         <span class="kw">let </span>client = Client::builder().user_agent(APP_USER_AGENT).build()<span class="question-mark">?</span>;
@@ -368,7 +368,7 @@
                     .unwrap_or(<span class="number">0</span>) <span class="comment">// Fallback to 0
             </span>} <span class="kw">else </span>{
                 <span class="macro">anyhow::bail!</span>(
-                    <span class="string">&quot;Couldn&#39;t fetch head from URL {}. Error: {:?}&quot;</span>,
+                    <span class="string">"Couldn't fetch head from URL {}. Error: {:?}"</span>,
                     url,
                     resp.status()
                 )
@@ -382,26 +382,26 @@
         p.set_style(
             ProgressStyle::default_bar()
                 .template(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                    <span class="string">&quot;[{test_id}] [{{bar:40.cyan/blue}}] {{bytes}}/{{total_bytes}} - {{msg}}&quot;
+                    <span class="string">"[{test_id}] [{{bar:40.cyan/blue}}] {{bytes}}/{{total_bytes}} - {{msg}}"
                 </span>))
                 .unwrap()
-                .progress_chars(<span class="string">&quot;#&gt;-&quot;</span>),
+                .progress_chars(<span class="string">"#&gt;-"</span>),
         );
 
-        p.set_message(<span class="macro">format!</span>(<span class="string">&quot;downloading from {url}&quot;</span>));
+        p.set_message(<span class="macro">format!</span>(<span class="string">"downloading from {url}"</span>));
 
         <span class="kw">let </span><span class="kw-2">mut </span>outfile = <span class="kw">match </span>File::create(<span class="kw-2">&amp;</span>path).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(o) =&gt; o,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">error!</span>(
-                    <span class="string">&quot;[{test_id}] failed to create file at {:?}. Error: {e}&quot;</span>,
+                    <span class="string">"[{test_id}] failed to create file at {:?}. Error: {e}"</span>,
                     path.display()
                 );
 
                 p.finish_and_clear();
 
                 <span class="macro">anyhow::bail!</span>(
-                    <span class="string">&quot;[{test_id}] failed to create file at {:?}. Error: {e}&quot;</span>,
+                    <span class="string">"[{test_id}] failed to create file at {:?}. Error: {e}"</span>,
                     path.display()
                 );
             }
@@ -409,9 +409,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>download = <span class="kw">match </span>request.send().<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(d) =&gt; d,
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;[{test_id}] failed to download from URL {url}. Error: {e}&quot;</span>);
+                <span class="macro">error!</span>(<span class="string">"[{test_id}] failed to download from URL {url}. Error: {e}"</span>);
                 p.finish_and_clear();
-                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;[{test_id}] failed to download from URL {url}. Error: {e}&quot;</span>);
+                <span class="macro">anyhow::bail!</span>(<span class="string">"[{test_id}] failed to download from URL {url}. Error: {e}"</span>);
             }
         };
 
@@ -419,12 +419,12 @@
             <span class="kw">match </span>download.chunk().<span class="kw">await </span>{
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">error!</span>(
-                        <span class="string">&quot;[{test_id}] failed to download chunk from {:?}. Error: {e}&quot;</span>,
+                        <span class="string">"[{test_id}] failed to download chunk from {:?}. Error: {e}"</span>,
                         download
                     );
                     p.finish_and_clear();
                     <span class="macro">anyhow::bail!</span>(
-                        <span class="string">&quot;[{test_id}] failed to download chunk from {:?}. Error: {e}&quot;</span>,
+                        <span class="string">"[{test_id}] failed to download chunk from {:?}. Error: {e}"</span>,
                         download
                     );
                 }
@@ -433,12 +433,12 @@
                         p.inc(chunk.len() <span class="kw">as </span>u64);
                         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = outfile.write(<span class="kw-2">&amp;</span>chunk).<span class="kw">await </span>{
                             <span class="macro">error!</span>(
-                                <span class="string">&quot;[{test_id}] failed to write chunk to file {:?}. Error: {e}&quot;</span>,
+                                <span class="string">"[{test_id}] failed to write chunk to file {:?}. Error: {e}"</span>,
                                 outfile
                             );
                             p.finish_and_clear();
                             <span class="macro">anyhow::bail!</span>(
-                                <span class="string">&quot;[{test_id}] failed to write chunk to file {:?}. Error: {e}&quot;</span>,
+                                <span class="string">"[{test_id}] failed to write chunk to file {:?}. Error: {e}"</span>,
                                 outfile
                             );
                         };
@@ -461,13 +461,13 @@
         <span class="kw">let </span>hash = <span class="kw">match </span><span class="kw-2">&amp;</span>pkg.distribution_v2.pirita_sha256_hash {
             <span class="prelude-val">Some</span>(hash) =&gt; hash,
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">unreachable!</span>(<span class="string">&quot;no package without an hash should reach this function!&quot;</span>)
+                <span class="macro">unreachable!</span>(<span class="string">"no package without an hash should reach this function!"</span>)
             }
         };
 
         <span class="kw">let </span>_namespace = <span class="kw">match </span><span class="kw-2">&amp;</span>pkg.package.namespace {
-            <span class="prelude-val">Some</span>(ns) =&gt; ns.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;_&quot;</span>),
-            <span class="prelude-val">None </span>=&gt; <span class="string">&quot;unknown_namespace&quot;</span>.to_owned(),
+            <span class="prelude-val">Some</span>(ns) =&gt; ns.replace(<span class="string">'/'</span>, <span class="string">"_"</span>),
+            <span class="prelude-val">None </span>=&gt; <span class="string">"unknown_namespace"</span>.to_owned(),
         };
 
         config.outdir.join(hash)
@@ -475,13 +475,13 @@
 
     <span class="kw">pub fn </span>get_package_id(pkg: <span class="kw-2">&amp;</span>PackageVersionWithPackage) -&gt; String {
         <span class="kw">let </span>namespace = <span class="kw">match </span><span class="kw-2">&amp;</span>pkg.package.namespace {
-            <span class="prelude-val">Some</span>(namespace) =&gt; namespace.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;_&quot;</span>),
-            <span class="prelude-val">None </span>=&gt; String::from(<span class="string">&quot;unknown_namespace&quot;</span>),
+            <span class="prelude-val">Some</span>(namespace) =&gt; namespace.replace(<span class="string">'/'</span>, <span class="string">"_"</span>),
+            <span class="prelude-val">None </span>=&gt; String::from(<span class="string">"unknown_namespace"</span>),
         };
         <span class="macro">format!</span>(
-            <span class="string">&quot;{}/{}_v{}&quot;</span>,
+            <span class="string">"{}/{}_v{}"</span>,
             namespace,
-            pkg.package.package_name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;_&quot;</span>),
+            pkg.package.package_name.replace(<span class="string">'/'</span>, <span class="string">"_"</span>),
             pkg.version
         )
     }

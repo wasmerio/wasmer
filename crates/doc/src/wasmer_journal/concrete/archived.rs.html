@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/concrete/archived.rs`."><title>archived.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_journal/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/concrete/archived.rs`."><title>archived.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1804,9 +1804,37 @@
 <a href="#1804" id="1804">1804</a>
 <a href="#1805" id="1805">1805</a>
 <a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
-<span class="kw">use </span>rkyv::ser::{ScratchSpace, Serializer};
-<span class="kw">use </span>rkyv::{Archive, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="kw">use </span>rkyv::rancor::Fallible;
+<span class="kw">use </span>rkyv::ser::{Allocator, Writer};
+<span class="kw">use </span>rkyv::{
+    api::serialize_using, Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize,
+};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 <span class="kw">use </span>std::time::{Duration, SystemTime};
 
@@ -1828,7 +1856,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalEntryRecordType {
     InitModuleV1 = <span class="number">1</span>,
     ProcessExitV1 = <span class="number">2</span>,
@@ -1897,259 +1925,185 @@
     /// `rykv` makes direct memory references to achieve high performance
     /// however this does mean care must be taken that the data itself
     /// can not be manipulated or corrupted.
-    </span><span class="kw">pub unsafe fn </span>deserialize_archive(<span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; anyhow::Result&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt; {
+    </span><span class="kw">pub unsafe fn </span>deserialize_archive(<span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; anyhow::Result&lt;JournalEntry&lt;<span class="lifetime">'_</span>&gt;&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            JournalEntryRecordType::InitModuleV1 =&gt; ArchivedJournalEntry::InitModuleV1(
-                rkyv::archived_root::&lt;JournalEntryInitModuleV1&gt;(data),
-            ),
-            JournalEntryRecordType::ClearEtherealV1 =&gt; {
-                ArchivedJournalEntry::ClearEtherealV1(rkyv::archived_root::&lt;
-                    JournalEntryClearEtherealV1,
-                &gt;(data))
+            JournalEntryRecordType::InitModuleV1 =&gt; {
+                ArchivedJournalEntry::InitModuleV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::ProcessExitV1 =&gt; ArchivedJournalEntry::ProcessExitV1(
-                rkyv::archived_root::&lt;JournalEntryProcessExitV1&gt;(data),
-            ),
-            JournalEntryRecordType::SetThreadV1 =&gt; ArchivedJournalEntry::SetThreadV1(
-                rkyv::archived_root::&lt;JournalEntrySetThreadV1&gt;(data),
-            ),
-            JournalEntryRecordType::CloseThreadV1 =&gt; ArchivedJournalEntry::CloseThreadV1(
-                rkyv::archived_root::&lt;JournalEntryCloseThreadV1&gt;(data),
-            ),
+            JournalEntryRecordType::ClearEtherealV1 =&gt; {
+                ArchivedJournalEntry::ClearEtherealV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::ProcessExitV1 =&gt; {
+                ArchivedJournalEntry::ProcessExitV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::SetThreadV1 =&gt; {
+                ArchivedJournalEntry::SetThreadV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::CloseThreadV1 =&gt; {
+                ArchivedJournalEntry::CloseThreadV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::FileDescriptorSeekV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorSeekV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorSeekV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorSeekV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorWriteV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorWriteV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorWriteV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorWriteV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::UpdateMemoryRegionV1 =&gt; {
-                ArchivedJournalEntry::UpdateMemoryRegionV1(rkyv::archived_root::&lt;
-                    JournalEntryUpdateMemoryRegionV1,
-                &gt;(data))
+                ArchivedJournalEntry::UpdateMemoryRegionV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SetClockTimeV1 =&gt; {
-                ArchivedJournalEntry::SetClockTimeV1(rkyv::archived_root::&lt;
-                    JournalEntrySetClockTimeV1,
-                &gt;(data))
+                ArchivedJournalEntry::SetClockTimeV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::OpenFileDescriptorV1 =&gt; {
-                ArchivedJournalEntry::OpenFileDescriptorV1(rkyv::archived_root::&lt;
-                    JournalEntryOpenFileDescriptorV1,
-                &gt;(data))
+                ArchivedJournalEntry::OpenFileDescriptorV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::CloseFileDescriptorV1 =&gt; {
-                ArchivedJournalEntry::CloseFileDescriptorV1(rkyv::archived_root::&lt;
-                    JournalEntryCloseFileDescriptorV1,
-                &gt;(data))
+                ArchivedJournalEntry::CloseFileDescriptorV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::RenumberFileDescriptorV1 =&gt; {
-                ArchivedJournalEntry::RenumberFileDescriptorV1(rkyv::archived_root::&lt;
-                    JournalEntryRenumberFileDescriptorV1,
-                &gt;(data))
+                ArchivedJournalEntry::RenumberFileDescriptorV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::DuplicateFileDescriptorV1 =&gt; {
-                ArchivedJournalEntry::DuplicateFileDescriptorV1(rkyv::archived_root::&lt;
-                    JournalEntryDuplicateFileDescriptorV1,
-                &gt;(data))
+                ArchivedJournalEntry::DuplicateFileDescriptorV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::CreateDirectoryV1 =&gt; {
-                ArchivedJournalEntry::CreateDirectoryV1(rkyv::archived_root::&lt;
-                    JournalEntryCreateDirectoryV1,
-                &gt;(data))
+                ArchivedJournalEntry::CreateDirectoryV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::RemoveDirectoryV1 =&gt; {
-                ArchivedJournalEntry::RemoveDirectoryV1(rkyv::archived_root::&lt;
-                    JournalEntryRemoveDirectoryV1,
-                &gt;(data))
+                ArchivedJournalEntry::RemoveDirectoryV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::PathSetTimesV1 =&gt; {
-                ArchivedJournalEntry::PathSetTimesV1(rkyv::archived_root::&lt;
-                    JournalEntryPathSetTimesV1,
-                &gt;(data))
+                ArchivedJournalEntry::PathSetTimesV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorSetTimesV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorSetTimesV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorSetTimesV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorSetTimesV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorSetSizeV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorSetSizeV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorSetSizeV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorSetSizeV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorSetFlagsV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorSetFlagsV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorSetFlagsV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorSetFlagsV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorSetRightsV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorSetRightsV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorSetRightsV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorSetRightsV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorAdviseV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorAdviseV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorAdviseV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorAdviseV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorAllocateV1 =&gt; {
-                ArchivedJournalEntry::FileDescriptorAllocateV1(rkyv::archived_root::&lt;
-                    JournalEntryFileDescriptorAllocateV1,
-                &gt;(data))
+                ArchivedJournalEntry::FileDescriptorAllocateV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::CreateHardLinkV1 =&gt; {
-                ArchivedJournalEntry::CreateHardLinkV1(rkyv::archived_root::&lt;
-                    JournalEntryCreateHardLinkV1,
-                &gt;(data))
+                ArchivedJournalEntry::CreateHardLinkV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::CreateSymbolicLinkV1 =&gt; {
-                ArchivedJournalEntry::CreateSymbolicLinkV1(rkyv::archived_root::&lt;
-                    JournalEntryCreateSymbolicLinkV1,
-                &gt;(data))
+                ArchivedJournalEntry::CreateSymbolicLinkV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::UnlinkFileV1 =&gt; ArchivedJournalEntry::UnlinkFileV1(
-                rkyv::archived_root::&lt;JournalEntryUnlinkFileV1&gt;(data),
-            ),
-            JournalEntryRecordType::PathRenameV1 =&gt; ArchivedJournalEntry::PathRenameV1(
-                rkyv::archived_root::&lt;JournalEntryPathRenameV1&gt;(data),
-            ),
+            JournalEntryRecordType::UnlinkFileV1 =&gt; {
+                ArchivedJournalEntry::UnlinkFileV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::PathRenameV1 =&gt; {
+                ArchivedJournalEntry::PathRenameV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::ChangeDirectoryV1 =&gt; {
-                ArchivedJournalEntry::ChangeDirectoryV1(rkyv::archived_root::&lt;
-                    JournalEntryChangeDirectoryV1,
-                &gt;(data))
+                ArchivedJournalEntry::ChangeDirectoryV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::EpollCreateV1 =&gt; ArchivedJournalEntry::EpollCreateV1(
-                rkyv::archived_root::&lt;JournalEntryEpollCreateV1&gt;(data),
-            ),
-            JournalEntryRecordType::EpollCtlV1 =&gt; ArchivedJournalEntry::EpollCtlV1(
-                rkyv::archived_root::&lt;JournalEntryEpollCtlV1&gt;(data),
-            ),
+            JournalEntryRecordType::EpollCreateV1 =&gt; {
+                ArchivedJournalEntry::EpollCreateV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::EpollCtlV1 =&gt; {
+                ArchivedJournalEntry::EpollCtlV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::TtySetV1 =&gt; {
-                ArchivedJournalEntry::TtySetV1(rkyv::archived_root::&lt;JournalEntryTtySetV1&gt;(data))
+                ArchivedJournalEntry::TtySetV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::CreatePipeV1 =&gt; ArchivedJournalEntry::CreatePipeV1(
-                rkyv::archived_root::&lt;JournalEntryCreatePipeV1&gt;(data),
-            ),
-            JournalEntryRecordType::CreateEventV1 =&gt; ArchivedJournalEntry::CreateEventV1(
-                rkyv::archived_root::&lt;JournalEntryCreateEventV1&gt;(data),
-            ),
-            JournalEntryRecordType::PortAddAddrV1 =&gt; ArchivedJournalEntry::PortAddAddrV1(
-                rkyv::archived_root::&lt;JournalEntryPortAddAddrV1&gt;(data),
-            ),
-            JournalEntryRecordType::PortDelAddrV1 =&gt; ArchivedJournalEntry::PortDelAddrV1(
-                rkyv::archived_root::&lt;JournalEntryPortDelAddrV1&gt;(data),
-            ),
+            JournalEntryRecordType::CreatePipeV1 =&gt; {
+                ArchivedJournalEntry::CreatePipeV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::CreateEventV1 =&gt; {
+                ArchivedJournalEntry::CreateEventV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::PortAddAddrV1 =&gt; {
+                ArchivedJournalEntry::PortAddAddrV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::PortDelAddrV1 =&gt; {
+                ArchivedJournalEntry::PortDelAddrV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::PortAddrClearV1 =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(JournalEntry::PortAddrClearV1),
-            JournalEntryRecordType::PortBridgeV1 =&gt; ArchivedJournalEntry::PortBridgeV1(
-                rkyv::archived_root::&lt;JournalEntryPortBridgeV1&gt;(data),
-            ),
+            JournalEntryRecordType::PortBridgeV1 =&gt; {
+                ArchivedJournalEntry::PortBridgeV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::PortUnbridgeV1 =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(JournalEntry::PortUnbridgeV1),
             JournalEntryRecordType::PortDhcpAcquireV1 =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(JournalEntry::PortDhcpAcquireV1)
             }
             JournalEntryRecordType::PortGatewaySetV1 =&gt; {
-                ArchivedJournalEntry::PortGatewaySetV1(rkyv::archived_root::&lt;
-                    JournalEntryPortGatewaySetV1,
-                &gt;(data))
+                ArchivedJournalEntry::PortGatewaySetV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::PortRouteAddV1 =&gt; {
-                ArchivedJournalEntry::PortRouteAddV1(rkyv::archived_root::&lt;
-                    JournalEntryPortRouteAddV1,
-                &gt;(data))
+                ArchivedJournalEntry::PortRouteAddV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::PortRouteClearV1 =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(JournalEntry::PortRouteClearV1),
             JournalEntryRecordType::PortRouteDelV1 =&gt; {
-                ArchivedJournalEntry::PortRouteDelV1(rkyv::archived_root::&lt;
-                    JournalEntryPortRouteDelV1,
-                &gt;(data))
+                ArchivedJournalEntry::PortRouteDelV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::SocketOpenV1 =&gt; ArchivedJournalEntry::SocketOpenV1(
-                rkyv::archived_root::&lt;JournalEntrySocketOpenV1&gt;(data),
-            ),
+            JournalEntryRecordType::SocketOpenV1 =&gt; {
+                ArchivedJournalEntry::SocketOpenV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::SocketListenV1 =&gt; {
-                ArchivedJournalEntry::SocketListenV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketListenV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketListenV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::SocketBindV1 =&gt; ArchivedJournalEntry::SocketBindV1(
-                rkyv::archived_root::&lt;JournalEntrySocketBindV1&gt;(data),
-            ),
+            JournalEntryRecordType::SocketBindV1 =&gt; {
+                ArchivedJournalEntry::SocketBindV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::SocketConnectedV1 =&gt; {
-                ArchivedJournalEntry::SocketConnectedV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketConnectedV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketConnectedV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketAcceptedV1 =&gt; {
-                ArchivedJournalEntry::SocketAcceptedV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketAcceptedV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketAcceptedV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketJoinIpv4MulticastV1 =&gt; {
-                ArchivedJournalEntry::SocketJoinIpv4MulticastV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketJoinIpv4MulticastV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketJoinIpv4MulticastV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketJoinIpv6MulticastV1 =&gt; {
-                ArchivedJournalEntry::SocketJoinIpv6MulticastV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketJoinIpv6MulticastV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketJoinIpv6MulticastV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketLeaveIpv4MulticastV1 =&gt; {
-                ArchivedJournalEntry::SocketLeaveIpv4MulticastV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketLeaveIpv4MulticastV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketLeaveIpv4MulticastV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketLeaveIpv6MulticastV1 =&gt; {
-                ArchivedJournalEntry::SocketLeaveIpv6MulticastV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketLeaveIpv6MulticastV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketLeaveIpv6MulticastV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketSendFileV1 =&gt; {
-                ArchivedJournalEntry::SocketSendFileV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketSendFileV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketSendFileV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketSendToV1 =&gt; {
-                ArchivedJournalEntry::SocketSendToV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketSendToV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketSendToV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::SocketSendV1 =&gt; ArchivedJournalEntry::SocketSendV1(
-                rkyv::archived_root::&lt;JournalEntrySocketSendV1&gt;(data),
-            ),
+            JournalEntryRecordType::SocketSendV1 =&gt; {
+                ArchivedJournalEntry::SocketSendV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::SocketSetOptFlagV1 =&gt; {
-                ArchivedJournalEntry::SocketSetOptFlagV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketSetOptFlagV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketSetOptFlagV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketSetOptSizeV1 =&gt; {
-                ArchivedJournalEntry::SocketSetOptSizeV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketSetOptSizeV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketSetOptSizeV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketSetOptTimeV1 =&gt; {
-                ArchivedJournalEntry::SocketSetOptTimeV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketSetOptTimeV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketSetOptTimeV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::SocketShutdownV1 =&gt; {
-                ArchivedJournalEntry::SocketShutdownV1(rkyv::archived_root::&lt;
-                    JournalEntrySocketShutdownV1,
-                &gt;(data))
+                ArchivedJournalEntry::SocketShutdownV1(rkyv::access_unchecked(data))
             }
-            JournalEntryRecordType::SnapshotV1 =&gt; ArchivedJournalEntry::SnapshotV1(
-                rkyv::archived_root::&lt;JournalEntrySnapshotV1&gt;(data),
-            ),
+            JournalEntryRecordType::SnapshotV1 =&gt; {
+                ArchivedJournalEntry::SnapshotV1(rkyv::access_unchecked(data))
+            }
         }
         .try_into()
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; JournalEntry&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub fn </span>archive_record_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; JournalEntryRecordType {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::InitModuleV1 { .. } =&gt; JournalEntryRecordType::InitModuleV1,
@@ -2234,33 +2188,37 @@
         }
     }
 
-    <span class="kw">pub fn </span>serialize_archive&lt;T: Serializer + ScratchSpace&gt;(
+    <span class="kw">pub fn </span>serialize_archive&lt;T: Fallible + Writer + Allocator&gt;(
         <span class="self">self</span>,
         serializer: <span class="kw-2">&amp;mut </span>T,
     ) -&gt; anyhow::Result&lt;usize&gt;
     <span class="kw">where
-        </span>T::Error: std::fmt::Display,
+        </span>T::Error: rkyv::rancor::Source,
     {
         <span class="kw">let </span>amt = <span class="kw">match </span><span class="self">self </span>{
             JournalEntry::InitModuleV1 { wasm_hash } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryInitModuleV1 { wasm_hash })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryInitModuleV1 { wasm_hash }, serializer)
             }
             JournalEntry::ClearEtherealV1 =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryClearEtherealV1 {})
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryClearEtherealV1 {}, serializer)
             }
             JournalEntry::UpdateMemoryRegionV1 {
                 region,
                 compressed_data,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryUpdateMemoryRegionV1 {
-                start: region.start,
-                end: region.end,
-                compressed_data: compressed_data.into(),
-            }),
-            JournalEntry::ProcessExitV1 { exit_code } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryProcessExitV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryUpdateMemoryRegionV1 {
+                    start: region.start,
+                    end: region.end,
+                    compressed_data: compressed_data.into(),
+                },
+                serializer,
+            ),
+            JournalEntry::ProcessExitV1 { exit_code } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryProcessExitV1 {
                     exit_code: exit_code.map(|e| e.into()),
-                })
-            }
+                },
+                serializer,
+            ),
             JournalEntry::SetThreadV1 {
                 id,
                 call_stack,
@@ -2269,46 +2227,56 @@
                 is_64bit,
                 start,
                 layout,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySetThreadV1 {
-                id,
-                call_stack: call_stack.into(),
-                memory_stack: memory_stack.into(),
-                store_data: store_data.into(),
-                start: start.into(),
-                layout: layout.into(),
-                is_64bit,
-            }),
-            JournalEntry::CloseThreadV1 { id, exit_code } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryCloseThreadV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySetThreadV1 {
+                    id,
+                    call_stack: call_stack.into(),
+                    memory_stack: memory_stack.into(),
+                    store_data: store_data.into(),
+                    start: start.into(),
+                    layout: layout.into(),
+                    is_64bit,
+                },
+                serializer,
+            ),
+            JournalEntry::CloseThreadV1 { id, exit_code } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryCloseThreadV1 {
                     id,
                     exit_code: exit_code.map(|e| e.into()),
-                })
-            }
-            JournalEntry::FileDescriptorSeekV1 { fd, offset, whence } =&gt; serializer
-                .serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorSeekV1 {
+                },
+                serializer,
+            ),
+            JournalEntry::FileDescriptorSeekV1 { fd, offset, whence } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorSeekV1 {
                     fd,
                     offset,
                     whence: whence.into(),
-                }),
+                },
+                serializer,
+            ),
             JournalEntry::FileDescriptorWriteV1 {
                 fd,
                 offset,
                 data,
                 is_64bit,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorWriteV1 {
-                fd,
-                offset,
-                data: data.into(),
-                is_64bit,
-            }),
-            JournalEntry::SetClockTimeV1 { clock_id, time } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySetClockTimeV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorWriteV1 {
+                    fd,
+                    offset,
+                    data: data.into(),
+                    is_64bit,
+                },
+                serializer,
+            ),
+            JournalEntry::SetClockTimeV1 { clock_id, time } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySetClockTimeV1 {
                     clock_id: clock_id.into(),
                     time,
-                })
-            }
+                },
+                serializer,
+            ),
             JournalEntry::CloseFileDescriptorV1 { fd } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryCloseFileDescriptorV1 { fd })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryCloseFileDescriptorV1 { fd }, serializer)
             }
             JournalEntry::OpenFileDescriptorV1 {
                 fd,
@@ -2319,38 +2287,47 @@
                 fs_rights_base,
                 fs_rights_inheriting,
                 fs_flags,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryOpenFileDescriptorV1 {
-                fd,
-                dirfd,
-                dirflags,
-                path: path.into(),
-                o_flags: o_flags.bits(),
-                fs_rights_base: fs_rights_base.bits(),
-                fs_rights_inheriting: fs_rights_inheriting.bits(),
-                fs_flags: fs_flags.bits(),
-            }),
-            JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryRenumberFileDescriptorV1 { old_fd, new_fd })
-            }
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryOpenFileDescriptorV1 {
+                    fd,
+                    dirfd,
+                    dirflags,
+                    path: path.into(),
+                    o_flags: o_flags.bits(),
+                    fs_rights_base: fs_rights_base.bits(),
+                    fs_rights_inheriting: fs_rights_inheriting.bits(),
+                    fs_flags: fs_flags.bits(),
+                },
+                serializer,
+            ),
+            JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryRenumberFileDescriptorV1 { old_fd, new_fd },
+                serializer,
+            ),
             JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryDuplicateFileDescriptorV1 {
-                original_fd,
-                copied_fd,
-            }),
-            JournalEntry::CreateDirectoryV1 { fd, path } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryCreateDirectoryV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryDuplicateFileDescriptorV1 {
+                    original_fd,
+                    copied_fd,
+                },
+                serializer,
+            ),
+            JournalEntry::CreateDirectoryV1 { fd, path } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryCreateDirectoryV1 {
                     fd,
                     path: path.into(),
-                })
-            }
-            JournalEntry::RemoveDirectoryV1 { fd, path } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryRemoveDirectoryV1 {
+                },
+                serializer,
+            ),
+            JournalEntry::RemoveDirectoryV1 { fd, path } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryRemoveDirectoryV1 {
                     fd,
                     path: path.into(),
-                })
-            }
+                },
+                serializer,
+            ),
             JournalEntry::PathSetTimesV1 {
                 fd,
                 flags,
@@ -2358,114 +2335,144 @@
                 st_atim,
                 st_mtim,
                 fst_flags,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPathSetTimesV1 {
-                fd,
-                flags,
-                path: path.into(),
-                st_atim,
-                st_mtim,
-                fst_flags: fst_flags.bits(),
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryPathSetTimesV1 {
+                    fd,
+                    flags,
+                    path: path.into(),
+                    st_atim,
+                    st_mtim,
+                    fst_flags: fst_flags.bits(),
+                },
+                serializer,
+            ),
             JournalEntry::FileDescriptorSetTimesV1 {
                 fd,
                 st_atim,
                 st_mtim,
                 fst_flags,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetTimesV1 {
-                fd,
-                st_atim,
-                st_mtim,
-                fst_flags: fst_flags.bits(),
-            }),
-            JournalEntry::FileDescriptorSetFlagsV1 { fd, flags } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetFlagsV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetTimesV1 {
+                    fd,
+                    st_atim,
+                    st_mtim,
+                    fst_flags: fst_flags.bits(),
+                },
+                serializer,
+            ),
+            JournalEntry::FileDescriptorSetFlagsV1 { fd, flags } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetFlagsV1 {
                     fd,
                     flags: flags.bits(),
-                })
-            }
+                },
+                serializer,
+            ),
             JournalEntry::FileDescriptorSetRightsV1 {
                 fd,
                 fs_rights_base,
                 fs_rights_inheriting,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetRightsV1 {
-                fd,
-                fs_rights_base: fs_rights_base.bits(),
-                fs_rights_inheriting: fs_rights_inheriting.bits(),
-            }),
-            JournalEntry::FileDescriptorSetSizeV1 { fd, st_size } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetSizeV1 { fd, st_size })
-            }
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetRightsV1 {
+                    fd,
+                    fs_rights_base: fs_rights_base.bits(),
+                    fs_rights_inheriting: fs_rights_inheriting.bits(),
+                },
+                serializer,
+            ),
+            JournalEntry::FileDescriptorSetSizeV1 { fd, st_size } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorSetSizeV1 { fd, st_size },
+                serializer,
+            ),
             JournalEntry::FileDescriptorAdviseV1 {
                 fd,
                 offset,
                 len,
                 advice,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorAdviseV1 {
-                fd,
-                offset,
-                len,
-                advice: advice.into(),
-            }),
-            JournalEntry::FileDescriptorAllocateV1 { fd, offset, len } =&gt; serializer
-                .serialize_value(<span class="kw-2">&amp;</span>JournalEntryFileDescriptorAllocateV1 { fd, offset, len }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorAdviseV1 {
+                    fd,
+                    offset,
+                    len,
+                    advice: advice.into(),
+                },
+                serializer,
+            ),
+            JournalEntry::FileDescriptorAllocateV1 { fd, offset, len } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryFileDescriptorAllocateV1 { fd, offset, len },
+                serializer,
+            ),
             JournalEntry::CreateHardLinkV1 {
                 old_fd,
                 old_path,
                 old_flags,
                 new_fd,
                 new_path,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryCreateHardLinkV1 {
-                old_fd,
-                old_path: old_path.into(),
-                old_flags,
-                new_fd,
-                new_path: new_path.into(),
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryCreateHardLinkV1 {
+                    old_fd,
+                    old_path: old_path.into(),
+                    old_flags,
+                    new_fd,
+                    new_path: new_path.into(),
+                },
+                serializer,
+            ),
             JournalEntry::CreateSymbolicLinkV1 {
                 old_path,
                 fd,
                 new_path,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryCreateSymbolicLinkV1 {
-                old_path: old_path.into(),
-                fd,
-                new_path: new_path.into(),
-            }),
-            JournalEntry::UnlinkFileV1 { fd, path } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryUnlinkFileV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryCreateSymbolicLinkV1 {
+                    old_path: old_path.into(),
+                    fd,
+                    new_path: new_path.into(),
+                },
+                serializer,
+            ),
+            JournalEntry::UnlinkFileV1 { fd, path } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryUnlinkFileV1 {
                     fd,
                     path: path.into(),
-                })
-            }
+                },
+                serializer,
+            ),
             JournalEntry::PathRenameV1 {
                 old_fd,
                 old_path,
                 new_fd,
                 new_path,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPathRenameV1 {
-                old_fd,
-                old_path: old_path.into(),
-                new_fd,
-                new_path: new_path.into(),
-            }),
-            JournalEntry::ChangeDirectoryV1 { path } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryChangeDirectoryV1 { path: path.into() })
-            }
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryPathRenameV1 {
+                    old_fd,
+                    old_path: old_path.into(),
+                    new_fd,
+                    new_path: new_path.into(),
+                },
+                serializer,
+            ),
+            JournalEntry::ChangeDirectoryV1 { path } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryChangeDirectoryV1 { path: path.into() },
+                serializer,
+            ),
             JournalEntry::EpollCreateV1 { fd } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryEpollCreateV1 { fd })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryEpollCreateV1 { fd }, serializer)
             }
             JournalEntry::EpollCtlV1 {
                 epfd,
                 op,
                 fd,
                 event,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryEpollCtlV1 {
-                epfd,
-                op: op.into(),
-                fd,
-                event: event.map(|e| e.into()),
-            }),
-            JournalEntry::TtySetV1 { tty, line_feeds } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryTtySetV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryEpollCtlV1 {
+                    epfd,
+                    op: op.into(),
+                    fd,
+                    event: event.map(|e| e.into()),
+                },
+                serializer,
+            ),
+            JournalEntry::TtySetV1 { tty, line_feeds } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryTtySetV1 {
                     cols: tty.cols,
                     rows: tty.rows,
                     width: tty.width,
@@ -2476,79 +2483,93 @@
                     echo: tty.echo,
                     line_buffered: tty.line_buffered,
                     line_feeds,
-                })
-            }
+                },
+                serializer,
+            ),
             JournalEntry::CreatePipeV1 { fd1, fd2 } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryCreatePipeV1 { fd1, fd2 })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryCreatePipeV1 { fd1, fd2 }, serializer)
             }
             JournalEntry::CreateEventV1 {
                 initial_val,
                 flags,
                 fd,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryCreateEventV1 {
-                initial_val,
-                flags,
-                fd,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryCreateEventV1 {
+                    initial_val,
+                    flags,
+                    fd,
+                },
+                serializer,
+            ),
             JournalEntry::PortAddAddrV1 { cidr } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPortAddAddrV1 { cidr: cidr.into() })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryPortAddAddrV1 { cidr: cidr.into() }, serializer)
             }
             JournalEntry::PortDelAddrV1 { addr } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPortDelAddrV1 { addr })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryPortDelAddrV1 { addr }, serializer)
             }
-            JournalEntry::PortAddrClearV1 =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>()),
+            JournalEntry::PortAddrClearV1 =&gt; serialize_using(<span class="kw-2">&amp;</span>(), serializer),
             JournalEntry::PortBridgeV1 {
                 network,
                 token,
                 security,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPortBridgeV1 {
-                network: network.into(),
-                token: token.into(),
-                security: security.into(),
-            }),
-            JournalEntry::PortUnbridgeV1 =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>()),
-            JournalEntry::PortDhcpAcquireV1 =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>()),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryPortBridgeV1 {
+                    network: network.into(),
+                    token: token.into(),
+                    security: security.into(),
+                },
+                serializer,
+            ),
+            JournalEntry::PortUnbridgeV1 =&gt; serialize_using(<span class="kw-2">&amp;</span>(), serializer),
+            JournalEntry::PortDhcpAcquireV1 =&gt; serialize_using(<span class="kw-2">&amp;</span>(), serializer),
             JournalEntry::PortGatewaySetV1 { ip } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPortGatewaySetV1 { ip })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryPortGatewaySetV1 { ip }, serializer)
             }
             JournalEntry::PortRouteAddV1 {
                 cidr,
                 via_router,
                 preferred_until,
                 expires_at,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPortRouteAddV1 {
-                cidr: cidr.into(),
-                via_router,
-                preferred_until,
-                expires_at,
-            }),
-            JournalEntry::PortRouteClearV1 =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>()),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntryPortRouteAddV1 {
+                    cidr: cidr.into(),
+                    via_router,
+                    preferred_until,
+                    expires_at,
+                },
+                serializer,
+            ),
+            JournalEntry::PortRouteClearV1 =&gt; serialize_using(<span class="kw-2">&amp;</span>(), serializer),
             JournalEntry::PortRouteDelV1 { ip } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryPortRouteDelV1 { ip })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryPortRouteDelV1 { ip }, serializer)
             }
-            JournalEntry::SocketOpenV1 { af, ty, pt, fd } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketOpenV1 {
+            JournalEntry::SocketOpenV1 { af, ty, pt, fd } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketOpenV1 {
                     af: af.into(),
                     ty: ty.into(),
                     pt: pt.into(),
                     fd,
-                })
-            }
+                },
+                serializer,
+            ),
             JournalEntry::SocketListenV1 { fd, backlog } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketListenV1 { fd, backlog })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntrySocketListenV1 { fd, backlog }, serializer)
             }
             JournalEntry::SocketBindV1 { fd, addr } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketBindV1 { fd, addr })
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntrySocketBindV1 { fd, addr }, serializer)
             }
             JournalEntry::SocketConnectedV1 {
                 fd,
                 local_addr,
                 peer_addr,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketConnectedV1 {
-                fd,
-                local_addr,
-                peer_addr,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketConnectedV1 {
+                    fd,
+                    local_addr,
+                    peer_addr,
+                },
+                serializer,
+            ),
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
@@ -2556,122 +2577,151 @@
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketAcceptedV1 {
-                listen_fd,
-                fd,
-                local_addr: addr,
-                peer_addr,
-                fd_flags: fd_flags.bits(),
-                nonblocking,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketAcceptedV1 {
+                    listen_fd,
+                    fd,
+                    local_addr: addr,
+                    peer_addr,
+                    fd_flags: fd_flags.bits(),
+                    nonblocking,
+                },
+                serializer,
+            ),
             JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketJoinIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketJoinIpv4MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+                serializer,
+            ),
             JournalEntry::SocketJoinIpv6MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketJoinIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketJoinIpv6MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+                serializer,
+            ),
             JournalEntry::SocketLeaveIpv4MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketLeaveIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketLeaveIpv4MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+                serializer,
+            ),
             JournalEntry::SocketLeaveIpv6MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketLeaveIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketLeaveIpv6MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+                serializer,
+            ),
             JournalEntry::SocketSendFileV1 {
                 socket_fd,
                 file_fd,
                 offset,
                 count,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketSendFileV1 {
-                socket_fd,
-                file_fd,
-                offset,
-                count,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketSendFileV1 {
+                    socket_fd,
+                    file_fd,
+                    offset,
+                    count,
+                },
+                serializer,
+            ),
             JournalEntry::SocketSendToV1 {
                 fd,
                 data,
                 flags,
                 addr,
                 is_64bit,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketSendToV1 {
-                fd,
-                data: data.into(),
-                flags,
-                addr,
-                is_64bit,
-            }),
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketSendToV1 {
+                    fd,
+                    data: data.into(),
+                    flags,
+                    addr,
+                    is_64bit,
+                },
+                serializer,
+            ),
             JournalEntry::SocketSendV1 {
                 fd,
                 data,
                 flags,
                 is_64bit,
-            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketSendV1 {
-                fd,
-                data: data.into(),
-                flags,
-                is_64bit,
-            }),
-            JournalEntry::SocketSetOptFlagV1 { fd, opt, flag } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketSetOptFlagV1 {
+            } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketSendV1 {
+                    fd,
+                    data: data.into(),
+                    flags,
+                    is_64bit,
+                },
+                serializer,
+            ),
+            JournalEntry::SocketSetOptFlagV1 { fd, opt, flag } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketSetOptFlagV1 {
                     fd,
                     opt: opt.into(),
                     flag,
-                })
-            }
-            JournalEntry::SocketSetOptSizeV1 { fd, opt, size } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketSetOptSizeV1 {
+                },
+                serializer,
+            ),
+            JournalEntry::SocketSetOptSizeV1 { fd, opt, size } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketSetOptSizeV1 {
                     fd,
                     opt: opt.into(),
                     size,
-                })
-            }
-            JournalEntry::SocketSetOptTimeV1 { fd, ty, time } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketSetOptTimeV1 {
+                },
+                serializer,
+            ),
+            JournalEntry::SocketSetOptTimeV1 { fd, ty, time } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketSetOptTimeV1 {
                     fd,
                     ty: ty.into(),
                     time,
-                })
-            }
-            JournalEntry::SocketShutdownV1 { fd, how } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySocketShutdownV1 {
+                },
+                serializer,
+            ),
+            JournalEntry::SocketShutdownV1 { fd, how } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySocketShutdownV1 {
                     fd,
                     how: how.into(),
-                })
-            }
-            JournalEntry::SnapshotV1 { when, trigger } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntrySnapshotV1 {
+                },
+                serializer,
+            ),
+            JournalEntry::SnapshotV1 { when, trigger } =&gt; serialize_using(
+                <span class="kw-2">&amp;</span>JournalEntrySnapshotV1 {
                     since_epoch: when
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap_or(Duration::ZERO),
                     trigger: trigger.into(),
-                })
-            }
+                },
+                serializer,
+            ),
         }
-        .map_err(|err| <span class="macro">anyhow::format_err!</span>(<span class="string">&quot;failed to serialize journal record - {}&quot;</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| <span class="macro">anyhow::format_err!</span>(<span class="string">"failed to serialize journal record - {}"</span>, err))<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(amt)
     }
 }
@@ -2683,78 +2733,78 @@
 /// changes to the journal entry types without having to
 /// worry about backward and forward compatibility
 </span><span class="attr">#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>JournalEntryHeader {
     <span class="kw">pub </span>record_type: u16,
     <span class="kw">pub </span>record_size: u64,
 }
 
-<span class="kw">pub enum </span>ArchivedJournalEntry&lt;<span class="lifetime">&#39;a</span>&gt; {
-    InitModuleV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryInitModuleV1),
-    ClearEtherealV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryClearEtherealV1),
-    ProcessExitV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryProcessExitV1),
-    SetThreadV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySetThreadV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    CloseThreadV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryCloseThreadV1),
-    FileDescriptorSeekV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorSeekV1),
-    FileDescriptorWriteV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorWriteV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    UpdateMemoryRegionV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryUpdateMemoryRegionV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    SetClockTimeV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySetClockTimeV1),
-    OpenFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryOpenFileDescriptorV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    CloseFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryCloseFileDescriptorV1),
-    RenumberFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryRenumberFileDescriptorV1),
-    DuplicateFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryDuplicateFileDescriptorV1),
-    CreateDirectoryV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryCreateDirectoryV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    RemoveDirectoryV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryRemoveDirectoryV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    PathSetTimesV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPathSetTimesV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    FileDescriptorSetTimesV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorSetTimesV1),
-    FileDescriptorSetSizeV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorSetSizeV1),
-    FileDescriptorSetFlagsV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorSetFlagsV1),
-    FileDescriptorSetRightsV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorSetRightsV1),
-    FileDescriptorAdviseV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorAdviseV1),
-    FileDescriptorAllocateV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryFileDescriptorAllocateV1),
-    CreateHardLinkV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryCreateHardLinkV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    CreateSymbolicLinkV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryCreateSymbolicLinkV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    UnlinkFileV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryUnlinkFileV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    PathRenameV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPathRenameV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    ChangeDirectoryV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryChangeDirectoryV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    EpollCreateV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryEpollCreateV1),
-    EpollCtlV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryEpollCtlV1),
-    TtySetV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryTtySetV1),
-    CreatePipeV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryCreatePipeV1),
-    CreateEventV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryCreateEventV1),
-    PortAddAddrV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPortAddAddrV1),
-    PortDelAddrV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPortDelAddrV1),
+<span class="kw">pub enum </span>ArchivedJournalEntry&lt;<span class="lifetime">'a</span>&gt; {
+    InitModuleV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryInitModuleV1),
+    ClearEtherealV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryClearEtherealV1),
+    ProcessExitV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryProcessExitV1),
+    SetThreadV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySetThreadV1&lt;<span class="lifetime">'a</span>&gt;),
+    CloseThreadV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryCloseThreadV1),
+    FileDescriptorSeekV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorSeekV1),
+    FileDescriptorWriteV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorWriteV1&lt;<span class="lifetime">'a</span>&gt;),
+    UpdateMemoryRegionV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryUpdateMemoryRegionV1&lt;<span class="lifetime">'a</span>&gt;),
+    SetClockTimeV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySetClockTimeV1),
+    OpenFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryOpenFileDescriptorV1&lt;<span class="lifetime">'a</span>&gt;),
+    CloseFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryCloseFileDescriptorV1),
+    RenumberFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryRenumberFileDescriptorV1),
+    DuplicateFileDescriptorV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryDuplicateFileDescriptorV1),
+    CreateDirectoryV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryCreateDirectoryV1&lt;<span class="lifetime">'a</span>&gt;),
+    RemoveDirectoryV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryRemoveDirectoryV1&lt;<span class="lifetime">'a</span>&gt;),
+    PathSetTimesV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPathSetTimesV1&lt;<span class="lifetime">'a</span>&gt;),
+    FileDescriptorSetTimesV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorSetTimesV1),
+    FileDescriptorSetSizeV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorSetSizeV1),
+    FileDescriptorSetFlagsV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorSetFlagsV1),
+    FileDescriptorSetRightsV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorSetRightsV1),
+    FileDescriptorAdviseV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorAdviseV1),
+    FileDescriptorAllocateV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryFileDescriptorAllocateV1),
+    CreateHardLinkV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryCreateHardLinkV1&lt;<span class="lifetime">'a</span>&gt;),
+    CreateSymbolicLinkV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryCreateSymbolicLinkV1&lt;<span class="lifetime">'a</span>&gt;),
+    UnlinkFileV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryUnlinkFileV1&lt;<span class="lifetime">'a</span>&gt;),
+    PathRenameV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPathRenameV1&lt;<span class="lifetime">'a</span>&gt;),
+    ChangeDirectoryV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryChangeDirectoryV1&lt;<span class="lifetime">'a</span>&gt;),
+    EpollCreateV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryEpollCreateV1),
+    EpollCtlV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryEpollCtlV1),
+    TtySetV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryTtySetV1),
+    CreatePipeV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryCreatePipeV1),
+    CreateEventV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryCreateEventV1),
+    PortAddAddrV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPortAddAddrV1),
+    PortDelAddrV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPortDelAddrV1),
     PortAddrClearV1,
-    PortBridgeV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPortBridgeV1&lt;<span class="lifetime">&#39;a</span>&gt;),
+    PortBridgeV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPortBridgeV1&lt;<span class="lifetime">'a</span>&gt;),
     PortUnbridgeV1,
     PortDhcpAcquireV1,
-    PortGatewaySetV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPortGatewaySetV1),
-    PortRouteAddV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPortRouteAddV1),
+    PortGatewaySetV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPortGatewaySetV1),
+    PortRouteAddV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPortRouteAddV1),
     PortRouteClearV1,
-    PortRouteDelV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntryPortRouteDelV1),
-    SocketOpenV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketOpenV1),
-    SocketListenV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketListenV1),
-    SocketBindV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketBindV1),
-    SocketConnectedV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketConnectedV1),
-    SocketAcceptedV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketAcceptedV1),
-    SocketJoinIpv4MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketJoinIpv4MulticastV1),
-    SocketJoinIpv6MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketJoinIpv6MulticastV1),
-    SocketLeaveIpv4MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketLeaveIpv4MulticastV1),
-    SocketLeaveIpv6MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketLeaveIpv6MulticastV1),
-    SocketSendFileV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketSendFileV1),
-    SocketSendToV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketSendToV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    SocketSendV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketSendV1&lt;<span class="lifetime">&#39;a</span>&gt;),
-    SocketSetOptFlagV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketSetOptFlagV1),
-    SocketSetOptSizeV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketSetOptSizeV1),
-    SocketSetOptTimeV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketSetOptTimeV1),
-    SocketShutdownV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySocketShutdownV1),
-    SnapshotV1(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedJournalEntrySnapshotV1),
+    PortRouteDelV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPortRouteDelV1),
+    SocketOpenV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketOpenV1),
+    SocketListenV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketListenV1),
+    SocketBindV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketBindV1),
+    SocketConnectedV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketConnectedV1),
+    SocketAcceptedV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketAcceptedV1),
+    SocketJoinIpv4MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketJoinIpv4MulticastV1),
+    SocketJoinIpv6MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketJoinIpv6MulticastV1),
+    SocketLeaveIpv4MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketLeaveIpv4MulticastV1),
+    SocketLeaveIpv6MulticastV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketLeaveIpv6MulticastV1),
+    SocketSendFileV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketSendFileV1),
+    SocketSendToV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketSendToV1&lt;<span class="lifetime">'a</span>&gt;),
+    SocketSendV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketSendV1&lt;<span class="lifetime">'a</span>&gt;),
+    SocketSetOptFlagV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketSetOptFlagV1),
+    SocketSetOptSizeV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketSetOptSizeV1),
+    SocketSetOptTimeV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketSetOptTimeV1),
+    SocketShutdownV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketShutdownV1),
+    SnapshotV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySnapshotV1),
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryInitModuleV1 {
     <span class="kw">pub </span>wasm_hash: Box&lt;[u8]&gt;,
 }
@@ -2762,13 +2812,13 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryClearEtherealV1 {}
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryProcessExitV1 {
     <span class="kw">pub </span>exit_code: <span class="prelude-ty">Option</span>&lt;JournalExitCodeV1&gt;,
 }
@@ -2776,12 +2826,12 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntrySetThreadV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntrySetThreadV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>id: u32,
-    <span class="kw">pub </span>call_stack: AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt;,
-    <span class="kw">pub </span>memory_stack: AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt;,
-    <span class="kw">pub </span>store_data: AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt;,
+    <span class="kw">pub </span>call_stack: AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;,
+    <span class="kw">pub </span>memory_stack: AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;,
+    <span class="kw">pub </span>store_data: AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;,
     <span class="kw">pub </span>start: JournalThreadStartTypeV1,
     <span class="kw">pub </span>layout: JournalWasiMemoryLayout,
     <span class="kw">pub </span>is_64bit: bool,
@@ -2790,7 +2840,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryCloseThreadV1 {
     <span class="kw">pub </span>id: u32,
     <span class="kw">pub </span>exit_code: <span class="prelude-ty">Option</span>&lt;JournalExitCodeV1&gt;,
@@ -2799,7 +2849,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryFileDescriptorSeekV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>whence: JournalWhenceV1,
@@ -2807,17 +2857,17 @@
 }
 
 <span class="doccomment">/// WARNING!!!! Do not change this structure without updating
-/// &quot;/lib/cli/src/commands/journal/mount/fs.rs&quot;
+/// "/lib/cli/src/commands/journal/mount/fs.rs"
 ///
 /// The code over there assumes that the aligned vector is the
 /// first item in the serialized entry
 </span><span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryFileDescriptorWriteV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryFileDescriptorWriteV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// DO NOT MOVE!
-    </span><span class="kw">pub </span>data: AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt;,
+    </span><span class="kw">pub </span>data: AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;,
     <span class="kw">pub </span>offset: u64,
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>is_64bit: bool,
@@ -2826,9 +2876,9 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryUpdateMemoryRegionV1&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">pub </span>compressed_data: AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt;,
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryUpdateMemoryRegionV1&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">pub </span>compressed_data: AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;,
     <span class="kw">pub </span>start: u64,
     <span class="kw">pub </span>end: u64,
 }
@@ -2836,7 +2886,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySetClockTimeV1 {
     <span class="kw">pub </span>clock_id: JournalSnapshot0ClockidV1,
     <span class="kw">pub </span>time: u64,
@@ -2845,8 +2895,8 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryOpenFileDescriptorV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryOpenFileDescriptorV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>dirfd: u32,
     <span class="kw">pub </span>dirflags: u32,
@@ -2854,13 +2904,13 @@
     <span class="kw">pub </span>o_flags: u16,
     <span class="kw">pub </span>fs_rights_base: u64,
     <span class="kw">pub </span>fs_rights_inheriting: u64,
-    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryCloseFileDescriptorV1 {
     <span class="kw">pub </span>fd: u32,
 }
@@ -2868,7 +2918,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryRenumberFileDescriptorV1 {
     <span class="kw">pub </span>old_fd: u32,
     <span class="kw">pub </span>new_fd: u32,
@@ -2877,7 +2927,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryDuplicateFileDescriptorV1 {
     <span class="kw">pub </span>original_fd: u32,
     <span class="kw">pub </span>copied_fd: u32,
@@ -2886,29 +2936,29 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryCreateDirectoryV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryCreateDirectoryV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
-    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryRemoveDirectoryV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryRemoveDirectoryV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
-    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryPathSetTimesV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryPathSetTimesV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>flags: u32,
-    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
     <span class="kw">pub </span>st_atim: u64,
     <span class="kw">pub </span>st_mtim: u64,
     <span class="kw">pub </span>fst_flags: u16,
@@ -2917,7 +2967,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryFileDescriptorSetTimesV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>fst_flags: u16,
@@ -2928,7 +2978,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryFileDescriptorSetSizeV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>st_size: u64,
@@ -2937,7 +2987,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryFileDescriptorSetFlagsV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>flags: u16,
@@ -2946,7 +2996,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryFileDescriptorSetRightsV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>fs_rights_base: u64,
@@ -2956,7 +3006,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryFileDescriptorAdviseV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>offset: u64,
@@ -2967,7 +3017,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryFileDescriptorAllocateV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>offset: u64,
@@ -2977,57 +3027,57 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryCreateHardLinkV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryCreateHardLinkV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>old_fd: u32,
-    <span class="kw">pub </span>old_path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>old_path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
     <span class="kw">pub </span>old_flags: u32,
     <span class="kw">pub </span>new_fd: u32,
-    <span class="kw">pub </span>new_path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>new_path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryCreateSymbolicLinkV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryCreateSymbolicLinkV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
-    <span class="kw">pub </span>old_path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
-    <span class="kw">pub </span>new_path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>old_path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
+    <span class="kw">pub </span>new_path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryUnlinkFileV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryUnlinkFileV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
-    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryPathRenameV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryPathRenameV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>old_fd: u32,
-    <span class="kw">pub </span>old_path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>old_path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
     <span class="kw">pub </span>new_fd: u32,
-    <span class="kw">pub </span>new_path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>new_path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryChangeDirectoryV1&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryChangeDirectoryV1&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">pub </span>path: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryEpollCreateV1 {
     <span class="kw">pub </span>fd: u32,
 }
@@ -3035,7 +3085,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryEpollCtlV1 {
     <span class="kw">pub </span>epfd: u32,
     <span class="kw">pub </span>op: JournalEpollCtlV1,
@@ -3046,7 +3096,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryTtySetV1 {
     <span class="kw">pub </span>cols: u32,
     <span class="kw">pub </span>rows: u32,
@@ -3063,7 +3113,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryCreatePipeV1 {
     <span class="kw">pub </span>fd1: u32,
     <span class="kw">pub </span>fd2: u32,
@@ -3072,7 +3122,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryCreateEventV1 {
     <span class="kw">pub </span>initial_val: u64,
     <span class="kw">pub </span>flags: u16,
@@ -3082,7 +3132,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryPortAddAddrV1 {
     <span class="kw">pub </span>cidr: JournalIpCidrV1,
 }
@@ -3090,7 +3140,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryPortDelAddrV1 {
     <span class="kw">pub </span>addr: IpAddr,
 }
@@ -3098,17 +3148,17 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntryPortBridgeV1&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">pub </span>network: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
-    <span class="kw">pub </span>token: AlignedCowStr&lt;<span class="lifetime">&#39;a</span>&gt;,
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntryPortBridgeV1&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">pub </span>network: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
+    <span class="kw">pub </span>token: AlignedCowStr&lt;<span class="lifetime">'a</span>&gt;,
     <span class="kw">pub </span>security: JournalStreamSecurityV1,
 }
 
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryPortGatewaySetV1 {
     <span class="kw">pub </span>ip: IpAddr,
 }
@@ -3116,7 +3166,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryPortRouteAddV1 {
     <span class="kw">pub </span>cidr: JournalIpCidrV1,
     <span class="kw">pub </span>via_router: IpAddr,
@@ -3127,7 +3177,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryPortRouteDelV1 {
     <span class="kw">pub </span>ip: IpAddr,
 }
@@ -3135,7 +3185,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketOpenV1 {
     <span class="kw">pub </span>af: JournalAddressfamilyV1,
     <span class="kw">pub </span>ty: JournalSocktypeV1,
@@ -3146,7 +3196,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketListenV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>backlog: u32,
@@ -3155,7 +3205,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketBindV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>addr: SocketAddr,
@@ -3164,7 +3214,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketConnectedV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>local_addr: SocketAddr,
@@ -3174,7 +3224,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketAcceptedV1 {
     <span class="kw">pub </span>listen_fd: u32,
     <span class="kw">pub </span>fd: u32,
@@ -3187,7 +3237,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketJoinIpv4MulticastV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>multiaddr: Ipv4Addr,
@@ -3197,7 +3247,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketJoinIpv6MulticastV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>multiaddr: Ipv6Addr,
@@ -3207,7 +3257,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketLeaveIpv4MulticastV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>multiaddr: Ipv4Addr,
@@ -3217,7 +3267,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketLeaveIpv6MulticastV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>multiaddr: Ipv6Addr,
@@ -3227,7 +3277,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketSendFileV1 {
     <span class="kw">pub </span>socket_fd: u32,
     <span class="kw">pub </span>file_fd: u32,
@@ -3238,10 +3288,10 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntrySocketSendToV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntrySocketSendToV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
-    <span class="kw">pub </span>data: AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt;,
+    <span class="kw">pub </span>data: AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;,
     <span class="kw">pub </span>flags: u16,
     <span class="kw">pub </span>addr: SocketAddr,
     <span class="kw">pub </span>is_64bit: bool,
@@ -3250,10 +3300,10 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
-</span><span class="kw">pub struct </span>JournalEntrySocketSendV1&lt;<span class="lifetime">&#39;a</span>&gt; {
+#[rkyv(attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntrySocketSendV1&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>fd: u32,
-    <span class="kw">pub </span>data: AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt;,
+    <span class="kw">pub </span>data: AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;,
     <span class="kw">pub </span>flags: u16,
     <span class="kw">pub </span>is_64bit: bool,
 }
@@ -3261,7 +3311,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketSetOptFlagV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>opt: JournalSockoptionV1,
@@ -3271,7 +3321,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketSetOptSizeV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>opt: JournalSockoptionV1,
@@ -3281,7 +3331,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketSetOptTimeV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>ty: JournalTimeTypeV1,
@@ -3291,7 +3341,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySocketShutdownV1 {
     <span class="kw">pub </span>fd: u32,
     <span class="kw">pub </span>how: JournalSocketShutdownV1,
@@ -3300,7 +3350,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntrySnapshotV1 {
     <span class="kw">pub </span>since_epoch: Duration,
     <span class="kw">pub </span>trigger: JournalSnapshotTriggerV1,
@@ -3308,7 +3358,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalSnapshot0ClockidV1 {
     Realtime,
     Monotonic,
@@ -3319,7 +3369,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalWhenceV1 {
     Set,
     Cur,
@@ -3329,7 +3379,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalAdviceV1 {
     Normal,
     Sequential,
@@ -3343,7 +3393,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub struct </span>JournalIpCidrV1 {
     <span class="kw">pub </span>ip: IpAddr,
     <span class="kw">pub </span>prefix: u8,
@@ -3351,7 +3401,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalExitCodeV1 {
     Errno(u16),
     Other(i32),
@@ -3371,7 +3421,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalSnapshotTriggerV1 {
     Idle,
     Listen,
@@ -3401,7 +3451,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalEpollCtlV1 {
     Add,
     Mod,
@@ -3412,7 +3462,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub struct </span>JournalEpollEventCtlV1 {
     <span class="kw">pub </span>events: u32,
     <span class="kw">pub </span>ptr: u64,
@@ -3435,7 +3485,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalStreamSecurityV1 {
     Unencrypted,
     AnyEncryption,
@@ -3458,7 +3508,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalAddressfamilyV1 {
     Unspec,
     Inet4,
@@ -3480,7 +3530,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalSocktypeV1 {
     Unknown,
     Stream,
@@ -3503,7 +3553,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalSockoptionV1 {
     Noop,
     ReusePort,
@@ -3548,7 +3598,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalTimeTypeV1 {
     ReadTimeout,
     WriteTimeout,
@@ -3572,7 +3622,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub enum </span>JournalSocketShutdownV1 {
     Read,
     Write,
@@ -3594,7 +3644,7 @@
     Eq,
     Hash,
 )]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub enum </span>JournalThreadStartTypeV1 {
     MainThread,
     ThreadSpawn { start_ptr: u64 },
@@ -3603,7 +3653,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, Copy, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq, Hash)]
-#[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalWasiMemoryLayout {
     <span class="kw">pub </span>stack_upper: u64,
     <span class="kw">pub </span>stack_lower: u64,

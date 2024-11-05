@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-net/src/server.rs`."><title>server.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_net" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../virtual_net/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-net/src/server.rs`."><title>server.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_net" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1651,7 +1651,7 @@
 <span class="kw">use crate</span>::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures_util::stream::FuturesOrdered;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;hyper&quot;</span>, feature = <span class="string">&quot;tokio-tungstenite&quot;</span>))]
+<span class="attr">#[cfg(any(feature = <span class="string">"hyper"</span>, feature = <span class="string">"tokio-tungstenite"</span>))]
 </span><span class="kw">use </span>futures_util::stream::{SplitSink, SplitStream};
 <span class="kw">use </span>futures_util::{future::BoxFuture, StreamExt};
 <span class="kw">use </span>futures_util::{Sink, Stream};
@@ -1661,7 +1661,7 @@
 <span class="kw">use </span>std::task::Waker;
 <span class="kw">use </span>std::time::Duration;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hyper"</span>)]
 </span><span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
 <span class="kw">use </span>std::{
     collections::HashMap,
@@ -1676,31 +1676,31 @@
     sync::mpsc,
 };
 <span class="kw">use </span>tokio_serde::formats::SymmetricalBincode;
-<span class="attr">#[cfg(feature = <span class="string">&quot;cbor&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"cbor"</span>)]
 </span><span class="kw">use </span>tokio_serde::formats::SymmetricalCbor;
-<span class="attr">#[cfg(feature = <span class="string">&quot;json&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"json"</span>)]
 </span><span class="kw">use </span>tokio_serde::formats::SymmetricalJson;
-<span class="attr">#[cfg(feature = <span class="string">&quot;messagepack&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"messagepack"</span>)]
 </span><span class="kw">use </span>tokio_serde::formats::SymmetricalMessagePack;
 <span class="kw">use </span>tokio_serde::SymmetricallyFramed;
 <span class="kw">use </span>tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 <span class="kw">use </span>virtual_mio::InterestHandler;
 
-<span class="kw">type </span>BackgroundTask = <span class="prelude-ty">Option</span>&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;&gt;;
+<span class="kw">type </span>BackgroundTask = <span class="prelude-ty">Option</span>&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>RemoteNetworkingServer {
     <span class="attr">#[allow(dead_code)]
     </span>common: Arc&lt;RemoteAdapterCommon&gt;,
-    inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">'static</span>&gt;,
 }
 
 <span class="kw">impl </span>RemoteNetworkingServer {
     <span class="kw">fn </span>new(
         tx: RemoteTx&lt;MessageResponse&gt;,
         rx: RemoteRx&lt;MessageRequest&gt;,
-        work: mpsc::UnboundedReceiver&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;&gt;,
-        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        work: mpsc::UnboundedReceiver&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;,
+        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">'static</span>&gt;,
     ) -&gt; (<span class="self">Self</span>, RemoteNetworkingServerDriver) {
         <span class="kw">let </span>common = RemoteAdapterCommon {
             tx,
@@ -1727,7 +1727,7 @@
     </span><span class="kw">pub fn </span>new_from_mpsc(
         tx: mpsc::Sender&lt;MessageResponse&gt;,
         rx: mpsc::Receiver&lt;MessageRequest&gt;,
-        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">'static</span>&gt;,
     ) -&gt; (<span class="self">Self</span>, RemoteNetworkingServerDriver) {
         <span class="kw">let </span>(tx_work, rx_work) = mpsc::unbounded_channel();
         <span class="kw">let </span>tx_wakers = RemoteTxWakers::default();
@@ -1750,49 +1750,49 @@
         tx: TX,
         rx: RX,
         format: FrameSerializationFormat,
-        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">'static</span>&gt;,
     ) -&gt; (<span class="self">Self</span>, RemoteNetworkingServerDriver)
     <span class="kw">where
-        </span>TX: AsyncWrite + Send + <span class="lifetime">&#39;static</span>,
-        RX: AsyncRead + Send + <span class="lifetime">&#39;static</span>,
+        </span>TX: AsyncWrite + Send + <span class="lifetime">'static</span>,
+        RX: AsyncRead + Send + <span class="lifetime">'static</span>,
     {
         <span class="kw">let </span>tx = FramedWrite::new(tx, LengthDelimitedCodec::new());
-        <span class="kw">let </span>tx: Pin&lt;Box&lt;<span class="kw">dyn </span>Sink&lt;MessageResponse, Error = std::io::Error&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; =
+        <span class="kw">let </span>tx: Pin&lt;Box&lt;<span class="kw">dyn </span>Sink&lt;MessageResponse, Error = std::io::Error&gt; + Send + <span class="lifetime">'static</span>&gt;&gt; =
             <span class="kw">match </span>format {
                 FrameSerializationFormat::Bincode =&gt; {
                     Box::pin(SymmetricallyFramed::new(tx, SymmetricalBincode::default()))
                 }
-                <span class="attr">#[cfg(feature = <span class="string">&quot;json&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"json"</span>)]
                 </span>FrameSerializationFormat::Json =&gt; {
                     Box::pin(SymmetricallyFramed::new(tx, SymmetricalJson::default()))
                 }
-                <span class="attr">#[cfg(feature = <span class="string">&quot;messagepack&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"messagepack"</span>)]
                 </span>FrameSerializationFormat::MessagePack =&gt; Box::pin(SymmetricallyFramed::new(
                     tx,
                     SymmetricalMessagePack::default(),
                 )),
-                <span class="attr">#[cfg(feature = <span class="string">&quot;cbor&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"cbor"</span>)]
                 </span>FrameSerializationFormat::Cbor =&gt; {
                     Box::pin(SymmetricallyFramed::new(tx, SymmetricalCbor::default()))
                 }
             };
 
         <span class="kw">let </span>rx = FramedRead::new(rx, LengthDelimitedCodec::new());
-        <span class="kw">let </span>rx: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = std::io::Result&lt;MessageRequest&gt;&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; =
+        <span class="kw">let </span>rx: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = std::io::Result&lt;MessageRequest&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;&gt; =
             <span class="kw">match </span>format {
                 FrameSerializationFormat::Bincode =&gt; {
                     Box::pin(SymmetricallyFramed::new(rx, SymmetricalBincode::default()))
                 }
-                <span class="attr">#[cfg(feature = <span class="string">&quot;json&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"json"</span>)]
                 </span>FrameSerializationFormat::Json =&gt; {
                     Box::pin(SymmetricallyFramed::new(rx, SymmetricalJson::default()))
                 }
-                <span class="attr">#[cfg(feature = <span class="string">&quot;messagepack&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"messagepack"</span>)]
                 </span>FrameSerializationFormat::MessagePack =&gt; Box::pin(SymmetricallyFramed::new(
                     rx,
                     SymmetricalMessagePack::default(),
                 )),
-                <span class="attr">#[cfg(feature = <span class="string">&quot;cbor&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"cbor"</span>)]
                 </span>FrameSerializationFormat::Cbor =&gt; {
                     Box::pin(SymmetricallyFramed::new(rx, SymmetricalCbor::default()))
                 }
@@ -1811,7 +1811,7 @@
 
     <span class="doccomment">/// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"hyper"</span>)]
     </span><span class="kw">pub fn </span>new_from_hyper_ws_io(
         tx: SplitSink&lt;
             hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;,
@@ -1819,7 +1819,7 @@
         &gt;,
         rx: SplitStream&lt;hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;&gt;,
         format: FrameSerializationFormat,
-        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">'static</span>&gt;,
     ) -&gt; (<span class="self">Self</span>, RemoteNetworkingServerDriver) {
         <span class="kw">let </span>(tx_work, rx_work) = mpsc::unbounded_channel();
 
@@ -1951,20 +1951,20 @@
     </span>}
 }
 
-<span class="macro">pin_project_lite::pin_project! </span>{
+<span class="macro">pin_project_lite::pin_project!</span> {
     <span class="kw">pub struct </span>RemoteNetworkingServerDriver {
         common: Arc&lt;RemoteAdapterCommon&gt;,
-        more_work: mpsc::UnboundedReceiver&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;&gt;,
+        more_work: mpsc::UnboundedReceiver&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;,
         <span class="attr">#[pin]
-        </span>tasks: FuturesOrdered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;&gt;,
-        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        </span>tasks: FuturesOrdered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;,
+        inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">'static</span>&gt;,
     }
 }
 
 <span class="kw">impl </span>Future <span class="kw">for </span>RemoteNetworkingServerDriver {
     <span class="kw">type </span>Output = ();
 
-    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         <span class="comment">// We register the waker into the interest of the sockets so
         // that it is woken when something is ready to read or write
         </span><span class="kw">let </span>readable = {
@@ -2006,7 +2006,7 @@
             }
 
             <span class="comment">// Background work basically stalls the stream until its all processed
-            // which creates back pressure on the client so that they don&#39;t overload
+            // which creates back pressure on the client so that they don't overload
             // the system
             </span><span class="kw">match </span><span class="self">self</span>.tasks.poll_next_unpin(cx) {
                 Poll::Ready(<span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="kw">continue</span>,
@@ -2079,7 +2079,7 @@
             .get_mut(<span class="kw-2">&amp;</span>socket_id)
             .map(|s| s.send(<span class="kw-2">&amp;</span><span class="self">self</span>.common, socket_id, data, req_id))
             .unwrap_or_else(|| {
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;orphaned socket {:?}&quot;</span>, socket_id);
+                <span class="macro">tracing::debug!</span>(<span class="string">"orphaned socket {:?}"</span>, socket_id);
                 <span class="prelude-val">None
             </span>})
     }
@@ -2102,7 +2102,7 @@
 
     <span class="kw">fn </span>process_async&lt;F&gt;(future: F) -&gt; BackgroundTask
     <span class="kw">where
-        </span>F: Future&lt;Output = BackgroundTask&gt; + Send + <span class="lifetime">&#39;static</span>,
+        </span>F: Future&lt;Output = BackgroundTask&gt; + Send + <span class="lifetime">'static</span>,
     {
         <span class="prelude-val">Some</span>(Box::pin(<span class="kw">async move </span>{
             <span class="kw">let </span>background_task = future.<span class="kw">await</span>;
@@ -2119,9 +2119,9 @@
         req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     ) -&gt; BackgroundTask
     <span class="kw">where
-        </span>F: FnOnce(Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync&gt;) -&gt; Fut + Send + <span class="lifetime">&#39;static</span>,
-        Fut: Future + Send + <span class="lifetime">&#39;static</span>,
-        T: FnOnce(Fut::Output) -&gt; ResponseType + Send + <span class="lifetime">&#39;static</span>,
+        </span>F: FnOnce(Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync&gt;) -&gt; Fut + Send + <span class="lifetime">'static</span>,
+        Fut: Future + Send + <span class="lifetime">'static</span>,
+        T: FnOnce(Fut::Output) -&gt; ResponseType + Send + <span class="lifetime">'static</span>,
     {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
         <span class="kw">let </span>common = <span class="self">self</span>.common.clone();
@@ -2139,8 +2139,8 @@
 
     <span class="kw">fn </span>process_async_noop&lt;F, Fut&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, work: F, req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; BackgroundTask
     <span class="kw">where
-        </span>F: FnOnce(Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync&gt;) -&gt; Fut + Send + <span class="lifetime">&#39;static</span>,
-        Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
+        </span>F: FnOnce(Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync&gt;) -&gt; Fut + Send + <span class="lifetime">'static</span>,
+        Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;&gt; + Send + <span class="lifetime">'static</span>,
     {
         <span class="self">self</span>.process_async_inner(
             work,
@@ -2159,8 +2159,8 @@
         req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     ) -&gt; BackgroundTask
     <span class="kw">where
-        </span>F: FnOnce(Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync&gt;) -&gt; Fut + Send + <span class="lifetime">&#39;static</span>,
-        Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;RemoteAdapterSocket, NetworkError&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
+        </span>F: FnOnce(Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync&gt;) -&gt; Fut + Send + <span class="lifetime">'static</span>,
+        Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;RemoteAdapterSocket, NetworkError&gt;&gt; + Send + <span class="lifetime">'static</span>,
     {
         <span class="kw">let </span>common = <span class="self">self</span>.common.clone();
         <span class="self">self</span>.process_async_inner(
@@ -2204,8 +2204,8 @@
         req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     ) -&gt; BackgroundTask
     <span class="kw">where
-        </span>F: FnOnce(<span class="kw-2">&amp;mut </span>RemoteAdapterSocket) -&gt; R + Send + <span class="lifetime">&#39;static</span>,
-        T: FnOnce(R) -&gt; ResponseType + Send + <span class="lifetime">&#39;static</span>,
+        </span>F: FnOnce(<span class="kw-2">&amp;mut </span>RemoteAdapterSocket) -&gt; R + Send + <span class="lifetime">'static</span>,
+        T: FnOnce(R) -&gt; ResponseType + Send + <span class="lifetime">'static</span>,
     {
         <span class="kw">let </span>ret = {
             <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.common.sockets.lock().unwrap();
@@ -2237,7 +2237,7 @@
         req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
     ) -&gt; BackgroundTask
     <span class="kw">where
-        </span>F: FnOnce(<span class="kw-2">&amp;mut </span>RemoteAdapterSocket) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; + Send + <span class="lifetime">&#39;static</span>,
+        </span>F: FnOnce(<span class="kw-2">&amp;mut </span>RemoteAdapterSocket) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; + Send + <span class="lifetime">'static</span>,
     {
         <span class="self">self</span>.process_inner(
             work,
@@ -2869,13 +2869,13 @@
 
 <span class="kw">enum </span>RemoteAdapterSocket {
     TcpListener {
-        socket: Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        socket: Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync + <span class="lifetime">'static</span>&gt;,
         next_accept: <span class="prelude-ty">Option</span>&lt;SocketId&gt;,
     },
-    TcpSocket(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync + <span class="lifetime">&#39;static</span>&gt;),
-    UdpSocket(Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync + <span class="lifetime">&#39;static</span>&gt;),
-    RawSocket(Box&lt;<span class="kw">dyn </span>VirtualRawSocket + Sync + <span class="lifetime">&#39;static</span>&gt;),
-    IcmpSocket(Box&lt;<span class="kw">dyn </span>VirtualIcmpSocket + Sync + <span class="lifetime">&#39;static</span>&gt;),
+    TcpSocket(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync + <span class="lifetime">'static</span>&gt;),
+    UdpSocket(Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync + <span class="lifetime">'static</span>&gt;),
+    RawSocket(Box&lt;<span class="kw">dyn </span>VirtualRawSocket + Sync + <span class="lifetime">'static</span>&gt;),
+    IcmpSocket(Box&lt;<span class="kw">dyn </span>VirtualIcmpSocket + Sync + <span class="lifetime">'static</span>&gt;),
 }
 
 <span class="kw">impl </span>RemoteAdapterSocket {
@@ -2903,7 +2903,7 @@
                     <span class="kw">let </span>common = common.clone();
                     <span class="prelude-val">Some</span>(Box::pin(<span class="kw">async move </span>{
                         <span class="comment">// We will stall the receiver so that back pressure is sent back to the
-                        // sender and they don&#39;t overwhelm us with transmitting data.
+                        // sender and they don't overwhelm us with transmitting data.
                         </span><span class="kw">let </span>_stall_rx = common.stall_rx.clone().lock_owned().<span class="kw">await</span>;
 
                         <span class="comment">// We use a poller here that uses the handler to wake itself up
@@ -2917,7 +2917,7 @@
                             <span class="kw">type </span>Output = BackgroundTask;
                             <span class="kw">fn </span>poll(
                                 <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                                cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                                cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
                             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                                 <span class="comment">// We make sure the waker is registered with the interest driver which will
                                 // wake up this poller when there is writeability
@@ -2999,7 +2999,7 @@
                 // will always succeed on `try_send` with RawSockets as they are always
                 // processed.
                 </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = this.try_send(<span class="kw-2">&amp;</span>data) {
-                    <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to send raw packet - {}&quot;</span>, err);
+                    <span class="macro">tracing::debug!</span>(<span class="string">"failed to send raw packet - {}"</span>, err);
                 }
                 <span class="prelude-val">None
             </span>}
@@ -3052,7 +3052,7 @@
     ) -&gt; BackgroundTask {
         <span class="comment">// We loop reading the socket until all the pending reads are either
         // being processed in a background task or they are empty
-        </span><span class="kw">let </span><span class="kw-2">mut </span>ret: FuturesOrdered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;&gt; = Default::default();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>ret: FuturesOrdered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt; = Default::default();
         <span class="kw">loop </span>{
             <span class="kw">break match </span><span class="self">self </span>{
                 <span class="self">Self</span>::TcpListener {
@@ -3092,7 +3092,7 @@
                             }
                             <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; {}
                             <span class="prelude-val">Err</span>(err) =&gt; {
-                                <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to accept socket - {}&quot;</span>, err);
+                                <span class="macro">tracing::error!</span>(<span class="string">"failed to accept socket - {}"</span>, err);
                             }
                         }
                     }
@@ -3263,11 +3263,11 @@
 <span class="attr">#[derive(Derivative)]
 #[derivative(Debug)]
 </span><span class="kw">struct </span>RemoteAdapterCommon {
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span>tx: RemoteTx&lt;MessageResponse&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span>rx: Mutex&lt;RemoteRx&lt;MessageRequest&gt;&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span>sockets: Mutex&lt;SocketMap&lt;RemoteAdapterSocket&gt;&gt;,
     socket_accept: Mutex&lt;SocketMap&lt;SocketId&gt;&gt;,
     handler: RemoteAdapterHandler,
@@ -3281,7 +3281,7 @@
         <span class="kw">let </span>this = <span class="self">self</span>.clone();
         <span class="prelude-val">Some</span>(Box::pin(<span class="kw">async move </span>{
             <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = this.tx.send(req).<span class="kw">await </span>{
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to send message - {}&quot;</span>, err);
+                <span class="macro">tracing::debug!</span>(<span class="string">"failed to send message - {}"</span>, err);
             }
         }))
     }

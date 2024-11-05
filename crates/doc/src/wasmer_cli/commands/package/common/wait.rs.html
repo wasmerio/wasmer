@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/package/common/wait.rs`."><title>wait.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/package/common/wait.rs`."><title>wait.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -131,22 +131,10 @@
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>futures_util::StreamExt;
-<span class="kw">use </span>wasmer_api::WasmerClient;
+</pre></div><pre class="rust"><code><span class="kw">use </span>futures::StreamExt;
+<span class="kw">use </span>wasmer_backend_api::{types::PackageVersionState, WasmerClient};
 
-<span class="doccomment">/// Different conditions that can be &quot;awaited&quot; when publishing a package.
+<span class="doccomment">/// Different conditions that can be "awaited" when publishing a package.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 </span><span class="kw">pub enum </span>PublishWait {
     <span class="prelude-val">None</span>,
@@ -224,23 +212,18 @@
 <span class="kw">pub async fn </span>wait_package(
     client: <span class="kw-2">&amp;</span>WasmerClient,
     to_wait: PublishWait,
-    package_version_id: wasmer_api::types::Id,
+    package_version_id: wasmer_backend_api::types::Id,
     timeout: humantime::Duration,
 ) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">if let </span>PublishWait::None = to_wait {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(());
     }
 
-    <span class="kw">let </span>registry_url = client.graphql_endpoint().to_string();
-    <span class="kw">let </span>login_token = client.auth_token().unwrap_or_default().to_string();
     <span class="kw">let </span>package_version_id = package_version_id.into_inner();
 
-    <span class="kw">let </span>(<span class="kw-2">mut </span>stream, <span class="kw">_</span>) = wasmer_registry::subscriptions::subscribe_package_version_ready(
-        <span class="kw-2">&amp;</span>registry_url,
-        <span class="kw-2">&amp;</span>login_token,
-        <span class="kw-2">&amp;</span>package_version_id,
-    )
-    .<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>stream =
+        wasmer_backend_api::subscription::package_version_ready(client, <span class="kw-2">&amp;</span>package_version_id)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>state: WaitPackageState = to_wait.into();
 
@@ -254,14 +237,14 @@
 
         <span class="kw">if </span>std::time::Instant::now() &gt; deadline {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;Timed out waiting for package version to become ready&quot;
+                <span class="string">"Timed out waiting for package version to become ready"
             </span>));
         }
 
         <span class="kw">let </span>data = <span class="kw">match </span>tokio::time::timeout_at(deadline.into(), stream.next()).<span class="kw">await </span>{
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;Timed out waiting for package version to become ready&quot;
+                    <span class="string">"Timed out waiting for package version to become ready"
                 </span>));
             }
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
@@ -272,16 +255,9 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = data.unwrap().data {
             <span class="kw">match </span>data.package_version_ready.state {
-                wasmer_registry::subscriptions::PackageVersionState::WEBC_GENERATED =&gt; {
-                    state.container = <span class="bool-val">false
-                </span>}
-                wasmer_registry::subscriptions::PackageVersionState::BINDINGS_GENERATED =&gt; {
-                    state.bindings = <span class="bool-val">false
-                </span>}
-                wasmer_registry::subscriptions::PackageVersionState::NATIVE_EXES_GENERATED =&gt; {
-                    state.native_executables = <span class="bool-val">false
-                </span>}
-                wasmer_registry::subscriptions::PackageVersionState::Other(<span class="kw">_</span>) =&gt; {}
+                PackageVersionState::WebcGenerated =&gt; state.container = <span class="bool-val">false</span>,
+                PackageVersionState::BindingsGenerated =&gt; state.bindings = <span class="bool-val">false</span>,
+                PackageVersionState::NativeExesGenerated =&gt; state.native_executables = <span class="bool-val">false</span>,
             }
         }
     }

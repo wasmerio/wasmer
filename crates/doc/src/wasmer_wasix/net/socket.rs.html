@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/net/socket.rs`."><title>socket.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/net/socket.rs`."><title>socket.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1556,7 +1556,7 @@
 };
 
 <span class="kw">use </span>derivative::Derivative;
-<span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>virtual_mio::InterestHandler;
 <span class="kw">use </span>virtual_net::{
@@ -1569,7 +1569,7 @@
 <span class="kw">use crate</span>::{net::net_error_into_wasi_err, VirtualTaskManager};
 
 <span class="attr">#[derive(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>InodeHttpSocketType {
     <span class="doccomment">/// Used to feed the bytes into the request itself
     </span>Request,
@@ -1597,12 +1597,12 @@
     <span class="kw">pub </span>read_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     <span class="kw">pub </span>accept_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     <span class="kw">pub </span>connect_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span><span class="kw">pub </span>handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, derive(Serialize, Deserialize))]
+</span><span class="comment">//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>InodeSocketKind {
     PreSocket {
         props: SocketProperties,
@@ -1707,7 +1707,7 @@
 }
 
 <span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>TimeType {
     ReadTimeout,
     WriteTimeout,
@@ -1745,19 +1745,19 @@
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, derive(Serialize, Deserialize))]
+</span><span class="comment">//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeSocketProtected {
     <span class="kw">pub </span>kind: InodeSocketKind,
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, derive(Serialize, Deserialize))]
+</span><span class="comment">//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeSocketInner {
     <span class="kw">pub </span>protected: RwLock&lt;InodeSocketProtected&gt;,
 }
 
 <span class="attr">#[derive(Debug, Clone)]
-</span><span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, derive(Serialize, Deserialize))]
+</span><span class="comment">//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>InodeSocket {
     <span class="kw">pub</span>(<span class="kw">crate</span>) inner: Arc&lt;InodeSocketInner&gt;,
 }
@@ -1772,12 +1772,12 @@
         }
     }
 
-    <span class="kw">pub fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+    <span class="kw">pub fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
         inner.poll_read_ready(cx)
     }
 
-    <span class="kw">pub fn </span>poll_write_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+    <span class="kw">pub fn </span>poll_write_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
         inner.poll_read_ready(cx)
     }
@@ -1802,7 +1802,7 @@
                         Addressfamily::Inet4 =&gt; {
                             <span class="kw">if </span>!set_addr.is_ipv4() {
                                 <span class="macro">tracing::debug!</span>(
-                                    <span class="string">&quot;IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family&quot;
+                                    <span class="string">"IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family"
                                 </span>);
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                             }
@@ -1810,7 +1810,7 @@
                         Addressfamily::Inet6 =&gt; {
                             <span class="kw">if </span>!set_addr.is_ipv6() {
                                 <span class="macro">tracing::debug!</span>(
-                                    <span class="string">&quot;IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family&quot;
+                                    <span class="string">"IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family"
                                 </span>);
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                             }
@@ -1848,7 +1848,7 @@
                         Addressfamily::Inet4 =&gt; {
                             <span class="kw">if </span>!set_addr.is_ipv4() {
                                 <span class="macro">tracing::debug!</span>(
-                                    <span class="string">&quot;IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family&quot;
+                                    <span class="string">"IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family"
                                 </span>);
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                             }
@@ -1856,7 +1856,7 @@
                         Addressfamily::Inet6 =&gt; {
                             <span class="kw">if </span>!set_addr.is_ipv6() {
                                 <span class="macro">tracing::debug!</span>(
-                                    <span class="string">&quot;IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family&quot;
+                                    <span class="string">"IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family"
                                 </span>);
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                             }
@@ -1889,7 +1889,7 @@
             }
         };
 
-        <span class="macro">tokio::select! </span>{
+        <span class="macro">tokio::select!</span> {
             socket = socket =&gt; {
                 <span class="kw">let </span>socket = socket.map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(InodeSocket::new(InodeSocketKind::UdpSocket { socket, peer: <span class="prelude-val">None </span>})))
@@ -1916,7 +1916,7 @@
                 InodeSocketKind::PreSocket { props, addr, .. } =&gt; <span class="kw">match </span>props.ty {
                     Socktype::Stream =&gt; {
                         <span class="kw">if </span>addr.is_none() {
-                            <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - address not set&quot;</span>);
+                            <span class="macro">tracing::warn!</span>(<span class="string">"wasi[?]::sock_listen - failed - address not set"</span>);
                             <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                         }
                         <span class="kw">let </span>addr = <span class="kw-2">*</span>addr.as_ref().unwrap();
@@ -1929,7 +1929,7 @@
                     }
                     ty =&gt; {
                         <span class="macro">tracing::warn!</span>(
-                            <span class="string">&quot;wasi[?]::sock_listen - failed - not supported(pre-socket:{:?})&quot;</span>,
+                            <span class="string">"wasi[?]::sock_listen - failed - not supported(pre-socket:{:?})"</span>,
                             ty
                         );
                         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
@@ -1951,38 +1951,38 @@
                     }
                     ty =&gt; {
                         <span class="macro">tracing::warn!</span>(
-                            <span class="string">&quot;wasi[?]::sock_listen - failed - not supported(remote-socket:{:?})&quot;</span>,
+                            <span class="string">"wasi[?]::sock_listen - failed - not supported(remote-socket:{:?})"</span>,
                             ty
                         );
                         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                     }
                 },
                 InodeSocketKind::Icmp(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(icmp)&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"wasi[?]::sock_listen - failed - not supported(icmp)"</span>);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                 }
                 InodeSocketKind::Raw(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(raw)&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"wasi[?]::sock_listen - failed - not supported(raw)"</span>);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                 }
                 InodeSocketKind::TcpListener { .. } =&gt; {
                     <span class="macro">tracing::warn!</span>(
-                        <span class="string">&quot;wasi[?]::sock_listen - failed - already listening (tcp-listener)&quot;
+                        <span class="string">"wasi[?]::sock_listen - failed - already listening (tcp-listener)"
                     </span>);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                 }
                 InodeSocketKind::TcpStream { .. } =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(tcp-stream)&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"wasi[?]::sock_listen - failed - not supported(tcp-stream)"</span>);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                 }
                 InodeSocketKind::UdpSocket { .. } =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(udp-socket)&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"wasi[?]::sock_listen - failed - not supported(udp-socket)"</span>);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                 }
             }
         };
 
-        <span class="macro">tokio::select! </span>{
+        <span class="macro">tokio::select!</span> {
             socket = socket =&gt; {
                 <span class="kw">let </span>socket = socket.map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(InodeSocket::new(InodeSocketKind::TcpListener {
@@ -2000,12 +2000,12 @@
         nonblocking: bool,
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr), Errno&gt; {
-        <span class="kw">struct </span>SocketAccepter&lt;<span class="lifetime">&#39;a</span>&gt; {
-            sock: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocket,
+        <span class="kw">struct </span>SocketAccepter&lt;<span class="lifetime">'a</span>&gt; {
+            sock: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocket,
             nonblocking: bool,
             handler_registered: bool,
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Drop <span class="kw">for </span>SocketAccepter&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Drop <span class="kw">for </span>SocketAccepter&lt;<span class="lifetime">'a</span>&gt; {
             <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
                 <span class="kw">if </span><span class="self">self</span>.handler_registered {
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.sock.inner.protected.write().unwrap();
@@ -2013,11 +2013,11 @@
                 }
             }
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>SocketAccepter&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Future <span class="kw">for </span>SocketAccepter&lt;<span class="lifetime">'a</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr), Errno&gt;;
             <span class="kw">fn </span>poll(
                 <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">loop </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.sock.inner.protected.write().unwrap();
@@ -2052,7 +2052,7 @@
             handler_registered: <span class="bool-val">false</span>,
         };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
-            <span class="macro">tokio::select! </span>{
+            <span class="macro">tokio::select!</span> {
                 res = acceptor =&gt; res,
                 <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
             }
@@ -2148,7 +2148,7 @@
             }
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>socket = <span class="macro">tokio::select! </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>socket = <span class="macro">tokio::select!</span> {
             res = connect =&gt; res.map_err(net_error_into_wasi_err)<span class="question-mark">?</span>,
             <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Timedout)
         };
@@ -2621,13 +2621,13 @@
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
         nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
-        <span class="kw">struct </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
-            inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
-            data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8],
+        <span class="kw">struct </span>SocketSender&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+            inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
+            data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8],
             nonblocking: bool,
             handler_registered: bool,
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Drop <span class="kw">for </span>SocketSender&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
                 <span class="kw">if </span><span class="self">self</span>.handler_registered {
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
@@ -2635,11 +2635,11 @@
                 }
             }
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Future <span class="kw">for </span>SocketSender&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize, Errno&gt;;
             <span class="kw">fn </span>poll(
                 <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">loop </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
@@ -2691,7 +2691,7 @@
             handler_registered: <span class="bool-val">false</span>,
         };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
-            <span class="macro">tokio::select! </span>{
+            <span class="macro">tokio::select!</span> {
                 res = poller =&gt; res,
                 <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
             }
@@ -2708,14 +2708,14 @@
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
         nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
-        <span class="kw">struct </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
-            inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
-            data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8],
+        <span class="kw">struct </span>SocketSender&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+            inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
+            data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8],
             addr: SocketAddr,
             nonblocking: bool,
             handler_registered: bool,
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Drop <span class="kw">for </span>SocketSender&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
                 <span class="kw">if </span><span class="self">self</span>.handler_registered {
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
@@ -2723,11 +2723,11 @@
                 }
             }
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Future <span class="kw">for </span>SocketSender&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize, Errno&gt;;
             <span class="kw">fn </span>poll(
                 <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">loop </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
@@ -2775,7 +2775,7 @@
             handler_registered: <span class="bool-val">false</span>,
         };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
-            <span class="macro">tokio::select! </span>{
+            <span class="macro">tokio::select!</span> {
                 res = poller =&gt; res,
                 <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
             }
@@ -2791,13 +2791,13 @@
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
         nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
-        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
-            inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
-            data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+            inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
+            data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
             nonblocking: bool,
             handler_registered: bool,
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
                 <span class="kw">if </span><span class="self">self</span>.handler_registered {
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
@@ -2805,11 +2805,11 @@
                 }
             }
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize, Errno&gt;;
             <span class="kw">fn </span>poll(
                 <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">loop </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
@@ -2869,7 +2869,7 @@
             handler_registered: <span class="bool-val">false</span>,
         };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
-            <span class="macro">tokio::select! </span>{
+            <span class="macro">tokio::select!</span> {
                 res = poller =&gt; res,
                 <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
             }
@@ -2885,13 +2885,13 @@
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
         nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt; {
-        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
-            inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
-            data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+            inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
+            data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
             nonblocking: bool,
             handler_registered: bool,
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
                 <span class="kw">if </span><span class="self">self</span>.handler_registered {
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
@@ -2899,11 +2899,11 @@
                 }
             }
         }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt;;
             <span class="kw">fn </span>poll(
                 <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
                 <span class="kw">loop </span>{
@@ -2951,7 +2951,7 @@
             handler_registered: <span class="bool-val">false</span>,
         };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
-            <span class="macro">tokio::select! </span>{
+            <span class="macro">tokio::select!</span> {
                 res = poller =&gt; res,
                 <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
             }
@@ -3006,7 +3006,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+    <span class="kw">pub fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
             InodeSocketKind::TcpListener { socket, .. } =&gt; socket.poll_read_ready(cx),
             InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_read_ready(cx),
@@ -3022,7 +3022,7 @@
         .map_err(net_error_into_io_err)
     }
 
-    <span class="kw">pub fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+    <span class="kw">pub fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
             InodeSocketKind::TcpListener { socket, .. } =&gt; socket.poll_write_ready(cx),
             InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_write_ready(cx),
@@ -3064,7 +3064,7 @@
     <span class="kw">type </span>Output = ();
     <span class="kw">fn </span>poll(
         <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
         std::task::Poll::Pending
     }

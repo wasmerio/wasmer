@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/trap/traphandlers.rs`."><title>traphandlers.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_vm/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/trap/traphandlers.rs`."><title>traphandlers.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1118,14 +1118,34 @@
 <a href="#1118" id="1118">1118</a>
 <a href="#1119" id="1119">1119</a>
 <a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
+
+</span><span class="attr">#![allow(static_mut_refs)]
 
 </span><span class="doccomment">//! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::vmcontext::{VMFunctionContext, VMTrampoline};
-<span class="kw">use crate</span>::{Trap, VMFunctionBody};
+<span class="kw">use crate</span>::{Trap, VMContext, VMFunctionBody};
 <span class="kw">use </span>backtrace::Backtrace;
 <span class="kw">use </span>core::ptr::{read, read_unaligned};
 <span class="kw">use </span>corosensei::stack::DefaultStack;
@@ -1151,17 +1171,17 @@
     </span><span class="kw">pub </span>wasm_stack_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
-<span class="comment">// TrapInformation can be stored in the &quot;Undefined Instruction&quot; itself.
-// On x86_64, 0xC? select a &quot;Register&quot; for the Mod R/M part of &quot;ud1&quot; (so with no other bytes after)
-// On Arm64, the udf alows for a 16bits values, so we&#39;ll use the same 0xC? to store the trapinfo
+<span class="comment">// TrapInformation can be stored in the "Undefined Instruction" itself.
+// On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
+// On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 </span><span class="kw">static </span>MAGIC: u8 = <span class="number">0xc0</span>;
 
 <span class="kw">static </span>DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(<span class="number">1024 </span>* <span class="number">1024</span>);
 
 <span class="comment">// Current definition of `ucontext_t` in the `libc` crate is incorrect
-// on aarch64-apple-drawin so it&#39;s defined here with a more accurate definition.
+// on aarch64-apple-drawin so it's defined here with a more accurate definition.
 </span><span class="attr">#[repr(C)]
-#[cfg(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;macos&quot;</span>))]
+#[cfg(all(target_arch = <span class="string">"aarch64"</span>, target_os = <span class="string">"macos"</span>))]
 #[allow(non_camel_case_types)]
 </span><span class="kw">struct </span>ucontext_t {
     uc_onstack: libc::c_int,
@@ -1173,9 +1193,9 @@
 }
 
 <span class="comment">// Current definition of `ucontext_t` in the `libc` crate is not present
-// on aarch64-unknown-freebsd so it&#39;s defined here.
+// on aarch64-unknown-freebsd so it's defined here.
 </span><span class="attr">#[repr(C)]
-#[cfg(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;freebsd&quot;</span>))]
+#[cfg(all(target_arch = <span class="string">"aarch64"</span>, target_os = <span class="string">"freebsd"</span>))]
 #[allow(non_camel_case_types)]
 </span><span class="kw">struct </span>ucontext_t {
     uc_sigmask: libc::sigset_t,
@@ -1188,30 +1208,30 @@
 
 <span class="attr">#[cfg(all(
     unix,
-    not(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;macos&quot;</span>)),
-    not(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;freebsd&quot;</span>))
+    not(all(target_arch = <span class="string">"aarch64"</span>, target_os = <span class="string">"macos"</span>)),
+    not(all(target_arch = <span class="string">"aarch64"</span>, target_os = <span class="string">"freebsd"</span>))
 ))]
 </span><span class="kw">use </span>libc::ucontext_t;
 
 <span class="doccomment">/// Default stack size is 1MB.
 </span><span class="kw">pub fn </span>set_stack_size(size: usize) {
-    DEFAULT_STACK_SIZE.store(size.max(<span class="number">8 </span>* <span class="number">1024</span>).min(<span class="number">100 </span>* <span class="number">1024 </span>* <span class="number">1024</span>), Ordering::Relaxed);
+    DEFAULT_STACK_SIZE.store(size.clamp(<span class="number">8 </span>* <span class="number">1024</span>, <span class="number">100 </span>* <span class="number">1024 </span>* <span class="number">1024</span>), Ordering::Relaxed);
 }
 
-<span class="macro">cfg_if::cfg_if! </span>{
+<span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if </span><span class="attr">#[cfg(unix)] </span>{
         <span class="doccomment">/// Function which may handle custom signals while processing traps.
-        </span><span class="kw">pub type </span>TrapHandlerFn&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="kw">dyn </span>Fn(libc::c_int, <span class="kw-2">*const </span>libc::siginfo_t, <span class="kw-2">*const </span>libc::c_void) -&gt; bool + Send + Sync + <span class="lifetime">&#39;a</span>;
-    } <span class="kw">else if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)] </span>{
+        </span><span class="kw">pub type </span>TrapHandlerFn&lt;<span class="lifetime">'a</span>&gt; = <span class="kw">dyn </span>Fn(libc::c_int, <span class="kw-2">*const </span>libc::siginfo_t, <span class="kw-2">*const </span>libc::c_void) -&gt; bool + Send + Sync + <span class="lifetime">'a</span>;
+    } <span class="kw">else if </span><span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)] </span>{
         <span class="doccomment">/// Function which may handle custom signals while processing traps.
-        </span><span class="kw">pub type </span>TrapHandlerFn&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">*mut </span>windows_sys::Win32::System::Diagnostics::Debug::EXCEPTION_POINTERS) -&gt; bool + Send + Sync + <span class="lifetime">&#39;a</span>;
+        </span><span class="kw">pub type </span>TrapHandlerFn&lt;<span class="lifetime">'a</span>&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">*mut </span>windows_sys::Win32::System::Diagnostics::Debug::EXCEPTION_POINTERS) -&gt; bool + Send + Sync + <span class="lifetime">'a</span>;
     }
 }
 
 <span class="comment">// Process an IllegalOpcode to see if it has a TrapCode payload
 </span><span class="kw">unsafe fn </span>process_illegal_op(addr: usize) -&gt; <span class="prelude-ty">Option</span>&lt;TrapCode&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>val: <span class="prelude-ty">Option</span>&lt;u8&gt; = <span class="prelude-val">None</span>;
-    <span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">&quot;x86_64&quot;</span>) {
+    <span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">"x86_64"</span>) {
         val = <span class="kw">if </span>read(addr <span class="kw">as </span><span class="kw-2">*mut </span>u8) &amp; <span class="number">0xf0 </span>== <span class="number">0x40
             </span>&amp;&amp; read((addr + <span class="number">1</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) == <span class="number">0x0f
             </span>&amp;&amp; read((addr + <span class="number">2</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) == <span class="number">0xb9
@@ -1223,7 +1243,7 @@
             <span class="prelude-val">None
         </span>}
     }
-    <span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">&quot;aarch64&quot;</span>) {
+    <span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">"aarch64"</span>) {
         val = <span class="kw">if </span>read_unaligned(addr <span class="kw">as </span><span class="kw-2">*mut </span>u32) &amp; <span class="number">0xffff0000 </span>== <span class="number">0 </span>{
             <span class="prelude-val">Some</span>(read(addr <span class="kw">as </span><span class="kw-2">*mut </span>u8))
         } <span class="kw">else </span>{
@@ -1255,7 +1275,7 @@
     }
 }
 
-<span class="macro">cfg_if::cfg_if! </span>{
+<span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if </span><span class="attr">#[cfg(unix)] </span>{
         <span class="kw">static </span><span class="kw-2">mut </span>PREV_SIGSEGV: MaybeUninit&lt;libc::sigaction&gt; = MaybeUninit::uninit();
         <span class="kw">static </span><span class="kw-2">mut </span>PREV_SIGBUS: MaybeUninit&lt;libc::sigaction&gt; = MaybeUninit::uninit();
@@ -1283,7 +1303,7 @@
                 libc::sigemptyset(<span class="kw-2">&amp;mut </span>handler.sa_mask);
                 <span class="kw">if </span>libc::sigaction(signal, <span class="kw-2">&amp;</span>handler, slot.as_mut_ptr()) != <span class="number">0 </span>{
                     <span class="macro">panic!</span>(
-                        <span class="string">&quot;unable to install signal handler: {}&quot;</span>,
+                        <span class="string">"unable to install signal handler: {}"</span>,
                         io::Error::last_os_error(),
                     );
                 }
@@ -1296,19 +1316,19 @@
             </span>register(<span class="kw-2">&amp;mut </span>PREV_SIGILL, libc::SIGILL);
 
             <span class="comment">// x86 uses SIGFPE to report division by zero
-            </span><span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">&quot;x86&quot;</span>) || <span class="macro">cfg!</span>(target_arch = <span class="string">&quot;x86_64&quot;</span>) {
+            </span><span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">"x86"</span>) || <span class="macro">cfg!</span>(target_arch = <span class="string">"x86_64"</span>) {
                 register(<span class="kw-2">&amp;mut </span>PREV_SIGFPE, libc::SIGFPE);
             }
 
             <span class="comment">// On ARM, handle Unaligned Accesses.
             // On Darwin, guard page accesses are raised as SIGBUS.
-            </span><span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">&quot;arm&quot;</span>) || <span class="macro">cfg!</span>(target_vendor = <span class="string">&quot;apple&quot;</span>) {
+            </span><span class="kw">if </span><span class="macro">cfg!</span>(target_arch = <span class="string">"arm"</span>) || <span class="macro">cfg!</span>(target_vendor = <span class="string">"apple"</span>) {
                 register(<span class="kw-2">&amp;mut </span>PREV_SIGBUS, libc::SIGBUS);
             }
 
             <span class="comment">// This is necessary to support debugging under LLDB on Darwin.
             // For more details see https://github.com/mono/mono/commit/8e75f5a28e6537e56ad70bf870b86e22539c2fb7
-            </span><span class="attr">#[cfg(target_vendor = <span class="string">&quot;apple&quot;</span>)]
+            </span><span class="attr">#[cfg(target_vendor = <span class="string">"apple"</span>)]
             </span>{
                 <span class="kw">use </span>mach2::exception_types::<span class="kw-2">*</span>;
                 <span class="kw">use </span>mach2::kern_return::<span class="kw-2">*</span>;
@@ -1317,7 +1337,7 @@
                 <span class="kw">use </span>mach2::traps::<span class="kw-2">*</span>;
                 <span class="kw">use </span>mach2::mach_types::<span class="kw-2">*</span>;
 
-                <span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+                <span class="kw">extern </span><span class="string">"C" </span>{
                     <span class="kw">fn </span>task_set_exception_ports(
                         task: task_t,
                         exception_mask: exception_mask_t,
@@ -1328,10 +1348,10 @@
                 }
 
                 <span class="attr">#[allow(non_snake_case)]
-                #[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)]
+                #[cfg(target_arch = <span class="string">"x86_64"</span>)]
                 </span><span class="kw">let </span>MACHINE_THREAD_STATE = x86_THREAD_STATE64;
                 <span class="attr">#[allow(non_snake_case)]
-                #[cfg(target_arch = <span class="string">&quot;aarch64&quot;</span>)]
+                #[cfg(target_arch = <span class="string">"aarch64"</span>)]
                 </span><span class="kw">let </span>MACHINE_THREAD_STATE = <span class="number">6</span>;
 
                 task_set_exception_ports(
@@ -1344,7 +1364,7 @@
             }
         }
 
-        <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>trap_handler(
+        <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>trap_handler(
             signum: libc::c_int,
             siginfo: <span class="kw-2">*mut </span>libc::siginfo_t,
             context: <span class="kw-2">*mut </span>libc::c_void,
@@ -1354,7 +1374,7 @@
                 libc::SIGBUS =&gt; <span class="kw-2">&amp;</span>PREV_SIGBUS,
                 libc::SIGFPE =&gt; <span class="kw-2">&amp;</span>PREV_SIGFPE,
                 libc::SIGILL =&gt; <span class="kw-2">&amp;</span>PREV_SIGILL,
-                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;unknown signal: {}&quot;</span>, signum),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"unknown signal: {}"</span>, signum),
             };
             <span class="comment">// We try to get the fault address associated to this signal
             </span><span class="kw">let </span>maybe_fault_address = <span class="kw">match </span>signum {
@@ -1388,24 +1408,24 @@
 
             <span class="comment">// This signal is not for any compiled wasm code we expect, so we
             // need to forward the signal to the next handler. If there is no
-            // next handler (SIG_IGN or SIG_DFL), then it&#39;s time to crash. To do
+            // next handler (SIG_IGN or SIG_DFL), then it's time to crash. To do
             // this, we set the signal back to its original disposition and
             // return. This will cause the faulting op to be re-executed which
             // will crash in the normal way. If there is a next handler, call
             // it. It will either crash synchronously, fix up the instruction
             // so that execution can continue and return, or trigger a crash by
-            // returning the signal to it&#39;s original disposition and returning.
+            // returning the signal to it's original disposition and returning.
             </span><span class="kw">let </span>previous = <span class="kw-2">&amp;*</span>previous.as_ptr();
             <span class="kw">if </span>previous.sa_flags &amp; libc::SA_SIGINFO != <span class="number">0 </span>{
                 mem::transmute::&lt;
                     usize,
-                    <span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(libc::c_int, <span class="kw-2">*mut </span>libc::siginfo_t, <span class="kw-2">*mut </span>libc::c_void),
+                    <span class="kw">extern </span><span class="string">"C" </span><span class="kw">fn</span>(libc::c_int, <span class="kw-2">*mut </span>libc::siginfo_t, <span class="kw-2">*mut </span>libc::c_void),
                 &gt;(previous.sa_sigaction)(signum, siginfo, context)
             } <span class="kw">else if </span>previous.sa_sigaction == libc::SIG_DFL
             {
                 libc::sigaction(signum, previous, ptr::null_mut());
             } <span class="kw">else if </span>previous.sa_sigaction != libc::SIG_IGN {
-                mem::transmute::&lt;usize, <span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(libc::c_int)&gt;(
+                mem::transmute::&lt;usize, <span class="kw">extern </span><span class="string">"C" </span><span class="kw">fn</span>(libc::c_int)&gt;(
                     previous.sa_sigaction
                 )(signum)
             }
@@ -1413,64 +1433,67 @@
 
         <span class="kw">unsafe fn </span>get_pc_sp(context: <span class="kw-2">&amp;</span>ucontext_t) -&gt; (usize, usize) {
             <span class="kw">let </span>(pc, sp);
-            <span class="macro">cfg_if::cfg_if! </span>{
+            <span class="macro">cfg_if::cfg_if!</span> {
                 <span class="kw">if </span><span class="attr">#[cfg(all(
-                    any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                    target_arch = <span class="string">&quot;x86_64&quot;</span>,
+                    any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                    target_arch = <span class="string">"x86_64"</span>,
                 ))] </span>{
                     pc = context.uc_mcontext.gregs[libc::REG_RIP <span class="kw">as </span>usize] <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.gregs[libc::REG_RSP <span class="kw">as </span>usize] <span class="kw">as </span>usize;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                    any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                    target_arch = <span class="string">&quot;x86&quot;</span>,
+                    any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                    target_arch = <span class="string">"x86"</span>,
                 ))] </span>{
                     pc = context.uc_mcontext.gregs[libc::REG_EIP <span class="kw">as </span>usize] <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.gregs[libc::REG_ESP <span class="kw">as </span>usize] <span class="kw">as </span>usize;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"freebsd"</span>, target_arch = <span class="string">"x86"</span>))] </span>{
                     pc = context.uc_mcontext.mc_eip <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.mc_esp <span class="kw">as </span>usize;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"freebsd"</span>, target_arch = <span class="string">"x86_64"</span>))] </span>{
                     pc = context.uc_mcontext.mc_rip <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.mc_rsp <span class="kw">as </span>usize;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">&quot;apple&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">"apple"</span>, target_arch = <span class="string">"x86_64"</span>))] </span>{
                     pc = (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rip <span class="kw">as </span>usize;
                     sp = (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rsp <span class="kw">as </span>usize;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                        any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                        target_arch = <span class="string">&quot;aarch64&quot;</span>,
+                        any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                        target_arch = <span class="string">"aarch64"</span>,
                     ))] </span>{
                     pc = context.uc_mcontext.pc <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.sp <span class="kw">as </span>usize;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                    any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                    target_arch = <span class="string">&quot;arm&quot;</span>,
+                    any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                    target_arch = <span class="string">"arm"</span>,
                 ))] </span>{
                     pc = context.uc_mcontext.arm_pc <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.arm_sp <span class="kw">as </span>usize;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                    any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                    any(target_arch = <span class="string">&quot;riscv64&quot;</span>, target_arch = <span class="string">&quot;riscv32&quot;</span>),
+                    any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                    any(target_arch = <span class="string">"riscv64"</span>, target_arch = <span class="string">"riscv32"</span>),
                 ))] </span>{
                     pc = context.uc_mcontext.__gregs[libc::REG_PC] <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.__gregs[libc::REG_SP] <span class="kw">as </span>usize;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">&quot;apple&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">"apple"</span>, target_arch = <span class="string">"aarch64"</span>))] </span>{
                     pc = (<span class="kw-2">*</span>context.uc_mcontext).__ss.__pc <span class="kw">as </span>usize;
                     sp = (<span class="kw-2">*</span>context.uc_mcontext).__ss.__sp <span class="kw">as </span>usize;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"freebsd"</span>, target_arch = <span class="string">"aarch64"</span>))] </span>{
                     pc = context.uc_mcontext.mc_gpregs.gp_elr <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.mc_gpregs.gp_sp <span class="kw">as </span>usize;
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"linux"</span>, target_arch = <span class="string">"loongarch64"</span>))] </span>{
+                    pc = context.uc_mcontext.__gregs[<span class="number">1</span>] <span class="kw">as </span>usize;
+                    sp = context.uc_mcontext.__gregs[<span class="number">3</span>] <span class="kw">as </span>usize;
                 } <span class="kw">else </span>{
-                    <span class="macro">compile_error!</span>(<span class="string">&quot;Unsupported platform&quot;</span>);
+                    <span class="macro">compile_error!</span>(<span class="string">"Unsupported platform"</span>);
                 }
             };
             (pc, sp)
         }
 
         <span class="kw">unsafe fn </span>update_context(context: <span class="kw-2">&amp;mut </span>ucontext_t, regs: TrapHandlerRegs) {
-            <span class="macro">cfg_if::cfg_if! </span>{
+            <span class="macro">cfg_if::cfg_if!</span> {
                 <span class="kw">if </span><span class="attr">#[cfg(all(
-                        any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                        target_arch = <span class="string">&quot;x86_64&quot;</span>,
+                        any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                        target_arch = <span class="string">"x86_64"</span>,
                     ))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.gregs[libc::REG_RIP <span class="kw">as </span>usize] = rip <span class="kw">as </span>i64;
@@ -1479,8 +1502,8 @@
                     context.uc_mcontext.gregs[libc::REG_RDI <span class="kw">as </span>usize] = rdi <span class="kw">as </span>i64;
                     context.uc_mcontext.gregs[libc::REG_RSI <span class="kw">as </span>usize] = rsi <span class="kw">as </span>i64;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                    any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                    target_arch = <span class="string">&quot;x86&quot;</span>,
+                    any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                    target_arch = <span class="string">"x86"</span>,
                 ))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
                     context.uc_mcontext.gregs[libc::REG_EIP <span class="kw">as </span>usize] = eip <span class="kw">as </span>i32;
@@ -1488,21 +1511,21 @@
                     context.uc_mcontext.gregs[libc::REG_EBP <span class="kw">as </span>usize] = ebp <span class="kw">as </span>i32;
                     context.uc_mcontext.gregs[libc::REG_ECX <span class="kw">as </span>usize] = ecx <span class="kw">as </span>i32;
                     context.uc_mcontext.gregs[libc::REG_EDX <span class="kw">as </span>usize] = edx <span class="kw">as </span>i32;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">&quot;apple&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">"apple"</span>, target_arch = <span class="string">"x86_64"</span>))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rip = rip;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rsp = rsp;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rbp = rbp;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rdi = rdi;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rsi = rsi;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"freebsd"</span>, target_arch = <span class="string">"x86"</span>))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
                     context.uc_mcontext.mc_eip = eip <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_esp = esp <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_ebp = ebp <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_ecx = ecx <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_edx = edx <span class="kw">as </span>libc::register_t;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"freebsd"</span>, target_arch = <span class="string">"x86_64"</span>))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.mc_rip = rip <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_rsp = rsp <span class="kw">as </span>libc::register_t;
@@ -1510,8 +1533,8 @@
                     context.uc_mcontext.mc_rdi = rdi <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_rsi = rsi <span class="kw">as </span>libc::register_t;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                        any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                        target_arch = <span class="string">&quot;aarch64&quot;</span>,
+                        any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                        target_arch = <span class="string">"aarch64"</span>,
                     ))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
                     context.uc_mcontext.pc = pc;
@@ -1521,8 +1544,8 @@
                     context.uc_mcontext.regs[<span class="number">29</span>] = x29;
                     context.uc_mcontext.regs[<span class="number">30</span>] = lr;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                        any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                        target_arch = <span class="string">&quot;arm&quot;</span>,
+                        any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                        target_arch = <span class="string">"arm"</span>,
                     ))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs {
                         pc,
@@ -1553,8 +1576,8 @@
                         context.uc_mcontext.arm_cpsr &amp;= !<span class="number">0x200</span>;
                     }
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(
-                    any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
-                    any(target_arch = <span class="string">&quot;riscv64&quot;</span>, target_arch = <span class="string">&quot;riscv32&quot;</span>),
+                    any(target_os = <span class="string">"linux"</span>, target_os = <span class="string">"android"</span>),
+                    any(target_arch = <span class="string">"riscv64"</span>, target_arch = <span class="string">"riscv32"</span>),
                 ))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { pc, ra, sp, a0, a1, s0 } = regs;
                     context.uc_mcontext.__gregs[libc::REG_PC] = pc <span class="kw">as </span>libc::c_ulong;
@@ -1563,7 +1586,7 @@
                     context.uc_mcontext.__gregs[libc::REG_A0] = a0 <span class="kw">as </span>libc::c_ulong;
                     context.uc_mcontext.__gregs[libc::REG_A0 + <span class="number">1</span>] = a1 <span class="kw">as </span>libc::c_ulong;
                     context.uc_mcontext.__gregs[libc::REG_S0] = s0 <span class="kw">as </span>libc::c_ulong;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">&quot;apple&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_vendor = <span class="string">"apple"</span>, target_arch = <span class="string">"aarch64"</span>))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__pc = pc;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__sp = sp;
@@ -1571,7 +1594,7 @@
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__x[<span class="number">1</span>] = x1;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__fp = x29;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__lr = lr;
-                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>))] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"freebsd"</span>, target_arch = <span class="string">"aarch64"</span>))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
                     context.uc_mcontext.mc_gpregs.gp_elr = pc <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_sp = sp <span class="kw">as </span>libc::register_t;
@@ -1579,12 +1602,20 @@
                     context.uc_mcontext.mc_gpregs.gp_x[<span class="number">1</span>] = x1 <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[<span class="number">29</span>] = x29 <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[<span class="number">30</span>] = lr <span class="kw">as </span>libc::register_t;
+                } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">"linux"</span>, target_arch = <span class="string">"loongarch64"</span>))] </span>{
+                    <span class="kw">let </span>TrapHandlerRegs { pc, sp, a0, a1, fp, ra } = regs;
+                    context.uc_mcontext.__pc = pc;
+                    context.uc_mcontext.__gregs[<span class="number">1</span>] = ra;
+                    context.uc_mcontext.__gregs[<span class="number">3</span>] = sp;
+                    context.uc_mcontext.__gregs[<span class="number">4</span>] = a0;
+                    context.uc_mcontext.__gregs[<span class="number">5</span>] = a1;
+                    context.uc_mcontext.__gregs[<span class="number">22</span>] = fp;
                 } <span class="kw">else </span>{
-                    <span class="macro">compile_error!</span>(<span class="string">&quot;Unsupported platform&quot;</span>);
+                    <span class="macro">compile_error!</span>(<span class="string">"Unsupported platform"</span>);
                 }
             };
         }
-    } <span class="kw">else if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)] </span>{
+    } <span class="kw">else if </span><span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)] </span>{
         <span class="kw">use </span>windows_sys::Win32::System::Diagnostics::Debug::{
             AddVectoredExceptionHandler,
             CONTEXT,
@@ -1605,11 +1636,11 @@
             // wasm faults and continue execution, so pass `1` as a true value
             // here.
             </span><span class="kw">if </span>AddVectoredExceptionHandler(<span class="number">1</span>, <span class="prelude-val">Some</span>(exception_handler)).is_null() {
-                <span class="macro">panic!</span>(<span class="string">&quot;failed to add exception handler: {}&quot;</span>, io::Error::last_os_error());
+                <span class="macro">panic!</span>(<span class="string">"failed to add exception handler: {}"</span>, io::Error::last_os_error());
             }
         }
 
-        <span class="kw">unsafe extern </span><span class="string">&quot;system&quot; </span><span class="kw">fn </span>exception_handler(
+        <span class="kw">unsafe extern </span><span class="string">"system" </span><span class="kw">fn </span>exception_handler(
             exception_info: <span class="kw-2">*mut </span>EXCEPTION_POINTERS
         ) -&gt; i32 {
             <span class="comment">// Check the kind of exception, since we only handle a subset within
@@ -1626,8 +1657,8 @@
             }
 
             <span class="comment">// FIXME: this is what the previous C++ did to make sure that TLS
-            // works by the time we execute this trap handling code. This isn&#39;t
-            // exactly super easy to call from Rust though and it&#39;s not clear we
+            // works by the time we execute this trap handling code. This isn't
+            // exactly super easy to call from Rust though and it's not clear we
             // necessarily need to do so. Leaving this here in case we need this
             // in the future, but for now we can probably wait until we see a
             // strange fault before figuring out how to reimplement this in
@@ -1673,30 +1704,30 @@
 
         <span class="kw">unsafe fn </span>get_pc_sp(context: <span class="kw-2">&amp;</span>CONTEXT) -&gt; (usize, usize) {
             <span class="kw">let </span>(pc, sp);
-            <span class="macro">cfg_if::cfg_if! </span>{
-                <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)] </span>{
+            <span class="macro">cfg_if::cfg_if!</span> {
+                <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">"x86_64"</span>)] </span>{
                     pc = context.Rip <span class="kw">as </span>usize;
                     sp = context.Rsp <span class="kw">as </span>usize;
-                } <span class="kw">else if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86&quot;</span>)] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(target_arch = <span class="string">"x86"</span>)] </span>{
                     pc = context.Rip <span class="kw">as </span>usize;
                     sp = context.Rsp <span class="kw">as </span>usize;
                 } <span class="kw">else </span>{
-                    <span class="macro">compile_error!</span>(<span class="string">&quot;Unsupported platform&quot;</span>);
+                    <span class="macro">compile_error!</span>(<span class="string">"Unsupported platform"</span>);
                 }
             };
             (pc, sp)
         }
 
         <span class="kw">unsafe fn </span>update_context(context: <span class="kw-2">&amp;mut </span>CONTEXT, regs: TrapHandlerRegs) {
-            <span class="macro">cfg_if::cfg_if! </span>{
-                <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)] </span>{
+            <span class="macro">cfg_if::cfg_if!</span> {
+                <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">"x86_64"</span>)] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.Rip = rip;
                     context.Rsp = rsp;
                     context.Rbp = rbp;
                     context.Rdi = rdi;
                     context.Rsi = rsi;
-                } <span class="kw">else if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86&quot;</span>)] </span>{
+                } <span class="kw">else if </span><span class="attr">#[cfg(target_arch = <span class="string">"x86"</span>)] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
                     context.Eip = eip;
                     context.Esp = esp;
@@ -1704,7 +1735,7 @@
                     context.Ecx = ecx;
                     context.Edx = edx;
                 } <span class="kw">else </span>{
-                    <span class="macro">compile_error!</span>(<span class="string">&quot;Unsupported platform&quot;</span>);
+                    <span class="macro">compile_error!</span>(<span class="string">"Unsupported platform"</span>);
                 }
             };
         }
@@ -1717,7 +1748,7 @@
 ///
 /// This function must not only be called globally once before entering
 /// WebAssembly but it must also be called once-per-thread that enters
-/// WebAssembly. Currently in wasmer&#39;s integration this function is called on
+/// WebAssembly. Currently in wasmer's integration this function is called on
 /// creation of a `Store`.
 </span><span class="kw">pub fn </span>init_traps() {
     <span class="kw">static </span>INIT: Once = Once::new();
@@ -1785,7 +1816,7 @@
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 </span><span class="kw">pub unsafe fn </span>wasmer_call_trampoline(
-    trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+    trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
     config: <span class="kw-2">&amp;</span>VMConfig,
     vmctx: VMFunctionContext,
     trampoline: VMTrampoline,
@@ -1793,9 +1824,14 @@
     values_vec: <span class="kw-2">*mut </span>u8,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
     catch_traps(trap_handler, config, <span class="kw">move </span>|| {
-        mem::transmute::&lt;<span class="kw">_</span>, <span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(VMFunctionContext, <span class="kw-2">*const </span>VMFunctionBody, <span class="kw-2">*mut </span>u8)&gt;(
-            trampoline,
-        )(vmctx, callee, values_vec);
+        mem::transmute::&lt;
+            <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(
+                <span class="kw-2">*mut </span>VMContext,
+                <span class="kw-2">*const </span>VMFunctionBody,
+                <span class="kw-2">*mut </span>wasmer_types::RawValue,
+            ),
+            <span class="kw">extern </span><span class="string">"C" </span><span class="kw">fn</span>(VMFunctionContext, <span class="kw-2">*const </span>VMFunctionBody, <span class="kw-2">*mut </span>u8),
+        &gt;(trampoline)(vmctx, callee, values_vec);
     })
 }
 
@@ -1804,14 +1840,14 @@
 ///
 /// # Safety
 ///
-/// Highly unsafe since `closure` won&#39;t have any dtors run.
-</span><span class="kw">pub unsafe fn </span>catch_traps&lt;F, R: <span class="lifetime">&#39;static</span>&gt;(
-    trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+/// Highly unsafe since `closure` won't have any dtors run.
+</span><span class="kw">pub unsafe fn </span>catch_traps&lt;F, R: <span class="lifetime">'static</span>&gt;(
+    trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
     config: <span class="kw-2">&amp;</span>VMConfig,
     closure: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;R, Trap&gt;
 <span class="kw">where
-    </span>F: FnOnce() -&gt; R + <span class="lifetime">&#39;static</span>,
+    </span>F: FnOnce() -&gt; R + <span class="lifetime">'static</span>,
 {
     <span class="comment">// Ensure that per-thread initialization is done.
     </span>lazy_per_thread_init()<span class="question-mark">?</span>;
@@ -1829,9 +1865,9 @@
 //
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
-</span><span class="macro">thread_local! </span>{
-    <span class="kw">static </span>YIELDER: Cell&lt;<span class="prelude-ty">Option</span>&lt;NonNull&lt;Yielder&lt;(), UnwindReason&gt;&gt;&gt;&gt; = Cell::new(<span class="prelude-val">None</span>);
-    <span class="kw">static </span>TRAP_HANDLER: AtomicPtr&lt;TrapHandlerContext&gt; = AtomicPtr::new(ptr::null_mut());
+</span><span class="macro">thread_local!</span> {
+    <span class="kw">static </span>YIELDER: Cell&lt;<span class="prelude-ty">Option</span>&lt;NonNull&lt;Yielder&lt;(), UnwindReason&gt;&gt;&gt;&gt; = <span class="kw">const </span>{ Cell::new(<span class="prelude-val">None</span>) };
+    <span class="kw">static </span>TRAP_HANDLER: AtomicPtr&lt;TrapHandlerContext&gt; = <span class="kw">const </span>{ AtomicPtr::new(ptr::null_mut()) };
 }
 
 <span class="doccomment">/// Read-only information that is used by signal handlers to handle and recover
@@ -1847,7 +1883,7 @@
         <span class="prelude-ty">Option</span>&lt;TrapCode&gt;,
         <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(TrapHandlerRegs),
     ) -&gt; bool,
-    custom_trap: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+    custom_trap: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
 }
 <span class="kw">struct </span>TrapHandlerContextInner&lt;T&gt; {
     <span class="doccomment">/// Information about the currently running coroutine. This is used to
@@ -1859,7 +1895,7 @@
     <span class="doccomment">/// Runs the given function with a trap handler context. The previous
     /// trap handler context is preserved and restored afterwards.
     </span><span class="kw">fn </span>install&lt;T, R&gt;(
-        custom_trap: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+        custom_trap: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
         coro_trap_handler: CoroutineTrapHandler&lt;<span class="prelude-ty">Result</span>&lt;T, UnwindReason&gt;&gt;,
         f: <span class="kw">impl </span>FnOnce() -&gt; R,
     ) -&gt; R {
@@ -1896,7 +1932,7 @@
             prev
         });
 
-        <span class="macro">defer! </span>{
+        <span class="macro">defer!</span> {
             TRAP_HANDLER.with(|ptr| ptr.store(prev, Ordering::Relaxed));
             compiler_fence(Ordering::Acquire);
         }
@@ -1904,14 +1940,14 @@
         f()
     }
 
-    <span class="doccomment">/// Attempts to handle the trap if it&#39;s a wasm trap.
+    <span class="doccomment">/// Attempts to handle the trap if it's a wasm trap.
     </span><span class="kw">unsafe fn </span>handle_trap(
         pc: usize,
         sp: usize,
         maybe_fault_address: <span class="prelude-ty">Option</span>&lt;usize&gt;,
         trap_code: <span class="prelude-ty">Option</span>&lt;TrapCode&gt;,
         <span class="kw-2">mut </span>update_regs: <span class="kw">impl </span>FnMut(TrapHandlerRegs),
-        call_handler: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;) -&gt; bool,
+        call_handler: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;) -&gt; bool,
     ) -&gt; bool {
         <span class="kw">let </span>ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
         <span class="kw">if </span>ptr.is_null() {
@@ -1963,7 +1999,7 @@
             })
         });
 
-        <span class="comment">// Don&#39;t try to generate a backtrace for stack overflows: unwinding
+        <span class="comment">// Don't try to generate a backtrace for stack overflows: unwinding
         // information is often not precise enough to properly describe what is
         // happenning during a function prologue, which can lead the unwinder to
         // read invalid memory addresses.
@@ -2023,7 +2059,7 @@
 <span class="kw">unsafe fn </span>unwind_with(reason: UnwindReason) -&gt; ! {
     <span class="kw">let </span>yielder = YIELDER
         .with(|cell| cell.replace(<span class="prelude-val">None</span>))
-        .expect(<span class="string">&quot;not running on Wasm stack&quot;</span>);
+        .expect(<span class="string">"not running on Wasm stack"</span>);
 
     yielder.as_ref().suspend(reason);
 
@@ -2034,16 +2070,16 @@
 <span class="doccomment">/// Runs the given function on a separate stack so that its stack usage can be
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
-</span><span class="kw">fn </span>on_wasm_stack&lt;F: FnOnce() -&gt; T + <span class="lifetime">&#39;static</span>, T: <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">fn </span>on_wasm_stack&lt;F: FnOnce() -&gt; T + <span class="lifetime">'static</span>, T: <span class="lifetime">'static</span>&gt;(
     stack_size: usize,
-    trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+    trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
     f: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;T, UnwindReason&gt; {
     <span class="comment">// Allocating a new stack is pretty expensive since it involves several
     // system calls. We therefore keep a cache of pre-allocated stacks which
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
-    </span><span class="macro">lazy_static::lazy_static! </span>{
+    </span><span class="macro">lazy_static::lazy_static!</span> {
         <span class="kw">static </span><span class="kw-2">ref </span>STACK_POOL: crossbeam_queue::SegQueue&lt;DefaultStack&gt; = crossbeam_queue::SegQueue::new();
     }
     <span class="kw">let </span>stack = STACK_POOL
@@ -2060,7 +2096,7 @@
     });
 
     <span class="comment">// Ensure that YIELDER is reset on exit even if the coroutine panics,
-    </span><span class="macro">defer! </span>{
+    </span><span class="macro">defer!</span> {
         YIELDER.with(|cell| cell.set(<span class="prelude-val">None</span>));
     }
 
@@ -2102,13 +2138,13 @@
     };
 
     <span class="comment">// Restore YIELDER upon exiting normally or unwinding.
-    </span><span class="macro">defer! </span>{
+    </span><span class="macro">defer!</span> {
         YIELDER.with(|cell| cell.set(yielder_ptr));
     }
 
     <span class="comment">// on_parent_stack requires the closure to be Send so that the Yielder
     // cannot be called from the parent stack. This is not a problem for us
-    // since we don&#39;t expose the Yielder.
+    // since we don't expose the Yielder.
     </span><span class="kw">struct </span>SendWrapper&lt;T&gt;(T);
     <span class="kw">unsafe impl</span>&lt;T&gt; Send <span class="kw">for </span>SendWrapper&lt;T&gt; {}
     <span class="kw">let </span>wrapped = SendWrapper(f);
@@ -2121,11 +2157,11 @@
 <span class="attr">#[cfg(windows)]
 </span><span class="kw">pub fn </span>lazy_per_thread_init() -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
     <span class="comment">// We need additional space on the stack to handle stack overflow
-    // exceptions. Rust&#39;s initialization code sets this to 0x5000 but this
+    // exceptions. Rust's initialization code sets this to 0x5000 but this
     // seems to be insufficient in practice.
     </span><span class="kw">use </span>windows_sys::Win32::System::Threading::SetThreadStackGuarantee;
     <span class="kw">if unsafe </span>{ SetThreadStackGuarantee(<span class="kw-2">&amp;mut </span><span class="number">0x10000</span>) } == <span class="number">0 </span>{
-        <span class="macro">panic!</span>(<span class="string">&quot;failed to set thread stack guarantee&quot;</span>);
+        <span class="macro">panic!</span>(<span class="string">"failed to set thread stack guarantee"</span>);
     }
 
     <span class="prelude-val">Ok</span>(())
@@ -2133,7 +2169,7 @@
 
 <span class="doccomment">/// A module for registering a custom alternate signal stack (sigaltstack).
 ///
-/// Rust&#39;s libstd installs an alternate stack with size `SIGSTKSZ`, which is not
+/// Rust's libstd installs an alternate stack with size `SIGSTKSZ`, which is not
 /// always large enough for our signal handling code. Override it by creating
 /// and registering our own alternate stack that is large enough and has a guard
 /// page.
@@ -2141,8 +2177,8 @@
 </span><span class="kw">pub fn </span>lazy_per_thread_init() -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
     <span class="kw">use </span>std::ptr::null_mut;
 
-    <span class="macro">thread_local! </span>{
-        <span class="doccomment">/// Thread-local state is lazy-initialized on the first time it&#39;s used,
+    <span class="macro">thread_local!</span> {
+        <span class="doccomment">/// Thread-local state is lazy-initialized on the first time it's used,
         /// and dropped when the thread exits.
         </span><span class="kw">static </span>TLS: Tls = <span class="kw">unsafe </span>{ init_sigstack() };
     }
@@ -2162,10 +2198,10 @@
 
     <span class="kw">unsafe fn </span>init_sigstack() -&gt; Tls {
         <span class="comment">// Check to see if the existing sigaltstack, if it exists, is big
-        // enough. If so we don&#39;t need to allocate our own.
+        // enough. If so we don't need to allocate our own.
         </span><span class="kw">let </span><span class="kw-2">mut </span>old_stack = mem::zeroed();
         <span class="kw">let </span>r = libc::sigaltstack(ptr::null(), <span class="kw-2">&amp;mut </span>old_stack);
-        <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">&quot;learning about sigaltstack failed&quot;</span>);
+        <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">"learning about sigaltstack failed"</span>);
         <span class="kw">if </span>old_stack.ss_flags &amp; libc::SS_DISABLE == <span class="number">0 </span>&amp;&amp; old_stack.ss_size &gt;= MIN_STACK_SIZE {
             <span class="kw">return </span>Tls::BigEnough;
         }
@@ -2196,14 +2232,14 @@
             MIN_STACK_SIZE,
             libc::PROT_READ | libc::PROT_WRITE,
         );
-        <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">&quot;mprotect to configure memory for sigaltstack failed&quot;</span>);
+        <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">"mprotect to configure memory for sigaltstack failed"</span>);
         <span class="kw">let </span>new_stack = libc::stack_t {
             ss_sp: stack_ptr,
             ss_flags: <span class="number">0</span>,
             ss_size: MIN_STACK_SIZE,
         };
         <span class="kw">let </span>r = libc::sigaltstack(<span class="kw-2">&amp;</span>new_stack, ptr::null_mut());
-        <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">&quot;registering new sigaltstack failed&quot;</span>);
+        <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">"registering new sigaltstack failed"</span>);
 
         Tls::Allocated {
             mmap_ptr: ptr,
@@ -2233,7 +2269,7 @@
             <span class="kw">unsafe </span>{
                 <span class="comment">// Deallocate the stack memory.
                 </span><span class="kw">let </span>r = libc::munmap(ptr, size);
-                <span class="macro">debug_assert_eq!</span>(r, <span class="number">0</span>, <span class="string">&quot;munmap failed during thread shutdown&quot;</span>);
+                <span class="macro">debug_assert_eq!</span>(r, <span class="number">0</span>, <span class="string">"munmap failed during thread shutdown"</span>);
             }
         }
     }

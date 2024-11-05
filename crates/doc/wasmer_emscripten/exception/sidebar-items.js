@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["___cxa_allocate_exception","___cxa_begin_catch","___cxa_current_primary_exception","___cxa_decrement_exception_refcount","___cxa_end_catch","___cxa_increment_exception_refcount","___cxa_pure_virtual","___cxa_rethrow_primary_exception","___cxa_throw","___cxa_uncaught_exception"]};

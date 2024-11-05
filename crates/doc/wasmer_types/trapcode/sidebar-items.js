@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["OnCalledAction","TrapCode","TrapCodeResolver"]};
+window.SIDEBAR_ITEMS = {"enum":["ArchivedTrapCode","OnCalledAction","TrapCode","TrapCodeResolver"]};

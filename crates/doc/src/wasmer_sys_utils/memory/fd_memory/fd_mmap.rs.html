@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/fd_mmap.rs`."><title>fd_mmap.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_sys_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_sys_utils/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/fd_mmap.rs`."><title>fd_mmap.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_sys_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -465,7 +465,7 @@
 <span class="kw">impl </span>FdMmap {
     <span class="doccomment">/// Construct a new empty instance of `Mmap`.
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        <span class="comment">// Rust&#39;s slices require non-null pointers, even when empty. `Vec`
+        <span class="comment">// Rust's slices require non-null pointers, even when empty. `Vec`
         // contains code to create a non-null dangling pointer value when
         // constructed empty, so we reuse that here.
         </span><span class="kw">let </span>empty = Vec::&lt;u8&gt;::new();
@@ -506,7 +506,7 @@
             <span class="kw">let </span>file = libc::tmpfile();
             <span class="kw">if </span>file.is_null() {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;failed to create temporary file - {}&quot;</span>,
+                    <span class="string">"failed to create temporary file - {}"</span>,
                     io::Error::last_os_error()
                 ));
             }
@@ -516,7 +516,7 @@
         <span class="comment">// First we initialize it with zeros
         </span><span class="kw">unsafe </span>{
             <span class="kw">if </span>libc::ftruncate(fd.<span class="number">0</span>, mapping_size <span class="kw">as </span>libc::off_t) &lt; <span class="number">0 </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;could not truncate tmpfile&quot;</span>.to_string());
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"could not truncate tmpfile"</span>.to_string());
             }
         }
 
@@ -574,7 +574,7 @@
 
     <span class="doccomment">/// Make the memory starting at `start` and extending for `len` bytes accessible.
     /// `start` and `len` must be native page-size multiples and describe a range within
-    /// `self`&#39;s reserved memory.
+    /// `self`'s reserved memory.
     </span><span class="kw">pub fn </span>make_accessible(<span class="kw-2">&amp;mut </span><span class="self">self</span>, start: usize, len: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
         <span class="kw">let </span>page_size = region::page::size();
         <span class="macro">assert_eq!</span>(start &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
@@ -637,7 +637,7 @@
             <span class="kw">let </span>file = libc::tmpfile();
             <span class="kw">if </span>file.is_null() {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;failed to create temporary file - {}&quot;</span>,
+                    <span class="string">"failed to create temporary file - {}"</span>,
                     io::Error::last_os_error()
                 ));
             }
@@ -649,8 +649,8 @@
             <span class="kw">if </span>libc::ioctl(fd.<span class="number">0</span>, <span class="number">0x94</span>, <span class="number">9</span>, <span class="self">self</span>.fd.<span class="number">0</span>) != <span class="number">0
             </span><span class="comment">// FICLONE
             </span>{
-                <span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-                </span><span class="macro">trace!</span>(<span class="string">&quot;memory copy started&quot;</span>);
+                <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+                </span><span class="macro">trace!</span>(<span class="string">"memory copy started"</span>);
 
                 <span class="comment">// Determine host much to copy
                 </span><span class="kw">let </span>len = <span class="kw">match </span>hint_used {
@@ -663,10 +663,10 @@
                 </span><span class="kw">let </span><span class="kw-2">mut </span>source = std::fs::File::from_raw_fd(<span class="self">self</span>.fd.<span class="number">0</span>);
                 <span class="kw">let </span><span class="kw-2">mut </span>out = std::fs::File::from_raw_fd(fd.<span class="number">0</span>);
                 copy_file_range(<span class="kw-2">&amp;mut </span>source, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>out, <span class="number">0</span>, len)
-                    .map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Could not copy memory: {err}&quot;</span>))<span class="question-mark">?</span>;
+                    .map_err(|err| <span class="macro">format!</span>(<span class="string">"Could not copy memory: {err}"</span>))<span class="question-mark">?</span>;
 
-                <span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-                </span><span class="macro">trace!</span>(<span class="string">&quot;memory copy finished (size={})&quot;</span>, len);
+                <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+                </span><span class="macro">trace!</span>(<span class="string">"memory copy finished (size={})"</span>, len);
             }
         }
 
@@ -700,16 +700,16 @@
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">if </span><span class="self">self</span>.len != <span class="number">0 </span>{
             <span class="kw">let </span>r = <span class="kw">unsafe </span>{ libc::munmap(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>libc::c_void, <span class="self">self</span>.len) };
-            <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">&quot;munmap failed: {}&quot;</span>, io::Error::last_os_error());
+            <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">"munmap failed: {}"</span>, io::Error::last_os_error());
         }
     }
 }
 
 <span class="doccomment">/// Copy a range of a file to another file.
-</span><span class="comment">// We could also use libc::copy_file_range on some systems, but it&#39;s
+</span><span class="comment">// We could also use libc::copy_file_range on some systems, but it's
 // hard to do this because it is not available on many libc implementations.
 // (not on Mac OS, musl, ...)
-</span><span class="attr">#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
+</span><span class="attr">#[cfg(target_family = <span class="string">"unix"</span>)]
 </span><span class="kw">fn </span>copy_file_range(
     source: <span class="kw-2">&amp;mut </span>std::fs::File,
     source_offset: u64,
@@ -722,12 +722,12 @@
     <span class="kw">let </span>source_original_pos = source.stream_position()<span class="question-mark">?</span>;
     source.seek(SeekFrom::Start(source_offset))<span class="question-mark">?</span>;
 
-    <span class="comment">// TODO: don&#39;t cast with as
+    <span class="comment">// TODO: don't cast with as
 
     </span><span class="kw">let </span>out_original_pos = out.stream_position()<span class="question-mark">?</span>;
     out.seek(SeekFrom::Start(out_offset))<span class="question-mark">?</span>;
 
-    <span class="comment">// TODO: don&#39;t do this horrible &quot;triple buffering&quot; below&quot;.
+    <span class="comment">// TODO: don't do this horrible "triple buffering" below".
     // let mut reader = std::io::BufReader::new(source);
 
     // TODO: larger buffer?
@@ -765,22 +765,22 @@
     //     assert_eq!(round_up_to_page_size(4097, 4096), 8192);
     // }
 
-    </span><span class="attr">#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
+    </span><span class="attr">#[cfg(target_family = <span class="string">"unix"</span>)]
     #[test]
     </span><span class="kw">fn </span>test_copy_file_range() -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
-        <span class="comment">// I know tempfile:: exists, but this doesn&#39;t bring in an extra
+        <span class="comment">// I know tempfile:: exists, but this doesn't bring in an extra
         // dependency.
 
         </span><span class="kw">use </span>std::{fs::OpenOptions, io::Seek};
 
-        <span class="kw">let </span>dir = std::env::temp_dir().join(<span class="string">&quot;wasmer/copy_file_range&quot;</span>);
+        <span class="kw">let </span>dir = std::env::temp_dir().join(<span class="string">"wasmer/copy_file_range"</span>);
         <span class="kw">if </span>dir.is_dir() {
             std::fs::remove_dir_all(<span class="kw-2">&amp;</span>dir).unwrap()
         }
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>dir).unwrap();
 
-        <span class="kw">let </span>pa = dir.join(<span class="string">&quot;a&quot;</span>);
-        <span class="kw">let </span>pb = dir.join(<span class="string">&quot;b&quot;</span>);
+        <span class="kw">let </span>pa = dir.join(<span class="string">"a"</span>);
+        <span class="kw">let </span>pb = dir.join(<span class="string">"b"</span>);
 
         <span class="kw">let </span>data: Vec&lt;u8&gt; = (<span class="number">0</span>..<span class="number">100</span>).collect();
         <span class="kw">let </span><span class="kw-2">mut </span>a = OpenOptions::new()

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/concrete/log_file.rs`."><title>log_file.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_journal/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/concrete/log_file.rs`."><title>log_file.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -510,10 +510,82 @@
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Buf;
-<span class="kw">use </span>rkyv::ser::{
-    serializers::{AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer},
-    Serializer,
+<span class="kw">use </span>rkyv::{
+    api::high::HighSerializer,
+    rancor::Strategy,
+    ser::{
+        allocator::{Arena, ArenaHandle},
+        sharing::Share,
+        writer::IoWriter,
+        Positional, Serializer, Writer,
+    },
 };
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::{
@@ -543,10 +615,49 @@
     rx: LogFileJournalRx,
 }
 
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>TxState {
-    file: File,
-    serializer: CompositeSerializer&lt;WriteSerializer&lt;File&gt;, AllocScratch, SharedSerializeMap&gt;,
+<span class="kw">struct </span>TxState {
+    <span class="doccomment">/// The original handle to the file
+    </span>underlying_file: File,
+
+    <span class="doccomment">/// A modified handle to the original underlying file
+    </span>file: File,
+
+    <span class="doccomment">/// The arena necessary for serialization
+    </span>arena: Arena,
+
+    <span class="doccomment">/// The latest position in the file the serializator got to
+    </span>pos: usize,
+}
+
+<span class="kw">impl </span>TxState {
+    <span class="kw">fn </span>get_serializer(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Serializer&lt;IoWriter&lt;<span class="kw-2">&amp;</span>File&gt;, ArenaHandle&lt;<span class="lifetime">'_</span>&gt;, Share&gt; {
+        <span class="self">self</span>.get_serializer_with_pos(<span class="self">self</span>.pos)
+    }
+
+    <span class="kw">fn </span>get_serializer_with_pos(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        pos: usize,
+    ) -&gt; Serializer&lt;IoWriter&lt;<span class="kw-2">&amp;</span>File&gt;, ArenaHandle&lt;<span class="lifetime">'_</span>&gt;, Share&gt; {
+        Serializer::new(
+            IoWriter::with_pos(<span class="kw-2">&amp;</span><span class="self">self</span>.file, pos),
+            <span class="self">self</span>.arena.acquire(),
+            Share::new(),
+        )
+    }
+
+    <span class="kw">fn </span>to_high&lt;<span class="lifetime">'a</span>&gt;(
+        serializer: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Serializer&lt;IoWriter&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>File&gt;, ArenaHandle&lt;<span class="lifetime">'a</span>&gt;, Share&gt;,
+    ) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>HighSerializer&lt;IoWriter&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>File&gt;, ArenaHandle&lt;<span class="lifetime">'a</span>&gt;, rkyv::rancor::Error&gt; {
+        Strategy::wrap(serializer)
+    }
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>TxState {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"TxState"</span>)
+            .field(<span class="string">"file"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.underlying_file)
+            .finish()
+    }
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -575,7 +686,7 @@
 <span class="kw">impl </span>LogFileJournalTx {
     <span class="kw">pub fn </span>as_rx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;LogFileJournalRx&gt; {
         <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
-        <span class="kw">let </span>file = state.file.try_clone()<span class="question-mark">?</span>;
+        <span class="kw">let </span>file = state.underlying_file.try_clone()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>store = OffloadBackingStore::from_file(<span class="kw-2">&amp;</span>file);
         <span class="kw">let </span>buffer = store.owned_buffer();
@@ -587,7 +698,7 @@
             <span class="kw">let </span>magic = u64::from_be_bytes(buffer_ptr[<span class="number">0</span>..<span class="number">8</span>].try_into().unwrap());
             <span class="kw">if </span>magic != JOURNAL_MAGIC_NUMBER {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                    <span class="string">&quot;invalid magic number of journal ({} vs {})&quot;</span>,
+                    <span class="string">"invalid magic number of journal ({} vs {})"</span>,
                     magic,
                     JOURNAL_MAGIC_NUMBER
                 ));
@@ -595,7 +706,7 @@
             buffer_ptr.advance(<span class="number">8</span>);
             buffer_pos += <span class="number">8</span>;
         } <span class="kw">else </span>{
-            <span class="macro">tracing::trace!</span>(<span class="string">&quot;journal has no magic (could be empty?)&quot;</span>);
+            <span class="macro">tracing::trace!</span>(<span class="string">"journal has no magic (could be empty?)"</span>);
         }
 
         <span class="prelude-val">Ok</span>(LogFileJournalRx {
@@ -613,6 +724,7 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create(<span class="bool-val">true</span>)
+            .truncate(<span class="bool-val">false</span>)
             .open(path)<span class="question-mark">?</span>;
         <span class="self">Self</span>::from_file(file)
     }
@@ -635,24 +747,35 @@
         <span class="comment">// Move to the end of the file and write the
         // magic if one is needed
         </span><span class="kw">let </span>underlying_file = file.try_clone()<span class="question-mark">?</span>;
+        <span class="kw">let </span>arena = Arena::new();
+
         <span class="kw">let </span>end_pos = file.seek(SeekFrom::End(<span class="number">0</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>serializer = WriteSerializer::with_pos(file, end_pos <span class="kw">as </span>usize);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>tx = TxState {
+            underlying_file,
+            arena,
+            file,
+            pos: end_pos <span class="kw">as </span>usize,
+        };
+
+        <span class="kw">let </span><span class="kw-2">mut </span>serializer = tx.get_serializer();
+        <span class="kw">let </span>serializer = TxState::to_high(<span class="kw-2">&amp;mut </span>serializer);
+
         <span class="kw">if </span>serializer.pos() == <span class="number">0 </span>{
             <span class="kw">let </span>magic = JOURNAL_MAGIC_NUMBER;
             <span class="kw">let </span>magic = magic.to_be_bytes();
             serializer.write(<span class="kw-2">&amp;</span>magic)<span class="question-mark">?</span>;
         }
 
+        <span class="kw">let </span>last_pos = serializer.pos();
+        <span class="kw">let _ </span>= serializer;
+
+        tx.arena.shrink();
+        tx.pos = last_pos;
+
         <span class="comment">// Create the tx
         </span><span class="kw">let </span>tx = LogFileJournalTx {
-            state: Arc::new(Mutex::new(TxState {
-                file: underlying_file,
-                serializer: CompositeSerializer::new(
-                    serializer,
-                    AllocScratch::default(),
-                    SharedSerializeMap::default(),
-                ),
-            })),
+            state: Arc::new(Mutex::new(tx)),
         };
 
         <span class="comment">// First we create the readable journal
@@ -682,34 +805,43 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>LogFileJournalTx {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;journal event: {:?}&quot;</span>, entry);
+    <span class="kw">fn </span>write&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">'a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
+        <span class="macro">tracing::debug!</span>(<span class="string">"journal event: {:?}"</span>, entry);
 
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
 
         <span class="comment">// Write the header (with a record size of zero)
         </span><span class="kw">let </span>record_type: JournalEntryRecordType = entry.archive_record_type();
-        <span class="kw">let </span>offset_header = state.serializer.pos() <span class="kw">as </span>u64;
-        state.serializer.write(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">8</span>])<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>serializer = state.get_serializer();
+        <span class="kw">let </span>serializer = TxState::to_high(<span class="kw-2">&amp;mut </span>serializer);
+        <span class="kw">let </span>offset_header = serializer.pos() <span class="kw">as </span>u64;
+        <span class="macro">tracing::trace!</span>(<span class="string">"serpos is {offset_header}"</span>);
+        serializer.write(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">8</span>])<span class="question-mark">?</span>;
 
         <span class="comment">// Now serialize the actual data to the log
-        </span><span class="kw">let </span>offset_start = state.serializer.pos() <span class="kw">as </span>u64;
-        entry.serialize_archive(<span class="kw-2">&amp;mut </span>state.serializer)<span class="question-mark">?</span>;
-        <span class="kw">let </span>offset_end = state.serializer.pos() <span class="kw">as </span>u64;
+        </span><span class="kw">let </span>offset_start = serializer.pos() <span class="kw">as </span>u64;
+        entry.serialize_archive(serializer)<span class="question-mark">?</span>;
+        <span class="kw">let </span>offset_end = serializer.pos() <span class="kw">as </span>u64;
         <span class="kw">let </span>record_size = offset_end - offset_start;
         <span class="macro">tracing::trace!</span>(
-            <span class="string">&quot;delimiter header={offset_header},start={offset_start},record_size={record_size}&quot;
+            <span class="string">"delimiter header={offset_header},start={offset_start},record_size={record_size}"
         </span>);
 
+        <span class="kw">let </span>last_pos = serializer.pos();
+        <span class="kw">let _ </span>= serializer;
+
         <span class="comment">// Write the record and then move back to the end again
-        </span>state.file.seek(SeekFrom::Start(offset_header))<span class="question-mark">?</span>;
+        </span>state.underlying_file.seek(SeekFrom::Start(offset_header))<span class="question-mark">?</span>;
         <span class="kw">let </span>header_bytes = {
             <span class="kw">let </span>a = (record_type <span class="kw">as </span>u16).to_be_bytes();
             <span class="kw">let </span>b = <span class="kw-2">&amp;</span>record_size.to_be_bytes()[<span class="number">2</span>..<span class="number">8</span>];
             [a[<span class="number">0</span>], a[<span class="number">1</span>], b[<span class="number">0</span>], b[<span class="number">1</span>], b[<span class="number">2</span>], b[<span class="number">3</span>], b[<span class="number">4</span>], b[<span class="number">5</span>]]
         };
-        state.file.write_all(<span class="kw-2">&amp;</span>header_bytes)<span class="question-mark">?</span>;
-        state.file.seek(SeekFrom::Start(offset_end))<span class="question-mark">?</span>;
+        state.underlying_file.write_all(<span class="kw-2">&amp;</span>header_bytes)<span class="question-mark">?</span>;
+        state.underlying_file.seek(SeekFrom::Start(offset_end))<span class="question-mark">?</span>;
+
+        state.arena.shrink();
+        state.pos = last_pos;
 
         <span class="comment">// Now write the actual data and update the offsets
         </span><span class="prelude-val">Ok</span>(LogWriteResult {
@@ -720,7 +852,7 @@
 
     <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-        state.file.flush()<span class="question-mark">?</span>;
+        state.underlying_file.flush()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -728,7 +860,7 @@
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>LogFileJournalRx {
     <span class="doccomment">/// UNSAFE: This method uses unsafe operations to remove the need to zero
     /// the buffer before its read the log entries into it
-    </span><span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    </span><span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">'_</span>&gt;&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>buffer_pos = <span class="self">self</span>.buffer_pos.lock().unwrap();
 
         <span class="comment">// Get a memory reference to the data on the disk at
@@ -748,7 +880,7 @@
                 <span class="comment">// If the next header is the magic itself then skip it.
                 // You may be wondering how a magic could appear later
                 // in the journal itself. This can happen if someone
-                // concat&#39;s multiple journals together to make a combined
+                // concat's multiple journals together to make a combined
                 // journal
                 </span><span class="kw">if </span>b[<span class="number">0</span>..<span class="number">8</span>] == JOURNAL_MAGIC_NUMBER_BYTES[<span class="number">0</span>..<span class="number">8</span>] {
                     buffer_ptr.advance(<span class="number">8</span>);
@@ -767,7 +899,7 @@
                     <span class="prelude-val">Ok</span>(t) =&gt; t,
                     <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                         <span class="macro">tracing::debug!</span>(
-                            <span class="string">&quot;unknown journal entry type ({}) - the journal stops here&quot;</span>,
+                            <span class="string">"unknown journal entry type ({}) - the journal stops here"</span>,
                             header.record_type
                         );
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
@@ -810,7 +942,7 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>LogFileJournal {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">'a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
     }
 
@@ -828,7 +960,7 @@
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>LogFileJournal {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">'_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.rx.read()
     }
 
@@ -977,12 +1109,12 @@
         <span class="kw">let </span>event5 = journal.read().unwrap().map(LogReadResult::into_inner);
         <span class="kw">let </span>event6 = journal.read().unwrap().map(LogReadResult::into_inner);
 
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;event1 {:?}&quot;</span>, event1);
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;event2 {:?}&quot;</span>, event2);
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;event3 {:?}&quot;</span>, event3);
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;event4 {:?}&quot;</span>, event4);
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;event5 {:?}&quot;</span>, event5);
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;event6 {:?}&quot;</span>, event6);
+        <span class="macro">tracing::info!</span>(<span class="string">"event1 {:?}"</span>, event1);
+        <span class="macro">tracing::info!</span>(<span class="string">"event2 {:?}"</span>, event2);
+        <span class="macro">tracing::info!</span>(<span class="string">"event3 {:?}"</span>, event3);
+        <span class="macro">tracing::info!</span>(<span class="string">"event4 {:?}"</span>, event4);
+        <span class="macro">tracing::info!</span>(<span class="string">"event5 {:?}"</span>, event5);
+        <span class="macro">tracing::info!</span>(<span class="string">"event6 {:?}"</span>, event6);
 
         <span class="macro">assert_eq!</span>(event1, <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 { fd1: <span class="number">1</span>, fd2: <span class="number">2 </span>}));
         <span class="macro">assert_eq!</span>(

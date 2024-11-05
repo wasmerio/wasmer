@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["WasmValidationError"],"fn":["validate_export_fns","validate_export_globals","validate_imports","validate_wasm_and_report_errors","wasmparser_type_into_wasm_type"]};

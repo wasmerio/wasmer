@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/builder.rs`."><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/builder.rs`."><title>builder.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -275,10 +275,10 @@
 
         <span class="kw">if </span><span class="self">self</span>.default_root_dirs {
             <span class="kw">let </span>default_dirs = {
-                <span class="kw">let </span><span class="kw-2">mut </span>dirs = <span class="macro">vec!</span>[<span class="string">&quot;/.app&quot;</span>, <span class="string">&quot;/.private&quot;</span>, <span class="string">&quot;/bin&quot;</span>, <span class="string">&quot;/dev&quot;</span>, <span class="string">&quot;/etc&quot;</span>];
+                <span class="kw">let </span><span class="kw-2">mut </span>dirs = <span class="macro">vec!</span>[<span class="string">"/.app"</span>, <span class="string">"/.private"</span>, <span class="string">"/bin"</span>, <span class="string">"/dev"</span>, <span class="string">"/etc"</span>];
 
                 <span class="kw">if </span><span class="self">self</span>.create_tmp {
-                    dirs.push(<span class="string">&quot;/tmp&quot;</span>);
+                    dirs.push(<span class="string">"/tmp"</span>);
                 }
 
                 dirs
@@ -286,42 +286,42 @@
 
             <span class="kw">for </span>root_dir <span class="kw">in </span><span class="kw-2">&amp;</span>default_dirs {
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tmp.create_dir(Path::new(root_dir)) {
-                    <span class="macro">debug!</span>(<span class="string">&quot;failed to create dir [{}] - {}&quot;</span>, root_dir, err);
+                    <span class="macro">debug!</span>(<span class="string">"failed to create dir [{}] - {}"</span>, root_dir, err);
                 }
             }
         }
         <span class="kw">if </span><span class="self">self</span>.add_wasmer_command {
             <span class="kw">let _ </span>= tmp
                 .new_open_options_ext()
-                .insert_device_file(PathBuf::from(<span class="string">&quot;/bin/wasmer&quot;</span>), Box::&lt;NullFile&gt;::default());
+                .insert_device_file(PathBuf::from(<span class="string">"/bin/wasmer"</span>), Box::&lt;NullFile&gt;::default());
         }
         <span class="kw">if </span><span class="self">self</span>.default_dev_files {
             <span class="kw">let _ </span>= tmp
                 .new_open_options_ext()
-                .insert_device_file(PathBuf::from(<span class="string">&quot;/dev/null&quot;</span>), Box::&lt;NullFile&gt;::default());
+                .insert_device_file(PathBuf::from(<span class="string">"/dev/null"</span>), Box::&lt;NullFile&gt;::default());
             <span class="kw">let _ </span>= tmp
                 .new_open_options_ext()
-                .insert_device_file(PathBuf::from(<span class="string">&quot;/dev/zero&quot;</span>), Box::&lt;ZeroFile&gt;::default());
+                .insert_device_file(PathBuf::from(<span class="string">"/dev/zero"</span>), Box::&lt;ZeroFile&gt;::default());
             <span class="kw">let _ </span>= tmp
                 .new_open_options_ext()
-                .insert_device_file(PathBuf::from(<span class="string">&quot;/dev/urandom&quot;</span>), Box::&lt;RandomFile&gt;::default());
+                .insert_device_file(PathBuf::from(<span class="string">"/dev/urandom"</span>), Box::&lt;RandomFile&gt;::default());
             <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
-                PathBuf::from(<span class="string">&quot;/dev/stdin&quot;</span>),
+                PathBuf::from(<span class="string">"/dev/stdin"</span>),
                 <span class="self">self</span>.stdin
                     .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDIN))),
             );
             <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
-                PathBuf::from(<span class="string">&quot;/dev/stdout&quot;</span>),
+                PathBuf::from(<span class="string">"/dev/stdout"</span>),
                 <span class="self">self</span>.stdout
                     .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDOUT))),
             );
             <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
-                PathBuf::from(<span class="string">&quot;/dev/stderr&quot;</span>),
+                PathBuf::from(<span class="string">"/dev/stderr"</span>),
                 <span class="self">self</span>.stderr
                     .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDERR))),
             );
             <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
-                PathBuf::from(<span class="string">&quot;/dev/tty&quot;</span>),
+                PathBuf::from(<span class="string">"/dev/tty"</span>),
                 <span class="self">self</span>.tty.unwrap_or_else(|| Box::&lt;NullFile&gt;::default()),
             );
         }
@@ -341,9 +341,9 @@
             .new_open_options()
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/dev/null&quot;</span>)
+            .open(<span class="string">"/dev/null"</span>)
             .unwrap();
-        <span class="macro">assert_eq!</span>(dev_null.write(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
+        <span class="macro">assert_eq!</span>(dev_null.write(<span class="string">b"hello"</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
         dev_null.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
         <span class="macro">assert!</span>(buf.is_empty());
@@ -353,9 +353,9 @@
             .new_open_options()
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/dev/zero&quot;</span>)
+            .open(<span class="string">"/dev/zero"</span>)
             .unwrap();
-        <span class="macro">assert_eq!</span>(dev_zero.write(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
+        <span class="macro">assert_eq!</span>(dev_zero.write(<span class="string">b"hello"</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">10</span>];
         dev_zero.read_exact(<span class="kw-2">&amp;mut </span>buf[..]).<span class="kw">await</span>.unwrap();
         <span class="macro">assert_eq!</span>(buf, <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">10</span>]);
@@ -365,9 +365,9 @@
             .new_open_options()
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/dev/tty&quot;</span>)
+            .open(<span class="string">"/dev/tty"</span>)
             .unwrap();
-        <span class="macro">assert_eq!</span>(dev_tty.write(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
+        <span class="macro">assert_eq!</span>(dev_tty.write(<span class="string">b"hello"</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
         dev_tty.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
         <span class="macro">assert!</span>(buf.is_empty());
@@ -376,28 +376,28 @@
         root_fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/bin/wasmer&quot;</span>)
+            .open(<span class="string">"/bin/wasmer"</span>)
             .unwrap();
 
         <span class="kw">let </span>dev_stdin = root_fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/dev/stdin&quot;</span>)
+            .open(<span class="string">"/dev/stdin"</span>)
             .unwrap();
         <span class="macro">assert_eq!</span>(dev_stdin.get_special_fd().unwrap(), <span class="number">0</span>);
         <span class="kw">let </span>dev_stdout = root_fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/dev/stdout&quot;</span>)
+            .open(<span class="string">"/dev/stdout"</span>)
             .unwrap();
         <span class="macro">assert_eq!</span>(dev_stdout.get_special_fd().unwrap(), <span class="number">1</span>);
         <span class="kw">let </span>dev_stderr = root_fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/dev/stderr&quot;</span>)
+            .open(<span class="string">"/dev/stderr"</span>)
             .unwrap();
         <span class="macro">assert_eq!</span>(dev_stderr.get_special_fd().unwrap(), <span class="number">2</span>);
     }

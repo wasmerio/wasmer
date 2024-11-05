@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/task_manager/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/task_manager/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -462,7 +462,7 @@
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
 </span><span class="kw">pub mod </span>tokio;
 
 <span class="kw">use </span>std::ops::Deref;
@@ -483,21 +483,21 @@
 <span class="kw">pub use </span>virtual_mio::waker::<span class="kw-2">*</span>;
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub enum </span>SpawnMemoryType&lt;<span class="lifetime">'a</span>&gt; {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
     <span class="comment">// TODO: is there a way to get rid of the memory reference
-    </span>ShareMemory(Memory, StoreRef&lt;<span class="lifetime">&#39;a</span>&gt;),
+    </span>ShareMemory(Memory, StoreRef&lt;<span class="lifetime">'a</span>&gt;),
     <span class="comment">// TODO: is there a way to get rid of the memory reference
     // Note: The message sender is triggered once the memory
     // has been copied, this makes sure its not modified until
     // its been properly copied
-    </span>CopyMemory(Memory, StoreRef&lt;<span class="lifetime">&#39;a</span>&gt;),
+    </span>CopyMemory(Memory, StoreRef&lt;<span class="lifetime">'a</span>&gt;),
 }
 
-<span class="kw">pub type </span>WasmResumeTask = <span class="kw">dyn </span>FnOnce(WasiFunctionEnv, Store, Bytes) + Send + <span class="lifetime">&#39;static</span>;
+<span class="kw">pub type </span>WasmResumeTask = <span class="kw">dyn </span>FnOnce(WasiFunctionEnv, Store, Bytes) + Send + <span class="lifetime">'static</span>;
 
-<span class="kw">pub type </span>WasmResumeTrigger = <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt;
+<span class="kw">pub type </span>WasmResumeTrigger = <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;&gt;
     + Send
     + Sync;
 
@@ -512,15 +512,15 @@
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
     </span><span class="kw">pub </span>trigger_result: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;&gt;,
     <span class="doccomment">/// The instance will be recycled back to this function when the WASM run has finished
-    </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    </span><span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span><span class="kw">pub </span>recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
 }
 
 <span class="doccomment">/// Callback that will be invoked
-</span><span class="kw">pub type </span>TaskWasmRun = <span class="kw">dyn </span>FnOnce(TaskWasmRunProperties) + Send + <span class="lifetime">&#39;static</span>;
+</span><span class="kw">pub type </span>TaskWasmRun = <span class="kw">dyn </span>FnOnce(TaskWasmRunProperties) + Send + <span class="lifetime">'static</span>;
 
 <span class="doccomment">/// Callback that will be invoked
-</span><span class="kw">pub type </span>TaskExecModule = <span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">&#39;static</span>;
+</span><span class="kw">pub type </span>TaskExecModule = <span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">'static</span>;
 
 <span class="doccomment">/// The properties passed to the task
 </span><span class="attr">#[derive(Debug)]
@@ -531,21 +531,21 @@
 }
 
 <span class="doccomment">/// Callback that will be invoked
-</span><span class="kw">pub type </span>TaskWasmRecycle = <span class="kw">dyn </span>FnOnce(TaskWasmRecycleProperties) + Send + <span class="lifetime">&#39;static</span>;
+</span><span class="kw">pub type </span>TaskWasmRecycle = <span class="kw">dyn </span>FnOnce(TaskWasmRecycleProperties) + Send + <span class="lifetime">'static</span>;
 
 <span class="doccomment">/// Represents a WASM task that will be executed on a dedicated thread
-</span><span class="kw">pub struct </span>TaskWasm&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+</span><span class="kw">pub struct </span>TaskWasm&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
     <span class="kw">pub </span>run: Box&lt;TaskWasmRun&gt;,
     <span class="kw">pub </span>recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
     <span class="kw">pub </span>env: WasiEnv,
     <span class="kw">pub </span>module: Module,
-    <span class="kw">pub </span>globals: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>StoreSnapshot&gt;,
-    <span class="kw">pub </span>spawn_type: SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>globals: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'b </span>StoreSnapshot&gt;,
+    <span class="kw">pub </span>spawn_type: SpawnMemoryType&lt;<span class="lifetime">'a</span>&gt;,
     <span class="kw">pub </span>trigger: <span class="prelude-ty">Option</span>&lt;Box&lt;WasmResumeTrigger&gt;&gt;,
     <span class="kw">pub </span>update_layout: bool,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; TaskWasm&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; TaskWasm&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
     <span class="kw">pub fn </span>new(run: Box&lt;TaskWasmRun&gt;, env: WasiEnv, module: Module, update_layout: bool) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shared_memory = module.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
         <span class="self">Self </span>{
@@ -563,19 +563,19 @@
         }
     }
 
-    <span class="kw">pub fn </span>with_memory(<span class="kw-2">mut </span><span class="self">self</span>, spawn_type: SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_memory(<span class="kw-2">mut </span><span class="self">self</span>, spawn_type: SpawnMemoryType&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.spawn_type = spawn_type;
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_optional_memory(<span class="kw-2">mut </span><span class="self">self</span>, spawn_type: <span class="prelude-ty">Option</span>&lt;SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt;&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_optional_memory(<span class="kw-2">mut </span><span class="self">self</span>, spawn_type: <span class="prelude-ty">Option</span>&lt;SpawnMemoryType&lt;<span class="lifetime">'a</span>&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">if let </span><span class="prelude-val">Some</span>(spawn_type) = spawn_type {
             <span class="self">self</span>.spawn_type = spawn_type;
         }
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_globals(<span class="kw-2">mut </span><span class="self">self</span>, snapshot: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>StoreSnapshot) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_globals(<span class="kw-2">mut </span><span class="self">self</span>, snapshot: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>StoreSnapshot) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.globals.replace(snapshot);
         <span class="self">self
     </span>}
@@ -607,7 +607,7 @@
 ///
 /// [#4158]: https://github.com/wasmerio/wasmer/issues/4158
 </span><span class="attr">#[allow(unused_variables)]
-</span><span class="kw">pub trait </span>VirtualTaskManager: std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+</span><span class="kw">pub trait </span>VirtualTaskManager: std::fmt::Debug + Send + Sync + <span class="lifetime">'static </span>{
     <span class="doccomment">/// Build a new Webassembly memory.
     ///
     /// May return `None` if the memory can just be auto-constructed.
@@ -628,7 +628,7 @@
                     <span class="macro">tracing::error!</span>(
                         error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
                         memory_type=<span class="question-mark">?</span>ty,
-                        <span class="string">&quot;could not create memory&quot;</span>,
+                        <span class="string">"could not create memory"</span>,
                     );
                     WasiThreadError::MemoryCreateFailed(err)
                 })<span class="question-mark">?</span>;
@@ -638,7 +638,7 @@
                 <span class="kw">let </span>mem = mem.share_in_store(<span class="kw-2">&amp;</span>old_store, store).map_err(|err| {
                     <span class="macro">tracing::warn!</span>(
                         error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                        <span class="string">&quot;could not clone memory&quot;</span>,
+                        <span class="string">"could not clone memory"</span>,
                     );
                     WasiThreadError::MemoryCreateFailed(err)
                 })<span class="question-mark">?</span>;
@@ -648,7 +648,7 @@
                 <span class="kw">let </span>mem = mem.copy_to_store(<span class="kw-2">&amp;</span>old_store, store).map_err(|err| {
                     <span class="macro">tracing::warn!</span>(
                         error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                        <span class="string">&quot;could not copy memory&quot;</span>,
+                        <span class="string">"could not copy memory"</span>,
                     );
                     WasiThreadError::MemoryCreateFailed(err)
                 })<span class="question-mark">?</span>;
@@ -667,17 +667,17 @@
     </span><span class="kw">fn </span>sleep_now(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         time: Duration,
-    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;;
+    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;;
 
     <span class="doccomment">/// Run an asynchronous operation on the thread pool.
     ///
     /// This task must not block execution or it could cause deadlocks.
     ///
-    /// See the &quot;Thread Safety&quot; documentation on [`VirtualTaskManager`] for
-    /// limitations on what a `task` can and can&#39;t contain.
+    /// See the "Thread Safety" documentation on [`VirtualTaskManager`] for
+    /// limitations on what a `task` can and can't contain.
     </span><span class="kw">fn </span>task_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt; + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt;;
 
     <span class="doccomment">/// Run a blocking WebAssembly operation on the thread pool.
@@ -692,7 +692,7 @@
     /// its scope.
     </span><span class="kw">fn </span>task_dedicated(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt;;
 
     <span class="doccomment">/// Returns the amount of parallelism that is possible on this platform.
@@ -715,7 +715,7 @@
     </span><span class="kw">fn </span>spawn_with_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         module: Module,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         <span class="comment">// Note: Ideally, this function and task_wasm() would be superseded by
         // a more general mechanism for transferring non-thread safe values
@@ -726,7 +726,7 @@
 
 <span class="kw">impl</span>&lt;D, T&gt; VirtualTaskManager <span class="kw">for </span>D
 <span class="kw">where
-    </span>D: Deref&lt;Target = T&gt; + std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
+    </span>D: Deref&lt;Target = T&gt; + std::fmt::Debug + Send + Sync + <span class="lifetime">'static</span>,
     T: VirtualTaskManager + <span class="question-mark">?</span>Sized,
 {
     <span class="kw">fn </span>build_memory(
@@ -740,13 +740,13 @@
     <span class="kw">fn </span>sleep_now(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         time: Duration,
-    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).sleep_now(time)
     }
 
     <span class="kw">fn </span>task_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt; + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).task_shared(task)
     }
@@ -757,7 +757,7 @@
 
     <span class="kw">fn </span>task_dedicated(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).task_dedicated(task)
     }
@@ -769,7 +769,7 @@
     <span class="kw">fn </span>spawn_with_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         module: Module,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).spawn_with_module(module, task)
     }
@@ -794,13 +794,13 @@
         }
         <span class="kw">impl </span>Future <span class="kw">for </span>AsyncifyPollerOwned {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;;
-            <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+            <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">let </span>work = <span class="self">self</span>.trigger.as_mut();
                 Poll::Ready(<span class="kw">if let </span>Poll::Ready(res) = work.poll(cx) {
                     <span class="prelude-val">Ok</span>(res)
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(forced_exit) = <span class="self">self</span>.thread.try_join() {
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(forced_exit.unwrap_or_else(|err| {
-                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;exit runtime error - {}&quot;</span>, err);
+                        <span class="macro">tracing::debug!</span>(<span class="string">"exit runtime error - {}"</span>, err);
                         Errno::Child.into()
                     })));
                 } <span class="kw">else </span>{
@@ -822,7 +822,7 @@
                 Box::new(<span class="kw">move </span>|props| {
                     <span class="kw">let </span>result = props
                         .trigger_result
-                        .expect(<span class="string">&quot;If there is no result then its likely the trigger did not run&quot;</span>);
+                        .expect(<span class="string">"If there is no result then its likely the trigger did not run"</span>);
                     <span class="kw">let </span>result = <span class="kw">match </span>result {
                         <span class="prelude-val">Ok</span>(r) =&gt; r,
                         <span class="prelude-val">Err</span>(exit_code) =&gt; {
@@ -853,7 +853,7 @@
                         }
                     };
 
-                    <span class="macro">tracing::trace!</span>(<span class="string">&quot;deep sleep woken - res.len={}&quot;</span>, res.len());
+                    <span class="macro">tracing::trace!</span>(<span class="string">"deep sleep woken - res.len={}"</span>, res.len());
                     <span class="prelude-val">Ok</span>(res)
                 })
             })),
@@ -867,18 +867,18 @@
     /// threads while blocking the current execution until it finishs
     </span><span class="kw">fn </span>spawn_and_block_on&lt;A&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">&#39;static</span>,
+        task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">'static</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;A, anyhow::Error&gt;
     <span class="kw">where
-        </span>A: Send + <span class="lifetime">&#39;static</span>;
+        </span>A: Send + <span class="lifetime">'static</span>;
 
     <span class="kw">fn </span>spawn_await&lt;O, F&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         f: F,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;O, Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt;&gt; + Unpin + Send + <span class="lifetime">&#39;static</span>&gt;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;O, Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt;&gt; + Unpin + Send + <span class="lifetime">'static</span>&gt;
     <span class="kw">where
-        </span>O: Send + <span class="lifetime">&#39;static</span>,
-        F: FnOnce() -&gt; O + Send + <span class="lifetime">&#39;static</span>;
+        </span>O: Send + <span class="lifetime">'static</span>,
+        F: FnOnce() -&gt; O + Send + <span class="lifetime">'static</span>;
 }
 
 <span class="kw">impl</span>&lt;D, T&gt; VirtualTaskManagerExt <span class="kw">for </span>D
@@ -890,10 +890,10 @@
     /// threads while blocking the current execution until it finishs
     </span><span class="kw">fn </span>spawn_and_block_on&lt;A&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">&#39;static</span>,
+        task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">'static</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;A, anyhow::Error&gt;
     <span class="kw">where
-        </span>A: Send + <span class="lifetime">&#39;static</span>,
+        </span>A: Send + <span class="lifetime">'static</span>,
     {
         <span class="kw">let </span>(tx, rx) = ::tokio::sync::oneshot::channel();
         <span class="kw">let </span>work = Box::pin(<span class="kw">async move </span>{
@@ -902,16 +902,16 @@
         });
         <span class="self">self</span>.task_shared(Box::new(<span class="kw">move </span>|| work)).unwrap();
         rx.blocking_recv()
-            .map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;task execution failed - result channel dropped&quot;</span>))
+            .map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">"task execution failed - result channel dropped"</span>))
     }
 
     <span class="kw">fn </span>spawn_await&lt;O, F&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         f: F,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;O, Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt;&gt; + Unpin + Send + <span class="lifetime">&#39;static</span>&gt;
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;O, Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt;&gt; + Unpin + Send + <span class="lifetime">'static</span>&gt;
     <span class="kw">where
-        </span>O: Send + <span class="lifetime">&#39;static</span>,
-        F: FnOnce() -&gt; O + Send + <span class="lifetime">&#39;static</span>,
+        </span>O: Send + <span class="lifetime">'static</span>,
+        F: FnOnce() -&gt; O + Send + <span class="lifetime">'static</span>,
     {
         <span class="kw">let </span>(sender, receiver) = ::tokio::sync::oneshot::channel();
 

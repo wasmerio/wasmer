@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -773,7 +773,7 @@
 <span class="kw">pub mod </span>cow_file;
 <span class="kw">pub mod </span>dual_write_file;
 <span class="kw">pub mod </span>empty_fs;
-<span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"host-fs"</span>)]
 </span><span class="kw">pub mod </span>host_fs;
 <span class="kw">pub mod </span>mem_fs;
 <span class="kw">pub mod </span>null_file;
@@ -789,10 +789,10 @@
 <span class="kw">mod </span>overlay_fs;
 <span class="kw">pub mod </span>pipe;
 <span class="kw">mod </span>static_file;
-<span class="attr">#[cfg(feature = <span class="string">&quot;static-fs&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"static-fs"</span>)]
 </span><span class="kw">pub mod </span>static_fs;
 <span class="kw">mod </span>trace_fs;
-<span class="attr">#[cfg(feature = <span class="string">&quot;webc-fs&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"webc-fs"</span>)]
 </span><span class="kw">mod </span>webc_volume_fs;
 
 <span class="kw">pub mod </span>limiter;
@@ -816,7 +816,7 @@
 <span class="kw">pub use </span>tmp_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>trace_fs::TraceFileSystem;
 <span class="kw">pub use </span>union_fs::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(feature = <span class="string">&quot;webc-fs&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"webc-fs"</span>)]
 </span><span class="kw">pub use </span>webc_volume_fs::WebcVolumeFileSystem;
 <span class="kw">pub use </span>zero_file::<span class="kw-2">*</span>;
 
@@ -832,15 +832,15 @@
 
 <span class="kw">pub use </span>ops::{copy_reference, copy_reference_ext, create_dir_all};
 
-<span class="kw">pub trait </span>FileSystem: fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>+ Upcastable {
+<span class="kw">pub trait </span>FileSystem: fmt::Debug + Send + Sync + <span class="lifetime">'static </span>+ Upcastable {
     <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt;;
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt;;
     <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt;;
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt;;
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt;;
     <span class="doccomment">/// This method gets metadata without following symlinks in the path.
-    /// Currently identical to `metadata` because symlinks aren&#39;t implemented
+    /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     </span><span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt;;
     <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
@@ -851,13 +851,13 @@
         -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
 
-<span class="kw">impl dyn </span>FileSystem + <span class="lifetime">&#39;static </span>{
+<span class="kw">impl dyn </span>FileSystem + <span class="lifetime">'static </span>{
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>downcast_ref&lt;T: <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>T&gt; {
+    </span><span class="kw">pub fn </span>downcast_ref&lt;T: <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>T&gt; {
         <span class="self">self</span>.upcast_any_ref().downcast_ref::&lt;T&gt;()
     }
     <span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>downcast_mut&lt;T: <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span>T&gt; {
+    </span><span class="kw">pub fn </span>downcast_mut&lt;T: <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span>T&gt; {
         <span class="self">self</span>.upcast_any_mut().downcast_mut::&lt;T&gt;()
     }
 }
@@ -865,7 +865,7 @@
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;D, F&gt; FileSystem <span class="kw">for </span>D
 <span class="kw">where
-    </span>D: Deref&lt;Target = F&gt; + std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
+    </span>D: Deref&lt;Target = F&gt; + std::fmt::Debug + Send + Sync + <span class="lifetime">'static</span>,
     F: FileSystem + <span class="question-mark">?</span>Sized,
 {
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
@@ -884,7 +884,7 @@
         (<span class="kw-2">**</span><span class="self">self</span>).remove_dir(path)
     }
 
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
         Box::pin(<span class="kw">async </span>{ (<span class="kw-2">**</span><span class="self">self</span>).rename(from, to).<span class="kw">await </span>})
     }
 
@@ -919,7 +919,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;;
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -984,19 +984,19 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; fmt::Debug <span class="kw">for </span>OpenOptions&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; fmt::Debug <span class="kw">for </span>OpenOptions&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
         <span class="self">self</span>.conf.fmt(f)
     }
 }
 
-<span class="kw">pub struct </span>OpenOptions&lt;<span class="lifetime">&#39;a</span>&gt; {
-    opener: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>FileOpener,
+<span class="kw">pub struct </span>OpenOptions&lt;<span class="lifetime">'a</span>&gt; {
+    opener: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>FileOpener,
     conf: OpenOptionsConfig,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; OpenOptions&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">pub fn </span>new(opener: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>FileOpener) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; OpenOptions&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">pub fn </span>new(opener: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>FileOpener) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             opener,
             conf: OpenOptionsConfig {
@@ -1078,13 +1078,13 @@
     <span class="kw">pub fn </span>open&lt;P: AsRef&lt;Path&gt;&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         path: P,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
         <span class="self">self</span>.opener.open(path.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.conf)
     }
 }
 
 <span class="doccomment">/// This trait relies on your file closing when it goes out of scope via `Drop`
-</span><span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]
+</span><span class="comment">//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 </span><span class="kw">pub trait </span>VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
@@ -1119,7 +1119,7 @@
         <span class="bool-val">true
     </span>}
 
-    <span class="doccomment">/// Used for &quot;special&quot; files such as `stdin`, `stdout` and `stderr`.
+    <span class="doccomment">/// Used for "special" files such as `stdin`, `stdout` and `stderr`.
     /// Always returns the same file descriptor (0, 1 or 2). Returns `None`
     /// on normal files
     </span><span class="kw">fn </span>get_special_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
@@ -1137,37 +1137,37 @@
     /// may optimize this to do a zero copy
     </span><span class="kw">fn </span>copy_reference(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;_</span>, std::io::Result&lt;()&gt;&gt; {
+        <span class="kw-2">mut </span>src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+    ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, std::io::Result&lt;()&gt;&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">let </span>bytes_written = tokio::io::copy(<span class="kw-2">&amp;mut </span>src, <span class="self">self</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">&quot;Copying file into host filesystem&quot;</span>,);
+            <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">"Copying file into host filesystem"</span>,);
             <span class="prelude-val">Ok</span>(())
         })
     }
 
     <span class="doccomment">/// Polls the file for when there is data to be read
-    </span><span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt;;
+    </span><span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt;;
 
     <span class="doccomment">/// Polls the file for when it is available for writing
-    </span><span class="kw">fn </span>poll_write_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt;;
+    </span><span class="kw">fn </span>poll_write_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt;;
 }
 
 <span class="comment">// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
 </span><span class="doccomment">/// Trait needed to get downcasting from `VirtualFile` to work.
 </span><span class="kw">pub trait </span>Upcastable {
-    <span class="kw">fn </span>upcast_any_ref(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>Any;
-    <span class="kw">fn </span>upcast_any_mut(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="kw">dyn </span>Any;
+    <span class="kw">fn </span>upcast_any_ref(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw">dyn </span>Any;
+    <span class="kw">fn </span>upcast_any_mut(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span><span class="kw">dyn </span>Any;
     <span class="kw">fn </span>upcast_any_box(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Any&gt;;
 }
 
-<span class="kw">impl</span>&lt;T: Any + fmt::Debug + <span class="lifetime">&#39;static</span>&gt; Upcastable <span class="kw">for </span>T {
+<span class="kw">impl</span>&lt;T: Any + fmt::Debug + <span class="lifetime">'static</span>&gt; Upcastable <span class="kw">for </span>T {
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>upcast_any_ref(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>Any {
+    </span><span class="kw">fn </span>upcast_any_ref(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw">dyn </span>Any {
         <span class="self">self
     </span>}
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>upcast_any_mut(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="kw">dyn </span>Any {
+    </span><span class="kw">fn </span>upcast_any_mut(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span><span class="kw">dyn </span>Any {
         <span class="self">self
     </span>}
     <span class="attr">#[inline]
@@ -1193,85 +1193,85 @@
 </span><span class="attr">#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>FsError {
     <span class="doccomment">/// The fd given as a base was not a directory so the operation was not possible
-    </span><span class="attr">#[error(<span class="string">&quot;fd not a directory&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"fd not a directory"</span>)]
     </span>BaseNotDirectory,
     <span class="doccomment">/// Expected a file but found not a file
-    </span><span class="attr">#[error(<span class="string">&quot;fd not a file&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"fd not a file"</span>)]
     </span>NotAFile,
     <span class="doccomment">/// The fd given was not usable
-    </span><span class="attr">#[error(<span class="string">&quot;invalid fd&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"invalid fd"</span>)]
     </span>InvalidFd,
     <span class="doccomment">/// File exists
-    </span><span class="attr">#[error(<span class="string">&quot;file exists&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"file exists"</span>)]
     </span>AlreadyExists,
     <span class="doccomment">/// The filesystem has failed to lock a resource.
-    </span><span class="attr">#[error(<span class="string">&quot;lock error&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"lock error"</span>)]
     </span>Lock,
     <span class="doccomment">/// Something failed when doing IO. These errors can generally not be handled.
     /// It may work if tried again.
-    </span><span class="attr">#[error(<span class="string">&quot;io error&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"io error"</span>)]
     </span>IOError,
     <span class="doccomment">/// The address was in use
-    </span><span class="attr">#[error(<span class="string">&quot;address is in use&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"address is in use"</span>)]
     </span>AddressInUse,
     <span class="doccomment">/// The address could not be found
-    </span><span class="attr">#[error(<span class="string">&quot;address could not be found&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"address could not be found"</span>)]
     </span>AddressNotAvailable,
     <span class="doccomment">/// A pipe was closed
-    </span><span class="attr">#[error(<span class="string">&quot;broken pipe (was closed)&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"broken pipe (was closed)"</span>)]
     </span>BrokenPipe,
     <span class="doccomment">/// The connection was aborted
-    </span><span class="attr">#[error(<span class="string">&quot;connection aborted&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"connection aborted"</span>)]
     </span>ConnectionAborted,
     <span class="doccomment">/// The connection request was refused
-    </span><span class="attr">#[error(<span class="string">&quot;connection refused&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"connection refused"</span>)]
     </span>ConnectionRefused,
     <span class="doccomment">/// The connection was reset
-    </span><span class="attr">#[error(<span class="string">&quot;connection reset&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"connection reset"</span>)]
     </span>ConnectionReset,
     <span class="doccomment">/// The operation was interrupted before it could finish
-    </span><span class="attr">#[error(<span class="string">&quot;operation interrupted&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"operation interrupted"</span>)]
     </span>Interrupted,
     <span class="doccomment">/// Invalid internal data, if the argument data is invalid, use `InvalidInput`
-    </span><span class="attr">#[error(<span class="string">&quot;invalid internal data&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"invalid internal data"</span>)]
     </span>InvalidData,
     <span class="doccomment">/// The provided data is invalid
-    </span><span class="attr">#[error(<span class="string">&quot;invalid input&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"invalid input"</span>)]
     </span>InvalidInput,
     <span class="doccomment">/// Could not perform the operation because there was not an open connection
-    </span><span class="attr">#[error(<span class="string">&quot;connection is not open&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"connection is not open"</span>)]
     </span>NotConnected,
     <span class="doccomment">/// The requested file or directory could not be found
-    </span><span class="attr">#[error(<span class="string">&quot;entry not found&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"entry not found"</span>)]
     </span>EntryNotFound,
-    <span class="doccomment">/// The requested device couldn&#39;t be accessed
-    </span><span class="attr">#[error(<span class="string">&quot;can&#39;t access device&quot;</span>)]
+    <span class="doccomment">/// The requested device couldn't be accessed
+    </span><span class="attr">#[error(<span class="string">"can't access device"</span>)]
     </span>NoDevice,
     <span class="doccomment">/// Caller was not allowed to perform this operation
-    </span><span class="attr">#[error(<span class="string">&quot;permission denied&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"permission denied"</span>)]
     </span>PermissionDenied,
     <span class="doccomment">/// The operation did not complete within the given amount of time
-    </span><span class="attr">#[error(<span class="string">&quot;time out&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"time out"</span>)]
     </span>TimedOut,
     <span class="doccomment">/// Found EOF when EOF was not expected
-    </span><span class="attr">#[error(<span class="string">&quot;unexpected eof&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"unexpected eof"</span>)]
     </span>UnexpectedEof,
     <span class="doccomment">/// Operation would block, this error lets the caller know that they can try again
-    </span><span class="attr">#[error(<span class="string">&quot;blocking operation. try again&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"blocking operation. try again"</span>)]
     </span>WouldBlock,
     <span class="doccomment">/// A call to write returned 0
-    </span><span class="attr">#[error(<span class="string">&quot;write returned 0&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"write returned 0"</span>)]
     </span>WriteZero,
     <span class="doccomment">/// Directory not Empty
-    </span><span class="attr">#[error(<span class="string">&quot;directory not empty&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"directory not empty"</span>)]
     </span>DirectoryNotEmpty,
-    <span class="attr">#[error(<span class="string">&quot;storage full&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"storage full"</span>)]
     </span>StorageFull,
-    <span class="doccomment">/// Some other unhandled error. If you see this, it&#39;s probably a bug.
-    </span><span class="attr">#[error(<span class="string">&quot;unknown error found&quot;</span>)]
+    <span class="doccomment">/// Some other unhandled error. If you see this, it's probably a bug.
+    </span><span class="attr">#[error(<span class="string">"unknown error found"</span>)]
     </span>UnknownError,
     <span class="doccomment">/// Operation is not supported on this filesystem
-    </span><span class="attr">#[error(<span class="string">&quot;unsupported&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"unsupported"</span>)]
     </span>Unsupported,
 }
 
@@ -1295,7 +1295,7 @@
             io::ErrorKind::UnexpectedEof =&gt; FsError::UnexpectedEof,
             io::ErrorKind::WouldBlock =&gt; FsError::WouldBlock,
             io::ErrorKind::WriteZero =&gt; FsError::WriteZero,
-            <span class="comment">// NOTE: Add this once the &quot;io_error_more&quot; Rust feature is stabilized
+            <span class="comment">// NOTE: Add this once the "io_error_more" Rust feature is stabilized
             // io::ErrorKind::StorageFull =&gt; FsError::StorageFull,
             </span>io::ErrorKind::Other =&gt; FsError::IOError,
             <span class="comment">// if the following triggers, a new error type was added to this non-exhaustive enum
@@ -1334,7 +1334,7 @@
             FsError::UnknownError =&gt; io::ErrorKind::Other,
             FsError::StorageFull =&gt; io::ErrorKind::Other,
             FsError::Unsupported =&gt; io::ErrorKind::Unsupported,
-            <span class="comment">// NOTE: Add this once the &quot;io_error_more&quot; Rust feature is stabilized
+            <span class="comment">// NOTE: Add this once the "io_error_more" Rust feature is stabilized
             // FsError::StorageFull =&gt; io::ErrorKind::StorageFull,
         </span>};
         kind.into()
@@ -1390,7 +1390,7 @@
     }
 }
 
-<span class="attr">#[allow(clippy::len_without_is_empty)] </span><span class="comment">// Clippy thinks it&#39;s an iterator.
+<span class="attr">#[allow(clippy::len_without_is_empty)] </span><span class="comment">// Clippy thinks it's an iterator.
 </span><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Eq)]
 </span><span class="comment">// TODO: review this, proper solution would probably use a trait object internally
 </span><span class="kw">pub struct </span>Metadata {

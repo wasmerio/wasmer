@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["CURRENT_DATA_VERSION","MIGRATIONS"],"enum":["MigrationError","PackageBuildError"],"fn":["append_path_to_tar_gz","apply_migration","apply_migrations","construct_tar_gz","get_active_personal_key","normalize_path","open_db","sign_compressed_archive"],"mod":["interfaces","validate"],"struct":["ConstructedPackageArchive","PersonalKey","Publish"]};

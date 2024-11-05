@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_environ.rs`."><title>func_environ.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_environ.rs`."><title>func_environ.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -496,6 +496,51 @@
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -504,6 +549,7 @@
 
 </span><span class="kw">use </span><span class="kw">super</span>::func_state::FuncTranslationState;
 <span class="kw">use </span><span class="kw">super</span>::translation_utils::reference_type;
+<span class="kw">use </span><span class="kw">crate</span>::heap::{Heap, HeapData};
 <span class="kw">use </span>core::convert::From;
 <span class="kw">use </span>cranelift_codegen::cursor::FuncCursor;
 <span class="kw">use </span>cranelift_codegen::ir::immediates::Offset32;
@@ -511,6 +557,7 @@
 <span class="kw">use </span>cranelift_codegen::isa::TargetFrontendConfig;
 <span class="kw">use </span>cranelift_frontend::FunctionBuilder;
 <span class="kw">use </span>wasmer_compiler::wasmparser::{HeapType, Operator};
+<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
 <span class="kw">use </span>wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type <span class="kw">as </span>WasmerType, WasmResult,
@@ -529,7 +576,7 @@
         </span>gv: ir::GlobalValue,
         <span class="doccomment">/// An offset to add to the address.
         </span>offset: Offset32,
-        <span class="doccomment">/// The global variable&#39;s type.
+        <span class="doccomment">/// The global variable's type.
         </span>ty: ir::Type,
     },
 
@@ -568,7 +615,7 @@
     ///
     /// This returns `R64` for 64-bit architectures and `R32` for 32-bit architectures.
     </span><span class="kw">fn </span>reference_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ir::Type {
-        reference_type(<span class="self">self</span>.target_config()).expect(<span class="string">&quot;expected reference type&quot;</span>)
+        reference_type(<span class="self">self</span>.target_config()).expect(<span class="string">"expected reference type"</span>)
     }
 }
 
@@ -578,6 +625,12 @@
 /// IR. The function environment provides information about the WebAssembly module as well as the
 /// runtime environment.
 </span><span class="kw">pub trait </span>FuncEnvironment: TargetEnvironment {
+    <span class="doccomment">/// Whether to enable Spectre mitigations for heap accesses.
+    </span><span class="kw">fn </span>heap_access_spectre_mitigation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
+
+    <span class="doccomment">/// Whether to add proof-carrying-code facts to verify memory accesses.
+    </span><span class="kw">fn </span>proof_carrying_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
+
     <span class="doccomment">/// Is the given parameter of the given function a wasm-level parameter, as opposed to a hidden
     /// parameter added for use by the implementation?
     </span><span class="kw">fn </span>is_wasm_parameter(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>ir::Signature, index: usize) -&gt; bool {
@@ -610,17 +663,29 @@
         index: GlobalIndex,
     ) -&gt; WasmResult&lt;GlobalVariable&gt;;
 
+    <span class="doccomment">/// Inserts code before updating a global.
+    </span><span class="kw">fn </span>update_global(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+        _global_index: u32,
+        _value: ir::Value,
+    ) {
+    }
+
+    <span class="doccomment">/// Get the heaps for this function environment.
+    ///
+    /// The returned map should provide heap format details (encoded in
+    /// `HeapData`) for each `Heap` that was previously returned by
+    /// `make_heap()`. The translator will first call make_heap for each Wasm
+    /// memory, and then later when translating code, will invoke `heaps()` to
+    /// learn how to access the environment's implementation of each memory.
+    </span><span class="kw">fn </span>heaps(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;Heap, HeapData&gt;;
+
     <span class="doccomment">/// Set up the necessary preamble definitions in `func` to access the linear memory identified
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared memories.
-    </span><span class="kw">fn </span>make_heap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>ir::Function, index: MemoryIndex) -&gt; WasmResult&lt;ir::Heap&gt;;
-
-    <span class="doccomment">/// Set up the necessary preamble definitions in `func` to access the table identified
-    /// by `index`.
-    ///
-    /// The index space covers both imported and locally declared tables.
-    </span><span class="kw">fn </span>make_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>ir::Function, index: TableIndex) -&gt; WasmResult&lt;ir::Table&gt;;
+    </span><span class="kw">fn </span>make_heap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>ir::Function, index: MemoryIndex) -&gt; WasmResult&lt;Heap&gt;;
 
     <span class="doccomment">/// Set up a signature definition in the preamble of `func` that can be used for an indirect
     /// call with signature `index`.
@@ -642,38 +707,17 @@
     ///
     /// The index space covers both imported functions and functions defined in the current module.
     ///
-    /// The function&#39;s signature may contain additional arguments needed for a direct call, but the
+    /// The function's signature may contain additional arguments needed for a direct call, but the
     /// arguments marked as `ArgumentPurpose::Normal` must correspond to the WebAssembly signature
     /// arguments.
     ///
-    /// The function&#39;s signature will only be used for direct calls, even if the module has
+    /// The function's signature will only be used for direct calls, even if the module has
     /// indirect calls with the same WebAssembly type.
     </span><span class="kw">fn </span>make_direct_func(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         func: <span class="kw-2">&amp;mut </span>ir::Function,
         index: FunctionIndex,
     ) -&gt; WasmResult&lt;ir::FuncRef&gt;;
-
-    <span class="doccomment">/// Translate a `call_indirect` WebAssembly instruction at `pos`.
-    ///
-    /// Insert instructions at `pos` for an indirect call to the function `callee` in the table
-    /// `table_index` with WebAssembly signature `sig_index`. The `callee` value will have type
-    /// `i32`.
-    ///
-    /// The signature `sig_ref` was previously created by `make_indirect_sig()`.
-    ///
-    /// Return the call instruction whose results are the WebAssembly return values.
-    </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    </span><span class="kw">fn </span>translate_call_indirect(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        pos: FuncCursor,
-        table_index: TableIndex,
-        table: ir::Table,
-        sig_index: SignatureIndex,
-        sig_ref: ir::SigRef,
-        callee: ir::Value,
-        call_args: <span class="kw-2">&amp;</span>[ir::Value],
-    ) -&gt; WasmResult&lt;ir::Inst&gt;;
 
     <span class="doccomment">/// Translate a `call` WebAssembly instruction at `pos`.
     ///
@@ -684,13 +728,34 @@
     /// Return the call instruction whose results are the WebAssembly return values.
     </span><span class="kw">fn </span>translate_call(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: FuncCursor,
+        builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: <span class="kw-2">&amp;</span>[ir::Value],
     ) -&gt; WasmResult&lt;ir::Inst&gt; {
-        <span class="prelude-val">Ok</span>(pos.ins().call(callee, call_args))
+        <span class="prelude-val">Ok</span>(builder.ins().call(callee, call_args))
     }
+
+    <span class="doccomment">/// Translate a `call_indirect` WebAssembly instruction at `pos`.
+    ///
+    /// Insert instructions at `pos` for an indirect call to the function `callee` in the table
+    /// `table_index` with WebAssembly signature `sig_index`. The `callee` value will have type
+    /// `i32`.
+    ///
+    /// The signature `sig_ref` was previously created by `make_indirect_sig()`.
+    ///
+    /// Return the call instruction whose results are the WebAssembly return values.
+    /// Returns `None` if this statically traps instead of creating a call
+    /// instruction.
+    </span><span class="kw">fn </span>translate_call_indirect(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+        table_index: TableIndex,
+        sig_index: SignatureIndex,
+        sig_ref: ir::SigRef,
+        callee: ir::Value,
+        call_args: <span class="kw-2">&amp;</span>[ir::Value],
+    ) -&gt; WasmResult&lt;ir::Inst&gt;;
 
     <span class="doccomment">/// Translate a `memory.grow` WebAssembly instruction.
     ///
@@ -704,7 +769,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         val: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt;;
 
@@ -718,7 +783,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
     ) -&gt; WasmResult&lt;ir::Value&gt;;
 
     <span class="doccomment">/// Translate a `memory.copy` WebAssembly instruction.
@@ -730,9 +795,9 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         src_index: MemoryIndex,
-        src_heap: ir::Heap,
+        src_heap: Heap,
         dst_index: MemoryIndex,
-        dst_heap: ir::Heap,
+        dst_heap: Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -746,7 +811,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         dst: ir::Value,
         val: ir::Value,
         len: ir::Value,
@@ -762,7 +827,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         seg_index: u32,
         dst: ir::Value,
         src: ir::Value,
@@ -773,19 +838,14 @@
     </span><span class="kw">fn </span>translate_data_drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pos: FuncCursor, seg_index: u32) -&gt; WasmResult&lt;()&gt;;
 
     <span class="doccomment">/// Translate a `table.size` WebAssembly instruction.
-    </span><span class="kw">fn </span>translate_table_size(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        pos: FuncCursor,
-        index: TableIndex,
-        table: ir::Table,
-    ) -&gt; WasmResult&lt;ir::Value&gt;;
+    </span><span class="kw">fn </span>translate_table_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pos: FuncCursor, index: TableIndex)
+        -&gt; WasmResult&lt;ir::Value&gt;;
 
     <span class="doccomment">/// Translate a `table.grow` WebAssembly instruction.
     </span><span class="kw">fn </span>translate_table_grow(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         table_index: TableIndex,
-        table: ir::Table,
         delta: ir::Value,
         init_value: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt;;
@@ -795,7 +855,6 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         table_index: TableIndex,
-        table: ir::Table,
         index: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt;;
 
@@ -804,7 +863,6 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         table_index: TableIndex,
-        table: ir::Table,
         value: ir::Value,
         index: ir::Value,
     ) -&gt; WasmResult&lt;()&gt;;
@@ -815,9 +873,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         dst_table_index: TableIndex,
-        dst_table: ir::Table,
         src_table_index: TableIndex,
-        src_table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -840,7 +896,6 @@
         pos: FuncCursor,
         seg_index: u32,
         table_index: TableIndex,
-        table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -853,7 +908,7 @@
     ///
     /// By default, translates into a null reference type.
     ///
-    /// Override this if you don&#39;t use Cranelift reference types for all Wasm
+    /// Override this if you don't use Cranelift reference types for all Wasm
     /// reference types (e.g. you use a raw pointer for `funcref`s) or if the
     /// null sentinel is not a null reference type pointer for your type. If you
     /// override this method, then you should also override
@@ -916,7 +971,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         addr: ir::Value,
         expected: ir::Value,
         timeout: ir::Value,
@@ -932,7 +987,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         addr: ir::Value,
         count: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt;;
@@ -942,7 +997,7 @@
     /// This can be used to insert explicit interrupt or safepoint checking at
     /// the beginnings of loops.
     </span><span class="kw">fn </span>translate_loop_header(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _pos: FuncCursor) -&gt; WasmResult&lt;()&gt; {
-        <span class="comment">// By default, don&#39;t emit anything.
+        <span class="comment">// By default, don't emit anything.
         </span><span class="prelude-val">Ok</span>(())
     }
 
@@ -964,6 +1019,18 @@
         _op: <span class="kw-2">&amp;</span>Operator,
         _builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         _state: <span class="kw-2">&amp;</span>FuncTranslationState,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Optional callback for the `FuncEnvironment` performing this translation
+    /// to maintain, prepare, or finalize custom, internal state when we
+    /// statically determine that a Wasm memory access will unconditionally
+    /// trap, rendering the rest of the block unreachable. Called just before
+    /// the unconditional trap is emitted.
+    </span><span class="kw">fn </span>before_unconditionally_trapping_memory_access(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
     ) -&gt; WasmResult&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
@@ -993,5 +1060,28 @@
     <span class="doccomment">/// Get the type of a function with the given signature index.
     </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>get_function_sig(<span class="kw-2">&amp;</span><span class="self">self</span>, sig_index: SignatureIndex) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>FunctionType&gt;;
+
+    <span class="doccomment">/// Inserts code before a function return.
+    </span><span class="kw">fn </span>handle_before_return(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _retvals: <span class="kw-2">&amp;</span>[ir::Value], _builder: <span class="kw-2">&amp;mut </span>FunctionBuilder) {}
+
+    <span class="doccomment">/// Inserts code before a load.
+    </span><span class="kw">fn </span>before_load(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+        _val_size: u8,
+        _addr: ir::Value,
+        _offset: u64,
+    ) {
+    }
+
+    <span class="doccomment">/// Inserts code before a store.
+    </span><span class="kw">fn </span>before_store(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+        _val_size: u8,
+        _addr: ir::Value,
+        _offset: u64,
+    ) {
+    }
 }
 </code></pre></div></section></main></body></html>

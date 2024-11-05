@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/ops.rs`."><title>ops.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/ops.rs`."><title>ops.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -396,7 +396,7 @@
     fs.create_dir(path)
 }
 
-<span class="kw">static </span>WHITEOUT_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;.wh.&quot;</span>;
+<span class="kw">static </span>WHITEOUT_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">".wh."</span>;
 
 <span class="doccomment">/// Creates a white out file which hides it from secondary file systems
 </span><span class="kw">pub fn </span>create_white_out&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt;
@@ -405,7 +405,7 @@
 {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = path.as_ref().file_name() {
         <span class="kw">let </span><span class="kw-2">mut </span>path = path.as_ref().to_owned();
-        path.set_file_name(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
+        path.set_file_name(<span class="macro">format!</span>(<span class="string">"{}{}"</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
             create_dir_all(fs, parent).ok();
@@ -429,7 +429,7 @@
 {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = path.as_ref().file_name() {
         <span class="kw">let </span><span class="kw-2">mut </span>path = path.as_ref().to_owned();
-        path.set_file_name(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
+        path.set_file_name(<span class="macro">format!</span>(<span class="string">"{}{}"</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
         fs.remove_file(<span class="kw-2">&amp;</span>path).ok();
     }
 }
@@ -441,7 +441,7 @@
 {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = path.as_ref().file_name() {
         <span class="kw">let </span><span class="kw-2">mut </span>path = path.as_ref().to_owned();
-        path.set_file_name(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
+        path.set_file_name(<span class="macro">format!</span>(<span class="string">"{}{}"</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
         fs.metadata(<span class="kw-2">&amp;</span>path).is_ok()
     } <span class="kw">else </span>{
         <span class="bool-val">false
@@ -461,21 +461,21 @@
 </span>}
 
 <span class="doccomment">/// Copies the reference of a file from one file system to another
-</span><span class="kw">pub fn </span>copy_reference&lt;<span class="lifetime">&#39;a</span>&gt;(
-    source: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
-    destination: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
-    path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path,
-) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
+</span><span class="kw">pub fn </span>copy_reference&lt;<span class="lifetime">'a</span>&gt;(
+    source: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+    destination: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+    path: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path,
+) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
     Box::pin(<span class="kw">async </span>{ copy_reference_ext(source, destination, path, path).<span class="kw">await </span>})
 }
 
 <span class="doccomment">/// Copies the reference of a file from one file system to another
-</span><span class="kw">pub fn </span>copy_reference_ext&lt;<span class="lifetime">&#39;a</span>&gt;(
-    source: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
-    destination: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+</span><span class="kw">pub fn </span>copy_reference_ext&lt;<span class="lifetime">'a</span>&gt;(
+    source: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+    destination: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
     from: <span class="kw-2">&amp;</span>Path,
     to: <span class="kw-2">&amp;</span>Path,
-) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
+) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
     <span class="kw">let </span>from = from.to_owned();
     <span class="kw">let </span>to = to.to_owned();
     Box::pin(<span class="kw">async move </span>{
@@ -519,7 +519,7 @@
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Asynchronously read a file&#39;s contents into memory.
+<span class="doccomment">/// Asynchronously read a file's contents into memory.
 ///
 /// This is analogous to [`std::fs::read()`].
 </span><span class="kw">pub async fn </span>read&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, FsError&gt;
@@ -533,7 +533,7 @@
     <span class="prelude-val">Ok</span>(buffer)
 }
 
-<span class="doccomment">/// Asynchronously read a file&#39;s contents into memory as a string.
+<span class="doccomment">/// Asynchronously read a file's contents into memory as a string.
 ///
 /// This is analogous to [`std::fs::read_to_string()`].
 </span><span class="kw">pub async fn </span>read_to_string&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;String, FsError&gt;
@@ -547,8 +547,8 @@
     <span class="prelude-val">Ok</span>(buffer)
 }
 
-<span class="doccomment">/// Update a file&#39;s modification and access times, creating the file if it
-/// doesn&#39;t already exist.
+<span class="doccomment">/// Update a file's modification and access times, creating the file if it
+/// doesn't already exist.
 </span><span class="kw">pub fn </span>touch&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt; + Send) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt;
 <span class="kw">where
     </span>F: FileSystem + <span class="question-mark">?</span>Sized,
@@ -560,7 +560,7 @@
 
 <span class="doccomment">/// Recursively iterate over all paths inside a directory, ignoring any
 /// errors that may occur along the way.
-</span><span class="kw">pub fn </span>walk&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = DirEntry&gt; + <span class="lifetime">&#39;_</span>&gt;
+</span><span class="kw">pub fn </span>walk&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = DirEntry&gt; + <span class="lifetime">'_</span>&gt;
 <span class="kw">where
     </span>F: FileSystem + <span class="question-mark">?</span>Sized,
 {
@@ -594,19 +594,19 @@
     </span><span class="kw">async fn </span>write() {
         <span class="kw">let </span>fs = MemFS::default();
 
-        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt&quot;</span>, <span class="string">b&quot;Hello, World!&quot;</span>)
+        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>contents = String::new();
         fs.new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/file.txt&quot;</span>)
+            .open(<span class="string">"/file.txt"</span>)
             .unwrap()
             .read_to_string(<span class="kw-2">&amp;mut </span>contents)
             .<span class="kw">await
             </span>.unwrap();
-        <span class="macro">assert_eq!</span>(contents, <span class="string">&quot;Hello, World!&quot;</span>);
+        <span class="macro">assert_eq!</span>(contents, <span class="string">"Hello, World!"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -615,38 +615,38 @@
         fs.new_open_options()
             .create(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/file.txt&quot;</span>)
+            .open(<span class="string">"/file.txt"</span>)
             .unwrap()
-            .write_all(<span class="string">b&quot;Hello, World!&quot;</span>)
+            .write_all(<span class="string">b"Hello, World!"</span>)
             .<span class="kw">await
             </span>.unwrap();
 
-        <span class="kw">let </span>contents = <span class="kw">super</span>::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt&quot;</span>).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(contents, <span class="string">&quot;Hello, World!&quot;</span>);
+        <span class="kw">let </span>contents = <span class="kw">super</span>::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_eq!</span>(contents, <span class="string">"Hello, World!"</span>);
 
-        <span class="kw">let </span>contents = <span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt&quot;</span>).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(contents, <span class="string">b&quot;Hello, World!&quot;</span>);
+        <span class="kw">let </span>contents = <span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_eq!</span>(contents, <span class="string">b"Hello, World!"</span>);
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>create_dir_all() {
         <span class="kw">let </span>fs = MemFS::default();
-        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt&quot;</span>, <span class="string">b&quot;&quot;</span>).<span class="kw">await</span>.unwrap();
+        <span class="kw">super</span>::write(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>, <span class="string">b""</span>).<span class="kw">await</span>.unwrap();
 
-        <span class="macro">assert!</span>(!<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/really/nested/directory&quot;</span>));
-        <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/really/nested/directory&quot;</span>).unwrap();
-        <span class="macro">assert!</span>(<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/really/nested/directory&quot;</span>));
+        <span class="macro">assert!</span>(!<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>));
+        <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>).unwrap();
+        <span class="macro">assert!</span>(<span class="kw">super</span>::exists(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>));
 
-        <span class="comment">// It&#39;s okay to create the same directory multiple times
-        </span><span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/really/nested/directory&quot;</span>).unwrap();
+        <span class="comment">// It's okay to create the same directory multiple times
+        </span><span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/really/nested/directory"</span>).unwrap();
 
-        <span class="comment">// You can&#39;t create a directory on top of a file
+        <span class="comment">// You can't create a directory on top of a file
         </span><span class="macro">assert_eq!</span>(
-            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt&quot;</span>).unwrap_err(),
+            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).unwrap_err(),
             FsError::BaseNotDirectory
         );
         <span class="macro">assert_eq!</span>(
-            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt/invalid/path&quot;</span>).unwrap_err(),
+            <span class="kw">super</span>::create_dir_all(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt/invalid/path"</span>).unwrap_err(),
             FsError::BaseNotDirectory
         );
     }
@@ -655,9 +655,9 @@
     </span><span class="kw">async fn </span>touch() {
         <span class="kw">let </span>fs = MemFS::default();
 
-        <span class="kw">super</span>::touch(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt&quot;</span>).unwrap();
+        <span class="kw">super</span>::touch(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).unwrap();
 
-        <span class="macro">assert_eq!</span>(<span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/file.txt&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="string">b&quot;&quot;</span>);
+        <span class="macro">assert_eq!</span>(<span class="kw">super</span>::read(<span class="kw-2">&amp;</span>fs, <span class="string">"/file.txt"</span>).<span class="kw">await</span>.unwrap(), <span class="string">b""</span>);
     }
 }
 </code></pre></div></section></main></body></html>

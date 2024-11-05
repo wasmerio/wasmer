@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/memories.rs`."><title>memories.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_sys_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_sys_utils/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/memories.rs`."><title>memories.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_sys_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -685,7 +685,7 @@
 // The memory mapped area
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>WasmMmap {
-    <span class="comment">// Our OS allocation of mmap&#39;d memory.
+    <span class="comment">// Our OS allocation of mmap'd memory.
     </span>alloc: FdMmap,
     <span class="comment">// The current logical size in wasm pages of this linear memory.
     </span>size: Pages,
@@ -747,7 +747,7 @@
 
         <span class="kw">if </span>new_bytes &gt; <span class="self">self</span>.alloc.len() - conf.offset_guard_size {
             <span class="comment">// If the new size is within the declared maximum, but needs more memory than we
-            // have on hand, it&#39;s a dynamic heap and it can move.
+            // have on hand, it's a dynamic heap and it can move.
             </span><span class="kw">let </span>guard_bytes = conf.offset_guard_size;
             <span class="kw">let </span>request_bytes =
                 new_bytes
@@ -910,7 +910,7 @@
             <span class="kw">if </span>max &lt; memory.minimum {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::InvalidMemory {
                     reason: <span class="macro">format!</span>(
-                        <span class="string">&quot;the maximum ({} pages) is less than the minimum ({} pages)&quot;</span>,
+                        <span class="string">"the maximum ({} pages) is less than the minimum ({} pages)"</span>,
                         max.<span class="number">0</span>, memory.minimum.<span class="number">0
                     </span>),
                 });
@@ -1002,7 +1002,7 @@
 
     <span class="doccomment">/// Grow memory by the specified amount of wasm pages.
     ///
-    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     </span><span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta: Pages) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt; {
         <span class="self">self</span>.mmap.grow(delta, <span class="self">self</span>.config.clone())
@@ -1025,12 +1025,12 @@
     }
 
     <span class="doccomment">/// Owned memory can not be cloned (this will always return None)
-    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
         <span class="prelude-val">Err</span>(MemoryError::MemoryNotShared)
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
         <span class="kw">let </span>forked = <span class="self">Self</span>::copy(<span class="self">self</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Box::new(forked))
     }
@@ -1114,7 +1114,7 @@
 
     <span class="doccomment">/// Grow memory by the specified amount of wasm pages.
     ///
-    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     </span><span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta: Pages) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.mmap.write().unwrap();
@@ -1135,12 +1135,12 @@
     }
 
     <span class="doccomment">/// Shared memory can always be cloned
-    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
         <span class="prelude-val">Ok</span>(Box::new(<span class="self">self</span>.clone()))
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
         <span class="kw">let </span>forked = <span class="self">Self</span>::copy(<span class="self">self</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Box::new(forked))
     }
@@ -1172,10 +1172,10 @@
 
 <span class="doccomment">/// Represents linear memory that can be either owned or shared
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>VMMemory(<span class="kw">pub </span>Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;);
+</span><span class="kw">pub struct </span>VMMemory(<span class="kw">pub </span>Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;);
 
-<span class="kw">impl </span>From&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; <span class="kw">for </span>VMMemory {
-    <span class="kw">fn </span>from(mem: Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;&gt; <span class="kw">for </span>VMMemory {
+    <span class="kw">fn </span>from(mem: Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(mem)
     }
 }
@@ -1193,7 +1193,7 @@
 
     <span class="doccomment">/// Grow memory by the specified amount of wasm pages.
     ///
-    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     </span><span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta: Pages) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.grow(delta)
@@ -1222,7 +1222,7 @@
     }
 
     <span class="doccomment">/// Attempts to clone this memory (if its clonable)
-    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.try_clone()
     }
 
@@ -1232,7 +1232,7 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.copy()
     }
 }
@@ -1286,7 +1286,7 @@
     <span class="doccomment">/// Creates VMMemory from a custom implementation - the following into implementations
     /// are natively supported
     /// - VMOwnedMemory -&gt; VMMemory
-    /// - Box&lt;dyn LinearMemory + &#39;static&gt; -&gt; VMMemory
+    /// - Box&lt;dyn LinearMemory + 'static&gt; -&gt; VMMemory
     </span><span class="kw">pub fn </span>from_custom&lt;IntoVMMemory&gt;(memory: IntoVMMemory) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>IntoVMMemory: Into&lt;<span class="self">Self</span>&gt;,
@@ -1295,7 +1295,7 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
         LinearMemory::copy(<span class="self">self</span>)
     }
 }

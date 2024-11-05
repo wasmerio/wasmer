@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_llvm/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/config.rs`."><title>config.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -285,6 +285,22 @@
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::LLVMCompiler;
 <span class="kw">use </span>inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target <span class="kw">as </span>InkwellTarget, TargetMachine,
@@ -299,7 +315,7 @@
 <span class="kw">use </span>wasmer_types::{FunctionType, LocalFunctionIndex, Target, Triple};
 
 <span class="doccomment">/// The InkWell ModuleInfo type
-</span><span class="kw">pub type </span>InkwellModule&lt;<span class="lifetime">&#39;ctx</span>&gt; = inkwell::module::Module&lt;<span class="lifetime">&#39;ctx</span>&gt;;
+</span><span class="kw">pub type </span>InkwellModule&lt;<span class="lifetime">'ctx</span>&gt; = inkwell::module::Module&lt;<span class="lifetime">'ctx</span>&gt;;
 
 <span class="doccomment">/// The InkWell MemoryBuffer type
 </span><span class="kw">pub type </span>InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
@@ -373,8 +389,8 @@
     <span class="kw">fn </span>code_model(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CodeModel {
         <span class="comment">// We normally use the large code model, but when targeting shared
         // objects, we are required to use PIC. If we use PIC anyways, we lose
-        // any benefit from large code model and there&#39;s some cost on all
-        // platforms, plus some platforms (MachO) don&#39;t support PIC + large
+        // any benefit from large code model and there's some cost on all
+        // platforms, plus some platforms (MachO) don't support PIC + large
         // at all.
         </span><span class="kw">if </span><span class="self">self</span>.is_pic {
             CodeModel::Small
@@ -391,26 +407,28 @@
         } <span class="kw">else </span>{
             target.triple().architecture
         };
-        <span class="comment">// Hack: we&#39;re using is_pic to determine whether this is a native
+        <span class="comment">// Hack: we're using is_pic to determine whether this is a native
         // build or not.
         </span><span class="kw">let </span>operating_system = <span class="kw">if </span>target.triple().operating_system
             == wasmer_types::OperatingSystem::Darwin
             &amp;&amp; !<span class="self">self</span>.is_pic
         {
             <span class="comment">// LLVM detects static relocation + darwin + 64-bit and
-            // force-enables PIC because MachO doesn&#39;t support that
-            // combination. They don&#39;t check whether they&#39;re targeting
+            // force-enables PIC because MachO doesn't support that
+            // combination. They don't check whether they're targeting
             // MachO, they check whether the OS is set to Darwin.
             //
             // Since both linux and darwin use SysV ABI, this should work.
             //  but not in the case of Aarch64, there the ABI is slightly different
             </span><span class="attr">#[allow(clippy::match_single_binding)]
             </span><span class="kw">match </span>target.triple().architecture {
+                Architecture::Aarch64(<span class="kw">_</span>) =&gt; wasmer_types::OperatingSystem::Darwin,
                 <span class="kw">_ </span>=&gt; wasmer_types::OperatingSystem::Linux,
             }
         } <span class="kw">else </span>{
             target.triple().operating_system
         };
+
         <span class="kw">let </span>binary_format = <span class="kw">if </span><span class="self">self</span>.is_pic {
             target.triple().binary_format
         } <span class="kw">else </span>{
@@ -458,6 +476,16 @@
                 info: <span class="bool-val">true</span>,
                 machine_code: <span class="bool-val">true</span>,
             }),
+            Architecture::LoongArch64 =&gt; {
+                InkwellTarget::initialize_loongarch(<span class="kw-2">&amp;</span>InitializationConfig {
+                    asm_parser: <span class="bool-val">true</span>,
+                    asm_printer: <span class="bool-val">true</span>,
+                    base: <span class="bool-val">true</span>,
+                    disassembler: <span class="bool-val">true</span>,
+                    info: <span class="bool-val">true</span>,
+                    machine_code: <span class="bool-val">true</span>,
+                })
+            }
             <span class="comment">// Architecture::Arm(_) =&gt; InkwellTarget::initialize_arm(&amp;InitializationConfig {
             //     asm_parser: true,
             //     asm_printer: true,
@@ -466,7 +494,7 @@
             //     info: true,
             //     machine_code: true,
             // }),
-            </span><span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;target {} not yet supported in Wasmer&quot;</span>, triple),
+            </span><span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"target {} not yet supported in Wasmer"</span>, triple),
         }
 
         <span class="comment">// The CPU features formatted as LLVM strings
@@ -474,8 +502,8 @@
         // are compliant with the same string representations as gcc.
         </span><span class="kw">let </span>llvm_cpu_features = cpu_features
             .iter()
-            .map(|feature| <span class="macro">format!</span>(<span class="string">&quot;+{}&quot;</span>, feature.to_string()))
-            .join(<span class="string">&quot;,&quot;</span>);
+            .map(|feature| <span class="macro">format!</span>(<span class="string">"+{}"</span>, feature))
+            .join(<span class="string">","</span>);
 
         <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple(target);
         <span class="kw">let </span>llvm_target = InkwellTarget::from_triple(<span class="kw-2">&amp;</span>target_triple).unwrap();
@@ -483,11 +511,13 @@
             .create_target_machine(
                 <span class="kw-2">&amp;</span>target_triple,
                 <span class="kw">match </span>triple.architecture {
-                    Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">&quot;generic-rv64&quot;</span>,
-                    <span class="kw">_ </span>=&gt; <span class="string">&quot;generic&quot;</span>,
+                    Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">"generic-rv64"</span>,
+                    Architecture::LoongArch64 =&gt; <span class="string">"generic-la64"</span>,
+                    <span class="kw">_ </span>=&gt; <span class="string">"generic"</span>,
                 },
                 <span class="kw">match </span>triple.architecture {
-                    Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">&quot;+m,+a,+c,+d,+f&quot;</span>,
+                    Architecture::Riscv64(<span class="kw">_</span>) =&gt; <span class="string">"+m,+a,+c,+d,+f"</span>,
+                    Architecture::LoongArch64 =&gt; <span class="string">"+f,+d"</span>,
                     <span class="kw">_ </span>=&gt; <span class="kw-2">&amp;</span>llvm_cpu_features,
                 },
                 <span class="self">self</span>.opt_level,
@@ -512,20 +542,22 @@
                     <span class="kw">pub </span>target_machine: <span class="kw-2">*const </span>u8,
                 }
                 <span class="comment">// It is use to live patch the create LLVMTargetMachine
-                // to hard change the ABI and force &quot;-mabi=lp64d&quot; ABI
-                // instead of the default that don&#39;t use float registers
+                // to hard change the ABI and force "-mabi=lp64d" ABI
+                // instead of the default that don't use float registers
                 // because there is no current way to do this change
 
                 </span><span class="kw">let </span>my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
 
                 <span class="kw-2">*</span>((my_target_machine.target_machine <span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(<span class="number">0x410</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u64) = <span class="number">5</span>;
                 std::ptr::copy_nonoverlapping(
-                    <span class="string">&quot;lp64d\0&quot;</span>.as_ptr(),
+                    <span class="string">"lp64d\0"</span>.as_ptr(),
                     (my_target_machine.target_machine <span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(<span class="number">0x418</span>),
                     <span class="number">6</span>,
                 );
 
-                std::mem::transmute(my_target_machine)
+                std::mem::transmute::&lt;MyTargetMachine, inkwell::targets::TargetMachine&gt;(
+                    my_target_machine,
+                )
             }
         } <span class="kw">else </span>{
             llvm_target_machine

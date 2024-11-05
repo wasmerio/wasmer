@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/vmcontext.rs`."><title>vmcontext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/vmcontext.rs`."><title>vmcontext.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -805,7 +805,6 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -823,13 +822,12 @@
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
 <span class="kw">use </span>std::sync::atomic::{AtomicPtr, Ordering};
-<span class="kw">use </span>std::u32;
 <span class="kw">use </span>wasmer_types::RawValue;
 
 <span class="doccomment">/// Union representing the first parameter passed when calling a function.
 ///
-/// It may either be a pointer to the [`VMContext`] if it&#39;s a Wasm function
-/// or a pointer to arbitrary data controlled by the host if it&#39;s a host function.
+/// It may either be a pointer to the [`VMContext`] if it's a Wasm function
+/// or a pointer to arbitrary data controlled by the host if it's a host function.
 </span><span class="attr">#[derive(Copy, Clone, Eq)]
 #[repr(C)]
 </span><span class="kw">pub union </span>VMFunctionContext {
@@ -848,8 +846,8 @@
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>VMFunctionContext {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-        f.debug_struct(<span class="string">&quot;VMFunctionContext&quot;</span>)
-            .field(<span class="string">&quot;vmctx_or_hostenv&quot;</span>, <span class="kw">unsafe </span>{ <span class="kw-2">&amp;</span><span class="self">self</span>.host_env })
+        f.debug_struct(<span class="string">"VMFunctionContext"</span>)
+            .field(<span class="string">"vmctx_or_hostenv"</span>, <span class="kw">unsafe </span>{ <span class="kw-2">&amp;</span><span class="self">self</span>.host_env })
             .finish()
     }
 }
@@ -911,7 +909,7 @@
 
 <span class="doccomment">/// The `VMDynamicFunctionContext` is the context that dynamic
 /// functions will receive when called (rather than `vmctx`).
-/// A dynamic function is a function for which we don&#39;t know the signature
+/// A dynamic function is a function for which we don't know the signature
 /// until runtime.
 ///
 /// As such, we need to expose the dynamic function `context`
@@ -977,7 +975,7 @@
 #[repr(C)]
 </span><span class="kw">pub enum </span>VMFunctionKind {
     <span class="doccomment">/// A static function has the native signature:
-    /// `extern &quot;C&quot; (vmctx, arg1, arg2...) -&gt; (result1, result2, ...)`.
+    /// `extern "C" (vmctx, arg1, arg2...) -&gt; (result1, result2, ...)`.
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, natively
@@ -985,7 +983,7 @@
     </span>Static,
 
     <span class="doccomment">/// A dynamic function has the native signature:
-    /// `extern &quot;C&quot; (ctx, &amp;[Value]) -&gt; Vec&lt;Value&gt;`.
+    /// `extern "C" (ctx, &amp;[Value]) -&gt; Vec&lt;Value&gt;`.
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, dynamically
@@ -1079,13 +1077,13 @@
 }
 
 <span class="doccomment">/// # Safety
-/// This data is safe to share between threads because it&#39;s plain data that
-/// is the user&#39;s responsibility to synchronize. Additionally, all operations
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. Additionally, all operations
 /// on `from` are thread-safe through the use of a mutex in [`VMGlobal`].
 </span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMGlobalImport {}
 <span class="doccomment">/// # Safety
-/// This data is safe to share between threads because it&#39;s plain data that
-/// is the user&#39;s responsibility to synchronize. And because it&#39;s `Clone`, there&#39;s
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And because it's `Clone`, there's
 /// really no difference between passing it by reference or by value as far as
 /// correctness in a multi-threaded context is concerned.
 </span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMGlobalImport {}
@@ -1121,8 +1119,8 @@
 /// bounds.
 ///
 /// # Safety
-/// The memory is not copied atomically and is not synchronized: it&#39;s the
-/// caller&#39;s responsibility to synchronize.
+/// The memory is not copied atomically and is not synchronized: it's the
+/// caller's responsibility to synchronize.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>memory_copy(
     mem: <span class="kw-2">&amp;</span>VMMemoryDefinition,
     dst: u32,
@@ -1160,8 +1158,8 @@
 /// Returns a `Trap` error if the memory range is out of bounds.
 ///
 /// # Safety
-/// The memory is not filled atomically and is not synchronized: it&#39;s the
-/// caller&#39;s responsibility to synchronize.
+/// The memory is not filled atomically and is not synchronized: it's the
+/// caller's responsibility to synchronize.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>memory_fill(
     mem: <span class="kw-2">&amp;</span>VMMemoryDefinition,
     dst: u32,
@@ -1346,7 +1344,7 @@
 <span class="doccomment">/// An index into the shared signature registry, usable for checking signatures
 /// at indirect calls.
 </span><span class="attr">#[repr(C)]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 </span><span class="kw">pub struct </span>VMSharedSignatureIndex(u32);
 
@@ -1388,7 +1386,7 @@
     }
 }
 
-<span class="doccomment">/// The VM caller-checked &quot;anyfunc&quot; record, for caller-side signature checking.
+<span class="doccomment">/// The VM caller-checked "anyfunc" record, for caller-side signature checking.
 /// It consists of the actual function pointer and a signature id to be checked
 /// by the caller.
 </span><span class="attr">#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -1438,7 +1436,7 @@
 }
 
 <span class="doccomment">/// An array that stores addresses of builtin functions. We translate code
-/// to use indirect calls. This way, we don&#39;t have to patch the code.
+/// to use indirect calls. This way, we don't have to patch the code.
 </span><span class="attr">#[repr(C)]
 </span><span class="kw">pub struct </span>VMBuiltinFunctionsArray {
     ptrs: [usize; <span class="self">Self</span>::len()],
@@ -1526,12 +1524,12 @@
     }
 }
 
-<span class="doccomment">/// The VM &quot;context&quot;, which is pointed to by the `vmctx` arg in the compiler.
+<span class="doccomment">/// The VM "context", which is pointed to by the `vmctx` arg in the compiler.
 /// This has information about globals, memories, tables, and other runtime
 /// state associated with the current instance.
 ///
 /// The struct here is empty, as the sizes of these fields are dynamic, and
-/// we can&#39;t describe them in Rust&#39;s type system. Sufficient memory is
+/// we can't describe them in Rust's type system. Sufficient memory is
 /// allocated at runtime.
 ///
 /// TODO: We could move the globals into the `vmctx` allocation too.
@@ -1543,7 +1541,7 @@
     <span class="doccomment">/// Return a mutable reference to the associated `Instance`.
     ///
     /// # Safety
-    /// This is unsafe because it doesn&#39;t work on just any `VMContext`, it must
+    /// This is unsafe because it doesn't work on just any `VMContext`, it must
     /// be a `VMContext` allocated as part of an `Instance`.
     </span><span class="attr">#[allow(clippy::cast_ptr_alignment)]
     #[inline]
@@ -1557,10 +1555,10 @@
     }
 }
 
-<span class="doccomment">///
-</span><span class="kw">pub type </span>VMTrampoline = <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(
+<span class="doccomment">/// The type for tramplines in the VM.
+</span><span class="kw">pub type </span>VMTrampoline = <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(
     <span class="kw-2">*mut </span>VMContext,        <span class="comment">// callee vmctx
-    </span><span class="kw-2">*const </span>VMFunctionBody, <span class="comment">// function we&#39;re actually calling
+    </span><span class="kw-2">*const </span>VMFunctionBody, <span class="comment">// function we're actually calling
     </span><span class="kw-2">*mut </span>RawValue,         <span class="comment">// space for arguments and return values
 </span>);
 
@@ -1578,12 +1576,12 @@
 }
 
 <span class="doccomment">/// # Safety
-/// This data is safe to share between threads because it&#39;s plain data that
-/// is the user&#39;s responsibility to synchronize.
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize.
 </span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMMemoryDefinition {}
 <span class="doccomment">/// # Safety
-/// This data is safe to share between threads because it&#39;s plain data that
-/// is the user&#39;s responsibility to synchronize. And it&#39;s `Copy` so there&#39;s
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And it's `Copy` so there's
 /// really no difference between passing it by reference or by value as far as
 /// correctness in a multi-threaded context is concerned.
 </span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMMemoryDefinition {}

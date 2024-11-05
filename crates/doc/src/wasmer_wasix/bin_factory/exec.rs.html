@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/bin_factory/exec.rs`."><title>exec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/bin_factory/exec.rs`."><title>exec.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -335,6 +335,7 @@
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
@@ -358,13 +359,13 @@
 <span class="kw">use </span><span class="kw">super</span>::BinaryPackage;
 <span class="kw">use crate</span>::{Runtime, WasiEnv, WasiFunctionEnv};
 
-<span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%name, package_id=%binary.id))]
+<span class="attr">#[tracing::instrument(level = <span class="string">"trace"</span>, skip_all, fields(%name, package_id=%binary.id))]
 </span><span class="kw">pub async fn </span>spawn_exec(
     binary: BinaryPackage,
     name: <span class="kw-2">&amp;</span>str,
     _store: Store,
     env: WasiEnv,
-    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     spawn_union_fs(<span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>binary).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -373,23 +374,23 @@
     spawn_exec_wasm(wasm, name, env, runtime).<span class="kw">await
 </span>}
 
-<span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%name))]
+<span class="attr">#[tracing::instrument(level = <span class="string">"trace"</span>, skip_all, fields(%name))]
 </span><span class="kw">pub async fn </span>spawn_exec_wasm(
     wasm: <span class="kw-2">&amp;</span>[u8],
     name: <span class="kw-2">&amp;</span>str,
     env: WasiEnv,
-    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     <span class="kw">let </span>module = spawn_load_module(<span class="kw-2">&amp;</span>env, name, wasm, runtime).<span class="kw">await</span><span class="question-mark">?</span>;
 
     spawn_exec_module(module, env, runtime)
 }
 
-<span class="kw">pub async fn </span>spawn_load_wasm&lt;<span class="lifetime">&#39;a</span>&gt;(
+<span class="kw">pub async fn </span>spawn_load_wasm&lt;<span class="lifetime">'a</span>&gt;(
     env: <span class="kw-2">&amp;</span>WasiEnv,
-    binary: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>BinaryPackage,
+    binary: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BinaryPackage,
     name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], SpawnError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], SpawnError&gt; {
     <span class="kw">let </span>wasm = <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = binary.get_command(name) {
         cmd.atom.as_ref()
     } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cmd) = binary.get_entrypoint_command() {
@@ -398,7 +399,7 @@
         <span class="macro">tracing::error!</span>(
           command=name,
           pkg=%binary.id,
-          <span class="string">&quot;Unable to spawn a command because its package has no entrypoint&quot;</span>,
+          <span class="string">"Unable to spawn a command because its package has no entrypoint"</span>,
         );
         env.on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
         <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::MissingEntrypoint {
@@ -412,7 +413,7 @@
     env: <span class="kw-2">&amp;</span>WasiEnv,
     name: <span class="kw-2">&amp;</span>str,
     wasm: <span class="kw-2">&amp;</span>[u8],
-    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
     <span class="kw">match </span>runtime.load_module(wasm).<span class="kw">await </span>{
         <span class="prelude-val">Ok</span>(module) =&gt; <span class="prelude-val">Ok</span>(module),
@@ -420,7 +421,7 @@
             <span class="macro">tracing::error!</span>(
                 command = name,
                 error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                <span class="string">&quot;Failed to compile the module&quot;</span>,
+                <span class="string">"Failed to compile the module"</span>,
             );
             env.on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
             <span class="prelude-val">Err</span>(err)
@@ -429,26 +430,26 @@
 }
 
 <span class="kw">pub async fn </span>spawn_union_fs(env: <span class="kw-2">&amp;</span>WasiEnv, binary: <span class="kw-2">&amp;</span>BinaryPackage) -&gt; <span class="prelude-ty">Result</span>&lt;(), SpawnError&gt; {
-    <span class="comment">// If the file system has not already been union&#39;ed then do so
+    <span class="comment">// If the file system has not already been union'ed then do so
     </span>env.state
         .fs
         .conditional_union(binary)
         .<span class="kw">await
         </span>.map_err(|err| {
-            <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to union file system - {err}&quot;</span>);
+            <span class="macro">tracing::warn!</span>(<span class="string">"failed to union file system - {err}"</span>);
             SpawnError::FileSystemError(<span class="kw">crate</span>::ExtendedFsError::with_msg(
                 err,
-                <span class="string">&quot;could not union filesystems&quot;</span>,
+                <span class="string">"could not union filesystems"</span>,
             ))
         })<span class="question-mark">?</span>;
-    <span class="macro">tracing::debug!</span>(<span class="string">&quot;{:?}&quot;</span>, env.state.fs);
+    <span class="macro">tracing::debug!</span>(<span class="string">"{:?}"</span>, env.state.fs);
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="kw">pub fn </span>spawn_exec_module(
     module: Module,
     env: WasiEnv,
-    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     <span class="comment">// Create a new task manager
     </span><span class="kw">let </span>tasks = runtime.task_manager();
@@ -464,7 +465,7 @@
         tasks_outer
             .task_wasm(TaskWasm::new(Box::new(run_exec), env, module, <span class="bool-val">true</span>))
             .map_err(|err| {
-                <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::failed to launch module - {}&quot;</span>, pid, err);
+                <span class="macro">error!</span>(<span class="string">"wasi[{}]::failed to launch module - {}"</span>, pid, err);
                 SpawnError::UnknownError
             })<span class="question-mark">?
     </span>};
@@ -507,7 +508,7 @@
         </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).inner() }
             .instance
             .exports
-            .get_function(<span class="string">&quot;_initialize&quot;</span>)
+            .get_function(<span class="string">"_initialize"</span>)
         {
             <span class="kw">let </span>initialize = initialize.clone();
             <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = initialize.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[]) {
@@ -528,7 +529,7 @@
     </span><span class="kw">let </span>rewind_state = <span class="kw">match unsafe </span>{ ctx.bootstrap(<span class="kw-2">&amp;mut </span>store) } {
         <span class="prelude-val">Ok</span>(r) =&gt; r,
         <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to bootstrap - {}&quot;</span>, err);
+            <span class="macro">tracing::warn!</span>(<span class="string">"failed to bootstrap - {}"</span>, err);
             thread.thread.set_status_finished(<span class="prelude-val">Err</span>(err));
             ctx.data(<span class="kw-2">&amp;</span>store)
                 .blocking_on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
@@ -538,7 +539,7 @@
     };
 
     <span class="comment">// If there is a start function
-    </span><span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::called main()&quot;</span>, ctx.data(<span class="kw-2">&amp;</span>store).pid());
+    </span><span class="macro">debug!</span>(<span class="string">"wasi[{}]::called main()"</span>, ctx.data(<span class="kw-2">&amp;</span>store).pid());
     <span class="comment">// TODO: rewrite to use crate::run_wasi_func
 
     // Call the module
@@ -549,8 +550,8 @@
     <span class="kw">unsafe </span>{ ctx.data(store).inner() }
         .instance
         .exports
-        .get_function(<span class="string">&quot;_start&quot;</span>)
-        .map(|a| a.clone())
+        .get_function(<span class="string">"_start"</span>)
+        .cloned()
         .ok()
 }
 
@@ -606,7 +607,7 @@
         </span><span class="kw">let </span>call_ret = <span class="kw">if let </span><span class="prelude-val">Some</span>(start) = get_start(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;</span>store) {
             start.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[])
         } <span class="kw">else </span>{
-            <span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::exec-failed: missing _start function&quot;</span>, pid);
+            <span class="macro">debug!</span>(<span class="string">"wasi[{}]::exec-failed: missing _start function"</span>, pid);
             ctx.data(<span class="kw-2">&amp;</span>store)
                 .blocking_on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
             <span class="kw">unsafe </span>{ run_recycle(recycle, ctx, store) };
@@ -616,6 +617,7 @@
         <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = call_ret {
             <span class="kw">match </span>err.downcast::&lt;WasiError&gt;() {
                 <span class="prelude-val">Ok</span>(WasiError::Exit(code)) <span class="kw">if </span>code.is_success() =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
+                <span class="prelude-val">Ok</span>(WasiError::ThreadExit) =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
                 <span class="prelude-val">Ok</span>(WasiError::Exit(code)) =&gt; {
                     runtime.on_taint(TaintReason::NonZeroExitCode(code));
                     <span class="prelude-val">Err</span>(WasiError::Exit(code).into())
@@ -640,12 +642,12 @@
                     </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">unsafe </span>{
                         tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
                     } {
-                        <span class="macro">debug!</span>(<span class="string">&quot;failed to go into deep sleep - {}&quot;</span>, err);
+                        <span class="macro">debug!</span>(<span class="string">"failed to go into deep sleep - {}"</span>, err);
                     }
                     <span class="kw">return</span>;
                 }
                 <span class="prelude-val">Ok</span>(WasiError::UnknownWasiVersion) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;failed as wasi version is unknown&quot;</span>,);
+                    <span class="macro">debug!</span>(<span class="string">"failed as wasi version is unknown"</span>,);
                     runtime.on_taint(TaintReason::UnknownWasiVersion);
                     <span class="prelude-val">Ok</span>(Errno::Noexec)
                 }
@@ -669,7 +671,7 @@
     </span>ctx.data(<span class="kw-2">&amp;</span>store).blocking_on_exit(<span class="prelude-val">Some</span>(code));
     <span class="kw">unsafe </span>{ run_recycle(recycle, ctx, store) };
 
-    <span class="macro">debug!</span>(<span class="string">&quot;wasi[{pid}]::main() has exited with {code}&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">"wasi[{pid}]::main() has exited with {code}"</span>);
     handle.thread.set_status_finished(ret.map(|a| a.into()));
 }
 </code></pre></div></section></main></body></html>

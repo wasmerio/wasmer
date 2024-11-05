@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/package_loader/builtin_loader.rs`."><title>builtin_loader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/package_loader/builtin_loader.rs`."><title>builtin_loader.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -737,10 +737,12 @@
 <span class="kw">use </span>http::{HeaderMap, Method};
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>webc::{
-    compat::{Container, ContainerError},
-    DetectError,
+<span class="kw">use </span>wasmer_package::{
+    package::WasmerPackageError,
+    utils::{from_bytes, from_disk},
 };
+<span class="kw">use </span>webc::DetectError;
+<span class="kw">use </span>webc::{Container, ContainerError};
 
 <span class="kw">use crate</span>::{
     bin_factory::BinaryPackage,
@@ -811,17 +813,17 @@
         <span class="kw">let </span>cache = <span class="self">self
             </span>.cache
             .as_ref()
-            .context(<span class="string">&quot;can not validate cache - no cache configured&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"can not validate cache - no cache configured"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>items = cache.validate_hashes()<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>errors = Vec::new();
         <span class="kw">for </span>(path, error) <span class="kw">in </span>items {
             <span class="kw">match </span>mode {
                 CacheValidationMode::WarnOnMismatch =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>error, <span class="string">&quot;hash mismatch in cached image file&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>error, <span class="string">"hash mismatch in cached image file"</span>);
                 }
                 CacheValidationMode::PruneOnMismatch =&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>error, <span class="string">&quot;deleting cached image file due to hash mismatch&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>error, <span class="string">"deleting cached image file due to hash mismatch"</span>);
                     <span class="kw">match </span>std::fs::remove_file(<span class="kw-2">&amp;</span>path) {
                         <span class="prelude-val">Ok</span>(()) =&gt; {}
                         <span class="prelude-val">Err</span>(error) <span class="kw">if </span>error.kind() == std::io::ErrorKind::NotFound =&gt; {}
@@ -829,7 +831,7 @@
                             <span class="macro">tracing::error!</span>(
                                 path=%error.source,
                                 <span class="question-mark">?</span>fs_err,
-                                <span class="string">&quot;could not delete cached image file with hash mismatch&quot;
+                                <span class="string">"could not delete cached image file with hash mismatch"
                             </span>);
                         }
                     }
@@ -842,7 +844,7 @@
         <span class="prelude-val">Ok</span>(errors)
     }
 
-    <span class="kw">pub fn </span>with_http_client(<span class="self">self</span>, client: <span class="kw">impl </span>HttpClient + Send + Sync + <span class="lifetime">&#39;static</span>) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_http_client(<span class="self">self</span>, client: <span class="kw">impl </span>HttpClient + Send + Sync + <span class="lifetime">'static</span>) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.with_shared_http_client(Arc::new(client))
     }
 
@@ -879,7 +881,7 @@
         <span class="self">self</span>.in_memory.save(container, hash);
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(pkg.hash=%hash))]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(pkg.hash=%hash))]
     </span><span class="kw">async fn </span>get_cached(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>WebcHash) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Container&gt;, Error&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = <span class="self">self</span>.in_memory.lookup(hash) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
@@ -888,7 +890,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="self">self</span>.cache.as_ref() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = cache.lookup(hash).<span class="kw">await</span><span class="question-mark">? </span>{
                 <span class="comment">// Note: We want to propagate it to the in-memory cache, too
-                </span><span class="macro">tracing::debug!</span>(<span class="string">&quot;Copying from the filesystem cache to the in-memory cache&quot;</span>);
+                </span><span class="macro">tracing::debug!</span>(<span class="string">"Copying from the filesystem cache to the in-memory cache"</span>);
                 <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>cached, <span class="kw-2">*</span>hash);
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
             }
@@ -907,7 +909,7 @@
         <span class="kw">let </span>image = image.clone();
         <span class="kw">crate</span>::spawn_blocking(<span class="kw">move </span>|| <span class="self">Self</span>::validate_hash_sync(<span class="kw-2">&amp;</span>image, mode, <span class="kw-2">&amp;</span>info))
             .<span class="kw">await
-            </span>.context(<span class="string">&quot;tokio runtime failed&quot;</span>)<span class="question-mark">?
+            </span>.context(<span class="string">"tokio runtime failed"</span>)<span class="question-mark">?
     </span>}
 
     <span class="doccomment">/// Validate image contents with the specified validation mode.
@@ -924,7 +926,7 @@
             HashIntegrityValidationMode::WarnOnHashMismatch =&gt; {
                 <span class="kw">let </span>actual_hash = WebcHash::sha256(image);
                 <span class="kw">if </span>actual_hash != info.webc_sha256 {
-                    <span class="macro">tracing::warn!</span>(%info.webc_sha256, %actual_hash, <span class="string">&quot;image hash mismatch - actual image hash does not match the expected hash!&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(%info.webc_sha256, %actual_hash, <span class="string">"image hash mismatch - actual image hash does not match the expected hash!"</span>);
                 }
                 <span class="prelude-val">Ok</span>(())
             }
@@ -944,9 +946,9 @@
         }
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%dist.webc, %dist.webc_sha256))]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%dist.webc, %dist.webc_sha256))]
     </span><span class="kw">async fn </span>download(<span class="kw-2">&amp;</span><span class="self">self</span>, dist: <span class="kw-2">&amp;</span>DistributionInfo) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt; {
-        <span class="kw">if </span>dist.webc.scheme() == <span class="string">&quot;file&quot; </span>{
+        <span class="kw">if </span>dist.webc.scheme() == <span class="string">"file" </span>{
             <span class="kw">match </span><span class="kw">crate</span>::runtime::resolver::utils::file_path_from_url(<span class="kw-2">&amp;</span>dist.webc) {
                 <span class="prelude-val">Ok</span>(path) =&gt; {
                     <span class="kw">let </span>bytes = <span class="kw">crate</span>::spawn_blocking({
@@ -954,7 +956,7 @@
                         <span class="kw">move </span>|| std::fs::read(path)
                     })
                     .<span class="kw">await</span><span class="question-mark">?
-                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to read \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
 
                     <span class="kw">let </span>bytes = bytes::Bytes::from(bytes);
 
@@ -966,7 +968,7 @@
                     <span class="macro">tracing::debug!</span>(
                         url=%dist.webc,
                         error=<span class="kw-2">&amp;*</span>e,
-                        <span class="string">&quot;Unable to convert the file:// URL to a path&quot;</span>,
+                        <span class="string">"Unable to convert the file:// URL to a path"</span>,
                     );
                 }
             }
@@ -980,7 +982,7 @@
             options: Default::default(),
         };
 
-        <span class="macro">tracing::debug!</span>(%request.url, %request.method, <span class="string">&quot;webc_package_download_start&quot;</span>);
+        <span class="macro">tracing::debug!</span>(%request.url, %request.method, <span class="string">"webc_package_download_start"</span>);
         <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>request.headers);
 
         <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -990,21 +992,21 @@
             %response.redirected,
             <span class="question-mark">?</span>response.headers,
             response.len=response.body.as_ref().map(|body| body.len()),
-            <span class="string">&quot;Received a response&quot;</span>,
+            <span class="string">"Received a response"</span>,
         );
 
         <span class="kw">let </span>url = <span class="kw-2">&amp;</span>dist.webc;
         <span class="kw">if </span>!response.is_ok() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(
                 <span class="kw">crate</span>::runtime::resolver::utils::http_error(<span class="kw-2">&amp;</span>response).context(<span class="macro">format!</span>(
-                    <span class="string">&quot;package download failed: GET request to \&quot;{}\&quot; failed with status {}&quot;</span>,
+                    <span class="string">"package download failed: GET request to \"{}\" failed with status {}"</span>,
                     url, response.status
                 )),
             );
         }
 
-        <span class="kw">let </span>body = response.body.context(<span class="string">&quot;package download failed&quot;</span>)<span class="question-mark">?</span>;
-        <span class="macro">tracing::debug!</span>(%url, <span class="string">&quot;package_download_succeeded&quot;</span>);
+        <span class="kw">let </span>body = response.body.context(<span class="string">"package download failed"</span>)<span class="question-mark">?</span>;
+        <span class="macro">tracing::debug!</span>(%url, <span class="string">"package_download_succeeded"</span>);
 
         <span class="kw">let </span>body = bytes::Bytes::from(body);
 
@@ -1015,12 +1017,12 @@
 
     <span class="kw">fn </span>headers(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; HeaderMap {
         <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
-        headers.insert(<span class="string">&quot;Accept&quot;</span>, <span class="string">&quot;application/webc&quot;</span>.parse().unwrap());
-        headers.insert(<span class="string">&quot;User-Agent&quot;</span>, USER_AGENT.parse().unwrap());
+        headers.insert(<span class="string">"Accept"</span>, <span class="string">"application/webc"</span>.parse().unwrap());
+        headers.insert(<span class="string">"User-Agent"</span>, USER_AGENT.parse().unwrap());
 
         <span class="kw">if </span>url.has_authority() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = <span class="self">self</span>.tokens.get(url.authority()) {
-                <span class="kw">let </span>header = <span class="macro">format!</span>(<span class="string">&quot;Bearer {token}&quot;</span>);
+                <span class="kw">let </span>header = <span class="macro">format!</span>(<span class="string">"Bearer {token}"</span>);
                 <span class="kw">match </span>header.parse() {
                     <span class="prelude-val">Ok</span>(header) =&gt; {
                         headers.insert(http::header::AUTHORIZATION, header);
@@ -1028,7 +1030,7 @@
                     <span class="prelude-val">Err</span>(e) =&gt; {
                         <span class="macro">tracing::warn!</span>(
                             error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                            <span class="string">&quot;An error occurred while parsing the authorization header&quot;</span>,
+                            <span class="string">"An error occurred while parsing the authorization header"</span>,
                         );
                     }
                 }
@@ -1048,7 +1050,7 @@
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>PackageLoader <span class="kw">for </span>BuiltinPackageLoader {
     <span class="attr">#[tracing::instrument(
-        level=<span class="string">&quot;debug&quot;</span>,
+        level=<span class="string">"debug"</span>,
         skip_all,
         fields(
             pkg=%summary.pkg.id,
@@ -1056,7 +1058,7 @@
     )]
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, summary: <span class="kw-2">&amp;</span>PackageSummary) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(container) = <span class="self">self</span>.get_cached(<span class="kw-2">&amp;</span>summary.dist.webc_sha256).<span class="kw">await</span><span class="question-mark">? </span>{
-            <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
+            <span class="macro">tracing::debug!</span>(<span class="string">"Cache hit!"</span>);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(container);
         }
 
@@ -1064,7 +1066,7 @@
         </span><span class="kw">let </span>bytes = <span class="self">self
             </span>.download(<span class="kw-2">&amp;</span>summary.dist)
             .<span class="kw">await
-            </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to download \&quot;{}\&quot;&quot;</span>, summary.dist.webc))<span class="question-mark">?</span>;
+            </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to download \"{}\""</span>, summary.dist.webc))<span class="question-mark">?</span>;
 
         <span class="comment">// We want to cache the container we downloaded, but we want to do it
         // in a smart way to keep memory usage down.
@@ -1075,10 +1077,10 @@
                 .<span class="kw">await
             </span>{
                 <span class="prelude-val">Ok</span>(container) =&gt; {
-                    <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cached to disk&quot;</span>);
+                    <span class="macro">tracing::debug!</span>(<span class="string">"Cached to disk"</span>);
                     <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, summary.dist.webc_sha256);
-                    <span class="comment">// The happy path - we&#39;ve saved to both caches and loaded the
-                    // container from disk (hopefully using mmap) so we&#39;re done.
+                    <span class="comment">// The happy path - we've saved to both caches and loaded the
+                    // container from disk (hopefully using mmap) so we're done.
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(container);
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -1087,15 +1089,15 @@
                         pkg=%summary.pkg.id,
                         pkg.hash=%summary.dist.webc_sha256,
                         pkg.url=%summary.dist.webc,
-                        <span class="string">&quot;Unable to save the downloaded package to disk&quot;</span>,
+                        <span class="string">"Unable to save the downloaded package to disk"</span>,
                     );
                 }
             }
         }
 
-        <span class="comment">// The sad path - looks like we don&#39;t have a filesystem cache so we&#39;ll
+        <span class="comment">// The sad path - looks like we don't have a filesystem cache so we'll
         // need to keep the whole thing in memory.
-        </span><span class="kw">let </span>container = <span class="kw">crate</span>::spawn_blocking(<span class="kw">move </span>|| Container::from_bytes(bytes)).<span class="kw">await</span><span class="question-mark">??</span>;
+        </span><span class="kw">let </span>container = <span class="kw">crate</span>::spawn_blocking(<span class="kw">move </span>|| from_bytes(bytes)).<span class="kw">await</span><span class="question-mark">??</span>;
         <span class="comment">// We still want to cache it in memory, of course
         </span><span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, summary.dist.webc_sha256);
         <span class="prelude-val">Ok</span>(container)
@@ -1119,10 +1121,10 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>ImageHashMismatchError {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="macro">write!</span>(
             f,
-            <span class="string">&quot;image hash mismatch! expected hash &#39;{}&#39;, but the computed hash is &#39;{}&#39; (source &#39;{}&#39;)&quot;</span>,
+            <span class="string">"image hash mismatch! expected hash '{}', but the computed hash is '{}' (source '{}')"</span>,
             <span class="self">self</span>.expected_hash, <span class="self">self</span>.actual_hash, <span class="self">self</span>.source,
         )
     }
@@ -1132,10 +1134,10 @@
 
 <span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>CacheValidationMode {
-    <span class="doccomment">/// Just emit a warning for all images where the filename doesn&#39;t match
+    <span class="doccomment">/// Just emit a warning for all images where the filename doesn't match
     /// the expected hash.
     </span>WarnOnMismatch,
-    <span class="doccomment">/// Remove images from the cache if the filename doesn&#39;t match the actual
+    <span class="doccomment">/// Remove images from the cache if the filename doesn't match the actual
     /// hash.
     </span>PruneOnMismatch,
 }
@@ -1148,7 +1150,7 @@
 }
 
 <span class="kw">impl </span>FileSystemCache {
-    <span class="kw">const </span>FILE_SUFFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;.bin&quot;</span>;
+    <span class="kw">const </span>FILE_SUFFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">".bin"</span>;
 
     <span class="doccomment">/// Validate that the cached image file names correspond to their actual
     /// file content hashes.
@@ -1164,7 +1166,7 @@
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(err).with_context(|| {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;Could not read image cache dir: &#39;{}&#39;&quot;</span>,
+                        <span class="string">"Could not read image cache dir: '{}'"</span>,
                         <span class="self">self</span>.cache_dir.display()
                     )
                 });
@@ -1213,20 +1215,18 @@
 
         <span class="kw">let </span>container = <span class="kw">crate</span>::spawn_blocking({
             <span class="kw">let </span>path = path.clone();
-            <span class="kw">move </span>|| Container::from_disk(path)
+            <span class="kw">move </span>|| from_disk(path)
         })
         .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">match </span>container {
             <span class="prelude-val">Ok</span>(c) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(c)),
-            <span class="prelude-val">Err</span>(ContainerError::Open { error, .. })
-            | <span class="prelude-val">Err</span>(ContainerError::Read { error, .. })
-            | <span class="prelude-val">Err</span>(ContainerError::Detect(DetectError::Io(error)))
-                <span class="kw">if </span>error.kind() == ErrorKind::NotFound =&gt;
-            {
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-            }
+            <span class="prelude-val">Err</span>(WasmerPackageError::ContainerError(ContainerError::Open { error, .. }))
+            | <span class="prelude-val">Err</span>(WasmerPackageError::ContainerError(ContainerError::Read { error, .. }))
+            | <span class="prelude-val">Err</span>(WasmerPackageError::ContainerError(ContainerError::Detect(DetectError::Io(
+                error,
+            )))) <span class="kw">if </span>error.kind() == ErrorKind::NotFound =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display());
+                <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Unable to read \"{}\""</span>, path.display());
                 <span class="prelude-val">Err</span>(Error::new(e).context(msg))
             }
         }
@@ -1237,10 +1237,10 @@
         <span class="kw">let </span>dist = dist.clone();
 
         <span class="kw">crate</span>::spawn_blocking(<span class="kw">move </span>|| {
-            <span class="kw">let </span>parent = path.parent().expect(<span class="string">&quot;Always within cache_dir&quot;</span>);
+            <span class="kw">let </span>parent = path.parent().expect(<span class="string">"Always within cache_dir"</span>);
 
             std::fs::create_dir_all(parent)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to create \&quot;{}\&quot;&quot;</span>, parent.display()))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to create \"{}\""</span>, parent.display()))<span class="question-mark">?</span>;
 
             <span class="kw">let </span><span class="kw-2">mut </span>temp = NamedTempFile::new_in(parent)<span class="question-mark">?</span>;
             temp.write_all(<span class="kw-2">&amp;</span>webc)<span class="question-mark">?</span>;
@@ -1253,7 +1253,7 @@
                 pkg.url=%dist.webc,
                 path=%path.display(),
                 num_bytes=webc.len(),
-                <span class="string">&quot;Saved to disk&quot;</span>,
+                <span class="string">"Saved to disk"</span>,
             );
             <span class="prelude-ty">Result</span>::&lt;<span class="kw">_</span>, Error&gt;::Ok(())
         })
@@ -1262,7 +1262,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">async fn </span>save_and_load_as_mmapped(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         webc: Bytes,
@@ -1276,10 +1276,10 @@
         </span><span class="kw">match </span><span class="self">self</span>.lookup(<span class="kw-2">&amp;</span>dist.webc_sha256).<span class="kw">await</span><span class="question-mark">? </span>{
             <span class="prelude-val">Some</span>(container) =&gt; <span class="prelude-val">Ok</span>(container),
             <span class="prelude-val">None </span>=&gt; {
-                <span class="comment">// Something really weird has occurred and we can&#39;t see the
+                <span class="comment">// Something really weird has occurred and we can't see the
                 // saved file. Just error out and let the fallback code do its
                 // thing.
-                </span><span class="prelude-val">Err</span>(Error::msg(<span class="string">&quot;Unable to load the downloaded memory from disk&quot;</span>))
+                </span><span class="prelude-val">Err</span>(Error::msg(<span class="string">"Unable to load the downloaded memory from disk"</span>))
             }
         }
     }
@@ -1288,7 +1288,7 @@
         <span class="kw">let </span>hash = hash.as_bytes();
         <span class="kw">let </span><span class="kw-2">mut </span>filename = String::with_capacity(hash.len() * <span class="number">2</span>);
         <span class="kw">for </span>b <span class="kw">in </span>hash {
-            <span class="macro">write!</span>(filename, <span class="string">&quot;{b:02x}&quot;</span>).unwrap();
+            <span class="macro">write!</span>(filename, <span class="string">"{b:02x}"</span>).unwrap();
         }
         filename.push_str(<span class="self">Self</span>::FILE_SUFFIX);
 
@@ -1326,7 +1326,7 @@
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
+    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
 
     <span class="attr">#[derive(Debug)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DummyClient {
@@ -1347,7 +1347,7 @@
         <span class="kw">fn </span>request(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             request: HttpRequest,
-        ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
+        ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
             <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().pop_front().unwrap();
             <span class="self">self</span>.requests.lock().unwrap().push(request);
             Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })
@@ -1367,14 +1367,14 @@
             .with_shared_http_client(client.clone());
         <span class="kw">let </span>summary = PackageSummary {
             pkg: PackageInfo {
-                id: PackageId::new_named(<span class="string">&quot;python/python&quot;</span>, <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap()),
+                id: PackageId::new_named(<span class="string">"python/python"</span>, <span class="string">"0.1.0"</span>.parse().unwrap()),
                 dependencies: Vec::new(),
                 commands: Vec::new(),
-                entrypoint: <span class="prelude-val">Some</span>(<span class="string">&quot;asdf&quot;</span>.to_string()),
+                entrypoint: <span class="prelude-val">Some</span>(<span class="string">"asdf"</span>.to_string()),
                 filesystem: Vec::new(),
             },
             dist: DistributionInfo {
-                webc: <span class="string">&quot;https://wasmer.io/python/python&quot;</span>.parse().unwrap(),
+                webc: <span class="string">"https://wasmer.io/python/python"</span>.parse().unwrap(),
                 webc_sha256: [<span class="number">0xaa</span>; <span class="number">32</span>].into(),
             },
         };
@@ -1385,13 +1385,13 @@
         </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
         <span class="kw">let </span>request = <span class="kw-2">&amp;</span>requests[<span class="number">0</span>];
         <span class="macro">assert_eq!</span>(request.url, summary.dist.webc);
-        <span class="macro">assert_eq!</span>(request.method, <span class="string">&quot;GET&quot;</span>);
+        <span class="macro">assert_eq!</span>(request.method, <span class="string">"GET"</span>);
         <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;Accept&quot;</span>], <span class="string">&quot;application/webc&quot;</span>);
-        <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;User-Agent&quot;</span>], USER_AGENT);
+        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"Accept"</span>], <span class="string">"application/webc"</span>);
+        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"User-Agent"</span>], USER_AGENT);
         <span class="comment">// Make sure we got the right package
         </span><span class="kw">let </span>manifest = container.manifest();
-        <span class="macro">assert_eq!</span>(manifest.entrypoint.as_deref(), <span class="prelude-val">Some</span>(<span class="string">&quot;python&quot;</span>));
+        <span class="macro">assert_eq!</span>(manifest.entrypoint.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"python"</span>));
         <span class="comment">// it should have been automatically saved to disk
         </span><span class="kw">let </span>path = loader
             .cache
@@ -1405,13 +1405,13 @@
         <span class="macro">assert!</span>(in_memory.contains_key(<span class="kw-2">&amp;</span>summary.dist.webc_sha256));
     }
 
-    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
     </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
         cache_misses_will_trigger_a_download_internal().<span class="kw">await
     </span>}
 
-    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
     #[tokio::test()]
     </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
         cache_misses_will_trigger_a_download_internal().<span class="kw">await
@@ -1429,12 +1429,12 @@
         <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
         <span class="kw">let </span>path = dir.path();
 
-        <span class="kw">let </span>contents = <span class="string">&quot;fail&quot;</span>;
+        <span class="kw">let </span>contents = <span class="string">"fail"</span>;
         <span class="kw">let </span>correct_hash = WebcHash::sha256(contents);
         <span class="kw">let </span>used_hash =
-            WebcHash::parse_hex(<span class="string">&quot;0000a28ea38a000f3a3328cb7fabe330638d3258affe1a869e3f92986222d997&quot;</span>)
+            WebcHash::parse_hex(<span class="string">"0000a28ea38a000f3a3328cb7fabe330638d3258affe1a869e3f92986222d997"</span>)
                 .unwrap();
-        <span class="kw">let </span>filename = <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, used_hash, FileSystemCache::FILE_SUFFIX);
+        <span class="kw">let </span>filename = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, used_hash, FileSystemCache::FILE_SUFFIX);
         <span class="kw">let </span>file_path = path.join(filename);
         std::fs::write(<span class="kw-2">&amp;</span>file_path, contents).unwrap();
 

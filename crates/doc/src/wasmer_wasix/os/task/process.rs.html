@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/task/process.rs`."><title>process.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/task/process.rs`."><title>process.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -865,11 +865,11 @@
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use crate</span>::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
 <span class="kw">use crate</span>::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::{
     collections::HashMap,
@@ -940,14 +940,14 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>WasiProcessId {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
     }
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>WasiProcessId {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
     }
 }
 
@@ -968,7 +968,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) inner: LockableWasiProcessInner,
     <span class="doccomment">/// Reference back to the compute engine
     </span><span class="comment">// TODO: remove this reference, access should happen via separate state instead
-    // (we don&#39;t want cyclical references)
+    // (we don't want cyclical references)
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) compute: WasiControlPlaneHandle,
     <span class="doccomment">/// Reference to the exit code for the main thread
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) finished: Arc&lt;OwnedTaskStatus&gt;,
@@ -1039,13 +1039,13 @@
     /// next snapshot is taken
     </span><span class="kw">pub </span>disable_journaling_after_checkpoint: bool,
     <span class="doccomment">/// List of situations that the process will checkpoint on
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub </span>snapshot_on: HashSet&lt;SnapshotTrigger&gt;,
     <span class="doccomment">/// Any wakers waiting on this process (for example for a checkpoint)
     </span><span class="kw">pub </span>wakers: Vec&lt;Waker&gt;,
     <span class="doccomment">/// The snapshot memory significantly reduce the amount of
     /// duplicate entries in the journal for memory that has not changed
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub </span>snapshot_memory_hash: HashMap&lt;MemorySnapshotRegion, u64&gt;,
     <span class="doccomment">/// Represents all the backoff properties for this process
     /// which will be used to determine if the CPU should be
@@ -1053,20 +1053,20 @@
     </span><span class="kw">pub</span>(<span class="kw">super</span>) backoff: WasiProcessCpuBackoff,
 }
 
-<span class="kw">pub enum </span>MaybeCheckpointResult&lt;<span class="lifetime">&#39;a</span>&gt; {
-    NotThisTime(FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;),
+<span class="kw">pub enum </span>MaybeCheckpointResult&lt;<span class="lifetime">'a</span>&gt; {
+    NotThisTime(FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;),
     Unwinding,
 }
 
 <span class="kw">impl </span>WasiProcessInner {
     <span class="doccomment">/// Checkpoints the process which will cause all other threads to
     /// pause and for the thread and memory state to be saved
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>checkpoint&lt;M: wasmer_types::MemorySize&gt;(
         inner: LockableWasiProcessInner,
-        ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+        ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
         for_what: WasiProcessCheckpoint,
-    ) -&gt; WasiResult&lt;MaybeCheckpointResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt; {
+    ) -&gt; WasiResult&lt;MaybeCheckpointResult&lt;<span class="lifetime">'_</span>&gt;&gt; {
         <span class="comment">// Set the checkpoint flag and then enter the normal processing loop
         </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.<span class="number">0</span>.lock().unwrap();
@@ -1082,11 +1082,11 @@
 
     <span class="doccomment">/// If a checkpoint has been started this will block the current process
     /// until the checkpoint operation has completed
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>maybe_checkpoint&lt;M: wasmer_types::MemorySize&gt;(
         inner: LockableWasiProcessInner,
-        ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
-    ) -&gt; WasiResult&lt;MaybeCheckpointResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt; {
+        ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    ) -&gt; WasiResult&lt;MaybeCheckpointResult&lt;<span class="lifetime">'_</span>&gt;&gt; {
         <span class="comment">// Enter the lock which will determine if we are in a checkpoint or not
 
         </span><span class="kw">use </span>bytes::Bytes;
@@ -1099,7 +1099,7 @@
             <span class="comment">// No checkpoint so just carry on
             </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(MaybeCheckpointResult::NotThisTime(ctx)));
         }
-        <span class="macro">trace!</span>(<span class="string">&quot;checkpoint capture&quot;</span>);
+        <span class="macro">trace!</span>(<span class="string">"checkpoint capture"</span>);
         drop(guard);
 
         <span class="comment">// Perform the unwind action
@@ -1114,7 +1114,7 @@
             <span class="kw">let </span>store_data = Bytes::from(store_data);
 
             <span class="macro">tracing::debug!</span>(
-                <span class="string">&quot;stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})&quot;</span>,
+                <span class="string">"stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})"</span>,
                 memory_stack.len(),
                 rewind_stack.len(),
                 store_data.len(),
@@ -1158,7 +1158,7 @@
 
                         <span class="comment">// Clear the checkpointing flag and notify everyone to wake up
                         </span>ctx.data().thread.set_checkpointing(<span class="bool-val">false</span>);
-                        <span class="macro">trace!</span>(<span class="string">&quot;checkpoint complete&quot;</span>);
+                        <span class="macro">trace!</span>(<span class="string">"checkpoint complete"</span>);
                         <span class="kw">if </span>guard.disable_journaling_after_checkpoint {
                             ctx.data_mut().enable_journal = <span class="bool-val">false</span>;
                         }
@@ -1174,7 +1174,7 @@
                 }
 
                 ctx.data().thread.set_checkpointing(<span class="bool-val">false</span>);
-                <span class="macro">trace!</span>(<span class="string">&quot;checkpoint finished&quot;</span>);
+                <span class="macro">trace!</span>(<span class="string">"checkpoint finished"</span>);
 
                 <span class="comment">// Rewind the stack and carry on
                 </span><span class="kw">return match </span>rewind_ext::&lt;M&gt;(
@@ -1187,7 +1187,7 @@
                     Errno::Success =&gt; OnCalledAction::InvokeAgain,
                     err =&gt; {
                         <span class="macro">tracing::warn!</span>(
-                            <span class="string">&quot;snapshot resumption failed - could not rewind the stack - errno={}&quot;</span>,
+                            <span class="string">"snapshot resumption failed - could not rewind the stack - errno={}"</span>,
                             err
                         );
                         OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
@@ -1200,12 +1200,12 @@
     }
 
     <span class="comment">// Execute any checkpoints that can be executed while outside of the WASM process
-    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
-    </span><span class="kw">pub fn </span>do_checkpoints_from_outside(_ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;) {}
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
+    </span><span class="kw">pub fn </span>do_checkpoints_from_outside(_ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;) {}
 
     <span class="comment">// Execute any checkpoints that can be executed while outside of the WASM process
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-    </span><span class="kw">pub fn </span>do_checkpoints_from_outside(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;) {
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>do_checkpoints_from_outside(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;) {
         <span class="kw">let </span>inner = ctx.data().process.inner.clone();
         <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.<span class="number">0</span>.lock().unwrap();
 
@@ -1224,13 +1224,13 @@
                     JournalEffector::save_memory_and_snapshot(ctx, <span class="kw-2">&amp;mut </span>guard, trigger)
                 {
                     inner.<span class="number">1</span>.notify_all();
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to snapshot memory and threads - {}&quot;</span>, err);
+                    <span class="macro">tracing::error!</span>(<span class="string">"failed to snapshot memory and threads - {}"</span>, err);
                     <span class="kw">return</span>;
                 }
 
                 <span class="comment">// Clear the checkpointing flag and notify everyone to wake up
                 </span>ctx.data().thread.set_checkpointing(<span class="bool-val">false</span>);
-                <span class="macro">trace!</span>(<span class="string">&quot;checkpoint complete&quot;</span>);
+                <span class="macro">trace!</span>(<span class="string">"checkpoint complete"</span>);
                 <span class="kw">if </span>guard.disable_journaling_after_checkpoint {
                     ctx.data_mut().enable_journal = <span class="bool-val">false</span>;
                 }
@@ -1246,7 +1246,7 @@
         }
 
         ctx.data().thread.set_checkpointing(<span class="bool-val">false</span>);
-        <span class="macro">trace!</span>(<span class="string">&quot;checkpoint finished&quot;</span>);
+        <span class="macro">trace!</span>(<span class="string">"checkpoint finished"</span>);
     }
 }
 
@@ -1289,9 +1289,9 @@
                 checkpoint: WasiProcessCheckpoint::Execute,
                 wakers: Default::default(),
                 waiting: waiting.clone(),
-                <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
                 </span>snapshot_on: Default::default(),
-                <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
                 </span>snapshot_memory_hash: Default::default(),
                 disable_journaling_after_checkpoint: <span class="bool-val">false</span>,
                 backoff: WasiProcessCpuBackoff::new(max_cpu_backoff_time, max_cpu_cool_off_time),
@@ -1348,7 +1348,7 @@
 
     <span class="doccomment">/// Gains access to the process internals
     </span><span class="comment">// TODO: Make this private, all inner access should be exposed with methods.
-    </span><span class="kw">pub fn </span>lock(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MutexGuard&lt;<span class="lifetime">&#39;_</span>, WasiProcessInner&gt; {
+    </span><span class="kw">pub fn </span>lock(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MutexGuard&lt;<span class="lifetime">'_</span>, WasiProcessInner&gt; {
         <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap()
     }
 
@@ -1427,14 +1427,14 @@
         <span class="kw">let </span>tid: WasiThreadId = tid.into();
 
         <span class="kw">let </span>pid = <span class="self">self</span>.pid();
-        <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">&quot;signal-thread({:?})&quot;</span>, signal);
+        <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">"signal-thread({:?})"</span>, signal);
 
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(thread) = inner.threads.get(<span class="kw-2">&amp;</span>tid) {
             thread.signal(signal);
         } <span class="kw">else </span>{
             <span class="macro">trace!</span>(
-                <span class="string">&quot;wasi[{}]::lost-signal(tid={}, sig={:?})&quot;</span>,
+                <span class="string">"wasi[{}]::lost-signal(tid={}, sig={:?})"</span>,
                 <span class="self">self</span>.pid(),
                 tid,
                 signal
@@ -1482,7 +1482,7 @@
     }
 
     <span class="doccomment">/// Wait for the checkout process to finish
-    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
     </span><span class="kw">pub fn </span>wait_for_checkpoint(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
@@ -1490,7 +1490,7 @@
     }
 
     <span class="doccomment">/// Wait for the checkout process to finish
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>wait_for_checkpoint(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
@@ -1505,7 +1505,7 @@
         }
         <span class="kw">impl </span>Future <span class="kw">for </span>Poller {
             <span class="kw">type </span>Output = ();
-            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
                 <span class="kw">if </span>!<span class="macro">matches!</span>(guard.checkpoint, WasiProcessCheckpoint::Execute) {
                     <span class="kw">return </span>Poll::Ready(());
@@ -1522,7 +1522,7 @@
     }
 
     <span class="doccomment">/// Wait for the checkout process to finish
-    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
     </span><span class="kw">pub fn </span>wait_for_checkpoint_finish(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
@@ -1530,7 +1530,7 @@
     }
 
     <span class="doccomment">/// Wait for the checkout process to finish
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>wait_for_checkpoint_finish(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
@@ -1545,7 +1545,7 @@
         }
         <span class="kw">impl </span>Future <span class="kw">for </span>Poller {
             <span class="kw">type </span>Output = ();
-            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
                 <span class="kw">if </span><span class="macro">matches!</span>(guard.checkpoint, WasiProcessCheckpoint::Execute) {
                     <span class="kw">return </span>Poll::Ready(());
@@ -1679,11 +1679,11 @@
     <span class="attr">#[allow(unused_mut)]
     </span><span class="kw">let </span><span class="kw-2">mut </span>guard = process.<span class="number">0</span>.lock().unwrap();
     <span class="kw">let </span>pid = guard.pid;
-    <span class="macro">tracing::trace!</span>(%pid, <span class="string">&quot;signal-process({:?})&quot;</span>, signal);
+    <span class="macro">tracing::trace!</span>(%pid, <span class="string">"signal-process({:?})"</span>, signal);
 
     <span class="comment">// If the snapshot on ctrl-c is currently registered then we need
     // to take a snapshot and exit
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span>{
         <span class="kw">if </span>signal == Signal::Sigint
             &amp;&amp; (guard.snapshot_on.contains(<span class="kw-2">&amp;</span>SnapshotTrigger::Sigint)
@@ -1691,7 +1691,7 @@
         {
             drop(guard);
 
-            <span class="macro">tracing::debug!</span>(%pid, <span class="string">&quot;snapshot-on-interrupt-signal&quot;</span>);
+            <span class="macro">tracing::debug!</span>(%pid, <span class="string">"snapshot-on-interrupt-signal"</span>);
 
             do_checkpoint_from_outside(
                 process,

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["IS_WASI"],"enum":["BaseDir","WasmerPackageError"],"fn":["read_manifest","tempdir","unpack_archive"],"struct":["Package"]};

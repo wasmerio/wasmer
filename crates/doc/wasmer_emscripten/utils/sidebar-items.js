@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["allocate_cstr_on_stack","allocate_on_stack","copy_cstr_into_wasm","copy_stat_into_wasm","copy_terminated_array_of_cstrs","get_cstr_path","get_current_directory","get_emscripten_memory_size","get_emscripten_metadata","get_emscripten_table_size","is_emscripten_module","read_string_from_wasm","write_to_buf"],"struct":["GuestStat"]};

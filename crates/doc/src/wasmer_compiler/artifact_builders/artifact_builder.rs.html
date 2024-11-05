@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/artifact_builder.rs`."><title>artifact_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/artifact_builder.rs`."><title>artifact_builder.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -500,21 +500,25 @@
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
 <a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span><span class="kw">super</span>::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 <span class="kw">use </span><span class="kw">crate</span>::ArtifactCreate;
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::EngineInner;
 <span class="kw">use </span><span class="kw">crate</span>::Features;
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use crate</span>::{ModuleEnvironment, ModuleMiddlewareChain};
 <span class="kw">use </span>core::mem::MaybeUninit;
 <span class="kw">use </span>enumset::EnumSet;
-<span class="kw">use </span>rkyv::de::deserializers::SharedDeserializeMap;
-<span class="kw">use </span>rkyv::option::ArchivedOption;
+<span class="kw">use </span>rkyv::{option::ArchivedOption, rancor::Error <span class="kw">as </span>RkyvError};
 <span class="kw">use </span>self_cell::self_cell;
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::sync::Arc;
@@ -524,26 +528,31 @@
 <span class="kw">use </span>wasmer_types::ArchivedSerializableModule;
 <span class="kw">use </span>wasmer_types::CompileModuleInfo;
 <span class="kw">use </span>wasmer_types::DeserializeError;
-<span class="kw">use </span>wasmer_types::{
+
+<span class="comment">// Not every compiler backend uses these.
+</span><span class="attr">#[allow(unused)]
+</span><span class="kw">use </span>wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleHash, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
     SignatureIndex, TableIndex, TableStyle, Target,
 };
-<span class="kw">use </span>wasmer_types::{
+
+<span class="attr">#[allow(unused)]
+</span><span class="kw">use </span>wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, HashAlgorithm, SerializableCompilation,
     SerializableModule,
 };
 <span class="kw">use </span>wasmer_types::{MetadataHeader, SerializeError};
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>ArtifactBuild {
     serializable: SerializableModule,
 }
 
 <span class="kw">impl </span>ArtifactBuild {
     <span class="doccomment">/// Header signature for wasmu binary
-    </span><span class="kw">pub const </span>MAGIC_HEADER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8; <span class="number">16</span>] = <span class="string">b&quot;wasmer-universal&quot;</span>;
+    </span><span class="kw">pub const </span>MAGIC_HEADER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8; <span class="number">16</span>] = <span class="string">b"wasmer-universal"</span>;
 
     <span class="doccomment">/// Check if the provided bytes look like a serialized `ArtifactBuild`.
     </span><span class="kw">pub fn </span>is_deserializable(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
@@ -551,7 +560,7 @@
     }
 
     <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">pub fn </span>new(
         inner_engine: <span class="kw-2">&amp;mut </span>EngineInner,
         data: <span class="kw-2">&amp;</span>[u8],
@@ -706,9 +715,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ArtifactCreate&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>ArtifactBuild {
-    <span class="kw">type </span>OwnedDataInitializer = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>OwnedDataInitializer;
-    <span class="kw">type </span>OwnedDataInitializerIterator = core::slice::Iter&lt;<span class="lifetime">&#39;a</span>, OwnedDataInitializer&gt;;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ArtifactCreate&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>ArtifactBuild {
+    <span class="kw">type </span>OwnedDataInitializer = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>OwnedDataInitializer;
+    <span class="kw">type </span>OwnedDataInitializerIterator = core::slice::Iter&lt;<span class="lifetime">'a</span>, OwnedDataInitializer&gt;;
 
     <span class="kw">fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;ModuleInfo&gt; {
         <span class="self">self</span>.serializable.compile_info.module.clone()
@@ -733,7 +742,7 @@
         EnumSet::from_u64(<span class="self">self</span>.serializable.cpu_features)
     }
 
-    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
+    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
         <span class="self">self</span>.serializable.data_initializers.iter()
     }
 
@@ -753,27 +762,27 @@
 <span class="doccomment">/// Module loaded from an archive. Since `CompileModuleInfo` is part of the public
 /// interface of this crate and has to be mutable, it has to be deserialized completely.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>ModuleFromArchive&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>ModuleFromArchive&lt;<span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// The main serializable compilation object
-    </span><span class="kw">pub </span>compilation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedSerializableCompilation,
+    </span><span class="kw">pub </span>compilation: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedSerializableCompilation,
     <span class="doccomment">/// Datas initializers
-    </span><span class="kw">pub </span>data_initializers: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>rkyv::Archived&lt;Box&lt;[OwnedDataInitializer]&gt;&gt;,
+    </span><span class="kw">pub </span>data_initializers: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>rkyv::Archived&lt;Box&lt;[OwnedDataInitializer]&gt;&gt;,
     <span class="doccomment">/// CPU Feature flags for this compilation
     </span><span class="kw">pub </span>cpu_features: u64,
 
     <span class="comment">// Keep the original module around for re-serialization
-    </span>original_module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedSerializableModule,
+    </span>original_module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedSerializableModule,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ModuleFromArchive&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ModuleFromArchive&lt;<span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// Create a new `ModuleFromArchive` from the archived version of a `SerializableModule`
     </span><span class="kw">pub fn </span>from_serializable_module(
-        module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedSerializableModule,
+        module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedSerializableModule,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             compilation: <span class="kw-2">&amp;</span>module.compilation,
             data_initializers: <span class="kw-2">&amp;</span>module.data_initializers,
-            cpu_features: module.cpu_features,
+            cpu_features: module.cpu_features.to_native(),
             original_module: module,
         })
     }
@@ -790,7 +799,7 @@
     <span class="kw">impl </span>{Debug}
 );
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;artifact-size&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"artifact-size"</span>)]
 </span><span class="kw">impl </span>loupe::MemoryUsage <span class="kw">for </span>ArtifactBuildFromArchiveCell {
     <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, _tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
         std::mem::size_of_val(<span class="self">self</span>.borrow_owner()) + std::mem::size_of_val(<span class="self">self</span>.borrow_dependent())
@@ -799,7 +808,7 @@
 
 <span class="doccomment">/// A compiled wasm module that was loaded from a serialized archive.
 </span><span class="attr">#[derive(Clone, Debug)]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>ArtifactBuildFromArchive {
     cell: Arc&lt;ArtifactBuildFromArchiveCell&gt;,
 
@@ -808,7 +817,8 @@
 }
 
 <span class="kw">impl </span>ArtifactBuildFromArchive {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_new(
+    <span class="attr">#[allow(unused)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_new(
         buffer: OwnedBuffer,
         module_builder: <span class="kw">impl </span>FnOnce(
             <span class="kw-2">&amp;</span>OwnedBuffer,
@@ -818,10 +828,9 @@
 
         <span class="kw">let </span>cell = ArtifactBuildFromArchiveCell::try_new(buffer, |buffer| {
             <span class="kw">let </span>module = module_builder(buffer)<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>deserializer = SharedDeserializeMap::new();
             compile_info = MaybeUninit::new(
-                rkyv::Deserialize::deserialize(<span class="kw-2">&amp;</span>module.compile_info, <span class="kw-2">&amp;mut </span>deserializer)
-                    .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>,
+                rkyv::deserialize::&lt;<span class="kw">_</span>, RkyvError&gt;(<span class="kw-2">&amp;</span>module.compile_info)
+                    .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>,
             );
             ModuleFromArchive::from_serializable_module(module)
         })<span class="question-mark">?</span>;
@@ -895,7 +904,10 @@
 
     <span class="doccomment">/// Get LibCall Trampoline Section Index
     </span><span class="kw">pub fn </span>get_libcall_trampolines(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SectionIndex {
-        <span class="self">self</span>.cell.borrow_dependent().compilation.libcall_trampolines
+        rkyv::deserialize::&lt;<span class="kw">_</span>, RkyvError&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.cell.borrow_dependent().compilation.libcall_trampolines,
+        )
+        .unwrap()
     }
 
     <span class="doccomment">/// Get LibCall Trampoline Length
@@ -903,13 +915,16 @@
         <span class="self">self</span>.cell
             .borrow_dependent()
             .compilation
-            .libcall_trampoline_len <span class="kw">as </span>usize
+            .libcall_trampoline_len
+            .to_native() <span class="kw">as </span>usize
     }
 
     <span class="doccomment">/// Get Debug optional Dwarf ref
-    </span><span class="kw">pub fn </span>get_debug_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Dwarf&gt; {
+    </span><span class="kw">pub fn </span>get_debug_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Dwarf&gt; {
         <span class="kw">match </span><span class="self">self</span>.cell.borrow_dependent().compilation.debug {
-            ArchivedOption::Some(<span class="kw-2">ref </span>x) =&gt; <span class="prelude-val">Some</span>(x),
+            ArchivedOption::Some(<span class="kw-2">ref </span>x) =&gt; {
+                <span class="prelude-val">Some</span>(rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(x).unwrap())
+            }
             ArchivedOption::None =&gt; <span class="prelude-val">None</span>,
         }
     }
@@ -925,18 +940,16 @@
     </span><span class="kw">pub fn </span>deserialize_frame_info_ref(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;LocalFunctionIndex, CompiledFunctionFrameInfo&gt;, DeserializeError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>deserializer = SharedDeserializeMap::new();
-        rkyv::Deserialize::deserialize(
+        rkyv::deserialize::&lt;<span class="kw">_</span>, RkyvError&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>.cell.borrow_dependent().compilation.function_frame_info,
-            <span class="kw-2">&amp;mut </span>deserializer,
         )
-        .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
+        .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ArtifactCreate&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>ArtifactBuildFromArchive {
-    <span class="kw">type </span>OwnedDataInitializer = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedOwnedDataInitializer;
-    <span class="kw">type </span>OwnedDataInitializerIterator = core::slice::Iter&lt;<span class="lifetime">&#39;a</span>, ArchivedOwnedDataInitializer&gt;;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ArtifactCreate&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>ArtifactBuildFromArchive {
+    <span class="kw">type </span>OwnedDataInitializer = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedOwnedDataInitializer;
+    <span class="kw">type </span>OwnedDataInitializerIterator = core::slice::Iter&lt;<span class="lifetime">'a</span>, ArchivedOwnedDataInitializer&gt;;
 
     <span class="kw">fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;ModuleInfo&gt; {
         <span class="self">self</span>.compile_info.module.clone()
@@ -961,7 +974,7 @@
         EnumSet::from_u64(<span class="self">self</span>.cell.borrow_dependent().cpu_features)
     }
 
-    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
+    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
         <span class="self">self</span>.cell.borrow_dependent().data_initializers.iter()
     }
 
@@ -981,12 +994,9 @@
         // deserialized from a file makes little sense, so hopefully, this is not a
         // common use-case.
 
-        </span><span class="kw">let </span><span class="kw-2">mut </span>deserializer = SharedDeserializeMap::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>module: SerializableModule = rkyv::Deserialize::deserialize(
-            <span class="self">self</span>.cell.borrow_dependent().original_module,
-            <span class="kw-2">&amp;mut </span>deserializer,
-        )
-        .map_err(|e| SerializeError::Generic(e.to_string()))<span class="question-mark">?</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>module: SerializableModule =
+            rkyv::deserialize::&lt;<span class="kw">_</span>, RkyvError&gt;(<span class="self">self</span>.cell.borrow_dependent().original_module)
+                .map_err(|e| SerializeError::Generic(e.to_string()))<span class="question-mark">?</span>;
         module.compile_info = <span class="self">self</span>.compile_info.clone();
         serialize_module(<span class="kw-2">&amp;</span>module)
     }

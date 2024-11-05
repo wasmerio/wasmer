@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/config/src/package/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_config" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_config/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/config/src/package/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_config" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1498,11 +1498,6 @@
 <a href="#1498" id="1498">1498</a>
 <a href="#1499" id="1499">1499</a>
 <a href="#1500" id="1500">1500</a>
-<a href="#1501" id="1501">1501</a>
-<a href="#1502" id="1502">1502</a>
-<a href="#1503" id="1503">1503</a>
-<a href="#1504" id="1504">1504</a>
-<a href="#1505" id="1505">1505</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wasmer package definitions.
 //!
 //! Describes the contents of a `wasmer.toml` file.
@@ -1545,25 +1540,22 @@
 </span><span class="attr">#[derive(Clone, Copy, Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>Abi {
-    <span class="attr">#[serde(rename = <span class="string">&quot;emscripten&quot;</span>)]
-    </span>Emscripten,
     <span class="attr">#[default]
-    #[serde(rename = <span class="string">&quot;none&quot;</span>)]
+    #[serde(rename = <span class="string">"none"</span>)]
     </span><span class="prelude-val">None</span>,
-    <span class="attr">#[serde(rename = <span class="string">&quot;wasi&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"wasi"</span>)]
     </span>Wasi,
-    <span class="attr">#[serde(rename = <span class="string">&quot;wasm4&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"wasm4"</span>)]
     </span>WASM4,
 }
 
 <span class="kw">impl </span>Abi {
-    <span class="doccomment">/// Get the ABI&#39;s human-friendly name.
+    <span class="doccomment">/// Get the ABI's human-friendly name.
     </span><span class="kw">pub fn </span>to_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
         <span class="kw">match </span><span class="self">self </span>{
-            Abi::Emscripten =&gt; <span class="string">&quot;emscripten&quot;</span>,
-            Abi::Wasi =&gt; <span class="string">&quot;wasi&quot;</span>,
-            Abi::WASM4 =&gt; <span class="string">&quot;wasm4&quot;</span>,
-            Abi::None =&gt; <span class="string">&quot;generic&quot;</span>,
+            Abi::Wasi =&gt; <span class="string">"wasi"</span>,
+            Abi::WASM4 =&gt; <span class="string">"wasm4"</span>,
+            Abi::None =&gt; <span class="string">"generic"</span>,
         }
     }
 
@@ -1580,7 +1572,7 @@
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Abi {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.to_str())
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.to_str())
     }
 }
 
@@ -1589,27 +1581,26 @@
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
         <span class="kw">match </span>s.to_lowercase().as_str() {
-            <span class="string">&quot;emscripten&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Abi::Emscripten),
-            <span class="string">&quot;wasi&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Abi::Wasi),
-            <span class="string">&quot;wasm4&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Abi::WASM4),
-            <span class="string">&quot;generic&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Abi::None),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Unknown ABI, \&quot;{s}\&quot;&quot;</span>).into()),
+            <span class="string">"wasi" </span>=&gt; <span class="prelude-val">Ok</span>(Abi::Wasi),
+            <span class="string">"wasm4" </span>=&gt; <span class="prelude-val">Ok</span>(Abi::WASM4),
+            <span class="string">"generic" </span>=&gt; <span class="prelude-val">Ok</span>(Abi::None),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Unknown ABI, \"{s}\""</span>).into()),
         }
     }
 }
 
 <span class="doccomment">/// The default name for the manifest file.
-</span><span class="kw">pub static </span>MANIFEST_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.toml&quot;</span>;
+</span><span class="kw">pub static </span>MANIFEST_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"wasmer.toml"</span>;
 
 <span class="kw">const </span>README_PATHS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str; <span class="number">5</span>] = <span class="kw-2">&amp;</span>[
-    <span class="string">&quot;README&quot;</span>,
-    <span class="string">&quot;README.md&quot;</span>,
-    <span class="string">&quot;README.markdown&quot;</span>,
-    <span class="string">&quot;README.mdown&quot;</span>,
-    <span class="string">&quot;README.mkdn&quot;</span>,
+    <span class="string">"README"</span>,
+    <span class="string">"README.md"</span>,
+    <span class="string">"README.markdown"</span>,
+    <span class="string">"README.mdown"</span>,
+    <span class="string">"README.mkdn"</span>,
 ];
 
-<span class="kw">const </span>LICENSE_PATHS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str; <span class="number">3</span>] = <span class="kw-2">&amp;</span>[<span class="string">&quot;LICENSE&quot;</span>, <span class="string">&quot;LICENSE.md&quot;</span>, <span class="string">&quot;COPYING&quot;</span>];
+<span class="kw">const </span>LICENSE_PATHS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str; <span class="number">3</span>] = <span class="kw-2">&amp;</span>[<span class="string">"LICENSE"</span>, <span class="string">"LICENSE.md"</span>, <span class="string">"COPYING"</span>];
 
 <span class="doccomment">/// Package definition for a Wasmer package.
 ///
@@ -1617,10 +1608,10 @@
 </span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
 #[non_exhaustive]
 </span><span class="kw">pub struct </span>Package {
-    <span class="doccomment">/// The package&#39;s name in the form `namespace/name`.
+    <span class="doccomment">/// The package's name in the form `namespace/name`.
     </span><span class="attr">#[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="doccomment">/// The package&#39;s version number.
+    <span class="doccomment">/// The package's version number.
     </span><span class="attr">#[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;Version&gt;,
     <span class="doccomment">/// A brief description of the package.
@@ -1630,37 +1621,37 @@
     </span><span class="attr">#[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>license: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// The location of the license file, useful for non-standard licenses
-    </span><span class="attr">#[serde(rename = <span class="string">&quot;license-file&quot;</span>)]
+    </span><span class="attr">#[serde(rename = <span class="string">"license-file"</span>)]
     #[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>license_file: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-    <span class="doccomment">/// The package&#39;s README file.
-    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    <span class="doccomment">/// The package's README file.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     #[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>readme: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-    <span class="doccomment">/// A URL pointing to the package&#39;s source code.
-    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    <span class="doccomment">/// A URL pointing to the package's source code.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     #[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>repository: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="doccomment">/// The website used as the package&#39;s homepage.
-    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    <span class="doccomment">/// The website used as the package's homepage.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     #[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>homepage: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[serde(rename = <span class="string">&quot;wasmer-extra-flags&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"wasmer-extra-flags"</span>)]
     #[builder(setter(into, strip_option), default)]
     #[deprecated(
-        since = <span class="string">&quot;0.9.2&quot;</span>,
-        note = <span class="string">&quot;Use runner-specific command attributes instead&quot;
+        since = <span class="string">"0.9.2"</span>,
+        note = <span class="string">"Use runner-specific command attributes instead"
     </span>)]
     </span><span class="kw">pub </span>wasmer_extra_flags: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="attr">#[serde(
-        rename = <span class="string">&quot;disable-command-rename&quot;</span>,
+        rename = <span class="string">"disable-command-rename"</span>,
         default,
-        skip_serializing_if = <span class="string">&quot;std::ops::Not::not&quot;
+        skip_serializing_if = <span class="string">"std::ops::Not::not"
     </span>)]
     #[builder(default)]
     #[deprecated(
-        since = <span class="string">&quot;0.9.2&quot;</span>,
-        note = <span class="string">&quot;Does nothing. Prefer a runner-specific command attribute instead&quot;
+        since = <span class="string">"0.9.2"</span>,
+        note = <span class="string">"Does nothing. Prefer a runner-specific command attribute instead"
     </span>)]
     </span><span class="kw">pub </span>disable_command_rename: bool,
     <span class="doccomment">/// Unlike, `disable-command-rename` which prevents `wasmer run &lt;Module name&gt;`,
@@ -1669,22 +1660,22 @@
     /// their `argv[0]` names and when the command name matches their executable
     /// name.
     </span><span class="attr">#[serde(
-        rename = <span class="string">&quot;rename-commands-to-raw-command-name&quot;</span>,
+        rename = <span class="string">"rename-commands-to-raw-command-name"</span>,
         default,
-        skip_serializing_if = <span class="string">&quot;std::ops::Not::not&quot;
+        skip_serializing_if = <span class="string">"std::ops::Not::not"
     </span>)]
     #[builder(default)]
     #[deprecated(
-        since = <span class="string">&quot;0.9.2&quot;</span>,
-        note = <span class="string">&quot;Does nothing. Prefer a runner-specific command attribute instead&quot;
+        since = <span class="string">"0.9.2"</span>,
+        note = <span class="string">"Does nothing. Prefer a runner-specific command attribute instead"
     </span>)]
     </span><span class="kw">pub </span>rename_commands_to_raw_command_name: bool,
     <span class="doccomment">/// The name of the command that should be used by `wasmer run` by default.
-    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     #[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>entrypoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Mark this as a private package
-    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;std::ops::Not::not&quot;</span>)]
+    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"std::ops::Not::not"</span>)]
     #[builder(default)]
     </span><span class="kw">pub </span>private: bool,
 }
@@ -1720,7 +1711,7 @@
 }
 
 <span class="kw">impl </span>Command {
-    <span class="doccomment">/// Get the command&#39;s name.
+    <span class="doccomment">/// Get the command's name.
     </span><span class="kw">pub fn </span>get_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::V1(c) =&gt; <span class="kw-2">&amp;</span>c.name,
@@ -1746,7 +1737,7 @@
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)] </span><span class="comment">// Note: needed to prevent accidentally parsing
 // a CommandV2 as a CommandV1
-</span><span class="attr">#[deprecated(since = <span class="string">&quot;0.9.2&quot;</span>, note = <span class="string">&quot;Prefer the CommandV2 syntax&quot;</span>)]
+</span><span class="attr">#[deprecated(since = <span class="string">"0.9.2"</span>, note = <span class="string">"Prefer the CommandV2 syntax"</span>)]
 </span><span class="kw">pub struct </span>CommandV1 {
     <span class="kw">pub </span>name: String,
     <span class="kw">pub </span>module: ModuleReference,
@@ -1759,12 +1750,11 @@
 </span><span class="kw">pub struct </span>CommandV2 {
     <span class="doccomment">/// The name of the command.
     </span><span class="kw">pub </span>name: String,
-    <span class="doccomment">/// The module containing this command&#39;s executable.
+    <span class="doccomment">/// The module containing this command's executable.
     </span><span class="kw">pub </span>module: ModuleReference,
     <span class="doccomment">/// The runner to use when running this command.
     ///
-    /// This may be a URL, or the well-known runners `wasi`, `wcgi`, or
-    /// `emscripten`.
+    /// This may be a URL, or the well-known runners `wasi` or `wcgi`
     </span><span class="kw">pub </span>runner: String,
     <span class="doccomment">/// Extra annotations that will be consumed by the runner.
     </span><span class="kw">pub </span>annotations: <span class="prelude-ty">Option</span>&lt;CommandAnnotations&gt;,
@@ -1772,7 +1762,7 @@
 
 <span class="kw">impl </span>CommandV2 {
     <span class="doccomment">/// Get annotations, automatically loading them from a file relative to the
-    /// `wasmer.toml`&#39;s directory, if necessary.
+    /// `wasmer.toml`'s directory, if necessary.
     </span><span class="kw">pub fn </span>get_annotations(<span class="kw-2">&amp;</span><span class="self">self</span>, basepath: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ciborium::Value&gt;, String&gt; {
         <span class="kw">match </span><span class="self">self</span>.annotations.as_ref() {
             <span class="prelude-val">Some</span>(CommandAnnotations::Raw(v)) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(toml_to_cbor_value(v))),
@@ -1780,7 +1770,7 @@
                 <span class="kw">let </span>path = basepath.join(file.clone());
                 <span class="kw">let </span>file = std::fs::read_to_string(<span class="kw-2">&amp;</span>path).map_err(|e| {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;Error reading {:?}.annotation ({:?}): {e}&quot;</span>,
+                        <span class="string">"Error reading {:?}.annotation ({:?}): {e}"</span>,
                         <span class="self">self</span>.name,
                         path.display()
                     )
@@ -1790,7 +1780,7 @@
                         <span class="kw">let </span>value: serde_json::Value =
                             serde_json::from_str(<span class="kw-2">&amp;</span>file).map_err(|e| {
                                 <span class="macro">format!</span>(
-                                    <span class="string">&quot;Error reading {:?}.annotation ({:?}): {e}&quot;</span>,
+                                    <span class="string">"Error reading {:?}.annotation ({:?}): {e}"</span>,
                                     <span class="self">self</span>.name,
                                     path.display()
                                 )
@@ -1801,7 +1791,7 @@
                         <span class="kw">let </span>value: serde_yaml::Value =
                             serde_yaml::from_str(<span class="kw-2">&amp;</span>file).map_err(|e| {
                                 <span class="macro">format!</span>(
-                                    <span class="string">&quot;Error reading {:?}.annotation ({:?}): {e}&quot;</span>,
+                                    <span class="string">"Error reading {:?}.annotation ({:?}): {e}"</span>,
                                     <span class="self">self</span>.name,
                                     path.display()
                                 )
@@ -1846,12 +1836,12 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>ModuleReference {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>ModuleReference {
     <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
     <span class="kw">where
-        </span>D: serde::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>D: serde::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
     {
-        <span class="kw">let </span>repr: Cow&lt;<span class="lifetime">&#39;de</span>, str&gt; = Cow::deserialize(deserializer)<span class="question-mark">?</span>;
+        <span class="kw">let </span>repr: Cow&lt;<span class="lifetime">'de</span>, str&gt; = Cow::deserialize(deserializer)<span class="question-mark">?</span>;
         repr.parse().map_err(D::Error::custom)
     }
 }
@@ -1860,10 +1850,10 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="kw">match </span>s.split_once(<span class="string">&#39;:&#39;</span>) {
+        <span class="kw">match </span>s.split_once(<span class="string">':'</span>) {
             <span class="prelude-val">Some</span>((dependency, module)) =&gt; {
-                <span class="kw">if </span>module.contains(<span class="string">&#39;:&#39;</span>) {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Invalid format&quot;</span>.into());
+                <span class="kw">if </span>module.contains(<span class="string">':'</span>) {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Invalid format"</span>.into());
                 }
 
                 <span class="prelude-val">Ok</span>(ModuleReference::Dependency {
@@ -1879,11 +1869,11 @@
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>ModuleReference {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             ModuleReference::CurrentPackage { module } =&gt; Display::fmt(module, f),
             ModuleReference::Dependency { dependency, module } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;{dependency}:{module}&quot;</span>)
+                <span class="macro">write!</span>(f, <span class="string">"{dependency}:{module}"</span>)
             }
         }
     }
@@ -1895,7 +1885,7 @@
         toml::Value::Integer(i) =&gt; ciborium::Value::Integer(ciborium::value::Integer::from(<span class="kw-2">*</span>i)),
         toml::Value::Float(f) =&gt; ciborium::Value::Float(<span class="kw-2">*</span>f),
         toml::Value::Boolean(b) =&gt; ciborium::Value::Bool(<span class="kw-2">*</span>b),
-        toml::Value::Datetime(d) =&gt; ciborium::Value::Text(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, d)),
+        toml::Value::Datetime(d) =&gt; ciborium::Value::Text(<span class="macro">format!</span>(<span class="string">"{}"</span>, d)),
         toml::Value::Array(sq) =&gt; {
             ciborium::Value::Array(sq.iter().map(toml_to_cbor_value).collect())
         }
@@ -1986,15 +1976,15 @@
 </span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Deserialize, Serialize)]
 </span><span class="kw">pub enum </span>FileKind {
     <span class="doccomment">/// A `*.yaml` file that will be deserialized using [`serde_yaml`].
-    </span><span class="attr">#[serde(rename = <span class="string">&quot;yaml&quot;</span>)]
+    </span><span class="attr">#[serde(rename = <span class="string">"yaml"</span>)]
     </span>Yaml,
     <span class="doccomment">/// A `*.json` file that will be deserialized using [`serde_json`].
-    </span><span class="attr">#[serde(rename = <span class="string">&quot;json&quot;</span>)]
+    </span><span class="attr">#[serde(rename = <span class="string">"json"</span>)]
     </span>Json,
 }
 
 <span class="doccomment">/// A file which may be executed by a [`Command`]. Sometimes also referred to as
-/// an &quot;atom&quot;.
+/// an "atom".
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>Module {
     <span class="doccomment">/// The name used to refer to this module.
@@ -2003,12 +1993,12 @@
     /// directory.
     </span><span class="kw">pub </span>source: PathBuf,
     <span class="doccomment">/// The ABI this module satisfies.
-    </span><span class="attr">#[serde(default = <span class="string">&quot;Abi::default&quot;</span>, skip_serializing_if = <span class="string">&quot;Abi::is_none&quot;</span>)]
+    </span><span class="attr">#[serde(default = <span class="string">"Abi::default"</span>, skip_serializing_if = <span class="string">"Abi::is_none"</span>)]
     </span><span class="kw">pub </span>abi: Abi,
     <span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>kind: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// WebAssembly interfaces this module requires.
-    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     </span><span class="kw">pub </span>interfaces: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, String&gt;&gt;,
     <span class="doccomment">/// Interface definitions that can be used to generate bindings to this
     /// module.
@@ -2032,8 +2022,8 @@
     </span><span class="kw">pub fn </span>referenced_files(<span class="kw-2">&amp;</span><span class="self">self</span>, base_directory: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PathBuf&gt;, ImportsError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             Bindings::Wit(WitBindings { wit_exports, .. }) =&gt; {
-                <span class="comment">// Note: we explicitly don&#39;t support imported files with WIT
-                // because wit-bindgen&#39;s wit-parser crate isn&#39;t on crates.io.
+                <span class="comment">// Note: we explicitly don't support imported files with WIT
+                // because wit-bindgen's wit-parser crate isn't on crates.io.
 
                 </span><span class="kw">let </span>path = base_directory.join(wit_exports);
 
@@ -2060,14 +2050,14 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Bindings {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Bindings {
     <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
     <span class="kw">where
-        </span>D: serde::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>D: serde::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">let </span>value = toml::Value::deserialize(deserializer)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>keys = [<span class="string">&quot;wit-bindgen&quot;</span>, <span class="string">&quot;wai-version&quot;</span>];
+        <span class="kw">let </span>keys = [<span class="string">"wit-bindgen"</span>, <span class="string">"wai-version"</span>];
         <span class="kw">let </span>[wit_bindgen, wai_version] = keys.map(|key| value.get(key).is_some());
 
         <span class="kw">match </span>(wit_bindgen, wai_version) {
@@ -2079,8 +2069,8 @@
                 .map_err(D::Error::custom),
             (<span class="bool-val">true</span>, <span class="bool-val">true</span>) | (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; {
                 <span class="kw">let </span>msg = <span class="macro">format!</span>(
-                    <span class="string">&quot;expected one of \&quot;{}\&quot; to be provided, but not both&quot;</span>,
-                    keys.join(<span class="string">&quot;\&quot; or \&quot;&quot;</span>),
+                    <span class="string">"expected one of \"{}\" to be provided, but not both"</span>,
+                    keys.join(<span class="string">"\" or \""</span>),
                 );
                 <span class="prelude-val">Err</span>(D::Error::custom(msg))
             }
@@ -2089,16 +2079,16 @@
 }
 
 <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
+#[serde(rename_all = <span class="string">"kebab-case"</span>)]
 </span><span class="kw">pub struct </span>WitBindings {
     <span class="doccomment">/// The version of the WIT format being used.
     </span><span class="kw">pub </span>wit_bindgen: Version,
-    <span class="doccomment">/// The `*.wit` file&#39;s location on disk.
+    <span class="doccomment">/// The `*.wit` file's location on disk.
     </span><span class="kw">pub </span>wit_exports: PathBuf,
 }
 
 <span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
+#[serde(rename_all = <span class="string">"kebab-case"</span>)]
 </span><span class="kw">pub struct </span>WaiBindings {
     <span class="doccomment">/// The version of the WAI format being used.
     </span><span class="kw">pub </span>wai_version: Version,
@@ -2106,7 +2096,7 @@
     </span><span class="kw">pub </span>exports: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
     <span class="doccomment">/// The `*.wai` files for any functionality this package imports from the
     /// host.
-    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;Vec::is_empty&quot;</span>)]
+    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
     </span><span class="kw">pub </span>imports: Vec&lt;PathBuf&gt;,
 }
 
@@ -2160,7 +2150,7 @@
     })<span class="question-mark">?</span>;
 
     <span class="kw">let </span>parent_dir = path.parent()
-            .expect(<span class="string">&quot;All paths should have a parent directory because we joined them relative to the base directory&quot;</span>);
+            .expect(<span class="string">"All paths should have a parent directory because we joined them relative to the base directory"</span>);
 
     <span class="comment">// TODO(Michael-F-Bryan): update the wai-parser crate to give you access to
     // the imported interfaces. For now, we just pretend there are no import
@@ -2192,12 +2182,12 @@
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>ImportsError {
     <span class="attr">#[error(
-        <span class="string">&quot;The \&quot;{}\&quot; mentioned in the manifest doesn&#39;t exist&quot;</span>,
+        <span class="string">"The \"{}\" mentioned in the manifest doesn't exist"</span>,
         _0.display(),
     )]
     </span>FileNotFound(PathBuf),
     <span class="attr">#[error(
-        <span class="string">&quot;The \&quot;{}\&quot; imported by \&quot;{}\&quot; doesn&#39;t exist&quot;</span>,
+        <span class="string">"The \"{}\" imported by \"{}\" doesn't exist"</span>,
         path.display(),
         referenced_by.display(),
     )]
@@ -2205,9 +2195,9 @@
         path: PathBuf,
         referenced_by: PathBuf,
     },
-    <span class="attr">#[error(<span class="string">&quot;Unable to parse \&quot;{}\&quot; as a WAI file&quot;</span>, path.display())]
+    <span class="attr">#[error(<span class="string">"Unable to parse \"{}\" as a WAI file"</span>, path.display())]
     </span>WaiParse { path: PathBuf },
-    <span class="attr">#[error(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display())]
+    <span class="attr">#[error(<span class="string">"Unable to read \"{}\""</span>, path.display())]
     </span>Read {
         path: PathBuf,
         <span class="attr">#[source]
@@ -2221,21 +2211,21 @@
 </span><span class="kw">pub struct </span>Manifest {
     <span class="doccomment">/// Metadata about the package itself.
     </span><span class="kw">pub </span>package: <span class="prelude-ty">Option</span>&lt;Package&gt;,
-    <span class="doccomment">/// The package&#39;s dependencies.
-    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;HashMap::is_empty&quot;</span>)]
+    <span class="doccomment">/// The package's dependencies.
+    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"HashMap::is_empty"</span>)]
     #[builder(default)]
     </span><span class="kw">pub </span>dependencies: HashMap&lt;String, VersionReq&gt;,
     <span class="doccomment">/// The mappings used when making bundled assets available to WebAssembly
     /// instances, in the form guest -&gt; host.
-    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;IndexMap::is_empty&quot;</span>)]
+    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"IndexMap::is_empty"</span>)]
     #[builder(default)]
     </span><span class="kw">pub </span>fs: IndexMap&lt;String, PathBuf&gt;,
     <span class="doccomment">/// WebAssembly modules to be published.
-    </span><span class="attr">#[serde(default, rename = <span class="string">&quot;module&quot;</span>, skip_serializing_if = <span class="string">&quot;Vec::is_empty&quot;</span>)]
+    </span><span class="attr">#[serde(default, rename = <span class="string">"module"</span>, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
     #[builder(default)]
     </span><span class="kw">pub </span>modules: Vec&lt;Module&gt;,
     <span class="doccomment">/// Commands the package makes available to users.
-    </span><span class="attr">#[serde(default, rename = <span class="string">&quot;command&quot;</span>, skip_serializing_if = <span class="string">&quot;Vec::is_empty&quot;</span>)]
+    </span><span class="attr">#[serde(default, rename = <span class="string">"command"</span>, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
     #[builder(default)]
     </span><span class="kw">pub </span>commands: Vec&lt;Command&gt;,
 }
@@ -2339,7 +2329,7 @@
                     }
                 }
                 ModuleReference::Dependency { dependency, .. } =&gt; {
-                    <span class="comment">// We don&#39;t have access to the dependency so just assume
+                    <span class="comment">// We don't have access to the dependency so just assume
                     // the module is correct.
                     </span><span class="kw">if </span>!<span class="self">self</span>.dependencies.contains_key(dependency) {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::MissingDependency {
@@ -2442,13 +2432,13 @@
 </span><span class="attr">#[derive(Debug, Error)]
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>ManifestError {
-    <span class="attr">#[error(<span class="string">&quot;Manifest file not found at \&quot;{}\&quot;&quot;</span>, _0.display())]
+    <span class="attr">#[error(<span class="string">"Manifest file not found at \"{}\""</span>, _0.display())]
     </span>MissingManifest(PathBuf),
-    <span class="attr">#[error(<span class="string">&quot;Could not save manifest file: {0}.&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Could not save manifest file: {0}."</span>)]
     </span>CannotSaveManifest(<span class="attr">#[source] </span>std::io::Error),
-    <span class="attr">#[error(<span class="string">&quot;Could not parse manifest because {0}.&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Could not parse manifest because {0}."</span>)]
     </span>TomlParseError(<span class="attr">#[from] </span>toml::de::Error),
-    <span class="attr">#[error(<span class="string">&quot;There was an error validating the manifest&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"There was an error validating the manifest"</span>)]
     </span>ValidationError(<span class="attr">#[from] </span>ValidationError),
 }
 
@@ -2457,28 +2447,28 @@
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>ValidationError {
     <span class="attr">#[error(
-        <span class="string">&quot;missing ABI field on module, \&quot;{module}\&quot;, used by command, \&quot;{command}\&quot;; an ABI of `wasi` or `emscripten` is required&quot;</span>,
+        <span class="string">"missing ABI field on module, \"{module}\", used by command, \"{command}\"; an ABI of `wasi` is required"</span>,
     )]
     </span>MissingABI { command: String, module: String },
-    <span class="attr">#[error(<span class="string">&quot;missing module, \&quot;{module}\&quot;, in manifest used by command, \&quot;{command}\&quot;&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"missing module, \"{module}\", in manifest used by command, \"{command}\""</span>)]
     </span>MissingModuleForCommand {
         command: String,
         module: ModuleReference,
     },
-    <span class="attr">#[error(<span class="string">&quot;The \&quot;{command}\&quot; command refers to a nonexistent dependency, \&quot;{dependency}\&quot; in \&quot;{module_ref}\&quot;&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"The \"{command}\" command refers to a nonexistent dependency, \"{dependency}\" in \"{module_ref}\""</span>)]
     </span>MissingDependency {
         command: String,
         dependency: String,
         module_ref: ModuleReference,
     },
-    <span class="attr">#[error(<span class="string">&quot;The entrypoint, \&quot;{entrypoint}\&quot;, isn&#39;t a valid command (commands: {})&quot;</span>, available_commands.join(<span class="string">&quot;, &quot;</span>))]
+    <span class="attr">#[error(<span class="string">"The entrypoint, \"{entrypoint}\", isn't a valid command (commands: {})"</span>, available_commands.join(<span class="string">", "</span>))]
     </span>InvalidEntrypoint {
         entrypoint: String,
         available_commands: Vec&lt;String&gt;,
     },
-    <span class="attr">#[error(<span class="string">&quot;Duplicate module, \&quot;{name}\&quot;&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Duplicate module, \"{name}\""</span>)]
     </span>DuplicateModule { name: String },
-    <span class="attr">#[error(<span class="string">&quot;Duplicate command, \&quot;{name}\&quot;&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"Duplicate command, \"{name}\""</span>)]
     </span>DuplicateCommand { name: String },
 }
 
@@ -2495,9 +2485,9 @@
     </span><span class="kw">fn </span>test_to_string() {
         Manifest {
             package: <span class="prelude-val">Some</span>(Package {
-                name: <span class="prelude-val">Some</span>(<span class="string">&quot;package/name&quot;</span>.to_string()),
-                version: <span class="prelude-val">Some</span>(Version::parse(<span class="string">&quot;1.0.0&quot;</span>).unwrap()),
-                description: <span class="prelude-val">Some</span>(<span class="string">&quot;test&quot;</span>.to_string()),
+                name: <span class="prelude-val">Some</span>(<span class="string">"package/name"</span>.to_string()),
+                version: <span class="prelude-val">Some</span>(Version::parse(<span class="string">"1.0.0"</span>).unwrap()),
+                description: <span class="prelude-val">Some</span>(<span class="string">"test"</span>.to_string()),
                 license: <span class="prelude-val">None</span>,
                 license_file: <span class="prelude-val">None</span>,
                 readme: <span class="prelude-val">None</span>,
@@ -2511,17 +2501,17 @@
             }),
             dependencies: HashMap::new(),
             modules: <span class="macro">vec!</span>[Module {
-                name: <span class="string">&quot;test&quot;</span>.to_string(),
+                name: <span class="string">"test"</span>.to_string(),
                 abi: Abi::Wasi,
                 bindings: <span class="prelude-val">None</span>,
                 interfaces: <span class="prelude-val">None</span>,
-                kind: <span class="prelude-val">Some</span>(<span class="string">&quot;https://webc.org/kind/wasi&quot;</span>.to_string()),
-                source: Path::new(<span class="string">&quot;test.wasm&quot;</span>).to_path_buf(),
+                kind: <span class="prelude-val">Some</span>(<span class="string">"https://webc.org/kind/wasi"</span>.to_string()),
+                source: Path::new(<span class="string">"test.wasm"</span>).to_path_buf(),
             }],
             commands: Vec::new(),
             fs: <span class="macro">vec!</span>[
-                (<span class="string">&quot;a&quot;</span>.to_string(), Path::new(<span class="string">&quot;/a&quot;</span>).to_path_buf()),
-                (<span class="string">&quot;b&quot;</span>.to_string(), Path::new(<span class="string">&quot;/b&quot;</span>).to_path_buf()),
+                (<span class="string">"a"</span>.to_string(), Path::new(<span class="string">"/a"</span>).to_path_buf()),
+                (<span class="string">"b"</span>.to_string(), Path::new(<span class="string">"/b"</span>).to_path_buf()),
             ]
             .into_iter()
             .collect(),
@@ -2532,45 +2522,45 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>interface_test() {
-        <span class="kw">let </span>manifest_str = <span class="string">r#&quot;
+        <span class="kw">let </span>manifest_str = <span class="string">r#"
 [package]
-name = &quot;test&quot;
-version = &quot;0.0.0&quot;
-description = &quot;This is a test package&quot;
-license = &quot;MIT&quot;
+name = "test"
+version = "0.0.0"
+description = "This is a test package"
+license = "MIT"
 
 [[module]]
-name = &quot;mod&quot;
-source = &quot;target/wasm32-wasi/release/mod.wasm&quot;
-interfaces = {&quot;wasi&quot; = &quot;0.0.0-unstable&quot;}
+name = "mod"
+source = "target/wasm32-wasi/release/mod.wasm"
+interfaces = {"wasi" = "0.0.0-unstable"}
 
 [[module]]
-name = &quot;mod-with-exports&quot;
-source = &quot;target/wasm32-wasi/release/mod-with-exports.wasm&quot;
-bindings = { wit-exports = &quot;exports.wit&quot;, wit-bindgen = &quot;0.0.0&quot; }
+name = "mod-with-exports"
+source = "target/wasm32-wasi/release/mod-with-exports.wasm"
+bindings = { wit-exports = "exports.wit", wit-bindgen = "0.0.0" }
 
 [[command]]
-name = &quot;command&quot;
-module = &quot;mod&quot;
-&quot;#</span>;
+name = "command"
+module = "mod"
+"#</span>;
         <span class="kw">let </span>manifest: Manifest = Manifest::parse(manifest_str).unwrap();
         <span class="kw">let </span>modules = <span class="kw-2">&amp;</span>manifest.modules;
         <span class="macro">assert_eq!</span>(
-            modules[<span class="number">0</span>].interfaces.as_ref().unwrap().get(<span class="string">&quot;wasi&quot;</span>),
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">&quot;0.0.0-unstable&quot;</span>.to_string())
+            modules[<span class="number">0</span>].interfaces.as_ref().unwrap().get(<span class="string">"wasi"</span>),
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">"0.0.0-unstable"</span>.to_string())
         );
 
         <span class="macro">assert_eq!</span>(
             modules[<span class="number">1</span>],
             Module {
-                name: <span class="string">&quot;mod-with-exports&quot;</span>.to_string(),
-                source: PathBuf::from(<span class="string">&quot;target/wasm32-wasi/release/mod-with-exports.wasm&quot;</span>),
+                name: <span class="string">"mod-with-exports"</span>.to_string(),
+                source: PathBuf::from(<span class="string">"target/wasm32-wasi/release/mod-with-exports.wasm"</span>),
                 abi: Abi::None,
                 kind: <span class="prelude-val">None</span>,
                 interfaces: <span class="prelude-val">None</span>,
                 bindings: <span class="prelude-val">Some</span>(Bindings::Wit(WitBindings {
-                    wit_exports: PathBuf::from(<span class="string">&quot;exports.wit&quot;</span>),
-                    wit_bindgen: <span class="string">&quot;0.0.0&quot;</span>.parse().unwrap()
+                    wit_exports: PathBuf::from(<span class="string">"exports.wit"</span>),
+                    wit_bindgen: <span class="string">"0.0.0"</span>.parse().unwrap()
                 })),
             },
         );
@@ -2578,10 +2568,10 @@ module = &quot;mod&quot;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>parse_wit_bindings() {
-        <span class="kw">let </span>table = <span class="macro">toml! </span>{
-            name = <span class="string">&quot;...&quot;
-            </span>source = <span class="string">&quot;...&quot;
-            </span>bindings = { wit-bindgen = <span class="string">&quot;0.1.0&quot;</span>, wit-exports = <span class="string">&quot;./file.wit&quot; </span>}
+        <span class="kw">let </span>table = <span class="macro">toml!</span> {
+            name = <span class="string">"..."
+            </span>source = <span class="string">"..."
+            </span>bindings = { wit-bindgen = <span class="string">"0.1.0"</span>, wit-exports = <span class="string">"./file.wit" </span>}
         };
 
         <span class="kw">let </span>module = Module::deserialize(table).unwrap();
@@ -2589,8 +2579,8 @@ module = &quot;mod&quot;
         <span class="macro">assert_eq!</span>(
             module.bindings.as_ref().unwrap(),
             <span class="kw-2">&amp;</span>Bindings::Wit(WitBindings {
-                wit_bindgen: <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap(),
-                wit_exports: PathBuf::from(<span class="string">&quot;./file.wit&quot;</span>),
+                wit_bindgen: <span class="string">"0.1.0"</span>.parse().unwrap(),
+                wit_exports: PathBuf::from(<span class="string">"./file.wit"</span>),
             }),
         );
         assert_round_trippable(<span class="kw-2">&amp;</span>module);
@@ -2598,10 +2588,10 @@ module = &quot;mod&quot;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>parse_wai_bindings() {
-        <span class="kw">let </span>table = <span class="macro">toml! </span>{
-            name = <span class="string">&quot;...&quot;
-            </span>source = <span class="string">&quot;...&quot;
-            </span>bindings = { wai-version = <span class="string">&quot;0.1.0&quot;</span>, exports = <span class="string">&quot;./file.wai&quot;</span>, imports = [<span class="string">&quot;a.wai&quot;</span>, <span class="string">&quot;../b.wai&quot;</span>] }
+        <span class="kw">let </span>table = <span class="macro">toml!</span> {
+            name = <span class="string">"..."
+            </span>source = <span class="string">"..."
+            </span>bindings = { wai-version = <span class="string">"0.1.0"</span>, exports = <span class="string">"./file.wai"</span>, imports = [<span class="string">"a.wai"</span>, <span class="string">"../b.wai"</span>] }
         };
 
         <span class="kw">let </span>module = Module::deserialize(table).unwrap();
@@ -2609,9 +2599,9 @@ module = &quot;mod&quot;
         <span class="macro">assert_eq!</span>(
             module.bindings.as_ref().unwrap(),
             <span class="kw-2">&amp;</span>Bindings::Wai(WaiBindings {
-                wai_version: <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap(),
-                exports: <span class="prelude-val">Some</span>(PathBuf::from(<span class="string">&quot;./file.wai&quot;</span>)),
-                imports: <span class="macro">vec!</span>[PathBuf::from(<span class="string">&quot;a.wai&quot;</span>), PathBuf::from(<span class="string">&quot;../b.wai&quot;</span>)],
+                wai_version: <span class="string">"0.1.0"</span>.parse().unwrap(),
+                exports: <span class="prelude-val">Some</span>(PathBuf::from(<span class="string">"./file.wai"</span>)),
+                imports: <span class="macro">vec!</span>[PathBuf::from(<span class="string">"a.wai"</span>), PathBuf::from(<span class="string">"../b.wai"</span>)],
             }),
         );
         assert_round_trippable(<span class="kw-2">&amp;</span>module);
@@ -2626,16 +2616,16 @@ module = &quot;mod&quot;
         <span class="kw">let </span>round_tripped: T = toml::from_str(<span class="kw-2">&amp;</span>repr).unwrap();
         <span class="macro">assert_eq!</span>(
             round_tripped, <span class="kw-2">*</span>value,
-            <span class="string">&quot;The value should convert to/from TOML losslessly&quot;
+            <span class="string">"The value should convert to/from TOML losslessly"
         </span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>imports_and_exports_are_optional_with_wai() {
-        <span class="kw">let </span>table = <span class="macro">toml! </span>{
-            name = <span class="string">&quot;...&quot;
-            </span>source = <span class="string">&quot;...&quot;
-            </span>bindings = { wai-version = <span class="string">&quot;0.1.0&quot; </span>}
+        <span class="kw">let </span>table = <span class="macro">toml!</span> {
+            name = <span class="string">"..."
+            </span>source = <span class="string">"..."
+            </span>bindings = { wai-version = <span class="string">"0.1.0" </span>}
         };
 
         <span class="kw">let </span>module = Module::deserialize(table).unwrap();
@@ -2643,7 +2633,7 @@ module = &quot;mod&quot;
         <span class="macro">assert_eq!</span>(
             module.bindings.as_ref().unwrap(),
             <span class="kw-2">&amp;</span>Bindings::Wai(WaiBindings {
-                wai_version: <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap(),
+                wai_version: <span class="string">"0.1.0"</span>.parse().unwrap(),
                 exports: <span class="prelude-val">None</span>,
                 imports: Vec::new(),
             }),
@@ -2653,57 +2643,57 @@ module = &quot;mod&quot;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>ambiguous_bindings_table() {
-        <span class="kw">let </span>table = <span class="macro">toml! </span>{
-            wai-version = <span class="string">&quot;0.2.0&quot;
-            </span>wit-bindgen = <span class="string">&quot;0.1.0&quot;
+        <span class="kw">let </span>table = <span class="macro">toml!</span> {
+            wai-version = <span class="string">"0.2.0"
+            </span>wit-bindgen = <span class="string">"0.1.0"
         </span>};
 
         <span class="kw">let </span>err = Bindings::deserialize(table).unwrap_err();
 
         <span class="macro">assert_eq!</span>(
             err.to_string(),
-            <span class="string">&quot;expected one of \&quot;wit-bindgen\&quot; or \&quot;wai-version\&quot; to be provided, but not both\n&quot;
+            <span class="string">"expected one of \"wit-bindgen\" or \"wai-version\" to be provided, but not both\n"
         </span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>bindings_table_that_is_neither_wit_nor_wai() {
-        <span class="kw">let </span>table = <span class="macro">toml! </span>{
-            wai-bindgen = <span class="string">&quot;lol, this should have been wai-version&quot;
-            </span>exports = <span class="string">&quot;./file.wai&quot;
+        <span class="kw">let </span>table = <span class="macro">toml!</span> {
+            wai-bindgen = <span class="string">"lol, this should have been wai-version"
+            </span>exports = <span class="string">"./file.wai"
         </span>};
 
         <span class="kw">let </span>err = Bindings::deserialize(table).unwrap_err();
 
         <span class="macro">assert_eq!</span>(
             err.to_string(),
-            <span class="string">&quot;expected one of \&quot;wit-bindgen\&quot; or \&quot;wai-version\&quot; to be provided, but not both\n&quot;
+            <span class="string">"expected one of \"wit-bindgen\" or \"wai-version\" to be provided, but not both\n"
         </span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>command_v2_isnt_ambiguous_with_command_v1() {
-        <span class="kw">let </span>src = <span class="string">r#&quot;
+        <span class="kw">let </span>src = <span class="string">r#"
 [package]
-name = &quot;hotg-ai/sine&quot;
-version = &quot;0.12.0&quot;
-description = &quot;sine&quot;
+name = "hotg-ai/sine"
+version = "0.12.0"
+description = "sine"
 
 [dependencies]
-&quot;hotg-ai/train_test_split&quot; = &quot;0.12.1&quot;
-&quot;hotg-ai/elastic_net&quot; = &quot;0.12.1&quot;
+"hotg-ai/train_test_split" = "0.12.1"
+"hotg-ai/elastic_net" = "0.12.1"
 
 [[module]] # This is the same as atoms
-name = &quot;sine&quot;
-kind = &quot;tensorflow-SavedModel&quot; # It can also be &quot;wasm&quot; (default)
-source = &quot;models/sine&quot;
+name = "sine"
+kind = "tensorflow-SavedModel" # It can also be "wasm" (default)
+source = "models/sine"
 
 [[command]]
-name = &quot;run&quot;
-runner = &quot;rune&quot;
-module = &quot;sine&quot;
-annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
-&quot;#</span>;
+name = "run"
+runner = "rune"
+module = "sine"
+annotations = { file = "Runefile.yml", kind = "yaml" }
+"#</span>;
 
         <span class="kw">let </span>manifest: Manifest = toml::from_str(src).unwrap();
 
@@ -2712,11 +2702,11 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="macro">assert_eq!</span>(
             commands[<span class="number">0</span>],
             Command::V2(CommandV2 {
-                name: <span class="string">&quot;run&quot;</span>.into(),
-                module: <span class="string">&quot;sine&quot;</span>.parse().unwrap(),
-                runner: <span class="string">&quot;rune&quot;</span>.into(),
+                name: <span class="string">"run"</span>.into(),
+                module: <span class="string">"sine"</span>.parse().unwrap(),
+                runner: <span class="string">"rune"</span>.into(),
                 annotations: <span class="prelude-val">Some</span>(CommandAnnotations::File(FileCommandAnnotations {
-                    file: <span class="string">&quot;Runefile.yml&quot;</span>.into(),
+                    file: <span class="string">"Runefile.yml"</span>.into(),
                     kind: FileKind::Yaml,
                 }))
             })
@@ -2725,13 +2715,13 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>get_manifest() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;test&quot;
-            </span>version = <span class="string">&quot;1.0.0&quot;
-            </span>repository = <span class="string">&quot;test.git&quot;
-            </span>homepage = <span class="string">&quot;test.com&quot;
-            </span>description = <span class="string">&quot;The best package.&quot;
+            name = <span class="string">"test"
+            </span>version = <span class="string">"1.0.0"
+            </span>repository = <span class="string">"test.git"
+            </span>homepage = <span class="string">"test.com"
+            </span>description = <span class="string">"The best package."
         </span>};
         <span class="kw">let </span>manifest: Manifest = wasmer_toml.try_into().unwrap();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = manifest.package {
@@ -2741,11 +2731,11 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>parse_manifest_without_package_section() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [[module]]
-            name = <span class="string">&quot;test-module&quot;
-            </span>source = <span class="string">&quot;data.wasm&quot;
-            </span>abi = <span class="string">&quot;wasi&quot;
+            name = <span class="string">"test-module"
+            </span>source = <span class="string">"data.wasm"
+            </span>abi = <span class="string">"wasi"
         </span>};
         <span class="kw">let </span>manifest: Manifest = wasmer_toml.try_into().unwrap();
         <span class="macro">assert!</span>(manifest.package.is_none());
@@ -2753,26 +2743,26 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>get_commands() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;test&quot;
-            </span>version = <span class="string">&quot;1.0.0&quot;
-            </span>repository = <span class="string">&quot;test.git&quot;
-            </span>homepage = <span class="string">&quot;test.com&quot;
-            </span>description = <span class="string">&quot;The best package.&quot;
+            name = <span class="string">"test"
+            </span>version = <span class="string">"1.0.0"
+            </span>repository = <span class="string">"test.git"
+            </span>homepage = <span class="string">"test.com"
+            </span>description = <span class="string">"The best package."
             </span>[[module]]
-            name = <span class="string">&quot;test-pkg&quot;
-            </span>module = <span class="string">&quot;target.wasm&quot;
-            </span>source = <span class="string">&quot;source.wasm&quot;
-            </span>description = <span class="string">&quot;description&quot;
-            </span>interfaces = {<span class="string">&quot;wasi&quot; </span>= <span class="string">&quot;0.0.0-unstable&quot;</span>}
+            name = <span class="string">"test-pkg"
+            </span>module = <span class="string">"target.wasm"
+            </span>source = <span class="string">"source.wasm"
+            </span>description = <span class="string">"description"
+            </span>interfaces = {<span class="string">"wasi" </span>= <span class="string">"0.0.0-unstable"</span>}
             [[command]]
-            name = <span class="string">&quot;foo&quot;
-            </span>module = <span class="string">&quot;test&quot;
+            name = <span class="string">"foo"
+            </span>module = <span class="string">"test"
             </span>[[command]]
-            name = <span class="string">&quot;baz&quot;
-            </span>module = <span class="string">&quot;test&quot;
-            </span>main_args = <span class="string">&quot;$@&quot;
+            name = <span class="string">"baz"
+            </span>module = <span class="string">"test"
+            </span>main_args = <span class="string">"$@"
         </span>};
         <span class="kw">let </span>manifest: Manifest = wasmer_toml.try_into().unwrap();
         <span class="kw">let </span>commands = <span class="kw-2">&amp;</span>manifest.commands;
@@ -2784,22 +2774,22 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="kw">let </span>tmp_dir = tempfile::tempdir().unwrap();
         <span class="kw">let </span>tmp_dir_path: <span class="kw-2">&amp;</span>std::path::Path = tmp_dir.as_ref();
         <span class="kw">let </span>manifest_path = tmp_dir_path.join(MANIFEST_FILE_NAME);
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;_/test&quot;
-            </span>version = <span class="string">&quot;1.0.0&quot;
-            </span>description = <span class="string">&quot;description&quot;
+            name = <span class="string">"_/test"
+            </span>version = <span class="string">"1.0.0"
+            </span>description = <span class="string">"description"
             </span>[[module]]
-            name = <span class="string">&quot;test&quot;
-            </span>source = <span class="string">&quot;test.wasm&quot;
+            name = <span class="string">"test"
+            </span>source = <span class="string">"test.wasm"
             </span>interfaces = {}
         };
         <span class="kw">let </span>toml_string = toml::to_string(<span class="kw-2">&amp;</span>wasmer_toml).unwrap();
         std::fs::write(manifest_path, toml_string).unwrap();
         <span class="kw">let </span><span class="kw-2">mut </span>manifest = Manifest::find_in_directory(tmp_dir).unwrap();
 
-        <span class="kw">let </span>dependency_name = <span class="string">&quot;dep_pkg&quot;</span>;
-        <span class="kw">let </span>dependency_version: VersionReq = <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap();
+        <span class="kw">let </span>dependency_name = <span class="string">"dep_pkg"</span>;
+        <span class="kw">let </span>dependency_version: VersionReq = <span class="string">"0.1.0"</span>.parse().unwrap();
 
         manifest.add_dependency(dependency_name.to_string(), dependency_version.clone());
         <span class="macro">assert_eq!</span>(<span class="number">1</span>, manifest.dependencies.len());
@@ -2809,25 +2799,25 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="macro">assert_eq!</span>(<span class="number">1</span>, manifest.dependencies.len());
 
         <span class="comment">// adding a second different dependency will increase the count
-        </span><span class="kw">let </span>dependency_name_2 = <span class="string">&quot;dep_pkg_2&quot;</span>;
-        <span class="kw">let </span>dependency_version_2: VersionReq = <span class="string">&quot;0.2.0&quot;</span>.parse().unwrap();
+        </span><span class="kw">let </span>dependency_name_2 = <span class="string">"dep_pkg_2"</span>;
+        <span class="kw">let </span>dependency_version_2: VersionReq = <span class="string">"0.2.0"</span>.parse().unwrap();
         manifest.add_dependency(dependency_name_2.to_string(), dependency_version_2);
         <span class="macro">assert_eq!</span>(<span class="number">2</span>, manifest.dependencies.len());
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>duplicate_modules_are_invalid() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;some/package&quot;
-            </span>version = <span class="string">&quot;0.0.0&quot;
-            </span>description = <span class="string">&quot;&quot;
+            name = <span class="string">"some/package"
+            </span>version = <span class="string">"0.0.0"
+            </span>description = <span class="string">""
             </span>[[module]]
-            name = <span class="string">&quot;test&quot;
-            </span>source = <span class="string">&quot;test.wasm&quot;
+            name = <span class="string">"test"
+            </span>source = <span class="string">"test.wasm"
             </span>[[module]]
-            name = <span class="string">&quot;test&quot;
-            </span>source = <span class="string">&quot;test.wasm&quot;
+            name = <span class="string">"test"
+            </span>source = <span class="string">"test.wasm"
         </span>};
         <span class="kw">let </span>manifest = Manifest::deserialize(wasmer_toml).unwrap();
 
@@ -2836,28 +2826,28 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="macro">assert_eq!</span>(
             error,
             ValidationError::DuplicateModule {
-                name: <span class="string">&quot;test&quot;</span>.to_string()
+                name: <span class="string">"test"</span>.to_string()
             }
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>duplicate_commands_are_invalid() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;some/package&quot;
-            </span>version = <span class="string">&quot;0.0.0&quot;
-            </span>description = <span class="string">&quot;&quot;
+            name = <span class="string">"some/package"
+            </span>version = <span class="string">"0.0.0"
+            </span>description = <span class="string">""
             </span>[[module]]
-            name = <span class="string">&quot;test&quot;
-            </span>source = <span class="string">&quot;test.wasm&quot;
-            </span>abi = <span class="string">&quot;wasi&quot;
+            name = <span class="string">"test"
+            </span>source = <span class="string">"test.wasm"
+            </span>abi = <span class="string">"wasi"
             </span>[[command]]
-            name = <span class="string">&quot;cmd&quot;
-            </span>module = <span class="string">&quot;test&quot;
+            name = <span class="string">"cmd"
+            </span>module = <span class="string">"test"
             </span>[[command]]
-            name = <span class="string">&quot;cmd&quot;
-            </span>module = <span class="string">&quot;test&quot;
+            name = <span class="string">"cmd"
+            </span>module = <span class="string">"test"
         </span>};
         <span class="kw">let </span>manifest = Manifest::deserialize(wasmer_toml).unwrap();
 
@@ -2866,26 +2856,26 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="macro">assert_eq!</span>(
             error,
             ValidationError::DuplicateCommand {
-                name: <span class="string">&quot;cmd&quot;</span>.to_string()
+                name: <span class="string">"cmd"</span>.to_string()
             }
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>nonexistent_entrypoint() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;some/package&quot;
-            </span>version = <span class="string">&quot;0.0.0&quot;
-            </span>description = <span class="string">&quot;&quot;
-            </span>entrypoint = <span class="string">&quot;this-doesnt-exist&quot;
+            name = <span class="string">"some/package"
+            </span>version = <span class="string">"0.0.0"
+            </span>description = <span class="string">""
+            </span>entrypoint = <span class="string">"this-doesnt-exist"
             </span>[[module]]
-            name = <span class="string">&quot;test&quot;
-            </span>source = <span class="string">&quot;test.wasm&quot;
-            </span>abi = <span class="string">&quot;wasi&quot;
+            name = <span class="string">"test"
+            </span>source = <span class="string">"test.wasm"
+            </span>abi = <span class="string">"wasi"
             </span>[[command]]
-            name = <span class="string">&quot;cmd&quot;
-            </span>module = <span class="string">&quot;test&quot;
+            name = <span class="string">"cmd"
+            </span>module = <span class="string">"test"
         </span>};
         <span class="kw">let </span>manifest = Manifest::deserialize(wasmer_toml).unwrap();
 
@@ -2894,22 +2884,22 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="macro">assert_eq!</span>(
             error,
             ValidationError::InvalidEntrypoint {
-                entrypoint: <span class="string">&quot;this-doesnt-exist&quot;</span>.to_string(),
-                available_commands: <span class="macro">vec!</span>[<span class="string">&quot;cmd&quot;</span>.to_string()]
+                entrypoint: <span class="string">"this-doesnt-exist"</span>.to_string(),
+                available_commands: <span class="macro">vec!</span>[<span class="string">"cmd"</span>.to_string()]
             }
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>command_with_nonexistent_module() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;some/package&quot;
-            </span>version = <span class="string">&quot;0.0.0&quot;
-            </span>description = <span class="string">&quot;&quot;
+            name = <span class="string">"some/package"
+            </span>version = <span class="string">"0.0.0"
+            </span>description = <span class="string">""
             </span>[[command]]
-            name = <span class="string">&quot;cmd&quot;
-            </span>module = <span class="string">&quot;this-doesnt-exist&quot;
+            name = <span class="string">"cmd"
+            </span>module = <span class="string">"this-doesnt-exist"
         </span>};
         <span class="kw">let </span>manifest = Manifest::deserialize(wasmer_toml).unwrap();
 
@@ -2918,8 +2908,8 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="macro">assert_eq!</span>(
             error,
             ValidationError::MissingModuleForCommand {
-                command: <span class="string">&quot;cmd&quot;</span>.to_string(),
-                module: <span class="string">&quot;this-doesnt-exist&quot;</span>.parse().unwrap()
+                command: <span class="string">"cmd"</span>.to_string(),
+                module: <span class="string">"this-doesnt-exist"</span>.parse().unwrap()
             }
         );
     }
@@ -2927,7 +2917,7 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>use_builder_api_to_create_simplest_manifest() {
         <span class="kw">let </span>package =
-            Package::builder(<span class="string">&quot;my/package&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap(), <span class="string">&quot;My awesome package&quot;</span>)
+            Package::builder(<span class="string">"my/package"</span>, <span class="string">"1.0.0"</span>.parse().unwrap(), <span class="string">"My awesome package"</span>)
                 .build()
                 .unwrap();
         <span class="kw">let </span>manifest = Manifest::builder(package).build().unwrap();
@@ -2937,46 +2927,46 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>deserialize_command_referring_to_module_from_dependency() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;some/package&quot;
-            </span>version = <span class="string">&quot;0.0.0&quot;
-            </span>description = <span class="string">&quot;&quot;
+            name = <span class="string">"some/package"
+            </span>version = <span class="string">"0.0.0"
+            </span>description = <span class="string">""
 
             </span>[dependencies]
-            dep = <span class="string">&quot;1.2.3&quot;
+            dep = <span class="string">"1.2.3"
 
             </span>[[command]]
-            name = <span class="string">&quot;cmd&quot;
-            </span>module = <span class="string">&quot;dep:module&quot;
+            name = <span class="string">"cmd"
+            </span>module = <span class="string">"dep:module"
         </span>};
         <span class="kw">let </span>manifest = Manifest::deserialize(wasmer_toml).unwrap();
 
         <span class="kw">let </span>command = manifest
             .commands
             .iter()
-            .find(|cmd| cmd.get_name() == <span class="string">&quot;cmd&quot;</span>)
+            .find(|cmd| cmd.get_name() == <span class="string">"cmd"</span>)
             .unwrap();
 
         <span class="macro">assert_eq!</span>(
             command.get_module(),
             <span class="kw-2">&amp;</span>ModuleReference::Dependency {
-                dependency: <span class="string">&quot;dep&quot;</span>.to_string(),
-                module: <span class="string">&quot;module&quot;</span>.to_string()
+                dependency: <span class="string">"dep"</span>.to_string(),
+                module: <span class="string">"module"</span>.to_string()
             }
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>command_with_module_from_nonexistent_dependency() {
-        <span class="kw">let </span>wasmer_toml = <span class="macro">toml! </span>{
+        <span class="kw">let </span>wasmer_toml = <span class="macro">toml!</span> {
             [package]
-            name = <span class="string">&quot;some/package&quot;
-            </span>version = <span class="string">&quot;0.0.0&quot;
-            </span>description = <span class="string">&quot;&quot;
+            name = <span class="string">"some/package"
+            </span>version = <span class="string">"0.0.0"
+            </span>description = <span class="string">""
             </span>[[command]]
-            name = <span class="string">&quot;cmd&quot;
-            </span>module = <span class="string">&quot;dep:module&quot;
+            name = <span class="string">"cmd"
+            </span>module = <span class="string">"dep:module"
         </span>};
         <span class="kw">let </span>manifest = Manifest::deserialize(wasmer_toml).unwrap();
 
@@ -2985,11 +2975,11 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
         <span class="macro">assert_eq!</span>(
             error,
             ValidationError::MissingDependency {
-                command: <span class="string">&quot;cmd&quot;</span>.to_string(),
-                dependency: <span class="string">&quot;dep&quot;</span>.to_string(),
+                command: <span class="string">"cmd"</span>.to_string(),
+                dependency: <span class="string">"dep"</span>.to_string(),
                 module_ref: ModuleReference::Dependency {
-                    dependency: <span class="string">&quot;dep&quot;</span>.to_string(),
-                    module: <span class="string">&quot;module&quot;</span>.to_string()
+                    dependency: <span class="string">"dep"</span>.to_string(),
+                    module: <span class="string">"module"</span>.to_string()
                 }
             }
         );
@@ -2998,8 +2988,8 @@ annotations = { file = &quot;Runefile.yml&quot;, kind = &quot;yaml&quot; }
     <span class="attr">#[test]
     </span><span class="kw">fn </span>round_trip_dependency_module_ref() {
         <span class="kw">let </span>original = ModuleReference::Dependency {
-            dependency: <span class="string">&quot;my/dep&quot;</span>.to_string(),
-            module: <span class="string">&quot;module&quot;</span>.to_string(),
+            dependency: <span class="string">"my/dep"</span>.to_string(),
+            module: <span class="string">"module"</span>.to_string(),
         };
 
         <span class="kw">let </span>repr = original.to_string();

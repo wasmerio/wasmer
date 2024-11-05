@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/abi/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_llvm/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/abi/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -117,7 +117,7 @@
         .get_triple()
         .as_str()
         .to_string_lossy()
-        .starts_with(<span class="string">&quot;aarch64&quot;</span>)
+        .starts_with(<span class="string">"aarch64"</span>)
     {
         Box::new(Aarch64SystemV {})
     } <span class="kw">else </span>{
@@ -131,47 +131,47 @@
 /// targets.
 </span><span class="kw">pub trait </span>Abi {
     <span class="doccomment">/// Given a function definition, retrieve the parameter that is the vmctx pointer.
-    </span><span class="kw">fn </span>get_vmctx_ptr_param&lt;<span class="lifetime">&#39;ctx</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;) -&gt; PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;;
+    </span><span class="kw">fn </span>get_vmctx_ptr_param&lt;<span class="lifetime">'ctx</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;) -&gt; PointerValue&lt;<span class="lifetime">'ctx</span>&gt;;
 
     <span class="doccomment">/// Given a wasm function type, produce an llvm function declaration.
-    </span><span class="kw">fn </span>func_type_to_llvm&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    </span><span class="kw">fn </span>func_type_to_llvm&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
         offsets: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>VMOffsets&gt;,
         sig: <span class="kw-2">&amp;</span>FuncSig,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;, Vec&lt;(Attribute, AttributeLoc)&gt;), CompileError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(FunctionType&lt;<span class="lifetime">'ctx</span>&gt;, Vec&lt;(Attribute, AttributeLoc)&gt;), CompileError&gt;;
 
     <span class="doccomment">/// Marshall wasm stack values into function parameters.
-    </span><span class="kw">fn </span>args_to_call&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    </span><span class="kw">fn </span>args_to_call&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        alloca_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        alloca_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
         func_sig: <span class="kw-2">&amp;</span>FuncSig,
-        llvm_fn_ty: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        ctx_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;],
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; Vec&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;;
+        llvm_fn_ty: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+        ctx_ptr: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;],
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;, CompileError&gt;;
 
     <span class="doccomment">/// Given a CallSite, extract the returned values and return them in a Vec.
-    </span><span class="kw">fn </span>rets_from_call&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    </span><span class="kw">fn </span>rets_from_call&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        call_site: CallSiteValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        call_site: CallSiteValue&lt;<span class="lifetime">'ctx</span>&gt;,
         func_sig: <span class="kw-2">&amp;</span>FuncSig,
-    ) -&gt; Vec&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;, CompileError&gt;;
 
     <span class="doccomment">/// Whether the llvm equivalent of this wasm function has an `sret` attribute.
     </span><span class="kw">fn </span>is_sret(<span class="kw-2">&amp;</span><span class="self">self</span>, func_sig: <span class="kw-2">&amp;</span>FuncSig) -&gt; <span class="prelude-ty">Result</span>&lt;bool, CompileError&gt;;
 
     <span class="doccomment">/// Pack LLVM IR values representing individual wasm values into the return type for the function.
-    </span><span class="kw">fn </span>pack_values_for_register_return&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    </span><span class="kw">fn </span>pack_values_for_register_return&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;],
-        func_type: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt;;
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
+        values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;],
+        func_type: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt;;
 }
 </code></pre></div></section></main></body></html>

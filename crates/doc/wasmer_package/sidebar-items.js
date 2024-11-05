@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["convert"]};
+window.SIDEBAR_ITEMS = {"mod":["convert","package","utils"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ProxyError"],"fn":["maybe_set_up_proxy_blocking","maybe_set_up_proxy_inner"]};

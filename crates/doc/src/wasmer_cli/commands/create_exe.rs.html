@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_exe.rs`."><title>create_exe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_exe.rs`."><title>create_exe.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2313,95 +2313,114 @@
 <a href="#2313" id="2313">2313</a>
 <a href="#2314" id="2314">2314</a>
 <a href="#2315" id="2315">2315</a>
+<a href="#2316" id="2316">2316</a>
+<a href="#2317" id="2317">2317</a>
+<a href="#2318" id="2318">2318</a>
+<a href="#2319" id="2319">2319</a>
+<a href="#2320" id="2320">2320</a>
+<a href="#2321" id="2321">2321</a>
+<a href="#2322" id="2322">2322</a>
+<a href="#2323" id="2323">2323</a>
+<a href="#2324" id="2324">2324</a>
+<a href="#2325" id="2325">2325</a>
+<a href="#2326" id="2326">2326</a>
+<a href="#2327" id="2327">2327</a>
+<a href="#2328" id="2328">2328</a>
+<a href="#2329" id="2329">2329</a>
+<a href="#2330" id="2330">2330</a>
+<a href="#2331" id="2331">2331</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
-</span><span class="kw">use </span>std::{
+</span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
+<span class="kw">use </span><span class="kw">super</span>::CliCommand;
+<span class="kw">use crate</span>::{
+    common::{normalize_path, HashAlgorithm},
+    config::WasmerEnv,
+    store::CompilerOptions,
+};
+<span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::{
     collections::BTreeMap,
     env,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-
-<span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tar::Archive;
 <span class="kw">use </span>wasmer::sys::Artifact;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_object::{emit_serialized, get_object_for_target};
+<span class="kw">use </span>wasmer_package::utils::from_disk;
 <span class="kw">use </span>wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-<span class="kw">use </span>webc::{
-    compat::{Container, Volume <span class="kw">as </span>WebcVolume},
-    PathSegments,
-};
+<span class="kw">use </span>webc::Container;
+<span class="kw">use </span>webc::PathSegments;
+<span class="kw">use </span>webc::{Metadata, Volume <span class="kw">as </span>WebcVolume};
 
-<span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
-<span class="kw">use crate</span>::{
-    common::{normalize_path, HashAlgorithm},
-    store::CompilerOptions,
-};
+<span class="kw">const </span>LINK_SYSTEM_LIBRARIES_WINDOWS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"userenv"</span>, <span class="string">"Ws2_32"</span>, <span class="string">"advapi32"</span>, <span class="string">"bcrypt"</span>];
 
-<span class="kw">const </span>LINK_SYSTEM_LIBRARIES_WINDOWS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">&quot;userenv&quot;</span>, <span class="string">&quot;Ws2_32&quot;</span>, <span class="string">&quot;advapi32&quot;</span>, <span class="string">&quot;bcrypt&quot;</span>];
-
-<span class="kw">const </span>LINK_SYSTEM_LIBRARIES_UNIX: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">&quot;dl&quot;</span>, <span class="string">&quot;m&quot;</span>, <span class="string">&quot;pthread&quot;</span>];
+<span class="kw">const </span>LINK_SYSTEM_LIBRARIES_UNIX: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"dl"</span>, <span class="string">"m"</span>, <span class="string">"pthread"</span>];
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer create-exe` subcommand
 </span><span class="kw">pub struct </span>CreateExe {
+    <span class="attr">#[clap(flatten)]
+    </span>env: WasmerEnv,
+
     <span class="doccomment">/// Input file
-    </span><span class="attr">#[clap(name = <span class="string">&quot;FILE&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"FILE"</span>)]
     </span>path: PathBuf,
 
     <span class="doccomment">/// Output file
-    </span><span class="attr">#[clap(name = <span class="string">&quot;OUTPUT PATH&quot;</span>, short = <span class="string">&#39;o&#39;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"OUTPUT PATH"</span>, short = <span class="string">'o'</span>)]
     </span>output: PathBuf,
 
     <span class="doccomment">/// Optional directorey used for debugging: if present, will output the zig command
     /// for reproducing issues in a debug directory
-    </span><span class="attr">#[clap(long, name = <span class="string">&quot;DEBUG PATH&quot;</span>)]
+    </span><span class="attr">#[clap(long, name = <span class="string">"DEBUG PATH"</span>)]
     </span>debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-    <span class="doccomment">/// Prefix for every input file, e.g. &quot;wat2wasm:sha256abc123&quot; would
-    /// prefix every function in the wat2wasm input object with the &quot;sha256abc123&quot; hash
+    <span class="doccomment">/// Prefix for every input file, e.g. "wat2wasm:sha256abc123" would
+    /// prefix every function in the wat2wasm input object with the "sha256abc123" hash
     ///
-    /// If only a single value is given without containing a &quot;:&quot;, this value is used for
+    /// If only a single value is given without containing a ":", this value is used for
     /// all input files. If no value is given, the prefix is always equal to
     /// the sha256 of the input .wasm file
     </span><span class="attr">#[clap(
         long,
         use_value_delimiter = <span class="bool-val">true</span>,
-        value_delimiter = <span class="string">&#39;,&#39;</span>,
-        name = <span class="string">&quot;FILE:PREFIX:PATH&quot;
+        value_delimiter = <span class="string">','</span>,
+        name = <span class="string">"FILE:PREFIX:PATH"
     </span>)]
     </span>precompiled_atom: Vec&lt;String&gt;,
 
     <span class="doccomment">/// Compilation Target triple
     ///
     /// Accepted target triple values must follow the
-    /// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.
+    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
     ///
     /// The recommended targets we try to support are:
     ///
-    /// - &quot;x86_64-linux-gnu&quot;
-    /// - &quot;aarch64-linux-gnu&quot;
-    /// - &quot;x86_64-apple-darwin&quot;
-    /// - &quot;arm64-apple-darwin&quot;
-    /// - &quot;x86_64-windows-gnu&quot;
-    </span><span class="attr">#[clap(long = <span class="string">&quot;target&quot;</span>)]
+    /// - "x86_64-linux-gnu"
+    /// - "aarch64-linux-gnu"
+    /// - "x86_64-apple-darwin"
+    /// - "arm64-apple-darwin"
+    /// - "x86_64-windows-gnu"
+    </span><span class="attr">#[clap(long = <span class="string">"target"</span>)]
     </span>target_triple: <span class="prelude-ty">Option</span>&lt;Triple&gt;,
 
-    <span class="doccomment">/// Can specify either a release version (such as &quot;3.0.1&quot;) or a URL to a tarball to use
+    <span class="doccomment">/// Can specify either a release version (such as "3.0.1") or a URL to a tarball to use
     /// for linking. By default, create-exe will always pull the latest release tarball from GitHub,
     /// this flag can be used to override that behaviour.
-    </span><span class="attr">#[clap(long, name = <span class="string">&quot;URL_OR_RELEASE_VERSION&quot;</span>)]
+    </span><span class="attr">#[clap(long, name = <span class="string">"URL_OR_RELEASE_VERSION"</span>)]
     </span>use_wasmer_release: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="attr">#[clap(long, short = <span class="string">&#39;m&#39;</span>, number_of_values = <span class="number">1</span>)]
+    <span class="attr">#[clap(long, short = <span class="string">'m'</span>, number_of_values = <span class="number">1</span>)]
     </span>cpu_features: Vec&lt;CpuFeature&gt;,
 
     <span class="doccomment">/// Additional libraries to link against.
     /// This is useful for fixing linker errors that may occur on some systems.
-    </span><span class="attr">#[clap(long, short = <span class="string">&#39;l&#39;</span>)]
+    </span><span class="attr">#[clap(long, short = <span class="string">'l'</span>)]
     </span>libraries: Vec&lt;String&gt;,
 
     <span class="attr">#[clap(flatten)]
@@ -2427,18 +2446,18 @@
 <span class="kw">impl </span>UrlOrVersion {
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>err;
-        <span class="kw">let </span>s = s.strip_prefix(<span class="string">&#39;v&#39;</span>).unwrap_or(s);
+        <span class="kw">let </span>s = s.strip_prefix(<span class="string">'v'</span>).unwrap_or(s);
         <span class="kw">match </span>url::Url::parse(s) {
             <span class="prelude-val">Ok</span>(o) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Url(o)),
             <span class="prelude-val">Err</span>(e) =&gt; {
-                err = <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not parse as URL: {e}&quot;</span>);
+                err = <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not parse as URL: {e}"</span>);
             }
         }
 
         <span class="kw">match </span>semver::Version::parse(s) {
             <span class="prelude-val">Ok</span>(o) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Version(o)),
             <span class="prelude-val">Err</span>(e) =&gt; {
-                err = <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not parse as URL or version: {e}&quot;</span>).context(err);
+                err = <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not parse as URL or version: {e}"</span>).context(err);
             }
         }
 
@@ -2454,15 +2473,15 @@
     </span>use_system_linker: bool,
 
     <span class="doccomment">/// Cross-compilation library path (path to libwasmer.a / wasmer.lib)
-    </span><span class="attr">#[clap(long = <span class="string">&quot;library-path&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"library-path"</span>)]
     </span>library_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Cross-compilation tarball library path
-    </span><span class="attr">#[clap(long = <span class="string">&quot;tarball&quot;</span>)]
+    </span><span class="attr">#[clap(long = <span class="string">"tarball"</span>)]
     </span>tarball: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Specify `zig` binary path (defaults to `zig` in $PATH if not present)
-    </span><span class="attr">#[clap(long = <span class="string">&quot;zig-binary-path&quot;</span>, env)]
+    </span><span class="attr">#[clap(long = <span class="string">"zig-binary-path"</span>, env)]
     </span>zig_binary_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 
@@ -2507,10 +2526,12 @@
     </span><span class="kw">pub </span>obj_file: PathBuf,
 }
 
-<span class="kw">impl </span>CreateExe {
+<span class="kw">impl </span>CliCommand <span class="kw">for </span>CreateExe {
+    <span class="kw">type </span>Output = ();
+
     <span class="doccomment">/// Runs logic for the `compile` subcommand
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>path = normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.path.display()));
+    </span><span class="kw">fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
+        <span class="kw">let </span>path = normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="self">self</span>.path.display()));
         <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple.clone().unwrap_or_else(Triple::host);
         <span class="kw">let </span><span class="kw-2">mut </span>cc = <span class="self">self</span>.cross_compile.clone();
         <span class="kw">let </span>target = utils::target_triple_to_target(<span class="kw-2">&amp;</span>target_triple, <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features);
@@ -2529,11 +2550,16 @@
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         };
 
-        <span class="kw">let </span>cross_compilation =
-            utils::get_cross_compile_setup(<span class="kw-2">&amp;mut </span>cc, <span class="kw-2">&amp;</span>target_triple, <span class="kw-2">&amp;</span>starting_cd, url_or_version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>cross_compilation = utils::get_cross_compile_setup(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.env,
+            <span class="kw-2">&amp;mut </span>cc,
+            <span class="kw-2">&amp;</span>target_triple,
+            <span class="kw-2">&amp;</span>starting_cd,
+            url_or_version,
+        )<span class="question-mark">?</span>;
 
         <span class="kw">if </span>input_path.is_dir() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;input path cannot be a directory&quot;</span>));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"input path cannot be a directory"</span>));
         }
 
         <span class="kw">let </span>(store, compiler_type) = <span class="self">self</span>.compiler.get_store_for_target(target.clone())<span class="question-mark">?</span>;
@@ -2542,15 +2568,15 @@
         <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(<span class="prelude-val">Some</span>(hash_algorithm));
 
-        <span class="macro">println!</span>(<span class="string">&quot;Compiler: {}&quot;</span>, compiler_type.to_string());
-        <span class="macro">println!</span>(<span class="string">&quot;Target: {}&quot;</span>, target.triple());
+        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, compiler_type);
+        <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
         <span class="macro">println!</span>(
-            <span class="string">&quot;Using path `{}` as libwasmer path.&quot;</span>,
+            <span class="string">"Using path `{}` as libwasmer path."</span>,
             cross_compilation.library.display()
         );
 
         <span class="kw">if </span>!cross_compilation.library.exists() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;library path does not exist&quot;</span>));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"library path does not exist"</span>));
         }
 
         <span class="kw">let </span>temp = tempfile::tempdir();
@@ -2560,7 +2586,7 @@
         };
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>tempdir)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(pirita) = Container::from_disk(<span class="kw-2">&amp;</span>input_path) {
+        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(pirita) = from_disk(<span class="kw-2">&amp;</span>input_path) {
             <span class="comment">// pirita file
             </span>compile_pirita_into_directory(
                 <span class="kw-2">&amp;</span>pirita,
@@ -2589,6 +2615,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>entrypoint = get_entrypoint(<span class="kw-2">&amp;</span>tempdir)<span class="question-mark">?</span>;
         create_header_files_in_dir(<span class="kw-2">&amp;</span>tempdir, <span class="kw-2">&amp;mut </span>entrypoint, <span class="kw-2">&amp;</span>atoms, <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom)<span class="question-mark">?</span>;
         link_exe_from_dir(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.env,
             <span class="kw-2">&amp;</span>tempdir,
             output_path,
             <span class="kw-2">&amp;</span>cross_compilation,
@@ -2600,13 +2627,13 @@
 
         <span class="kw">if </span><span class="self">self</span>.target_triple.is_some() {
             <span class="macro">eprintln!</span>(
-                <span class="string">&quot;✔ Cross-compiled executable for `{}` target compiled successfully to `{}`.&quot;</span>,
+                <span class="string">"✔ Cross-compiled executable for `{}` target compiled successfully to `{}`."</span>,
                 target.triple(),
                 <span class="self">self</span>.output.display(),
             );
         } <span class="kw">else </span>{
             <span class="macro">eprintln!</span>(
-                <span class="string">&quot;✔ Native executable compiled successfully to `{}`.&quot;</span>,
+                <span class="string">"✔ Native executable compiled successfully to `{}`."</span>,
                 <span class="self">self</span>.output.display(),
             );
         }
@@ -2617,12 +2644,12 @@
 
 <span class="kw">fn </span>write_entrypoint(directory: <span class="kw-2">&amp;</span>Path, entrypoint: <span class="kw-2">&amp;</span>Entrypoint) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
     std::fs::write(
-        directory.join(<span class="string">&quot;entrypoint.json&quot;</span>),
+        directory.join(<span class="string">"entrypoint.json"</span>),
         serde_json::to_string_pretty(<span class="kw-2">&amp;</span>entrypoint).unwrap(),
     )
     .map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;cannot create entrypoint.json dir in {}: {e}&quot;</span>,
+            <span class="string">"cannot create entrypoint.json dir in {}: {e}"</span>,
             directory.display()
         )
     })
@@ -2630,22 +2657,22 @@
 
 <span class="kw">fn </span>get_entrypoint(directory: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Entrypoint, anyhow::Error&gt; {
     <span class="kw">let </span>entrypoint_json =
-        std::fs::read_to_string(directory.join(<span class="string">&quot;entrypoint.json&quot;</span>)).map_err(|e| {
+        std::fs::read_to_string(directory.join(<span class="string">"entrypoint.json"</span>)).map_err(|e| {
             <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;could not read entrypoint.json in {}: {e}&quot;</span>,
+                <span class="string">"could not read entrypoint.json in {}: {e}"</span>,
                 directory.display()
             )
         })<span class="question-mark">?</span>;
 
     <span class="kw">let </span>entrypoint: Entrypoint = serde_json::from_str(<span class="kw-2">&amp;</span>entrypoint_json).map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;could not parse entrypoint.json in {}: {e}&quot;</span>,
+            <span class="string">"could not parse entrypoint.json in {}: {e}"</span>,
             directory.display()
         )
     })<span class="question-mark">?</span>;
 
     <span class="kw">if </span>entrypoint.atoms.is_empty() {
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;file has no atoms to compile&quot;</span>));
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"file has no atoms to compile"</span>));
     }
 
     <span class="prelude-val">Ok</span>(entrypoint)
@@ -2680,7 +2707,7 @@
         AllowMultiWasm::Reject(<span class="prelude-val">Some</span>(s)) =&gt; {
             <span class="kw">let </span>atom = pirita
                 .get_atom(s)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;could not find atom \&quot;{s}\&quot;&quot;</span>,))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"could not find atom \"{s}\""</span>,))<span class="question-mark">?</span>;
             <span class="macro">vec!</span>[(s.to_string(), atom)]
         }
     };
@@ -2688,28 +2715,28 @@
     allow_multi_wasm.validate(<span class="kw-2">&amp;</span>all_atoms)<span class="question-mark">?</span>;
 
     std::fs::create_dir_all(target_dir)
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot create / dir in {}: {e}&quot;</span>, target_dir.display()))<span class="question-mark">?</span>;
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot create / dir in {}: {e}"</span>, target_dir.display()))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>target_dir = target_dir.canonicalize()<span class="question-mark">?</span>;
     <span class="kw">let </span>target = <span class="kw-2">&amp;</span>utils::target_triple_to_target(triple, cpu_features);
 
-    std::fs::create_dir_all(target_dir.join(<span class="string">&quot;volumes&quot;</span>)).map_err(|e| {
+    std::fs::create_dir_all(target_dir.join(<span class="string">"volumes"</span>)).map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;cannot create /volumes dir in {}: {e}&quot;</span>,
+            <span class="string">"cannot create /volumes dir in {}: {e}"</span>,
             target_dir.display()
         )
     })<span class="question-mark">?</span>;
 
     <span class="kw">let </span>volumes = pirita.volumes();
     <span class="kw">let </span>volume_bytes = volume_file_block(<span class="kw-2">&amp;</span>volumes);
-    <span class="kw">let </span>volume_name = <span class="string">&quot;VOLUMES&quot;</span>;
-    <span class="kw">let </span>volume_path = target_dir.join(<span class="string">&quot;volumes&quot;</span>).join(<span class="string">&quot;volume.o&quot;</span>);
+    <span class="kw">let </span>volume_name = <span class="string">"VOLUMES"</span>;
+    <span class="kw">let </span>volume_path = target_dir.join(<span class="string">"volumes"</span>).join(<span class="string">"volume.o"</span>);
     write_volume_obj(<span class="kw-2">&amp;</span>volume_bytes, volume_name, <span class="kw-2">&amp;</span>volume_path, target)<span class="question-mark">?</span>;
     <span class="kw">let </span>volume_path = volume_path.canonicalize()<span class="question-mark">?</span>;
     <span class="kw">let </span>volume_path = pathdiff::diff_paths(volume_path, <span class="kw-2">&amp;</span>target_dir).unwrap();
 
-    std::fs::create_dir_all(target_dir.join(<span class="string">&quot;atoms&quot;</span>)).map_err(|e| {
-        <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot create /atoms dir in {}: {e}&quot;</span>, target_dir.display())
+    std::fs::create_dir_all(target_dir.join(<span class="string">"atoms"</span>)).map_err(|e| {
+        <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot create /atoms dir in {}: {e}"</span>, target_dir.display())
     })<span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>atoms_from_file = Vec::new();
@@ -2718,18 +2745,18 @@
     <span class="kw">for </span>(atom_name, atom_bytes) <span class="kw">in </span>all_atoms {
         atoms_from_file.push((utils::normalize_atom_name(<span class="kw-2">&amp;</span>atom_name), atom_bytes.to_vec()));
         <span class="kw">let </span>atom_path = target_dir
-            .join(<span class="string">&quot;atoms&quot;</span>)
-            .join(<span class="macro">format!</span>(<span class="string">&quot;{}.o&quot;</span>, utils::normalize_atom_name(<span class="kw-2">&amp;</span>atom_name)));
+            .join(<span class="string">"atoms"</span>)
+            .join(<span class="macro">format!</span>(<span class="string">"{}.o"</span>, utils::normalize_atom_name(<span class="kw-2">&amp;</span>atom_name)));
         <span class="kw">let </span>header_path = {
-            std::fs::create_dir_all(target_dir.join(<span class="string">&quot;include&quot;</span>)).map_err(|e| {
+            std::fs::create_dir_all(target_dir.join(<span class="string">"include"</span>)).map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;cannot create /include dir in {}: {e}&quot;</span>,
+                    <span class="string">"cannot create /include dir in {}: {e}"</span>,
                     target_dir.display()
                 )
             })<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>header_path = target_dir.join(<span class="string">&quot;include&quot;</span>).join(<span class="macro">format!</span>(
-                <span class="string">&quot;static_defs_{}.h&quot;</span>,
+            <span class="kw">let </span>header_path = target_dir.join(<span class="string">"include"</span>).join(<span class="macro">format!</span>(
+                <span class="string">"static_defs_{}.h"</span>,
                 utils::normalize_atom_name(<span class="kw-2">&amp;</span>atom_name)
             ));
 
@@ -2744,11 +2771,11 @@
     }
 
     <span class="kw">let </span>prefix_map = PrefixMapCompilation::from_input(<span class="kw-2">&amp;</span>atoms_from_file, prefixes, <span class="bool-val">false</span>)
-        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;compile_pirita_into_directory&quot;</span>))<span class="question-mark">?</span>;
+        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"compile_pirita_into_directory"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>module_infos = compile_atoms(
         <span class="kw-2">&amp;</span>atoms_from_file,
-        <span class="kw-2">&amp;</span>target_dir.join(<span class="string">&quot;atoms&quot;</span>),
+        <span class="kw-2">&amp;</span>target_dir.join(<span class="string">"atoms"</span>),
         compiler,
         target,
         <span class="kw-2">&amp;</span>prefix_map,
@@ -2766,7 +2793,7 @@
             header_path = opt_header_path.and_then(|h| pathdiff::diff_paths(h, <span class="kw-2">&amp;</span>target_dir));
         }
         atoms.push(CommandEntrypoint {
-            <span class="comment">// TODO: improve, &quot;--command pip&quot; should be able to invoke atom &quot;python&quot; with args &quot;-m pip&quot;
+            <span class="comment">// TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
             </span>command: command_name,
             atom: atom_name.clone(),
             path: atom_path,
@@ -2790,9 +2817,9 @@
 
 <span class="doccomment">/// Serialize a set of volumes so they can be read by the C API.
 ///
-/// This is really backwards, but the only way to create a v1 volume &quot;fileblock&quot;
+/// This is really backwards, but the only way to create a v1 volume "fileblock"
 /// is by first reading every file in a [`webc::compat::Volume`], serializing it
-/// to webc v1&#39;s binary form, parsing those bytes into a [`webc::v1::Volume`],
+/// to webc v1's binary form, parsing those bytes into a [`webc::v1::Volume`],
 /// then constructing a dummy [`webc::v1::WebC`] object just so we can make a
 /// copy of its file block.
 </span><span class="kw">fn </span>volume_file_block(volumes: <span class="kw-2">&amp;</span>BTreeMap&lt;String, WebcVolume&gt;) -&gt; Vec&lt;u8&gt; {
@@ -2801,7 +2828,7 @@
         .map(|(name, volume)| (name, serialize_volume_to_webc_v1(volume)))
         .collect();
 
-    <span class="kw">let </span>parsed_volumes: indexmap::IndexMap&lt;String, webc::v1::Volume&lt;<span class="lifetime">&#39;_</span>&gt;&gt; = serialized_volumes
+    <span class="kw">let </span>parsed_volumes: indexmap::IndexMap&lt;String, webc::v1::Volume&lt;<span class="lifetime">'_</span>&gt;&gt; = serialized_volumes
         .iter()
         .filter_map(|(name, serialized_volume)| {
             <span class="kw">let </span>volume = webc::v1::Volume::parse(serialized_volume).ok()<span class="question-mark">?</span>;
@@ -2831,14 +2858,14 @@
             path.push(segment);
 
             <span class="kw">match </span>meta {
-                webc::compat::Metadata::Dir { .. } =&gt; {
+                Metadata::Dir { .. } =&gt; {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
                     );
                     read_dir(volume, path, files);
                 }
-                webc::compat::Metadata::File { .. } =&gt; {
+                Metadata::File { .. } =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>((contents, <span class="kw">_</span>)) = volume.read_file(<span class="kw-2">&amp;*</span>path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
@@ -2863,7 +2890,7 @@
 <span class="kw">impl </span>AllowMultiWasm {
     <span class="kw">fn </span>validate(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        all_atoms: <span class="kw-2">&amp;</span>Vec&lt;(String, webc::compat::SharedBytes)&gt;,
+        all_atoms: <span class="kw-2">&amp;</span>[(String, webc::compat::SharedBytes)],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>, AllowMultiWasm::Reject(<span class="prelude-val">None</span>)) &amp;&amp; all_atoms.len() &gt; <span class="number">1 </span>{
             <span class="kw">let </span>keys = all_atoms
@@ -2872,14 +2899,14 @@
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;where &lt;ATOM&gt; is one of: {}&quot;</span>,
-                keys.join(<span class="string">&quot;, &quot;</span>)
+                <span class="string">"where &lt;ATOM&gt; is one of: {}"</span>,
+                keys.join(<span class="string">", "</span>)
             ))
             .context(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;note: use --atom &lt;ATOM&gt; to specify which atom to compile&quot;
+                <span class="string">"note: use --atom &lt;ATOM&gt; to specify which atom to compile"
             </span>))
             .context(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;cannot compile more than one atom at a time&quot;
+                <span class="string">"cannot compile more than one atom at a time"
             </span>));
         }
 
@@ -2900,7 +2927,7 @@
 }
 
 <span class="kw">impl </span>PrefixMapCompilation {
-    <span class="doccomment">/// Sets up the prefix map from a collection like &quot;sha123123&quot; or &quot;wasmfile:sha123123&quot; or &quot;wasmfile:/tmp/filepath/:sha123123&quot;
+    <span class="doccomment">/// Sets up the prefix map from a collection like "sha123123" or "wasmfile:sha123123" or "wasmfile:/tmp/filepath/:sha123123"
     </span><span class="kw">fn </span>from_input(
         atoms: <span class="kw-2">&amp;</span>[(String, Vec&lt;u8&gt;)],
         prefixes: <span class="kw-2">&amp;</span>[String],
@@ -2927,7 +2954,7 @@
         <span class="comment">// if prefixes are specified, have to match the atom names exactly
         </span><span class="kw">if </span>prefixes.len() != atoms.len() {
             <span class="macro">println!</span>(
-                <span class="string">&quot;WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes&quot;</span>,
+                <span class="string">"WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes"</span>,
                 atoms.len(), prefixes.len()
             );
         }
@@ -2937,8 +2964,8 @@
         <span class="kw">let </span><span class="kw-2">mut </span>compilation_objects = BTreeMap::new();
 
         <span class="kw">for </span>p <span class="kw">in </span>prefixes.iter() {
-            <span class="comment">// On windows, we have to account for paths like &quot;C://&quot;, which would
-            // prevent a simple .split(&quot;:&quot;) or a regex
+            <span class="comment">// On windows, we have to account for paths like "C://", which would
+            // prevent a simple .split(":") or a regex
             </span><span class="kw">let </span>prefix_split = <span class="self">Self</span>::split_prefix(p);
 
             <span class="kw">match </span>prefix_split.as_slice() {
@@ -2951,12 +2978,12 @@
                         <span class="kw">let </span>atom_hash = atoms
                         .iter()
                         .find_map(|(name, <span class="kw">_</span>)| <span class="kw">if </span>normalize_atom_name(name) == normalize_atom_name(atom) { <span class="prelude-val">Some</span>(prefix.to_string()) } <span class="kw">else </span>{ <span class="prelude-val">None </span>})
-                        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}&quot;</span>))<span class="question-mark">?</span>;
+                        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"</span>))<span class="question-mark">?</span>;
 
                         <span class="kw">let </span>current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
-                        <span class="kw">let </span>path = current_dir.join(path.replace(<span class="string">&quot;./&quot;</span>, <span class="string">&quot;&quot;</span>));
+                        <span class="kw">let </span>path = current_dir.join(path.replace(<span class="string">"./"</span>, <span class="string">""</span>));
                         <span class="kw">let </span>bytes = std::fs::read(<span class="kw-2">&amp;</span>path).map_err(|e| {
-                            <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}&quot;</span>, path.display(), current_dir.display())
+                            <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}"</span>, path.display(), current_dir.display())
                         })<span class="question-mark">?</span>;
 
                         compilation_objects.insert(normalize_atom_name(atom), bytes);
@@ -2968,14 +2995,14 @@
                     <span class="kw">let </span>atom_hash = atoms
                     .iter()
                     .find_map(|(name, bytes)| <span class="kw">if </span>normalize_atom_name(name) == normalize_atom_name(atom) { <span class="prelude-val">Some</span>(<span class="self">Self</span>::hash_for_bytes(bytes)) } <span class="kw">else </span>{ <span class="prelude-val">None </span>})
-                    .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}&quot;</span>))<span class="question-mark">?</span>;
+                    .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"</span>))<span class="question-mark">?</span>;
                     manual_prefixes.insert(normalize_atom_name(atom), atom_hash.to_string());
 
                     <span class="kw">if </span>!only_validate_prefixes {
                         <span class="kw">let </span>current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
-                        <span class="kw">let </span>path = current_dir.join(path.replace(<span class="string">&quot;./&quot;</span>, <span class="string">&quot;&quot;</span>));
+                        <span class="kw">let </span>path = current_dir.join(path.replace(<span class="string">"./"</span>, <span class="string">""</span>));
                         <span class="kw">let </span>bytes = std::fs::read(<span class="kw-2">&amp;</span>path).map_err(|e| {
-                            <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}&quot;</span>, path.display(), current_dir.display())
+                            <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}"</span>, path.display(), current_dir.display())
                         })<span class="question-mark">?</span>;
                         compilation_objects.insert(normalize_atom_name(atom), bytes);
                     }
@@ -2985,7 +3012,7 @@
                     manual_prefixes.insert(normalize_atom_name(<span class="kw-2">&amp;</span>atoms[<span class="number">0</span>].<span class="number">0</span>), prefix.to_string());
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid --precompiled-atom {p:?} - correct format is ATOM:PREFIX:PATH or ATOM:PATH&quot;</span>));
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"invalid --precompiled-atom {p:?} - correct format is ATOM:PREFIX:PATH or ATOM:PATH"</span>));
                 }
             }
         }
@@ -2999,7 +3026,7 @@
 
     <span class="kw">fn </span>split_prefix(s: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
         <span class="kw">let </span>regex =
-            regex::Regex::new(<span class="string">r&quot;^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?&quot;</span>).unwrap();
+            regex::Regex::new(<span class="string">r"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?"</span>).unwrap();
         <span class="kw">let </span><span class="kw-2">mut </span>captures = regex
             .captures(s.trim())
             .map(|c| {
@@ -3017,7 +3044,7 @@
             captures.remove(<span class="number">2</span>);
             captures
         } <span class="kw">else if </span>captures.len() == <span class="number">3 </span>{
-            s.splitn(<span class="number">2</span>, <span class="string">&#39;:&#39;</span>).map(|s| s.to_string()).collect()
+            s.splitn(<span class="number">2</span>, <span class="string">':'</span>).map(|s| s.to_string()).collect()
         } <span class="kw">else </span>{
             captures
         }
@@ -3051,15 +3078,15 @@
 </span><span class="kw">fn </span>test_prefix_parsing() {
     <span class="kw">let </span>tempdir = tempfile::TempDir::new().unwrap();
     <span class="kw">let </span>path = tempdir.path();
-    std::fs::write(path.join(<span class="string">&quot;test.obj&quot;</span>), <span class="string">b&quot;&quot;</span>).unwrap();
-    <span class="kw">let </span>str1 = <span class="macro">format!</span>(<span class="string">&quot;ATOM_NAME:PREFIX:{}&quot;</span>, path.join(<span class="string">&quot;test.obj&quot;</span>).display());
+    std::fs::write(path.join(<span class="string">"test.obj"</span>), <span class="string">b""</span>).unwrap();
+    <span class="kw">let </span>str1 = <span class="macro">format!</span>(<span class="string">"ATOM_NAME:PREFIX:{}"</span>, path.join(<span class="string">"test.obj"</span>).display());
     <span class="kw">let </span>prefix =
-        PrefixMapCompilation::from_input(<span class="kw-2">&amp;</span>[(<span class="string">&quot;ATOM_NAME&quot;</span>.to_string(), <span class="string">b&quot;&quot;</span>.to_vec())], <span class="kw-2">&amp;</span>[str1], <span class="bool-val">true</span>);
+        PrefixMapCompilation::from_input(<span class="kw-2">&amp;</span>[(<span class="string">"ATOM_NAME"</span>.to_string(), <span class="string">b""</span>.to_vec())], <span class="kw-2">&amp;</span>[str1], <span class="bool-val">true</span>);
     <span class="macro">assert_eq!</span>(
         prefix.unwrap(),
         PrefixMapCompilation {
             input_hashes: BTreeMap::new(),
-            manual_prefixes: <span class="macro">vec!</span>[(<span class="string">&quot;ATOM_NAME&quot;</span>.to_string(), <span class="string">&quot;PREFIX&quot;</span>.to_string())]
+            manual_prefixes: <span class="macro">vec!</span>[(<span class="string">"ATOM_NAME"</span>.to_string(), <span class="string">"PREFIX"</span>.to_string())]
                 .into_iter()
                 .collect(),
             compilation_objects: Vec::new().into_iter().collect(),
@@ -3070,37 +3097,37 @@
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_split_prefix() {
     <span class="kw">let </span>split = PrefixMapCompilation::split_prefix(
-        <span class="string">&quot;qjs:abc123:C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj&quot;</span>,
+        <span class="string">"qjs:abc123:C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj"</span>,
     );
     <span class="macro">assert_eq!</span>(
         split,
         <span class="macro">vec!</span>[
-            <span class="string">&quot;qjs&quot;</span>.to_string(),
-            <span class="string">&quot;abc123&quot;</span>.to_string(),
-            <span class="string">&quot;C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj&quot;</span>.to_string(),
+            <span class="string">"qjs"</span>.to_string(),
+            <span class="string">"abc123"</span>.to_string(),
+            <span class="string">"C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj"</span>.to_string(),
         ]
     );
-    <span class="kw">let </span>split = PrefixMapCompilation::split_prefix(<span class="string">&quot;qjs:./tmp.obj&quot;</span>);
-    <span class="macro">assert_eq!</span>(split, <span class="macro">vec!</span>[<span class="string">&quot;qjs&quot;</span>.to_string(), <span class="string">&quot;./tmp.obj&quot;</span>.to_string(),]);
+    <span class="kw">let </span>split = PrefixMapCompilation::split_prefix(<span class="string">"qjs:./tmp.obj"</span>);
+    <span class="macro">assert_eq!</span>(split, <span class="macro">vec!</span>[<span class="string">"qjs"</span>.to_string(), <span class="string">"./tmp.obj"</span>.to_string(),]);
     <span class="kw">let </span>split2 = PrefixMapCompilation::split_prefix(
-        <span class="string">&quot;qjs:abc123:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o&quot;</span>,
+        <span class="string">"qjs:abc123:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o"</span>,
     );
     <span class="macro">assert_eq!</span>(
         split2,
         <span class="macro">vec!</span>[
-            <span class="string">&quot;qjs&quot;</span>.to_string(),
-            <span class="string">&quot;abc123&quot;</span>.to_string(),
-            <span class="string">&quot;/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o&quot;</span>.to_string(),
+            <span class="string">"qjs"</span>.to_string(),
+            <span class="string">"abc123"</span>.to_string(),
+            <span class="string">"/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o"</span>.to_string(),
         ]
     );
     <span class="kw">let </span>split3 = PrefixMapCompilation::split_prefix(
-        <span class="string">&quot;qjs:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o&quot;</span>,
+        <span class="string">"qjs:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o"</span>,
     );
     <span class="macro">assert_eq!</span>(
         split3,
         <span class="macro">vec!</span>[
-            <span class="string">&quot;qjs&quot;</span>.to_string(),
-            <span class="string">&quot;/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o&quot;</span>.to_string(),
+            <span class="string">"qjs"</span>.to_string(),
+            <span class="string">"/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o"</span>.to_string(),
         ]
     );
 }
@@ -3122,14 +3149,14 @@
     <span class="kw">for </span>(a, data) <span class="kw">in </span>atoms {
         <span class="kw">let </span>prefix = prefixes
             .get_prefix_for_atom(<span class="kw-2">&amp;</span>normalize_atom_name(a))
-            .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no prefix given for atom {a}&quot;</span>))<span class="question-mark">?</span>;
+            .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"no prefix given for atom {a}"</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span>atom_name = utils::normalize_atom_name(a);
-        <span class="kw">let </span>output_object_path = output_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{atom_name}.o&quot;</span>));
+        <span class="kw">let </span>output_object_path = output_dir.join(<span class="macro">format!</span>(<span class="string">"{atom_name}.o"</span>));
         <span class="kw">if let </span><span class="prelude-val">Some</span>(atom) = prefixes.get_compilation_object_for_atom(a) {
             std::fs::write(<span class="kw-2">&amp;</span>output_object_path, atom)
-                .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}: {e}&quot;</span>, output_object_path.display()))<span class="question-mark">?</span>;
+                .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"{}: {e}"</span>, output_object_path.display()))<span class="question-mark">?</span>;
             <span class="kw">if </span>debug {
-                <span class="macro">println!</span>(<span class="string">&quot;Using cached object file for atom {a:?}.&quot;</span>);
+                <span class="macro">println!</span>(<span class="string">"Using cached object file for atom {a:?}."</span>);
             }
             <span class="kw">continue</span>;
         }
@@ -3159,6 +3186,7 @@
 
 <span class="doccomment">/// Compile the C code.
 </span><span class="kw">fn </span>run_c_compile(
+    env: <span class="kw-2">&amp;</span>WasmerEnv,
     path_to_c_src: <span class="kw-2">&amp;</span>Path,
     output_name: <span class="kw-2">&amp;</span>Path,
     target: <span class="kw-2">&amp;</span>Triple,
@@ -3166,41 +3194,41 @@
     include_dirs: <span class="kw-2">&amp;</span>[PathBuf],
 ) -&gt; anyhow::Result&lt;()&gt; {
     <span class="attr">#[cfg(not(windows))]
-    </span><span class="kw">let </span>c_compiler = <span class="string">&quot;cc&quot;</span>;
+    </span><span class="kw">let </span>c_compiler = <span class="string">"cc"</span>;
     <span class="comment">// We must use a C++ compiler on Windows because wasm.h uses `static_assert`
-    // which isn&#39;t available in `clang` on Windows.
+    // which isn't available in `clang` on Windows.
     </span><span class="attr">#[cfg(windows)]
-    </span><span class="kw">let </span>c_compiler = <span class="string">&quot;clang++&quot;</span>;
+    </span><span class="kw">let </span>c_compiler = <span class="string">"clang++"</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>command = Command::new(c_compiler);
     <span class="kw">let </span><span class="kw-2">mut </span>command = command
-        .arg(<span class="string">&quot;-Wall&quot;</span>)
-        .arg(<span class="string">&quot;-O2&quot;</span>)
-        .arg(<span class="string">&quot;-c&quot;</span>)
+        .arg(<span class="string">"-Wall"</span>)
+        .arg(<span class="string">"-O2"</span>)
+        .arg(<span class="string">"-c"</span>)
         .arg(path_to_c_src)
-        .arg(<span class="string">&quot;-I&quot;</span>)
-        .arg(utils::get_wasmer_include_directory()<span class="question-mark">?</span>);
+        .arg(<span class="string">"-I"</span>)
+        .arg(utils::get_wasmer_include_directory(env)<span class="question-mark">?</span>);
 
     <span class="kw">for </span>i <span class="kw">in </span>include_dirs {
-        command = command.arg(<span class="string">&quot;-I&quot;</span>);
+        command = command.arg(<span class="string">"-I"</span>);
         command = command.arg(normalize_path(<span class="kw-2">&amp;</span>i.display().to_string()));
     }
 
-    <span class="comment">// On some compiler -target isn&#39;t implemented
+    <span class="comment">// On some compiler -target isn't implemented
     </span><span class="kw">if </span><span class="kw-2">*</span>target != Triple::host() {
-        command = command.arg(<span class="string">&quot;-target&quot;</span>).arg(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, target));
+        command = command.arg(<span class="string">"-target"</span>).arg(<span class="macro">format!</span>(<span class="string">"{}"</span>, target));
     }
 
-    <span class="kw">let </span>command = command.arg(<span class="string">&quot;-o&quot;</span>).arg(output_name);
+    <span class="kw">let </span>command = command.arg(<span class="string">"-o"</span>).arg(output_name);
 
     <span class="kw">if </span>debug {
-        <span class="macro">println!</span>(<span class="string">&quot;{command:#?}&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">"{command:#?}"</span>);
     }
 
     <span class="kw">let </span>output = command.output()<span class="question-mark">?</span>;
     <span class="kw">if </span>debug {
         <span class="macro">eprintln!</span>(
-            <span class="string">&quot;run_c_compile: stdout: {}\n\nstderr: {}&quot;</span>,
+            <span class="string">"run_c_compile: stdout: {}\n\nstderr: {}"</span>,
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout),
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr)
         );
@@ -3208,7 +3236,7 @@
 
     <span class="kw">if </span>!output.status.success() {
         <span class="macro">bail!</span>(
-            <span class="string">&quot;C code compile failed with: stdout: {}\n\nstderr: {}&quot;</span>,
+            <span class="string">"C code compile failed with: stdout: {}\n\nstderr: {}"</span>,
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout),
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr)
         );
@@ -3261,12 +3289,12 @@
     <span class="kw">let </span>target = <span class="kw-2">&amp;</span>utils::target_triple_to_target(triple, cpu_features);
 
     std::fs::create_dir_all(target_dir)
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot create / dir in {}: {e}&quot;</span>, target_dir.display()))<span class="question-mark">?</span>;
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot create / dir in {}: {e}"</span>, target_dir.display()))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>target_dir = target_dir.canonicalize()<span class="question-mark">?</span>;
 
-    std::fs::create_dir_all(target_dir.join(<span class="string">&quot;atoms&quot;</span>)).map_err(|e| {
-        <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot create /atoms dir in {}: {e}&quot;</span>, target_dir.display())
+    std::fs::create_dir_all(target_dir.join(<span class="string">"atoms"</span>)).map_err(|e| {
+        <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot create /atoms dir in {}: {e}"</span>, target_dir.display())
     })<span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>atoms_from_file = Vec::new();
@@ -3276,23 +3304,23 @@
         wasm_file
             .file_stem()
             .and_then(|f| f.to_str())
-            .unwrap_or(<span class="string">&quot;main&quot;</span>)
+            .unwrap_or(<span class="string">"main"</span>)
             .to_string(),
         bytes,
     )];
 
     <span class="kw">for </span>(atom_name, atom_bytes) <span class="kw">in </span>all_files.iter() {
         atoms_from_file.push((atom_name.clone(), atom_bytes.to_vec()));
-        <span class="kw">let </span>atom_path = target_dir.join(<span class="string">&quot;atoms&quot;</span>).join(<span class="macro">format!</span>(<span class="string">&quot;{atom_name}.o&quot;</span>));
+        <span class="kw">let </span>atom_path = target_dir.join(<span class="string">"atoms"</span>).join(<span class="macro">format!</span>(<span class="string">"{atom_name}.o"</span>));
         target_paths.push((atom_name, atom_path));
     }
 
     <span class="kw">let </span>prefix_map = PrefixMapCompilation::from_input(<span class="kw-2">&amp;</span>atoms_from_file, prefix, <span class="bool-val">false</span>)
-        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;prepare_directory_from_single_wasm_file&quot;</span>))<span class="question-mark">?</span>;
+        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"prepare_directory_from_single_wasm_file"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>module_infos = compile_atoms(
         <span class="kw-2">&amp;</span>atoms_from_file,
-        <span class="kw-2">&amp;</span>target_dir.join(<span class="string">&quot;atoms&quot;</span>),
+        <span class="kw-2">&amp;</span>target_dir.join(<span class="string">"atoms"</span>),
         compiler,
         target,
         <span class="kw-2">&amp;</span>prefix_map,
@@ -3302,7 +3330,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>atoms = Vec::new();
     <span class="kw">for </span>(atom_name, atom_path) <span class="kw">in </span>target_paths {
         atoms.push(CommandEntrypoint {
-            <span class="comment">// TODO: improve, &quot;--command pip&quot; should be able to invoke atom &quot;python&quot; with args &quot;-m pip&quot;
+            <span class="comment">// TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
             </span>command: atom_name.clone(),
             atom: atom_name.clone(),
             path: atom_path,
@@ -3330,7 +3358,7 @@
     atoms: <span class="kw-2">&amp;</span>[(String, Vec&lt;u8&gt;)],
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;String, ModuleInfo&gt;, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>entrypoint =
-        get_entrypoint(directory).with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;get module infos&quot;</span>))<span class="question-mark">?</span>;
+        get_entrypoint(directory).with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"get module infos"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>module_infos = BTreeMap::new();
     <span class="kw">for </span>(atom_name, atom_bytes) <span class="kw">in </span>atoms {
@@ -3360,34 +3388,34 @@
 ) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">use </span>object::{Object, ObjectSection};
 
-    std::fs::create_dir_all(directory.join(<span class="string">&quot;include&quot;</span>)).map_err(|e| {
-        <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot create /include dir in {}: {e}&quot;</span>, directory.display())
+    std::fs::create_dir_all(directory.join(<span class="string">"include"</span>)).map_err(|e| {
+        <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot create /include dir in {}: {e}"</span>, directory.display())
     })<span class="question-mark">?</span>;
 
     <span class="kw">let </span>prefixes = PrefixMapCompilation::from_input(atoms, prefixes, <span class="bool-val">false</span>)
-        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;create_header_files_in_dir&quot;</span>))<span class="question-mark">?</span>;
+        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"create_header_files_in_dir"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">for </span>atom <span class="kw">in </span>entrypoint.atoms.iter_mut() {
         <span class="kw">let </span>atom_name = <span class="kw-2">&amp;</span>atom.atom;
         <span class="kw">let </span>prefix = prefixes
             .get_prefix_for_atom(atom_name)
-            .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot get prefix for atom {atom_name}&quot;</span>))<span class="question-mark">?</span>;
+            .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot get prefix for atom {atom_name}"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>object_file_src = directory.join(<span class="kw-2">&amp;</span>atom.path);
         <span class="kw">let </span>object_file = std::fs::read(<span class="kw-2">&amp;</span>object_file_src)
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not read {}: {e}&quot;</span>, object_file_src.display()))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not read {}: {e}"</span>, object_file_src.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span>obj_file = object::File::parse(<span class="kw-2">&amp;*</span>object_file)<span class="question-mark">?</span>;
         <span class="kw">let </span>sections = obj_file
             .sections()
             .filter_map(|s| s.name().ok().map(|s| s.to_string()))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         <span class="kw">let </span>section = obj_file
-            .section_by_name(<span class="string">&quot;.data&quot;</span>)
+            .section_by_name(<span class="string">".data"</span>)
             .unwrap()
             .data()
             .map_err(|<span class="kw">_</span>| {
                 <span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;missing section .data in object file {} (sections = {:#?}&quot;</span>,
+                    <span class="string">"missing section .data in object file {} (sections = {:#?}"</span>,
                     object_file_src.display(),
                     sections
                 )
@@ -3397,9 +3425,9 @@
         <span class="kw">let </span>module_info = atom
             .module_info
             .as_ref()
-            .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no module info for atom {atom_name:?}&quot;</span>))<span class="question-mark">?</span>;
+            .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"no module info for atom {atom_name:?}"</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>base_path = Path::new(<span class="string">&quot;include&quot;</span>).join(<span class="macro">format!</span>(<span class="string">&quot;static_defs_{prefix}.h&quot;</span>));
+        <span class="kw">let </span>base_path = Path::new(<span class="string">"include"</span>).join(<span class="macro">format!</span>(<span class="string">"static_defs_{prefix}.h"</span>));
         <span class="kw">let </span>header_file_path = directory.join(<span class="kw-2">&amp;</span>base_path);
 
         <span class="kw">let </span>header_file_src = <span class="kw">crate</span>::c_gen::staticlib_header::generate_header_file(
@@ -3413,7 +3441,7 @@
 
         std::fs::write(<span class="kw-2">&amp;</span>header_file_path, <span class="kw-2">&amp;</span>header_file_src).map_err(|e| {
             <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;could not write static_defs.h for atom {atom_name} in generate-header step: {e}&quot;
+                <span class="string">"could not write static_defs.h for atom {atom_name} in generate-header step: {e}"
             </span>)
         })<span class="question-mark">?</span>;
 
@@ -3426,7 +3454,9 @@
 }
 
 <span class="doccomment">/// Given a directory, links all the objects from the directory appropriately
+</span><span class="attr">#[allow(clippy::too_many_arguments)]
 </span><span class="kw">fn </span>link_exe_from_dir(
+    env: <span class="kw-2">&amp;</span>WasmerEnv,
     directory: <span class="kw-2">&amp;</span>Path,
     output_path: PathBuf,
     cross_compilation: <span class="kw-2">&amp;</span>CrossCompileSetup,
@@ -3436,21 +3466,21 @@
     prefixes: <span class="kw-2">&amp;</span>[String],
 ) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">let </span>entrypoint =
-        get_entrypoint(directory).with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;link exe from dir&quot;</span>))<span class="question-mark">?</span>;
+        get_entrypoint(directory).with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"link exe from dir"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>prefixes = PrefixMapCompilation::from_input(atoms, prefixes, <span class="bool-val">false</span>)
-        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;link_exe_from_dir&quot;</span>))<span class="question-mark">?</span>;
+        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"link_exe_from_dir"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>wasmer_main_c = generate_wasmer_main_c(<span class="kw-2">&amp;</span>entrypoint, <span class="kw-2">&amp;</span>prefixes).map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;could not generate wasmer_main.c in dir {}: {e}&quot;</span>,
+            <span class="string">"could not generate wasmer_main.c in dir {}: {e}"</span>,
             directory.display()
         )
     })<span class="question-mark">?</span>;
 
-    std::fs::write(directory.join(<span class="string">&quot;wasmer_main.c&quot;</span>), wasmer_main_c.as_bytes()).map_err(|e| {
+    std::fs::write(directory.join(<span class="string">"wasmer_main.c"</span>), wasmer_main_c.as_bytes()).map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;could not write wasmer_main.c in dir {}: {e}&quot;</span>,
+            <span class="string">"could not write wasmer_main.c in dir {}: {e}"</span>,
             directory.display()
         )
     })<span class="question-mark">?</span>;
@@ -3497,15 +3527,16 @@
         &amp;&amp; cross_compilation.target.operating_system == OperatingSystem::Windows
     {
         run_c_compile(
-            <span class="kw-2">&amp;</span>directory.join(<span class="string">&quot;wasmer_main.c&quot;</span>),
-            <span class="kw-2">&amp;</span>directory.join(<span class="string">&quot;wasmer_main.o&quot;</span>),
+            env,
+            <span class="kw-2">&amp;</span>directory.join(<span class="string">"wasmer_main.c"</span>),
+            <span class="kw-2">&amp;</span>directory.join(<span class="string">"wasmer_main.o"</span>),
             <span class="kw-2">&amp;</span>cross_compilation.target,
             debug,
             <span class="kw-2">&amp;</span>include_dirs,
         )
         .map_err(|e| {
             <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;could not run c compile of wasmer_main.c in dir {}: {e}&quot;</span>,
+                <span class="string">"could not run c compile of wasmer_main.c in dir {}: {e}"</span>,
                 directory.display()
             )
         })<span class="question-mark">?</span>;
@@ -3517,14 +3548,14 @@
             &amp;&amp; cross_compilation.target.operating_system == OperatingSystem::Windows)
     {
         <span class="attr">#[cfg(not(windows))]
-        </span><span class="kw">let </span>linker = <span class="string">&quot;cc&quot;</span>;
+        </span><span class="kw">let </span>linker = <span class="string">"cc"</span>;
         <span class="attr">#[cfg(windows)]
-        </span><span class="kw">let </span>linker = <span class="string">&quot;clang&quot;</span>;
-        <span class="kw">let </span>optimization_flag = <span class="string">&quot;-O2&quot;</span>;
+        </span><span class="kw">let </span>linker = <span class="string">"clang"</span>;
+        <span class="kw">let </span>optimization_flag = <span class="string">"-O2"</span>;
 
-        <span class="kw">let </span>object_path = <span class="kw">match </span>directory.join(<span class="string">&quot;wasmer_main.o&quot;</span>).canonicalize() {
+        <span class="kw">let </span>object_path = <span class="kw">match </span>directory.join(<span class="string">"wasmer_main.o"</span>).canonicalize() {
             <span class="prelude-val">Ok</span>(s) =&gt; s,
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; directory.join(<span class="string">&quot;wasmer_main.c&quot;</span>),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; directory.join(<span class="string">"wasmer_main.c"</span>),
         };
 
         object_paths.push(object_path);
@@ -3545,87 +3576,88 @@
     <span class="kw">let </span>zig_binary_path = cross_compilation
         .zig_binary_path
         .as_ref()
-        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find zig in $PATH {}&quot;</span>, directory.display()))<span class="question-mark">?</span>;
+        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not find zig in $PATH {}"</span>, directory.display()))<span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(zig_binary_path);
-    cmd.arg(<span class="string">&quot;build-exe&quot;</span>);
-    cmd.arg(<span class="string">&quot;--verbose-cc&quot;</span>);
-    cmd.arg(<span class="string">&quot;--verbose-link&quot;</span>);
-    cmd.arg(<span class="string">&quot;-target&quot;</span>);
+    cmd.arg(<span class="string">"build-exe"</span>);
+    cmd.arg(<span class="string">"--verbose-cc"</span>);
+    cmd.arg(<span class="string">"--verbose-link"</span>);
+    cmd.arg(<span class="string">"-target"</span>);
     cmd.arg(<span class="kw-2">&amp;</span>zig_triple);
 
     <span class="comment">// On Windows, libstdc++ does not compile with zig due to zig-internal problems,
     // so we link with only -lc
-    </span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
-    </span><span class="kw">if </span>zig_triple.contains(<span class="string">&quot;windows&quot;</span>) {
-        cmd.arg(<span class="string">&quot;-lc++&quot;</span>);
+    </span><span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
+    </span><span class="kw">if </span>zig_triple.contains(<span class="string">"windows"</span>) {
+        cmd.arg(<span class="string">"-lc++"</span>);
     } <span class="kw">else </span>{
-        cmd.arg(<span class="string">&quot;-lc&quot;</span>);
+        cmd.arg(<span class="string">"-lc"</span>);
     }
 
-    <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-    </span>cmd.arg(<span class="string">&quot;-lc&quot;</span>);
+    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
+    </span>cmd.arg(<span class="string">"-lc"</span>);
 
     <span class="kw">for </span>include_dir <span class="kw">in </span>include_dirs {
-        cmd.arg(<span class="string">&quot;-I&quot;</span>);
-        cmd.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, include_dir.display())));
+        cmd.arg(<span class="string">"-I"</span>);
+        cmd.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, include_dir.display())));
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>include_path = library_path.clone();
     include_path.pop();
     include_path.pop();
-    include_path.push(<span class="string">&quot;include&quot;</span>);
+    include_path.push(<span class="string">"include"</span>);
     <span class="kw">if </span>!include_path.exists() {
         <span class="comment">// Can happen when we got the wrong library_path
-        </span><span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?&quot;</span>, include_path.display(), library_path.display()));
+        </span><span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?"</span>, include_path.display(), library_path.display()));
     }
-    cmd.arg(<span class="string">&quot;-I&quot;</span>);
-    cmd.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, include_path.display())));
+    cmd.arg(<span class="string">"-I"</span>);
+    cmd.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, include_path.display())));
 
     <span class="comment">// On Windows, libunwind does not compile, so we have
     // to create binaries without libunwind.
-    </span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
-    </span>cmd.arg(<span class="string">&quot;-lunwind&quot;</span>);
+    </span><span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
+    </span>cmd.arg(<span class="string">"-lunwind"</span>);
 
-    <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-    </span><span class="kw">if </span>!zig_triple.contains(<span class="string">&quot;windows&quot;</span>) {
-        cmd.arg(<span class="string">&quot;-lunwind&quot;</span>);
+    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
+    </span><span class="kw">if </span>!zig_triple.contains(<span class="string">"windows"</span>) {
+        cmd.arg(<span class="string">"-lunwind"</span>);
     }
 
-    cmd.arg(<span class="string">&quot;-OReleaseSafe&quot;</span>);
-    cmd.arg(<span class="string">&quot;-fno-compiler-rt&quot;</span>);
-    cmd.arg(<span class="string">&quot;-fno-lto&quot;</span>);
-    <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-    </span><span class="kw">let </span>out_path = directory.join(<span class="string">&quot;wasmer_main.exe&quot;</span>);
-    <span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
-    </span><span class="kw">let </span>out_path = directory.join(<span class="string">&quot;wasmer_main&quot;</span>);
-    cmd.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-femit-bin={}&quot;</span>, out_path.display()));
+    cmd.arg(<span class="string">"-OReleaseSafe"</span>);
+    cmd.arg(<span class="string">"-fno-compiler-rt"</span>);
+    cmd.arg(<span class="string">"-fno-lto"</span>);
+    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
+    </span><span class="kw">let </span>out_path = directory.join(<span class="string">"wasmer_main.exe"</span>);
+    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
+    </span><span class="kw">let </span>out_path = directory.join(<span class="string">"wasmer_main"</span>);
+    cmd.arg(<span class="macro">format!</span>(<span class="string">"-femit-bin={}"</span>, out_path.display()));
+
     cmd.args(
-        <span class="kw-2">&amp;</span>object_paths
+        object_paths
             .iter()
-            .map(|o| normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, o.display())))
+            .map(|o| normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, o.display())))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
     );
-    cmd.arg(<span class="kw-2">&amp;</span>normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, library_path.display())));
+    cmd.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, library_path.display())));
     cmd.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-        <span class="string">&quot;{}&quot;</span>,
+        <span class="string">"{}"</span>,
         directory
-            .join(<span class="string">&quot;wasmer_main.c&quot;</span>)
+            .join(<span class="string">"wasmer_main.c"</span>)
             .canonicalize()
-            .expect(<span class="string">&quot;could not find wasmer_main.c / wasmer_main.o&quot;</span>)
+            .expect(<span class="string">"could not find wasmer_main.c / wasmer_main.o"</span>)
             .display()
     )));
 
-    <span class="kw">if </span>zig_triple.contains(<span class="string">&quot;windows&quot;</span>) {
+    <span class="kw">if </span>zig_triple.contains(<span class="string">"windows"</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>winsdk_path = library_path.clone();
         winsdk_path.pop();
         winsdk_path.pop();
-        winsdk_path.push(<span class="string">&quot;winsdk&quot;</span>);
+        winsdk_path.push(<span class="string">"winsdk"</span>);
 
         <span class="kw">let </span>files_winsdk = std::fs::read_dir(winsdk_path)
             .ok()
             .map(|res| {
-                res.filter_map(|r| <span class="prelude-val">Some</span>(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, r.ok()<span class="question-mark">?</span>.path().display()))))
+                res.filter_map(|r| <span class="prelude-val">Some</span>(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, r.ok()<span class="question-mark">?</span>.path().display()))))
                     .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             })
             .unwrap_or_default();
@@ -3633,31 +3665,31 @@
         cmd.args(files_winsdk);
     }
 
-    <span class="kw">if </span>zig_triple.contains(<span class="string">&quot;macos&quot;</span>) {
+    <span class="kw">if </span>zig_triple.contains(<span class="string">"macos"</span>) {
         <span class="comment">// need to link with Security framework when using zig, but zig
-        // doesn&#39;t include it, so we need to bring a copy of the dtb file
+        // doesn't include it, so we need to bring a copy of the dtb file
         // which is basicaly the collection of exported symbol for the libs
-        </span><span class="kw">let </span>framework = <span class="macro">include_bytes!</span>(<span class="string">&quot;security_framework.tgz&quot;</span>).to_vec();
+        </span><span class="kw">let </span>framework = <span class="macro">include_bytes!</span>(<span class="string">"security_framework.tgz"</span>).to_vec();
         <span class="comment">// extract files
         </span><span class="kw">let </span>tar = flate2::read::GzDecoder::new(framework.as_slice());
         <span class="kw">let </span><span class="kw-2">mut </span>archive = Archive::new(tar);
         <span class="comment">// directory is a temp folder
         </span>archive.unpack(directory)<span class="question-mark">?</span>;
         <span class="comment">// add the framework to the link command
-        </span>cmd.arg(<span class="string">&quot;-framework&quot;</span>);
-        cmd.arg(<span class="string">&quot;Security&quot;</span>);
-        cmd.arg(<span class="macro">format!</span>(<span class="string">&quot;-F{}&quot;</span>, directory.display()));
+        </span>cmd.arg(<span class="string">"-framework"</span>);
+        cmd.arg(<span class="string">"Security"</span>);
+        cmd.arg(<span class="macro">format!</span>(<span class="string">"-F{}"</span>, directory.display()));
     }
 
     <span class="kw">if </span>debug {
-        <span class="macro">println!</span>(<span class="string">&quot;running cmd: {cmd:?}&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">"running cmd: {cmd:?}"</span>);
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
     }
 
     <span class="kw">let </span>compilation = cmd
         .output()
-        .context(<span class="macro">anyhow!</span>(<span class="string">&quot;Could not execute `zig`: {cmd:?}&quot;</span>))<span class="question-mark">?</span>;
+        .context(<span class="macro">anyhow!</span>(<span class="string">"Could not execute `zig`: {cmd:?}"</span>))<span class="question-mark">?</span>;
 
     <span class="kw">if </span>!compilation.status.success() {
         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(String::from_utf8_lossy(
@@ -3667,17 +3699,17 @@
     }
 
     <span class="comment">// remove file if it exists - if not done, can lead to errors on copy
-    </span><span class="kw">let </span>output_path_normalized = normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output_path.display()));
+    </span><span class="kw">let </span>output_path_normalized = normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, output_path.display()));
     <span class="kw">let _ </span>= std::fs::remove_file(output_path_normalized);
     std::fs::copy(
-        normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, out_path.display())),
-        normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output_path.display())),
+        normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, out_path.display())),
+        normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, output_path.display())),
     )
     .map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;could not copy from {} to {}: {e}&quot;</span>,
-            normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, out_path.display())),
-            normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, output_path.display()))
+            <span class="string">"could not copy from {} to {}: {e}"</span>,
+            normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, out_path.display())),
+            normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, output_path.display()))
         )
     })<span class="question-mark">?</span>;
 
@@ -3699,33 +3731,33 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
     <span class="kw">let </span>libwasmer_path = libwasmer_path
         .canonicalize()
-        .context(<span class="string">&quot;Failed to find libwasmer&quot;</span>)<span class="question-mark">?</span>;
+        .context(<span class="string">"Failed to find libwasmer"</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>command = Command::new(linker_cmd);
     <span class="kw">let </span><span class="kw-2">mut </span>command = command
-        .arg(<span class="string">&quot;-Wall&quot;</span>)
+        .arg(<span class="string">"-Wall"</span>)
         .arg(optimization_flag)
         .args(object_paths.iter().map(|path| path.canonicalize().unwrap()))
         .arg(<span class="kw-2">&amp;</span>libwasmer_path);
 
     <span class="kw">if </span><span class="kw-2">*</span>target != Triple::host() {
-        command = command.arg(<span class="string">&quot;-target&quot;</span>);
-        command = command.arg(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, target));
+        command = command.arg(<span class="string">"-target"</span>);
+        command = command.arg(<span class="macro">format!</span>(<span class="string">"{}"</span>, target));
     }
 
     <span class="kw">for </span>include_dir <span class="kw">in </span>include_dirs {
-        command = command.arg(<span class="string">&quot;-I&quot;</span>);
-        command = command.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, include_dir.display())));
+        command = command.arg(<span class="string">"-I"</span>);
+        command = command.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, include_dir.display())));
     }
     <span class="kw">let </span><span class="kw-2">mut </span>include_path = libwasmer_path.clone();
     include_path.pop();
     include_path.pop();
-    include_path.push(<span class="string">&quot;include&quot;</span>);
+    include_path.push(<span class="string">"include"</span>);
     <span class="kw">if </span>!include_path.exists() {
         <span class="comment">// Can happen when we got the wrong library_path
-        </span><span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?&quot;</span>, include_path.display(), libwasmer_path.display()));
+        </span><span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?"</span>, include_path.display(), libwasmer_path.display()));
     }
-    command = command.arg(<span class="string">&quot;-I&quot;</span>);
-    command = command.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, include_path.display())));
+    command = command.arg(<span class="string">"-I"</span>);
+    command = command.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}"</span>, include_path.display())));
 
     <span class="comment">// Add libraries required per platform.
     // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
@@ -3735,17 +3767,17 @@
     } <span class="kw">else </span>{
         additional_libraries.extend(LINK_SYSTEM_LIBRARIES_UNIX.iter().map(|s| s.to_string()));
     }
-    <span class="kw">let </span>link_against_extra_libs = additional_libraries.iter().map(|lib| <span class="macro">format!</span>(<span class="string">&quot;-l{}&quot;</span>, lib));
+    <span class="kw">let </span>link_against_extra_libs = additional_libraries.iter().map(|lib| <span class="macro">format!</span>(<span class="string">"-l{}"</span>, lib));
     <span class="kw">let </span>command = command.args(link_against_extra_libs);
-    <span class="kw">let </span>command = command.arg(<span class="string">&quot;-o&quot;</span>).arg(output_path);
+    <span class="kw">let </span>command = command.arg(<span class="string">"-o"</span>).arg(output_path);
     <span class="kw">if </span>debug {
-        <span class="macro">println!</span>(<span class="string">&quot;{:#?}&quot;</span>, command);
+        <span class="macro">println!</span>(<span class="string">"{:#?}"</span>, command);
     }
     <span class="kw">let </span>output = command.output()<span class="question-mark">?</span>;
 
     <span class="kw">if </span>!output.status.success() {
         <span class="macro">bail!</span>(
-            <span class="string">&quot;linking failed with command line:{:#?} stdout: {}\n\nstderr: {}&quot;</span>,
+            <span class="string">"linking failed with command line:{:#?} stdout: {}\n\nstderr: {}"</span>,
             command,
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout),
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr),
@@ -3762,7 +3794,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;String, anyhow::Error&gt; {
     <span class="kw">use </span>std::fmt::Write;
 
-    <span class="kw">const </span>WASMER_MAIN_C_SOURCE: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">&quot;wasmer_create_exe_main.c&quot;</span>);
+    <span class="kw">const </span>WASMER_MAIN_C_SOURCE: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"wasmer_create_exe_main.c"</span>);
 
     <span class="comment">// always with compile zig + static_defs.h
     </span><span class="kw">let </span>atom_names = entrypoint
@@ -3781,24 +3813,24 @@
             .get_prefix_for_atom(<span class="kw-2">&amp;</span>utils::normalize_atom_name(a))
             .ok_or_else(|| {
                 <span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})&quot;</span>,
+                    <span class="string">"cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})"</span>,
                     prefixes
                 )
             })<span class="question-mark">?</span>;
         <span class="kw">let </span>atom_name = prefix.clone();
 
-        extra_headers.push(<span class="macro">format!</span>(<span class="string">&quot;#include \&quot;static_defs_{atom_name}.h\&quot;&quot;</span>));
+        extra_headers.push(<span class="macro">format!</span>(<span class="string">"#include \"static_defs_{atom_name}.h\""</span>));
 
-        <span class="macro">write!</span>(c_code_to_instantiate, <span class="string">&quot;
-        wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \&quot;{atom_name}\&quot;);
+        <span class="macro">write!</span>(c_code_to_instantiate, <span class="string">"
+        wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \"{atom_name}\");
         if (!atom_{atom_name}) {{
-            fprintf(stderr, \&quot;Failed to create module from atom \\\&quot;{a}\\\&quot;\\n\&quot;);
+            fprintf(stderr, \"Failed to create module from atom \\\"{a}\\\"\\n\");
             print_wasmer_error();
             return -1;
         }}
-        &quot;</span>)<span class="question-mark">?</span>;
+        "</span>)<span class="question-mark">?</span>;
 
-        <span class="macro">write!</span>(deallocate_module, <span class="string">&quot;wasm_module_delete(atom_{atom_name});&quot;</span>)<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(deallocate_module, <span class="string">"wasm_module_delete(atom_{atom_name});"</span>)<span class="question-mark">?</span>;
     }
 
     <span class="kw">let </span>volumes_str = entrypoint
@@ -3807,55 +3839,55 @@
         .map(|v| utils::normalize_atom_name(<span class="kw-2">&amp;</span>v.name).to_uppercase())
         .map(|uppercase| {
             <span class="macro">format!</span>(
-                <span class="string">&quot;extern size_t {uppercase}_LENGTH asm(\&quot;{uppercase}_LENGTH\&quot;);\r\nextern char {uppercase}_DATA asm(\&quot;{uppercase}_DATA\&quot;);&quot;
+                <span class="string">"extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");\r\nextern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"
             </span>)
         })
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
     <span class="kw">let </span>base_str = WASMER_MAIN_C_SOURCE;
-    <span class="kw">let </span>volumes_str = volumes_str.join(<span class="string">&quot;\r\n&quot;</span>);
+    <span class="kw">let </span>volumes_str = volumes_str.join(<span class="string">"\r\n"</span>);
     <span class="kw">let </span>return_str = base_str
         .replace(
-            <span class="string">&quot;#define WASI&quot;</span>,
+            <span class="string">"#define WASI"</span>,
             <span class="kw">if </span>!volumes_str.trim().is_empty() {
-                <span class="string">&quot;#define WASI\r\n#define WASI_PIRITA&quot;
+                <span class="string">"#define WASI\r\n#define WASI_PIRITA"
             </span>} <span class="kw">else </span>{
-                <span class="string">&quot;#define WASI&quot;
+                <span class="string">"#define WASI"
             </span>},
         )
-        .replace(<span class="string">&quot;// DECLARE_MODULES&quot;</span>, <span class="kw-2">&amp;</span>c_code_to_add)
-        .replace(<span class="string">&quot;// DECLARE_VOLUMES&quot;</span>, <span class="kw-2">&amp;</span>volumes_str)
+        .replace(<span class="string">"// DECLARE_MODULES"</span>, <span class="kw-2">&amp;</span>c_code_to_add)
+        .replace(<span class="string">"// DECLARE_VOLUMES"</span>, <span class="kw-2">&amp;</span>volumes_str)
         .replace(
-            <span class="string">&quot;// SET_NUMBER_OF_COMMANDS&quot;</span>,
-            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;number_of_commands = {};&quot;</span>, atom_names.len()),
+            <span class="string">"// SET_NUMBER_OF_COMMANDS"</span>,
+            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"number_of_commands = {};"</span>, atom_names.len()),
         )
-        .replace(<span class="string">&quot;// EXTRA_HEADERS&quot;</span>, <span class="kw-2">&amp;</span>extra_headers.join(<span class="string">&quot;\r\n&quot;</span>))
-        .replace(<span class="string">&quot;wasm_module_delete(module);&quot;</span>, <span class="kw-2">&amp;</span>deallocate_module);
+        .replace(<span class="string">"// EXTRA_HEADERS"</span>, <span class="kw-2">&amp;</span>extra_headers.join(<span class="string">"\r\n"</span>))
+        .replace(<span class="string">"wasm_module_delete(module);"</span>, <span class="kw-2">&amp;</span>deallocate_module);
 
     <span class="kw">if </span>atom_names.len() == <span class="number">1 </span>{
         <span class="kw">let </span>prefix = prefixes
             .get_prefix_for_atom(<span class="kw-2">&amp;</span>utils::normalize_atom_name(atom_names[<span class="number">0</span>]))
             .ok_or_else(|| {
                 <span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;cannot find prefix for atom {} when generating wasmer_main.c ({:#?})&quot;</span>,
+                    <span class="string">"cannot find prefix for atom {} when generating wasmer_main.c ({:#?})"</span>,
                     <span class="kw-2">&amp;</span>atom_names[<span class="number">0</span>],
                     prefixes
                 )
             })<span class="question-mark">?</span>;
-        <span class="macro">write!</span>(c_code_to_instantiate, <span class="string">&quot;module = atom_{prefix};&quot;</span>)<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(c_code_to_instantiate, <span class="string">"module = atom_{prefix};"</span>)<span class="question-mark">?</span>;
     } <span class="kw">else </span>{
         <span class="kw">for </span>a <span class="kw">in </span>atom_names.iter() {
             <span class="kw">let </span>prefix = prefixes
                 .get_prefix_for_atom(<span class="kw-2">&amp;</span>utils::normalize_atom_name(a))
                 .ok_or_else(|| {
                     <span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})&quot;</span>,
+                        <span class="string">"cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})"</span>,
                         prefixes
                     )
                 })<span class="question-mark">?</span>;
             <span class="macro">writeln!</span>(
                 c_code_to_instantiate,
-                <span class="string">&quot;if (strcmp(selected_atom, \&quot;{a}\&quot;) == 0) {{ module = atom_{}; }}&quot;</span>,
+                <span class="string">"if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}"</span>,
                 prefix
             )<span class="question-mark">?</span>;
         }
@@ -3863,23 +3895,23 @@
 
     <span class="macro">write!</span>(
         c_code_to_instantiate,
-        <span class="string">&quot;
+        <span class="string">"
     if (!module) {{
-        fprintf(stderr, \&quot;No --command given, available commands are:\\n\&quot;);
-        fprintf(stderr, \&quot;\\n\&quot;);
+        fprintf(stderr, \"No --command given, available commands are:\\n\");
+        fprintf(stderr, \"\\n\");
         {commands}
-        fprintf(stderr, \&quot;\\n\&quot;);
+        fprintf(stderr, \"\\n\");
         return -1;
     }}
-    &quot;</span>,
+    "</span>,
         commands = atom_names
             .iter()
-            .map(|a| <span class="macro">format!</span>(<span class="string">&quot;fprintf(stderr, \&quot;    {a}\\n\&quot;);&quot;</span>))
+            .map(|a| <span class="macro">format!</span>(<span class="string">"fprintf(stderr, \"    {a}\\n\");"</span>))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            .join(<span class="string">&quot;\n&quot;</span>)
+            .join(<span class="string">"\n"</span>)
     )<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(return_str.replace(<span class="string">&quot;// INSTANTIATE_MODULES&quot;</span>, <span class="kw-2">&amp;</span>c_code_to_instantiate))
+    <span class="prelude-val">Ok</span>(return_str.replace(<span class="string">"// INSTANTIATE_MODULES"</span>, <span class="kw-2">&amp;</span>c_code_to_instantiate))
 }
 
 <span class="attr">#[allow(dead_code)]
@@ -3894,6 +3926,8 @@
     <span class="kw">use </span>target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
     <span class="kw">use </span>wasmer_types::{CpuFeature, Target};
 
+    <span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
+
     <span class="kw">use super</span>::{CrossCompile, CrossCompileSetup, UrlOrVersion};
 
     <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::commands) <span class="kw">fn </span>target_triple_to_target(
@@ -3901,7 +3935,7 @@
         cpu_features: <span class="kw-2">&amp;</span>[CpuFeature],
     ) -&gt; Target {
         <span class="kw">let </span><span class="kw-2">mut </span>features = cpu_features.iter().fold(CpuFeature::set(), |a, b| a | <span class="kw-2">*</span>b);
-        <span class="comment">// Cranelift requires SSE2, so we have this &quot;hack&quot; for now to facilitate
+        <span class="comment">// Cranelift requires SSE2, so we have this "hack" for now to facilitate
         // usage
         </span><span class="kw">if </span>target_triple.architecture == Architecture::X86_64 {
             features |= CpuFeature::SSE2;
@@ -3910,6 +3944,7 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::commands) <span class="kw">fn </span>get_cross_compile_setup(
+        env: <span class="kw-2">&amp;</span>WasmerEnv,
         cross_subc: <span class="kw-2">&amp;mut </span>CrossCompile,
         target_triple: <span class="kw-2">&amp;</span>Triple,
         starting_cd: <span class="kw-2">&amp;</span>Path,
@@ -3922,12 +3957,12 @@
                 <span class="kw-2">*</span>tarball_path = starting_cd.join(<span class="kw-2">&amp;</span>tarball_path);
                 <span class="kw">if </span>!tarball_path.exists() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                        <span class="string">&quot;Tarball path `{}` does not exist.&quot;</span>,
+                        <span class="string">"Tarball path `{}` does not exist."</span>,
                         tarball_path.display()
                     ));
                 } <span class="kw">else if </span>tarball_path.is_dir() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                        <span class="string">&quot;Tarball path `{}` is a directory.&quot;</span>,
+                        <span class="string">"Tarball path `{}` is a directory."</span>,
                         tarball_path.display()
                     ));
                 }
@@ -3954,14 +3989,11 @@
             <span class="prelude-val">Some</span>(tarball_dir.join(filename))
         } <span class="kw">else </span>{
             <span class="kw">let </span>wasmer_cache_dir =
-                <span class="kw">if </span><span class="kw-2">*</span>target_triple == Triple::host() &amp;&amp; std::env::var(<span class="string">&quot;WASMER_DIR&quot;</span>).is_ok() {
-                    wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-                        .map(|o| o.join(<span class="string">&quot;cache&quot;</span>))
+                <span class="kw">if </span><span class="kw-2">*</span>target_triple == Triple::host() &amp;&amp; std::env::var(<span class="string">"WASMER_DIR"</span>).is_ok() {
+                    <span class="prelude-val">Some</span>(env.cache_dir().to_path_buf())
                 } <span class="kw">else </span>{
-                    get_libwasmer_cache_path()
-                }
-                .ok();
+                    get_libwasmer_cache_path(env).ok()
+                };
 
             <span class="comment">// check if the tarball for the target already exists locally
             </span><span class="kw">let </span>local_tarball = wasmer_cache_dir.as_ref().and_then(|wc| {
@@ -3969,8 +4001,8 @@
                 wasmer_cache
                     .filter_map(|e| e.ok())
                     .filter_map(|e| {
-                        <span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e.path().display());
-                        <span class="kw">if </span>path.ends_with(<span class="string">&quot;.tar.gz&quot;</span>) {
+                        <span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">"{}"</span>, e.path().display());
+                        <span class="kw">if </span>path.ends_with(<span class="string">".tar.gz"</span>) {
                             <span class="prelude-val">Some</span>(e.path())
                         } <span class="kw">else </span>{
                             <span class="prelude-val">None
@@ -3980,12 +4012,12 @@
             });
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
-                <span class="kw">let </span>tarball = <span class="kw">super</span>::http_fetch::download_url(wasmer_release.as_ref())<span class="question-mark">?</span>;
+                <span class="kw">let </span>tarball = <span class="kw">super</span>::http_fetch::download_url(env, wasmer_release.as_ref())<span class="question-mark">?</span>;
                 <span class="kw">let </span>(filename, tarball_dir) = find_filename(<span class="kw-2">&amp;</span>tarball, target)<span class="question-mark">?</span>;
                 <span class="prelude-val">Some</span>(tarball_dir.join(filename))
             } <span class="kw">else if let </span><span class="prelude-val">Some</span>(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
                 <span class="kw">let </span>release = <span class="kw">super</span>::http_fetch::get_release(<span class="prelude-val">Some</span>(wasmer_release.clone()))<span class="question-mark">?</span>;
-                <span class="kw">let </span>tarball = <span class="kw">super</span>::http_fetch::download_release(release, target.clone())<span class="question-mark">?</span>;
+                <span class="kw">let </span>tarball = <span class="kw">super</span>::http_fetch::download_release(env, release, target.clone())<span class="question-mark">?</span>;
                 <span class="kw">let </span>(filename, tarball_dir) = find_filename(<span class="kw-2">&amp;</span>tarball, target)<span class="question-mark">?</span>;
                 <span class="prelude-val">Some</span>(tarball_dir.join(filename))
             } <span class="kw">else if let </span><span class="prelude-val">Some</span>(local_tarball) = local_tarball.as_ref() {
@@ -3993,13 +4025,13 @@
                 <span class="prelude-val">Some</span>(tarball_dir.join(filename))
             } <span class="kw">else </span>{
                 <span class="kw">let </span>release = <span class="kw">super</span>::http_fetch::get_release(<span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>tarball = <span class="kw">super</span>::http_fetch::download_release(release, target.clone())<span class="question-mark">?</span>;
+                <span class="kw">let </span>tarball = <span class="kw">super</span>::http_fetch::download_release(env, release, target.clone())<span class="question-mark">?</span>;
                 <span class="kw">let </span>(filename, tarball_dir) = find_filename(<span class="kw-2">&amp;</span>tarball, target)<span class="question-mark">?</span>;
                 <span class="prelude-val">Some</span>(tarball_dir.join(filename))
             }
         };
 
-        <span class="kw">let </span>library = library.ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;libwasmer.a / wasmer.lib not found&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>library = library.ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">"libwasmer.a / wasmer.lib not found"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>ccs = CrossCompileSetup {
             target: target.clone(),
@@ -4014,19 +4046,19 @@
     }
 
     <span class="kw">fn </span>filter_tarball_internal(p: <span class="kw-2">&amp;</span>Path, target: <span class="kw-2">&amp;</span>Triple) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
-        <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.ends_with(<span class="string">&quot;.tar.gz&quot;</span>) {
+        <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.ends_with(<span class="string">".tar.gz"</span>) {
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="kw">if </span>target.environment == Environment::Musl &amp;&amp; !p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;musl&quot;</span>)
-            || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;musl&quot;</span>) &amp;&amp; target.environment != Environment::Musl
+        <span class="kw">if </span>target.environment == Environment::Musl &amp;&amp; !p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"musl"</span>)
+            || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"musl"</span>) &amp;&amp; target.environment != Environment::Musl
         {
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
         <span class="kw">if let </span>Architecture::Aarch64(<span class="kw">_</span>) = target.architecture {
-            <span class="kw">if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;aarch64&quot;</span>)
-                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;arm64&quot;</span>))
+            <span class="kw">if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"aarch64"</span>)
+                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"arm64"</span>))
             {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
@@ -4034,32 +4066,32 @@
 
         <span class="kw">if let </span>Architecture::X86_64 = target.architecture {
             <span class="kw">if </span>target.operating_system == OperatingSystem::Windows {
-                <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;gnu64&quot;</span>) {
+                <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"gnu64"</span>) {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-            } <span class="kw">else if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;x86_64&quot;</span>)
-                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;amd64&quot;</span>))
+            } <span class="kw">else if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"x86_64"</span>)
+                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"amd64"</span>))
             {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
 
         <span class="kw">if let </span>OperatingSystem::Windows = target.operating_system {
-            <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;windows&quot;</span>) {
+            <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"windows"</span>) {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
 
         <span class="kw">if let </span>OperatingSystem::Darwin = target.operating_system {
-            <span class="kw">if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;apple&quot;</span>)
-                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;darwin&quot;</span>))
+            <span class="kw">if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"apple"</span>)
+                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"darwin"</span>))
             {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
 
         <span class="kw">if let </span>OperatingSystem::Linux = target.operating_system {
-            <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">&quot;linux&quot;</span>) {
+            <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"linux"</span>) {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
@@ -4082,12 +4114,12 @@
             .unwrap_or_else(|| target_file_path.clone());
 
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>target_file_path)
-            .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .with_context(|| <span class="macro">anyhow!</span>(<span class="string">&quot;{}&quot;</span>, target_file_path.display()))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">"{e}"</span>))
+            .with_context(|| <span class="macro">anyhow!</span>(<span class="string">"{}"</span>, target_file_path.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span>files =
             <span class="kw">super</span>::http_fetch::untar(local_tarball, <span class="kw-2">&amp;</span>target_file_path).with_context(|| {
                 <span class="macro">anyhow!</span>(
-                    <span class="string">&quot;{} -&gt; {}&quot;</span>,
+                    <span class="string">"{} -&gt; {}"</span>,
                     local_tarball.display(),
                     target_file_path.display()
                 )
@@ -4102,10 +4134,10 @@
         files: <span class="kw-2">&amp;</span>[PathBuf],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, anyhow::Error&gt; {
         <span class="kw">let </span>target_files = <span class="kw-2">&amp;</span>[
-            OsStr::new(<span class="string">&quot;libwasmer-headless.a&quot;</span>),
-            OsStr::new(<span class="string">&quot;wasmer-headless.lib&quot;</span>),
-            OsStr::new(<span class="string">&quot;libwasmer.a&quot;</span>),
-            OsStr::new(<span class="string">&quot;wasmer.lib&quot;</span>),
+            OsStr::new(<span class="string">"libwasmer-headless.a"</span>),
+            OsStr::new(<span class="string">"wasmer-headless.lib"</span>),
+            OsStr::new(<span class="string">"libwasmer.a"</span>),
+            OsStr::new(<span class="string">"wasmer.lib"</span>),
         ];
         target_files
         .iter()
@@ -4114,7 +4146,7 @@
         })
         .cloned()
         .ok_or_else(|| {
-            <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})&quot;</span>, target)
+            <span class="macro">anyhow!</span>(<span class="string">"Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})"</span>, target)
         })
     }
 
@@ -4123,8 +4155,8 @@
             .filter_map(|c| {
                 <span class="kw">if </span>char::is_alphabetic(c) {
                     <span class="prelude-val">Some</span>(c)
-                } <span class="kw">else if </span>c == <span class="string">&#39;-&#39; </span>|| c == <span class="string">&#39;_&#39; </span>{
-                    <span class="prelude-val">Some</span>(<span class="string">&#39;_&#39;</span>)
+                } <span class="kw">else if </span>c == <span class="string">'-' </span>|| c == <span class="string">'_' </span>{
+                    <span class="prelude-val">Some</span>(<span class="string">'_'</span>)
                 } <span class="kw">else </span>{
                     <span class="prelude-val">None
                 </span>}
@@ -4134,43 +4166,39 @@
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>triple_to_zig_triple(target_triple: <span class="kw-2">&amp;</span>Triple) -&gt; String {
         <span class="kw">let </span>arch = <span class="kw">match </span>target_triple.architecture {
-            wasmer_types::Architecture::X86_64 =&gt; <span class="string">&quot;x86_64&quot;</span>.into(),
+            wasmer_types::Architecture::X86_64 =&gt; <span class="string">"x86_64"</span>.into(),
             wasmer_types::Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) =&gt; {
-                <span class="string">&quot;aarch64&quot;</span>.into()
+                <span class="string">"aarch64"</span>.into()
             }
             v =&gt; v.to_string(),
         };
         <span class="kw">let </span>os = <span class="kw">match </span>target_triple.operating_system {
-            wasmer_types::OperatingSystem::Linux =&gt; <span class="string">&quot;linux&quot;</span>.into(),
-            wasmer_types::OperatingSystem::Darwin =&gt; <span class="string">&quot;macos&quot;</span>.into(),
-            wasmer_types::OperatingSystem::Windows =&gt; <span class="string">&quot;windows&quot;</span>.into(),
+            wasmer_types::OperatingSystem::Linux =&gt; <span class="string">"linux"</span>.into(),
+            wasmer_types::OperatingSystem::Darwin =&gt; <span class="string">"macos"</span>.into(),
+            wasmer_types::OperatingSystem::Windows =&gt; <span class="string">"windows"</span>.into(),
             v =&gt; v.to_string(),
         };
         <span class="kw">let </span>env = <span class="kw">match </span>target_triple.environment {
-            wasmer_types::Environment::Musl =&gt; <span class="string">&quot;musl&quot;</span>,
-            wasmer_types::Environment::Gnu =&gt; <span class="string">&quot;gnu&quot;</span>,
-            wasmer_types::Environment::Msvc =&gt; <span class="string">&quot;msvc&quot;</span>,
-            <span class="kw">_ </span>=&gt; <span class="string">&quot;none&quot;</span>,
+            wasmer_types::Environment::Musl =&gt; <span class="string">"musl"</span>,
+            wasmer_types::Environment::Gnu =&gt; <span class="string">"gnu"</span>,
+            wasmer_types::Environment::Msvc =&gt; <span class="string">"msvc"</span>,
+            <span class="kw">_ </span>=&gt; <span class="string">"none"</span>,
         };
-        <span class="macro">format!</span>(<span class="string">&quot;{}-{}-{}&quot;</span>, arch, os, env)
+        <span class="macro">format!</span>(<span class="string">"{}-{}-{}"</span>, arch, os, env)
     }
 
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_wasmer_dir() -&gt; anyhow::Result&lt;PathBuf&gt; {
-        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-    }
-
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_wasmer_include_directory() -&gt; anyhow::Result&lt;PathBuf&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>path = get_wasmer_dir()<span class="question-mark">?</span>;
-        <span class="kw">if </span>path.clone().join(<span class="string">&quot;wasmer.h&quot;</span>).exists() {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_wasmer_include_directory(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; anyhow::Result&lt;PathBuf&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>path = env.dir().to_path_buf();
+        <span class="kw">if </span>path.clone().join(<span class="string">"wasmer.h"</span>).exists() {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
         }
-        path.push(<span class="string">&quot;include&quot;</span>);
-        <span class="kw">if </span>!path.clone().join(<span class="string">&quot;wasmer.h&quot;</span>).exists() {
+        path.push(<span class="string">"include"</span>);
+        <span class="kw">if </span>!path.clone().join(<span class="string">"wasmer.h"</span>).exists() {
             <span class="kw">if </span>!path.exists() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;WASMER_DIR path {} does not exist&quot;</span>, path.display()));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"WASMER_DIR path {} does not exist"</span>, path.display()));
             }
             <span class="macro">println!</span>(
-                <span class="string">&quot;wasmer.h does not exist in {}, will probably default to the system path&quot;</span>,
+                <span class="string">"wasmer.h does not exist in {}, will probably default to the system path"</span>,
                 path.canonicalize().unwrap().display()
             );
         }
@@ -4178,38 +4206,38 @@
     }
 
     <span class="doccomment">/// path to the static libwasmer
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_libwasmer_path() -&gt; anyhow::Result&lt;PathBuf&gt; {
-        <span class="kw">let </span>path = get_wasmer_dir()<span class="question-mark">?</span>;
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_libwasmer_path(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; anyhow::Result&lt;PathBuf&gt; {
+        <span class="kw">let </span>path = env.dir().to_path_buf();
 
-        <span class="comment">// TODO: prefer headless Wasmer if/when it&#39;s a separate library.
+        <span class="comment">// TODO: prefer headless Wasmer if/when it's a separate library.
         </span><span class="attr">#[cfg(not(windows))]
-        </span><span class="kw">let </span>libwasmer_static_name = <span class="string">&quot;libwasmer.a&quot;</span>;
+        </span><span class="kw">let </span>libwasmer_static_name = <span class="string">"libwasmer.a"</span>;
         <span class="attr">#[cfg(windows)]
-        </span><span class="kw">let </span>libwasmer_static_name = <span class="string">&quot;libwasmer.lib&quot;</span>;
+        </span><span class="kw">let </span>libwasmer_static_name = <span class="string">"libwasmer.lib"</span>;
 
         <span class="kw">if </span>path.exists() &amp;&amp; path.join(libwasmer_static_name).exists() {
             <span class="prelude-val">Ok</span>(path.join(libwasmer_static_name))
         } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>(path.join(<span class="string">&quot;lib&quot;</span>).join(libwasmer_static_name))
+            <span class="prelude-val">Ok</span>(path.join(<span class="string">"lib"</span>).join(libwasmer_static_name))
         }
     }
 
     <span class="doccomment">/// path to library tarball cache dir
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_libwasmer_cache_path() -&gt; anyhow::Result&lt;PathBuf&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>path = get_wasmer_dir()<span class="question-mark">?</span>;
-        path.push(<span class="string">&quot;cache&quot;</span>);
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_libwasmer_cache_path(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; anyhow::Result&lt;PathBuf&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>path = env.dir().to_path_buf();
+        path.push(<span class="string">"cache"</span>);
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(path)
     }
 
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_zig_exe_str() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-        <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_zig_exe_str() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+        <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
         </span>{
-            <span class="string">&quot;zig.exe&quot;
+            <span class="string">"zig.exe"
         </span>}
-        <span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+        <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
         </span>{
-            <span class="string">&quot;zig&quot;
+            <span class="string">"zig"
         </span>}
     }
 
@@ -4217,10 +4245,10 @@
         <span class="kw">use </span>std::env::split_paths;
         <span class="attr">#[cfg(unix)]
         </span><span class="kw">use </span>std::os::unix::ffi::OsStrExt;
-        <span class="kw">let </span>path_var = std::env::var(<span class="string">&quot;PATH&quot;</span>).unwrap_or_default();
+        <span class="kw">let </span>path_var = std::env::var(<span class="string">"PATH"</span>).unwrap_or_default();
         <span class="attr">#[cfg(unix)]
-        </span><span class="kw">let </span>system_path_var = std::process::Command::new(<span class="string">&quot;getconf&quot;</span>)
-            .args([<span class="string">&quot;PATH&quot;</span>])
+        </span><span class="kw">let </span>system_path_var = std::process::Command::new(<span class="string">"getconf"</span>)
+            .args([<span class="string">"PATH"</span>])
             .output()
             .map(|output| output.stdout)
             .unwrap_or_default();
@@ -4228,7 +4256,7 @@
             <span class="kw">if </span>p.exists() {
                 p
             } <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Could not find `zig` binary in {}.&quot;</span>, p.display()));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Could not find `zig` binary in {}."</span>, p.display()));
             }
         } <span class="kw">else </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>retval = <span class="prelude-val">None</span>;
@@ -4239,7 +4267,7 @@
                 },
                 <span class="attr">#[cfg(not(unix))]
                 </span>{
-                    OsStr::new(<span class="string">&quot;&quot;</span>)
+                    OsStr::new(<span class="string">""</span>)
                 },
             )) {
                 p.push(get_zig_exe_str());
@@ -4248,22 +4276,22 @@
                     <span class="kw">break</span>;
                 }
             }
-            retval.ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find `zig` binary in PATH.&quot;</span>))<span class="question-mark">?
+            retval.ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">"Could not find `zig` binary in PATH."</span>))<span class="question-mark">?
         </span>};
 
         <span class="kw">let </span>version = std::process::Command::new(<span class="kw-2">&amp;</span>retval)
-            .arg(<span class="string">&quot;version&quot;</span>)
+            .arg(<span class="string">"version"</span>)
             .output()
             .with_context(|| {
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;Could not execute `zig` binary at path `{}`&quot;</span>,
+                    <span class="string">"Could not execute `zig` binary at path `{}`"</span>,
                     retval.display()
                 )
             })<span class="question-mark">?
             </span>.stdout;
         <span class="kw">let </span>version_slice = <span class="kw">if let </span><span class="prelude-val">Some</span>(pos) = version
             .iter()
-            .position(|c| !(c.is_ascii_digit() || (<span class="kw-2">*</span>c == <span class="string">b&#39;.&#39;</span>)))
+            .position(|c| !(c.is_ascii_digit() || (<span class="kw-2">*</span>c == <span class="string">b'.'</span>)))
         {
             <span class="kw-2">&amp;</span>version[..pos]
         } <span class="kw">else </span>{
@@ -4272,10 +4300,10 @@
 
         <span class="kw">let </span>version_slice = String::from_utf8_lossy(version_slice);
         <span class="kw">let </span>version_semver = semver::Version::parse(<span class="kw-2">&amp;</span>version_slice)
-            .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;could not parse zig version: {version_slice}: {e}&quot;</span>))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">"could not parse zig version: {version_slice}: {e}"</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">if </span>version_semver &lt; semver::Version::parse(<span class="string">&quot;0.10.0&quot;</span>).unwrap() {
-            <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;`zig` binary in PATH (`{}`) is not a new enough version (`{version_slice}`): please use version `0.10.0` or newer.&quot;</span>, retval.display()))
+        <span class="kw">if </span>version_semver &lt; semver::Version::parse(<span class="string">"0.10.0"</span>).unwrap() {
+            <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"`zig` binary in PATH (`{}`) is not a new enough version (`{version_slice}`): please use version `0.10.0` or newer."</span>, retval.display()))
         } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(retval)
         }
@@ -4285,14 +4313,14 @@
     </span><span class="kw">fn </span>test_filter_tarball() {
         <span class="kw">use </span>std::str::FromStr;
         <span class="kw">let </span>test_paths = [
-            <span class="string">&quot;/test/wasmer-darwin-amd64.tar.gz&quot;</span>,
-            <span class="string">&quot;/test/wasmer-darwin-arm64.tar.gz&quot;</span>,
-            <span class="string">&quot;/test/wasmer-linux-aarch64.tar.gz&quot;</span>,
-            <span class="string">&quot;/test/wasmer-linux-amd64.tar.gz&quot;</span>,
-            <span class="string">&quot;/test/wasmer-linux-musl-amd64.tar.gz&quot;</span>,
-            <span class="string">&quot;/test/wasmer-windows-amd64.tar.gz&quot;</span>,
-            <span class="string">&quot;/test/wasmer-windows-gnu64.tar.gz&quot;</span>,
-            <span class="string">&quot;/test/wasmer-windows.exe&quot;</span>,
+            <span class="string">"/test/wasmer-darwin-amd64.tar.gz"</span>,
+            <span class="string">"/test/wasmer-darwin-arm64.tar.gz"</span>,
+            <span class="string">"/test/wasmer-linux-aarch64.tar.gz"</span>,
+            <span class="string">"/test/wasmer-linux-amd64.tar.gz"</span>,
+            <span class="string">"/test/wasmer-linux-musl-amd64.tar.gz"</span>,
+            <span class="string">"/test/wasmer-windows-amd64.tar.gz"</span>,
+            <span class="string">"/test/wasmer-windows-gnu64.tar.gz"</span>,
+            <span class="string">"/test/wasmer-windows.exe"</span>,
         ];
 
         <span class="kw">let </span>paths = test_paths.iter().map(Path::new).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -4301,10 +4329,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;x86_64-windows&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"x86_64-windows"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-windows-gnu64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-windows-gnu64.tar.gz"</span>)],
         );
 
         <span class="kw">let </span>paths = test_paths.iter().map(Path::new).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -4313,10 +4341,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;x86_64-windows-gnu&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"x86_64-windows-gnu"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-windows-gnu64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-windows-gnu64.tar.gz"</span>)],
         );
 
         <span class="kw">let </span>paths = test_paths.iter().map(Path::new).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -4325,10 +4353,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;x86_64-windows-msvc&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"x86_64-windows-msvc"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-windows-gnu64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-windows-gnu64.tar.gz"</span>)],
         );
 
         <span class="macro">assert_eq!</span>(
@@ -4336,10 +4364,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;x86_64-darwin&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"x86_64-darwin"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-darwin-amd64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-darwin-amd64.tar.gz"</span>)],
         );
 
         <span class="macro">assert_eq!</span>(
@@ -4347,10 +4375,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;x86_64-unknown-linux-gnu&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"x86_64-unknown-linux-gnu"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-linux-amd64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-linux-amd64.tar.gz"</span>)],
         );
 
         <span class="macro">assert_eq!</span>(
@@ -4358,10 +4386,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;x86_64-linux-gnu&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"x86_64-linux-gnu"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-linux-amd64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-linux-amd64.tar.gz"</span>)],
         );
 
         <span class="macro">assert_eq!</span>(
@@ -4369,10 +4397,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;aarch64-linux-gnu&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"aarch64-linux-gnu"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-linux-aarch64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-linux-aarch64.tar.gz"</span>)],
         );
 
         <span class="macro">assert_eq!</span>(
@@ -4380,10 +4408,10 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;x86_64-windows-gnu&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"x86_64-windows-gnu"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-windows-gnu64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-windows-gnu64.tar.gz"</span>)],
         );
 
         <span class="macro">assert_eq!</span>(
@@ -4391,18 +4419,18 @@
                 .iter()
                 .filter(|p| <span class="kw">crate</span>::commands::utils::filter_tarball(
                     p,
-                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">&quot;aarch64-darwin&quot;</span>).unwrap()
+                    <span class="kw-2">&amp;</span>Triple::from_str(<span class="string">"aarch64-darwin"</span>).unwrap()
                 ))
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/test/wasmer-darwin-arm64.tar.gz&quot;</span>)],
+            <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>Path::new(<span class="string">"/test/wasmer-darwin-arm64.tar.gz"</span>)],
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_normalize_atom_name() {
         <span class="macro">assert_eq!</span>(
-            normalize_atom_name(<span class="string">&quot;atom-name-with-dash&quot;</span>),
-            <span class="string">&quot;atom_name_with_dash&quot;</span>.to_string()
+            normalize_atom_name(<span class="string">"atom-name-with-dash"</span>),
+            <span class="string">"atom_name_with_dash"</span>.to_string()
         );
     }
 }
@@ -4415,34 +4443,34 @@
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_release(
         release_version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;serde_json::Value&gt; {
-        <span class="kw">let </span>uri = <span class="string">&quot;https://api.github.com/repos/wasmerio/wasmer/releases&quot;</span>;
+        <span class="kw">let </span>uri = <span class="string">"https://api.github.com/repos/wasmerio/wasmer/releases"</span>;
 
         <span class="comment">// Increases rate-limiting in GitHub CI
-        </span><span class="kw">let </span>auth = std::env::var(<span class="string">&quot;GITHUB_TOKEN&quot;</span>);
+        </span><span class="kw">let </span>auth = std::env::var(<span class="string">"GITHUB_TOKEN"</span>);
 
         <span class="kw">let </span>client = reqwest::blocking::Client::new();
         <span class="kw">let </span><span class="kw-2">mut </span>req = client.get(uri);
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(token) = auth {
-            req = req.header(<span class="string">&quot;Authorization&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Bearer {token}&quot;</span>));
+            req = req.header(<span class="string">"Authorization"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Bearer {token}"</span>));
         }
 
         <span class="kw">let </span>response = req
-            .header(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmerio&quot;</span>)
-            .header(<span class="string">&quot;Accept&quot;</span>, <span class="string">&quot;application/vnd.github.v3+json&quot;</span>)
+            .header(<span class="string">"User-Agent"</span>, <span class="string">"wasmerio"</span>)
+            .header(<span class="string">"Accept"</span>, <span class="string">"application/vnd.github.v3+json"</span>)
             .send()
             .map_err(anyhow::Error::new)
-            .context(<span class="string">&quot;Could not lookup wasmer repository on Github.&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Could not lookup wasmer repository on Github."</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>status = response.status();
 
         <span class="kw">let </span>body = response
             .bytes()
             .map_err(anyhow::Error::new)
-            .context(<span class="string">&quot;Could not retrieve wasmer release history body&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Could not retrieve wasmer release history body"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">if </span>status != reqwest::StatusCode::OK {
             <span class="macro">log::warn!</span>(
-                <span class="string">&quot;Warning: Github API replied with non-200 status code: {}. Response: {}&quot;</span>,
+                <span class="string">"Warning: Github API replied with non-200 status code: {}. Response: {}"</span>,
                 status,
                 String::from_utf8_lossy(<span class="kw-2">&amp;</span>body),
             );
@@ -4452,26 +4480,26 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(releases) = response.as_array_mut() {
             releases.retain(|r| {
-                r[<span class="string">&quot;tag_name&quot;</span>].is_string() &amp;&amp; !r[<span class="string">&quot;tag_name&quot;</span>].as_str().unwrap().is_empty()
+                r[<span class="string">"tag_name"</span>].is_string() &amp;&amp; !r[<span class="string">"tag_name"</span>].as_str().unwrap().is_empty()
             });
-            releases.sort_by_cached_key(|r| r[<span class="string">&quot;tag_name&quot;</span>].as_str().unwrap_or_default().to_string());
+            releases.sort_by_cached_key(|r| r[<span class="string">"tag_name"</span>].as_str().unwrap_or_default().to_string());
             <span class="kw">match </span>release_version {
                 <span class="prelude-val">Some</span>(specific_version) =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>all_versions = Vec::new();
                     <span class="kw">for </span>r <span class="kw">in </span>releases.iter() {
-                        <span class="kw">if </span>r[<span class="string">&quot;tag_name&quot;</span>].as_str().unwrap_or_default()
+                        <span class="kw">if </span>r[<span class="string">"tag_name"</span>].as_str().unwrap_or_default()
                             == specific_version.to_string()
                         {
                             <span class="kw">return </span><span class="prelude-val">Ok</span>(r.clone());
                         } <span class="kw">else </span>{
                             all_versions
-                                .push(r[<span class="string">&quot;tag_name&quot;</span>].as_str().unwrap_or_default().to_string());
+                                .push(r[<span class="string">"tag_name"</span>].as_str().unwrap_or_default().to_string());
                         }
                     }
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;could not find release version {}, available versions are: {}&quot;</span>,
+                        <span class="string">"could not find release version {}, available versions are: {}"</span>,
                         specific_version,
-                        all_versions.join(<span class="string">&quot;, &quot;</span>)
+                        all_versions.join(<span class="string">", "</span>)
                     ));
                 }
                 <span class="prelude-val">None </span>=&gt; {
@@ -4483,29 +4511,30 @@
         }
 
         <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-            <span class="string">&quot;Could not get expected Github API response.\n\nReason: response format is not recognized:\n{response:#?}&quot;</span>,
+            <span class="string">"Could not get expected Github API response.\n\nReason: response format is not recognized:\n{response:#?}"</span>,
         ))
     }
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>download_release(
+        env: <span class="kw-2">&amp;</span>WasmerEnv,
         <span class="kw-2">mut </span>release: serde_json::Value,
         target_triple: wasmer::Triple,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;std::path::PathBuf&gt; {
         <span class="comment">// Test if file has been already downloaded
-        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>cache_path) = <span class="kw">super</span>::utils::get_libwasmer_cache_path() {
+        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>cache_path) = <span class="kw">super</span>::utils::get_libwasmer_cache_path(env) {
             <span class="kw">let </span>paths = std::fs::read_dir(<span class="kw-2">&amp;</span>cache_path).and_then(|r| {
                 r.map(|res| res.map(|e| e.path()))
                     .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, std::io::Error&gt;&gt;()
             });
 
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>entries) = paths {
-                entries.retain(|p| p.to_str().map(|p| p.ends_with(<span class="string">&quot;.tar.gz&quot;</span>)).unwrap_or(<span class="bool-val">false</span>));
+                entries.retain(|p| p.to_str().map(|p| p.ends_with(<span class="string">".tar.gz"</span>)).unwrap_or(<span class="bool-val">false</span>));
                 entries.retain(|p| <span class="kw">super</span>::utils::filter_tarball(p, <span class="kw-2">&amp;</span>target_triple));
                 <span class="kw">if </span>!entries.is_empty() {
                     cache_path.push(<span class="kw-2">&amp;</span>entries[<span class="number">0</span>]);
                     <span class="kw">if </span>cache_path.exists() {
                         <span class="macro">eprintln!</span>(
-                            <span class="string">&quot;Using cached tarball to cache path `{}`.&quot;</span>,
+                            <span class="string">"Using cached tarball to cache path `{}`."</span>,
                             cache_path.display()
                         );
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(cache_path);
@@ -4514,17 +4543,17 @@
             }
         }
 
-        <span class="kw">let </span>assets = <span class="kw">match </span>release[<span class="string">&quot;assets&quot;</span>].as_array_mut() {
+        <span class="kw">let </span>assets = <span class="kw">match </span>release[<span class="string">"assets"</span>].as_array_mut() {
             <span class="prelude-val">Some</span>(s) =&gt; s,
             <span class="prelude-val">None </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                    <span class="string">&quot;GitHub API: no [assets] array in JSON response for latest releases&quot;
+                    <span class="string">"GitHub API: no [assets] array in JSON response for latest releases"
                 </span>));
             }
         };
 
         assets.retain(|a| {
-            <span class="kw">let </span>name = <span class="kw">match </span>a[<span class="string">&quot;name&quot;</span>].as_str() {
+            <span class="kw">let </span>name = <span class="kw">match </span>a[<span class="string">"name"</span>].as_str() {
                 <span class="prelude-val">Some</span>(s) =&gt; s,
                 <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
             };
@@ -4533,28 +4562,29 @@
 
         <span class="kw">if </span>assets.len() != <span class="number">1 </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                <span class="string">&quot;GitHub API: more that one release selected for target {target_triple}: {assets:?}&quot;
+                <span class="string">"GitHub API: more that one release selected for target {target_triple}: {assets:?}"
             </span>));
         }
 
-        <span class="kw">let </span>browser_download_url = <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = assets[<span class="number">0</span>][<span class="string">&quot;browser_download_url&quot;</span>].as_str() {
+        <span class="kw">let </span>browser_download_url = <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = assets[<span class="number">0</span>][<span class="string">"browser_download_url"</span>].as_str() {
             url.to_string()
         } <span class="kw">else </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                <span class="string">&quot;Could not get download url from Github API response.&quot;
+                <span class="string">"Could not get download url from Github API response."
             </span>));
         };
 
-        download_url(<span class="kw-2">&amp;</span>browser_download_url)
+        download_url(env, <span class="kw-2">&amp;</span>browser_download_url)
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>download_url(
+        env: <span class="kw-2">&amp;</span>WasmerEnv,
         browser_download_url: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;std::path::PathBuf, anyhow::Error&gt; {
         <span class="kw">let </span>filename = browser_download_url
-            .split(<span class="string">&#39;/&#39;</span>)
+            .split(<span class="string">'/'</span>)
             .last()
-            .unwrap_or(<span class="string">&quot;output&quot;</span>)
+            .unwrap_or(<span class="string">"output"</span>)
             .to_string();
 
         <span class="kw">let </span>download_tempdir = tempfile::TempDir::new()<span class="question-mark">?</span>;
@@ -4562,7 +4592,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::create(<span class="kw-2">&amp;</span>download_path)<span class="question-mark">?</span>;
         <span class="macro">log::debug!</span>(
-            <span class="string">&quot;Downloading {} to {}&quot;</span>,
+            <span class="string">"Downloading {} to {}"</span>,
             browser_download_url,
             download_path.display()
         );
@@ -4572,46 +4602,48 @@
             .timeout(std::time::Duration::from_secs(<span class="number">10</span>))
             .build()
             .map_err(anyhow::Error::new)
-            .context(<span class="string">&quot;Could not lookup wasmer artifact on Github.&quot;</span>)<span class="question-mark">?
+            .context(<span class="string">"Could not lookup wasmer artifact on Github."</span>)<span class="question-mark">?
             </span>.get(browser_download_url)
             .send()
             .map_err(anyhow::Error::new)
-            .context(<span class="string">&quot;Could not lookup wasmer artifact on Github.&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Could not lookup wasmer artifact on Github."</span>)<span class="question-mark">?</span>;
 
         response
             .copy_to(<span class="kw-2">&amp;mut </span>file)
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"{e}"</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">match </span><span class="kw">super</span>::utils::get_libwasmer_cache_path() {
+        <span class="kw">match </span><span class="kw">super</span>::utils::get_libwasmer_cache_path(env) {
             <span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>cache_path) =&gt; {
                 cache_path.push(<span class="kw-2">&amp;</span>filename);
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::fs::copy(<span class="kw-2">&amp;</span>download_path, <span class="kw-2">&amp;</span>cache_path) {
                     <span class="macro">eprintln!</span>(
-                        <span class="string">&quot;Could not store tarball to cache path `{}`: {}&quot;</span>,
+                        <span class="string">"Could not store tarball to cache path `{}`: {}"</span>,
                         cache_path.display(),
                         err
                     );
                     <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                        <span class="string">&quot;Could not copy from {} to {}&quot;</span>,
+                        <span class="string">"Could not copy from {} to {}"</span>,
                         download_path.display(),
                         cache_path.display()
                     ))
                 } <span class="kw">else </span>{
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Cached tarball to cache path `{}`.&quot;</span>, cache_path.display());
+                    <span class="macro">eprintln!</span>(<span class="string">"Cached tarball to cache path `{}`."</span>, cache_path.display());
                     <span class="prelude-val">Ok</span>(cache_path)
                 }
             }
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;Could not determine cache path for downloaded binaries.: {}&quot;</span>,
+                    <span class="string">"Could not determine cache path for downloaded binaries.: {}"</span>,
                     err
                 );
-                <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Could not determine libwasmer cache path&quot;</span>))
+                <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Could not determine libwasmer cache path"</span>))
             }
         }
     }
 
     <span class="kw">use </span>std::path::PathBuf;
+
+    <span class="kw">use crate</span>::{config::WasmerEnv, utils::unpack::try_unpack_targz};
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>list_dir(target: <span class="kw-2">&amp;</span>Path) -&gt; Vec&lt;PathBuf&gt; {
         <span class="kw">use </span>walkdir::WalkDir;
@@ -4624,7 +4656,7 @@
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>untar(tarball: <span class="kw-2">&amp;</span>Path, target: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PathBuf&gt;&gt; {
         <span class="kw">let _ </span>= std::fs::remove_dir(target);
-        wasmer_registry::try_unpack_targz(tarball, target, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+        try_unpack_targz(tarball, target, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(list_dir(target))
     }
 }

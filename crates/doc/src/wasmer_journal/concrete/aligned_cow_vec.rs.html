@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/concrete/aligned_cow_vec.rs`."><title>aligned_cow_vec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_journal/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/concrete/aligned_cow_vec.rs`."><title>aligned_cow_vec.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -211,6 +211,9 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     borrow::{Borrow, BorrowMut, Cow},
     fmt::{<span class="self">self</span>, Pointer},
@@ -218,31 +221,32 @@
 };
 
 <span class="kw">use </span>rkyv::{
-    ser::{ScratchSpace, Serializer},
+    rancor::Fallible,
+    ser::{Allocator, WriterExt},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Serialize,
+    Archive, Archived,
 };
 
 <span class="doccomment">/// An aligned COW vector of bytes which avoids copying data
 /// when its constructed. The vector is aligned on the 16-byte
 /// boundary
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+</span><span class="kw">pub struct </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
     </span>[T]: ToOwned,
 {
-    inner: Cow&lt;<span class="lifetime">&#39;a</span>, [T]&gt;,
+    inner: Cow&lt;<span class="lifetime">'a</span>, [T]&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
     <span class="doccomment">/// The alignment of the vector
     </span><span class="kw">pub const </span>ALIGNMENT: usize = <span class="number">16</span>;
 
-    <span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; Cow&lt;<span class="lifetime">&#39;a</span>, [T]&gt; {
+    <span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; Cow&lt;<span class="lifetime">'a</span>, [T]&gt; {
         <span class="self">self</span>.inner
     }
 
@@ -269,9 +273,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; Default <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Default <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a </span>+ Clone,
+    </span>T: <span class="lifetime">'a </span>+ Clone,
     [T]: ToOwned,
 {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
@@ -281,20 +285,20 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; fmt::Debug <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; fmt::Debug <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
     <span class="attr">#[inline]
-    </span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    </span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="self">self</span>.as_slice().fmt(f)
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; From&lt;Vec&lt;T&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; From&lt;Vec&lt;T&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a </span>+ Clone,
+    </span>T: <span class="lifetime">'a </span>+ Clone,
     [T]: ToOwned,
 {
     <span class="kw">fn </span>from(value: Vec&lt;T&gt;) -&gt; <span class="self">Self </span>{
@@ -305,36 +309,36 @@
 }
 
 <span class="attr">#[allow(clippy::from_over_into)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Into&lt;Vec&lt;u8&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Into&lt;Vec&lt;u8&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt; {
     <span class="kw">fn </span>into(<span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
         <span class="self">self</span>.inner.into_owned()
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; From&lt;Cow&lt;<span class="lifetime">&#39;a</span>, [T]&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; From&lt;Cow&lt;<span class="lifetime">'a</span>, [T]&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
-    <span class="kw">fn </span>from(value: Cow&lt;<span class="lifetime">&#39;a</span>, [T]&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>from(value: Cow&lt;<span class="lifetime">'a</span>, [T]&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ inner: value }
     }
 }
 
 <span class="attr">#[allow(clippy::from_over_into)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; Into&lt;Cow&lt;<span class="lifetime">&#39;a</span>, [T]&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Into&lt;Cow&lt;<span class="lifetime">'a</span>, [T]&gt;&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
-    <span class="kw">fn </span>into(<span class="self">self</span>) -&gt; Cow&lt;<span class="lifetime">&#39;a</span>, [T]&gt; {
+    <span class="kw">fn </span>into(<span class="self">self</span>) -&gt; Cow&lt;<span class="lifetime">'a</span>, [T]&gt; {
         <span class="self">self</span>.inner
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; Deref <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Deref <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
     <span class="kw">type </span>Target = [T];
@@ -344,9 +348,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; DerefMut <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; DerefMut <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
     &lt;[T] <span class="kw">as </span>ToOwned&gt;::Owned: BorrowMut&lt;[T]&gt;,
 {
@@ -355,9 +359,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; AsMut&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; AsMut&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
     &lt;[T] <span class="kw">as </span>ToOwned&gt;::Owned: BorrowMut&lt;[T]&gt;,
 {
@@ -367,9 +371,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; AsRef&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; AsRef&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
     <span class="attr">#[inline]
@@ -378,9 +382,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; Borrow&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Borrow&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
     <span class="attr">#[inline]
@@ -389,9 +393,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; BorrowMut&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; BorrowMut&lt;[T]&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
     &lt;[T] <span class="kw">as </span>ToOwned&gt;::Owned: BorrowMut&lt;[T]&gt;,
 {
@@ -401,27 +405,29 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; Archive <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Archive <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;a</span>,
+    </span>T: <span class="lifetime">'a</span>,
     [T]: ToOwned,
 {
     <span class="kw">type </span>Archived = ArchivedVec&lt;T&gt;;
     <span class="kw">type </span>Resolver = VecResolver;
 
     <span class="attr">#[inline]
-    </span><span class="kw">unsafe fn </span>resolve(<span class="kw-2">&amp;</span><span class="self">self</span>, pos: usize, resolver: <span class="self">Self</span>::Resolver, out: <span class="kw-2">*mut </span><span class="self">Self</span>::Archived) {
-        ArchivedVec::resolve_from_len(<span class="self">self</span>.len(), pos, resolver, out);
+    </span><span class="kw">fn </span>resolve(<span class="kw-2">&amp;</span><span class="self">self</span>, resolver: <span class="self">Self</span>::Resolver, out: rkyv::Place&lt;<span class="self">Self</span>::Archived&gt;) {
+        ArchivedVec::resolve_from_len(<span class="self">self</span>.len(), resolver, out);
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, S: ScratchSpace + Serializer + <span class="question-mark">?</span>Sized&gt; Serialize&lt;S&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">&#39;a</span>, u8&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, S&gt; rkyv::Serialize&lt;S&gt; <span class="kw">for </span>AlignedCowVec&lt;<span class="lifetime">'a</span>, u8&gt;
+<span class="kw">where
+    </span>S: Fallible + WriterExt&lt;S::Error&gt; + Allocator + <span class="question-mark">?</span>Sized,
+    S::Error: rkyv::rancor::Source,
+{
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: <span class="kw-2">&amp;mut </span>S) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Resolver, S::Error&gt; {
         serializer.align(<span class="self">Self</span>::ALIGNMENT)<span class="question-mark">?</span>;
-        <span class="kw">unsafe </span>{
-            ArchivedVec::&lt;Archived&lt;u8&gt;&gt;::serialize_copy_from_slice(<span class="self">self</span>.as_slice(), serializer)
-        }
+        ArchivedVec::&lt;Archived&lt;u8&gt;&gt;::serialize_from_slice(<span class="self">self</span>.as_slice(), serializer)
     }
 }
 </code></pre></div></section></main></body></html>

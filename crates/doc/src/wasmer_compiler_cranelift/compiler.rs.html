@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/compiler.rs`."><title>compiler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/compiler.rs`."><title>compiler.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -469,11 +469,21 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::address_map::get_function_address_map;
 <span class="kw">use </span><span class="kw">crate</span>::config::Cranelift;
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
 <span class="kw">use </span><span class="kw">crate</span>::func_environ::{get_function_name, FuncEnvironment};
 <span class="kw">use </span><span class="kw">crate</span>::trampoline::{
@@ -484,11 +494,11 @@
     signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
 };
 <span class="kw">use </span>cranelift_codegen::ir::{ExternalName, UserFuncName};
-<span class="kw">use </span>cranelift_codegen::{ir, MachReloc};
+<span class="kw">use </span>cranelift_codegen::{ir, FinalizedMachReloc, FinalizedRelocTarget};
 <span class="kw">use </span>cranelift_codegen::{Context, MachTrap};
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::write::{Address, EhFrame, FrameTable};
-<span class="attr">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
 </span><span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>wasmer_compiler::{
@@ -523,7 +533,7 @@
 
 <span class="kw">impl </span>Compiler <span class="kw">for </span>CraneliftCompiler {
     <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-        <span class="string">&quot;cranelift&quot;
+        <span class="string">"cranelift"
     </span>}
 
     <span class="doccomment">/// Get the middlewares for this compiler
@@ -538,7 +548,7 @@
         target: <span class="kw-2">&amp;</span>Target,
         compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
         module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
-        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;&gt;,
+        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
         <span class="kw">let </span>isa = <span class="self">self
             </span>.config()
@@ -555,9 +565,9 @@
             .collect::&lt;PrimaryMap&lt;SignatureIndex, ir::Signature&gt;&gt;();
 
         <span class="comment">// Generate the frametable
-        </span><span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+        </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
         </span><span class="kw">let </span>dwarf_frametable = <span class="kw">if </span>function_body_inputs.is_empty() {
-            <span class="comment">// If we have no function body inputs, we don&#39;t need to
+            <span class="comment">// If we have no function body inputs, we don't need to
             // construct the `FrameTable`. Constructing it, with empty
             // FDEs will cause some issues in Linux.
             </span><span class="prelude-val">None
@@ -570,7 +580,7 @@
                             <span class="kw">let </span>cie_id = dwarf_frametable.add_cie(cie);
                             <span class="prelude-val">Some</span>((dwarf_frametable, cie_id))
                         }
-                        <span class="comment">// Even though we are in a SystemV system, Cranelift doesn&#39;t support it
+                        <span class="comment">// Even though we are in a SystemV system, Cranelift doesn't support it
                         </span><span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
                     }
                 }
@@ -580,12 +590,12 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>custom_sections = PrimaryMap::new();
 
-        <span class="attr">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
         </span><span class="kw">let </span><span class="kw-2">mut </span>func_translator = FuncTranslator::new();
-        <span class="attr">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
         </span><span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
             .iter()
-            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;)&gt;&gt;()
+            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;)&gt;&gt;()
             .into_iter()
             .map(|(i, input)| {
                 <span class="kw">let </span>func_index = module.func_index(i);
@@ -595,7 +605,7 @@
                     module,
                     <span class="kw-2">&amp;</span>signatures,
                     <span class="kw-2">&amp;</span>memory_styles,
-                    <span class="kw-2">&amp;</span>table_styles,
+                    table_styles,
                 );
                 context.func.name = <span class="kw">match </span>get_function_name(func_index) {
                     ExternalName::User(nameref) =&gt; {
@@ -631,7 +641,7 @@
 
                 <span class="kw">let </span><span class="kw-2">mut </span>code_buf: Vec&lt;u8&gt; = Vec::new();
                 context
-                    .compile_and_emit(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;mut </span>code_buf)
+                    .compile_and_emit(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;mut </span>code_buf, <span class="kw-2">&amp;mut </span>Default::default())
                     .map_err(|error| CompileError::Codegen(error.inner.to_string()))<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>result = context.compiled_code().unwrap();
@@ -650,12 +660,12 @@
                     .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
                 <span class="kw">let </span>(unwind_info, fde) = <span class="kw">match </span>compiled_function_unwind_info(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;</span>context)<span class="question-mark">? </span>{
-                    <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
                     </span>CraneliftUnwindInfo::Fde(fde) =&gt; {
                         <span class="kw">if </span>dwarf_frametable.is_some() {
                             <span class="kw">let </span>fde = fde.to_fde(Address::Symbol {
                                 <span class="comment">// The symbol is the kind of relocation.
-                                // &quot;0&quot; is used for functions
+                                // "0" is used for functions
                                 </span>symbol: WriterRelocate::FUNCTION_SYMBOL,
                                 <span class="comment">// We use the addend as a way to specify the
                                 // function index
@@ -667,12 +677,12 @@
                             (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
                         }
                     }
-                    <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
                     </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>),
 
                     <span class="comment">// This is a bit hacky, but necessary since gimli is not
-                    // available when the &quot;unwind&quot; feature is disabled.
-                    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+                    // available when the "unwind" feature is disabled.
+                    </span><span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
                     </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>::&lt;()&gt;),
                 };
 
@@ -694,10 +704,10 @@
             .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
             </span>.into_iter()
             .unzip();
-        <span class="attr">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
         </span><span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
             .iter()
-            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;)&gt;&gt;()
+            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;)&gt;&gt;()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 <span class="kw">let </span>func_index = module.func_index(<span class="kw-2">*</span>i);
@@ -725,6 +735,7 @@
                 <span class="comment">// if generate_debug_info {
                 //     context.func.collect_debug_info();
                 // }
+
                 </span><span class="kw">let </span><span class="kw-2">mut </span>reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(
@@ -743,8 +754,8 @@
 
                 <span class="kw">let </span><span class="kw-2">mut </span>code_buf: Vec&lt;u8&gt; = Vec::new();
                 context
-                    .compile_and_emit(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;mut </span>code_buf)
-                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))<span class="question-mark">?</span>;
+                    .compile_and_emit(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;mut </span>code_buf, <span class="kw-2">&amp;mut </span>Default::default())
+                    .map_err(|error| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"{error:#?}"</span>)))<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>result = context.compiled_code().unwrap();
                 <span class="kw">let </span>func_relocs = result
@@ -762,12 +773,12 @@
                     .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
                 <span class="kw">let </span>(unwind_info, fde) = <span class="kw">match </span>compiled_function_unwind_info(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;</span>context)<span class="question-mark">? </span>{
-                    <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
                     </span>CraneliftUnwindInfo::Fde(fde) =&gt; {
                         <span class="kw">if </span>dwarf_frametable.is_some() {
                             <span class="kw">let </span>fde = fde.to_fde(Address::Symbol {
                                 <span class="comment">// The symbol is the kind of relocation.
-                                // &quot;0&quot; is used for functions
+                                // "0" is used for functions
                                 </span>symbol: WriterRelocate::FUNCTION_SYMBOL,
                                 <span class="comment">// We use the addend as a way to specify the
                                 // function index
@@ -779,12 +790,12 @@
                             (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
                         }
                     }
-                    <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
                     </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>),
 
                     <span class="comment">// This is a bit hacky, but necessary since gimli is not
-                    // available when the &quot;unwind&quot; feature is disabled.
-                    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+                    // available when the "unwind" feature is disabled.
+                    </span><span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
                     </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>::&lt;()&gt;),
                 };
 
@@ -807,7 +818,7 @@
             </span>.into_iter()
             .unzip();
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
         </span><span class="kw">let </span>dwarf = <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>dwarf_frametable, cie_id)) = dwarf_frametable {
             <span class="kw">for </span>fde <span class="kw">in </span>fdes.into_iter().flatten() {
                 dwarf_frametable.add_fde(cie_id, fde);
@@ -821,13 +832,13 @@
         } <span class="kw">else </span>{
             <span class="prelude-val">None
         </span>};
-        <span class="attr">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+        <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
         </span><span class="kw">let </span>dwarf = <span class="prelude-val">None</span>;
 
         <span class="comment">// function call trampolines (only for local functions, by signature)
-        </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
         </span><span class="kw">let </span><span class="kw-2">mut </span>cx = FunctionBuilderContext::new();
-        <span class="attr">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
         </span><span class="kw">let </span>function_call_trampolines = module
             .signatures
             .values()
@@ -837,7 +848,7 @@
             .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;FunctionBody&gt;, CompileError&gt;&gt;()<span class="question-mark">?
             </span>.into_iter()
             .collect::&lt;PrimaryMap&lt;SignatureIndex, FunctionBody&gt;&gt;();
-        <span class="attr">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
         </span><span class="kw">let </span>function_call_trampolines = module
             .signatures
             .values()
@@ -853,9 +864,9 @@
         <span class="kw">use </span>wasmer_types::VMOffsets;
         <span class="kw">let </span>offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
         <span class="comment">// dynamic function trampolines (only for imported functions)
-        </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
         </span><span class="kw">let </span><span class="kw-2">mut </span>cx = FunctionBuilderContext::new();
-        <span class="attr">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        <span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
         </span><span class="kw">let </span>dynamic_function_trampolines = module
             .imported_function_types()
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
@@ -864,7 +875,7 @@
             .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
             </span>.into_iter()
             .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
-        <span class="attr">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
         </span><span class="kw">let </span>dynamic_function_trampolines = module
             .imported_function_types()
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
@@ -886,30 +897,36 @@
     }
 }
 
-<span class="kw">fn </span>mach_reloc_to_reloc(module: <span class="kw-2">&amp;</span>ModuleInfo, reloc: <span class="kw-2">&amp;</span>MachReloc) -&gt; Relocation {
-    <span class="kw">let </span><span class="kw-2">&amp;</span>MachReloc {
+<span class="kw">fn </span>mach_reloc_to_reloc(module: <span class="kw-2">&amp;</span>ModuleInfo, reloc: <span class="kw-2">&amp;</span>FinalizedMachReloc) -&gt; Relocation {
+    <span class="kw">let </span>FinalizedMachReloc {
         offset,
         kind,
-        <span class="kw-2">ref </span>name,
         addend,
-    } = reloc;
-    <span class="kw">let </span>reloc_target = <span class="kw">if let </span>ExternalName::User(extname_ref) = <span class="kw-2">*</span>name {
+        target,
+    } = <span class="kw-2">&amp;</span>reloc;
+    <span class="kw">let </span>name = <span class="kw">match </span>target {
+        FinalizedRelocTarget::ExternalName(external_name) =&gt; external_name,
+        FinalizedRelocTarget::Func(<span class="kw">_</span>) =&gt; {
+            <span class="macro">unimplemented!</span>(<span class="string">"relocations to offset in the same function are not yet supported"</span>)
+        }
+    };
+    <span class="kw">let </span>reloc_target: RelocationTarget = <span class="kw">if let </span>ExternalName::User(extname_ref) = name {
         <span class="comment">//debug_assert_eq!(namespace, 0);
         </span>RelocationTarget::LocalFunc(
             module
                 .local_func_index(FunctionIndex::from_u32(extname_ref.as_u32()))
-                .expect(<span class="string">&quot;The provided function should be local&quot;</span>),
+                .expect(<span class="string">"The provided function should be local"</span>),
         )
-    } <span class="kw">else if let </span>ExternalName::LibCall(libcall) = <span class="kw-2">*</span>name {
-        RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
+    } <span class="kw">else if let </span>ExternalName::LibCall(libcall) = name {
+        RelocationTarget::LibCall(irlibcall_to_libcall(<span class="kw-2">*</span>libcall))
     } <span class="kw">else </span>{
-        <span class="macro">panic!</span>(<span class="string">&quot;unrecognized external name&quot;</span>)
+        <span class="macro">panic!</span>(<span class="string">"unrecognized external target"</span>)
     };
     Relocation {
-        kind: irreloc_to_relocationkind(kind),
+        kind: irreloc_to_relocationkind(<span class="kw-2">*</span>kind),
         reloc_target,
-        offset,
-        addend,
+        offset: <span class="kw-2">*</span>offset,
+        addend: <span class="kw-2">*</span>addend,
     }
 }
 
@@ -934,8 +951,11 @@
         ir::TrapCode::IntegerDivisionByZero =&gt; TrapCode::IntegerDivisionByZero,
         ir::TrapCode::BadConversionToInteger =&gt; TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached =&gt; TrapCode::UnreachableCodeReached,
-        ir::TrapCode::Interrupt =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Interrupts not supported&quot;</span>),
-        ir::TrapCode::User(_user_code) =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;User trap code not supported&quot;</span>),
+        ir::TrapCode::Interrupt =&gt; <span class="macro">unimplemented!</span>(<span class="string">"Interrupts not supported"</span>),
+        ir::TrapCode::NullReference | ir::TrapCode::NullI31Ref =&gt; {
+            <span class="macro">unimplemented!</span>(<span class="string">"Null reference not supported"</span>)
+        }
+        ir::TrapCode::User(_user_code) =&gt; <span class="macro">unimplemented!</span>(<span class="string">"User trap code not supported"</span>),
         <span class="comment">// ir::TrapCode::Interrupt =&gt; TrapCode::Interrupt,
         // ir::TrapCode::User(user_code) =&gt; TrapCode::User(user_code),
     </span>}

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/package/download.rs`."><title>download.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/package/download.rs`."><title>download.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -305,6 +305,7 @@
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{env::current_dir, path::PathBuf};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -312,6 +313,7 @@
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>wasmer_config::package::{PackageIdent, PackageSource};
+<span class="kw">use </span>wasmer_package::utils::from_disk;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 
@@ -327,7 +329,7 @@
 
     <span class="doccomment">/// Path where the package file should be written to.
     /// If not specified, the data will be written to stdout.
-    </span><span class="attr">#[clap(short = <span class="string">&#39;o&#39;</span>, long)]
+    </span><span class="attr">#[clap(short = <span class="string">'o'</span>, long)]
     </span>out_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Run the download command without any output
@@ -338,11 +340,11 @@
     </span>package: PackageSource,
 }
 
-<span class="kw">static </span>CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📁 &quot;</span>, <span class="string">&quot;&quot;</span>);
-<span class="kw">static </span>DOWNLOADING_PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;🌐 &quot;</span>, <span class="string">&quot;&quot;</span>);
-<span class="kw">static </span>RETRIEVING_PACKAGE_INFORMATION_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📜 &quot;</span>, <span class="string">&quot;&quot;</span>);
-<span class="kw">static </span>VALIDATING_PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;🔍 &quot;</span>, <span class="string">&quot;&quot;</span>);
-<span class="kw">static </span>WRITING_PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦 &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; = Emoji(<span class="string">"📁 "</span>, <span class="string">""</span>);
+<span class="kw">static </span>DOWNLOADING_PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; = Emoji(<span class="string">"🌐 "</span>, <span class="string">""</span>);
+<span class="kw">static </span>RETRIEVING_PACKAGE_INFORMATION_EMOJI: Emoji&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; = Emoji(<span class="string">"📜 "</span>, <span class="string">""</span>);
+<span class="kw">static </span>VALIDATING_PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; = Emoji(<span class="string">"🔍 "</span>, <span class="string">""</span>);
+<span class="kw">static </span>WRITING_PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; = Emoji(<span class="string">"📦 "</span>, <span class="string">""</span>);
 
 <span class="kw">impl </span>PackageDownload {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
@@ -356,13 +358,13 @@
             ProgressBar::new_spinner()
         };
 
-        pb.set_style(ProgressStyle::with_template(<span class="string">&quot;{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})&quot;</span>)
+        pb.set_style(ProgressStyle::with_template(<span class="string">"{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})"</span>)
                                 .unwrap()
-                                .progress_chars(<span class="string">&quot;#&gt;-&quot;</span>));
+                                .progress_chars(<span class="string">"#&gt;-"</span>));
 
         pb.println(<span class="macro">format!</span>(
-            <span class="string">&quot;{} {}Creating output directory...&quot;</span>,
-            style(<span class="macro">format!</span>(<span class="string">&quot;[{}/{}]&quot;</span>, step_num, total_steps))
+            <span class="string">"{} {}Creating output directory..."</span>,
+            style(<span class="macro">format!</span>(<span class="string">"[{}/{}]"</span>, step_num, total_steps))
                 .bold()
                 .dim(),
             CREATING_OUTPUT_DIRECTORY_EMOJI,
@@ -375,22 +377,22 @@
                 <span class="prelude-val">Ok</span>(m) =&gt; {
                     <span class="kw">if </span>!m.is_dir() {
                         <span class="macro">bail!</span>(
-                            <span class="string">&quot;parent of output file is not a directory: &#39;{}&#39;&quot;</span>,
+                            <span class="string">"parent of output file is not a directory: '{}'"</span>,
                             parent.display()
                         );
                     }
                 }
                 <span class="prelude-val">Err</span>(err) <span class="kw">if </span>err.kind() == std::io::ErrorKind::NotFound =&gt; {
                     std::fs::create_dir_all(parent)
-                        .context(<span class="string">&quot;could not create parent directory of output file&quot;</span>)<span class="question-mark">?</span>;
+                        .context(<span class="string">"could not create parent directory of output file"</span>)<span class="question-mark">?</span>;
                 }
                 <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err.into()),
             }
         };
 
         pb.println(<span class="macro">format!</span>(
-            <span class="string">&quot;{} {}Retrieving package information...&quot;</span>,
-            style(<span class="macro">format!</span>(<span class="string">&quot;[{}/{}]&quot;</span>, step_num, total_steps))
+            <span class="string">"{} {}Retrieving package information..."</span>,
+            style(<span class="macro">format!</span>(<span class="string">"[{}/{}]"</span>, step_num, total_steps))
                 .bold()
                 .dim(),
             RETRIEVING_PACKAGE_INFORMATION_EMOJI
@@ -401,13 +403,13 @@
         <span class="kw">let </span>(download_url, ident, filename) = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.package {
             PackageSource::Ident(PackageIdent::Named(id)) =&gt; {
                 <span class="comment">// caveat: client_unauthennticated will use a token if provided, it
-                // just won&#39;t fail if none is present. So, _unauthenticated() can actually
+                // just won't fail if none is present. So, _unauthenticated() can actually
                 // produce an authenticated client.
                 </span><span class="kw">let </span>client = <span class="self">self</span>.env.client_unauthennticated()<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>version = id.version_or_default().to_string();
-                <span class="kw">let </span>version = <span class="kw">if </span>version == <span class="string">&quot;*&quot; </span>{
-                    String::from(<span class="string">&quot;latest&quot;</span>)
+                <span class="kw">let </span>version = <span class="kw">if </span>version == <span class="string">"*" </span>{
+                    String::from(<span class="string">"latest"</span>)
                 } <span class="kw">else </span>{
                     version.to_string()
                 };
@@ -415,14 +417,14 @@
 
                 <span class="kw">let </span>rt = tokio::runtime::Runtime::new()<span class="question-mark">?</span>;
                 <span class="kw">let </span>package = rt
-                    .block_on(wasmer_api::query::get_package_version(
+                    .block_on(wasmer_backend_api::query::get_package_version(
                         <span class="kw-2">&amp;</span>client,
                         full_name.clone(),
                         version.clone(),
                     ))<span class="question-mark">?
                     </span>.with_context(|| {
                         <span class="macro">format!</span>(
-                    <span class="string">&quot;could not retrieve package information for package &#39;{}&#39; from registry &#39;{}&#39;&quot;</span>,
+                    <span class="string">"could not retrieve package information for package '{}' from registry '{}'"</span>,
                     full_name, client.graphql_endpoint(),
                 )
                     })<span class="question-mark">?</span>;
@@ -430,39 +432,39 @@
                 <span class="kw">let </span>download_url = package
                     .distribution_v3
                     .pirita_download_url
-                    .context(<span class="string">&quot;registry did not provide a container download URL&quot;</span>)<span class="question-mark">?</span>;
+                    .context(<span class="string">"registry did not provide a container download URL"</span>)<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>ident = <span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, full_name, package.version);
+                <span class="kw">let </span>ident = <span class="macro">format!</span>(<span class="string">"{}@{}"</span>, full_name, package.version);
                 <span class="kw">let </span>filename = <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span>package.package.namespace {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;{}--{}@{}.webc&quot;</span>,
+                        <span class="string">"{}--{}@{}.webc"</span>,
                         ns.clone(),
                         package.package.package_name,
                         package.version
                     )
                 } <span class="kw">else </span>{
-                    <span class="macro">format!</span>(<span class="string">&quot;{}@{}.webc&quot;</span>, package.package.package_name, package.version)
+                    <span class="macro">format!</span>(<span class="string">"{}@{}.webc"</span>, package.package.package_name, package.version)
                 };
 
                 (download_url, ident, filename)
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; {
                 <span class="comment">// caveat: client_unauthennticated will use a token if provided, it
-                // just won&#39;t fail if none is present. So, _unauthenticated() can actually
+                // just won't fail if none is present. So, _unauthenticated() can actually
                 // produce an authenticated client.
                 </span><span class="kw">let </span>client = <span class="self">self</span>.env.client_unauthennticated()<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>rt = tokio::runtime::Runtime::new()<span class="question-mark">?</span>;
-                <span class="kw">let </span>pkg = rt.block_on(wasmer_api::query::get_package_release(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>hash.to_string()))<span class="question-mark">?
-                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Package with {hash} does not exist in the registry, or is not accessible&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">let </span>pkg = rt.block_on(wasmer_backend_api::query::get_package_release(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>hash.to_string()))<span class="question-mark">?
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Package with {hash} does not exist in the registry, or is not accessible"</span>))<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>ident = hash.to_string();
-                <span class="kw">let </span>filename = <span class="macro">format!</span>(<span class="string">&quot;{}.webc&quot;</span>, hash);
+                <span class="kw">let </span>filename = <span class="macro">format!</span>(<span class="string">"{}.webc"</span>, hash);
 
                 (pkg.webc_url, ident, filename)
             }
-            PackageSource::Path(p) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a local path: &#39;{p}&#39;&quot;</span>),
-            PackageSource::Url(url) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a URL: &#39;{}&#39;&quot;</span>, url),
+            PackageSource::Path(p) =&gt; <span class="macro">bail!</span>(<span class="string">"cannot download a package from a local path: '{p}'"</span>),
+            PackageSource::Url(url) =&gt; <span class="macro">bail!</span>(<span class="string">"cannot download a package from a URL: '{}'"</span>, url),
         };
 
         <span class="kw">let </span>builder = {
@@ -472,15 +474,15 @@
             }
             builder
         };
-        <span class="kw">let </span>client = builder.build().context(<span class="string">&quot;failed to create reqwest client&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = builder.build().context(<span class="string">"failed to create reqwest client"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>b = client
             .get(download_url)
-            .header(http::header::ACCEPT, <span class="string">&quot;application/webc&quot;</span>);
+            .header(http::header::ACCEPT, <span class="string">"application/webc"</span>);
 
         pb.println(<span class="macro">format!</span>(
-            <span class="string">&quot;{} {}Downloading package {} ...&quot;</span>,
-            style(<span class="macro">format!</span>(<span class="string">&quot;[{}/{}]&quot;</span>, step_num, total_steps))
+            <span class="string">"{} {}Downloading package {} ..."</span>,
+            style(<span class="macro">format!</span>(<span class="string">"[{}/{}]"</span>, step_num, total_steps))
                 .bold()
                 .dim(),
             DOWNLOADING_PACKAGE_EMOJI,
@@ -491,9 +493,9 @@
 
         <span class="kw">let </span>res = b
             .send()
-            .context(<span class="string">&quot;http request failed&quot;</span>)<span class="question-mark">?
+            .context(<span class="string">"http request failed"</span>)<span class="question-mark">?
             </span>.error_for_status()
-            .context(<span class="string">&quot;http request failed with non-success status code&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"http request failed with non-success status code"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>webc_total_size = res
             .headers()
@@ -503,7 +505,7 @@
             .unwrap_or_default();
 
         <span class="kw">if </span>webc_total_size == <span class="number">0 </span>{
-            <span class="macro">bail!</span>(<span class="string">&quot;Package is empty&quot;</span>);
+            <span class="macro">bail!</span>(<span class="string">"Package is empty"</span>);
         }
 
         <span class="comment">// Set the length of the progress bar
@@ -515,9 +517,9 @@
             NamedTempFile::new()<span class="question-mark">?
         </span>};
         <span class="kw">let </span>accepted_contenttypes = <span class="macro">vec!</span>[
-            <span class="string">&quot;application/webc&quot;</span>,
-            <span class="string">&quot;application/octet-stream&quot;</span>,
-            <span class="string">&quot;application/wasm&quot;</span>,
+            <span class="string">"application/webc"</span>,
+            <span class="string">"application/octet-stream"</span>,
+            <span class="string">"application/wasm"</span>,
         ];
         <span class="kw">let </span>ty = res
             .headers()
@@ -526,22 +528,22 @@
             .unwrap_or_default();
         <span class="kw">if </span>!(accepted_contenttypes.contains(<span class="kw-2">&amp;</span>ty)) {
             <span class="macro">eprintln!</span>(
-                <span class="string">&quot;Warning: response has invalid content type - expected \
-                 one of {:?}, got {ty}&quot;</span>,
+                <span class="string">"Warning: response has invalid content type - expected \
+                 one of {:?}, got {ty}"</span>,
                 accepted_contenttypes
             );
         }
 
         std::io::copy(<span class="kw-2">&amp;mut </span>pb.wrap_read(res), <span class="kw-2">&amp;mut </span>tmpfile)
-            .context(<span class="string">&quot;could not write downloaded data to temporary file&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"could not write downloaded data to temporary file"</span>)<span class="question-mark">?</span>;
 
         tmpfile.as_file_mut().sync_all()<span class="question-mark">?</span>;
 
         <span class="kw">if </span><span class="self">self</span>.validate {
             <span class="kw">if </span>!<span class="self">self</span>.quiet {
                 <span class="macro">println!</span>(
-                    <span class="string">&quot;{} {}Validating package...&quot;</span>,
-                    style(<span class="macro">format!</span>(<span class="string">&quot;[{}/{}]&quot;</span>, step_num, total_steps))
+                    <span class="string">"{} {}Validating package..."</span>,
+                    style(<span class="macro">format!</span>(<span class="string">"[{}/{}]"</span>, step_num, total_steps))
                         .bold()
                         .dim(),
                     VALIDATING_PACKAGE_EMOJI
@@ -550,8 +552,8 @@
 
             step_num += <span class="number">1</span>;
 
-            webc::compat::Container::from_disk(tmpfile.path())
-                .context(<span class="string">&quot;could not parse downloaded file as a package - invalid download?&quot;</span>)<span class="question-mark">?</span>;
+            from_disk(tmpfile.path())
+                .context(<span class="string">"could not parse downloaded file as a package - invalid download?"</span>)<span class="question-mark">?</span>;
         }
 
         <span class="kw">let </span>out_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(out_path) = <span class="kw-2">&amp;</span><span class="self">self</span>.out_path {
@@ -562,21 +564,21 @@
 
         tmpfile.persist(<span class="kw-2">&amp;</span>out_path).with_context(|| {
             <span class="macro">format!</span>(
-                <span class="string">&quot;could not persist temporary file to &#39;{}&#39;&quot;</span>,
+                <span class="string">"could not persist temporary file to '{}'"</span>,
                 out_path.display()
             )
         })<span class="question-mark">?</span>;
 
         pb.println(<span class="macro">format!</span>(
-            <span class="string">&quot;{} {}Package downloaded to &#39;{}&#39;&quot;</span>,
-            style(<span class="macro">format!</span>(<span class="string">&quot;[{}/{}]&quot;</span>, step_num, total_steps))
+            <span class="string">"{} {}Package downloaded to '{}'"</span>,
+            style(<span class="macro">format!</span>(<span class="string">"[{}/{}]"</span>, step_num, total_steps))
                 .bold()
                 .dim(),
             WRITING_PACKAGE_EMOJI,
             out_path.display()
         ));
 
-        <span class="comment">// We&#39;re done, so finish the progress bar
+        <span class="comment">// We're done, so finish the progress bar
         </span>pb.finish();
 
         <span class="prelude-val">Ok</span>(())
@@ -592,24 +594,24 @@
     </span><span class="kw">fn </span>test_cmd_package_download() {
         <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
 
-        <span class="kw">let </span>out_path = dir.path().join(<span class="string">&quot;hello.webc&quot;</span>);
+        <span class="kw">let </span>out_path = dir.path().join(<span class="string">"hello.webc"</span>);
 
         <span class="kw">let </span>cmd = PackageDownload {
             env: WasmerEnv::new(
                 <span class="kw">crate</span>::config::DEFAULT_WASMER_CACHE_DIR.clone(),
                 <span class="kw">crate</span>::config::DEFAULT_WASMER_CACHE_DIR.clone(),
                 <span class="prelude-val">None</span>,
-                <span class="prelude-val">Some</span>(<span class="string">&quot;https://registry.wasmer.io/graphql&quot;</span>.to_owned().into()),
+                <span class="prelude-val">Some</span>(<span class="string">"https://registry.wasmer.io/graphql"</span>.to_owned().into()),
             ),
             validate: <span class="bool-val">true</span>,
             out_path: <span class="prelude-val">Some</span>(out_path.clone()),
-            package: <span class="string">&quot;wasmer/hello@0.1.0&quot;</span>.parse().unwrap(),
+            package: <span class="string">"wasmer/hello@0.1.0"</span>.parse().unwrap(),
             quiet: <span class="bool-val">true</span>,
         };
 
         cmd.execute().unwrap();
 
-        webc::compat::Container::from_disk(out_path).unwrap();
+        from_disk(out_path).unwrap();
     }
 }
 </code></pre></div></section></main></body></html>

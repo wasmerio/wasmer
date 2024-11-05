@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["current_sigrtmax","current_sigrtmin","endpwent","execv","fexecve","fpathconf","getitimer","getpwent","killpg","pathconf","setpwent","sigismember","sigpending"]};

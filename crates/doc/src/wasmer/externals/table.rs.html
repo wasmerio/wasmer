@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/externals/table.rs`."><title>table.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/externals/table.rs`."><title>table.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -144,11 +144,24 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"wasm-c-api"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::c_api::externals::table <span class="kw">as </span>table_impl;
+<span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::table <span class="kw">as </span>table_impl;
-<span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::jsc::externals::table <span class="kw">as </span>table_impl;
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::externals::table <span class="kw">as </span>table_impl;
 
 <span class="kw">use </span><span class="kw">crate</span>::exports::{ExportError, Exportable};
@@ -169,7 +182,7 @@
 ///
 /// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#table-instances&gt;
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Table(<span class="kw">pub</span>(<span class="kw">crate</span>) table_impl::Table);
 
 <span class="kw">impl </span>Table {
@@ -263,8 +276,8 @@
 
 <span class="kw">impl </span>std::cmp::Eq <span class="kw">for </span>Table {}
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Exportable&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>Table {
-    <span class="kw">fn </span>get_self_from_extern(_extern: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>, ExportError&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Exportable&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>Table {
+    <span class="kw">fn </span>get_self_from_extern(_extern: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Extern) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">Self</span>, ExportError&gt; {
         <span class="kw">match </span>_extern {
             Extern::Table(table) =&gt; <span class="prelude-val">Ok</span>(table),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ExportError::IncompatibleType),
@@ -274,10 +287,19 @@
 
 <span class="doccomment">/// Check the example from &lt;https://github.com/wasmerio/wasmer/issues/3197&gt;.
 </span><span class="attr">#[test]
+#[cfg_attr(
+    feature = <span class="string">"wamr"</span>,
+    ignore = <span class="string">"wamr does not support direct calls to grow table"
+</span>)]
+#[cfg_attr(feature = <span class="string">"wasmi"</span>, ignore = <span class="string">"wasmi does not support funcrefs"</span>)]
+#[cfg_attr(
+    feature = <span class="string">"v8"</span>,
+    ignore = <span class="string">"growing tables in v8 is not currently supported"
+</span>)]
 </span><span class="kw">fn </span>test_table_grow_issue_3197() {
     <span class="kw">use crate</span>::{imports, Instance, Module, Store, Table, TableType, Type, Value};
 
-    <span class="kw">const </span>WAT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;(module (table (import &quot;env&quot; &quot;table&quot;) 100 funcref))&quot;#</span>;
+    <span class="kw">const </span>WAT: <span class="kw-2">&amp;</span>str = <span class="string">r#"(module (table (import "env" "table") 100 funcref))"#</span>;
 
     <span class="comment">// Tests that the table type of `table` is compatible with the export in the WAT
     // This tests that `wasmer_types::types::is_table_compatible` works as expected.
@@ -287,7 +309,7 @@
     <span class="kw">let </span>table = Table::new(<span class="kw-2">&amp;mut </span>store, ty, Value::FuncRef(<span class="prelude-val">None</span>)).unwrap();
     table.grow(<span class="kw-2">&amp;mut </span>store, <span class="number">100</span>, Value::FuncRef(<span class="prelude-val">None</span>)).unwrap();
     <span class="macro">assert_eq!</span>(table.ty(<span class="kw-2">&amp;</span>store).minimum, <span class="number">0</span>);
-    <span class="kw">let </span>imports = <span class="macro">imports! </span>{<span class="string">&quot;env&quot; </span>=&gt; {<span class="string">&quot;table&quot; </span>=&gt; table}};
+    <span class="kw">let </span>imports = <span class="macro">imports!</span> {<span class="string">"env" </span>=&gt; {<span class="string">"table" </span>=&gt; table}};
     <span class="kw">let </span>_instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>imports).unwrap();
 }
 </code></pre></div></section></main></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/config/src/package/named_package_ident.rs`."><title>named_package_ident.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_config" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_config/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/config/src/package/named_package_ident.rs`."><title>named_package_ident.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_config" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -475,7 +475,7 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Tag {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             Tag::Named(n) =&gt; n.fmt(f),
             Tag::VersionReq(v) =&gt; v.fmt(f),
@@ -487,7 +487,7 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= PackageParseError;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="kw">if </span>s == <span class="string">&quot;latest&quot; </span>{
+        <span class="kw">if </span>s == <span class="string">"latest" </span>{
             <span class="prelude-val">Ok</span>(<span class="self">Self</span>::VersionReq(semver::VersionReq::STAR))
         } <span class="kw">else </span>{
             <span class="kw">match </span>semver::VersionReq::from_str(s) {
@@ -515,7 +515,7 @@
         full_name: <span class="kw-2">&amp;</span>str,
         version: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PackageParseError&gt; {
-        <span class="kw">let </span>(namespace, name) = <span class="kw">match </span>full_name.split_once(<span class="string">&#39;/&#39;</span>) {
+        <span class="kw">let </span>(namespace, name) = <span class="kw">match </span>full_name.split_once(<span class="string">'/'</span>) {
             <span class="prelude-val">Some</span>((ns, name)) =&gt; (<span class="prelude-val">Some</span>(ns.to_owned()), name.to_owned()),
             <span class="prelude-val">None </span>=&gt; (<span class="prelude-val">None</span>, full_name.to_owned()),
         };
@@ -538,10 +538,10 @@
 
     <span class="doccomment">/// Namespaced name.
     ///
-    /// Eg: &quot;namespace/name&quot;
+    /// Eg: "namespace/name"
     </span><span class="kw">pub fn </span>full_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span><span class="self">self</span>.namespace {
-            <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, ns, <span class="self">self</span>.name)
+            <span class="macro">format!</span>(<span class="string">"{}/{}"</span>, ns, <span class="self">self</span>.name)
         } <span class="kw">else </span>{
             <span class="self">self</span>.name.clone()
         }
@@ -566,8 +566,8 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         };
 
-        <span class="kw">let </span>reg = <span class="kw">if </span>!reg.starts_with(<span class="string">&quot;http://&quot;</span>) &amp;&amp; !reg.starts_with(<span class="string">&quot;https://&quot;</span>) {
-            <span class="macro">format!</span>(<span class="string">&quot;https://{}&quot;</span>, reg)
+        <span class="kw">let </span>reg = <span class="kw">if </span>!reg.starts_with(<span class="string">"http://"</span>) &amp;&amp; !reg.starts_with(<span class="string">"https://"</span>) {
+            <span class="macro">format!</span>(<span class="string">"https://{}"</span>, reg)
         } <span class="kw">else </span>{
             reg.clone()
         };
@@ -582,15 +582,15 @@
     /// Format: [NAMESPACE/]NAME[@tag]
     </span><span class="kw">pub fn </span>build_identifier(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>ident = <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span><span class="self">self</span>.namespace {
-            <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, ns, <span class="self">self</span>.name)
+            <span class="macro">format!</span>(<span class="string">"{}/{}"</span>, ns, <span class="self">self</span>.name)
         } <span class="kw">else </span>{
             <span class="self">self</span>.name.to_string()
         };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = <span class="kw-2">&amp;</span><span class="self">self</span>.tag {
-            ident.push(<span class="string">&#39;@&#39;</span>);
+            ident.push(<span class="string">'@'</span>);
             <span class="comment">// Writing to a string only fails on memory allocation errors.
-            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>ident, <span class="string">&quot;{}&quot;</span>, tag).unwrap();
+            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>ident, <span class="string">"{}"</span>, tag).unwrap();
         }
         ident
     }
@@ -599,21 +599,21 @@
         <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = <span class="kw-2">&amp;</span><span class="self">self</span>.registry {
             <span class="comment">// NOTE: writing to a String can only fail on allocation errors.
-            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">&quot;{}&quot;</span>, url).unwrap();
+            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">"{}"</span>, url).unwrap();
 
-            <span class="kw">if </span>!out.ends_with(<span class="string">&#39;/&#39;</span>) {
-                out.push(<span class="string">&#39;:&#39;</span>);
+            <span class="kw">if </span>!out.ends_with(<span class="string">'/'</span>) {
+                out.push(<span class="string">':'</span>);
             }
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span><span class="self">self</span>.namespace {
             out.push_str(ns);
-            out.push(<span class="string">&#39;/&#39;</span>);
+            out.push(<span class="string">'/'</span>);
         }
         out.push_str(<span class="kw-2">&amp;</span><span class="self">self</span>.name);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = <span class="kw-2">&amp;</span><span class="self">self</span>.tag {
-            out.push(<span class="string">&#39;@&#39;</span>);
+            out.push(<span class="string">'@'</span>);
             <span class="comment">// Writing to a string only fails on memory allocation errors.
-            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">&quot;{}&quot;</span>, tag).unwrap();
+            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">"{}"</span>, tag).unwrap();
         }
 
         out
@@ -622,7 +622,7 @@
 
 <span class="kw">impl </span>From&lt;NamedPackageId&gt; <span class="kw">for </span>NamedPackageIdent {
     <span class="kw">fn </span>from(value: NamedPackageId) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>(namespace, name) = <span class="kw">match </span>value.full_name.split_once(<span class="string">&#39;/&#39;</span>) {
+        <span class="kw">let </span>(namespace, name) = <span class="kw">match </span>value.full_name.split_once(<span class="string">'/'</span>) {
             <span class="prelude-val">Some</span>((ns, name)) =&gt; (<span class="prelude-val">Some</span>(ns.to_owned()), name.to_owned()),
             <span class="prelude-val">None </span>=&gt; (<span class="prelude-val">None</span>, value.full_name),
         };
@@ -650,7 +650,7 @@
     <span class="kw">fn </span>from_str(value: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
         <span class="kw">let </span>(rest, tag_opt) = value
             .trim()
-            .rsplit_once(<span class="string">&#39;@&#39;</span>)
+            .rsplit_once(<span class="string">'@'</span>)
             .map(|(x, y)| (x, <span class="kw">if </span>y.is_empty() { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(y) }))
             .unwrap_or((value, <span class="prelude-val">None</span>));
 
@@ -660,26 +660,26 @@
             <span class="prelude-val">None
         </span>};
 
-        <span class="kw">let </span>(rest, name) = <span class="kw">if let </span><span class="prelude-val">Some</span>((r, n)) = rest.rsplit_once(<span class="string">&#39;/&#39;</span>) {
+        <span class="kw">let </span>(rest, name) = <span class="kw">if let </span><span class="prelude-val">Some</span>((r, n)) = rest.rsplit_once(<span class="string">'/'</span>) {
             (r, n)
         } <span class="kw">else </span>{
-            (<span class="string">&quot;&quot;</span>, rest)
+            (<span class="string">""</span>, rest)
         };
 
         <span class="kw">let </span>name = name.trim();
         <span class="kw">if </span>name.is_empty() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(PackageParseError::new(value, <span class="string">&quot;package name is required&quot;</span>));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(PackageParseError::new(value, <span class="string">"package name is required"</span>));
         }
 
         <span class="kw">let </span>(rest, namespace) = <span class="kw">if </span>rest.is_empty() {
-            (<span class="string">&quot;&quot;</span>, <span class="prelude-val">None</span>)
+            (<span class="string">""</span>, <span class="prelude-val">None</span>)
         } <span class="kw">else </span>{
-            <span class="kw">let </span>(rest, ns) = rest.rsplit_once(<span class="string">&#39;:&#39;</span>).unwrap_or((<span class="string">&quot;&quot;</span>, rest));
+            <span class="kw">let </span>(rest, ns) = rest.rsplit_once(<span class="string">':'</span>).unwrap_or((<span class="string">""</span>, rest));
 
             <span class="kw">let </span>ns = ns.trim();
 
             <span class="kw">if </span>ns.is_empty() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(PackageParseError::new(value, <span class="string">&quot;namespace can not be empty&quot;</span>));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(PackageParseError::new(value, <span class="string">"namespace can not be empty"</span>));
             }
             (rest, <span class="prelude-val">Some</span>(ns.to_string()))
         };
@@ -701,8 +701,8 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>NamedPackageIdent {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.build())
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.build())
     }
 }
 
@@ -715,10 +715,10 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; serde::Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>NamedPackageIdent {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; serde::Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>NamedPackageIdent {
     <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;NamedPackageIdent, D::Error&gt;
     <span class="kw">where
-        </span>D: serde::de::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+        </span>D: serde::de::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
     {
         <span class="kw">let </span>s = String::deserialize(deserializer)<span class="question-mark">?</span>;
         <span class="self">Self</span>::from_str(<span class="kw-2">&amp;</span>s).map_err(serde::de::Error::custom)
@@ -727,7 +727,7 @@
 
 <span class="kw">impl </span>schemars::JsonSchema <span class="kw">for </span>NamedPackageIdent {
     <span class="kw">fn </span>schema_name() -&gt; String {
-        <span class="string">&quot;NamedPackageIdent&quot;</span>.to_string()
+        <span class="string">"NamedPackageIdent"</span>.to_string()
     }
 
     <span class="kw">fn </span>json_schema(gen: <span class="kw-2">&amp;mut </span>schemars::gen::SchemaGenerator) -&gt; schemars::schema::Schema {
@@ -748,111 +748,111 @@
         <span class="comment">// Success cases.
 
         </span><span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;ns/name&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"ns/name"</span>).unwrap(),
             NamedPackageIdent {
                 registry: <span class="prelude-val">None</span>,
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
                 tag: <span class="prelude-val">None</span>,
             }
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;ns/name@&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"ns/name@"</span>).unwrap(),
             NamedPackageIdent {
                 registry: <span class="prelude-val">None</span>,
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
                 tag: <span class="prelude-val">None</span>,
             },
-            <span class="string">&quot;empty tag should be parsed as None&quot;
+            <span class="string">"empty tag should be parsed as None"
         </span>);
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;ns/name@tag&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"ns/name@tag"</span>).unwrap(),
             NamedPackageIdent {
                 registry: <span class="prelude-val">None</span>,
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
-                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">&quot;tag&quot;</span>.to_string())),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
+                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">"tag"</span>.to_string())),
             }
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;reg.com:ns/name&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"reg.com:ns/name"</span>).unwrap(),
             NamedPackageIdent {
-                registry: <span class="prelude-val">Some</span>(<span class="string">&quot;reg.com&quot;</span>.to_string()),
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
+                registry: <span class="prelude-val">Some</span>(<span class="string">"reg.com"</span>.to_string()),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
                 tag: <span class="prelude-val">None</span>,
             }
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;reg.com:ns/name@tag&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"reg.com:ns/name@tag"</span>).unwrap(),
             NamedPackageIdent {
-                registry: <span class="prelude-val">Some</span>(<span class="string">&quot;reg.com&quot;</span>.to_string()),
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
-                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">&quot;tag&quot;</span>.to_string())),
+                registry: <span class="prelude-val">Some</span>(<span class="string">"reg.com"</span>.to_string()),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
+                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">"tag"</span>.to_string())),
             }
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;reg.com:ns/name&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"reg.com:ns/name"</span>).unwrap(),
             NamedPackageIdent {
-                registry: <span class="prelude-val">Some</span>(<span class="string">&quot;reg.com&quot;</span>.to_string()),
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
+                registry: <span class="prelude-val">Some</span>(<span class="string">"reg.com"</span>.to_string()),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
                 tag: <span class="prelude-val">None</span>,
             }
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;reg.com:ns/name@tag&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"reg.com:ns/name@tag"</span>).unwrap(),
             NamedPackageIdent {
-                registry: <span class="prelude-val">Some</span>(<span class="string">&quot;reg.com&quot;</span>.to_string()),
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
-                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">&quot;tag&quot;</span>.to_string())),
+                registry: <span class="prelude-val">Some</span>(<span class="string">"reg.com"</span>.to_string()),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
+                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">"tag"</span>.to_string())),
             }
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;reg.com:ns/name&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"reg.com:ns/name"</span>).unwrap(),
             NamedPackageIdent {
-                registry: <span class="prelude-val">Some</span>(<span class="string">&quot;reg.com&quot;</span>.to_string()),
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
+                registry: <span class="prelude-val">Some</span>(<span class="string">"reg.com"</span>.to_string()),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
                 tag: <span class="prelude-val">None</span>,
             }
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;reg.com:ns/name@tag&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"reg.com:ns/name@tag"</span>).unwrap(),
             NamedPackageIdent {
-                registry: <span class="prelude-val">Some</span>(<span class="string">&quot;reg.com&quot;</span>.to_string()),
-                namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-                name: <span class="string">&quot;name&quot;</span>.to_string(),
-                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">&quot;tag&quot;</span>.to_string())),
+                registry: <span class="prelude-val">Some</span>(<span class="string">"reg.com"</span>.to_string()),
+                namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+                name: <span class="string">"name"</span>.to_string(),
+                tag: <span class="prelude-val">Some</span>(Tag::Named(<span class="string">"tag"</span>.to_string())),
             }
         );
 
         <span class="comment">// Failure cases.
 
         </span><span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;alpha&quot;</span>).unwrap(),
+            NamedPackageIdent::from_str(<span class="string">"alpha"</span>).unwrap(),
             NamedPackageIdent {
                 registry: <span class="prelude-val">None</span>,
                 namespace: <span class="prelude-val">None</span>,
-                name: <span class="string">&quot;alpha&quot;</span>.to_string(),
+                name: <span class="string">"alpha"</span>.to_string(),
                 tag: <span class="prelude-val">None</span>,
             },
         );
 
         <span class="macro">assert_eq!</span>(
-            NamedPackageIdent::from_str(<span class="string">&quot;&quot;</span>),
-            <span class="prelude-val">Err</span>(PackageParseError::new(<span class="string">&quot;&quot;</span>, <span class="string">&quot;package name is required&quot;</span>))
+            NamedPackageIdent::from_str(<span class="string">""</span>),
+            <span class="prelude-val">Err</span>(PackageParseError::new(<span class="string">""</span>, <span class="string">"package name is required"</span>))
         );
     }
 
@@ -860,14 +860,14 @@
     </span><span class="kw">fn </span>test_serde_serialize_package_ident_with_repo() {
         <span class="comment">// Serialize
         </span><span class="kw">let </span>ident = NamedPackageIdent {
-            registry: <span class="prelude-val">Some</span>(<span class="string">&quot;wapm.io&quot;</span>.to_string()),
-            namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-            name: <span class="string">&quot;name&quot;</span>.to_string(),
+            registry: <span class="prelude-val">Some</span>(<span class="string">"wapm.io"</span>.to_string()),
+            namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+            name: <span class="string">"name"</span>.to_string(),
             tag: <span class="prelude-val">None</span>,
         };
 
         <span class="kw">let </span>raw = serde_json::to_string(<span class="kw-2">&amp;</span>ident).unwrap();
-        <span class="macro">assert_eq!</span>(raw, <span class="string">&quot;\&quot;wapm.io:ns/name\&quot;&quot;</span>);
+        <span class="macro">assert_eq!</span>(raw, <span class="string">"\"wapm.io:ns/name\""</span>);
 
         <span class="kw">let </span>ident2 = serde_json::from_str::&lt;NamedPackageIdent&gt;(<span class="kw-2">&amp;</span>raw).unwrap();
         <span class="macro">assert_eq!</span>(ident, ident2);
@@ -878,13 +878,13 @@
         <span class="comment">// Serialize
         </span><span class="kw">let </span>ident = NamedPackageIdent {
             registry: <span class="prelude-val">None</span>,
-            namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;ns&quot;</span>.to_string()),
-            name: <span class="string">&quot;name&quot;</span>.to_string(),
+            namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_string()),
+            name: <span class="string">"name"</span>.to_string(),
             tag: <span class="prelude-val">None</span>,
         };
 
         <span class="kw">let </span>raw = serde_json::to_string(<span class="kw-2">&amp;</span>ident).unwrap();
-        <span class="macro">assert_eq!</span>(raw, <span class="string">&quot;\&quot;ns/name\&quot;&quot;</span>);
+        <span class="macro">assert_eq!</span>(raw, <span class="string">"\"ns/name\""</span>);
 
         <span class="kw">let </span>ident2 = serde_json::from_str::&lt;NamedPackageIdent&gt;(<span class="kw-2">&amp;</span>raw).unwrap();
         <span class="macro">assert_eq!</span>(ident, ident2);

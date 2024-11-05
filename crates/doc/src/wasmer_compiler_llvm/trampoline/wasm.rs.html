@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/trampoline/wasm.rs`."><title>wasm.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_llvm/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/trampoline/wasm.rs`."><title>wasm.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -504,18 +504,49 @@
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::abi::{get_abi, Abi};
 <span class="kw">use </span><span class="kw">crate</span>::config::{CompiledKind, LLVM};
+<span class="kw">use </span><span class="kw">crate</span>::error::{err, err_nt};
 <span class="kw">use </span><span class="kw">crate</span>::object_file::{load_object_file, CompiledFunction};
 <span class="kw">use </span><span class="kw">crate</span>::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
+<span class="kw">use </span>inkwell::passes::PassBuilderOptions;
 <span class="kw">use </span>inkwell::values::BasicMetadataValueEnum;
 <span class="kw">use </span>inkwell::{
     attributes::{Attribute, AttributeLoc},
     context::Context,
     module::{Linkage, Module},
-    passes::PassManager,
     targets::{FileType, TargetMachine},
-    types::{BasicType, FunctionType},
+    types::FunctionType,
     values::FunctionValue,
     AddressSpace, DLLStorageClass,
 };
@@ -531,7 +562,7 @@
     abi: Box&lt;<span class="kw">dyn </span>Abi&gt;,
 }
 
-<span class="kw">const </span>FUNCTION_SECTION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;__TEXT,wasmer_trmpl&quot;</span>; <span class="comment">// Needs to be between 1 and 16 chars
+<span class="kw">const </span>FUNCTION_SECTION: <span class="kw-2">&amp;</span>str = <span class="string">"__TEXT,wasmer_trmpl"</span>; <span class="comment">// Needs to be between 1 and 16 chars
 
 </span><span class="kw">impl </span>FuncTrampoline {
     <span class="kw">pub fn </span>new(target_machine: TargetMachine) -&gt; <span class="self">Self </span>{
@@ -551,7 +582,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CompileError&gt; {
         <span class="comment">// The function type, used for the callbacks.
         </span><span class="kw">let </span>function = CompiledKind::FunctionCallTrampoline(ty.clone());
-        <span class="kw">let </span>module = <span class="self">self</span>.ctx.create_module(<span class="string">&quot;&quot;</span>);
+        <span class="kw">let </span>module = <span class="self">self</span>.ctx.create_module(<span class="string">""</span>);
         <span class="kw">let </span>target_machine = <span class="kw-2">&amp;</span><span class="self">self</span>.target_machine;
         <span class="kw">let </span>target_triple = target_machine.get_triple();
         <span class="kw">let </span>target_data = target_machine.get_target_data();
@@ -564,9 +595,9 @@
                 .func_type_to_llvm(<span class="kw-2">&amp;</span><span class="self">self</span>.ctx, <span class="kw-2">&amp;</span>intrinsics, <span class="prelude-val">None</span>, ty)<span class="question-mark">?</span>;
         <span class="kw">let </span>trampoline_ty = intrinsics.void_ty.fn_type(
             <span class="kw-2">&amp;</span>[
-                intrinsics.ctx_ptr_ty.into(),                       <span class="comment">// vmctx ptr
-                </span>callee_ty.ptr_type(AddressSpace::default()).into(), <span class="comment">// callee function address
-                </span>intrinsics.i128_ptr_ty.into(),                      <span class="comment">// in/out values ptr
+                intrinsics.ptr_ty.into(), <span class="comment">// vmctx ptr
+                </span>intrinsics.ptr_ty.into(), <span class="comment">// callee function address
+                </span>intrinsics.ptr_ty.into(), <span class="comment">// in/out values ptr
             </span>],
             <span class="bool-val">false</span>,
         );
@@ -594,15 +625,20 @@
             callbacks.preopt_ir(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>module);
         }
 
-        <span class="kw">let </span>pass_manager = PassManager::create(());
+        <span class="kw">let </span><span class="kw-2">mut </span>passes = <span class="macro">vec!</span>[];
 
         <span class="kw">if </span>config.enable_verifier {
-            pass_manager.add_verifier_pass();
+            passes.push(<span class="string">"verify"</span>);
         }
 
-        pass_manager.add_early_cse_pass();
-
-        pass_manager.run_on(<span class="kw-2">&amp;</span>module);
+        passes.push(<span class="string">"instcombine"</span>);
+        module
+            .run_passes(
+                passes.join(<span class="string">","</span>).as_str(),
+                target_machine,
+                PassBuilderOptions::create(),
+            )
+            .unwrap();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = config.callbacks {
             callbacks.postopt_ir(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>module);
@@ -640,7 +676,7 @@
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(<span class="number">0</span>)),
             |name: <span class="kw-2">&amp;</span>str| {
                 <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                    <span class="string">&quot;trampoline generation produced reference to unknown function {}&quot;</span>,
+                    <span class="string">"trampoline generation produced reference to unknown function {}"</span>,
                     name
                 )))
             },
@@ -660,15 +696,15 @@
         }
         <span class="kw">if </span>!all_sections_are_eh_sections {
             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;trampoline generation produced non-eh custom sections&quot;</span>.into(),
+                <span class="string">"trampoline generation produced non-eh custom sections"</span>.into(),
             ));
         }
         <span class="kw">if </span>!compiled_function.relocations.is_empty() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;trampoline generation produced relocations&quot;</span>.into(),
+                <span class="string">"trampoline generation produced relocations"</span>.into(),
             ));
         }
-        <span class="comment">// Ignore CompiledFunctionFrameInfo. Extra frame info isn&#39;t a problem.
+        <span class="comment">// Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.
 
         </span><span class="prelude-val">Ok</span>(FunctionBody {
             body: compiled_function.body.body,
@@ -684,7 +720,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CompileError&gt; {
         <span class="comment">// The function type, used for the callbacks
         </span><span class="kw">let </span>function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
-        <span class="kw">let </span>module = <span class="self">self</span>.ctx.create_module(<span class="string">&quot;&quot;</span>);
+        <span class="kw">let </span>module = <span class="self">self</span>.ctx.create_module(<span class="string">""</span>);
         <span class="kw">let </span>target_machine = <span class="kw-2">&amp;</span><span class="self">self</span>.target_machine;
         <span class="kw">let </span>target_data = target_machine.get_target_data();
         <span class="kw">let </span>target_triple = target_machine.get_triple();
@@ -714,15 +750,20 @@
             callbacks.preopt_ir(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>module);
         }
 
-        <span class="kw">let </span>pass_manager = PassManager::create(());
+        <span class="kw">let </span><span class="kw-2">mut </span>passes = <span class="macro">vec!</span>[];
 
         <span class="kw">if </span>config.enable_verifier {
-            pass_manager.add_verifier_pass();
+            passes.push(<span class="string">"verify"</span>);
         }
 
-        pass_manager.add_early_cse_pass();
-
-        pass_manager.run_on(<span class="kw-2">&amp;</span>module);
+        passes.push(<span class="string">"early-cse"</span>);
+        module
+            .run_passes(
+                passes.join(<span class="string">","</span>).as_str(),
+                target_machine,
+                PassBuilderOptions::create(),
+            )
+            .unwrap();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = config.callbacks {
             callbacks.postopt_ir(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>module);
@@ -760,7 +801,7 @@
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(<span class="number">0</span>)),
             |name: <span class="kw-2">&amp;</span>str| {
                 <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                    <span class="string">&quot;trampoline generation produced reference to unknown function {}&quot;</span>,
+                    <span class="string">"trampoline generation produced reference to unknown function {}"</span>,
                     name
                 )))
             },
@@ -780,15 +821,15 @@
         }
         <span class="kw">if </span>!all_sections_are_eh_sections {
             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;trampoline generation produced non-eh custom sections&quot;</span>.into(),
+                <span class="string">"trampoline generation produced non-eh custom sections"</span>.into(),
             ));
         }
         <span class="kw">if </span>!compiled_function.relocations.is_empty() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                <span class="string">&quot;trampoline generation produced relocations&quot;</span>.into(),
+                <span class="string">"trampoline generation produced relocations"</span>.into(),
             ));
         }
-        <span class="comment">// Ignore CompiledFunctionFrameInfo. Extra frame info isn&#39;t a problem.
+        <span class="comment">// Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.
 
         </span><span class="prelude-val">Ok</span>(FunctionBody {
             body: compiled_function.body.body,
@@ -796,16 +837,16 @@
         })
     }
 
-    <span class="kw">fn </span>generate_trampoline&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    <span class="kw">fn </span>generate_trampoline&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         trampoline_func: FunctionValue,
         func_sig: <span class="kw-2">&amp;</span>FuncType,
         llvm_func_type: FunctionType,
         func_attrs: <span class="kw-2">&amp;</span>[(Attribute, AttributeLoc)],
-        context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="kw">let </span>entry_block = context.append_basic_block(trampoline_func, <span class="string">&quot;entry&quot;</span>);
+        <span class="kw">let </span>entry_block = context.append_basic_block(trampoline_func, <span class="string">"entry"</span>);
         <span class="kw">let </span>builder = context.create_builder();
         builder.position_at_end(entry_block);
 
@@ -818,7 +859,7 @@
                 ),
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(
-                        <span class="string">&quot;trampoline function unimplemented&quot;</span>.to_string(),
+                        <span class="string">"trampoline function unimplemented"</span>.to_string(),
                     ))
                 }
             };
@@ -834,7 +875,7 @@
                 .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
             <span class="kw">let </span>sret_ty = context.struct_type(<span class="kw-2">&amp;</span>basic_types, <span class="bool-val">false</span>);
-            args_vec.push(builder.build_alloca(sret_ty, <span class="string">&quot;sret&quot;</span>).into());
+            args_vec.push(<span class="macro">err!</span>(builder.build_alloca(sret_ty, <span class="string">"sret"</span>)).into());
         }
 
         args_vec.push(callee_vmctx_ptr.into());
@@ -842,115 +883,130 @@
         <span class="kw">for </span>(i, param_ty) <span class="kw">in </span>func_sig.params().iter().enumerate() {
             <span class="kw">let </span>index = intrinsics.i32_ty.const_int(i <span class="kw">as _</span>, <span class="bool-val">false</span>);
             <span class="kw">let </span>item_pointer = <span class="kw">unsafe </span>{
-                builder.build_in_bounds_gep(intrinsics.i128_ty, args_rets_ptr, <span class="kw-2">&amp;</span>[index], <span class="string">&quot;arg_ptr&quot;</span>)
+                <span class="macro">err!</span>(builder.build_in_bounds_gep(
+                    intrinsics.i128_ty,
+                    args_rets_ptr,
+                    <span class="kw-2">&amp;</span>[index],
+                    <span class="string">"arg_ptr"
+                </span>))
             };
 
             <span class="kw">let </span>casted_type = type_to_llvm(intrinsics, <span class="kw-2">*</span>param_ty)<span class="question-mark">?</span>;
             <span class="kw">let </span>casted_pointer_type = type_to_llvm_ptr(intrinsics, <span class="kw-2">*</span>param_ty)<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>typed_item_pointer =
-                builder.build_pointer_cast(item_pointer, casted_pointer_type, <span class="string">&quot;typed_arg_pointer&quot;</span>);
+            <span class="kw">let </span>typed_item_pointer = <span class="macro">err!</span>(builder.build_pointer_cast(
+                item_pointer,
+                casted_pointer_type,
+                <span class="string">"typed_arg_pointer"
+            </span>));
 
-            <span class="kw">let </span>arg = builder.build_load(casted_type, typed_item_pointer, <span class="string">&quot;arg&quot;</span>);
+            <span class="kw">let </span>arg = <span class="macro">err!</span>(builder.build_load(casted_type, typed_item_pointer, <span class="string">"arg"</span>));
             args_vec.push(arg.into());
         }
 
-        <span class="kw">let </span>call_site =
-            builder.build_indirect_call(llvm_func_type, func_ptr, args_vec.as_slice(), <span class="string">&quot;call&quot;</span>);
+        <span class="kw">let </span>call_site = <span class="macro">err!</span>(builder.build_indirect_call(
+            llvm_func_type,
+            func_ptr,
+            args_vec.as_slice(),
+            <span class="string">"call"
+        </span>));
         <span class="kw">for </span>(attr, attr_loc) <span class="kw">in </span>func_attrs {
             call_site.add_attribute(<span class="kw-2">*</span>attr_loc, <span class="kw-2">*</span>attr);
         }
 
         <span class="kw">let </span>rets = <span class="self">self
             </span>.abi
-            .rets_from_call(<span class="kw-2">&amp;</span>builder, intrinsics, call_site, func_sig);
-        <span class="kw">let </span><span class="kw-2">mut </span>idx = <span class="number">0</span>;
-        rets.iter().for_each(|v| {
+            .rets_from_call(<span class="kw-2">&amp;</span>builder, intrinsics, call_site, func_sig)<span class="question-mark">?</span>;
+        <span class="kw">for </span>(idx, v) <span class="kw">in </span>rets.into_iter().enumerate() {
             <span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
-                builder.build_gep(
+                <span class="macro">err!</span>(builder.build_gep(
                     intrinsics.i128_ty,
                     args_rets_ptr,
-                    <span class="kw-2">&amp;</span>[intrinsics.i32_ty.const_int(idx, <span class="bool-val">false</span>)],
-                    <span class="string">&quot;&quot;</span>,
-                )
+                    <span class="kw-2">&amp;</span>[intrinsics.i32_ty.const_int(idx <span class="kw">as </span>u64, <span class="bool-val">false</span>)],
+                    <span class="string">""</span>,
+                ))
             };
-            <span class="kw">let </span>ptr =
-                builder.build_pointer_cast(ptr, v.get_type().ptr_type(AddressSpace::default()), <span class="string">&quot;&quot;</span>);
-            builder.build_store(ptr, <span class="kw-2">*</span>v);
-            idx += <span class="number">1</span>;
-        });
+            <span class="kw">let </span>ptr = <span class="macro">err!</span>(builder.build_pointer_cast(
+                ptr,
+                <span class="self">self</span>.ctx.ptr_type(AddressSpace::default()),
+                <span class="string">""
+            </span>));
+            <span class="macro">err!</span>(builder.build_store(ptr, v));
+        }
 
-        builder.build_return(<span class="prelude-val">None</span>);
+        <span class="macro">err!</span>(builder.build_return(<span class="prelude-val">None</span>));
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>generate_dynamic_trampoline&lt;<span class="lifetime">&#39;ctx</span>&gt;(
+    <span class="kw">fn </span>generate_dynamic_trampoline&lt;<span class="lifetime">'ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         trampoline_func: FunctionValue,
         func_sig: <span class="kw-2">&amp;</span>FuncType,
-        context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
-        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="kw">let </span>entry_block = context.append_basic_block(trampoline_func, <span class="string">&quot;entry&quot;</span>);
+        <span class="kw">let </span>entry_block = context.append_basic_block(trampoline_func, <span class="string">"entry"</span>);
         <span class="kw">let </span>builder = context.create_builder();
         builder.position_at_end(entry_block);
 
         <span class="comment">// Allocate stack space for the params and results.
-        </span><span class="kw">let </span>values = builder.build_alloca(
+        </span><span class="kw">let </span>values = <span class="macro">err!</span>(builder.build_alloca(
             intrinsics.i128_ty.array_type(cmp::max(
                 func_sig.params().len().try_into().unwrap(),
                 func_sig.results().len().try_into().unwrap(),
             )),
-            <span class="string">&quot;&quot;</span>,
-        );
+            <span class="string">""</span>,
+        ));
 
-        <span class="comment">// Copy params to &#39;values&#39;.
+        <span class="comment">// Copy params to 'values'.
         </span><span class="kw">let </span>first_user_param = <span class="kw">if </span><span class="self">self</span>.abi.is_sret(func_sig)<span class="question-mark">? </span>{ <span class="number">2 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..func_sig.params().len() {
             <span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
-                builder.build_in_bounds_gep(
+                <span class="macro">err!</span>(builder.build_in_bounds_gep(
                     intrinsics.i128_ty,
                     values,
                     <span class="kw-2">&amp;</span>[intrinsics.i32_ty.const_int(i.try_into().unwrap(), <span class="bool-val">false</span>)],
-                    <span class="string">&quot;args&quot;</span>,
-                )
+                    <span class="string">"args"</span>,
+                ))
             };
-            <span class="kw">let </span>ptr = builder
-                .build_bitcast(ptr, type_to_llvm_ptr(intrinsics, func_sig.params()[i])<span class="question-mark">?</span>, <span class="string">&quot;&quot;</span>)
-                .into_pointer_value();
-            builder.build_store(
+            <span class="kw">let </span>ptr = <span class="macro">err!</span>(builder.build_bit_cast(
+                ptr,
+                type_to_llvm_ptr(intrinsics, func_sig.params()[i])<span class="question-mark">?</span>,
+                <span class="string">""
+            </span>))
+            .into_pointer_value();
+            <span class="macro">err!</span>(builder.build_store(
                 ptr,
                 trampoline_func
                     .get_nth_param(i <span class="kw">as </span>u32 + first_user_param)
                     .unwrap(),
-            );
+            ));
         }
 
         <span class="kw">let </span>callee_ptr_ty = intrinsics.void_ty.fn_type(
             <span class="kw-2">&amp;</span>[
-                intrinsics.ctx_ptr_ty.into(),  <span class="comment">// vmctx ptr
-                </span>intrinsics.i128_ptr_ty.into(), <span class="comment">// in/out values ptr
+                intrinsics.ptr_ty.into(), <span class="comment">// vmctx ptr
+                </span>intrinsics.ptr_ty.into(), <span class="comment">// in/out values ptr
             </span>],
             <span class="bool-val">false</span>,
         );
-        <span class="kw">let </span>callee_ty = callee_ptr_ty.ptr_type(AddressSpace::default());
         <span class="kw">let </span>vmctx = <span class="self">self</span>.abi.get_vmctx_ptr_param(<span class="kw-2">&amp;</span>trampoline_func);
         <span class="kw">let </span>callee_ty =
-            builder.build_bitcast(vmctx, callee_ty.ptr_type(AddressSpace::default()), <span class="string">&quot;&quot;</span>);
-        <span class="kw">let </span>callee = builder
-            .build_load(intrinsics.ctx_ptr_ty, callee_ty.into_pointer_value(), <span class="string">&quot;&quot;</span>)
-            .into_pointer_value();
+            <span class="macro">err!</span>(builder.build_bit_cast(vmctx, <span class="self">self</span>.ctx.ptr_type(AddressSpace::default()), <span class="string">""</span>));
+        <span class="kw">let </span>callee =
+            <span class="macro">err!</span>(builder.build_load(intrinsics.ptr_ty, callee_ty.into_pointer_value(), <span class="string">""</span>))
+                .into_pointer_value();
 
-        <span class="kw">let </span>values_ptr = builder.build_pointer_cast(values, intrinsics.i128_ptr_ty, <span class="string">&quot;&quot;</span>);
-        builder.build_indirect_call(
+        <span class="kw">let </span>values_ptr = <span class="macro">err!</span>(builder.build_pointer_cast(values, intrinsics.ptr_ty, <span class="string">""</span>));
+        <span class="macro">err!</span>(builder.build_indirect_call(
             callee_ptr_ty,
             callee,
             <span class="kw-2">&amp;</span>[vmctx.into(), values_ptr.into()],
-            <span class="string">&quot;&quot;</span>,
-        );
+            <span class="string">""</span>,
+        ));
 
         <span class="kw">if </span>func_sig.results().is_empty() {
-            builder.build_return(<span class="prelude-val">None</span>);
+            <span class="macro">err!</span>(builder.build_return(<span class="prelude-val">None</span>));
         } <span class="kw">else </span>{
             <span class="kw">let </span>results = func_sig
                 .results()
@@ -958,16 +1014,19 @@
                 .enumerate()
                 .map(|(idx, ty)| {
                     <span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
-                        builder.build_gep(
+                        <span class="macro">err!</span>(builder.build_gep(
                             intrinsics.i128_ty,
                             values,
                             <span class="kw-2">&amp;</span>[intrinsics.i32_ty.const_int(idx.try_into().unwrap(), <span class="bool-val">false</span>)],
-                            <span class="string">&quot;&quot;</span>,
-                        )
+                            <span class="string">""</span>,
+                        ))
                     };
-                    <span class="kw">let </span>ptr =
-                        builder.build_pointer_cast(ptr, type_to_llvm_ptr(intrinsics, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>, <span class="string">&quot;&quot;</span>);
-                    <span class="prelude-val">Ok</span>(builder.build_load(type_to_llvm(intrinsics, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>, ptr, <span class="string">&quot;&quot;</span>))
+                    <span class="kw">let </span>ptr = <span class="macro">err!</span>(builder.build_pointer_cast(
+                        ptr,
+                        type_to_llvm_ptr(intrinsics, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>,
+                        <span class="string">""
+                    </span>));
+                    <span class="macro">err_nt!</span>(builder.build_load(type_to_llvm(intrinsics, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>, ptr, <span class="string">""</span>))
                 })
                 .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
 
@@ -985,25 +1044,26 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>struct_value = context.struct_type(<span class="kw-2">&amp;</span>basic_types, <span class="bool-val">false</span>).get_undef();
 
                 <span class="kw">for </span>(idx, value) <span class="kw">in </span>results.iter().enumerate() {
-                    <span class="kw">let </span>value = builder.build_bitcast(
+                    <span class="kw">let </span>value = <span class="macro">err!</span>(builder.build_bit_cast(
                         <span class="kw-2">*</span>value,
                         type_to_llvm(intrinsics, func_sig.results()[idx])<span class="question-mark">?</span>,
-                        <span class="string">&quot;&quot;</span>,
-                    );
-                    struct_value = builder
-                        .build_insert_value(struct_value, value, idx <span class="kw">as </span>u32, <span class="string">&quot;&quot;</span>)
-                        .unwrap()
-                        .into_struct_value();
+                        <span class="string">""</span>,
+                    ));
+                    struct_value =
+                        <span class="macro">err!</span>(builder.build_insert_value(struct_value, value, idx <span class="kw">as </span>u32, <span class="string">""</span>))
+                            .into_struct_value();
                 }
-                builder.build_store(sret, struct_value);
-                builder.build_return(<span class="prelude-val">None</span>);
+                <span class="macro">err!</span>(builder.build_store(sret, struct_value));
+                <span class="macro">err!</span>(builder.build_return(<span class="prelude-val">None</span>));
             } <span class="kw">else </span>{
-                builder.build_return(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.abi.pack_values_for_register_return(
-                    intrinsics,
-                    <span class="kw-2">&amp;</span>builder,
-                    results.as_slice(),
-                    <span class="kw-2">&amp;</span>trampoline_func.get_type(),
-                )<span class="question-mark">?</span>));
+                <span class="macro">err!</span>(
+                    builder.build_return(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.abi.pack_values_for_register_return(
+                        intrinsics,
+                        <span class="kw-2">&amp;</span>builder,
+                        results.as_slice(),
+                        <span class="kw-2">&amp;</span>trampoline_func.get_type(),
+                    )<span class="question-mark">?</span>))
+                );
             }
         }
 

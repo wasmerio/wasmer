@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Registry","WASMER_DIR","WasmerEnv"]};

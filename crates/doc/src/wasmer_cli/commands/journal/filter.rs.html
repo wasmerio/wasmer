@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/journal/filter.rs`."><title>filter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/journal/filter.rs`."><title>filter.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -143,13 +143,13 @@
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
         <span class="prelude-val">Ok</span>(<span class="kw">match </span>s.to_lowercase().as_str() {
-            <span class="string">&quot;mem&quot; </span>| <span class="string">&quot;memory&quot; </span>=&gt; <span class="self">Self</span>::Memory,
-            <span class="string">&quot;thread&quot; </span>| <span class="string">&quot;threads&quot; </span>=&gt; <span class="self">Self</span>::Threads,
-            <span class="string">&quot;fs&quot; </span>| <span class="string">&quot;file&quot; </span>| <span class="string">&quot;filesystem&quot; </span>| <span class="string">&quot;file-system&quot; </span>=&gt; <span class="self">Self</span>::FileSystem,
-            <span class="string">&quot;core&quot; </span>=&gt; <span class="self">Self</span>::Core,
-            <span class="string">&quot;snap&quot; </span>| <span class="string">&quot;snapshot&quot; </span>| <span class="string">&quot;snapshots&quot; </span>=&gt; <span class="self">Self</span>::Snapshots,
-            <span class="string">&quot;net&quot; </span>| <span class="string">&quot;network&quot; </span>| <span class="string">&quot;networking&quot; </span>=&gt; <span class="self">Self</span>::Networking,
-            t =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;unknown filter type - {}&quot;</span>, t)),
+            <span class="string">"mem" </span>| <span class="string">"memory" </span>=&gt; <span class="self">Self</span>::Memory,
+            <span class="string">"thread" </span>| <span class="string">"threads" </span>=&gt; <span class="self">Self</span>::Threads,
+            <span class="string">"fs" </span>| <span class="string">"file" </span>| <span class="string">"filesystem" </span>| <span class="string">"file-system" </span>=&gt; <span class="self">Self</span>::FileSystem,
+            <span class="string">"core" </span>=&gt; <span class="self">Self</span>::Core,
+            <span class="string">"snap" </span>| <span class="string">"snapshot" </span>| <span class="string">"snapshots" </span>=&gt; <span class="self">Self</span>::Snapshots,
+            <span class="string">"net" </span>| <span class="string">"network" </span>| <span class="string">"networking" </span>=&gt; <span class="self">Self</span>::Networking,
+            t =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"unknown filter type - {}"</span>, t)),
         })
     }
 }
@@ -165,13 +165,13 @@
     </span><span class="attr">#[clap(index = <span class="number">2</span>)]
     </span>target_path: PathBuf,
     <span class="doccomment">/// Filters to be applied to the output journal, filter options are
-    /// - &#39;mem&#39; | &#39;memory&#39; -&gt; removes all WASM memory related events
-    /// - &#39;thread&#39; | &#39;threads&#39; -&gt; removes all events related to the state of the threads
-    /// - &#39;fs&#39; | &#39;file&#39; -&gt; removes file system mutation events
-    /// - &#39;core&#39; -&gt; removes core operating system operations such as TTY
-    /// - &#39;snap&#39; | &#39;snapshot&#39; -&gt; removes the snapshots from the journal
-    /// - &#39;net&#39; | &#39;network&#39; -&gt; removes network socket and interface events
-    </span><span class="attr">#[clap(short, long = <span class="string">&quot;filter&quot;</span>)]
+    /// - 'mem' | 'memory' -&gt; removes all WASM memory related events
+    /// - 'thread' | 'threads' -&gt; removes all events related to the state of the threads
+    /// - 'fs' | 'file' -&gt; removes file system mutation events
+    /// - 'core' -&gt; removes core operating system operations such as TTY
+    /// - 'snap' | 'snapshot' -&gt; removes the snapshots from the journal
+    /// - 'net' | 'network' -&gt; removes network socket and interface events
+    </span><span class="attr">#[clap(short, long = <span class="string">"filter"</span>)]
     </span>filters: Vec&lt;FilterOut&gt;,
 }
 
@@ -186,13 +186,13 @@
             .file_name()
             .ok_or_else(|| {
                 <span class="macro">anyhow::format_err!</span>(
-                    <span class="string">&quot;The path is not a valid filename - {}&quot;</span>,
+                    <span class="string">"The path is not a valid filename - {}"</span>,
                     <span class="self">self</span>.target_path.to_string_lossy()
                 )
             })<span class="question-mark">?
             </span>.to_string_lossy()
             .to_string();
-        temp_filename.insert_str(<span class="number">0</span>, <span class="string">&quot;.staging.&quot;</span>);
+        temp_filename.insert_str(<span class="number">0</span>, <span class="string">".staging."</span>);
         <span class="kw">let </span>temp_path = <span class="self">self</span>.target_path.with_file_name(<span class="kw-2">&amp;</span>temp_filename);
         std::fs::remove_file(<span class="kw-2">&amp;</span>temp_path).ok();
 

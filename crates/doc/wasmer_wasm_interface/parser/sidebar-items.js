@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["func","global","identifier","parse_comment","parse_func_or_global","parse_interface","s_exp","space_comments","wasm_type"]};

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/wasi_common.rs`."><title>wasi_common.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/wasi_common.rs`."><title>wasi_common.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -530,6 +530,11 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -551,7 +556,7 @@
     WasiEnvBuilder,
 };
 
-<span class="kw">pub const </span>MAPPED_CURRENT_DIR_DEFAULT_PATH: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/home&quot;</span>;
+<span class="kw">pub const </span>MAPPED_CURRENT_DIR_DEFAULT_PATH: <span class="kw-2">&amp;</span>str = <span class="string">"/home"</span>;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>MappedCommand {
@@ -564,6 +569,7 @@
 <span class="attr">#[derive(Derivative, Default, Clone)]
 #[derivative(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CommonWasiOptions {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) entry_function: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) args: Vec&lt;String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) env: HashMap&lt;String, String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) forward_host_env: bool,
@@ -573,7 +579,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) is_tmp_mapped: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) injected_packages: Vec&lt;BinaryPackage&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) capabilities: Capabilities,
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_interval: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
@@ -589,6 +595,10 @@
         wasi: <span class="kw-2">&amp;</span>WasiAnnotation,
         root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>entry_function) = <span class="self">self</span>.entry_function {
+            builder.set_entry_function(entry_function);
+        }
+
         <span class="kw">let </span>root_fs = root_fs.unwrap_or_else(|| {
             RootFileSystemBuilder::default()
                 .with_tmp(!<span class="self">self</span>.is_tmp_mapped)
@@ -596,11 +606,11 @@
         });
         <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span><span class="self">self</span>.mounts, container_fs)<span class="question-mark">?</span>;
 
-        builder.add_preopen_dir(<span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
+        builder.add_preopen_dir(<span class="string">"/"</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">if </span><span class="self">self</span>.mounts.iter().all(|m| m.guest != <span class="string">&quot;.&quot;</span>) {
-            <span class="comment">// The user hasn&#39;t mounted &quot;.&quot; to anything, so let&#39;s map it to &quot;/&quot;
-            </span>builder.add_map_dir(<span class="string">&quot;.&quot;</span>, <span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">if </span><span class="self">self</span>.mounts.iter().all(|m| m.guest != <span class="string">"."</span>) {
+            <span class="comment">// The user hasn't mounted "." to anything, so let's map it to "/"
+            </span>builder.add_map_dir(<span class="string">"."</span>, <span class="string">"/"</span>)<span class="question-mark">?</span>;
         }
 
         builder.set_fs(Box::new(fs));
@@ -627,10 +637,10 @@
 
     <span class="kw">fn </span>populate_env(<span class="kw-2">&amp;</span><span class="self">self</span>, wasi: <span class="kw-2">&amp;</span>WasiAnnotation, builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder) {
         <span class="kw">for </span>item <span class="kw">in </span>wasi.env.as_deref().unwrap_or_default() {
-            <span class="comment">// TODO(Michael-F-Bryan): Convert &quot;wasi.env&quot; in the webc crate from an
+            <span class="comment">// TODO(Michael-F-Bryan): Convert "wasi.env" in the webc crate from an
             // Option&lt;Vec&lt;String&gt;&gt; to a HashMap&lt;String, String&gt; so we avoid this
             // string.split() business
-            </span><span class="kw">match </span>item.split_once(<span class="string">&#39;=&#39;</span>) {
+            </span><span class="kw">match </span>item.split_once(<span class="string">'='</span>) {
                 <span class="prelude-val">Some</span>((k, v)) =&gt; {
                     builder.add_env(k, v);
                 }
@@ -671,7 +681,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>guest_path = PathBuf::from(guest_path);
         <span class="macro">tracing::debug!</span>(
             guest=%guest_path.display(),
-            <span class="string">&quot;Mounting&quot;</span>,
+            <span class="string">"Mounting"</span>,
         );
 
         <span class="kw">if </span>guest_path.is_relative() {
@@ -682,24 +692,24 @@
             .canonicalize_unchecked(<span class="kw-2">&amp;</span>guest_path)
             .with_context(|| {
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;Unable to canonicalize guest path &#39;{}&#39;&quot;</span>,
+                    <span class="string">"Unable to canonicalize guest path '{}'"</span>,
                     guest_path.display()
                 )
             })<span class="question-mark">?</span>;
 
-        <span class="kw">if </span>guest_path == Path::new(<span class="string">&quot;/&quot;</span>) {
+        <span class="kw">if </span>guest_path == Path::new(<span class="string">"/"</span>) {
             root_fs
-                .mount_directory_entries(<span class="kw-2">&amp;</span>guest_path, fs, <span class="string">&quot;/&quot;</span>.as_ref())
-                .context(<span class="string">&quot;Unable to mount to root&quot;</span>)<span class="question-mark">?</span>;
+                .mount_directory_entries(<span class="kw-2">&amp;</span>guest_path, fs, <span class="string">"/"</span>.as_ref())
+                .context(<span class="string">"Unable to mount to root"</span>)<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
             <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = guest_path.parent() {
                 create_dir_all(<span class="kw-2">&amp;*</span>root_fs, parent).with_context(|| {
-                    <span class="macro">format!</span>(<span class="string">&quot;Unable to create the \&quot;{}\&quot; directory&quot;</span>, parent.display())
+                    <span class="macro">format!</span>(<span class="string">"Unable to create the \"{}\" directory"</span>, parent.display())
                 })<span class="question-mark">?</span>;
             }
 
-            TmpFileSystem::mount(root_fs, guest_path.clone(), fs, <span class="string">&quot;/&quot;</span>.into())
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to mount \&quot;{}\&quot;&quot;</span>, guest_path.display()))<span class="question-mark">?</span>;
+            TmpFileSystem::mount(root_fs, guest_path.clone(), fs, <span class="string">"/"</span>.into())
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to mount \"{}\""</span>, guest_path.display()))<span class="question-mark">?</span>;
         }
     }
 
@@ -718,10 +728,10 @@
     <span class="comment">// HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
     // paths, but our Python executable will try to access its standard library
     // with relative paths assuming that it is being run from the root
-    // directory (i.e. it does `open(&quot;lib/python3.6/io.py&quot;)` instead of
-    // `open(&quot;/lib/python3.6/io.py&quot;)`).
+    // directory (i.e. it does `open("lib/python3.6/io.py")` instead of
+    // `open("/lib/python3.6/io.py")`).
     // Until the FileSystem trait figures out whether relative paths should be
-    // supported or not, we&#39;ll add an adapter that automatically retries
+    // supported or not, we'll add an adapter that automatically retries
     // operations using an absolute path if it failed using a relative path.
 
     </span><span class="kw">let </span>fs = <span class="kw">if let </span><span class="prelude-val">Some</span>(container) = container_fs {
@@ -737,21 +747,21 @@
 }
 
 <span class="doccomment">/// HACK: We need this so users can mount host directories at relative paths.
-/// This assumes that the current directory when a runner starts will be &quot;/&quot;, so
-/// instead of mounting to a relative path, we just mount to &quot;/$path&quot;.
+/// This assumes that the current directory when a runner starts will be "/", so
+/// instead of mounting to a relative path, we just mount to "/$path".
 ///
-/// This isn&#39;t really a long-term solution because there is no guarantee what
-/// the current directory will be. The WASI spec also doesn&#39;t require the
-/// current directory to be part of the &quot;main&quot; filesystem at all, we really
-/// *should* be mounting to a relative directory but that isn&#39;t supported by our
+/// This isn't really a long-term solution because there is no guarantee what
+/// the current directory will be. The WASI spec also doesn't require the
+/// current directory to be part of the "main" filesystem at all, we really
+/// *should* be mounting to a relative directory but that isn't supported by our
 /// virtual fs layer.
 ///
 /// See &lt;https://github.com/wasmerio/wasmer/issues/3794&gt; for more.
 </span><span class="kw">fn </span>apply_relative_path_mounting_hack(original: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
     <span class="macro">debug_assert!</span>(original.is_relative());
 
-    <span class="kw">let </span>root = Path::new(<span class="string">&quot;/&quot;</span>);
-    <span class="kw">let </span>mapped_path = <span class="kw">if </span>original == Path::new(<span class="string">&quot;.&quot;</span>) {
+    <span class="kw">let </span>root = Path::new(<span class="string">"/"</span>);
+    <span class="kw">let </span>mapped_path = <span class="kw">if </span>original == Path::new(<span class="string">"."</span>) {
         root.to_path_buf()
     } <span class="kw">else </span>{
         root.join(original)
@@ -760,7 +770,7 @@
     <span class="macro">tracing::debug!</span>(
         original_path=%original.display(),
         remapped_path=%mapped_path.display(),
-        <span class="string">&quot;Remapping a relative path&quot;
+        <span class="string">"Remapping a relative path"
     </span>);
 
     mapped_path
@@ -787,7 +797,7 @@
 }
 
 <span class="doccomment">/// A directory that should be mapped from the host filesystem into a WASI
-/// instance (the &quot;guest&quot;).
+/// instance (the "guest").
 ///
 /// # Panics
 ///
@@ -805,15 +815,15 @@
 
 <span class="kw">impl </span>From&lt;MappedDirectory&gt; <span class="kw">for </span>MountedDirectory {
     <span class="kw">fn </span>from(value: MappedDirectory) -&gt; <span class="self">Self </span>{
-        <span class="macro">cfg_if::cfg_if! </span>{
-            <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)] </span>{
+        <span class="macro">cfg_if::cfg_if!</span> {
+            <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">"host-fs"</span>)] </span>{
                 <span class="kw">let </span>MappedDirectory { host, guest } = value;
                 <span class="kw">let </span>fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
                     Arc::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), host).unwrap());
 
                 MountedDirectory { guest, fs }
             } <span class="kw">else </span>{
-                <span class="macro">unreachable!</span>(<span class="string">&quot;The `host-fs` feature needs to be enabled to map {value:?}&quot;</span>)
+                <span class="macro">unreachable!</span>(<span class="string">"The `host-fs` feature needs to be enabled to map {value:?}"</span>)
             }
         }
     }
@@ -833,7 +843,7 @@
         <span class="kw">if </span>result.is_err() &amp;&amp; !path.is_absolute() {
             <span class="comment">// we were given a relative path, but maybe the operation will work
             // using absolute paths instead.
-            </span><span class="kw">let </span>path = Path::new(<span class="string">&quot;/&quot;</span>).join(path);
+            </span><span class="kw">let </span>path = Path::new(<span class="string">"/"</span>).join(path);
             operation(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span>path)
         } <span class="kw">else </span>{
             result
@@ -858,7 +868,7 @@
         <span class="self">self</span>.execute(path, |fs, p| fs.remove_dir(p))
     }
 
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, virtual_fs::Result&lt;()&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, virtual_fs::Result&lt;()&gt;&gt; {
         <span class="kw">let </span>from = from.to_owned();
         <span class="kw">let </span>to = to.to_owned();
         Box::pin(<span class="kw">async move </span>{ <span class="self">self</span>.<span class="number">0</span>.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).<span class="kw">await </span>})
@@ -899,7 +909,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
-    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
         <span class="self">self</span>.execute(path, |fs, p| {
             fs.new_open_options().options(conf.clone()).open(p)
         })
@@ -912,26 +922,26 @@
 
     <span class="kw">use </span>tempfile::TempDir;
     <span class="kw">use </span>virtual_fs::{DirEntry, FileType, Metadata, WebcVolumeFileSystem};
-    <span class="kw">use </span>webc::Container;
+    <span class="kw">use </span>wasmer_package::utils::from_bytes;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
+    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
 
     <span class="doccomment">/// Fixes &lt;https://github.com/wasmerio/wasmer/issues/3789&gt;
     </span><span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>mix_args_from_the_webc_and_user() {
         <span class="kw">let </span>args = CommonWasiOptions {
-            args: <span class="macro">vec!</span>[<span class="string">&quot;extra&quot;</span>.to_string(), <span class="string">&quot;args&quot;</span>.to_string()],
+            args: <span class="macro">vec!</span>[<span class="string">"extra"</span>.to_string(), <span class="string">"args"</span>.to_string()],
             ..Default::default()
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">&quot;program-name&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"program-name"</span>);
         <span class="kw">let </span>fs = Arc::new(virtual_fs::EmptyFileSystem::default());
-        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">&quot;some-atom&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"some-atom"</span>);
         annotations.main_args = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[
-            <span class="string">&quot;hard&quot;</span>.to_string(),
-            <span class="string">&quot;coded&quot;</span>.to_string(),
-            <span class="string">&quot;args&quot;</span>.to_string(),
+            <span class="string">"hard"</span>.to_string(),
+            <span class="string">"coded"</span>.to_string(),
+            <span class="string">"args"</span>.to_string(),
         ]);
 
         args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">Some</span>(fs), <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
@@ -941,14 +951,14 @@
             builder.get_args(),
             [
                 <span class="comment">// the program name from
-                </span><span class="string">&quot;program-name&quot;</span>,
-                <span class="comment">// from the WEBC&#39;s annotations
-                </span><span class="string">&quot;hard&quot;</span>,
-                <span class="string">&quot;coded&quot;</span>,
-                <span class="string">&quot;args&quot;</span>,
+                </span><span class="string">"program-name"</span>,
+                <span class="comment">// from the WEBC's annotations
+                </span><span class="string">"hard"</span>,
+                <span class="string">"coded"</span>,
+                <span class="string">"args"</span>,
                 <span class="comment">// from the user
-                </span><span class="string">&quot;extra&quot;</span>,
-                <span class="string">&quot;args&quot;</span>,
+                </span><span class="string">"extra"</span>,
+                <span class="string">"args"</span>,
             ]
         );
     }
@@ -956,15 +966,15 @@
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>mix_env_vars_from_the_webc_and_user() {
         <span class="kw">let </span>args = CommonWasiOptions {
-            env: <span class="macro">vec!</span>[(<span class="string">&quot;EXTRA&quot;</span>.to_string(), <span class="string">&quot;envs&quot;</span>.to_string())]
+            env: <span class="macro">vec!</span>[(<span class="string">"EXTRA"</span>.to_string(), <span class="string">"envs"</span>.to_string())]
                 .into_iter()
                 .collect(),
             ..Default::default()
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">&quot;python&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"python"</span>);
         <span class="kw">let </span>fs = Arc::new(virtual_fs::EmptyFileSystem::default());
-        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">&quot;python&quot;</span>);
-        annotations.env = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">&quot;HARD_CODED=env-vars&quot;</span>.to_string()]);
+        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"python"</span>);
+        annotations.env = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"HARD_CODED=env-vars"</span>.to_string()]);
 
         args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">Some</span>(fs), <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
             .unwrap();
@@ -972,37 +982,37 @@
         <span class="macro">assert_eq!</span>(
             builder.get_env(),
             [
-                (<span class="string">&quot;HARD_CODED&quot;</span>.to_string(), <span class="string">b&quot;env-vars&quot;</span>.to_vec()),
-                (<span class="string">&quot;EXTRA&quot;</span>.to_string(), <span class="string">b&quot;envs&quot;</span>.to_vec()),
+                (<span class="string">"HARD_CODED"</span>.to_string(), <span class="string">b"env-vars"</span>.to_vec()),
+                (<span class="string">"EXTRA"</span>.to_string(), <span class="string">b"envs"</span>.to_vec()),
             ]
         );
     }
 
     <span class="attr">#[tokio::test]
-    #[cfg_attr(not(feature = <span class="string">&quot;host-fs&quot;</span>), ignore)]
+    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
     </span><span class="kw">async fn </span>python_use_case() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
-        <span class="kw">let </span>sub_dir = temp.path().join(<span class="string">&quot;path&quot;</span>).join(<span class="string">&quot;to&quot;</span>);
+        <span class="kw">let </span>sub_dir = temp.path().join(<span class="string">"path"</span>).join(<span class="string">"to"</span>);
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>sub_dir).unwrap();
-        std::fs::write(sub_dir.join(<span class="string">&quot;file.txt&quot;</span>), <span class="string">b&quot;Hello, World!&quot;</span>).unwrap();
+        std::fs::write(sub_dir.join(<span class="string">"file.txt"</span>), <span class="string">b"Hello, World!"</span>).unwrap();
         <span class="kw">let </span>mapping = [MountedDirectory::from(MappedDirectory {
-            guest: <span class="string">&quot;/home&quot;</span>.to_string(),
+            guest: <span class="string">"/home"</span>.to_string(),
             host: sub_dir,
         })];
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON).unwrap();
         <span class="kw">let </span>webc_fs = WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
 
         <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
         <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span>mapping, <span class="prelude-val">Some</span>(Arc::new(webc_fs))).unwrap();
 
-        <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;/home/file.txt&quot;</span>.as_ref()).unwrap().is_file());
-        <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;lib&quot;</span>.as_ref()).unwrap().is_dir());
+        <span class="macro">assert!</span>(fs.metadata(<span class="string">"/home/file.txt"</span>.as_ref()).unwrap().is_file());
+        <span class="macro">assert!</span>(fs.metadata(<span class="string">"lib"</span>.as_ref()).unwrap().is_dir());
         <span class="macro">assert!</span>(fs
-            .metadata(<span class="string">&quot;lib/python3.6/collections/__init__.py&quot;</span>.as_ref())
+            .metadata(<span class="string">"lib/python3.6/collections/__init__.py"</span>.as_ref())
             .unwrap()
             .is_file());
         <span class="macro">assert!</span>(fs
-            .metadata(<span class="string">&quot;lib/python3.6/encodings/__init__.py&quot;</span>.as_ref())
+            .metadata(<span class="string">"lib/python3.6/encodings/__init__.py"</span>.as_ref())
             .unwrap()
             .is_file());
     }
@@ -1013,15 +1023,15 @@
     }
 
     <span class="attr">#[tokio::test]
-    #[cfg_attr(not(feature = <span class="string">&quot;host-fs&quot;</span>), ignore)]
+    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
     </span><span class="kw">async fn </span>convert_mapped_directory_to_mounted_directory() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>dir = MappedDirectory {
-            guest: <span class="string">&quot;/mnt/dir&quot;</span>.to_string(),
+            guest: <span class="string">"/mnt/dir"</span>.to_string(),
             host: temp.path().to_path_buf(),
         };
-        <span class="kw">let </span>contents = <span class="string">&quot;Hello, World!&quot;</span>;
-        <span class="kw">let </span>file_txt = temp.path().join(<span class="string">&quot;file.txt&quot;</span>);
+        <span class="kw">let </span>contents = <span class="string">"Hello, World!"</span>;
+        <span class="kw">let </span>file_txt = temp.path().join(<span class="string">"file.txt"</span>);
         std::fs::write(<span class="kw-2">&amp;</span>file_txt, contents).unwrap();
         <span class="kw">let </span>metadata = std::fs::metadata(<span class="kw-2">&amp;</span>file_txt).unwrap();
 
@@ -1029,17 +1039,17 @@
 
         <span class="kw">let </span>directory_contents: Vec&lt;<span class="kw">_</span>&gt; = got
             .fs
-            .read_dir(<span class="string">&quot;/&quot;</span>.as_ref())
+            .read_dir(<span class="string">"/"</span>.as_ref())
             .unwrap()
             .map(|entry| entry.unwrap())
             .collect();
         <span class="macro">assert_eq!</span>(
             directory_contents,
             <span class="macro">vec!</span>[DirEntry {
-                path: PathBuf::from(<span class="string">&quot;/file.txt&quot;</span>),
+                path: PathBuf::from(<span class="string">"/file.txt"</span>),
                 metadata: <span class="prelude-val">Ok</span>(Metadata {
                     ft: FileType::new_file(),
-                    <span class="comment">// Note: Some timestamps aren&#39;t available on MUSL and will
+                    <span class="comment">// Note: Some timestamps aren't available on MUSL and will
                     // default to zero.
                     </span>accessed: metadata
                         .accessed()

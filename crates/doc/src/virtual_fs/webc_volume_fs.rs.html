@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/webc_volume_fs.rs`."><title>webc_volume_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/webc_volume_fs.rs`."><title>webc_volume_fs.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -688,6 +688,7 @@
 <a href="#688" id="688">688</a>
 <a href="#689" id="689">689</a>
 <a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     convert::{TryFrom, TryInto},
     io::Cursor,
@@ -700,8 +701,8 @@
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 <span class="kw">use </span>webc::{
-    compat::{Container, SharedBytes, Volume},
-    PathSegmentError, PathSegments, ToPathSegments,
+    compat::SharedBytes, Container, Metadata <span class="kw">as </span>WebcMetadata, PathSegmentError, PathSegments,
+    ToPathSegments, Volume,
 };
 
 <span class="kw">use crate</span>::{
@@ -770,17 +771,17 @@
     }
 
     <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
-        <span class="comment">// the directory shouldn&#39;t exist yet
+        <span class="comment">// the directory shouldn't exist yet
         </span><span class="kw">if </span><span class="self">self</span>.metadata(path).is_ok() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::AlreadyExists);
         }
 
-        <span class="comment">// it&#39;s parent should exist
-        </span><span class="kw">let </span>parent = path.parent().unwrap_or_else(|| Path::new(<span class="string">&quot;/&quot;</span>));
+        <span class="comment">// it's parent should exist
+        </span><span class="kw">let </span>parent = path.parent().unwrap_or_else(|| Path::new(<span class="string">"/"</span>));
 
         <span class="kw">match </span><span class="self">self</span>.metadata(parent) {
             <span class="prelude-val">Ok</span>(parent_meta) <span class="kw">if </span>parent_meta.is_dir() =&gt; {
-                <span class="comment">// The operation would normally be doable... but we&#39;re a readonly
+                <span class="comment">// The operation would normally be doable... but we're a readonly
                 // filesystem
                 </span><span class="prelude-val">Err</span>(FsError::PermissionDenied)
             }
@@ -798,23 +799,23 @@
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
         }
 
-        <span class="comment">// but we are a readonly filesystem, so you can&#39;t modify anything
+        <span class="comment">// but we are a readonly filesystem, so you can't modify anything
         </span><span class="prelude-val">Err</span>(FsError::PermissionDenied)
     }
 
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
         Box::pin(<span class="kw">async </span>{
             <span class="comment">// The original file should exist
             </span><span class="kw">let _ </span>= <span class="self">self</span>.metadata(from)<span class="question-mark">?</span>;
 
-            <span class="comment">// we also want to make sure the destination&#39;s folder exists, too
-            </span><span class="kw">let </span>dest_parent = to.parent().unwrap_or_else(|| Path::new(<span class="string">&quot;/&quot;</span>));
+            <span class="comment">// we also want to make sure the destination's folder exists, too
+            </span><span class="kw">let </span>dest_parent = to.parent().unwrap_or_else(|| Path::new(<span class="string">"/"</span>));
             <span class="kw">let </span>parent_meta = <span class="self">self</span>.metadata(dest_parent)<span class="question-mark">?</span>;
             <span class="kw">if </span>!parent_meta.is_dir() {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
             }
 
-            <span class="comment">// but we are a readonly filesystem, so you can&#39;t modify anything
+            <span class="comment">// but we are a readonly filesystem, so you can't modify anything
             </span><span class="prelude-val">Err</span>(FsError::PermissionDenied)
         })
     }
@@ -861,7 +862,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
-    ) -&gt; <span class="kw">crate</span>::Result&lt;Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+    ) -&gt; <span class="kw">crate</span>::Result&lt;Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
             <span class="kw">let </span>parent_meta = <span class="self">self</span>.metadata(parent)<span class="question-mark">?</span>;
             <span class="kw">if </span>!parent_meta.is_dir() {
@@ -928,7 +929,7 @@
 
     <span class="kw">fn </span>poll_read_ready(
         <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
         <span class="kw">let </span>bytes_remaining =
             <span class="self">self</span>.content.get_ref().len() - usize::try_from(<span class="self">self</span>.content.position()).unwrap();
@@ -937,7 +938,7 @@
 
     <span class="kw">fn </span>poll_write_ready(
         <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
         Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
     }
@@ -946,8 +947,8 @@
 <span class="kw">impl </span>AsyncRead <span class="kw">for </span>File {
     <span class="kw">fn </span>poll_read(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;()&gt;&gt; {
         AsyncRead::poll_read(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx, buf)
     }
@@ -960,7 +961,7 @@
 
     <span class="kw">fn </span>poll_complete(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;u64&gt;&gt; {
         AsyncSeek::poll_complete(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx)
     }
@@ -969,7 +970,7 @@
 <span class="kw">impl </span>AsyncWrite <span class="kw">for </span>File {
     <span class="kw">fn </span>poll_write(
         <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         _buf: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, std::io::Error&gt;&gt; {
         Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
@@ -977,14 +978,14 @@
 
     <span class="kw">fn </span>poll_flush(
         <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
         Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
     }
 
     <span class="kw">fn </span>poll_shutdown(
         <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
         Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
     }
@@ -998,9 +999,9 @@
     timestamps.map(|t| t.modified()).unwrap_or(<span class="number">1</span>)
 }
 
-<span class="kw">fn </span>compat_meta(meta: webc::compat::Metadata) -&gt; Metadata {
+<span class="kw">fn </span>compat_meta(meta: WebcMetadata) -&gt; Metadata {
     <span class="kw">match </span>meta {
-        webc::compat::Metadata::Dir { timestamps } =&gt; Metadata {
+        WebcMetadata::Dir { timestamps } =&gt; Metadata {
             ft: FileType {
                 dir: <span class="bool-val">true</span>,
                 ..Default::default()
@@ -1008,7 +1009,7 @@
             modified: get_modified(timestamps),
             ..Default::default()
         },
-        webc::compat::Metadata::File {
+        WebcMetadata::File {
             length, timestamps, ..
         } =&gt; Metadata {
             ft: FileType {
@@ -1023,7 +1024,7 @@
 }
 
 <span class="doccomment">/// Normalize a [`Path`] into a [`PathSegments`], dealing with things like `..`
-/// and skipping `.`&#39;s.
+/// and skipping `.`'s.
 </span><span class="kw">fn </span>normalize(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathSegments, PathSegmentError&gt; {
     <span class="comment">// normalization is handled by the ToPathSegments impl for Path
     </span><span class="kw">let </span>result = path.to_path_segments();
@@ -1032,7 +1033,7 @@
         <span class="macro">tracing::debug!</span>(
             error = e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
             path=%path.display(),
-            <span class="string">&quot;Unable to normalize a path&quot;</span>,
+            <span class="string">"Unable to normalize a path"</span>,
         );
     }
 
@@ -1045,20 +1046,21 @@
     <span class="kw">use </span><span class="kw">crate</span>::DirEntry;
     <span class="kw">use </span>std::convert::TryFrom;
     <span class="kw">use </span>tokio::io::AsyncReadExt;
+    <span class="kw">use </span>wasmer_package::utils::from_bytes;
 
-    <span class="kw">const </span>PYTHON_WEBC: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
+    <span class="kw">const </span>PYTHON_WEBC: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">"../../c-api/examples/assets/python-0.1.0.wasmer"</span>);
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>normalize_paths() {
         <span class="kw">let </span>inputs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str])&gt; = <span class="macro">vec!</span>[
-            (<span class="string">&quot;/&quot;</span>, <span class="kw-2">&amp;</span>[]),
-            (<span class="string">&quot;/path/to/&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;path&quot;</span>, <span class="string">&quot;to&quot;</span>]),
-            (<span class="string">&quot;/path/to/file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;path&quot;</span>, <span class="string">&quot;to&quot;</span>, <span class="string">&quot;file.txt&quot;</span>]),
-            (<span class="string">&quot;/folder/..&quot;</span>, <span class="kw-2">&amp;</span>[]),
-            (<span class="string">&quot;/.hidden&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;.hidden&quot;</span>]),
-            (<span class="string">&quot;/folder/../../../../../../../file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;file.txt&quot;</span>]),
+            (<span class="string">"/"</span>, <span class="kw-2">&amp;</span>[]),
+            (<span class="string">"/path/to/"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>]),
+            (<span class="string">"/path/to/file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
+            (<span class="string">"/folder/.."</span>, <span class="kw-2">&amp;</span>[]),
+            (<span class="string">"/.hidden"</span>, <span class="kw-2">&amp;</span>[<span class="string">".hidden"</span>]),
+            (<span class="string">"/folder/../../../../../../../file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"file.txt"</span>]),
             <span class="attr">#[cfg(windows)]
-            </span>(<span class="string">r&quot;C:\path\to\file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;path&quot;</span>, <span class="string">&quot;to&quot;</span>, <span class="string">&quot;file.txt&quot;</span>]),
+            </span>(<span class="string">r"C:\path\to\file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
         ];
 
         <span class="kw">for </span>(path, expected) <span class="kw">in </span>inputs {
@@ -1068,65 +1070,65 @@
     }
 
     <span class="attr">#[test]
-    #[cfg_attr(not(windows), ignore = <span class="string">&quot;Only works with PathBuf&#39;s Windows logic&quot;</span>)]
+    #[cfg_attr(not(windows), ignore = <span class="string">"Only works with PathBuf's Windows logic"</span>)]
     </span><span class="kw">fn </span>normalize_windows_paths() {
         <span class="kw">let </span>inputs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str])&gt; = <span class="macro">vec!</span>[
-            (<span class="string">r&quot;C:\path\to\file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;path&quot;</span>, <span class="string">&quot;to&quot;</span>, <span class="string">&quot;file.txt&quot;</span>]),
-            (<span class="string">r&quot;C:/path/to/file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;path&quot;</span>, <span class="string">&quot;to&quot;</span>, <span class="string">&quot;file.txt&quot;</span>]),
-            (<span class="string">r&quot;\\system07\C$\&quot;</span>, <span class="kw-2">&amp;</span>[]),
-            (<span class="string">r&quot;c:\temp\test-file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;temp&quot;</span>, <span class="string">&quot;test-file.txt&quot;</span>]),
+            (<span class="string">r"C:\path\to\file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
+            (<span class="string">r"C:/path/to/file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
+            (<span class="string">r"\\system07\C$\"</span>, <span class="kw-2">&amp;</span>[]),
+            (<span class="string">r"c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
             (
-                <span class="string">r&quot;\\127.0.0.1\c$\temp\test-file.txt&quot;</span>,
-                <span class="kw-2">&amp;</span>[<span class="string">&quot;temp&quot;</span>, <span class="string">&quot;test-file.txt&quot;</span>],
+                <span class="string">r"\\127.0.0.1\c$\temp\test-file.txt"</span>,
+                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
             ),
-            (<span class="string">r&quot;\\.\c:\temp\test-file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;temp&quot;</span>, <span class="string">&quot;test-file.txt&quot;</span>]),
-            (<span class="string">r&quot;\\?\c:\temp\test-file.txt&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;temp&quot;</span>, <span class="string">&quot;test-file.txt&quot;</span>]),
+            (<span class="string">r"\\.\c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
+            (<span class="string">r"\\?\c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
             (
-                <span class="string">r&quot;\\127.0.0.1\c$\temp\test-file.txt&quot;</span>,
-                <span class="kw-2">&amp;</span>[<span class="string">&quot;temp&quot;</span>, <span class="string">&quot;test-file.txt&quot;</span>],
+                <span class="string">r"\\127.0.0.1\c$\temp\test-file.txt"</span>,
+                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
             ),
             (
-                <span class="string">r&quot;\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\temp\test-file.txt&quot;</span>,
-                <span class="kw-2">&amp;</span>[<span class="string">&quot;temp&quot;</span>, <span class="string">&quot;test-file.txt&quot;</span>],
+                <span class="string">r"\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\temp\test-file.txt"</span>,
+                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
             ),
         ];
 
         <span class="kw">for </span>(path, expected) <span class="kw">in </span>inputs {
             <span class="kw">let </span>normalized = normalize(path.as_ref()).unwrap();
-            <span class="macro">assert_eq!</span>(normalized, expected.to_path_segments().unwrap(), <span class="string">&quot;{}&quot;</span>, path);
+            <span class="macro">assert_eq!</span>(normalized, expected.to_path_segments().unwrap(), <span class="string">"{}"</span>, path);
         }
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>invalid_paths() {
-        <span class="kw">let </span>paths = [<span class="string">&quot;.&quot;</span>, <span class="string">&quot;..&quot;</span>, <span class="string">&quot;./file.txt&quot;</span>, <span class="string">&quot;&quot;</span>];
+        <span class="kw">let </span>paths = [<span class="string">"."</span>, <span class="string">".."</span>, <span class="string">"./file.txt"</span>, <span class="string">""</span>];
 
         <span class="kw">for </span>path <span class="kw">in </span>paths {
-            <span class="macro">assert!</span>(normalize(path.as_ref()).is_err(), <span class="string">&quot;{}&quot;</span>, path);
+            <span class="macro">assert!</span>(normalize(path.as_ref()).is_err(), <span class="string">"{}"</span>, path);
         }
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>mount_all_volumes_in_python() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
 
         <span class="comment">// We should now have access to the python directory
-        </span><span class="kw">let </span>lib_meta = fs.metadata(<span class="string">&quot;/lib/python3.6/&quot;</span>.as_ref()).unwrap();
+        </span><span class="kw">let </span>lib_meta = fs.metadata(<span class="string">"/lib/python3.6/"</span>.as_ref()).unwrap();
         <span class="macro">assert!</span>(lib_meta.is_dir());
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>read_dir() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
-        <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
+        <span class="kw">let </span>volume = volumes[<span class="string">"atom"</span>].clone();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
         <span class="kw">let </span>entries: Vec&lt;<span class="kw">_</span>&gt; = fs
-            .read_dir(<span class="string">&quot;/lib&quot;</span>.as_ref())
+            .read_dir(<span class="string">"/lib"</span>.as_ref())
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
@@ -1134,7 +1136,7 @@
         <span class="kw">let </span>modified = get_modified(<span class="prelude-val">None</span>);
         <span class="kw">let </span>expected = <span class="macro">vec!</span>[
             DirEntry {
-                path: <span class="string">&quot;/lib/.DS_Store&quot;</span>.into(),
+                path: <span class="string">"/lib/.DS_Store"</span>.into(),
                 metadata: <span class="prelude-val">Ok</span>(Metadata {
                     ft: FileType {
                         file: <span class="bool-val">true</span>,
@@ -1147,7 +1149,7 @@
                 }),
             },
             DirEntry {
-                path: <span class="string">&quot;/lib/Parser&quot;</span>.into(),
+                path: <span class="string">"/lib/Parser"</span>.into(),
                 metadata: <span class="prelude-val">Ok</span>(Metadata {
                     ft: FileType {
                         dir: <span class="bool-val">true</span>,
@@ -1160,7 +1162,7 @@
                 }),
             },
             DirEntry {
-                path: <span class="string">&quot;/lib/python.wasm&quot;</span>.into(),
+                path: <span class="string">"/lib/python.wasm"</span>.into(),
                 metadata: <span class="prelude-val">Ok</span>(<span class="kw">crate</span>::Metadata {
                     ft: <span class="kw">crate</span>::FileType {
                         file: <span class="bool-val">true</span>,
@@ -1173,7 +1175,7 @@
                 }),
             },
             DirEntry {
-                path: <span class="string">&quot;/lib/python3.6&quot;</span>.into(),
+                path: <span class="string">"/lib/python3.6"</span>.into(),
                 metadata: <span class="prelude-val">Ok</span>(<span class="kw">crate</span>::Metadata {
                     ft: <span class="kw">crate</span>::FileType {
                         dir: <span class="bool-val">true</span>,
@@ -1191,9 +1193,9 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>metadata() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
-        <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
+        <span class="kw">let </span>volume = volumes[<span class="string">"atom"</span>].clone();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
@@ -1209,21 +1211,21 @@
             len: <span class="number">4694941</span>,
         };
         <span class="macro">assert_eq!</span>(
-            fs.metadata(<span class="string">&quot;/lib/python.wasm&quot;</span>.as_ref()).unwrap(),
+            fs.metadata(<span class="string">"/lib/python.wasm"</span>.as_ref()).unwrap(),
             python_wasm,
         );
         <span class="macro">assert_eq!</span>(
-            fs.metadata(<span class="string">&quot;/../../../../lib/python.wasm&quot;</span>.as_ref())
+            fs.metadata(<span class="string">"/../../../../lib/python.wasm"</span>.as_ref())
                 .unwrap(),
             python_wasm,
         );
         <span class="macro">assert_eq!</span>(
-            fs.metadata(<span class="string">&quot;/lib/python3.6/../python3.6/../python.wasm&quot;</span>.as_ref())
+            fs.metadata(<span class="string">"/lib/python3.6/../python3.6/../python.wasm"</span>.as_ref())
                 .unwrap(),
             python_wasm,
         );
         <span class="macro">assert_eq!</span>(
-            fs.metadata(<span class="string">&quot;/lib/python3.6&quot;</span>.as_ref()).unwrap(),
+            fs.metadata(<span class="string">"/lib/python3.6"</span>.as_ref()).unwrap(),
             <span class="kw">crate</span>::Metadata {
                 ft: <span class="kw">crate</span>::FileType {
                     dir: <span class="bool-val">true</span>,
@@ -1236,16 +1238,16 @@
             },
         );
         <span class="macro">assert_eq!</span>(
-            fs.metadata(<span class="string">&quot;/this/does/not/exist&quot;</span>.as_ref()).unwrap_err(),
+            fs.metadata(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
             FsError::EntryNotFound
         );
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>file_opener() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
-        <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
+        <span class="kw">let </span>volume = volumes[<span class="string">"atom"</span>].clone();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
@@ -1253,18 +1255,18 @@
             fs.new_open_options()
                 .create(<span class="bool-val">true</span>)
                 .write(<span class="bool-val">true</span>)
-                .open(<span class="string">&quot;/file.txt&quot;</span>)
+                .open(<span class="string">"/file.txt"</span>)
                 .unwrap_err(),
             FsError::PermissionDenied,
         );
         <span class="macro">assert_eq!</span>(
-            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">&quot;/lib&quot;</span>).unwrap_err(),
+            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">"/lib"</span>).unwrap_err(),
             FsError::NotAFile,
         );
         <span class="macro">assert_eq!</span>(
             fs.new_open_options()
                 .read(<span class="bool-val">true</span>)
-                .open(<span class="string">&quot;/this/does/not/exist.txt&quot;</span>)
+                .open(<span class="string">"/this/does/not/exist.txt"</span>)
                 .unwrap_err(),
             FsError::EntryNotFound,
         );
@@ -1273,105 +1275,105 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>f = fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(<span class="string">&quot;/lib/python.wasm&quot;</span>)
+            .open(<span class="string">"/lib/python.wasm"</span>)
             .unwrap();
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
         f.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert!</span>(buffer.starts_with(<span class="string">b&quot;\0asm&quot;</span>));
+        <span class="macro">assert!</span>(buffer.starts_with(<span class="string">b"\0asm"</span>));
         <span class="macro">assert_eq!</span>(
-            fs.metadata(<span class="string">&quot;/lib/python.wasm&quot;</span>.as_ref()).unwrap().len(),
+            fs.metadata(<span class="string">"/lib/python.wasm"</span>.as_ref()).unwrap().len(),
             u64::try_from(buffer.len()).unwrap(),
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>remove_dir_is_not_allowed() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
-        <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
+        <span class="kw">let </span>volume = volumes[<span class="string">"atom"</span>].clone();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="string">&quot;/lib&quot;</span>.as_ref()).unwrap_err(),
+            fs.remove_dir(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
             FsError::PermissionDenied,
         );
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="string">&quot;/this/does/not/exist&quot;</span>.as_ref()).unwrap_err(),
+            fs.remove_dir(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
             FsError::EntryNotFound,
         );
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="string">&quot;/lib/python.wasm&quot;</span>.as_ref()).unwrap_err(),
+            fs.remove_dir(<span class="string">"/lib/python.wasm"</span>.as_ref()).unwrap_err(),
             FsError::BaseNotDirectory,
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>remove_file_is_not_allowed() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
-        <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
+        <span class="kw">let </span>volume = volumes[<span class="string">"atom"</span>].clone();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="string">&quot;/lib&quot;</span>.as_ref()).unwrap_err(),
+            fs.remove_file(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
             FsError::NotAFile,
         );
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="string">&quot;/this/does/not/exist&quot;</span>.as_ref()).unwrap_err(),
+            fs.remove_file(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
             FsError::EntryNotFound,
         );
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="string">&quot;/lib/python.wasm&quot;</span>.as_ref()).unwrap_err(),
+            fs.remove_file(<span class="string">"/lib/python.wasm"</span>.as_ref()).unwrap_err(),
             FsError::PermissionDenied,
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>create_dir_is_not_allowed() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
-        <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
+        <span class="kw">let </span>volume = volumes[<span class="string">"atom"</span>].clone();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="string">&quot;/lib&quot;</span>.as_ref()).unwrap_err(),
+            fs.create_dir(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
             FsError::AlreadyExists,
         );
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="string">&quot;/this/does/not/exist&quot;</span>.as_ref()).unwrap_err(),
+            fs.create_dir(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
             FsError::BaseNotDirectory,
         );
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="string">&quot;/lib/nested/&quot;</span>.as_ref()).unwrap_err(),
+            fs.create_dir(<span class="string">"/lib/nested/"</span>.as_ref()).unwrap_err(),
             FsError::PermissionDenied,
         );
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>rename_is_not_allowed() {
-        <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
+        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
-        <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
+        <span class="kw">let </span>volume = volumes[<span class="string">"atom"</span>].clone();
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="string">&quot;/lib&quot;</span>.as_ref(), <span class="string">&quot;/other&quot;</span>.as_ref())
+            fs.rename(<span class="string">"/lib"</span>.as_ref(), <span class="string">"/other"</span>.as_ref())
                 .<span class="kw">await
                 </span>.unwrap_err(),
             FsError::PermissionDenied,
         );
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="string">&quot;/this/does/not/exist&quot;</span>.as_ref(), <span class="string">&quot;/another&quot;</span>.as_ref())
+            fs.rename(<span class="string">"/this/does/not/exist"</span>.as_ref(), <span class="string">"/another"</span>.as_ref())
                 .<span class="kw">await
                 </span>.unwrap_err(),
             FsError::EntryNotFound,
         );
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="string">&quot;/lib/python.wasm&quot;</span>.as_ref(), <span class="string">&quot;/lib/another.wasm&quot;</span>.as_ref())
+            fs.rename(<span class="string">"/lib/python.wasm"</span>.as_ref(), <span class="string">"/lib/another.wasm"</span>.as_ref())
                 .<span class="kw">await
                 </span>.unwrap_err(),
             FsError::PermissionDenied,

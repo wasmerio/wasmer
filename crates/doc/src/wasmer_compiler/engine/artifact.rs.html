@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/artifact.rs`."><title>artifact.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/artifact.rs`."><title>artifact.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1190,23 +1190,6 @@
 <a href="#1190" id="1190">1190</a>
 <a href="#1191" id="1191">1191</a>
 <a href="#1192" id="1192">1192</a>
-<a href="#1193" id="1193">1193</a>
-<a href="#1194" id="1194">1194</a>
-<a href="#1195" id="1195">1195</a>
-<a href="#1196" id="1196">1196</a>
-<a href="#1197" id="1197">1197</a>
-<a href="#1198" id="1198">1198</a>
-<a href="#1199" id="1199">1199</a>
-<a href="#1200" id="1200">1200</a>
-<a href="#1201" id="1201">1201</a>
-<a href="#1202" id="1202">1202</a>
-<a href="#1203" id="1203">1203</a>
-<a href="#1204" id="1204">1204</a>
-<a href="#1205" id="1205">1205</a>
-<a href="#1206" id="1206">1206</a>
-<a href="#1207" id="1207">1207</a>
-<a href="#1208" id="1208">1208</a>
-<a href="#1209" id="1209">1209</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1222,23 +1205,23 @@
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, Tunables,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
 </span><span class="kw">use crate</span>::{Compiler, FunctionBodyData, ModuleTranslationState};
 <span class="kw">use crate</span>::{Engine, EngineInner};
 <span class="kw">use </span>enumset::EnumSet;
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;static-artifact-load&quot;</span>))]
+<span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
 </span><span class="kw">use </span>std::mem;
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <span class="kw">use </span>std::sync::Arc;
-<span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
 </span><span class="kw">use </span>wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;static-artifact-load&quot;</span>))]
+<span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
 </span><span class="kw">use </span>wasmer_types::compilation::symbols::ModuleMetadata;
 <span class="kw">use </span>wasmer_types::entity::{BoxedSlice, PrimaryMap};
 <span class="kw">use </span>wasmer_types::ArchivedDataInitializerLocation;
 <span class="kw">use </span>wasmer_types::ArchivedOwnedDataInitializer;
-<span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
 </span><span class="kw">use </span>wasmer_types::CompileModuleInfo;
 <span class="kw">use </span>wasmer_types::DataInitializerLike;
 <span class="kw">use </span>wasmer_types::DataInitializerLocation;
@@ -1253,20 +1236,20 @@
 <span class="kw">use </span>wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 <span class="kw">use </span>wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
-<span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+<span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>AllocatedArtifact {
     <span class="comment">// This shows if the frame info has been regestered already or not.
-    // Because the &#39;GlobalFrameInfoRegistration&#39; ownership can be transfered to EngineInner
-    // this bool is needed to track the status, as &#39;frame_info_registration&#39; will be None
+    // Because the 'GlobalFrameInfoRegistration' ownership can be transfered to EngineInner
+    // this bool is needed to track the status, as 'frame_info_registration' will be None
     // after the ownership is transfered.
     </span>frame_info_registered: bool,
     <span class="comment">// frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
-    // using &#39;Artifact::take_frame_info_registration&#39; method
+    // using 'Artifact::take_frame_info_registration' method
     // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
     </span>frame_info_registration: <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt;,
     finished_functions: BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
 
-    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, loupe(skip))]
+    <span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, loupe(skip))]
     </span>finished_function_call_trampolines: BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
     finished_dynamic_function_trampolines: BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt;,
     signatures: BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
@@ -1274,7 +1257,7 @@
 }
 
 <span class="attr">#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 #[repr(transparent)]
 </span><span class="doccomment">/// A unique identifier for an Artifact.
 </span><span class="kw">pub struct </span>ArtifactId {
@@ -1284,7 +1267,7 @@
 <span class="kw">impl </span>ArtifactId {
     <span class="doccomment">/// Format this identifier as a string.
     </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+        <span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
     }
 }
 
@@ -1304,7 +1287,7 @@
 }
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Artifact {
     id: ArtifactId,
     artifact: ArtifactBuildVariant,
@@ -1316,7 +1299,7 @@
 <span class="doccomment">/// Artifacts may be created as the result of the compilation of a wasm
 /// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
 /// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub enum </span>ArtifactBuildVariant {
     Plain(ArtifactBuild),
     Archived(ArtifactBuildFromArchive),
@@ -1324,7 +1307,7 @@
 
 <span class="kw">impl </span>Artifact {
     <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">pub fn </span>new(
         engine: <span class="kw-2">&amp;</span>Engine,
         data: <span class="kw-2">&amp;</span>[u8],
@@ -1366,7 +1349,7 @@
             <span class="comment">// `from_parts` only ever returns `CompileError`s when an
             // `ArtifactBuildVariant::Plain` is passed in. Other cases
             // of `DeserializeError` can only happen when an
-            // `ArtifactBuildVariant::Archived` is passed in. We don&#39;t
+            // `ArtifactBuildVariant::Archived` is passed in. We don't
             // wish to change the return type of this method because
             // a. it makes no sense and b. it would be a breaking change,
             // hence this match block and the other cases being
@@ -1376,7 +1359,7 @@
     }
 
     <span class="doccomment">/// This indicates if the Artifact is allocated and can be run by the current
-    /// host. In case it can&#39;t be run (for example, if the artifact is cross compiled to
+    /// host. In case it can't be run (for example, if the artifact is cross compiled to
     /// other architecture), it will return false.
     </span><span class="kw">pub fn </span>allocated(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.allocated.is_some()
@@ -1392,10 +1375,10 @@
     }
 
     <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"compiler"</span>))]
     </span><span class="kw">pub fn </span>new(_engine: <span class="kw-2">&amp;</span>Engine, _data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
         <span class="prelude-val">Err</span>(CompileError::Codegen(
-            <span class="string">&quot;Compilation is not enabled in the engine&quot;</span>.to_string(),
+            <span class="string">"Compilation is not enabled in the engine"</span>.to_string(),
         ))
     }
 
@@ -1419,7 +1402,7 @@
                 }
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                        <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.to_string(),
+                        <span class="string">"The provided bytes are not wasmer-universal"</span>.to_string(),
                     ));
                 }
             }
@@ -1464,7 +1447,7 @@
                 }
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                        <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.to_string(),
+                        <span class="string">"The provided bytes are not wasmer-universal"</span>.to_string(),
                     ));
                 }
             }
@@ -1506,7 +1489,7 @@
             </span><span class="kw">let </span>cpu_features = artifact.cpu_features();
             <span class="kw">if </span>!target.cpu_features().is_superset(cpu_features) {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(<span class="macro">format!</span>(
-                    <span class="string">&quot;Some CPU Features needed for the artifact are missing: {:?}&quot;</span>,
+                    <span class="string">"Some CPU Features needed for the artifact are missing: {:?}"</span>,
                     cpu_features.difference(<span class="kw-2">*</span>target.cpu_features())
                 )));
             }
@@ -1574,7 +1557,8 @@
         };
 
         <span class="kw">let </span>debug_ref = <span class="kw">match </span><span class="kw-2">&amp;</span>artifact {
-            ArtifactBuildVariant::Plain(p) =&gt; p.get_debug_ref(),
+            <span class="comment">// Why clone? See comment at the top of ./lib/types/src/indexes.rs.
+            </span>ArtifactBuildVariant::Plain(p) =&gt; p.get_debug_ref().cloned(),
             ArtifactBuildVariant::Archived(a) =&gt; a.get_debug_ref(),
         };
         <span class="kw">let </span>eh_frame = <span class="kw">match </span>debug_ref {
@@ -1632,7 +1616,7 @@
 
         artifact
             .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_frame_info(frame_info);
         }
@@ -1654,18 +1638,18 @@
 <span class="kw">impl </span>Eq <span class="kw">for </span>Artifact {}
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Artifact {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">&quot;Artifact&quot;</span>)
-            .field(<span class="string">&quot;artifact_id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
-            .field(<span class="string">&quot;module_info&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.module_info())
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">"Artifact"</span>)
+            .field(<span class="string">"artifact_id"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+            .field(<span class="string">"module_info"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.module_info())
             .finish()
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ArtifactCreate&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>Artifact {
-    <span class="kw">type </span>OwnedDataInitializer = &lt;ArtifactBuildVariant <span class="kw">as </span>ArtifactCreate&lt;<span class="lifetime">&#39;a</span>&gt;&gt;::OwnedDataInitializer;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ArtifactCreate&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>Artifact {
+    <span class="kw">type </span>OwnedDataInitializer = &lt;ArtifactBuildVariant <span class="kw">as </span>ArtifactCreate&lt;<span class="lifetime">'a</span>&gt;&gt;::OwnedDataInitializer;
     <span class="kw">type </span>OwnedDataInitializerIterator =
-        &lt;ArtifactBuildVariant <span class="kw">as </span>ArtifactCreate&lt;<span class="lifetime">&#39;a</span>&gt;&gt;::OwnedDataInitializerIterator;
+        &lt;ArtifactBuildVariant <span class="kw">as </span>ArtifactCreate&lt;<span class="lifetime">'a</span>&gt;&gt;::OwnedDataInitializerIterator;
 
     <span class="kw">fn </span>set_module_info_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: String) -&gt; bool {
         <span class="self">self</span>.artifact.set_module_info_name(name)
@@ -1687,7 +1671,7 @@
         <span class="self">self</span>.artifact.cpu_features()
     }
 
-    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
+    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
         <span class="self">self</span>.artifact.data_initializers()
     }
 
@@ -1704,8 +1688,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ArtifactCreate&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>ArtifactBuildVariant {
-    <span class="kw">type </span>OwnedDataInitializer = OwnedDataInitializerVariant&lt;<span class="lifetime">&#39;a</span>&gt;;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ArtifactCreate&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>ArtifactBuildVariant {
+    <span class="kw">type </span>OwnedDataInitializer = OwnedDataInitializerVariant&lt;<span class="lifetime">'a</span>&gt;;
     <span class="kw">type </span>OwnedDataInitializerIterator = IntoIter&lt;<span class="self">Self</span>::OwnedDataInitializer&gt;;
 
     <span class="kw">fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;ModuleInfo&gt; {
@@ -1757,7 +1741,7 @@
         }
     }
 
-    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
+    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Plain(artifact) =&gt; artifact
                 .data_initializers()
@@ -1781,13 +1765,13 @@
 }
 
 <span class="attr">#[derive(Clone, Copy)]
-</span><span class="kw">pub enum </span>OwnedDataInitializerVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Plain(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>OwnedDataInitializer),
-    Archived(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedOwnedDataInitializer),
+</span><span class="kw">pub enum </span>OwnedDataInitializerVariant&lt;<span class="lifetime">'a</span>&gt; {
+    Plain(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>OwnedDataInitializer),
+    Archived(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedOwnedDataInitializer),
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; DataInitializerLike&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>OwnedDataInitializerVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">type </span>Location = DataInitializerLocationVariant&lt;<span class="lifetime">&#39;a</span>&gt;;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; DataInitializerLike&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>OwnedDataInitializerVariant&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">type </span>Location = DataInitializerLocationVariant&lt;<span class="lifetime">'a</span>&gt;;
 
     <span class="kw">fn </span>location(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Location {
         <span class="kw">match </span><span class="self">self </span>{
@@ -1798,7 +1782,7 @@
         }
     }
 
-    <span class="kw">fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8] {
+    <span class="kw">fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8] {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Plain(plain) =&gt; plain.data(),
             <span class="self">Self</span>::Archived(archived) =&gt; archived.data(),
@@ -1807,12 +1791,12 @@
 }
 
 <span class="attr">#[derive(Clone, Copy)]
-</span><span class="kw">pub enum </span>DataInitializerLocationVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Plain(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>DataInitializerLocation),
-    Archived(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedDataInitializerLocation),
+</span><span class="kw">pub enum </span>DataInitializerLocationVariant&lt;<span class="lifetime">'a</span>&gt; {
+    Plain(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>DataInitializerLocation),
+    Archived(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedDataInitializerLocation),
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; DataInitializerLocationVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; DataInitializerLocationVariant&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub fn </span>clone_to_plain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DataInitializerLocation {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Plain(p) =&gt; (<span class="kw-2">*</span>p).clone(),
@@ -1825,7 +1809,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; DataInitializerLocationLike <span class="kw">for </span>DataInitializerLocationVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; DataInitializerLocationLike <span class="kw">for </span>DataInitializerLocationVariant&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">fn </span>memory_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryIndex {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Plain(plain) =&gt; plain.memory_index(),
@@ -1849,22 +1833,11 @@
 }
 
 <span class="kw">impl </span>Artifact {
-    <span class="doccomment">/// Register thie `Artifact` stack frame information into the global scope.
-    ///
-    /// This is not required anymore as it&#39;s done automaticaly when creating by &#39;Artifact::from_parts&#39;
-    </span><span class="attr">#[deprecated(
-        since = <span class="string">&quot;4.0.0&quot;</span>,
-        note = <span class="string">&quot;done automaticaly by Artifact::from_parts, use &#39;take_frame_info_registration&#39; if you use this method&quot;
-    </span>)]
-    </span><span class="kw">pub fn </span>register_frame_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), DeserializeError&gt; {
-        <span class="self">self</span>.internal_register_frame_info()
-    }
-
     <span class="kw">fn </span>internal_register_frame_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), DeserializeError&gt; {
         <span class="kw">if </span><span class="self">self
             </span>.allocated
             .as_ref()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .frame_info_registered
         {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(()); <span class="comment">// already done
@@ -1873,14 +1846,14 @@
         <span class="kw">let </span>finished_function_extents = <span class="self">self
             </span>.allocated
             .as_ref()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .finished_functions
             .values()
             .copied()
             .zip(
                 <span class="self">self</span>.allocated
                     .as_ref()
-                    .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+                    .expect(<span class="string">"It must be allocated"</span>)
                     .finished_function_lengths
                     .values()
                     .copied(),
@@ -1892,7 +1865,7 @@
         <span class="kw">let </span>frame_info_registration = <span class="kw-2">&amp;mut </span><span class="self">self
             </span>.allocated
             .as_mut()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .frame_info_registration;
 
         <span class="kw-2">*</span>frame_info_registration = register_frame_info(
@@ -1908,24 +1881,17 @@
 
         <span class="self">self</span>.allocated
             .as_mut()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .frame_info_registered = <span class="bool-val">true</span>;
 
         <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if
-    /// register_frame_info has been used.
-    </span><span class="attr">#[deprecated(since = <span class="string">&quot;4.0.0&quot;</span>, note = <span class="string">&quot;done automaticaly by Artifact::from_parts.&quot;</span>)]
-    </span><span class="kw">pub fn </span>take_frame_info_registration(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt; {
-        <span class="self">self</span>.internal_take_frame_info_registration()
     }
 
     <span class="kw">fn </span>internal_take_frame_info_registration(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt; {
         <span class="kw">let </span>frame_info_registration = <span class="kw-2">&amp;mut </span><span class="self">self
             </span>.allocated
             .as_mut()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .frame_info_registration;
 
         frame_info_registration.take()
@@ -1937,7 +1903,7 @@
         <span class="kw-2">&amp;</span><span class="self">self
             </span>.allocated
             .as_ref()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .finished_functions
     }
 
@@ -1947,7 +1913,7 @@
         <span class="kw-2">&amp;</span><span class="self">self
             </span>.allocated
             .as_ref()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .finished_function_call_trampolines
     }
 
@@ -1959,7 +1925,7 @@
         <span class="kw-2">&amp;</span><span class="self">self
             </span>.allocated
             .as_ref()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .finished_dynamic_function_trampolines
     }
 
@@ -1968,7 +1934,7 @@
         <span class="kw-2">&amp;</span><span class="self">self
             </span>.allocated
             .as_ref()
-            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .expect(<span class="string">"It must be allocated"</span>)
             .signatures
     }
 
@@ -1995,7 +1961,7 @@
         </span><span class="kw">let </span>host_cpu_features = CpuFeature::for_host();
         <span class="kw">if </span>!host_cpu_features.is_superset(<span class="self">self</span>.cpu_features()) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(InstantiationError::CpuFeature(<span class="macro">format!</span>(
-                <span class="string">&quot;{:?}&quot;</span>,
+                <span class="string">"{:?}"</span>,
                 <span class="self">self</span>.cpu_features().difference(host_cpu_features)
             )));
         }
@@ -2066,7 +2032,7 @@
     </span><span class="kw">pub unsafe fn </span>finish_instantiation(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         config: <span class="kw-2">&amp;</span>VMConfig,
-        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
         handle: <span class="kw-2">&amp;mut </span>VMInstance,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
         <span class="kw">let </span>data_initializers = <span class="self">self
@@ -2082,18 +2048,18 @@
     }
 
     <span class="attr">#[allow(clippy::type_complexity)]
-    #[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+    #[cfg(feature = <span class="string">"static-artifact-create"</span>)]
     </span><span class="doccomment">/// Generate a compilation
-    </span><span class="kw">pub fn </span>generate_metadata&lt;<span class="lifetime">&#39;data</span>&gt;(
-        data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8],
+    </span><span class="kw">pub fn </span>generate_metadata&lt;<span class="lifetime">'data</span>&gt;(
+        data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
         compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
         tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
         features: <span class="kw-2">&amp;</span>Features,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             CompileModuleInfo,
-            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;data</span>&gt;&gt;,
-            Vec&lt;DataInitializer&lt;<span class="lifetime">&#39;data</span>&gt;&gt;,
+            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'data</span>&gt;&gt;,
+            Vec&lt;DataInitializer&lt;<span class="lifetime">'data</span>&gt;&gt;,
             <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
         ),
         CompileError,
@@ -2135,11 +2101,11 @@
     }
 
     <span class="doccomment">/// Generate the metadata object for the module
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
     #[allow(clippy::type_complexity)]
-    </span><span class="kw">pub fn </span>metadata&lt;<span class="lifetime">&#39;a</span>&gt;(
+    </span><span class="kw">pub fn </span>metadata&lt;<span class="lifetime">'a</span>&gt;(
         compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
-        data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
+        data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
         metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
         target: <span class="kw-2">&amp;</span>Target,
         tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
@@ -2148,7 +2114,7 @@
         (
             ModuleMetadata,
             <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
-            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
+            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'a</span>&gt;&gt;,
         ),
         CompileError,
     &gt; {
@@ -2163,7 +2129,7 @@
             .into_boxed_slice();
 
         <span class="comment">// TODO: we currently supply all-zero function body lengths.
-        // We don&#39;t know the lengths until they&#39;re compiled, yet we have to
+        // We don't know the lengths until they're compiled, yet we have to
         // supply the metadata as an input to the compile.
         </span><span class="kw">let </span>function_body_lengths = function_body_inputs
             .keys()
@@ -2188,18 +2154,18 @@
     /// be `wasmer_function_{prefix}_{id}` and the object metadata will be addressable
     /// using `WASMER_METADATA_{prefix}_LENGTH` and `WASMER_METADATA_{prefix}_DATA`.
     ///
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
-    </span><span class="kw">pub fn </span>generate_object&lt;<span class="lifetime">&#39;data</span>&gt;(
+    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
+    </span><span class="kw">pub fn </span>generate_object&lt;<span class="lifetime">'data</span>&gt;(
         compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
         data: <span class="kw-2">&amp;</span>[u8],
         metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-        target: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>Target,
+        target: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>Target,
         tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
         features: <span class="kw-2">&amp;</span>Features,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             ModuleInfo,
-            Object&lt;<span class="lifetime">&#39;data</span>&gt;,
+            Object&lt;<span class="lifetime">'data</span>&gt;,
             usize,
             Box&lt;<span class="kw">dyn </span>wasmer_types::SymbolRegistry&gt;,
         ),
@@ -2208,7 +2174,7 @@
         <span class="kw">use </span>wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, SymbolRegistry};
 
         <span class="kw">fn </span>to_compile_error(err: <span class="kw">impl </span>std::error::Error) -&gt; CompileError {
-            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err))
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"{}"</span>, err))
         }
 
         <span class="kw">let </span>target_triple = target.triple();
@@ -2271,13 +2237,13 @@
     ///
     /// # Safety
     /// The object must be a valid static object generated by wasmer.
-    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;static-artifact-load&quot;</span>))]
+    </span><span class="attr">#[cfg(not(feature = <span class="string">"static-artifact-load"</span>))]
     </span><span class="kw">pub unsafe fn </span>deserialize_object(
         _engine: <span class="kw-2">&amp;</span>Engine,
         _bytes: OwnedBuffer,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="prelude-val">Err</span>(DeserializeError::Compiler(
-            CompileError::UnsupportedFeature(<span class="string">&quot;static load is not compiled in&quot;</span>.to_string()),
+            CompileError::UnsupportedFeature(<span class="string">"static load is not compiled in"</span>.to_string()),
         ))
     }
 
@@ -2298,7 +2264,7 @@
     ///
     /// # Safety
     /// The object must be a valid static object generated by wasmer.
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-load&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-load"</span>)]
     </span><span class="kw">pub unsafe fn </span>deserialize_object(
         engine: <span class="kw-2">&amp;</span>Engine,
         bytes: OwnedBuffer,

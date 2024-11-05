@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/task_manager/tokio.rs`."><title>tokio.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/task_manager/tokio.rs`."><title>tokio.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -333,11 +333,11 @@
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>ThreadPool {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        f.debug_struct(<span class="string">&quot;ThreadPool&quot;</span>)
-            .field(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_name())
-            .field(<span class="string">&quot;current_worker_count&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_current_worker_count())
-            .field(<span class="string">&quot;idle_worker_count&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_idle_worker_count())
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"ThreadPool"</span>)
+            .field(<span class="string">"name"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_name())
+            .field(<span class="string">"current_worker_count"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_current_worker_count())
+            .field(<span class="string">"idle_worker_count"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_idle_worker_count())
             .finish()
     }
 }
@@ -363,7 +363,7 @@
             rt: rt.into(),
             pool: Arc::new(ThreadPool {
                 inner: rusty_pool::Builder::new()
-                    .name(<span class="string">&quot;TokioTaskManager Thread Pool&quot;</span>.to_string())
+                    .name(<span class="string">"TokioTaskManager Thread Pool"</span>.to_string())
                     .core_size(max_threads)
                     .max_size(max_threads)
                     .build(),
@@ -387,11 +387,11 @@
 }
 
 <span class="attr">#[allow(dead_code)]
-</span><span class="kw">struct </span>TokioRuntimeGuard&lt;<span class="lifetime">&#39;g</span>&gt; {
+</span><span class="kw">struct </span>TokioRuntimeGuard&lt;<span class="lifetime">'g</span>&gt; {
     <span class="attr">#[allow(unused)]
-    </span>inner: tokio::runtime::EnterGuard&lt;<span class="lifetime">&#39;g</span>&gt;,
+    </span>inner: tokio::runtime::EnterGuard&lt;<span class="lifetime">'g</span>&gt;,
 }
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;g</span>&gt; Drop <span class="kw">for </span>TokioRuntimeGuard&lt;<span class="lifetime">&#39;g</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'g</span>&gt; Drop <span class="kw">for </span>TokioRuntimeGuard&lt;<span class="lifetime">'g</span>&gt; {
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
 
@@ -411,7 +411,7 @@
     <span class="doccomment">/// See [`VirtualTaskManager::task_shared`].
     </span><span class="kw">fn </span>task_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt; + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         <span class="self">self</span>.rt.handle().spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>fut = task();
@@ -436,7 +436,7 @@
         <span class="comment">// If we have a trigger then we first need to run
         // the poller to completion
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(trigger) = task.trigger {
-            <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawning task_wasm trigger in async pool&quot;</span>);
+            <span class="macro">tracing::trace!</span>(<span class="string">"spawning task_wasm trigger in async pool"</span>);
 
             <span class="kw">let </span><span class="kw-2">mut </span>trigger = trigger();
             <span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
@@ -444,16 +444,16 @@
                 <span class="comment">// We wait for either the trigger or for a snapshot to take place
                 </span><span class="kw">let </span>result = <span class="kw">loop </span>{
                     <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
-                    <span class="kw">break </span><span class="macro">tokio::select! </span>{
+                    <span class="kw">break </span><span class="macro">tokio::select!</span> {
                         r = <span class="kw-2">&amp;mut </span>trigger =&gt; r,
                         <span class="kw">_ </span>= env.thread.wait_for_signal() =&gt; {
-                            <span class="macro">tracing::debug!</span>(<span class="string">&quot;wait-for-signal(triggered)&quot;</span>);
+                            <span class="macro">tracing::debug!</span>(<span class="string">"wait-for-signal(triggered)"</span>);
                             <span class="kw">let </span><span class="kw-2">mut </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
                             <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">crate</span>::WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx) {
                                 <span class="kw">match </span>err {
                                     <span class="kw">crate</span>::WasiError::Exit(code) =&gt; <span class="prelude-val">Err</span>(code),
                                     err =&gt; {
-                                        <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to process signals - {}&quot;</span>, err);
+                                        <span class="macro">tracing::error!</span>(<span class="string">"failed to process signals - {}"</span>, err);
                                         <span class="kw">continue</span>;
                                     }
                                 }
@@ -462,7 +462,7 @@
                             }
                         }
                         <span class="kw">_ </span>= <span class="kw">crate</span>::wait_for_snapshot(env) =&gt; {
-                            <span class="macro">tracing::debug!</span>(<span class="string">&quot;wait-for-snapshot(triggered)&quot;</span>);
+                            <span class="macro">tracing::debug!</span>(<span class="string">"wait-for-snapshot(triggered)"</span>);
                             <span class="kw">let </span><span class="kw-2">mut </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
                             <span class="kw">crate</span>::os::task::WasiProcessInner::do_checkpoints_from_outside(<span class="kw-2">&amp;mut </span>ctx);
                             <span class="kw">continue</span>;
@@ -482,11 +482,11 @@
                 });
             });
         } <span class="kw">else </span>{
-            <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawning task_wasm in blocking thread&quot;</span>);
+            <span class="macro">tracing::trace!</span>(<span class="string">"spawning task_wasm in blocking thread"</span>);
 
             <span class="comment">// Run the callback on a dedicated thread
             </span><span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
-                <span class="macro">tracing::trace!</span>(<span class="string">&quot;task_wasm started in blocking thread&quot;</span>);
+                <span class="macro">tracing::trace!</span>(<span class="string">"task_wasm started in blocking thread"</span>);
 
                 <span class="comment">// Invoke the callback
                 </span>run(TaskWasmRunProperties {
@@ -503,7 +503,7 @@
     <span class="doccomment">/// See [`VirtualTaskManager::task_dedicated`].
     </span><span class="kw">fn </span>task_dedicated(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">'static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         <span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
             task();

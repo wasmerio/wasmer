@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/trap/frame_info.rs`."><title>frame_info.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/trap/frame_info.rs`."><title>frame_info.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -409,6 +409,11 @@
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
 <a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.
 //! Once the Compiler has compiled the ModuleInfo, and we have a set of
 //! compiled functions (addresses and function index) and a module,
@@ -440,7 +445,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::ArtifactBuildFromArchive;
 
-<span class="macro">lazy_static::lazy_static! </span>{
+<span class="macro">lazy_static::lazy_static!</span> {
     <span class="doccomment">/// This is a global cache of backtrace frame information for all active
     ///
     /// This global cache is used during `Trap` creation to symbolicate frames.
@@ -459,13 +464,13 @@
     /// contiguous memory. No modules can overlap.
     ///
     /// The key of this map is the highest address in the module and the value
-    /// is the module&#39;s information, which also contains the start address.
+    /// is the module's information, which also contains the start address.
     </span>ranges: BTreeMap&lt;usize, ModuleInfoFrameInfo&gt;,
 }
 
-<span class="doccomment">/// An RAII structure used to unregister a module&#39;s frame information when the
+<span class="doccomment">/// An RAII structure used to unregister a module's frame information when the
 /// module is destroyed.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>GlobalFrameInfoRegistration {
     <span class="doccomment">/// The key that will be removed from the global `ranges` map when this is
     /// dropped.
@@ -528,10 +533,10 @@
             // instructions cover `pc`.
             </span><span class="prelude-val">Err</span>(<span class="number">0</span>) =&gt; <span class="prelude-val">None</span>,
 
-            <span class="comment">// This would be at the `nth` slot, so check `n-1` to see if we&#39;re
+            <span class="comment">// This would be at the `nth` slot, so check `n-1` to see if we're
             // part of that instruction. This happens due to the minus one when
-            // this function is called form trap symbolication, where we don&#39;t
-            // always get called with a `pc` that&#39;s an exact instruction
+            // this function is called form trap symbolication, where we don't
+            // always get called with a `pc` that's an exact instruction
             // boundary.
             </span><span class="prelude-val">Err</span>(n) =&gt; {
                 <span class="kw">let </span>instr = <span class="kw-2">&amp;</span>instr_map.instructions().get(n - <span class="number">1</span>);
@@ -545,7 +550,7 @@
 
         <span class="kw">let </span>instr = <span class="kw">match </span>pos {
             <span class="prelude-val">Some</span>(pos) =&gt; instr_map.instructions().get(pos).srcloc,
-            <span class="comment">// Some compilers don&#39;t emit yet the full trap information for each of
+            <span class="comment">// Some compilers don't emit yet the full trap information for each of
             // the instructions (such as LLVM).
             // In case no specific instruction is found, we return by default the
             // start offset of the function.
@@ -629,16 +634,16 @@
 
 <span class="doccomment">/// The variant of the compiled function frame info which can be an owned type
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>CompiledFunctionFrameInfoVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub enum </span>CompiledFunctionFrameInfoVariant&lt;<span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// A reference to the frame info
-    </span>Ref(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CompiledFunctionFrameInfo),
+    </span>Ref(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>CompiledFunctionFrameInfo),
     <span class="doccomment">/// An archived frame info
-    </span>Archived(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedCompiledFunctionFrameInfo),
+    </span>Archived(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedCompiledFunctionFrameInfo),
 }
 
-<span class="kw">impl </span>CompiledFunctionFrameInfoVariant&lt;<span class="lifetime">&#39;_</span>&gt; {
+<span class="kw">impl </span>CompiledFunctionFrameInfoVariant&lt;<span class="lifetime">'_</span>&gt; {
     <span class="doccomment">/// Gets the address map for the frame info
-    </span><span class="kw">pub fn </span>address_map(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FunctionAddressMapVariant&lt;<span class="lifetime">&#39;_</span>&gt; {
+    </span><span class="kw">pub fn </span>address_map(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FunctionAddressMapVariant&lt;<span class="lifetime">'_</span>&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             CompiledFunctionFrameInfoVariant::Ref(info) =&gt; {
                 FunctionAddressMapVariant::Ref(<span class="kw-2">&amp;</span>info.address_map)
@@ -656,7 +661,8 @@
                 VecTrapInformationVariant::Ref(<span class="kw-2">&amp;</span>info.traps)
             }
             CompiledFunctionFrameInfoVariant::Archived(info) =&gt; {
-                VecTrapInformationVariant::Archived(<span class="kw-2">&amp;</span>info.traps)
+                <span class="kw">let </span>traps = rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(<span class="kw-2">&amp;</span>info.traps).unwrap();
+                VecTrapInformationVariant::Owned(traps)
             }
         }
     }
@@ -664,29 +670,29 @@
 
 <span class="doccomment">/// The variant of the trap information which can be an owned type
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>VecTrapInformationVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Ref(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;TrapInformation&gt;),
-    Archived(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedVec&lt;TrapInformation&gt;),
+</span><span class="kw">pub enum </span>VecTrapInformationVariant&lt;<span class="lifetime">'a</span>&gt; {
+    Ref(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;TrapInformation&gt;),
+    Owned(Vec&lt;TrapInformation&gt;),
 }
 
-<span class="kw">impl </span>Deref <span class="kw">for </span>VecTrapInformationVariant&lt;<span class="lifetime">&#39;_</span>&gt; {
+<span class="kw">impl </span>Deref <span class="kw">for </span>VecTrapInformationVariant&lt;<span class="lifetime">'_</span>&gt; {
     <span class="kw">type </span>Target = [TrapInformation];
 
     <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
         <span class="kw">match </span><span class="self">self </span>{
             VecTrapInformationVariant::Ref(traps) =&gt; traps,
-            VecTrapInformationVariant::Archived(traps) =&gt; traps,
+            VecTrapInformationVariant::Owned(traps) =&gt; traps,
         }
     }
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>FunctionAddressMapVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Ref(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionAddressMap),
-    Archived(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedFunctionAddressMap),
+</span><span class="kw">pub enum </span>FunctionAddressMapVariant&lt;<span class="lifetime">'a</span>&gt; {
+    Ref(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionAddressMap),
+    Archived(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedFunctionAddressMap),
 }
 
-<span class="kw">impl </span>FunctionAddressMapVariant&lt;<span class="lifetime">&#39;_</span>&gt; {
+<span class="kw">impl </span>FunctionAddressMapVariant&lt;<span class="lifetime">'_</span>&gt; {
     <span class="kw">pub fn </span>instructions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FunctionAddressMapInstructionVariant {
         <span class="kw">match </span><span class="self">self </span>{
             FunctionAddressMapVariant::Ref(map) =&gt; {
@@ -701,46 +707,50 @@
     <span class="kw">pub fn </span>start_srcloc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SourceLoc {
         <span class="kw">match </span><span class="self">self </span>{
             FunctionAddressMapVariant::Ref(map) =&gt; map.start_srcloc,
-            FunctionAddressMapVariant::Archived(map) =&gt; map.start_srcloc,
+            FunctionAddressMapVariant::Archived(map) =&gt; {
+                rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(<span class="kw-2">&amp;</span>map.start_srcloc).unwrap()
+            }
         }
     }
 
     <span class="kw">pub fn </span>end_srcloc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SourceLoc {
         <span class="kw">match </span><span class="self">self </span>{
             FunctionAddressMapVariant::Ref(map) =&gt; map.end_srcloc,
-            FunctionAddressMapVariant::Archived(map) =&gt; map.end_srcloc,
+            FunctionAddressMapVariant::Archived(map) =&gt; {
+                rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(<span class="kw-2">&amp;</span>map.end_srcloc).unwrap()
+            }
         }
     }
 
     <span class="kw">pub fn </span>body_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="kw">match </span><span class="self">self </span>{
             FunctionAddressMapVariant::Ref(map) =&gt; map.body_offset,
-            FunctionAddressMapVariant::Archived(map) =&gt; map.body_offset <span class="kw">as </span>usize,
+            FunctionAddressMapVariant::Archived(map) =&gt; map.body_offset.to_native() <span class="kw">as </span>usize,
         }
     }
 
     <span class="kw">pub fn </span>body_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="kw">match </span><span class="self">self </span>{
             FunctionAddressMapVariant::Ref(map) =&gt; map.body_len,
-            FunctionAddressMapVariant::Archived(map) =&gt; map.body_len <span class="kw">as </span>usize,
+            FunctionAddressMapVariant::Archived(map) =&gt; map.body_len.to_native() <span class="kw">as </span>usize,
         }
     }
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>FunctionAddressMapInstructionVariant&lt;<span class="lifetime">&#39;a</span>&gt; {
-    Owned(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;InstructionAddressMap&gt;),
-    Archived(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedVec&lt;ArchivedInstructionAddressMap&gt;),
+</span><span class="kw">pub enum </span>FunctionAddressMapInstructionVariant&lt;<span class="lifetime">'a</span>&gt; {
+    Owned(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;InstructionAddressMap&gt;),
+    Archived(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedVec&lt;ArchivedInstructionAddressMap&gt;),
 }
 
-<span class="kw">impl </span>FunctionAddressMapInstructionVariant&lt;<span class="lifetime">&#39;_</span>&gt; {
+<span class="kw">impl </span>FunctionAddressMapInstructionVariant&lt;<span class="lifetime">'_</span>&gt; {
     <span class="kw">pub fn </span>code_offset_by_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key: usize) -&gt; <span class="prelude-ty">Result</span>&lt;usize, usize&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             FunctionAddressMapInstructionVariant::Owned(instructions) =&gt; {
                 instructions.binary_search_by_key(<span class="kw-2">&amp;</span>key, |map| map.code_offset)
             }
             FunctionAddressMapInstructionVariant::Archived(instructions) =&gt; {
-                instructions.binary_search_by_key(<span class="kw-2">&amp;</span>key, |map| map.code_offset <span class="kw">as </span>usize)
+                instructions.binary_search_by_key(<span class="kw-2">&amp;</span>key, |map| map.code_offset.to_native() <span class="kw">as </span>usize)
             }
         }
     }
@@ -751,16 +761,16 @@
             FunctionAddressMapInstructionVariant::Archived(instructions) =&gt; instructions
                 .get(index)
                 .map(|map| InstructionAddressMap {
-                    srcloc: map.srcloc,
-                    code_offset: map.code_offset <span class="kw">as </span>usize,
-                    code_len: map.code_len <span class="kw">as </span>usize,
+                    srcloc: rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(<span class="kw-2">&amp;</span>map.srcloc).unwrap(),
+                    code_offset: map.code_offset.to_native() <span class="kw">as </span>usize,
+                    code_len: map.code_len.to_native() <span class="kw">as </span>usize,
                 })
                 .unwrap(),
         }
     }
 }
 
-<span class="doccomment">/// Registers a new compiled module&#39;s frame information.
+<span class="doccomment">/// Registers a new compiled module's frame information.
 ///
 /// This function will register the `names` information for all of the
 /// compiled functions within `module`. If the `module` has no functions
@@ -771,7 +781,7 @@
     finished_functions: <span class="kw-2">&amp;</span>BoxedSlice&lt;LocalFunctionIndex, FunctionExtent&gt;,
     frame_infos: FrameInfosVariant,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>min = usize::max_value();
+    <span class="kw">let </span><span class="kw-2">mut </span>min = usize::MAX;
     <span class="kw">let </span><span class="kw-2">mut </span>max = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>functions = BTreeMap::new();
     <span class="kw">for </span>(
@@ -783,7 +793,7 @@
     ) <span class="kw">in </span>finished_functions.iter()
     {
         <span class="kw">let </span>start = <span class="kw-2">**</span>start <span class="kw">as </span>usize;
-        <span class="comment">// end is &quot;last byte&quot; of the function code
+        <span class="comment">// end is "last byte" of the function code
         </span><span class="kw">let </span>end = start + len - <span class="number">1</span>;
         min = cmp::min(min, start);
         max = cmp::max(max, end);
@@ -798,7 +808,7 @@
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>info = FRAME_INFO.write().unwrap();
-    <span class="comment">// First up assert that our chunk of jit functions doesn&#39;t collide with
+    <span class="comment">// First up assert that our chunk of jit functions doesn't collide with
     // any other known chunks of jit functions...
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, prev)) = info.ranges.range(max..).next() {
         <span class="macro">assert!</span>(prev.start &gt; max);

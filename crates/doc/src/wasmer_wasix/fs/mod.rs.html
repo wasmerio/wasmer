@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/fs/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/fs/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2268,7 +2268,7 @@
 };
 <span class="kw">use </span>ahash::AHashMap;
 <span class="kw">use </span>futures::{future::BoxFuture, Future, TryStreamExt};
-<span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::{io::AsyncWriteExt, runtime::Handle};
 <span class="kw">use </span>tracing::{debug, trace};
@@ -2314,7 +2314,7 @@
 <span class="kw">pub const </span>FS_ROOT_INO: Inode = Inode(<span class="number">13</span>);
 
 <span class="kw">const </span>STDIN_DEFAULT_RIGHTS: Rights = {
-    <span class="comment">// This might seem a bit overenineered, but it&#39;s the only way I
+    <span class="comment">// This might seem a bit overenineered, but it's the only way I
     // discovered for getting the values in a const environment
     </span>Rights::from_bits_truncate(
         Rights::FD_DATASYNC.bits()
@@ -2326,7 +2326,7 @@
     )
 };
 <span class="kw">const </span>STDOUT_DEFAULT_RIGHTS: Rights = {
-    <span class="comment">// This might seem a bit overenineered, but it&#39;s the only way I
+    <span class="comment">// This might seem a bit overenineered, but it's the only way I
     // discovered for getting the values in a const environment
     </span>Rights::from_bits_truncate(
         Rights::FD_DATASYNC.bits()
@@ -2339,7 +2339,7 @@
 };
 <span class="kw">const </span>STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 
-<span class="doccomment">/// A completely aribtrary &quot;big enough&quot; number used as the upper limit for
+<span class="doccomment">/// A completely aribtrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path
 </span><span class="kw">pub const </span>MAX_SYMLINKS: u32 = <span class="number">128</span>;
 
@@ -2400,13 +2400,13 @@
 }
 
 <span class="attr">#[derive(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">struct </span>WasiInodesProtected {
     lookup: HashMap&lt;Inode, Weak&lt;InodeVal&gt;&gt;,
 }
 
 <span class="attr">#[derive(Clone, Debug)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>WasiInodes {
     protected: Arc&lt;RwLock&lt;WasiInodesProtected&gt;&gt;,
 }
@@ -2543,7 +2543,7 @@
 
 <span class="kw">impl </span>WasiFsRoot {
     <span class="doccomment">/// Merge the contents of a filesystem into this one.
-    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>merge(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         other: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
@@ -2587,7 +2587,7 @@
             WasiFsRoot::Backing(fs) =&gt; fs.remove_dir(path),
         }
     }
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, virtual_fs::Result&lt;()&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, virtual_fs::Result&lt;()&gt;&gt; {
         <span class="kw">let </span>from = from.to_owned();
         <span class="kw">let </span>to = to.to_owned();
         <span class="kw">let </span>this = <span class="self">self</span>.clone();
@@ -2637,22 +2637,22 @@
 
 <span class="doccomment">/// Merge the contents of one filesystem into another.
 ///
-</span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all)]
+</span><span class="attr">#[tracing::instrument(level = <span class="string">"trace"</span>, skip_all)]
 </span><span class="kw">async fn </span>merge_filesystems(
     source: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
     destination: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
-    <span class="macro">tracing::debug!</span>(<span class="string">&quot;Falling back to a recursive copy to merge filesystems&quot;</span>);
+    <span class="macro">tracing::debug!</span>(<span class="string">"Falling back to a recursive copy to merge filesystems"</span>);
     <span class="kw">let </span>files = futures::stream::FuturesUnordered::new();
 
     <span class="kw">let </span><span class="kw-2">mut </span>to_check = VecDeque::new();
-    to_check.push_back(PathBuf::from(<span class="string">&quot;/&quot;</span>));
+    to_check.push_back(PathBuf::from(<span class="string">"/"</span>));
 
     <span class="kw">while let </span><span class="prelude-val">Some</span>(path) = to_check.pop_front() {
         <span class="kw">let </span>metadata = <span class="kw">match </span>source.metadata(<span class="kw-2">&amp;</span>path) {
             <span class="prelude-val">Ok</span>(m) =&gt; m,
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">tracing::debug!</span>(path=%path.display(), source_fs=<span class="question-mark">?</span>source, <span class="question-mark">?</span>err, <span class="string">&quot;failed to get metadata for path while merging file systems&quot;</span>);
+                <span class="macro">tracing::debug!</span>(path=%path.display(), source_fs=<span class="question-mark">?</span>source, <span class="question-mark">?</span>err, <span class="string">"failed to get metadata for path while merging file systems"</span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(err);
             }
         };
@@ -2674,7 +2674,7 @@
             <span class="macro">tracing::debug!</span>(
                 path=%path.display(),
                 <span class="question-mark">?</span>metadata,
-                <span class="string">&quot;Skipping unknown file type while merging&quot;
+                <span class="string">"Skipping unknown file type while merging"
             </span>);
         }
     }
@@ -2700,7 +2700,7 @@
 /// to generated unique file descriptors and update the seed during
 /// journal restoration
 </span><span class="attr">#[derive(Debug, Clone)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>WasiFdSeed {
     next_fd: Arc&lt;AtomicU32&gt;,
 }
@@ -2755,7 +2755,7 @@
 
 <span class="doccomment">/// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>WasiFs {
     <span class="comment">//pub repo: Repo,
     </span><span class="kw">pub </span>preopen_fds: RwLock&lt;Vec&lt;u32&gt;&gt;,
@@ -2767,14 +2767,14 @@
     // Note: BinaryHeap is a max-heap, we need Reverse to make it a min-heap.
     </span><span class="kw">pub </span>freed_fds: Arc&lt;RwLock&lt;BinaryHeap&lt;Reverse&lt;WasiFd&gt;&gt;&gt;&gt;,
     <span class="kw">pub </span>current_dir: Mutex&lt;String&gt;,
-    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default))]
+    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip, default))]
     </span><span class="kw">pub </span>root_fs: WasiFsRoot,
     <span class="kw">pub </span>root_inode: InodeGuard,
     <span class="kw">pub </span>has_unioned: Arc&lt;Mutex&lt;HashSet&lt;PackageId&gt;&gt;&gt;,
 
     <span class="comment">// TODO: remove
     // using an atomic is a hack to enable customization after construction,
-    // but it shouldn&#39;t be necessary
+    // but it shouldn't be necessary
     // It should not be necessary at all.
     </span>is_wasix: AtomicBool,
 
@@ -2825,7 +2825,7 @@
 
     <span class="doccomment">/// We need to clear the freed FD list when the journal is replayed as it
     /// will close lots of file descriptors which will fill the list. We clear
-    /// the list and allocate new FD&#39;s instead.
+    /// the list and allocate new FD's instead.
     ///
     /// This should only be used when the file descriptors are being managed
     /// externally (e.g. journals)
@@ -2892,11 +2892,11 @@
 
     <span class="doccomment">/// Converts a relative path into an absolute path
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>relative_path_to_absolute(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>path: String) -&gt; String {
-        <span class="kw">if </span>path.starts_with(<span class="string">&quot;./&quot;</span>) {
+        <span class="kw">if </span>path.starts_with(<span class="string">"./"</span>) {
             <span class="kw">let </span>current_dir = <span class="self">self</span>.current_dir.lock().unwrap();
-            path = <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, current_dir.as_str(), <span class="kw-2">&amp;</span>path[<span class="number">1</span>..]);
-            <span class="kw">if </span>path.contains(<span class="string">&quot;//&quot;</span>) {
-                path = path.replace(<span class="string">&quot;//&quot;</span>, <span class="string">&quot;/&quot;</span>);
+            path = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, current_dir.as_str(), <span class="kw-2">&amp;</span>path[<span class="number">1</span>..]);
+            <span class="kw">if </span>path.contains(<span class="string">"//"</span>) {
+                path = path.replace(<span class="string">"//"</span>, <span class="string">"/"</span>);
             }
         }
         path
@@ -2909,7 +2909,7 @@
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
         st_ino: Inode,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;Initializing WASI filesystem&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">"Initializing WASI filesystem"</span>);
 
         <span class="kw">let </span>stat = Filestat {
             st_filetype: Filetype::Directory,
@@ -2922,7 +2922,7 @@
         <span class="kw">let </span>root_inode = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: <span class="bool-val">true</span>,
-            name: <span class="string">&quot;/&quot;</span>.into(),
+            name: <span class="string">"/"</span>.into(),
             kind: RwLock::new(root_kind),
         });
 
@@ -2931,7 +2931,7 @@
             fd_map: Arc::new(RwLock::new(AHashMap::new())),
             next_fd: WasiFdSeed::default(),
             freed_fds: Arc::new(RwLock::new(BinaryHeap::new())),
-            current_dir: Mutex::new(<span class="string">&quot;/&quot;</span>.to_string()),
+            current_dir: Mutex::new(<span class="string">"/"</span>.to_string()),
             is_wasix: AtomicBool::new(<span class="bool-val">false</span>),
             root_fs: fs_backing,
             root_inode,
@@ -2948,7 +2948,7 @@
     }
 
     <span class="doccomment">/// This function is like create dir all, but it also opens it.
-    /// Function is unsafe because it may break invariants and hasn&#39;t been tested.
+    /// Function is unsafe because it may break invariants and hasn't been tested.
     /// This is an experimental function and may be removed
     ///
     /// # Safety
@@ -2984,7 +2984,7 @@
 
                     <span class="kw">let </span>kind = Kind::Dir {
                         parent: cur_inode.downgrade(),
-                        path: PathBuf::from(<span class="string">&quot;&quot;</span>),
+                        path: PathBuf::from(<span class="string">""</span>),
                         entries: HashMap::new(),
                     };
 
@@ -3006,7 +3006,7 @@
                             | Kind::Root { <span class="kw-2">ref mut </span>entries } =&gt; {
                                 entries.insert(segment_name, inode.clone());
                             }
-                            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Dir or Root became not Dir or Root&quot;</span>),
+                            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Dir or Root became not Dir or Root"</span>),
                         }
                     }
                     cur_inode = inode;
@@ -3034,7 +3034,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
         base: WasiFd,
-        file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
         open_flags: u16,
         name: String,
         rights: Rights,
@@ -3055,7 +3055,7 @@
 
                 <span class="kw">let </span>kind = Kind::File {
                     handle: <span class="prelude-val">Some</span>(Arc::new(RwLock::new(file))),
-                    path: PathBuf::from(<span class="string">&quot;&quot;</span>),
+                    path: PathBuf::from(<span class="string">""</span>),
                     fd: <span class="prelude-val">Some</span>(<span class="self">self</span>.get_first_free_fd()),
                 };
 
@@ -3073,7 +3073,7 @@
                         | Kind::Root { <span class="kw-2">ref mut </span>entries } =&gt; {
                             entries.insert(name, inode.clone());
                         }
-                        <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Dir or Root became not Dir or Root&quot;</span>),
+                        <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Dir or Root became not Dir or Root"</span>),
                     }
                 }
 
@@ -3091,8 +3091,8 @@
     </span><span class="kw">pub fn </span>swap_file(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         fd: WasiFd,
-        <span class="kw-2">mut </span>file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;, FsError&gt; {
+        <span class="kw-2">mut </span>file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;, FsError&gt; {
         <span class="kw">match </span>fd {
             __WASI_STDIN_FILENO =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>target = WasiInodes::stdin_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.fd_map)<span class="question-mark">?</span>;
@@ -3229,16 +3229,16 @@
         <span class="kw">let </span>n_components = path.components().count();
 
         <span class="comment">// TODO: rights checks
-        </span><span class="lifetime">&#39;path_iter</span>: <span class="kw">for </span>(i, component) <span class="kw">in </span>path.components().enumerate() {
+        </span><span class="lifetime">'path_iter</span>: <span class="kw">for </span>(i, component) <span class="kw">in </span>path.components().enumerate() {
             <span class="comment">// used to terminate symlink resolution properly
             </span><span class="kw">let </span>last_component = i + <span class="number">1 </span>== n_components;
             <span class="comment">// for each component traverse file structure
             // loading inodes as necessary
-            </span><span class="lifetime">&#39;symlink_resolution</span>: <span class="kw">while </span>symlink_count &lt; MAX_SYMLINKS {
+            </span><span class="lifetime">'symlink_resolution</span>: <span class="kw">while </span>symlink_count &lt; MAX_SYMLINKS {
                 <span class="kw">let </span>processing_cur_inode = cur_inode.clone();
                 <span class="kw">let </span><span class="kw-2">mut </span>guard = processing_cur_inode.write();
                 <span class="kw">match </span>guard.deref_mut() {
-                    Kind::Buffer { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;state::get_inode_at_path for buffers&quot;</span>),
+                    Kind::Buffer { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">"state::get_inode_at_path for buffers"</span>),
                     Kind::Dir {
                         <span class="kw-2">ref mut </span>entries,
                         <span class="kw-2">ref </span>path,
@@ -3246,15 +3246,15 @@
                         ..
                     } =&gt; {
                         <span class="kw">match </span>component.as_os_str().to_string_lossy().borrow() {
-                            <span class="string">&quot;..&quot; </span>=&gt; {
+                            <span class="string">".." </span>=&gt; {
                                 <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = parent.upgrade() {
                                     cur_inode = p;
-                                    <span class="kw">continue </span><span class="lifetime">&#39;path_iter</span>;
+                                    <span class="kw">continue </span><span class="lifetime">'path_iter</span>;
                                 } <span class="kw">else </span>{
                                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
                                 }
                             }
-                            <span class="string">&quot;.&quot; </span>=&gt; <span class="kw">continue </span><span class="lifetime">&#39;path_iter</span>,
+                            <span class="string">"." </span>=&gt; <span class="kw">continue </span><span class="lifetime">'path_iter</span>,
                             <span class="kw">_ </span>=&gt; (),
                         }
                         <span class="comment">// used for full resolution of symlinks
@@ -3299,12 +3299,12 @@
                                 should_insert = <span class="bool-val">false</span>;
                                 <span class="kw">let </span>link_value =
                                     <span class="self">self</span>.root_fs.readlink(<span class="kw-2">&amp;</span>file).ok().ok_or(Errno::Noent)<span class="question-mark">?</span>;
-                                <span class="macro">debug!</span>(<span class="string">&quot;attempting to decompose path {:?}&quot;</span>, link_value);
+                                <span class="macro">debug!</span>(<span class="string">"attempting to decompose path {:?}"</span>, link_value);
 
                                 <span class="kw">let </span>(pre_open_dir_fd, relative_path) = <span class="kw">if </span>link_value.is_relative() {
                                     <span class="self">self</span>.path_into_pre_open_and_relative_path(<span class="kw-2">&amp;</span>file)<span class="question-mark">?
                                 </span>} <span class="kw">else </span>{
-                                    <span class="macro">tracing::error!</span>(<span class="string">&quot;Absolute symlinks are not yet supported&quot;</span>);
+                                    <span class="macro">tracing::error!</span>(<span class="string">"Absolute symlinks are not yet supported"</span>);
                                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                                 };
                                 loop_for_symlink = <span class="bool-val">true</span>;
@@ -3323,14 +3323,14 @@
                                     } <span class="kw">else if </span>file_type.is_block_device() {
                                         Filetype::BlockDevice
                                     } <span class="kw">else if </span>file_type.is_fifo() {
-                                        <span class="comment">// FIFO doesn&#39;t seem to fit any other type, so unknown
+                                        <span class="comment">// FIFO doesn't seem to fit any other type, so unknown
                                         </span>Filetype::Unknown
                                     } <span class="kw">else if </span>file_type.is_socket() {
-                                        <span class="comment">// TODO: how do we know if it&#39;s a `SocketStream` or
+                                        <span class="comment">// TODO: how do we know if it's a `SocketStream` or
                                         // a `SocketDgram`?
                                         </span>Filetype::SocketStream
                                     } <span class="kw">else </span>{
-                                        <span class="macro">unimplemented!</span>(<span class="string">&quot;state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket&quot;</span>);
+                                        <span class="macro">unimplemented!</span>(<span class="string">"state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket"</span>);
                                     };
 
                                     <span class="kw">let </span>kind = Kind::File {
@@ -3366,14 +3366,14 @@
                                         );
                                     } <span class="kw">else </span>{
                                         <span class="macro">unreachable!</span>(
-                                            <span class="string">&quot;Attempted to insert special device into non-directory&quot;
+                                            <span class="string">"Attempted to insert special device into non-directory"
                                         </span>);
                                     }
                                     <span class="comment">// perhaps just continue with symlink resolution and return at the end
                                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(new_inode);
                                 }
                                 <span class="attr">#[cfg(not(unix))]
-                                </span><span class="macro">unimplemented!</span>(<span class="string">&quot;state::get_inode_at_path unknown file type: not file, directory, or symlink&quot;</span>);
+                                </span><span class="macro">unimplemented!</span>(<span class="string">"state::get_inode_at_path unknown file type: not file, directory, or symlink"</span>);
                             };
                             drop(guard);
 
@@ -3398,17 +3398,17 @@
                             cur_inode = new_inode;
 
                             <span class="kw">if </span>loop_for_symlink &amp;&amp; follow_symlinks {
-                                <span class="macro">debug!</span>(<span class="string">&quot;Following symlink to {:?}&quot;</span>, cur_inode);
-                                <span class="kw">continue </span><span class="lifetime">&#39;symlink_resolution</span>;
+                                <span class="macro">debug!</span>(<span class="string">"Following symlink to {:?}"</span>, cur_inode);
+                                <span class="kw">continue </span><span class="lifetime">'symlink_resolution</span>;
                             }
                         }
                     }
                     Kind::Root { entries } =&gt; {
                         <span class="kw">match </span>component {
-                            <span class="comment">// the root&#39;s parent is the root
-                            </span>Component::ParentDir =&gt; <span class="kw">continue </span><span class="lifetime">&#39;path_iter</span>,
-                            <span class="comment">// the root&#39;s current directory is the root
-                            </span>Component::CurDir =&gt; <span class="kw">continue </span><span class="lifetime">&#39;path_iter</span>,
+                            <span class="comment">// the root's parent is the root
+                            </span>Component::ParentDir =&gt; <span class="kw">continue </span><span class="lifetime">'path_iter</span>,
+                            <span class="comment">// the root's current directory is the root
+                            </span>Component::CurDir =&gt; <span class="kw">continue </span><span class="lifetime">'path_iter</span>,
                             <span class="kw">_ </span>=&gt; {}
                         }
 
@@ -3416,9 +3416,9 @@
 
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = entries.get(component.as_ref()) {
                             cur_inode = entry.clone();
-                        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(root) = entries.get(<span class="kw-2">&amp;</span><span class="string">&quot;/&quot;</span>.to_string()) {
+                        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(root) = entries.get(<span class="kw-2">&amp;</span><span class="string">"/"</span>.to_string()) {
                             cur_inode = root.clone();
-                            <span class="kw">continue </span><span class="lifetime">&#39;symlink_resolution</span>;
+                            <span class="kw">continue </span><span class="lifetime">'symlink_resolution</span>;
                         } <span class="kw">else </span>{
                             <span class="comment">// Root is not capable of having something other then preopenned folders
                             </span><span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable);
@@ -3442,7 +3442,7 @@
                         <span class="comment">// allocate to reborrow mutabily to recur
                         </span><span class="kw">let </span>new_path = {
                             <span class="comment">/*if let Kind::Root { .. } = self.inodes[base_po_dir].kind {
-                                assert!(false, &quot;symlinks should never be relative to the root&quot;);
+                                assert!(false, "symlinks should never be relative to the root");
                             }*/
                             </span><span class="kw">let </span><span class="kw-2">mut </span>base = path_to_symlink.clone();
                             <span class="comment">// remove the symlink file itself from the path, leaving just the path from the base
@@ -3451,7 +3451,7 @@
                             base.push(relative_path);
                             base.to_string_lossy().to_string()
                         };
-                        <span class="macro">debug!</span>(<span class="string">&quot;Following symlink recursively&quot;</span>);
+                        <span class="macro">debug!</span>(<span class="string">"Following symlink recursively"</span>);
                         drop(guard);
                         <span class="kw">let </span>symlink_inode = <span class="self">self</span>.get_inode_at_path_inner(
                             inodes,
@@ -3461,48 +3461,48 @@
                             follow_symlinks,
                         )<span class="question-mark">?</span>;
                         cur_inode = symlink_inode;
-                        <span class="comment">// if we&#39;re at the very end and we found a file, then we&#39;re done
+                        <span class="comment">// if we're at the very end and we found a file, then we're done
                         // TODO: figure out if this should also happen for directories?
                         </span><span class="kw">let </span>guard = cur_inode.read();
                         <span class="kw">if let </span>Kind::File { .. } = guard.deref() {
                             <span class="comment">// check if on last step
                             </span><span class="kw">if </span>last_component {
-                                <span class="kw">break </span><span class="lifetime">&#39;symlink_resolution</span>;
+                                <span class="kw">break </span><span class="lifetime">'symlink_resolution</span>;
                             }
                         }
-                        <span class="kw">continue </span><span class="lifetime">&#39;symlink_resolution</span>;
+                        <span class="kw">continue </span><span class="lifetime">'symlink_resolution</span>;
                     }
                 }
-                <span class="kw">break </span><span class="lifetime">&#39;symlink_resolution</span>;
+                <span class="kw">break </span><span class="lifetime">'symlink_resolution</span>;
             }
         }
 
         <span class="prelude-val">Ok</span>(cur_inode)
     }
 
-    <span class="doccomment">/// Finds the preopened directory that is the &quot;best match&quot; for the given path and
+    <span class="doccomment">/// Finds the preopened directory that is the "best match" for the given path and
     /// returns a path relative to this preopened directory.
     ///
-    /// The &quot;best match&quot; is the preopened directory that has the longest prefix of the
+    /// The "best match" is the preopened directory that has the longest prefix of the
     /// given path. For example, given preopened directories [`a`, `a/b`, `a/c`] and
     /// the path `a/b/c/file`, we will return the fd corresponding to the preopened
     /// directory, `a/b` and the relative path `c/file`.
     ///
     /// In the case of a tie, the later preopened fd is preferred.
-    </span><span class="kw">fn </span>path_into_pre_open_and_relative_path&lt;<span class="lifetime">&#39;path</span>&gt;(
+    </span><span class="kw">fn </span>path_into_pre_open_and_relative_path&lt;<span class="lifetime">'path</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;path </span>Path,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFd, <span class="kw-2">&amp;</span><span class="lifetime">&#39;path </span>Path), Errno&gt; {
-        <span class="kw">enum </span>BaseFdAndRelPath&lt;<span class="lifetime">&#39;a</span>&gt; {
+        path: <span class="kw-2">&amp;</span><span class="lifetime">'path </span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFd, <span class="kw-2">&amp;</span><span class="lifetime">'path </span>Path), Errno&gt; {
+        <span class="kw">enum </span>BaseFdAndRelPath&lt;<span class="lifetime">'a</span>&gt; {
             <span class="prelude-val">None</span>,
             BestMatch {
                 fd: WasiFd,
-                rel_path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path,
+                rel_path: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path,
                 max_seen: usize,
             },
         }
 
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BaseFdAndRelPath&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; BaseFdAndRelPath&lt;<span class="lifetime">'a</span>&gt; {
             <span class="kw">const fn </span>max_seen(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
                 <span class="kw">match </span><span class="self">self </span>{
                     <span class="self">Self</span>::None =&gt; <span class="number">0</span>,
@@ -3518,8 +3518,8 @@
             <span class="kw">let </span>guard = po_inode.read();
             <span class="kw">let </span>po_path = <span class="kw">match </span>guard.deref() {
                 Kind::Dir { path, .. } =&gt; <span class="kw-2">&amp;**</span>path,
-                Kind::Root { .. } =&gt; Path::new(<span class="string">&quot;/&quot;</span>),
-                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Preopened FD that&#39;s not a directory or the root&quot;</span>),
+                Kind::Root { .. } =&gt; Path::new(<span class="string">"/"</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Preopened FD that's not a directory or the root"</span>),
             };
             <span class="comment">// stem path based on it
             </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(stripped_path) = path.strip_prefix(po_path) {
@@ -3537,13 +3537,13 @@
             }
         }
         <span class="kw">match </span>res {
-            <span class="comment">// this error may not make sense depending on where it&#39;s called
+            <span class="comment">// this error may not make sense depending on where it's called
             </span>BaseFdAndRelPath::None =&gt; <span class="prelude-val">Err</span>(Errno::Inval),
             BaseFdAndRelPath::BestMatch { fd, rel_path, .. } =&gt; <span class="prelude-val">Ok</span>((fd, rel_path)),
         }
     }
 
-    <span class="doccomment">/// finds the number of directories between the fd and the inode if they&#39;re connected
+    <span class="doccomment">/// finds the number of directories between the fd and the inode if they're connected
     /// expects inode to point to a directory
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_depth_from_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd, inode: InodeGuard) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>counter = <span class="number">0</span>;
@@ -3572,7 +3572,7 @@
     <span class="doccomment">/// gets a host file from a base directory and a path
     /// this function ensures the fs remains sandboxed
     </span><span class="comment">// NOTE: follow symlinks is super weird right now
-    // even if it&#39;s false, it still follows symlinks, just not the last
+    // even if it's false, it still follows symlinks, just not the last
     // symlink so
     // This will be resolved when we have tests asserting the correct behavior
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_inode_at_path(
@@ -3584,7 +3584,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeGuard, Errno&gt; {
         <span class="kw">let </span>base_inode = <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?</span>;
         <span class="kw">let </span>start_inode =
-            <span class="kw">if </span>!base_inode.deref().name.starts_with(<span class="string">&#39;/&#39;</span>) &amp;&amp; <span class="self">self</span>.is_wasix.load(Ordering::Acquire) {
+            <span class="kw">if </span>!base_inode.deref().name.starts_with(<span class="string">'/'</span>) &amp;&amp; <span class="self">self</span>.is_wasix.load(Ordering::Acquire) {
                 <span class="kw">let </span>(cur_inode, <span class="kw">_</span>) = <span class="self">self</span>.get_current_dir(inodes, base)<span class="question-mark">?</span>;
                 cur_inode
             } <span class="kw">else </span>{
@@ -3624,7 +3624,7 @@
             .unwrap()
             .get(<span class="kw-2">&amp;</span>fd)
             .ok_or(Errno::Badf)
-            .map(|a| a.clone());
+            .cloned();
 
         <span class="kw">if </span>ret.is_err() &amp;&amp; fd == VIRTUAL_ROOT_FD {
             <span class="prelude-val">Ok</span>(Fd {
@@ -3728,7 +3728,7 @@
 
     <span class="kw">pub fn </span>prestat_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;Prestat, Errno&gt; {
         <span class="kw">let </span>inode = <span class="self">self</span>.get_fd_inode(fd)<span class="question-mark">?</span>;
-        <span class="comment">//trace!(&quot;in prestat_fd {:?}&quot;, self.get_fd(fd)?);
+        <span class="comment">//trace!("in prestat_fd {:?}", self.get_fd(fd)?);
 
         </span><span class="kw">if </span>inode.is_preopened {
             <span class="prelude-val">Ok</span>(<span class="self">self</span>.prestat_fd_inner(inode.deref()))
@@ -3789,7 +3789,7 @@
                 }
                 <span class="kw">impl </span>Future <span class="kw">for </span>FlushPoller {
                     <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Errno&gt;;
-                    <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                    <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                         <span class="kw">let </span><span class="kw-2">mut </span>file = <span class="self">self</span>.file.write().unwrap();
                         Pin::new(file.as_mut())
                             .poll_flush(cx)
@@ -3820,7 +3820,7 @@
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
         kind: Kind,
         is_preopened: bool,
-        name: Cow&lt;<span class="lifetime">&#39;static</span>, str&gt;,
+        name: Cow&lt;<span class="lifetime">'static</span>, str&gt;,
     ) -&gt; InodeGuard {
         <span class="kw">let </span>stat = Filestat::default();
         <span class="self">self</span>.create_inode_with_stat(inodes, kind, is_preopened, name, stat)
@@ -3832,7 +3832,7 @@
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
         kind: Kind,
         is_preopened: bool,
-        name: Cow&lt;<span class="lifetime">&#39;static</span>, str&gt;,
+        name: Cow&lt;<span class="lifetime">'static</span>, str&gt;,
         <span class="kw-2">mut </span>stat: Filestat,
     ) -&gt; InodeGuard {
         <span class="kw">match </span><span class="kw-2">&amp;</span>kind {
@@ -3959,7 +3959,7 @@
         <span class="prelude-val">Ok</span>(idx)
     }
 
-    <span class="doccomment">/// Low level function to remove an inode, that is it deletes the WASI FS&#39;s
+    <span class="doccomment">/// Low level function to remove an inode, that is it deletes the WASI FS's
     /// knowledge of a file.
     ///
     /// This function returns the inode if it existed and was removed.
@@ -3976,7 +3976,7 @@
         <span class="self">self</span>.create_std_dev_inner(
             inodes,
             Box::&lt;Stdout&gt;::default(),
-            <span class="string">&quot;stdout&quot;</span>,
+            <span class="string">"stdout"</span>,
             __WASI_STDOUT_FILENO,
             STDOUT_DEFAULT_RIGHTS,
             Fdflags::APPEND,
@@ -3988,7 +3988,7 @@
         <span class="self">self</span>.create_std_dev_inner(
             inodes,
             Box::&lt;Stdin&gt;::default(),
-            <span class="string">&quot;stdin&quot;</span>,
+            <span class="string">"stdin"</span>,
             __WASI_STDIN_FILENO,
             STDIN_DEFAULT_RIGHTS,
             Fdflags::empty(),
@@ -4000,7 +4000,7 @@
         <span class="self">self</span>.create_std_dev_inner(
             inodes,
             Box::&lt;Stderr&gt;::default(),
-            <span class="string">&quot;stderr&quot;</span>,
+            <span class="string">"stderr"</span>,
             __WASI_STDERR_FILENO,
             STDERR_DEFAULT_RIGHTS,
             Fdflags::APPEND,
@@ -4038,7 +4038,7 @@
                 Fd::READ,
                 <span class="self">self</span>.root_inode.clone(),
             )
-            .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not create root fd: {}&quot;</span>, e))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not create root fd: {}"</span>, e))<span class="question-mark">?</span>;
         <span class="self">self</span>.preopen_fds.write().unwrap().push(fd);
         <span class="prelude-val">Ok</span>(())
     }
@@ -4071,21 +4071,21 @@
                 </span>.create_inode(inodes, kind, <span class="bool-val">true</span>, preopen_name.clone())
                 .map_err(|e| {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;Failed to create inode for preopened dir (name `{}`): WASI error code: {}&quot;</span>,
+                        <span class="string">"Failed to create inode for preopened dir (name `{}`): WASI error code: {}"</span>,
                         preopen_name, e
                     )
                 })<span class="question-mark">?</span>;
             <span class="kw">let </span>fd_flags = Fd::READ;
             <span class="kw">let </span>fd = <span class="self">self
                 </span>.create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not open fd for file {:?}: {}&quot;</span>, preopen_name, e))<span class="question-mark">?</span>;
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not open fd for file {:?}: {}"</span>, preopen_name, e))<span class="question-mark">?</span>;
             {
                 <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.root_inode.write();
                 <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
                     <span class="kw">let </span>existing_entry = entries.insert(preopen_name.clone(), inode);
                     <span class="kw">if </span>existing_entry.is_some() &amp;&amp; !ignore_duplicates {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                            <span class="string">&quot;Found duplicate entry for alias `{}`&quot;</span>,
+                            <span class="string">"Found duplicate entry for alias `{}`"</span>,
                             preopen_name
                         ));
                     }
@@ -4103,14 +4103,14 @@
         } <span class="kw">in </span><span class="self">self</span>.init_preopens.iter()
         {
             <span class="macro">debug!</span>(
-                <span class="string">&quot;Attempting to preopen {} with alias {:?}&quot;</span>,
+                <span class="string">"Attempting to preopen {} with alias {:?}"</span>,
                 <span class="kw-2">&amp;</span>path.to_string_lossy(),
                 <span class="kw-2">&amp;</span>alias
             );
             <span class="kw">let </span>cur_dir_metadata = <span class="self">self
                 </span>.root_fs
                 .metadata(path)
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not get metadata for file {:?}: {}&quot;</span>, path, e))<span class="question-mark">?</span>;
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not get metadata for file {:?}: {}"</span>, path, e))<span class="question-mark">?</span>;
 
             <span class="kw">let </span>kind = <span class="kw">if </span>cur_dir_metadata.is_dir() {
                 Kind::Dir {
@@ -4120,13 +4120,13 @@
                 }
             } <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;WASI only supports pre-opened directories right now; found \&quot;{}\&quot;&quot;</span>,
+                    <span class="string">"WASI only supports pre-opened directories right now; found \"{}\""</span>,
                     <span class="kw-2">&amp;</span>path.to_string_lossy()
                 ));
             };
 
             <span class="kw">let </span>rights = {
-                <span class="comment">// TODO: review tell&#39; and fd_readwrite
+                <span class="comment">// TODO: review tell' and fd_readwrite
                 </span><span class="kw">let </span><span class="kw-2">mut </span>rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
                 <span class="kw">if </span><span class="kw-2">*</span>read {
                     rights |= Rights::FD_READ
@@ -4175,7 +4175,7 @@
             }
             .map_err(|e| {
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;Failed to create inode for preopened dir: WASI error code: {}&quot;</span>,
+                    <span class="string">"Failed to create inode for preopened dir: WASI error code: {}"</span>,
                     e
                 )
             })<span class="question-mark">?</span>;
@@ -4195,7 +4195,7 @@
             };
             <span class="kw">let </span>fd = <span class="self">self
                 </span>.create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not open fd for file {:?}: {}&quot;</span>, path, e))<span class="question-mark">?</span>;
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not open fd for file {:?}: {}"</span>, path, e))<span class="question-mark">?</span>;
             {
                 <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.root_inode.write();
                 <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
@@ -4206,7 +4206,7 @@
                     };
                     <span class="kw">let </span>existing_entry = entries.insert(key.clone(), inode);
                     <span class="kw">if </span>existing_entry.is_some() &amp;&amp; !ignore_duplicates {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Found duplicate entry for alias `{}`&quot;</span>, key));
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Found duplicate entry for alias `{}`"</span>, key));
                     }
                 }
             }
@@ -4220,8 +4220,8 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_std_dev_inner(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
-        handle: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-        name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+        handle: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+        name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
         raw_fd: WasiFd,
         rights: Rights,
         fd_flags: Fdflags,
@@ -4236,7 +4236,7 @@
             <span class="kw">let </span>kind = Kind::File {
                 fd: <span class="prelude-val">Some</span>(raw_fd),
                 handle: <span class="prelude-val">Some</span>(Arc::new(RwLock::new(handle))),
-                path: <span class="string">&quot;&quot;</span>.into(),
+                path: <span class="string">""</span>.into(),
             };
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
@@ -4251,7 +4251,7 @@
                 rights,
                 rights_inheriting: Rights::empty(),
                 flags: fd_flags,
-                <span class="comment">// since we&#39;re not calling open on this, we don&#39;t need open flags
+                <span class="comment">// since we're not calling open on this, we don't need open flags
                 </span>open_flags: <span class="number">0</span>,
                 offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                 inode,
@@ -4307,8 +4307,8 @@
                         </span>real_path.push(path_to_symlink);
                         <span class="self">self</span>.root_fs.symlink_metadata(<span class="kw-2">&amp;</span>real_path).map_err(fs_error_into_wasi_err)<span class="question-mark">?
                     </span>}
-                    <span class="comment">// if this triggers, there&#39;s a bug in the symlink code
-                    </span><span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Symlink pointing to something that&#39;s not a directory as its base preopened directory&quot;</span>),
+                    <span class="comment">// if this triggers, there's a bug in the symlink code
+                    </span><span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Symlink pointing to something that's not a directory as its base preopened directory"</span>),
                 }
             }
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Io),
@@ -4336,13 +4336,13 @@
                 <span class="kw">let </span>inode = fd_ref.inode.ino().as_u64();
                 <span class="kw">let </span>ref_cnt = fd_ref.inode.ref_cnt();
                 <span class="kw">if </span>ref_cnt == <span class="number">1 </span>{
-                    <span class="macro">trace!</span>(%fd, %inode, %ref_cnt, <span class="string">&quot;closing file descriptor&quot;</span>);
+                    <span class="macro">trace!</span>(%fd, %inode, %ref_cnt, <span class="string">"closing file descriptor"</span>);
                 } <span class="kw">else </span>{
-                    <span class="macro">trace!</span>(%fd, %inode, %ref_cnt, <span class="string">&quot;weakening file descriptor&quot;</span>);
+                    <span class="macro">trace!</span>(%fd, %inode, %ref_cnt, <span class="string">"weakening file descriptor"</span>);
                 }
             }
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">trace!</span>(%fd, <span class="string">&quot;closing file descriptor failed - {}&quot;</span>, err);
+                <span class="macro">trace!</span>(%fd, <span class="string">"closing file descriptor failed - {}"</span>, err);
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -4350,23 +4350,23 @@
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>WasiFs {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(guard) = <span class="self">self</span>.current_dir.try_lock() {
-            <span class="macro">write!</span>(f, <span class="string">&quot;current_dir={} &quot;</span>, guard.as_str())<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(f, <span class="string">"current_dir={} "</span>, guard.as_str())<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
-            <span class="macro">write!</span>(f, <span class="string">&quot;current_dir=(locked) &quot;</span>)<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(f, <span class="string">"current_dir=(locked) "</span>)<span class="question-mark">?</span>;
         }
-        <span class="macro">write!</span>(f, <span class="string">&quot;next_fd={} &quot;</span>, <span class="self">self</span>.next_fd.cur_val())<span class="question-mark">?</span>;
-        <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.root_fs)
+        <span class="macro">write!</span>(f, <span class="string">"next_fd={} "</span>, <span class="self">self</span>.next_fd.cur_val())<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.root_fs)
     }
 }
 
 <span class="doccomment">/// Returns the default filesystem backing
 </span><span class="kw">pub fn </span>default_fs_backing() -&gt; Box&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt; {
-    <span class="macro">cfg_if::cfg_if! </span>{
-        <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)] </span>{
-            Box::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), <span class="string">&quot;/&quot;</span>).unwrap())
-        } <span class="kw">else if </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;host-fs&quot;</span>))] </span>{
+    <span class="macro">cfg_if::cfg_if!</span> {
+        <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">"host-fs"</span>)] </span>{
+            Box::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), <span class="string">"/"</span>).unwrap())
+        } <span class="kw">else if </span><span class="attr">#[cfg(not(feature = <span class="string">"host-fs"</span>))] </span>{
             Box::&lt;virtual_fs::mem_fs::FileSystem&gt;::default()
         } <span class="kw">else </span>{
             Box::&lt;FallbackFileSystem&gt;::default()
@@ -4379,7 +4379,7 @@
 
 <span class="kw">impl </span>FallbackFileSystem {
     <span class="kw">fn </span>fail() -&gt; ! {
-        <span class="macro">panic!</span>(<span class="string">&quot;No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiEnvBuilder::set_fs`&quot;</span>);
+        <span class="macro">panic!</span>(<span class="string">"No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiEnvBuilder::set_fs`"</span>);
     }
 }
 
@@ -4396,7 +4396,7 @@
     <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
         <span class="self">Self</span>::fail();
     }
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, _from: <span class="kw-2">&amp;</span>Path, _to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, _from: <span class="kw-2">&amp;</span>Path, _to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
         <span class="self">Self</span>::fail();
     }
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;virtual_fs::Metadata, FsError&gt; {

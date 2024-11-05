@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/config.rs`."><title>config.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -218,23 +218,6 @@
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::CraneliftCompiler;
 <span class="kw">use </span>cranelift_codegen::isa::{lookup, TargetIsa};
 <span class="kw">use </span>cranelift_codegen::settings::{<span class="self">self</span>, Configurable};
@@ -303,55 +286,55 @@
     </span>}
 
     <span class="doccomment">/// Generates the ISA for the provided target
-    </span><span class="kw">pub fn </span>isa(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; CodegenResult&lt;Box&lt;<span class="kw">dyn </span>TargetIsa&gt;&gt; {
+    </span><span class="kw">pub fn </span>isa(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; CodegenResult&lt;Arc&lt;<span class="kw">dyn </span>TargetIsa&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>builder =
-            lookup(target.triple().clone()).expect(<span class="string">&quot;construct Cranelift ISA for triple&quot;</span>);
+            lookup(target.triple().clone()).expect(<span class="string">"construct Cranelift ISA for triple"</span>);
         <span class="comment">// Cpu Features
         </span><span class="kw">let </span>cpu_features = target.cpu_features();
         <span class="kw">if </span>target.triple().architecture == Architecture::X86_64
             &amp;&amp; !cpu_features.contains(CpuFeature::SSE2)
         {
-            <span class="macro">panic!</span>(<span class="string">&quot;x86 support requires SSE2&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">"x86 support requires SSE2"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::SSE3) {
-            builder.enable(<span class="string">&quot;has_sse3&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_sse3"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::SSSE3) {
-            builder.enable(<span class="string">&quot;has_ssse3&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_ssse3"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::SSE41) {
-            builder.enable(<span class="string">&quot;has_sse41&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_sse41"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::SSE42) {
-            builder.enable(<span class="string">&quot;has_sse42&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_sse42"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::POPCNT) {
-            builder.enable(<span class="string">&quot;has_popcnt&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_popcnt"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX) {
-            builder.enable(<span class="string">&quot;has_avx&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_avx"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::BMI1) {
-            builder.enable(<span class="string">&quot;has_bmi1&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_bmi1"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::BMI2) {
-            builder.enable(<span class="string">&quot;has_bmi2&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_bmi2"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX2) {
-            builder.enable(<span class="string">&quot;has_avx2&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_avx2"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX512DQ) {
             builder
-                .enable(<span class="string">&quot;has_avx512dq&quot;</span>)
-                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+                .enable(<span class="string">"has_avx512dq"</span>)
+                .expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX512VL) {
             builder
-                .enable(<span class="string">&quot;has_avx512vl&quot;</span>)
-                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+                .enable(<span class="string">"has_avx512vl"</span>)
+                .expect(<span class="string">"should be valid flag"</span>);
         }
         <span class="kw">if </span>cpu_features.contains(CpuFeature::LZCNT) {
-            builder.enable(<span class="string">&quot;has_lzcnt&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            builder.enable(<span class="string">"has_lzcnt"</span>).expect(<span class="string">"should be valid flag"</span>);
         }
 
         builder.finish(<span class="self">self</span>.flags(target))
@@ -359,79 +342,62 @@
 
     <span class="doccomment">/// Generates the flags for the compiler
     </span><span class="kw">pub fn </span>flags(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; settings::Flags {
-        <span class="kw">let </span>is_riscv = <span class="macro">matches!</span>(target.triple().architecture, Architecture::Riscv64(<span class="kw">_</span>));
         <span class="kw">let </span><span class="kw-2">mut </span>flags = settings::builder();
 
         <span class="comment">// Enable probestack
         </span>flags
-            .enable(<span class="string">&quot;enable_probestack&quot;</span>)
-            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            .enable(<span class="string">"enable_probestack"</span>)
+            .expect(<span class="string">"should be valid flag"</span>);
 
         <span class="comment">// Only inline probestack is supported on AArch64
         </span><span class="kw">if </span><span class="macro">matches!</span>(target.triple().architecture, Architecture::Aarch64(<span class="kw">_</span>)) {
             flags
-                .set(<span class="string">&quot;probestack_strategy&quot;</span>, <span class="string">&quot;inline&quot;</span>)
-                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+                .set(<span class="string">"probestack_strategy"</span>, <span class="string">"inline"</span>)
+                .expect(<span class="string">"should be valid flag"</span>);
         }
 
-        <span class="comment">// There are two possible traps for division, and this way
-        // we get the proper one if code traps.
-        </span>flags
-            .enable(<span class="string">&quot;avoid_div_traps&quot;</span>)
-            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
-
         <span class="kw">if </span><span class="self">self</span>.enable_pic {
-            flags.enable(<span class="string">&quot;is_pic&quot;</span>).expect(<span class="string">&quot;should be a valid flag&quot;</span>);
+            flags.enable(<span class="string">"is_pic"</span>).expect(<span class="string">"should be a valid flag"</span>);
         }
 
         <span class="comment">// We set up libcall trampolines in engine-universal.
         // These trampolines are always reachable through short jumps.
         </span>flags
-            .enable(<span class="string">&quot;use_colocated_libcalls&quot;</span>)
-            .expect(<span class="string">&quot;should be a valid flag&quot;</span>);
+            .enable(<span class="string">"use_colocated_libcalls"</span>)
+            .expect(<span class="string">"should be a valid flag"</span>);
 
-        <span class="comment">// Invert cranelift&#39;s default-on verification to instead default off.
+        <span class="comment">// Invert cranelift's default-on verification to instead default off.
         </span><span class="kw">let </span>enable_verifier = <span class="kw">if </span><span class="self">self</span>.enable_verifier {
-            <span class="string">&quot;true&quot;
+            <span class="string">"true"
         </span>} <span class="kw">else </span>{
-            <span class="string">&quot;false&quot;
+            <span class="string">"false"
         </span>};
         flags
-            .set(<span class="string">&quot;enable_verifier&quot;</span>, enable_verifier)
-            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            .set(<span class="string">"enable_verifier"</span>, enable_verifier)
+            .expect(<span class="string">"should be valid flag"</span>);
         flags
-            .set(<span class="string">&quot;enable_safepoints&quot;</span>, <span class="string">&quot;true&quot;</span>)
-            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            .set(<span class="string">"enable_safepoints"</span>, <span class="string">"true"</span>)
+            .expect(<span class="string">"should be valid flag"</span>);
 
         flags
             .set(
-                <span class="string">&quot;opt_level&quot;</span>,
+                <span class="string">"opt_level"</span>,
                 <span class="kw">match </span><span class="self">self</span>.opt_level {
-                    CraneliftOptLevel::None =&gt; <span class="string">&quot;none&quot;</span>,
-                    CraneliftOptLevel::Speed =&gt; <span class="string">&quot;speed&quot;</span>,
-                    CraneliftOptLevel::SpeedAndSize =&gt; <span class="string">&quot;speed_and_size&quot;</span>,
+                    CraneliftOptLevel::None =&gt; <span class="string">"none"</span>,
+                    CraneliftOptLevel::Speed =&gt; <span class="string">"speed"</span>,
+                    CraneliftOptLevel::SpeedAndSize =&gt; <span class="string">"speed_and_size"</span>,
                 },
             )
-            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
-
-        <span class="kw">if </span>is_riscv {
-            flags
-                .set(<span class="string">&quot;enable_simd&quot;</span>, <span class="string">&quot;false&quot;</span>)
-                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
-        } <span class="kw">else </span>{
-            flags
-                .set(<span class="string">&quot;enable_simd&quot;</span>, <span class="string">&quot;true&quot;</span>)
-                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
-        }
+            .expect(<span class="string">"should be valid flag"</span>);
 
         <span class="kw">let </span>enable_nan_canonicalization = <span class="kw">if </span><span class="self">self</span>.enable_nan_canonicalization {
-            <span class="string">&quot;true&quot;
+            <span class="string">"true"
         </span>} <span class="kw">else </span>{
-            <span class="string">&quot;false&quot;
+            <span class="string">"false"
         </span>};
         flags
-            .set(<span class="string">&quot;enable_nan_canonicalization&quot;</span>, enable_nan_canonicalization)
-            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+            .set(<span class="string">"enable_nan_canonicalization"</span>, enable_nan_canonicalization)
+            .expect(<span class="string">"should be valid flag"</span>);
 
         settings::Flags::new(flags)
     }

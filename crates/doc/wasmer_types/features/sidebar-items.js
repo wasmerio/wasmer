@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Features","FeaturesResolver"]};
+window.SIDEBAR_ITEMS = {"struct":["ArchivedFeatures","Features","FeaturesResolver"]};

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/state/func_env.rs`."><title>func_env.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/state/func_env.rs`."><title>func_env.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -393,7 +393,7 @@
 
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span><span class="kw">crate</span>::os::task::thread::RewindResultType;
-<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::syscalls::restore_snapshot;
 <span class="kw">use crate</span>::{
     import_object_for_all_wasi_versions,
@@ -442,23 +442,23 @@
         <span class="kw">let </span>(<span class="kw-2">mut </span>import_object, init) =
             import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>ctx.env);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory.clone() {
-            import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, memory);
+            import_object.define(<span class="string">"env"</span>, <span class="string">"memory"</span>, memory);
         }
 
         <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object).map_err(|err| {
-            <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to create instance - {}&quot;</span>, err);
+            <span class="macro">tracing::warn!</span>(<span class="string">"failed to create instance - {}"</span>, err);
             WasiThreadError::InstanceCreateFailed(Box::new(err))
         })<span class="question-mark">?</span>;
 
         init(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>store).map_err(|err| {
-            <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to init instance - {}&quot;</span>, err);
+            <span class="macro">tracing::warn!</span>(<span class="string">"failed to init instance - {}"</span>, err);
             WasiThreadError::InitFailed(Arc::new(err))
         })<span class="question-mark">?</span>;
 
         <span class="comment">// Initialize the WASI environment
         </span>ctx.initialize_with_memory(<span class="kw-2">&amp;mut </span>store, instance, memory, update_layout)
             .map_err(|err| {
-                <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed initialize environment - {}&quot;</span>, err);
+                <span class="macro">tracing::warn!</span>(<span class="string">"failed initialize environment - {}"</span>, err);
                 WasiThreadError::ExportError(err)
             })<span class="question-mark">?</span>;
 
@@ -485,12 +485,12 @@
     }
 
     <span class="doccomment">/// Gets a reference to the WasiEnvironment
-    </span><span class="kw">pub fn </span>data&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>WasiEnv {
+    </span><span class="kw">pub fn </span>data&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasiEnv {
         <span class="self">self</span>.env.as_ref(store)
     }
 
     <span class="doccomment">/// Gets a mutable- reference to the host state in this context.
-    </span><span class="kw">pub fn </span>data_mut&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>WasiEnv {
+    </span><span class="kw">pub fn </span>data_mut&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>WasiEnv {
         <span class="self">self</span>.env.as_mut(store)
     }
 
@@ -535,7 +535,7 @@
             (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(memory)) =&gt; memory,
             (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
-                    <span class="string">&quot;No imported or exported memory found&quot;</span>.to_string(),
+                    <span class="string">"No imported or exported memory found"</span>.to_string(),
                 ))
             }
         };
@@ -573,7 +573,7 @@
 
             <span class="kw">if </span>stack_base == <span class="number">0 </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
-                    <span class="string">&quot;stack_high or stack_pointer is not set to the upper stack range&quot;</span>.to_string(),
+                    <span class="string">"stack_high or stack_pointer is not set to the upper stack range"</span>.to_string(),
                 ));
             }
 
@@ -589,8 +589,8 @@
                     wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
                     <span class="kw">_ </span>=&gt; <span class="number">0</span>,
                 };
-                <span class="comment">// It&#39;s possible for the data section to be above the stack, we check for that here and
-                // if it is, we&#39;ll assume the stack starts at address 0
+                <span class="comment">// It's possible for the data section to be above the stack, we check for that here and
+                // if it is, we'll assume the stack starts at address 0
                 </span><span class="kw">if </span>data_end &gt;= stack_base {
                     <span class="number">0
                 </span>} <span class="kw">else </span>{
@@ -601,7 +601,7 @@
                 // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
                 // and can be exported if `__stack_low` is not available.
                 </span><span class="kw">if </span><span class="self">self</span>.data(store).will_use_asyncify() {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;Missing both __stack_low and __data_end exports, unwinding may cause memory corruption&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(<span class="string">"Missing both __stack_low and __data_end exports, unwinding may cause memory corruption"</span>);
                 }
                 <span class="number">0
             </span>};
@@ -609,8 +609,8 @@
             <span class="kw">if </span>stack_lower &gt;= stack_base {
                 <span class="kw">if </span><span class="self">self</span>.data(store).will_use_asyncify() {
                     <span class="macro">tracing::warn!</span>(
-                        <span class="string">&quot;Detected lower end of stack to be above higher end, ignoring stack_lower; \
-                        unwinding may cause memory corruption&quot;
+                        <span class="string">"Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                        unwinding may cause memory corruption"
                     </span>);
                 }
                 stack_lower = <span class="number">0</span>;
@@ -637,7 +637,7 @@
                     .for_each(|t| t.set_memory_layout(layout.clone()))
             }
         }
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;initializing with layout {:?}&quot;</span>, <span class="self">self</span>.data(store).layout);
+        <span class="macro">tracing::trace!</span>(<span class="string">"initializing with layout {:?}"</span>, <span class="self">self</span>.data(store).layout);
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -669,15 +669,15 @@
     /// This function should only be called from within a syscall
     /// as it can potentially execute local thread variable cleanup
     /// code
-    </span><span class="kw">pub fn </span>on_exit(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, exit_code: <span class="prelude-ty">Option</span>&lt;ExitCode&gt;) {
+    </span><span class="kw">pub fn </span>on_exit(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, process_exit_code: <span class="prelude-ty">Option</span>&lt;ExitCode&gt;) {
         <span class="macro">trace!</span>(
-            <span class="string">&quot;wasi[{}:{}]::on_exit&quot;</span>,
+            <span class="string">"wasi[{}:{}]::on_exit"</span>,
             <span class="self">self</span>.data(store).pid(),
             <span class="self">self</span>.data(store).tid()
         );
 
         <span class="comment">// Cleans up all the open files (if this is the main thread)
-        </span><span class="self">self</span>.data(store).blocking_on_exit(exit_code);
+        </span><span class="self">self</span>.data(store).blocking_on_exit(process_exit_code);
     }
 
     <span class="doccomment">/// Bootstraps this main thread and context with any journals that
@@ -693,20 +693,20 @@
     #[tracing::instrument(skip_all)]
     </span><span class="kw">pub unsafe fn </span>bootstrap(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut </span>store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="kw">impl </span>AsStoreMut,
+        <span class="kw-2">mut </span>store: <span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span><span class="kw">impl </span>AsStoreMut,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;RewindStateOption, WasiRuntimeError&gt; {
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;bootstrap start&quot;</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"bootstrap start"</span>);
 
         <span class="attr">#[allow(unused_mut)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>rewind_state = <span class="prelude-val">None</span>;
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
             <span class="comment">// If there are journals we need to restore then do so (this will
             // prevent the initialization function from running
             </span><span class="kw">let </span>restore_journals = <span class="self">self</span>.data(<span class="kw-2">&amp;</span>store).runtime.journals().clone();
             <span class="kw">if </span>!restore_journals.is_empty() {
-                <span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying journal=true&quot;</span>);
+                <span class="macro">tracing::trace!</span>(<span class="string">"replaying journal=true"</span>);
                 <span class="self">self</span>.data_mut(<span class="kw-2">&amp;mut </span>store).replaying_journal = <span class="bool-val">true</span>;
 
                 <span class="kw">for </span>journal <span class="kw">in </span>restore_journals {
@@ -714,7 +714,7 @@
                     <span class="kw">let </span>rewind = <span class="kw">match </span>restore_snapshot(ctx, journal, <span class="bool-val">true</span>) {
                         <span class="prelude-val">Ok</span>(r) =&gt; r,
                         <span class="prelude-val">Err</span>(err) =&gt; {
-                            <span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying journal=false (err={:?})&quot;</span>, err);
+                            <span class="macro">tracing::trace!</span>(<span class="string">"replaying journal=false (err={:?})"</span>, err);
                             <span class="self">self</span>.data_mut(<span class="kw-2">&amp;mut </span>store).replaying_journal = <span class="bool-val">false</span>;
                             <span class="kw">return </span><span class="prelude-val">Err</span>(err);
                         }
@@ -722,7 +722,7 @@
                     rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
-                <span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying journal=false&quot;</span>);
+                <span class="macro">tracing::trace!</span>(<span class="string">"replaying journal=false"</span>);
                 <span class="self">self</span>.data_mut(<span class="kw-2">&amp;mut </span>store).replaying_journal = <span class="bool-val">false</span>;
             }
 
@@ -743,7 +743,7 @@
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(<span class="macro">format!</span>(
-                        <span class="string">&quot;journal failed to save the module initialization event - {}&quot;</span>,
+                        <span class="string">"journal failed to save the module initialization event - {}"</span>,
                         err
                     )))
                 })<span class="question-mark">?</span>;
@@ -756,14 +756,14 @@
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(<span class="macro">format!</span>(
-                        <span class="string">&quot;journal failed to save clear ethereal event - {}&quot;</span>,
+                        <span class="string">"journal failed to save clear ethereal event - {}"</span>,
                         err
                     )))
                 })<span class="question-mark">?</span>;
             }
         }
 
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;bootstrap complete&quot;</span>);
+        <span class="macro">tracing::debug!</span>(<span class="string">"bootstrap complete"</span>);
 
         <span class="prelude-val">Ok</span>(rewind_state)
     }

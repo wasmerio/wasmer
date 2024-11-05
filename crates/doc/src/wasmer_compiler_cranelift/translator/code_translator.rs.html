@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/code_translator.rs`."><title>code_translator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/code_translator.rs`."><title>code_translator.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3106,6 +3106,314 @@
 <a href="#3106" id="3106">3106</a>
 <a href="#3107" id="3107">3107</a>
 <a href="#3108" id="3108">3108</a>
+<a href="#3109" id="3109">3109</a>
+<a href="#3110" id="3110">3110</a>
+<a href="#3111" id="3111">3111</a>
+<a href="#3112" id="3112">3112</a>
+<a href="#3113" id="3113">3113</a>
+<a href="#3114" id="3114">3114</a>
+<a href="#3115" id="3115">3115</a>
+<a href="#3116" id="3116">3116</a>
+<a href="#3117" id="3117">3117</a>
+<a href="#3118" id="3118">3118</a>
+<a href="#3119" id="3119">3119</a>
+<a href="#3120" id="3120">3120</a>
+<a href="#3121" id="3121">3121</a>
+<a href="#3122" id="3122">3122</a>
+<a href="#3123" id="3123">3123</a>
+<a href="#3124" id="3124">3124</a>
+<a href="#3125" id="3125">3125</a>
+<a href="#3126" id="3126">3126</a>
+<a href="#3127" id="3127">3127</a>
+<a href="#3128" id="3128">3128</a>
+<a href="#3129" id="3129">3129</a>
+<a href="#3130" id="3130">3130</a>
+<a href="#3131" id="3131">3131</a>
+<a href="#3132" id="3132">3132</a>
+<a href="#3133" id="3133">3133</a>
+<a href="#3134" id="3134">3134</a>
+<a href="#3135" id="3135">3135</a>
+<a href="#3136" id="3136">3136</a>
+<a href="#3137" id="3137">3137</a>
+<a href="#3138" id="3138">3138</a>
+<a href="#3139" id="3139">3139</a>
+<a href="#3140" id="3140">3140</a>
+<a href="#3141" id="3141">3141</a>
+<a href="#3142" id="3142">3142</a>
+<a href="#3143" id="3143">3143</a>
+<a href="#3144" id="3144">3144</a>
+<a href="#3145" id="3145">3145</a>
+<a href="#3146" id="3146">3146</a>
+<a href="#3147" id="3147">3147</a>
+<a href="#3148" id="3148">3148</a>
+<a href="#3149" id="3149">3149</a>
+<a href="#3150" id="3150">3150</a>
+<a href="#3151" id="3151">3151</a>
+<a href="#3152" id="3152">3152</a>
+<a href="#3153" id="3153">3153</a>
+<a href="#3154" id="3154">3154</a>
+<a href="#3155" id="3155">3155</a>
+<a href="#3156" id="3156">3156</a>
+<a href="#3157" id="3157">3157</a>
+<a href="#3158" id="3158">3158</a>
+<a href="#3159" id="3159">3159</a>
+<a href="#3160" id="3160">3160</a>
+<a href="#3161" id="3161">3161</a>
+<a href="#3162" id="3162">3162</a>
+<a href="#3163" id="3163">3163</a>
+<a href="#3164" id="3164">3164</a>
+<a href="#3165" id="3165">3165</a>
+<a href="#3166" id="3166">3166</a>
+<a href="#3167" id="3167">3167</a>
+<a href="#3168" id="3168">3168</a>
+<a href="#3169" id="3169">3169</a>
+<a href="#3170" id="3170">3170</a>
+<a href="#3171" id="3171">3171</a>
+<a href="#3172" id="3172">3172</a>
+<a href="#3173" id="3173">3173</a>
+<a href="#3174" id="3174">3174</a>
+<a href="#3175" id="3175">3175</a>
+<a href="#3176" id="3176">3176</a>
+<a href="#3177" id="3177">3177</a>
+<a href="#3178" id="3178">3178</a>
+<a href="#3179" id="3179">3179</a>
+<a href="#3180" id="3180">3180</a>
+<a href="#3181" id="3181">3181</a>
+<a href="#3182" id="3182">3182</a>
+<a href="#3183" id="3183">3183</a>
+<a href="#3184" id="3184">3184</a>
+<a href="#3185" id="3185">3185</a>
+<a href="#3186" id="3186">3186</a>
+<a href="#3187" id="3187">3187</a>
+<a href="#3188" id="3188">3188</a>
+<a href="#3189" id="3189">3189</a>
+<a href="#3190" id="3190">3190</a>
+<a href="#3191" id="3191">3191</a>
+<a href="#3192" id="3192">3192</a>
+<a href="#3193" id="3193">3193</a>
+<a href="#3194" id="3194">3194</a>
+<a href="#3195" id="3195">3195</a>
+<a href="#3196" id="3196">3196</a>
+<a href="#3197" id="3197">3197</a>
+<a href="#3198" id="3198">3198</a>
+<a href="#3199" id="3199">3199</a>
+<a href="#3200" id="3200">3200</a>
+<a href="#3201" id="3201">3201</a>
+<a href="#3202" id="3202">3202</a>
+<a href="#3203" id="3203">3203</a>
+<a href="#3204" id="3204">3204</a>
+<a href="#3205" id="3205">3205</a>
+<a href="#3206" id="3206">3206</a>
+<a href="#3207" id="3207">3207</a>
+<a href="#3208" id="3208">3208</a>
+<a href="#3209" id="3209">3209</a>
+<a href="#3210" id="3210">3210</a>
+<a href="#3211" id="3211">3211</a>
+<a href="#3212" id="3212">3212</a>
+<a href="#3213" id="3213">3213</a>
+<a href="#3214" id="3214">3214</a>
+<a href="#3215" id="3215">3215</a>
+<a href="#3216" id="3216">3216</a>
+<a href="#3217" id="3217">3217</a>
+<a href="#3218" id="3218">3218</a>
+<a href="#3219" id="3219">3219</a>
+<a href="#3220" id="3220">3220</a>
+<a href="#3221" id="3221">3221</a>
+<a href="#3222" id="3222">3222</a>
+<a href="#3223" id="3223">3223</a>
+<a href="#3224" id="3224">3224</a>
+<a href="#3225" id="3225">3225</a>
+<a href="#3226" id="3226">3226</a>
+<a href="#3227" id="3227">3227</a>
+<a href="#3228" id="3228">3228</a>
+<a href="#3229" id="3229">3229</a>
+<a href="#3230" id="3230">3230</a>
+<a href="#3231" id="3231">3231</a>
+<a href="#3232" id="3232">3232</a>
+<a href="#3233" id="3233">3233</a>
+<a href="#3234" id="3234">3234</a>
+<a href="#3235" id="3235">3235</a>
+<a href="#3236" id="3236">3236</a>
+<a href="#3237" id="3237">3237</a>
+<a href="#3238" id="3238">3238</a>
+<a href="#3239" id="3239">3239</a>
+<a href="#3240" id="3240">3240</a>
+<a href="#3241" id="3241">3241</a>
+<a href="#3242" id="3242">3242</a>
+<a href="#3243" id="3243">3243</a>
+<a href="#3244" id="3244">3244</a>
+<a href="#3245" id="3245">3245</a>
+<a href="#3246" id="3246">3246</a>
+<a href="#3247" id="3247">3247</a>
+<a href="#3248" id="3248">3248</a>
+<a href="#3249" id="3249">3249</a>
+<a href="#3250" id="3250">3250</a>
+<a href="#3251" id="3251">3251</a>
+<a href="#3252" id="3252">3252</a>
+<a href="#3253" id="3253">3253</a>
+<a href="#3254" id="3254">3254</a>
+<a href="#3255" id="3255">3255</a>
+<a href="#3256" id="3256">3256</a>
+<a href="#3257" id="3257">3257</a>
+<a href="#3258" id="3258">3258</a>
+<a href="#3259" id="3259">3259</a>
+<a href="#3260" id="3260">3260</a>
+<a href="#3261" id="3261">3261</a>
+<a href="#3262" id="3262">3262</a>
+<a href="#3263" id="3263">3263</a>
+<a href="#3264" id="3264">3264</a>
+<a href="#3265" id="3265">3265</a>
+<a href="#3266" id="3266">3266</a>
+<a href="#3267" id="3267">3267</a>
+<a href="#3268" id="3268">3268</a>
+<a href="#3269" id="3269">3269</a>
+<a href="#3270" id="3270">3270</a>
+<a href="#3271" id="3271">3271</a>
+<a href="#3272" id="3272">3272</a>
+<a href="#3273" id="3273">3273</a>
+<a href="#3274" id="3274">3274</a>
+<a href="#3275" id="3275">3275</a>
+<a href="#3276" id="3276">3276</a>
+<a href="#3277" id="3277">3277</a>
+<a href="#3278" id="3278">3278</a>
+<a href="#3279" id="3279">3279</a>
+<a href="#3280" id="3280">3280</a>
+<a href="#3281" id="3281">3281</a>
+<a href="#3282" id="3282">3282</a>
+<a href="#3283" id="3283">3283</a>
+<a href="#3284" id="3284">3284</a>
+<a href="#3285" id="3285">3285</a>
+<a href="#3286" id="3286">3286</a>
+<a href="#3287" id="3287">3287</a>
+<a href="#3288" id="3288">3288</a>
+<a href="#3289" id="3289">3289</a>
+<a href="#3290" id="3290">3290</a>
+<a href="#3291" id="3291">3291</a>
+<a href="#3292" id="3292">3292</a>
+<a href="#3293" id="3293">3293</a>
+<a href="#3294" id="3294">3294</a>
+<a href="#3295" id="3295">3295</a>
+<a href="#3296" id="3296">3296</a>
+<a href="#3297" id="3297">3297</a>
+<a href="#3298" id="3298">3298</a>
+<a href="#3299" id="3299">3299</a>
+<a href="#3300" id="3300">3300</a>
+<a href="#3301" id="3301">3301</a>
+<a href="#3302" id="3302">3302</a>
+<a href="#3303" id="3303">3303</a>
+<a href="#3304" id="3304">3304</a>
+<a href="#3305" id="3305">3305</a>
+<a href="#3306" id="3306">3306</a>
+<a href="#3307" id="3307">3307</a>
+<a href="#3308" id="3308">3308</a>
+<a href="#3309" id="3309">3309</a>
+<a href="#3310" id="3310">3310</a>
+<a href="#3311" id="3311">3311</a>
+<a href="#3312" id="3312">3312</a>
+<a href="#3313" id="3313">3313</a>
+<a href="#3314" id="3314">3314</a>
+<a href="#3315" id="3315">3315</a>
+<a href="#3316" id="3316">3316</a>
+<a href="#3317" id="3317">3317</a>
+<a href="#3318" id="3318">3318</a>
+<a href="#3319" id="3319">3319</a>
+<a href="#3320" id="3320">3320</a>
+<a href="#3321" id="3321">3321</a>
+<a href="#3322" id="3322">3322</a>
+<a href="#3323" id="3323">3323</a>
+<a href="#3324" id="3324">3324</a>
+<a href="#3325" id="3325">3325</a>
+<a href="#3326" id="3326">3326</a>
+<a href="#3327" id="3327">3327</a>
+<a href="#3328" id="3328">3328</a>
+<a href="#3329" id="3329">3329</a>
+<a href="#3330" id="3330">3330</a>
+<a href="#3331" id="3331">3331</a>
+<a href="#3332" id="3332">3332</a>
+<a href="#3333" id="3333">3333</a>
+<a href="#3334" id="3334">3334</a>
+<a href="#3335" id="3335">3335</a>
+<a href="#3336" id="3336">3336</a>
+<a href="#3337" id="3337">3337</a>
+<a href="#3338" id="3338">3338</a>
+<a href="#3339" id="3339">3339</a>
+<a href="#3340" id="3340">3340</a>
+<a href="#3341" id="3341">3341</a>
+<a href="#3342" id="3342">3342</a>
+<a href="#3343" id="3343">3343</a>
+<a href="#3344" id="3344">3344</a>
+<a href="#3345" id="3345">3345</a>
+<a href="#3346" id="3346">3346</a>
+<a href="#3347" id="3347">3347</a>
+<a href="#3348" id="3348">3348</a>
+<a href="#3349" id="3349">3349</a>
+<a href="#3350" id="3350">3350</a>
+<a href="#3351" id="3351">3351</a>
+<a href="#3352" id="3352">3352</a>
+<a href="#3353" id="3353">3353</a>
+<a href="#3354" id="3354">3354</a>
+<a href="#3355" id="3355">3355</a>
+<a href="#3356" id="3356">3356</a>
+<a href="#3357" id="3357">3357</a>
+<a href="#3358" id="3358">3358</a>
+<a href="#3359" id="3359">3359</a>
+<a href="#3360" id="3360">3360</a>
+<a href="#3361" id="3361">3361</a>
+<a href="#3362" id="3362">3362</a>
+<a href="#3363" id="3363">3363</a>
+<a href="#3364" id="3364">3364</a>
+<a href="#3365" id="3365">3365</a>
+<a href="#3366" id="3366">3366</a>
+<a href="#3367" id="3367">3367</a>
+<a href="#3368" id="3368">3368</a>
+<a href="#3369" id="3369">3369</a>
+<a href="#3370" id="3370">3370</a>
+<a href="#3371" id="3371">3371</a>
+<a href="#3372" id="3372">3372</a>
+<a href="#3373" id="3373">3373</a>
+<a href="#3374" id="3374">3374</a>
+<a href="#3375" id="3375">3375</a>
+<a href="#3376" id="3376">3376</a>
+<a href="#3377" id="3377">3377</a>
+<a href="#3378" id="3378">3378</a>
+<a href="#3379" id="3379">3379</a>
+<a href="#3380" id="3380">3380</a>
+<a href="#3381" id="3381">3381</a>
+<a href="#3382" id="3382">3382</a>
+<a href="#3383" id="3383">3383</a>
+<a href="#3384" id="3384">3384</a>
+<a href="#3385" id="3385">3385</a>
+<a href="#3386" id="3386">3386</a>
+<a href="#3387" id="3387">3387</a>
+<a href="#3388" id="3388">3388</a>
+<a href="#3389" id="3389">3389</a>
+<a href="#3390" id="3390">3390</a>
+<a href="#3391" id="3391">3391</a>
+<a href="#3392" id="3392">3392</a>
+<a href="#3393" id="3393">3393</a>
+<a href="#3394" id="3394">3394</a>
+<a href="#3395" id="3395">3395</a>
+<a href="#3396" id="3396">3396</a>
+<a href="#3397" id="3397">3397</a>
+<a href="#3398" id="3398">3398</a>
+<a href="#3399" id="3399">3399</a>
+<a href="#3400" id="3400">3400</a>
+<a href="#3401" id="3401">3401</a>
+<a href="#3402" id="3402">3402</a>
+<a href="#3403" id="3403">3403</a>
+<a href="#3404" id="3404">3404</a>
+<a href="#3405" id="3405">3405</a>
+<a href="#3406" id="3406">3406</a>
+<a href="#3407" id="3407">3407</a>
+<a href="#3408" id="3408">3408</a>
+<a href="#3409" id="3409">3409</a>
+<a href="#3410" id="3410">3410</a>
+<a href="#3411" id="3411">3411</a>
+<a href="#3412" id="3412">3412</a>
+<a href="#3413" id="3413">3413</a>
+<a href="#3414" id="3414">3414</a>
+<a href="#3415" id="3415">3415</a>
+<a href="#3416" id="3416">3416</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -3135,24 +3443,24 @@
 //! argument.
 //!
 //! There is extra complexity associated with translation of 128-bit SIMD instructions.
-//! Wasm only considers there to be a single 128-bit vector type.  But CLIF&#39;s type system
+//! Wasm only considers there to be a single 128-bit vector type.  But CLIF's type system
 //! distinguishes different lane configurations, so considers 8X16, 16X8, 32X4 and 64X2 to be
-//! different types.  The result is that, in wasm, it&#39;s perfectly OK to take the output of (eg)
+//! different types.  The result is that, in wasm, it's perfectly OK to take the output of (eg)
 //! an `add.16x8` and use that as an operand of a `sub.32x4`, without using any cast.  But when
 //! translated into CLIF, that will cause a verifier error due to the apparent type mismatch.
 //!
 //! This file works around that problem by liberally inserting `bitcast` instructions in many
 //! places -- mostly, before the use of vector values, either as arguments to CLIF instructions
 //! or as block actual parameters.  These are no-op casts which nevertheless have different
-//! input and output types, and are used (mostly) to &quot;convert&quot; 16X8, 32X4 and 64X2-typed vectors
-//! to the &quot;canonical&quot; type, 8X16.  Hence the functions `optionally_bitcast_vector`,
+//! input and output types, and are used (mostly) to "convert" 16X8, 32X4 and 64X2-typed vectors
+//! to the "canonical" type, 8X16.  Hence the functions `optionally_bitcast_vector`,
 //! `bitcast_arguments`, `pop*_with_bitcast`, `canonicalise_then_jump`,
 //! `canonicalise_then_br{z,nz}`, `is_non_canonical_v128` and `canonicalise_v128_values`.
 //! Note that the `bitcast*` functions are occasionally used to convert to some type other than
 //! 8X16, but the `canonicalise*` functions always convert to type 8X16.
 //!
 //! Be careful when adding support for new vector instructions.  And when adding new jumps, even
-//! if they are apparently don&#39;t have any connection to vectors.  Never generate any kind of
+//! if they are apparently don't have any connection to vectors.  Never generate any kind of
 //! (inter-block) jump directly.  Instead use `canonicalise_then_jump` and
 //! `canonicalise_then_br{z,nz}`.
 //!
@@ -3176,19 +3484,19 @@
 //!
 //! For further background see also:
 //!   &lt;https://github.com/bytecodealliance/wasmtime/issues/1147&gt;
-//!     (&quot;Too many raw_bitcasts in SIMD code&quot;)
+//!     ("Too many raw_bitcasts in SIMD code")
 //!   &lt;https://github.com/bytecodealliance/cranelift/pull/1251&gt;
-//!     (&quot;Add X128 type to represent WebAssembly&#39;s V128 type&quot;)
+//!     ("Add X128 type to represent WebAssembly's V128 type")
 //!   &lt;https://github.com/bytecodealliance/cranelift/pull/1236&gt;
-//!     (&quot;Relax verification to allow I8X16 to act as a default vector type&quot;)
+//!     ("Relax verification to allow I8X16 to act as a default vector type")
 
-</span><span class="kw">use </span><span class="kw">super</span>::func_environ::{FuncEnvironment, GlobalVariable, ReturnMode};
+</span><span class="kw">mod </span>bounds_checks;
+
+<span class="kw">use </span><span class="kw">super</span>::func_environ::{FuncEnvironment, GlobalVariable};
 <span class="kw">use </span><span class="kw">super</span>::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 <span class="kw">use </span><span class="kw">super</span>::translation_utils::{block_with_params, f32_translation, f64_translation};
 <span class="kw">use crate</span>::{hash_map, HashMap};
-<span class="kw">use </span>core::cmp;
 <span class="kw">use </span>core::convert::TryFrom;
-<span class="kw">use </span>core::{i32, u32};
 <span class="kw">use </span>cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 <span class="kw">use </span>cranelift_codegen::ir::immediates::Offset32;
 <span class="kw">use </span>cranelift_codegen::ir::types::<span class="kw-2">*</span>;
@@ -3197,6 +3505,7 @@
 };
 <span class="kw">use </span>cranelift_codegen::packed_option::ReservedValue;
 <span class="kw">use </span>cranelift_frontend::{FunctionBuilder, Variable};
+<span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>smallvec::SmallVec;
 <span class="kw">use </span>std::vec::Vec;
 
@@ -3206,7 +3515,25 @@
     FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
 };
 
-<span class="comment">// Clippy warns about &quot;align: _&quot; but its important to document that the align field is ignored
+<span class="doccomment">/// Given a `Reachability&lt;T&gt;`, unwrap the inner `T` or, when unreachable, set
+/// `state.reachable = false` and return.
+///
+/// Used in combination with calling `prepare_addr` and `prepare_atomic_addr`
+/// when we can statically determine that a Wasm access will unconditionally
+/// trap.
+</span><span class="macro">macro_rules!</span> unwrap_or_return_unreachable_state {
+    (<span class="macro-nonterminal">$state</span>:ident, <span class="macro-nonterminal">$value</span>:expr) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$value </span>{
+            Reachability::Reachable(x) =&gt; x,
+            Reachability::Unreachable =&gt; {
+                <span class="macro-nonterminal">$state</span>.reachable = <span class="bool-val">false</span>;
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            }
+        }
+    };
+}
+
+<span class="comment">// Clippy warns about "align: _" but its important to document that the align field is ignored
 </span><span class="attr">#[allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)]
 </span><span class="doccomment">/// Translates wasm operators into Cranelift IR instructions. Returns `true` if it inserted
 /// a return.
@@ -3264,29 +3591,30 @@
          *  `get_global` and `set_global` are handled by the environment.
          ***********************************************************************************/
         </span>Operator::GlobalGet { global_index } =&gt; {
-            <span class="kw">let </span>global_index = GlobalIndex::from_u32(<span class="kw-2">*</span>global_index);
-            <span class="kw">let </span>stack_elem = <span class="kw">match </span>state.get_global(builder.func, global_index.as_u32(), environ)<span class="question-mark">? </span>{
+            <span class="kw">let </span>val = <span class="kw">match </span>state.get_global(builder.func, <span class="kw-2">*</span>global_index, environ)<span class="question-mark">? </span>{
                 GlobalVariable::Const(val) =&gt; val,
                 GlobalVariable::Memory { gv, offset, ty } =&gt; {
                     <span class="kw">let </span>addr = builder.ins().global_value(environ.pointer_type(), gv);
-                    <span class="kw">let </span>flags = ir::MemFlags::trusted();
+                    <span class="kw">let </span><span class="kw-2">mut </span>flags = ir::MemFlags::trusted();
+                    <span class="comment">// Put globals in the "table" abstract heap category as well.
+                    </span>flags.set_alias_region(<span class="prelude-val">Some</span>(ir::AliasRegion::Table));
                     builder.ins().load(ty, flags, addr, offset)
                 }
-                GlobalVariable::Custom =&gt; {
-                    environ.translate_custom_global_get(builder.cursor(), global_index)<span class="question-mark">?
-                </span>}
+                GlobalVariable::Custom =&gt; environ.translate_custom_global_get(
+                    builder.cursor(),
+                    GlobalIndex::from_u32(<span class="kw-2">*</span>global_index),
+                )<span class="question-mark">?</span>,
             };
-            state.push1(stack_elem);
+            state.push1(val);
         }
         Operator::GlobalSet { global_index } =&gt; {
-            <span class="kw">let </span>global_index = GlobalIndex::from_u32(<span class="kw-2">*</span>global_index);
-            <span class="kw">match </span>state.get_global(builder.func, global_index.as_u32(), environ)<span class="question-mark">? </span>{
-                GlobalVariable::Const(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">panic!</span>(<span class="string">&quot;global #{} is a constant&quot;</span>, global_index.as_u32())
-                }
+            <span class="kw">match </span>state.get_global(builder.func, <span class="kw-2">*</span>global_index, environ)<span class="question-mark">? </span>{
+                GlobalVariable::Const(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"global #{} is a constant"</span>, <span class="kw-2">*</span>global_index),
                 GlobalVariable::Memory { gv, offset, ty } =&gt; {
                     <span class="kw">let </span>addr = builder.ins().global_value(environ.pointer_type(), gv);
-                    <span class="kw">let </span>flags = ir::MemFlags::trusted();
+                    <span class="kw">let </span><span class="kw-2">mut </span>flags = ir::MemFlags::trusted();
+                    <span class="comment">// Put globals in the "table" abstract heap category as well.
+                    </span>flags.set_alias_region(<span class="prelude-val">Some</span>(ir::AliasRegion::Table));
                     <span class="kw">let </span><span class="kw-2">mut </span>val = state.pop1();
                     <span class="comment">// Ensure SIMD values are cast to their default Cranelift type, I8x16.
                     </span><span class="kw">if </span>ty.is_vector() {
@@ -3294,10 +3622,15 @@
                     }
                     <span class="macro">debug_assert_eq!</span>(ty, builder.func.dfg.value_type(val));
                     builder.ins().store(flags, val, addr, offset);
+                    environ.update_global(builder, <span class="kw-2">*</span>global_index, val);
                 }
                 GlobalVariable::Custom =&gt; {
                     <span class="kw">let </span>val = state.pop1();
-                    environ.translate_custom_global_set(builder.cursor(), global_index, val)<span class="question-mark">?</span>;
+                    environ.translate_custom_global_set(
+                        builder.cursor(),
+                        GlobalIndex::from_u32(<span class="kw-2">*</span>global_index),
+                        val,
+                    )<span class="question-mark">?</span>;
                 }
             }
         }
@@ -3319,7 +3652,16 @@
             state.push1(builder.ins().select(cond, arg1, arg2));
         }
         Operator::TypedSelect { ty: <span class="kw">_ </span>} =&gt; {
-            <span class="kw">let </span>(arg1, arg2, cond) = state.pop3();
+            <span class="comment">// We ignore the explicit type parameter as it is only needed for
+            // validation, which we require to have been performed before
+            // translation.
+            </span><span class="kw">let </span>(<span class="kw-2">mut </span>arg1, <span class="kw-2">mut </span>arg2, cond) = state.pop3();
+            <span class="kw">if </span>builder.func.dfg.value_type(arg1).is_vector() {
+                arg1 = optionally_bitcast_vector(arg1, I8X16, builder);
+            }
+            <span class="kw">if </span>builder.func.dfg.value_type(arg2).is_vector() {
+                arg2 = optionally_bitcast_vector(arg2, I8X16, builder);
+            }
             state.push1(builder.ins().select(cond, arg1, arg2));
         }
         Operator::Nop =&gt; {
@@ -3338,7 +3680,7 @@
          *  The `End` instruction pops the last control frame from the control stack, seals
          *  the destination block (since `br` instructions targeting it only appear inside the
          *  block and have already been translated) and modify the value stack to use the
-         *  possible `Block`&#39;s arguments values.
+         *  possible `Block`'s arguments values.
          ***********************************************************************************/
         </span>Operator::Block { blockty } =&gt; {
             <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(blockty)<span class="question-mark">?</span>;
@@ -3352,7 +3694,7 @@
             canonicalise_then_jump(builder, loop_body, state.peekn(params.len()));
             state.push_loop(loop_body, next, params.len(), results.len());
 
-            <span class="comment">// Pop the initial `Block` actuals and replace them with the `Block`&#39;s
+            <span class="comment">// Pop the initial `Block` actuals and replace them with the `Block`'s
             // params since control flow joins at the top of the loop.
             </span>state.popn(params.len());
             state
@@ -3365,30 +3707,49 @@
         Operator::If { blockty } =&gt; {
             <span class="kw">let </span>val = state.pop1();
 
+            <span class="kw">let </span>next_block = builder.create_block();
             <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(blockty)<span class="question-mark">?</span>;
+            <span class="kw">let </span>results: Vec&lt;<span class="kw">_</span>&gt; = results.iter().copied().collect();
             <span class="kw">let </span>(destination, else_data) = <span class="kw">if </span>params == results {
                 <span class="comment">// It is possible there is no `else` block, so we will only
                 // allocate a block for it if/when we find the `else`. For now,
-                // we if the condition isn&#39;t true, then we jump directly to the
+                // we if the condition isn't true, then we jump directly to the
                 // destination block following the whole `if...end`. If we do end
                 // up discovering an `else`, then we will allocate a block for it
                 // and go back and patch the jump.
                 </span><span class="kw">let </span>destination = block_with_params(builder, results.iter(), environ)<span class="question-mark">?</span>;
-                <span class="kw">let </span>branch_inst =
-                    canonicalise_then_brz(builder, val, destination, state.peekn(params.len()));
-                (destination, ElseData::NoElse { branch_inst })
+                <span class="kw">let </span>branch_inst = canonicalise_brif(
+                    builder,
+                    val,
+                    next_block,
+                    <span class="kw-2">&amp;</span>[],
+                    destination,
+                    state.peekn(params.len()),
+                );
+                (
+                    destination,
+                    ElseData::NoElse {
+                        branch_inst,
+                        placeholder: destination,
+                    },
+                )
             } <span class="kw">else </span>{
                 <span class="comment">// The `if` type signature is not valid without an `else` block,
                 // so we eagerly allocate the `else` block here.
                 </span><span class="kw">let </span>destination = block_with_params(builder, results.iter(), environ)<span class="question-mark">?</span>;
                 <span class="kw">let </span>else_block = block_with_params(builder, params.iter(), environ)<span class="question-mark">?</span>;
-                canonicalise_then_brz(builder, val, else_block, state.peekn(params.len()));
+                canonicalise_brif(
+                    builder,
+                    val,
+                    next_block,
+                    <span class="kw-2">&amp;</span>[],
+                    else_block,
+                    state.peekn(params.len()),
+                );
                 builder.seal_block(else_block);
                 (destination, ElseData::WithElse { else_block })
             };
 
-            <span class="kw">let </span>next_block = builder.create_block();
-            canonicalise_then_jump(builder, next_block, <span class="kw-2">&amp;</span>[]);
             builder.seal_block(next_block); <span class="comment">// Only predecessor is the current block.
             </span>builder.switch_to_block(next_block);
 
@@ -3430,7 +3791,10 @@
                         <span class="comment">// Ensure we have a block for the `else` block (it may have
                         // already been pre-allocated, see `ElseData` for details).
                         </span><span class="kw">let </span>else_block = <span class="kw">match </span><span class="kw-2">*</span>else_data {
-                            ElseData::NoElse { branch_inst } =&gt; {
+                            ElseData::NoElse {
+                                branch_inst,
+                                placeholder,
+                            } =&gt; {
                                 <span class="kw">let </span>(params, _results) = module_translation_state
                                     .blocktype_params_results(<span class="kw-2">&amp;</span>blocktype)<span class="question-mark">?</span>;
                                 <span class="macro">debug_assert_eq!</span>(params.len(), num_return_values);
@@ -3443,7 +3807,11 @@
                                 );
                                 state.popn(params.len());
 
-                                builder.change_jump_destination(branch_inst, else_block);
+                                builder.change_jump_destination(
+                                    branch_inst,
+                                    placeholder,
+                                    else_block,
+                                );
                                 builder.seal_block(else_block);
                                 else_block
                             }
@@ -3463,14 +3831,14 @@
                         //
                         //     state.pushn(&amp;control_stack_frame.params);
                         //
-                        // We don&#39;t do that because they are already on the top of the stack
+                        // We don't do that because they are already on the top of the stack
                         // for us: we pushed the parameters twice when we saw the initial
-                        // `if` so that we wouldn&#39;t have to save the parameters in the
+                        // `if` so that we wouldn't have to save the parameters in the
                         // `ControlStackFrame` as another `Vec` allocation.
 
                         </span>builder.switch_to_block(else_block);
 
-                        <span class="comment">// We don&#39;t bother updating the control frame&#39;s `ElseData`
+                        <span class="comment">// We don't bother updating the control frame's `ElseData`
                         // to `WithElse` because nothing else will read it.
                     </span>}
                 }
@@ -3480,19 +3848,18 @@
         Operator::End =&gt; {
             <span class="kw">let </span>frame = state.control_stack.pop().unwrap();
             <span class="kw">let </span>next_block = frame.following_code();
-            <span class="kw">if </span>!builder.is_unreachable() || builder.func.layout.first_inst(next_block).is_some() {
-                <span class="kw">let </span>return_count = frame.num_return_values();
-                <span class="kw">let </span>return_args = state.peekn(return_count);
-                canonicalise_then_jump(builder, frame.following_code(), return_args);
-                <span class="comment">// You might expect that if we just finished an `if` block that
-                // didn&#39;t have a corresponding `else` block, then we would clean
-                // up our duplicate set of parameters that we pushed earlier
-                // right here. However, we don&#39;t have to explicitly do that,
-                // since we truncate the stack back to the original height
-                // below.
-            </span>}
+            <span class="kw">let </span>return_count = frame.num_return_values();
+            <span class="kw">let </span>return_args = state.peekn_mut(return_count);
 
-            builder.switch_to_block(next_block);
+            canonicalise_then_jump(builder, next_block, return_args);
+            <span class="comment">// You might expect that if we just finished an `if` block that
+            // didn't have a corresponding `else` block, then we would clean
+            // up our duplicate set of parameters that we pushed earlier
+            // right here. However, we don't have to explicitly do that,
+            // since we truncate the stack back to the original height
+            // below.
+
+            </span>builder.switch_to_block(next_block);
             builder.seal_block(next_block);
 
             <span class="comment">// If it is a loop we also have to seal the body loop block
@@ -3513,7 +3880,7 @@
          * Once the destination `Block` is found, we sometimes have to declare a certain depth
          * of the stack unreachable, because some branch instructions are terminator.
          *
-         * The `br_table` case is much more complicated because Cranelift&#39;s `br_table` instruction
+         * The `br_table` case is much more complicated because Cranelift's `br_table` instruction
          * does not support jump arguments like all the other branch instructions. That is why, in
          * the case where we would use jump arguments for every other branch instruction, we
          * need to split the critical edges leaving the `br_tables` by creating one `Block` per
@@ -3521,7 +3888,7 @@
          * `Block`s contain only a jump instruction pointing to the final destination, this time with
          * jump arguments.
          *
-         * This system is also implemented in Cranelift&#39;s SSA construction algorithm, because
+         * This system is also implemented in Cranelift's SSA construction algorithm, because
          * `use_var` located in a destination `Block` of a `br_table` might trigger the addition
          * of jump arguments in each predecessor branch instruction, one of which might be a
          * `br_table`.
@@ -3564,7 +3931,7 @@
                 }
             };
             <span class="kw">let </span>val = state.pop1();
-            <span class="kw">let </span><span class="kw-2">mut </span>data = JumpTableData::with_capacity(targets.len() <span class="kw">as </span>usize);
+            <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(targets.len() <span class="kw">as </span>usize);
             <span class="kw">if </span>jump_args_count == <span class="number">0 </span>{
                 <span class="comment">// No jump arguments
                 </span><span class="kw">for </span>depth <span class="kw">in </span>targets.targets() {
@@ -3575,18 +3942,19 @@
                         frame.set_branched_to_exit();
                         frame.br_destination()
                     };
-                    data.push_entry(block);
+                    data.push(builder.func.dfg.block_call(block, <span class="kw-2">&amp;</span>[]));
                 }
-                <span class="kw">let </span>jt = builder.create_jump_table(data);
                 <span class="kw">let </span>block = {
                     <span class="kw">let </span>i = state.control_stack.len() - <span class="number">1 </span>- (default <span class="kw">as </span>usize);
                     <span class="kw">let </span>frame = <span class="kw-2">&amp;mut </span>state.control_stack[i];
                     frame.set_branched_to_exit();
                     frame.br_destination()
                 };
-                builder.ins().br_table(val, block, jt);
+                <span class="kw">let </span>block = builder.func.dfg.block_call(block, <span class="kw-2">&amp;</span>[]);
+                <span class="kw">let </span>jt = builder.create_jump_table(JumpTableData::new(block, <span class="kw-2">&amp;</span>data));
+                builder.ins().br_table(val, jt);
             } <span class="kw">else </span>{
-                <span class="comment">// Here we have jump arguments, but Cranelift&#39;s br_table doesn&#39;t support them
+                <span class="comment">// Here we have jump arguments, but Cranelift's br_table doesn't support them
                 // We then proceed to split the edges going out of the br_table
                 </span><span class="kw">let </span>return_count = jump_args_count;
                 <span class="kw">let </span><span class="kw-2">mut </span>dest_block_sequence = <span class="macro">vec!</span>[];
@@ -3601,7 +3969,7 @@
                             <span class="kw-2">*</span>entry.insert(block)
                         }
                     };
-                    data.push_entry(branch_block);
+                    data.push(builder.func.dfg.block_call(branch_block, <span class="kw-2">&amp;</span>[]));
                 }
                 <span class="kw">let </span>default_branch_block = <span class="kw">match </span>dest_block_map.entry(default <span class="kw">as </span>usize) {
                     hash_map::Entry::Occupied(entry) =&gt; <span class="kw-2">*</span>entry.get(),
@@ -3611,8 +3979,9 @@
                         <span class="kw-2">*</span>entry.insert(block)
                     }
                 };
-                <span class="kw">let </span>jt = builder.create_jump_table(data);
-                builder.ins().br_table(val, default_branch_block, jt);
+                <span class="kw">let </span>default_branch_block = builder.func.dfg.block_call(default_branch_block, <span class="kw-2">&amp;</span>[]);
+                <span class="kw">let </span>jt = builder.create_jump_table(JumpTableData::new(default_branch_block, <span class="kw-2">&amp;</span>data));
+                builder.ins().br_table(val, jt);
                 <span class="kw">for </span>(depth, dest_block) <span class="kw">in </span>dest_block_sequence {
                     builder.switch_to_block(dest_block);
                     builder.seal_block(dest_block);
@@ -3622,7 +3991,7 @@
                         frame.set_branched_to_exit();
                         frame.br_destination()
                     };
-                    <span class="kw">let </span>destination_args = state.peekn(return_count);
+                    <span class="kw">let </span>destination_args = state.peekn_mut(return_count);
                     canonicalise_then_jump(builder, real_dest_block, destination_args);
                 }
                 state.popn(return_count);
@@ -3630,25 +3999,20 @@
             state.reachable = <span class="bool-val">false</span>;
         }
         Operator::Return =&gt; {
-            <span class="kw">let </span>(return_count, _br_destination) = {
+            <span class="kw">let </span>return_count = {
                 <span class="kw">let </span>frame = <span class="kw-2">&amp;mut </span>state.control_stack[<span class="number">0</span>];
-                <span class="kw">let </span>return_count = frame.num_return_values();
-                (return_count, frame.br_destination())
+                frame.num_return_values()
             };
             {
                 <span class="kw">let </span>return_args = state.peekn_mut(return_count);
-                <span class="comment">// TODO(reftypes): maybe ref count here?
-                </span><span class="kw">let </span>return_types = wasm_param_types(<span class="kw-2">&amp;</span>builder.func.signature.returns, |i| {
-                    environ.is_wasm_return(<span class="kw-2">&amp;</span>builder.func.signature, i)
-                });
-                bitcast_arguments(return_args, <span class="kw-2">&amp;</span>return_types, builder);
-                <span class="kw">match </span>environ.return_mode() {
-                    ReturnMode::NormalReturns =&gt; builder.ins().return_(return_args),
-                };
+                environ.handle_before_return(return_args, builder);
+                bitcast_wasm_returns(environ, return_args, builder);
+                builder.ins().return_(return_args);
             }
             state.popn(return_count);
             state.reachable = <span class="bool-val">false</span>;
         }
+
         <span class="comment">/********************************** Exception handing **********************************/
         </span>Operator::Try { .. }
         | Operator::Catch { .. }
@@ -3657,7 +4021,7 @@
         | Operator::Delegate { .. }
         | Operator::CatchAll =&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-                <span class="string">&quot;proposed exception handling operator {:?}&quot;</span>,
+                <span class="string">"proposed exception handling operator {:?}"</span>,
                 op
             ));
         }
@@ -3669,25 +4033,28 @@
         </span>Operator::Call { function_index } =&gt; {
             <span class="kw">let </span>(fref, num_args) = state.get_direct_func(builder.func, <span class="kw-2">*</span>function_index, environ)<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>args = state.peekn_mut(num_args);
-
             <span class="comment">// Bitcast any vector arguments to their default type, I8X16, before calling.
-            </span><span class="kw">let </span>callee_signature =
-                <span class="kw-2">&amp;</span>builder.func.dfg.signatures[builder.func.dfg.ext_funcs[fref].signature];
-            <span class="kw">let </span>types = wasm_param_types(<span class="kw-2">&amp;</span>callee_signature.params, |i| {
-                environ.is_wasm_parameter(callee_signature, i)
-            });
-            bitcast_arguments(args, <span class="kw-2">&amp;</span>types, builder);
-            <span class="kw">let </span>func_index = FunctionIndex::from_u32(<span class="kw-2">*</span>function_index);
+            </span><span class="kw">let </span>args = state.peekn_mut(num_args);
+            bitcast_wasm_params(
+                environ,
+                builder.func.dfg.ext_funcs[fref].signature,
+                args,
+                builder,
+            );
 
-            <span class="kw">let </span>call = environ.translate_call(builder.cursor(), func_index, fref, args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>call = environ.translate_call(
+                builder,
+                FunctionIndex::from_u32(<span class="kw-2">*</span>function_index),
+                fref,
+                args,
+            )<span class="question-mark">?</span>;
             <span class="kw">let </span>inst_results = builder.inst_results(call);
             <span class="macro">debug_assert_eq!</span>(
                 inst_results.len(),
                 builder.func.dfg.signatures[builder.func.dfg.ext_funcs[fref].signature]
                     .returns
                     .len(),
-                <span class="string">&quot;translate_call results should match the call signature&quot;
+                <span class="string">"translate_call results should match the call signature"
             </span>);
             state.popn(num_args);
             state.pushn(inst_results);
@@ -3695,39 +4062,31 @@
         Operator::CallIndirect {
             type_index,
             table_index,
-            table_byte: <span class="kw">_</span>,
+            ..
         } =&gt; {
-            <span class="comment">// `index` is the index of the function&#39;s signature and `table_index` is the index of
-            // the table to search the function in.
+            <span class="comment">// `type_index` is the index of the function's signature and
+            // `table_index` is the index of the table to search the function
+            // in.
             </span><span class="kw">let </span>(sigref, num_args) = state.get_indirect_sig(builder.func, <span class="kw-2">*</span>type_index, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>table_index, environ)<span class="question-mark">?</span>;
             <span class="kw">let </span>callee = state.pop1();
 
             <span class="comment">// Bitcast any vector arguments to their default type, I8X16, before calling.
-            </span><span class="kw">let </span>callee_signature = <span class="kw-2">&amp;</span>builder.func.dfg.signatures[sigref];
-            <span class="kw">let </span>args = state.peekn_mut(num_args);
-            <span class="kw">let </span>types = wasm_param_types(<span class="kw-2">&amp;</span>callee_signature.params, |i| {
-                environ.is_wasm_parameter(callee_signature, i)
-            });
-            bitcast_arguments(args, <span class="kw-2">&amp;</span>types, builder);
-
-            <span class="kw">let </span>args = state.peekn(num_args);
-            <span class="kw">let </span>sig_idx = SignatureIndex::from_u32(<span class="kw-2">*</span>type_index);
+            </span><span class="kw">let </span>args = state.peekn_mut(num_args);
+            bitcast_wasm_params(environ, sigref, args, builder);
 
             <span class="kw">let </span>call = environ.translate_call_indirect(
-                builder.cursor(),
+                builder,
                 TableIndex::from_u32(<span class="kw-2">*</span>table_index),
-                table,
-                sig_idx,
+                SignatureIndex::from_u32(<span class="kw-2">*</span>type_index),
                 sigref,
                 callee,
-                args,
+                state.peekn(num_args),
             )<span class="question-mark">?</span>;
             <span class="kw">let </span>inst_results = builder.inst_results(call);
             <span class="macro">debug_assert_eq!</span>(
                 inst_results.len(),
                 builder.func.dfg.signatures[sigref].returns.len(),
-                <span class="string">&quot;translate_call_indirect results should match the call signature&quot;
+                <span class="string">"translate_call_indirect results should match the call signature"
             </span>);
             state.popn(num_args);
             state.pushn(inst_results);
@@ -3736,7 +4095,7 @@
          * Memory management is handled by environment. It is usually translated into calls to
          * special functions.
          ************************************************************************************/
-        </span>Operator::MemoryGrow { mem, mem_byte: <span class="kw">_ </span>} =&gt; {
+        </span>Operator::MemoryGrow { mem } =&gt; {
             <span class="comment">// The WebAssembly MVP only supports one linear memory, but we expect the reserved
             // argument to be a memory index.
             </span><span class="kw">let </span>heap_index = MemoryIndex::from_u32(<span class="kw-2">*</span>mem);
@@ -3744,7 +4103,7 @@
             <span class="kw">let </span>val = state.pop1();
             state.push1(environ.translate_memory_grow(builder.cursor(), heap_index, heap, val)<span class="question-mark">?</span>)
         }
-        Operator::MemorySize { mem, mem_byte: <span class="kw">_ </span>} =&gt; {
+        Operator::MemorySize { mem } =&gt; {
             <span class="kw">let </span>heap_index = MemoryIndex::from_u32(<span class="kw-2">*</span>mem);
             <span class="kw">let </span>heap = state.get_heap(builder.func, <span class="kw-2">*</span>mem, environ)<span class="question-mark">?</span>;
             state.push1(environ.translate_memory_size(builder.cursor(), heap_index, heap)<span class="question-mark">?</span>);
@@ -3754,78 +4113,142 @@
          * The memory base address is provided by the environment.
          ************************************************************************************/
         </span>Operator::I32Load8U { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Uload8, I32, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Uload8, I32, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I32Load16U { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Uload16, I32, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Uload16, I32, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I32Load8S { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Sload8, I32, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Sload8, I32, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I32Load16S { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Sload16, I32, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Sload16, I32, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I64Load8U { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Uload8, I64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Uload8, I64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I64Load16U { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Uload16, I64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Uload16, I64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I64Load8S { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Sload8, I64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Sload8, I64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I64Load16S { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Sload16, I64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Sload16, I64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I64Load32S { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Sload32, I64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Sload32, I64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I64Load32U { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Uload32, I64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Uload32, I64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I32Load { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Load, I32, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Load, I32, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::F32Load { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Load, F32, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Load, F32, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::I64Load { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Load, I64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Load, I64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::F64Load { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Load, F64, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Load, F64, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::V128Load { memarg } =&gt; {
-            translate_load(memarg, ir::Opcode::Load, I8X16, builder, state, environ)<span class="question-mark">?</span>;
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                translate_load(memarg, ir::Opcode::Load, I8X16, builder, state, environ)<span class="question-mark">?
+            </span>);
         }
         Operator::V128Load8x8S { memarg } =&gt; {
-            <span class="kw">let </span>(flags, base, offset) = prepare_load(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>loaded = builder.ins().sload8x8(flags, base, offset);
+            <span class="comment">//TODO(#6829): add before_load() and before_store() hooks for SIMD loads and stores.
+            </span><span class="kw">let </span>(flags, <span class="kw">_</span>, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                prepare_addr(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?
+            </span>);
+            <span class="kw">let </span>loaded = builder.ins().sload8x8(flags, base, <span class="number">0</span>);
             state.push1(loaded);
         }
         Operator::V128Load8x8U { memarg } =&gt; {
-            <span class="kw">let </span>(flags, base, offset) = prepare_load(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>loaded = builder.ins().uload8x8(flags, base, offset);
+            <span class="kw">let </span>(flags, <span class="kw">_</span>, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                prepare_addr(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?
+            </span>);
+            <span class="kw">let </span>loaded = builder.ins().uload8x8(flags, base, <span class="number">0</span>);
             state.push1(loaded);
         }
         Operator::V128Load16x4S { memarg } =&gt; {
-            <span class="kw">let </span>(flags, base, offset) = prepare_load(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>loaded = builder.ins().sload16x4(flags, base, offset);
+            <span class="kw">let </span>(flags, <span class="kw">_</span>, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                prepare_addr(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?
+            </span>);
+            <span class="kw">let </span>loaded = builder.ins().sload16x4(flags, base, <span class="number">0</span>);
             state.push1(loaded);
         }
         Operator::V128Load16x4U { memarg } =&gt; {
-            <span class="kw">let </span>(flags, base, offset) = prepare_load(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>loaded = builder.ins().uload16x4(flags, base, offset);
+            <span class="kw">let </span>(flags, <span class="kw">_</span>, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                prepare_addr(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?
+            </span>);
+            <span class="kw">let </span>loaded = builder.ins().uload16x4(flags, base, <span class="number">0</span>);
             state.push1(loaded);
         }
         Operator::V128Load32x2S { memarg } =&gt; {
-            <span class="kw">let </span>(flags, base, offset) = prepare_load(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>loaded = builder.ins().sload32x2(flags, base, offset);
+            <span class="kw">let </span>(flags, <span class="kw">_</span>, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                prepare_addr(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?
+            </span>);
+            <span class="kw">let </span>loaded = builder.ins().sload32x2(flags, base, <span class="number">0</span>);
             state.push1(loaded);
         }
         Operator::V128Load32x2U { memarg } =&gt; {
-            <span class="kw">let </span>(flags, base, offset) = prepare_load(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>loaded = builder.ins().uload32x2(flags, base, offset);
+            <span class="kw">let </span>(flags, <span class="kw">_</span>, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+                state,
+                prepare_addr(memarg, <span class="number">8</span>, builder, state, environ)<span class="question-mark">?
+            </span>);
+            <span class="kw">let </span>loaded = builder.ins().uload32x2(flags, base, <span class="number">0</span>);
             state.push1(loaded);
         }
         <span class="comment">/****************************** Store instructions ***********************************
@@ -3851,7 +4274,9 @@
             translate_store(memarg, ir::Opcode::Store, builder, state, environ)<span class="question-mark">?</span>;
         }
         <span class="comment">/****************************** Nullary Operators ************************************/
-        </span>Operator::I32Const { value } =&gt; state.push1(builder.ins().iconst(I32, i64::from(<span class="kw-2">*</span>value))),
+        </span>Operator::I32Const { value } =&gt; {
+            state.push1(builder.ins().iconst(I32, <span class="kw-2">*</span>value <span class="kw">as </span>u32 <span class="kw">as </span>i64))
+        }
         Operator::I64Const { value } =&gt; state.push1(builder.ins().iconst(I64, <span class="kw-2">*</span>value)),
         Operator::F32Const { value } =&gt; {
             state.push1(builder.ins().f32const(f32_translation(<span class="kw-2">*</span>value)));
@@ -4464,56 +4889,43 @@
             environ.translate_data_drop(builder.cursor(), <span class="kw-2">*</span>data_index)<span class="question-mark">?</span>;
         }
         Operator::TableSize { table: index } =&gt; {
-            <span class="kw">let </span>table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>index, environ)<span class="question-mark">?</span>;
-            state.push1(environ.translate_table_size(
-                builder.cursor(),
-                TableIndex::from_u32(<span class="kw-2">*</span>index),
-                table,
-            )<span class="question-mark">?</span>);
+            state.push1(
+                environ.translate_table_size(builder.cursor(), TableIndex::from_u32(<span class="kw-2">*</span>index))<span class="question-mark">?</span>,
+            );
         }
         Operator::TableGrow { table: index } =&gt; {
             <span class="kw">let </span>table_index = TableIndex::from_u32(<span class="kw-2">*</span>index);
-            <span class="kw">let </span>table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>index, environ)<span class="question-mark">?</span>;
             <span class="kw">let </span>delta = state.pop1();
             <span class="kw">let </span>init_value = state.pop1();
             state.push1(environ.translate_table_grow(
                 builder.cursor(),
                 table_index,
-                table,
                 delta,
                 init_value,
             )<span class="question-mark">?</span>);
         }
         Operator::TableGet { table: index } =&gt; {
             <span class="kw">let </span>table_index = TableIndex::from_u32(<span class="kw-2">*</span>index);
-            <span class="kw">let </span>table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>index, environ)<span class="question-mark">?</span>;
             <span class="kw">let </span>index = state.pop1();
-            state.push1(environ.translate_table_get(builder, table_index, table, index)<span class="question-mark">?</span>);
+            state.push1(environ.translate_table_get(builder, table_index, index)<span class="question-mark">?</span>);
         }
         Operator::TableSet { table: index } =&gt; {
             <span class="kw">let </span>table_index = TableIndex::from_u32(<span class="kw-2">*</span>index);
-            <span class="kw">let </span>table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>index, environ)<span class="question-mark">?</span>;
-            <span class="comment">// We don&#39;t touch the ref count here because we&#39;re passing it to the host
-            // then dropping it from the stack. Thus 1 + -1 = 0.
-            </span><span class="kw">let </span>value = state.pop1();
+            <span class="kw">let </span>value = state.pop1();
             <span class="kw">let </span>index = state.pop1();
-            environ.translate_table_set(builder, table_index, table, value, index)<span class="question-mark">?</span>;
+            environ.translate_table_set(builder, table_index, value, index)<span class="question-mark">?</span>;
         }
         Operator::TableCopy {
             dst_table: dst_table_index,
             src_table: src_table_index,
         } =&gt; {
-            <span class="kw">let </span>dst_table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>dst_table_index, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>src_table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>src_table_index, environ)<span class="question-mark">?</span>;
             <span class="kw">let </span>len = state.pop1();
             <span class="kw">let </span>src = state.pop1();
             <span class="kw">let </span>dest = state.pop1();
             environ.translate_table_copy(
                 builder.cursor(),
                 TableIndex::from_u32(<span class="kw-2">*</span>dst_table_index),
-                dst_table,
                 TableIndex::from_u32(<span class="kw-2">*</span>src_table_index),
-                src_table,
                 dest,
                 src,
                 len,
@@ -4530,7 +4942,6 @@
             elem_index,
             table: table_index,
         } =&gt; {
-            <span class="kw">let </span>table = state.get_or_create_table(builder.func, <span class="kw-2">*</span>table_index, environ)<span class="question-mark">?</span>;
             <span class="kw">let </span>len = state.pop1();
             <span class="kw">let </span>src = state.pop1();
             <span class="kw">let </span>dest = state.pop1();
@@ -4538,7 +4949,6 @@
                 builder.cursor(),
                 <span class="kw-2">*</span>elem_index,
                 TableIndex::from_u32(<span class="kw-2">*</span>table_index),
-                table,
                 dest,
                 src,
                 len,
@@ -4571,26 +4981,32 @@
         | Operator::V128Load16Splat { memarg }
         | Operator::V128Load32Splat { memarg }
         | Operator::V128Load64Splat { memarg } =&gt; {
-            translate_load(
-                memarg,
-                ir::Opcode::Load,
-                type_of(op).lane_type(),
-                builder,
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
                 state,
-                environ,
-            )<span class="question-mark">?</span>;
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    type_of(op).lane_type(),
+                    builder,
+                    state,
+                    environ,
+                )<span class="question-mark">?
+            </span>);
             <span class="kw">let </span>splatted = builder.ins().splat(type_of(op), state.pop1());
             state.push1(splatted)
         }
         Operator::V128Load32Zero { memarg } | Operator::V128Load64Zero { memarg } =&gt; {
-            translate_load(
-                memarg,
-                ir::Opcode::Load,
-                type_of(op).lane_type(),
-                builder,
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
                 state,
-                environ,
-            )<span class="question-mark">?</span>;
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    type_of(op).lane_type(),
+                    builder,
+                    state,
+                    environ,
+                )<span class="question-mark">?
+            </span>);
             <span class="kw">let </span>as_vector = builder.ins().scalar_to_vector(type_of(op), state.pop1());
             state.push1(as_vector)
         }
@@ -4599,14 +5015,17 @@
         | Operator::V128Load32Lane { memarg, lane }
         | Operator::V128Load64Lane { memarg, lane } =&gt; {
             <span class="kw">let </span>vector = pop1_with_bitcast(state, type_of(op), builder);
-            translate_load(
-                memarg,
-                ir::Opcode::Load,
-                type_of(op).lane_type(),
-                builder,
+            <span class="macro">unwrap_or_return_unreachable_state!</span>(
                 state,
-                environ,
-            )<span class="question-mark">?</span>;
+                translate_load(
+                    memarg,
+                    ir::Opcode::Load,
+                    type_of(op).lane_type(),
+                    builder,
+                    state,
+                    environ,
+                )<span class="question-mark">?
+            </span>);
             <span class="kw">let </span>replacement = state.pop1();
             state.push1(builder.ins().insertlane(vector, replacement, <span class="kw-2">*</span>lane))
         }
@@ -4628,7 +5047,7 @@
             <span class="kw">let </span>extracted = builder.ins().extractlane(vector, <span class="kw-2">*</span>lane);
             state.push1(builder.ins().uextend(I32, extracted));
             <span class="comment">// On x86, PEXTRB zeroes the upper bits of the destination register of extractlane so
-            // uextend could be elided; for now, uextend is needed for Cranelift&#39;s type checks to
+            // uextend could be elided; for now, uextend is needed for Cranelift's type checks to
             // work.
         </span>}
         Operator::I32x4ExtractLane { lane }
@@ -4666,7 +5085,7 @@
         </span>}
         Operator::I8x16Swizzle =&gt; {
             <span class="kw">let </span>(a, b) = pop2_with_bitcast(state, I8X16, builder);
-            state.push1(builder.ins().swizzle(I8X16, a, b))
+            state.push1(builder.ins().swizzle(a, b))
         }
         Operator::I8x16Add | Operator::I16x8Add | Operator::I32x4Add | Operator::I64x2Add =&gt; {
             <span class="kw">let </span>(a, b) = pop2_with_bitcast(state, type_of(op), builder);
@@ -4876,12 +5295,29 @@
             state.push1(builder.ins().fmin(a, b))
         }
         Operator::F32x4PMax | Operator::F64x2PMax =&gt; {
-            <span class="kw">let </span>(a, b) = pop2_with_bitcast(state, type_of(op), builder);
-            state.push1(builder.ins().fmax_pseudo(a, b))
+            <span class="comment">// Note the careful ordering here with respect to `fcmp` and
+            // `bitselect`. This matches the spec definition of:
+            //
+            //  fpmax(z1, z2) =
+            //      * If z1 is less than z2 then return z2.
+            //      * Else return z1.
+            </span><span class="kw">let </span>ty = type_of(op);
+            <span class="kw">let </span>(a, b) = pop2_with_bitcast(state, ty, builder);
+            <span class="kw">let </span>cmp = builder.ins().fcmp(FloatCC::LessThan, a, b);
+            <span class="kw">let </span>cmp = optionally_bitcast_vector(cmp, ty, builder);
+            state.push1(builder.ins().bitselect(cmp, b, a))
         }
         Operator::F32x4PMin | Operator::F64x2PMin =&gt; {
-            <span class="kw">let </span>(a, b) = pop2_with_bitcast(state, type_of(op), builder);
-            state.push1(builder.ins().fmin_pseudo(a, b))
+            <span class="comment">// Note the careful ordering here which is similar to `pmax` above:
+            //
+            //  fpmin(z1, z2) =
+            //      * If z2 is less than z1 then return z2.
+            //      * Else return z1.
+            </span><span class="kw">let </span>ty = type_of(op);
+            <span class="kw">let </span>(a, b) = pop2_with_bitcast(state, ty, builder);
+            <span class="kw">let </span>cmp = builder.ins().fcmp(FloatCC::LessThan, b, a);
+            <span class="kw">let </span>cmp = optionally_bitcast_vector(cmp, ty, builder);
+            state.push1(builder.ins().bitselect(cmp, b, a))
         }
         Operator::F32x4Sqrt | Operator::F64x2Sqrt =&gt; {
             <span class="kw">let </span>a = pop1_with_bitcast(state, type_of(op), builder);
@@ -4905,7 +5341,8 @@
         }
         Operator::F64x2ConvertLowI32x4S =&gt; {
             <span class="kw">let </span>a = pop1_with_bitcast(state, I32X4, builder);
-            state.push1(builder.ins().fcvt_low_from_sint(F64X2, a));
+            <span class="kw">let </span>widened_a = builder.ins().swiden_low(a);
+            state.push1(builder.ins().fcvt_from_sint(F64X2, widened_a));
         }
         Operator::F64x2ConvertLowI32x4U =&gt; {
             <span class="kw">let </span>a = pop1_with_bitcast(state, I32X4, builder);
@@ -5035,7 +5472,7 @@
         }
         Operator::F32x4Ceil | Operator::F64x2Ceil =&gt; {
             <span class="comment">// This is something of a misuse of `type_of`, because that produces the return type
-            // of `op`.  In this case we want the arg type, but we know it&#39;s the same as the
+            // of `op`.  In this case we want the arg type, but we know it's the same as the
             // return type.  Same for the 3 cases below.
             </span><span class="kw">let </span>arg = pop1_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().ceil(arg));
@@ -5054,7 +5491,13 @@
         }
         Operator::I32x4DotI16x8S =&gt; {
             <span class="kw">let </span>(a, b) = pop2_with_bitcast(state, I16X8, builder);
-            state.push1(builder.ins().widening_pairwise_dot_product_s(a, b));
+            <span class="kw">let </span>alow = builder.ins().swiden_low(a);
+            <span class="kw">let </span>blow = builder.ins().swiden_low(b);
+            <span class="kw">let </span>low = builder.ins().imul(alow, blow);
+            <span class="kw">let </span>ahigh = builder.ins().swiden_high(a);
+            <span class="kw">let </span>bhigh = builder.ins().swiden_high(b);
+            <span class="kw">let </span>high = builder.ins().imul(ahigh, bhigh);
+            state.push1(builder.ins().iadd_pairwise(low, high));
         }
         Operator::I8x16Popcnt =&gt; {
             <span class="kw">let </span>arg = pop1_with_bitcast(state, type_of(op), builder);
@@ -5137,7 +5580,7 @@
             state.push1(builder.ins().imul(a_high, b_high));
         }
         Operator::ReturnCall { .. } | Operator::ReturnCallIndirect { .. } =&gt; {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;proposed tail-call operator {:?}&quot;</span>, op));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"proposed tail-call operator {:?}"</span>, op));
         }
         Operator::I8x16RelaxedSwizzle
         | Operator::I32x4RelaxedTruncF32x4S
@@ -5159,11 +5602,11 @@
         | Operator::I16x8RelaxedDotI8x16I7x16S
         | Operator::I32x4RelaxedDotI8x16I7x16AddS
         | Operator::I16x8RelaxedQ15mulrS =&gt; {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;proposed relaxed-simd operator {:?}&quot;</span>, op));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"proposed relaxed-simd operator {:?}"</span>, op));
         }
         Operator::TryTable { .. } | Operator::ThrowRef =&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-                <span class="string">&quot;exceptions are not supported (operator: {op:?})&quot;
+                <span class="string">"exceptions are not supported (operator: {op:?})"
             </span>));
         }
         Operator::RefEq
@@ -5196,7 +5639,8 @@
         | Operator::AnyConvertExtern
         | Operator::ExternConvertAny
         | Operator::RefI31
-        | Operator::I31GetS
+        | Operator::RefI31Shared =&gt; <span class="macro">todo!</span>(),
+        Operator::I31GetS
         | Operator::I31GetU
         | Operator::MemoryDiscard { .. }
         | Operator::CallRef { .. }
@@ -5204,7 +5648,50 @@
         | Operator::RefAsNonNull
         | Operator::BrOnNull { .. }
         | Operator::BrOnNonNull { .. } =&gt; {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;GC proposal not (operator: {:?})&quot;</span>, op));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"GC proposal not (operator: {:?})"</span>, op));
+        }
+        Operator::GlobalAtomicGet { .. }
+        | Operator::GlobalAtomicSet { .. }
+        | Operator::GlobalAtomicRmwAdd { .. }
+        | Operator::GlobalAtomicRmwSub { .. }
+        | Operator::GlobalAtomicRmwAnd { .. }
+        | Operator::GlobalAtomicRmwOr { .. }
+        | Operator::GlobalAtomicRmwXor { .. }
+        | Operator::GlobalAtomicRmwXchg { .. }
+        | Operator::GlobalAtomicRmwCmpxchg { .. } =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"Global atomics not supported yet!"</span>))
+        }
+        Operator::TableAtomicGet { .. }
+        | Operator::TableAtomicSet { .. }
+        | Operator::TableAtomicRmwXchg { .. }
+        | Operator::TableAtomicRmwCmpxchg { .. } =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"Table atomics not supported yet!"</span>))
+        }
+        Operator::StructAtomicGet { .. }
+        | Operator::StructAtomicGetS { .. }
+        | Operator::StructAtomicGetU { .. }
+        | Operator::StructAtomicSet { .. }
+        | Operator::StructAtomicRmwAdd { .. }
+        | Operator::StructAtomicRmwSub { .. }
+        | Operator::StructAtomicRmwAnd { .. }
+        | Operator::StructAtomicRmwOr { .. }
+        | Operator::StructAtomicRmwXor { .. }
+        | Operator::StructAtomicRmwXchg { .. }
+        | Operator::StructAtomicRmwCmpxchg { .. } =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"Table atomics not supported yet!"</span>))
+        }
+        Operator::ArrayAtomicGet { .. }
+        | Operator::ArrayAtomicGetS { .. }
+        | Operator::ArrayAtomicGetU { .. }
+        | Operator::ArrayAtomicSet { .. }
+        | Operator::ArrayAtomicRmwAdd { .. }
+        | Operator::ArrayAtomicRmwSub { .. }
+        | Operator::ArrayAtomicRmwAnd { .. }
+        | Operator::ArrayAtomicRmwOr { .. }
+        | Operator::ArrayAtomicRmwXor { .. }
+        | Operator::ArrayAtomicRmwXchg { .. }
+        | Operator::ArrayAtomicRmwCmpxchg { .. } =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"Array atomics not supported yet!"</span>))
         }
     };
     <span class="prelude-val">Ok</span>(())
@@ -5225,12 +5712,13 @@
     <span class="macro">debug_assert!</span>(!state.reachable);
     <span class="kw">match </span><span class="kw-2">*</span>op {
         Operator::If { blockty } =&gt; {
-            <span class="comment">// Push a placeholder control stack entry. The if isn&#39;t reachable,
-            // so we don&#39;t have any branches anywhere.
+            <span class="comment">// Push a placeholder control stack entry. The if isn't reachable,
+            // so we don't have any branches anywhere.
             </span>state.push_if(
                 ir::Block::reserved_value(),
                 ElseData::NoElse {
                     branch_inst: ir::Inst::reserved_value(),
+                    placeholder: ir::Block::reserved_value(),
                 },
                 <span class="number">0</span>,
                 <span class="number">0</span>,
@@ -5258,7 +5746,10 @@
                         </span>state.reachable = <span class="bool-val">true</span>;
 
                         <span class="kw">let </span>else_block = <span class="kw">match </span><span class="kw-2">*</span>else_data {
-                            ElseData::NoElse { branch_inst } =&gt; {
+                            ElseData::NoElse {
+                                branch_inst,
+                                placeholder,
+                            } =&gt; {
                                 <span class="kw">let </span>(params, _results) = module_translation_state
                                     .blocktype_params_results(<span class="kw-2">&amp;</span>blocktype)<span class="question-mark">?</span>;
                                 <span class="kw">let </span>else_block =
@@ -5267,7 +5758,11 @@
                                 frame.truncate_value_stack_to_else_params(<span class="kw-2">&amp;mut </span>state.stack);
 
                                 <span class="comment">// We change the target of the branch instruction.
-                                </span>builder.change_jump_destination(branch_inst, else_block);
+                                </span>builder.change_jump_destination(
+                                    branch_inst,
+                                    placeholder,
+                                    else_block,
+                                );
                                 builder.seal_block(else_block);
                                 else_block
                             }
@@ -5301,7 +5796,7 @@
                 <span class="comment">// If it is a loop we also have to seal the body loop block
                 </span>ControlStackFrame::Loop { header, .. } =&gt; {
                     builder.seal_block(header);
-                    <span class="comment">// And loops can&#39;t have branches to the end.
+                    <span class="comment">// And loops can't have branches to the end.
                     </span><span class="bool-val">false
                 </span>}
                 <span class="comment">// If we never set `consequent_ends_reachable` then that means
@@ -5337,41 +5832,61 @@
             }
         }
         <span class="kw">_ </span>=&gt; {
-            <span class="comment">// We don&#39;t translate because this is unreachable code
+            <span class="comment">// We don't translate because this is unreachable code
         </span>}
     }
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Get the address+offset to use for a heap access.
-</span><span class="kw">fn </span>get_heap_addr(
-    heap: ir::Heap,
-    addr32: ir::Value,
-    offset: u32,
-    width: u32,
-    addr_ty: Type,
+<span class="doccomment">/// This function is a generalized helper for validating that a wasm-supplied
+/// heap address is in-bounds.
+///
+/// This function takes a litany of parameters and requires that the *Wasm*
+/// address to be verified is at the top of the stack in `state`. This will
+/// generate necessary IR to validate that the heap address is correctly
+/// in-bounds, and various parameters are returned describing the valid *native*
+/// heap address if execution reaches that point.
+///
+/// Returns `None` when the Wasm access will unconditionally trap.
+///
+/// Returns `(flags, wasm_addr, native_addr)`.
+</span><span class="kw">fn </span>prepare_addr&lt;FE&gt;(
+    memarg: <span class="kw-2">&amp;</span>MemArg,
+    access_size: u8,
     builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-) -&gt; (ir::Value, i32) {
-    <span class="kw">let </span>offset_guard_size: u64 = builder.func.heaps[heap].offset_guard_size.into();
+    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+    environ: <span class="kw-2">&amp;mut </span>FE,
+) -&gt; WasmResult&lt;Reachability&lt;(MemFlags, Value, Value)&gt;&gt;
+<span class="kw">where
+    </span>FE: FuncEnvironment + <span class="question-mark">?</span>Sized,
+{
+    <span class="kw">let </span>index = state.pop1();
+    <span class="kw">let </span>heap = state.get_heap(builder.func, memarg.memory, environ)<span class="question-mark">?</span>;
 
-    <span class="comment">// How exactly the bounds check is performed here and what it&#39;s performed
+    <span class="comment">// How exactly the bounds check is performed here and what it's performed
     // on is a bit tricky. Generally we want to rely on access violations (e.g.
-    // segfaults) to generate traps since that means we don&#39;t have to bounds
+    // segfaults) to generate traps since that means we don't have to bounds
     // check anything explicitly.
     //
-    // If we don&#39;t have a guard page of unmapped memory, though, then we can&#39;t
-    // rely on this trapping behavior through segfaults. Instead we need to
-    // bounds-check the entire memory access here which is everything from
+    // (1) If we don't have a guard page of unmapped memory, though, then we
+    // can't rely on this trapping behavior through segfaults. Instead we need
+    // to bounds-check the entire memory access here which is everything from
     // `addr32 + offset` to `addr32 + offset + width` (not inclusive). In this
-    // scenario our adjusted offset that we&#39;re checking is `offset + width`.
+    // scenario our adjusted offset that we're checking is `memarg.offset +
+    // access_size`. Note that we do saturating arithmetic here to avoid
+    // overflow. The addition here is in the 64-bit space, which means that
+    // we'll never overflow for 32-bit wasm but for 64-bit this is an issue. If
+    // our effective offset is u64::MAX though then it's impossible for for
+    // that to actually be a valid offset because otherwise the wasm linear
+    // memory would take all of the host memory!
     //
-    // If we have a guard page, however, then we can perform a further
+    // (2) If we have a guard page, however, then we can perform a further
     // optimization of the generated code by only checking multiples of the
     // offset-guard size to be more CSE-friendly. Knowing that we have at least
-    // 1 page of a guard page we&#39;re then able to disregard the `width` since we
-    // know it&#39;s always less than one page. Our bounds check will be for the
-    // first byte which will either succeed and be guaranteed to fault if it&#39;s
+    // 1 page of a guard page we're then able to disregard the `width` since we
+    // know it's always less than one page. Our bounds check will be for the
+    // first byte which will either succeed and be guaranteed to fault if it's
     // actually out of bounds, or the bounds check itself will fail. In any case
     // we assert that the width is reasonably small for now so this assumption
     // can be adjusted in the future if we get larger widths.
@@ -5380,7 +5895,7 @@
     //
     //      n * offset_guard_size + y = offset
     //
-    // We&#39;ll then pass `n * offset_guard_size` as the bounds check value. If
+    // We'll then pass `n * offset_guard_size` as the bounds check value. If
     // this traps then our `offset` would have trapped anyway. If this check
     // passes we know
     //
@@ -5394,71 +5909,180 @@
     //
     //      addr32 + offset &lt; bound + offset_guard_size
     //
-    // Since we know that that guard size bytes are all unmapped we&#39;re
+    // Since we know that that guard size bytes are all unmapped we're
     // guaranteed that `offset` and the `width` bytes after it are either
-    // in-bounds or will hit the guard page, meaning we&#39;ll get the desired
+    // in-bounds or will hit the guard page, meaning we'll get the desired
     // semantics we want.
     //
-    // As one final comment on the bits with the guard size here, another goal
-    // of this is to hit an optimization in `heap_addr` where if the heap size
-    // minus the offset is &gt;= 4GB then bounds checks are 100% eliminated. This
-    // means that with huge guard regions (e.g. our 2GB default) most adjusted
-    // offsets we&#39;re checking here are zero. This means that we&#39;ll hit the fast
-    // path and emit zero conditional traps for bounds checks
-    </span><span class="kw">let </span>adjusted_offset = <span class="kw">if </span>offset_guard_size == <span class="number">0 </span>{
-        u64::from(offset) + u64::from(width)
-    } <span class="kw">else </span>{
-        <span class="macro">assert!</span>(width &lt; <span class="number">1024</span>);
-        cmp::max(u64::from(offset) / offset_guard_size * offset_guard_size, <span class="number">1</span>)
+    // ---
+    //
+    // With all that in mind remember that the goal is to bounds check as few
+    // things as possible. To facilitate this the "fast path" is expected to be
+    // hit like so:
+    //
+    // * For wasm32, wasmtime defaults to 4gb "static" memories with 2gb guard
+    //   regions. This means that for all offsets &lt;=2gb, we hit the optimized
+    //   case for `heap_addr` on static memories 4gb in size in cranelift's
+    //   legalization of `heap_addr`, eliding the bounds check entirely.
+    //
+    // * For wasm64 offsets &lt;=2gb will generate a single `heap_addr`
+    //   instruction, but at this time all heaps are "dynamic" which means that
+    //   a single bounds check is forced. Ideally we'd do better here, but
+    //   that's the current state of affairs.
+    //
+    // Basically we assume that most configurations have a guard page and most
+    // offsets in `memarg` are &lt;=2gb, which means we get the fast path of one
+    // `heap_addr` instruction plus a hardcoded i32-offset in memory-related
+    // instructions.
+    </span><span class="kw">let </span>heap = environ.heaps()[heap].clone();
+    <span class="kw">let </span>addr = <span class="kw">match </span>u32::try_from(memarg.offset) {
+        <span class="comment">// If our offset fits within a u32, then we can place the it into the
+        // offset immediate of the `heap_addr` instruction.
+        </span><span class="prelude-val">Ok</span>(offset) =&gt; bounds_checks::bounds_check_and_compute_addr(
+            builder,
+            environ,
+            <span class="kw-2">&amp;</span>heap,
+            index,
+            offset,
+            access_size,
+        )<span class="question-mark">?</span>,
+
+        <span class="comment">// If the offset doesn't fit within a u32, then we can't pass it
+        // directly into `heap_addr`.
+        //
+        // One reasonable question you might ask is "why not?". There's no
+        // fundamental reason why `heap_addr` *must* take a 32-bit offset. The
+        // reason this isn't done, though, is that blindly changing the offset
+        // to a 64-bit offset increases the size of the `InstructionData` enum
+        // in cranelift by 8 bytes (16 to 24). This can have significant
+        // performance implications so the conclusion when this was written was
+        // that we shouldn't do that.
+        //
+        // Without the ability to put the whole offset into the `heap_addr`
+        // instruction we need to fold the offset into the address itself with
+        // an unsigned addition. In doing so though we need to check for
+        // overflow because that would mean the address is out-of-bounds (wasm
+        // bounds checks happen on the effective 33 or 65 bit address once the
+        // offset is factored in).
+        //
+        // Once we have the effective address, offset already folded in, then
+        // `heap_addr` is used to verify that the address is indeed in-bounds.
+        //
+        // Note that this is generating what's likely to be at least two
+        // branches, one for the overflow and one for the bounds check itself.
+        // For now though that should hopefully be ok since 4gb+ offsets are
+        // relatively odd/rare. In the future if needed we can look into
+        // optimizing this more.
+        </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+            <span class="kw">let </span>offset = builder.ins().iconst(heap.index_type, memarg.offset <span class="kw">as </span>i64);
+            <span class="kw">let </span>adjusted_index =
+                builder
+                    .ins()
+                    .uadd_overflow_trap(index, offset, ir::TrapCode::HeapOutOfBounds);
+            bounds_checks::bounds_check_and_compute_addr(
+                builder,
+                environ,
+                <span class="kw-2">&amp;</span>heap,
+                adjusted_index,
+                <span class="number">0</span>,
+                access_size,
+            )<span class="question-mark">?
+        </span>}
     };
-    <span class="macro">debug_assert!</span>(adjusted_offset &gt; <span class="number">0</span>); <span class="comment">// want to bounds check at least 1 byte
-    </span><span class="kw">let </span>check_size = u32::try_from(adjusted_offset).unwrap_or(u32::MAX);
-    <span class="kw">let </span>base = builder
-        .ins()
-        .heap_addr(addr_ty, heap, addr32, <span class="number">0u32</span>, check_size <span class="kw">as </span>u8);
+    <span class="kw">let </span>addr = <span class="kw">match </span>addr {
+        Reachability::Unreachable =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Reachability::Unreachable),
+        Reachability::Reachable(a) =&gt; a,
+    };
 
-    <span class="comment">// Native load/store instructions take a signed `Offset32` immediate, so adjust the base
-    // pointer if necessary.
-    </span><span class="kw">if </span>offset &gt; i32::MAX <span class="kw">as </span>u32 {
-        <span class="comment">// Offset doesn&#39;t fit in the load/store instruction.
-        </span><span class="kw">let </span>adj = builder.ins().iadd_imm(base, i64::from(i32::MAX) + <span class="number">1</span>);
-        (adj, (offset - (i32::MAX <span class="kw">as </span>u32 + <span class="number">1</span>)) <span class="kw">as </span>i32)
-    } <span class="kw">else </span>{
-        (base, offset <span class="kw">as </span>i32)
-    }
-}
-
-<span class="doccomment">/// Prepare for a load; factors out common functionality between load and load_extend operations.
-</span><span class="kw">fn </span>prepare_load&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
-    memarg: <span class="kw-2">&amp;</span>MemArg,
-    loaded_bytes: u32,
-    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-    environ: <span class="kw-2">&amp;mut </span>FE,
-) -&gt; WasmResult&lt;(MemFlags, Value, Offset32)&gt; {
-    <span class="kw">let </span>addr32 = state.pop1();
-
-    <span class="kw">let </span>heap = state.get_heap(builder.func, memarg.memory, environ)<span class="question-mark">?</span>;
-    <span class="kw">let </span>(base, offset) = get_heap_addr(
-        heap,
-        addr32,
-        memarg.offset <span class="kw">as </span>u32,
-        loaded_bytes,
-        environ.pointer_type(),
-        builder,
-    );
-
-    <span class="comment">// Note that we don&#39;t set `is_aligned` here, even if the load instruction&#39;s
-    // alignment immediate says it&#39;s aligned, because WebAssembly&#39;s immediate
-    // field is just a hint, while Cranelift&#39;s aligned flag needs a guarantee.
-    // WebAssembly memory accesses are always little-endian.
+    <span class="comment">// Note that we don't set `is_aligned` here, even if the load instruction's
+    // alignment immediate may says it's aligned, because WebAssembly's
+    // immediate field is just a hint, while Cranelift's aligned flag needs a
+    // guarantee. WebAssembly memory accesses are always little-endian.
     </span><span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
     flags.set_endianness(ir::Endianness::Little);
 
-    <span class="prelude-val">Ok</span>((flags, base, offset.into()))
+    <span class="kw">if </span>heap.memory_type.is_some() {
+        <span class="comment">// Proof-carrying code is enabled; check this memory access.
+        </span>flags.set_checked();
+    }
+
+    <span class="comment">// The access occurs to the `heap` disjoint category of abstract
+    // state. This may allow alias analysis to merge redundant loads,
+    // etc. when heap accesses occur interleaved with other (table,
+    // vmctx, stack) accesses.
+    </span>flags.set_alias_region(<span class="prelude-val">Some</span>(ir::AliasRegion::Heap));
+
+    <span class="prelude-val">Ok</span>(Reachability::Reachable((flags, index, addr)))
+}
+
+<span class="kw">fn </span>align_atomic_addr(
+    memarg: <span class="kw-2">&amp;</span>MemArg,
+    loaded_bytes: u8,
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+) {
+    <span class="comment">// Atomic addresses must all be aligned correctly, and for now we check
+    // alignment before we check out-of-bounds-ness. The order of this check may
+    // need to be updated depending on the outcome of the official threads
+    // proposal itself.
+    //
+    // Note that with an offset&gt;0 we generate an `iadd_imm` where the result is
+    // thrown away after the offset check. This may truncate the offset and the
+    // result may overflow as well, but those conditions won't affect the
+    // alignment check itself. This can probably be optimized better and we
+    // should do so in the future as well.
+    </span><span class="kw">if </span>loaded_bytes &gt; <span class="number">1 </span>{
+        <span class="kw">let </span>addr = state.pop1(); <span class="comment">// "peek" via pop then push
+        </span>state.push1(addr);
+        <span class="kw">let </span>effective_addr = <span class="kw">if </span>memarg.offset == <span class="number">0 </span>{
+            addr
+        } <span class="kw">else </span>{
+            builder
+                .ins()
+                .iadd_imm(addr, i64::from(memarg.offset <span class="kw">as </span>i32))
+        };
+        <span class="macro">debug_assert!</span>(loaded_bytes.is_power_of_two());
+        <span class="kw">let </span>misalignment = builder
+            .ins()
+            .band_imm(effective_addr, i64::from(loaded_bytes - <span class="number">1</span>));
+        <span class="kw">let </span>f = builder.ins().icmp_imm(IntCC::NotEqual, misalignment, <span class="number">0</span>);
+        builder.ins().trapnz(f, ir::TrapCode::HeapMisaligned);
+    }
+}
+
+<span class="doccomment">/// Like `prepare_addr` but for atomic accesses.
+///
+/// Returns `None` when the Wasm access will unconditionally trap.
+</span><span class="kw">fn </span>prepare_atomic_addr&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    memarg: <span class="kw-2">&amp;</span>MemArg,
+    loaded_bytes: u8,
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+    environ: <span class="kw-2">&amp;mut </span>FE,
+) -&gt; WasmResult&lt;Reachability&lt;(MemFlags, Value, Value)&gt;&gt; {
+    align_atomic_addr(memarg, loaded_bytes, builder, state);
+    prepare_addr(memarg, loaded_bytes, builder, state, environ)
+}
+
+<span class="doccomment">/// Like `Option&lt;T&gt;` but specifically for passing information about transitions
+/// from reachable to unreachable state and the like from callees to callers.
+///
+/// Marked `must_use` to force callers to update
+/// `FuncTranslationState::reachable` as necessary.
+</span><span class="attr">#[derive(PartialEq, Eq)]
+#[must_use]
+</span><span class="kw">pub enum </span>Reachability&lt;T&gt; {
+    <span class="doccomment">/// The Wasm execution state is reachable, here is a `T`.
+    </span>Reachable(T),
+    <span class="doccomment">/// The Wasm execution state has been determined to be statically
+    /// unreachable. It is the receiver of this value's responsibility to update
+    /// `FuncTranslationState::reachable` as necessary.
+    </span>Unreachable,
 }
 
 <span class="doccomment">/// Translate a load instruction.
+///
+/// Returns the execution state's reachability after the load is translated.
 </span><span class="kw">fn </span>translate_load&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
     memarg: <span class="kw-2">&amp;</span>MemArg,
     opcode: ir::Opcode,
@@ -5466,17 +6090,21 @@
     builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
     environ: <span class="kw-2">&amp;mut </span>FE,
-) -&gt; WasmResult&lt;()&gt; {
-    <span class="kw">let </span>(flags, base, offset) = prepare_load(
-        memarg,
-        mem_op_size(opcode, result_ty),
-        builder,
-        state,
-        environ,
-    )<span class="question-mark">?</span>;
-    <span class="kw">let </span>(load, dfg) = builder.ins().Load(opcode, result_ty, flags, offset, base);
+) -&gt; WasmResult&lt;Reachability&lt;()&gt;&gt; {
+    <span class="kw">let </span>mem_op_size = mem_op_size(opcode, result_ty);
+    <span class="kw">let </span>(flags, wasm_index, base) =
+        <span class="kw">match </span>prepare_addr(memarg, mem_op_size, builder, state, environ)<span class="question-mark">? </span>{
+            Reachability::Unreachable =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Reachability::Unreachable),
+            Reachability::Reachable((f, i, b)) =&gt; (f, i, b),
+        };
+
+    environ.before_load(builder, mem_op_size, wasm_index, memarg.offset);
+
+    <span class="kw">let </span>(load, dfg) = builder
+        .ins()
+        .Load(opcode, result_ty, flags, Offset32::new(<span class="number">0</span>), base);
     state.push1(dfg.first_result(load));
-    <span class="prelude-val">Ok</span>(())
+    <span class="prelude-val">Ok</span>(Reachability::Reachable(()))
 }
 
 <span class="doccomment">/// Translate a store instruction.
@@ -5487,34 +6115,30 @@
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
     environ: <span class="kw-2">&amp;mut </span>FE,
 ) -&gt; WasmResult&lt;()&gt; {
-    <span class="kw">let </span>(addr32, val) = state.pop2();
+    <span class="kw">let </span>val = state.pop1();
     <span class="kw">let </span>val_ty = builder.func.dfg.value_type(val);
+    <span class="kw">let </span>mem_op_size = mem_op_size(opcode, val_ty);
 
-    <span class="kw">let </span>heap = state.get_heap(builder.func, memarg.memory, environ)<span class="question-mark">?</span>;
-    <span class="kw">let </span>(base, offset) = get_heap_addr(
-        heap,
-        addr32,
-        memarg.offset <span class="kw">as </span>u32,
-        mem_op_size(opcode, val_ty),
-        environ.pointer_type(),
-        builder,
-    );
-    <span class="comment">// See the comments in `prepare_load` about the flags.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
-    flags.set_endianness(ir::Endianness::Little);
+    <span class="kw">let </span>(flags, wasm_index, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+        state,
+        prepare_addr(memarg, mem_op_size, builder, state, environ)<span class="question-mark">?
+    </span>);
+
+    environ.before_store(builder, mem_op_size, wasm_index, memarg.offset);
+
     builder
         .ins()
-        .Store(opcode, val_ty, flags, offset.into(), val, base);
+        .Store(opcode, val_ty, flags, Offset32::new(<span class="number">0</span>), val, base);
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">fn </span>mem_op_size(opcode: ir::Opcode, ty: Type) -&gt; u32 {
+<span class="kw">fn </span>mem_op_size(opcode: ir::Opcode, ty: Type) -&gt; u8 {
     <span class="kw">match </span>opcode {
         ir::Opcode::Istore8 | ir::Opcode::Sload8 | ir::Opcode::Uload8 =&gt; <span class="number">1</span>,
         ir::Opcode::Istore16 | ir::Opcode::Sload16 | ir::Opcode::Uload16 =&gt; <span class="number">2</span>,
         ir::Opcode::Istore32 | ir::Opcode::Sload32 | ir::Opcode::Uload32 =&gt; <span class="number">4</span>,
-        ir::Opcode::Store | ir::Opcode::Load =&gt; ty.bytes(),
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;unknown size of mem op for {:?}&quot;</span>, opcode),
+        ir::Opcode::Store | ir::Opcode::Load =&gt; u8::try_from(ty.bytes()).unwrap(),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"unknown size of mem op for {:?}"</span>, opcode),
     }
 }
 
@@ -5556,58 +6180,6 @@
     final_lma
 }
 
-<span class="comment">// For an atomic memory operation, emit an alignment check for the linear memory address,
-// and then compute the final effective address.
-</span><span class="kw">fn </span>finalise_atomic_mem_addr&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
-    linear_mem_addr: Value,
-    memarg: <span class="kw-2">&amp;</span>MemArg,
-    access_ty: Type,
-    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-    environ: <span class="kw-2">&amp;mut </span>FE,
-) -&gt; WasmResult&lt;Value&gt; {
-    <span class="kw">let </span>access_ty_bytes = access_ty.bytes();
-    <span class="kw">let </span>final_lma = <span class="kw">if </span>memarg.offset &gt; <span class="number">0 </span>{
-        <span class="macro">assert!</span>(builder.func.dfg.value_type(linear_mem_addr) == I32);
-        <span class="kw">let </span>linear_mem_addr = builder.ins().uextend(I64, linear_mem_addr);
-        <span class="kw">let </span>a = builder
-            .ins()
-            .iadd_imm(linear_mem_addr, memarg.offset <span class="kw">as </span>i64);
-        <span class="kw">let </span>r = builder
-            .ins()
-            .icmp_imm(IntCC::UnsignedGreaterThanOrEqual, a, <span class="number">0x1_0000_0000i64</span>);
-        builder.ins().trapnz(r, ir::TrapCode::HeapOutOfBounds);
-        builder.ins().ireduce(I32, a)
-    } <span class="kw">else </span>{
-        linear_mem_addr
-    };
-    <span class="comment">// Check the alignment of `linear_mem_addr`.
-    </span><span class="kw">if </span>access_ty_bytes != <span class="number">1 </span>{
-        <span class="macro">assert!</span>(access_ty_bytes == <span class="number">2 </span>|| access_ty_bytes == <span class="number">4 </span>|| access_ty_bytes == <span class="number">8</span>);
-        <span class="kw">let </span>final_lma_misalignment = builder
-            .ins()
-            .band_imm(final_lma, i64::from(access_ty_bytes - <span class="number">1</span>));
-        <span class="kw">let </span>f = builder
-            .ins()
-            .icmp_imm(IntCC::Equal, final_lma_misalignment, i64::from(<span class="number">0</span>));
-        builder.ins().trapz(f, ir::TrapCode::HeapMisaligned);
-    }
-
-    <span class="comment">// Compute the final effective address.
-    </span><span class="kw">let </span>heap = state.get_heap(builder.func, memarg.memory, environ)<span class="question-mark">?</span>;
-    <span class="kw">let </span>(base, offset) = get_heap_addr(
-        heap,
-        final_lma,
-        <span class="comment">/*offset=*/ </span><span class="number">0</span>,
-        access_ty.bytes(),
-        environ.pointer_type(),
-        builder,
-    );
-
-    <span class="kw">let </span>final_effective_address = builder.ins().iadd_imm(base, i64::from(offset));
-    <span class="prelude-val">Ok</span>(final_effective_address)
-}
-
 <span class="kw">fn </span>translate_atomic_rmw&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
     widened_ty: Type,
     access_ty: Type,
@@ -5617,7 +6189,7 @@
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
     environ: <span class="kw-2">&amp;mut </span>FE,
 ) -&gt; WasmResult&lt;()&gt; {
-    <span class="kw">let </span>(linear_mem_addr, <span class="kw-2">mut </span>arg2) = state.pop2();
+    <span class="kw">let </span><span class="kw-2">mut </span>arg2 = state.pop1();
     <span class="kw">let </span>arg2_ty = builder.func.dfg.value_type(arg2);
 
     <span class="comment">// The operation is performed at type `access_ty`, and the old value is zero-extended
@@ -5626,7 +6198,7 @@
         I8 | I16 | I32 | I64 =&gt; {}
         <span class="kw">_ </span>=&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-                <span class="string">&quot;atomic_rmw: unsupported access type {:?}&quot;</span>,
+                <span class="string">"atomic_rmw: unsupported access type {:?}"</span>,
                 access_ty
             ))
         }
@@ -5639,22 +6211,24 @@
         arg2 = builder.ins().ireduce(access_ty, arg2);
     }
 
-    <span class="kw">let </span>final_effective_address =
-        finalise_atomic_mem_addr(linear_mem_addr, memarg, access_ty, builder, state, environ)<span class="question-mark">?</span>;
+    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+        state,
+        prepare_atomic_addr(
+            memarg,
+            u8::try_from(access_ty.bytes()).unwrap(),
+            builder,
+            state,
+            environ,
+        )<span class="question-mark">?
+    </span>);
 
-    <span class="comment">// See the comments in `prepare_load` about the flags.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
-    flags.set_endianness(ir::Endianness::Little);
-    <span class="kw">let </span><span class="kw-2">mut </span>res = builder
-        .ins()
-        .atomic_rmw(access_ty, flags, op, final_effective_address, arg2);
+    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_rmw(access_ty, flags, op, addr, arg2);
     <span class="kw">if </span>access_ty != widened_ty {
         res = builder.ins().uextend(widened_ty, res);
     }
     state.push1(res);
     <span class="prelude-val">Ok</span>(())
 }
-
 <span class="kw">fn </span>translate_atomic_cas&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
     widened_ty: Type,
     access_ty: Type,
@@ -5663,7 +6237,7 @@
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
     environ: <span class="kw-2">&amp;mut </span>FE,
 ) -&gt; WasmResult&lt;()&gt; {
-    <span class="kw">let </span>(linear_mem_addr, <span class="kw-2">mut </span>expected, <span class="kw-2">mut </span>replacement) = state.pop3();
+    <span class="kw">let </span>(<span class="kw-2">mut </span>expected, <span class="kw-2">mut </span>replacement) = state.pop2();
     <span class="kw">let </span>expected_ty = builder.func.dfg.value_type(expected);
     <span class="kw">let </span>replacement_ty = builder.func.dfg.value_type(replacement);
 
@@ -5673,7 +6247,7 @@
         I8 | I16 | I32 | I64 =&gt; {}
         <span class="kw">_ </span>=&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-                <span class="string">&quot;atomic_cas: unsupported access type {:?}&quot;</span>,
+                <span class="string">"atomic_cas: unsupported access type {:?}"</span>,
                 access_ty
             ))
         }
@@ -5690,15 +6264,17 @@
         replacement = builder.ins().ireduce(access_ty, replacement);
     }
 
-    <span class="kw">let </span>final_effective_address =
-        finalise_atomic_mem_addr(linear_mem_addr, memarg, access_ty, builder, state, environ)<span class="question-mark">?</span>;
-
-    <span class="comment">// See the comments in `prepare_load` about the flags.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
-    flags.set_endianness(ir::Endianness::Little);
-    <span class="kw">let </span><span class="kw-2">mut </span>res = builder
-        .ins()
-        .atomic_cas(flags, final_effective_address, expected, replacement);
+    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+        state,
+        prepare_atomic_addr(
+            memarg,
+            u8::try_from(access_ty.bytes()).unwrap(),
+            builder,
+            state,
+            environ,
+        )<span class="question-mark">?
+    </span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_cas(flags, addr, expected, replacement);
     <span class="kw">if </span>access_ty != widened_ty {
         res = builder.ins().uextend(widened_ty, res);
     }
@@ -5714,15 +6290,13 @@
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
     environ: <span class="kw-2">&amp;mut </span>FE,
 ) -&gt; WasmResult&lt;()&gt; {
-    <span class="kw">let </span>linear_mem_addr = state.pop1();
-
     <span class="comment">// The load is performed at type `access_ty`, and the loaded value is zero extended
     // to `widened_ty`.
     </span><span class="kw">match </span>access_ty {
         I8 | I16 | I32 | I64 =&gt; {}
         <span class="kw">_ </span>=&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-                <span class="string">&quot;atomic_load: unsupported access type {:?}&quot;</span>,
+                <span class="string">"atomic_load: unsupported access type {:?}"</span>,
                 access_ty
             ))
         }
@@ -5730,15 +6304,17 @@
     <span class="kw">let </span>w_ty_ok = <span class="macro">matches!</span>(widened_ty, I32 | I64);
     <span class="macro">assert!</span>(w_ty_ok &amp;&amp; widened_ty.bytes() &gt;= access_ty.bytes());
 
-    <span class="kw">let </span>final_effective_address =
-        finalise_atomic_mem_addr(linear_mem_addr, memarg, access_ty, builder, state, environ)<span class="question-mark">?</span>;
-
-    <span class="comment">// See the comments in `prepare_load` about the flags.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
-    flags.set_endianness(ir::Endianness::Little);
-    <span class="kw">let </span><span class="kw-2">mut </span>res = builder
-        .ins()
-        .atomic_load(access_ty, flags, final_effective_address);
+    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+        state,
+        prepare_atomic_addr(
+            memarg,
+            u8::try_from(access_ty.bytes()).unwrap(),
+            builder,
+            state,
+            environ,
+        )<span class="question-mark">?
+    </span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_load(access_ty, flags, addr);
     <span class="kw">if </span>access_ty != widened_ty {
         res = builder.ins().uextend(widened_ty, res);
     }
@@ -5753,7 +6329,7 @@
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
     environ: <span class="kw-2">&amp;mut </span>FE,
 ) -&gt; WasmResult&lt;()&gt; {
-    <span class="kw">let </span>(linear_mem_addr, <span class="kw-2">mut </span>data) = state.pop2();
+    <span class="kw">let </span><span class="kw-2">mut </span>data = state.pop1();
     <span class="kw">let </span>data_ty = builder.func.dfg.value_type(data);
 
     <span class="comment">// The operation is performed at type `access_ty`, and the data to be stored may first
@@ -5762,7 +6338,7 @@
         I8 | I16 | I32 | I64 =&gt; {}
         <span class="kw">_ </span>=&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-                <span class="string">&quot;atomic_store: unsupported access type {:?}&quot;</span>,
+                <span class="string">"atomic_store: unsupported access type {:?}"</span>,
                 access_ty
             ))
         }
@@ -5774,15 +6350,17 @@
         data = builder.ins().ireduce(access_ty, data);
     }
 
-    <span class="kw">let </span>final_effective_address =
-        finalise_atomic_mem_addr(linear_mem_addr, memarg, access_ty, builder, state, environ)<span class="question-mark">?</span>;
-
-    <span class="comment">// See the comments in `prepare_load` about the flags.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
-    flags.set_endianness(ir::Endianness::Little);
-    builder
-        .ins()
-        .atomic_store(flags, data, final_effective_address);
+    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+        state,
+        prepare_atomic_addr(
+            memarg,
+            u8::try_from(access_ty.bytes()).unwrap(),
+            builder,
+            state,
+            environ,
+        )<span class="question-mark">?
+    </span>);
+    builder.ins().atomic_store(flags, data, addr);
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -5823,10 +6401,9 @@
 ) {
     <span class="kw">let </span>val = state.pop1();
     <span class="kw">let </span>(br_destination, inputs) = translate_br_if_args(relative_depth, state);
-    canonicalise_then_brnz(builder, val, br_destination, inputs);
-
     <span class="kw">let </span>next_block = builder.create_block();
-    canonicalise_then_jump(builder, next_block, <span class="kw-2">&amp;</span>[]);
+    canonicalise_brif(builder, val, br_destination, inputs, next_block, <span class="kw-2">&amp;</span>[]);
+
     builder.seal_block(next_block); <span class="comment">// The only predecessor is the current block.
     </span>builder.switch_to_block(next_block);
 }
@@ -6052,8 +6629,8 @@
         | Operator::F64x2Nearest =&gt; F64X2,
 
         <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(
-            <span class="string">&quot;Currently only SIMD instructions are mapped to their return type; the \
-             following instruction is not mapped: {:?}&quot;</span>,
+            <span class="string">"Currently only SIMD instructions are mapped to their return type; the \
+             following instruction is not mapped: {:?}"</span>,
             operator
         ),
     }
@@ -6082,17 +6659,17 @@
     <span class="macro">matches!</span>(ty, I64X2 | I32X4 | I16X8 | F32X4 | F64X2)
 }
 
-<span class="doccomment">/// Cast to I8X16, any vector values in `values` that are of &quot;non-canonical&quot; type (meaning, not
+<span class="doccomment">/// Cast to I8X16, any vector values in `values` that are of "non-canonical" type (meaning, not
 /// I8X16), and return them in a slice.  A pre-scan is made to determine whether any casts are
 /// actually necessary, and if not, the original slice is returned.  Otherwise the cast values
 /// are returned in a slice that belongs to the caller-supplied `SmallVec`.
-</span><span class="kw">fn </span>canonicalise_v128_values&lt;<span class="lifetime">&#39;a</span>&gt;(
-    tmp_canonicalised: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>SmallVec&lt;[ir::Value; <span class="number">16</span>]&gt;,
+</span><span class="kw">fn </span>canonicalise_v128_values&lt;<span class="lifetime">'a</span>&gt;(
+    tmp_canonicalised: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>SmallVec&lt;[ir::Value; <span class="number">16</span>]&gt;,
     builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-    values: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ir::Value],
-) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[ir::Value] {
+    values: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ir::Value],
+) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ir::Value] {
     <span class="macro">debug_assert!</span>(tmp_canonicalised.is_empty());
-    <span class="comment">// First figure out if any of the parameters need to be cast.  Mostly they don&#39;t need to be.
+    <span class="comment">// First figure out if any of the parameters need to be cast.  Mostly they don't need to be.
     </span><span class="kw">let </span>any_non_canonical = values
         .iter()
         .any(|v| is_non_canonical_v128(builder.func.dfg.value_type(<span class="kw-2">*</span>v)));
@@ -6100,7 +6677,7 @@
     </span><span class="kw">if </span>!any_non_canonical {
         <span class="kw">return </span>values;
     }
-    <span class="comment">// Otherwise we&#39;ll have to cast, and push the resulting `Value`s into `canonicalised`.
+    <span class="comment">// Otherwise we'll have to cast, and push the resulting `Value`s into `canonicalised`.
     </span><span class="kw">for </span>v <span class="kw">in </span>values {
         tmp_canonicalised.push(<span class="kw">if </span>is_non_canonical_v128(builder.func.dfg.value_type(<span class="kw-2">*</span>v)) {
             builder.ins().bitcast(
@@ -6116,7 +6693,7 @@
 }
 
 <span class="doccomment">/// Generate a `jump` instruction, but first cast all 128-bit vector values to I8X16 if they
-/// don&#39;t have that type.  This is done in somewhat roundabout way so as to ensure that we
+/// don't have that type.  This is done in somewhat roundabout way so as to ensure that we
 /// almost never have to do any heap allocation.
 </span><span class="kw">fn </span>canonicalise_then_jump(
     builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
@@ -6128,32 +6705,32 @@
     builder.ins().jump(destination, canonicalised)
 }
 
-<span class="doccomment">/// The same but for a `brz` instruction.
-</span><span class="kw">fn </span>canonicalise_then_brz(
+<span class="doccomment">/// The same but for a `brif` instruction.
+</span><span class="kw">fn </span>canonicalise_brif(
     builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
     cond: ir::Value,
-    destination: ir::Block,
-    params: <span class="kw-2">&amp;</span>[ir::Value],
+    block_then: ir::Block,
+    params_then: <span class="kw-2">&amp;</span>[ir::Value],
+    block_else: ir::Block,
+    params_else: <span class="kw-2">&amp;</span>[ir::Value],
 ) -&gt; ir::Inst {
-    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised = SmallVec::&lt;[ir::Value; <span class="number">16</span>]&gt;::new();
-    <span class="kw">let </span>canonicalised = canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised, builder, params);
-    builder.ins().brz(cond, destination, canonicalised)
-}
-
-<span class="doccomment">/// The same but for a `brnz` instruction.
-</span><span class="kw">fn </span>canonicalise_then_brnz(
-    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-    cond: ir::Value,
-    destination: ir::Block,
-    params: <span class="kw-2">&amp;</span>[ir::Value],
-) -&gt; ir::Inst {
-    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised = SmallVec::&lt;[ir::Value; <span class="number">16</span>]&gt;::new();
-    <span class="kw">let </span>canonicalised = canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised, builder, params);
-    builder.ins().brnz(cond, destination, canonicalised)
+    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised_then = SmallVec::&lt;[ir::Value; <span class="number">16</span>]&gt;::new();
+    <span class="kw">let </span>canonicalised_then =
+        canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised_then, builder, params_then);
+    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised_else = SmallVec::&lt;[ir::Value; <span class="number">16</span>]&gt;::new();
+    <span class="kw">let </span>canonicalised_else =
+        canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised_else, builder, params_else);
+    builder.ins().brif(
+        cond,
+        block_then,
+        canonicalised_then,
+        block_else,
+        canonicalised_else,
+    )
 }
 
 <span class="doccomment">/// A helper for popping and bitcasting a single value; since SIMD values can lose their type by
-/// using v128 (i.e. CLIF&#39;s I8x16) we must re-type the values using a bitcast to avoid CLIF
+/// using v128 (i.e. CLIF's I8x16) we must re-type the values using a bitcast to avoid CLIF
 /// typing issues.
 </span><span class="kw">fn </span>pop1_with_bitcast(
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
@@ -6164,7 +6741,7 @@
 }
 
 <span class="doccomment">/// A helper for popping and bitcasting two values; since SIMD values can lose their type by
-/// using v128 (i.e. CLIF&#39;s I8x16) we must re-type the values using a bitcast to avoid CLIF
+/// using v128 (i.e. CLIF's I8x16) we must re-type the values using a bitcast to avoid CLIF
 /// typing issues.
 </span><span class="kw">fn </span>pop2_with_bitcast(
     state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
@@ -6177,41 +6754,80 @@
     (bitcast_a, bitcast_b)
 }
 
-<span class="doccomment">/// A helper for bitcasting a sequence of values (e.g. function arguments). If a value is a
-/// vector type that does not match its expected type, this will modify the value in place to point
-/// to the result of a `raw_bitcast`. This conversion is necessary to translate Wasm code that
-/// uses `V128` as function parameters (or implicitly in block parameters) and still use specific
-/// CLIF types (e.g. `I32X4`) in the function body.
-</span><span class="kw">pub fn </span>bitcast_arguments(
+<span class="kw">pub fn </span>bitcast_arguments&lt;<span class="lifetime">'a</span>&gt;(
+    builder: <span class="kw-2">&amp;</span>FunctionBuilder,
+    arguments: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>[Value],
+    params: <span class="kw-2">&amp;</span>[ir::AbiParam],
+    param_predicate: <span class="kw">impl </span>Fn(usize) -&gt; bool,
+) -&gt; Vec&lt;(Type, <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Value)&gt; {
+    <span class="kw">let </span>filtered_param_types = params
+        .iter()
+        .enumerate()
+        .filter(|(i, <span class="kw">_</span>)| param_predicate(<span class="kw-2">*</span>i))
+        .map(|(<span class="kw">_</span>, param)| param.value_type);
+
+    <span class="comment">// zip_eq, from the itertools::Itertools trait, is like Iterator::zip but panics if one
+    // iterator ends before the other. The `param_predicate` is required to select exactly as many
+    // elements of `params` as there are elements in `arguments`.
+    </span><span class="kw">let </span>pairs = filtered_param_types.zip_eq(arguments.iter_mut());
+
+    <span class="comment">// The arguments which need to be bitcasted are those which have some vector type but the type
+    // expected by the parameter is not the same vector type as that of the provided argument.
+    </span>pairs
+        .filter(|(param_type, <span class="kw">_</span>)| param_type.is_vector())
+        .filter(|(param_type, arg)| {
+            <span class="kw">let </span>arg_type = builder.func.dfg.value_type(<span class="kw-2">**</span>arg);
+            <span class="macro">assert!</span>(
+                arg_type.is_vector(),
+                <span class="string">"unexpected type mismatch: expected {}, argument {} was actually of type {}"</span>,
+                param_type,
+                <span class="kw-2">*</span>arg,
+                arg_type
+            );
+
+            <span class="comment">// This is the same check that would be done by `optionally_bitcast_vector`, except we
+            // can't take a mutable borrow of the FunctionBuilder here, so we defer inserting the
+            // bitcast instruction to the caller.
+            </span>arg_type != <span class="kw-2">*</span>param_type
+        })
+        .collect()
+}
+
+<span class="doccomment">/// A helper for bitcasting a sequence of return values for the function currently being built. If
+/// a value is a vector type that does not match its expected type, this will modify the value in
+/// place to point to the result of a `bitcast`. This conversion is necessary to translate Wasm
+/// code that uses `V128` as function parameters (or implicitly in block parameters) and still use
+/// specific CLIF types (e.g. `I32X4`) in the function body.
+</span><span class="kw">pub fn </span>bitcast_wasm_returns&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    environ: <span class="kw-2">&amp;mut </span>FE,
     arguments: <span class="kw-2">&amp;mut </span>[Value],
-    expected_types: <span class="kw-2">&amp;</span>[Type],
     builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
 ) {
-    <span class="macro">assert_eq!</span>(arguments.len(), expected_types.len());
-    <span class="kw">for </span>(i, t) <span class="kw">in </span>expected_types.iter().enumerate() {
-        <span class="kw">if </span>t.is_vector() {
-            <span class="macro">assert!</span>(
-                builder.func.dfg.value_type(arguments[i]).is_vector(),
-                <span class="string">&quot;unexpected type mismatch: expected {}, argument {} was actually of type {}&quot;</span>,
-                t,
-                arguments[i],
-                builder.func.dfg.value_type(arguments[i])
-            );
-            arguments[i] = optionally_bitcast_vector(arguments[i], <span class="kw-2">*</span>t, builder)
-        }
+    <span class="kw">let </span>changes = bitcast_arguments(builder, arguments, <span class="kw-2">&amp;</span>builder.func.signature.returns, |i| {
+        environ.is_wasm_return(<span class="kw-2">&amp;</span>builder.func.signature, i)
+    });
+    <span class="kw">for </span>(t, arg) <span class="kw">in </span>changes {
+        <span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
+        flags.set_endianness(ir::Endianness::Little);
+        <span class="kw-2">*</span>arg = builder.ins().bitcast(t, flags, <span class="kw-2">*</span>arg);
     }
 }
 
-<span class="doccomment">/// A helper to extract all the `Type` listings of each variable in `params`
-/// for only parameters the return true for `is_wasm`, typically paired with
-/// `is_wasm_return` or `is_wasm_parameter`.
-</span><span class="kw">pub fn </span>wasm_param_types(params: <span class="kw-2">&amp;</span>[ir::AbiParam], is_wasm: <span class="kw">impl </span>Fn(usize) -&gt; bool) -&gt; Vec&lt;Type&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>ret = Vec::with_capacity(params.len());
-    <span class="kw">for </span>(i, param) <span class="kw">in </span>params.iter().enumerate() {
-        <span class="kw">if </span>is_wasm(i) {
-            ret.push(param.value_type);
-        }
+<span class="doccomment">/// Like `bitcast_wasm_returns`, but for the parameters being passed to a specified callee.
+</span><span class="kw">pub fn </span>bitcast_wasm_params&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    environ: <span class="kw-2">&amp;mut </span>FE,
+    callee_signature: ir::SigRef,
+    arguments: <span class="kw-2">&amp;mut </span>[Value],
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+) {
+    <span class="kw">let </span>callee_signature = <span class="kw-2">&amp;</span>builder.func.dfg.signatures[callee_signature];
+    <span class="kw">let </span>changes = bitcast_arguments(builder, arguments, <span class="kw-2">&amp;</span>callee_signature.params, |i| {
+        environ.is_wasm_parameter(callee_signature, i)
+    });
+    <span class="kw">for </span>(t, arg) <span class="kw">in </span>changes {
+        <span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlags::new();
+        flags.set_endianness(ir::Endianness::Little);
+        <span class="kw-2">*</span>arg = builder.ins().bitcast(t, flags, <span class="kw-2">*</span>arg);
     }
-    ret
 }
 </code></pre></div></section></main></body></html>

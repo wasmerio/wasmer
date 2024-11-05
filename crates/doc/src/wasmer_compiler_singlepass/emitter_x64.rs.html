@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/emitter_x64.rs`."><title>emitter_x64.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/emitter_x64.rs`."><title>emitter_x64.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2418,6 +2418,7 @@
 <a href="#2418" id="2418">2418</a>
 <a href="#2419" id="2419">2419</a>
 <a href="#2420" id="2420">2420</a>
+<a href="#2421" id="2421">2421</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
 <span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
@@ -2433,7 +2434,7 @@
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
-</span><span class="macro">macro_rules! </span>dynasm {
+</span><span class="macro">macro_rules!</span> dynasm {
     (<span class="macro-nonterminal">$a</span>:expr ; $(<span class="macro-nonterminal">$tt</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro">dynasm::dynasm!</span>(
             <span class="macro-nonterminal">$a</span>.inner
@@ -2481,7 +2482,8 @@
     Double,
 }
 
-<span class="kw">pub trait </span>EmitterX64 {
+<span class="attr">#[allow(unused)]
+</span><span class="kw">pub trait </span>EmitterX64 {
     <span class="kw">fn </span>get_simd_arch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CpuFeature&gt;;
     <span class="kw">fn </span>get_label(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Label;
     <span class="kw">fn </span>get_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Offset;
@@ -2780,66 +2782,66 @@
         <span class="bool-val">false
     </span>}
     <span class="kw">fn </span>arch_emit_i32_trunc_sf32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i32_trunc_sf32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i32_trunc_sf32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_i32_trunc_sf64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i32_trunc_sf64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i32_trunc_sf64 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_i32_trunc_uf32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i32_trunc_uf32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i32_trunc_uf32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_i32_trunc_uf64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i32_trunc_uf64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i32_trunc_uf64 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_i64_trunc_sf32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i64_trunc_sf32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i64_trunc_sf32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_i64_trunc_sf64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i64_trunc_sf64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i64_trunc_sf64 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_i64_trunc_uf32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i64_trunc_uf32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i64_trunc_uf32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_i64_trunc_uf64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singplepass arch_emit_i64_trunc_uf64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singplepass arch_emit_i64_trunc_uf64 unimplemented"</span>)
     }
 
     <span class="kw">fn </span>arch_has_fconverti(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="bool-val">false
     </span>}
     <span class="kw">fn </span>arch_emit_f32_convert_si32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f32_convert_si32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f32_convert_si32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f32_convert_si64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f32_convert_si64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f32_convert_si64 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f32_convert_ui32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f32_convert_ui32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f32_convert_ui32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f32_convert_ui64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f32_convert_ui64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f32_convert_ui64 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f64_convert_si32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f64_convert_si32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f64_convert_si32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f64_convert_si64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f64_convert_si64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f64_convert_si64 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f64_convert_ui32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f64_convert_ui32 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f64_convert_ui32 unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f64_convert_ui64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: GPR, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f64_convert_ui64 unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f64_convert_ui64 unimplemented"</span>)
     }
 
     <span class="kw">fn </span>arch_has_fneg(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="bool-val">false
     </span>}
     <span class="kw">fn </span>arch_emit_f32_neg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f32_neg unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f32_neg unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_f64_neg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _src: XMM, _dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_f64_neg unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_f64_neg unimplemented"</span>)
     }
 
     <span class="kw">fn </span>arch_has_xzcnt(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -2851,7 +2853,7 @@
         _src: Location,
         _dst: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_lzcnt unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_lzcnt unimplemented"</span>)
     }
     <span class="kw">fn </span>arch_emit_tzcnt(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -2859,7 +2861,7 @@
         _src: Location,
         _dst: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_tzcnt unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_tzcnt unimplemented"</span>)
     }
 
     <span class="kw">fn </span>arch_supports_canonicalize_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -2874,7 +2876,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _loc: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_indirect_call_with_trampoline unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_indirect_call_with_trampoline unimplemented"</span>)
     }
 
     <span class="comment">// Emits entry trampoline just before the real function.
@@ -2885,11 +2887,11 @@
     <span class="comment">// Byte offset from the beginning of a `mov Imm64, GPR` instruction to the imm64 value.
     // Required to support emulation on Aarch64.
     </span><span class="kw">fn </span>arch_mov64_imm_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_mov64_imm_offset unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_mov64_imm_offset unimplemented"</span>)
     }
 }
 
-<span class="macro">macro_rules! </span>unop_gpr {
+<span class="macro">macro_rules!</span> unop_gpr {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$loc</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$loc</span>) {
             (Size::S32, Location::GPR(loc)) =&gt; {
@@ -2903,7 +2905,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>unop_mem {
+<span class="macro">macro_rules!</span> unop_mem {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$loc</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$loc</span>) {
             (Size::S32, Location::Memory(loc, disp)) =&gt; {
@@ -2917,7 +2919,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>unop_gpr_or_mem {
+<span class="macro">macro_rules!</span> unop_gpr_or_mem {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$loc</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="macro">unop_gpr!</span>(<span class="macro-nonterminal">$ins</span>, <span class="macro-nonterminal">$assembler</span>, <span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$loc</span>, {
             <span class="macro">unop_mem!</span>(<span class="macro-nonterminal">$ins</span>, <span class="macro-nonterminal">$assembler</span>, <span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$loc</span>, <span class="macro-nonterminal">$otherwise</span>)
@@ -2925,7 +2927,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_imm32_gpr {
+<span class="macro">macro_rules!</span> binop_imm32_gpr {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::Imm32(src), Location::GPR(dst)) =&gt; {
@@ -2939,7 +2941,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_imm32_mem {
+<span class="macro">macro_rules!</span> binop_imm32_mem {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::Imm32(src), Location::Memory(dst, disp)) =&gt; {
@@ -2953,7 +2955,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_imm64_gpr {
+<span class="macro">macro_rules!</span> binop_imm64_gpr {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S64, Location::Imm64(src), Location::GPR(dst)) =&gt; {
@@ -2964,7 +2966,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_gpr_gpr {
+<span class="macro">macro_rules!</span> binop_gpr_gpr {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) =&gt; {
@@ -2978,7 +2980,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_gpr_mem {
+<span class="macro">macro_rules!</span> binop_gpr_mem {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
@@ -2992,7 +2994,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_mem_gpr {
+<span class="macro">macro_rules!</span> binop_mem_gpr {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
@@ -3006,7 +3008,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_all_nofp {
+<span class="macro">macro_rules!</span> binop_all_nofp {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="macro">binop_imm32_gpr!</span>(<span class="macro-nonterminal">$ins</span>, <span class="macro-nonterminal">$assembler</span>, <span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>, {
             <span class="macro">binop_imm32_mem!</span>(<span class="macro-nonterminal">$ins</span>, <span class="macro-nonterminal">$assembler</span>, <span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>, {
@@ -3020,7 +3022,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>binop_shift {
+<span class="macro">macro_rules!</span> binop_shift {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::GPR(GPR::RCX), Location::GPR(dst)) =&gt; {
@@ -3052,7 +3054,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>jmp_op {
+<span class="macro">macro_rules!</span> jmp_op {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$label</span>:ident) =&gt; {
         <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>=&gt;<span class="macro-nonterminal">$label</span>)
     }
@@ -3061,7 +3063,7 @@
 <span class="doccomment">/// Move a single or double precision XMM value to another if src and destination
 /// are not the same.
 ///
-/// TODO: Can we assume data is aligned and packed? If so, this function isn&#39;t necessary
+/// TODO: Can we assume data is aligned and packed? If so, this function isn't necessary
 /// TODO: as we can use [`EmitterX64::emit_vmovaps`] and [`EmitterX64::emit_vmovadp`]
 /// TODO: instead
 </span><span class="kw">fn </span>move_src_to_dst(emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, precision: Precision, src: XMM, dst: XMM) {
@@ -3108,7 +3110,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>avx_fn {
+<span class="macro">macro_rules!</span> avx_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="comment">// Dynasm bug: AVX instructions are not encoded correctly.
         </span><span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
@@ -3152,7 +3154,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>sse_fn {
+<span class="macro">macro_rules!</span> sse_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             XMMOrMemory::XMM(x) =&gt; {
@@ -3183,7 +3185,7 @@
     };
 }
 
-<span class="macro">macro_rules! </span>avx_i2f_64_fn {
+<span class="macro">macro_rules!</span> avx_i2f_64_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
@@ -3226,7 +3228,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>sse_i2f_64_fn {
+<span class="macro">macro_rules!</span> sse_i2f_64_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; {
@@ -3241,7 +3243,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>avx_i2f_32_fn {
+<span class="macro">macro_rules!</span> avx_i2f_32_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
@@ -3284,7 +3286,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>sse_i2f_32_fn {
+<span class="macro">macro_rules!</span> sse_i2f_32_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; {
@@ -3299,7 +3301,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>avx_round_fn {
+<span class="macro">macro_rules!</span> avx_round_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>),
@@ -3308,7 +3310,7 @@
     }
 }
 
-<span class="macro">macro_rules! </span>sse_round_fn {
+<span class="macro">macro_rules!</span> sse_round_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             XMMOrMemory::XMM(x) =&gt; {
@@ -3372,7 +3374,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_gpr_gpr!</span>(lzcnt, <span class="self">self</span>, sz, src, dst, {
             <span class="macro">binop_mem_gpr!</span>(lzcnt, <span class="self">self</span>, sz, src, dst, {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass cannot emit lzcnt&quot;</span>)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass cannot emit lzcnt"</span>)
             })
         });
         <span class="prelude-val">Ok</span>(())
@@ -3386,7 +3388,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_gpr_gpr!</span>(tzcnt, <span class="self">self</span>, sz, src, dst, {
             <span class="macro">binop_mem_gpr!</span>(tzcnt, <span class="self">self</span>, sz, src, dst, {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass cannot emit tzcnt&quot;</span>)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass cannot emit tzcnt"</span>)
             })
         });
         <span class="prelude-val">Ok</span>(())
@@ -3441,7 +3443,7 @@
             <span class="number">6 </span>=&gt; <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0x1f</span>, <span class="number">0x44</span>, <span class="number">0x00</span>, <span class="number">0x00</span>],
             <span class="number">7 </span>=&gt; <span class="kw-2">&amp;</span>[<span class="number">0x0f</span>, <span class="number">0x1f</span>, <span class="number">0x80</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>],
             <span class="number">8 </span>=&gt; <span class="kw-2">&amp;</span>[<span class="number">0x0f</span>, <span class="number">0x1f</span>, <span class="number">0x84</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>],
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_nop_n unreachable&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_nop_n unreachable"</span>),
         };
         <span class="self">self</span>.emit_bytes(seq)
     }
@@ -3536,7 +3538,7 @@
                         <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rx(dst <span class="kw">as </span>u8), Rx(src <span class="kw">as </span>u8));
                     }
 
-                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOV {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV {:?} {:?} {:?}"</span>, sz, src, dst),
                 }
             })
         });
@@ -3584,7 +3586,7 @@
                     }
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LEA {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LEA {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -3593,7 +3595,7 @@
             Location::GPR(x) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(x <span class="kw">as </span>u8), [=&gt;label]);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LEA label={:?} {:?}&quot;</span>, label, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LEA label={:?} {:?}"</span>, label, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -3607,7 +3609,7 @@
     }
     <span class="kw">fn </span>emit_xor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_all_nofp!</span>(xor, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit XOR {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit XOR {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
@@ -3633,7 +3635,7 @@
         <span class="kw">match </span>loc {
             Location::GPR(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; jmp Rq(x <span class="kw">as </span>u8)),
             Location::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; jmp QWORD [Rq(base <span class="kw">as </span>u8) + disp]),
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit JMP {:?}&quot;</span>, loc),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit JMP {:?}"</span>, loc),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -3651,7 +3653,7 @@
             Condition::NotEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setne Rb(dst <span class="kw">as </span>u8)),
             Condition::Signed =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; sets Rb(dst <span class="kw">as </span>u8)),
             Condition::Carry =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setc Rb(dst <span class="kw">as </span>u8)),
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SET {:?} {:?}&quot;</span>, condition, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SET {:?} {:?}"</span>, condition, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -3662,7 +3664,7 @@
             (Size::S64, Location::Memory(src, disp)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; push QWORD [Rq(src <span class="kw">as </span>u8) + disp])
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit PUSH {:?} {:?}&quot;</span>, sz, src),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit PUSH {:?} {:?}"</span>, sz, src),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -3672,7 +3674,7 @@
             (Size::S64, Location::Memory(dst, disp)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; pop QWORD [Rq(dst <span class="kw">as </span>u8) + disp])
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit POP {:?} {:?}&quot;</span>, sz, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit POP {:?} {:?}"</span>, sz, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -3696,7 +3698,7 @@
                 Ordering::Greater =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp DWORD [&gt;const_pos_one_32], <span class="number">0</span>),
             },
             <span class="prelude-val">None </span>=&gt; <span class="macro">binop_all_nofp!</span>(cmp, <span class="self">self</span>, sz, left, right, {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CMP {:?} {:?} {:?}&quot;</span>, sz, left, right);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CMP {:?} {:?} {:?}"</span>, sz, left, right);
             }),
         }
         <span class="prelude-val">Ok</span>(())
@@ -3707,7 +3709,7 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
         <span class="macro">binop_all_nofp!</span>(add, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit ADD {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit ADD {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
@@ -3717,7 +3719,7 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
         <span class="macro">binop_all_nofp!</span>(sub, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SUB {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SUB {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
@@ -3739,14 +3741,14 @@
             (Size::S64, Location::Memory(value, disp)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value <span class="kw">as </span>u8) + disp])
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit NEG {:?} {:?}&quot;</span>, sz, value),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit NEG {:?} {:?}"</span>, sz, value),
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_imul(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_gpr_gpr!</span>(imul, <span class="self">self</span>, sz, src, dst, {
             <span class="macro">binop_mem_gpr!</span>(imul, <span class="self">self</span>, sz, src, dst, {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit IMUL {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit IMUL {:?} {:?} {:?}"</span>, sz, src, dst)
             })
         });
         <span class="prelude-val">Ok</span>(())
@@ -3757,68 +3759,68 @@
     }
     <span class="kw">fn </span>emit_div(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, divisor: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">unop_gpr_or_mem!</span>(div, <span class="self">self</span>, sz, divisor, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit DIV {:?} {:?}&quot;</span>, sz, divisor)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit DIV {:?} {:?}"</span>, sz, divisor)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_idiv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, divisor: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">unop_gpr_or_mem!</span>(idiv, <span class="self">self</span>, sz, divisor, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit IDIV {:?} {:?}&quot;</span>, sz, divisor)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit IDIV {:?} {:?}"</span>, sz, divisor)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_shl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_shift!</span>(shl, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SHL {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SHL {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_shr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_shift!</span>(shr, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SHR {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SHR {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_sar(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_shift!</span>(sar, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SAR {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SAR {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_rol(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_shift!</span>(rol, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit ROL {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit ROL {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_ror(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_shift!</span>(ror, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit ROR {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit ROR {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_and(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_all_nofp!</span>(and, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit AND {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit AND {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_test(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_all_nofp!</span>(test, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit TEST {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit TEST {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_or(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_all_nofp!</span>(or, <span class="self">self</span>, sz, src, dst, {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit OR {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit OR {:?} {:?} {:?}"</span>, sz, src, dst)
         });
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_bsr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_gpr_gpr!</span>(bsr, <span class="self">self</span>, sz, src, dst, {
             <span class="macro">binop_mem_gpr!</span>(bsr, <span class="self">self</span>, sz, src, dst, {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit BSR {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit BSR {:?} {:?} {:?}"</span>, sz, src, dst)
             })
         });
         <span class="prelude-val">Ok</span>(())
@@ -3826,7 +3828,7 @@
     <span class="kw">fn </span>emit_bsf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_gpr_gpr!</span>(bsf, <span class="self">self</span>, sz, src, dst, {
             <span class="macro">binop_mem_gpr!</span>(bsf, <span class="self">self</span>, sz, src, dst, {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit BSF {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit BSF {:?} {:?} {:?}"</span>, sz, src, dst)
             })
         });
         <span class="prelude-val">Ok</span>(())
@@ -3834,7 +3836,7 @@
     <span class="kw">fn </span>emit_popcnt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">binop_gpr_gpr!</span>(popcnt, <span class="self">self</span>, sz, src, dst, {
             <span class="macro">binop_mem_gpr!</span>(popcnt, <span class="self">self</span>, sz, src, dst, {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit POPCNT {:?} {:?} {:?}&quot;</span>, sz, src, dst)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit POPCNT {:?} {:?} {:?}"</span>, sz, src, dst)
             })
         });
         <span class="prelude-val">Ok</span>(())
@@ -3902,7 +3904,7 @@
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">codegen_error!</span>(
-                    <span class="string">&quot;singlepass can&#39;t emit MOVZX {:?} {:?} {:?} {:?}&quot;</span>,
+                    <span class="string">"singlepass can't emit MOVZX {:?} {:?} {:?} {:?}"</span>,
                     sz_src,
                     src,
                     sz_dst,
@@ -3952,7 +3954,7 @@
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">codegen_error!</span>(
-                    <span class="string">&quot;singlepass can&#39;t emit MOVSX {:?} {:?} {:?} {:?}&quot;</span>,
+                    <span class="string">"singlepass can't emit MOVSX {:?} {:?} {:?} {:?}"</span>,
                     sz_src,
                     src,
                     sz_dst,
@@ -4001,7 +4003,7 @@
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst <span class="kw">as </span>u8) + disp], Rq(src <span class="kw">as </span>u8));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit XCHG {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit XCHG {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4026,7 +4028,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst <span class="kw">as </span>u8) + disp], Rq(src <span class="kw">as </span>u8));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit LOCK XADD {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit LOCK XADD {:?} {:?} {:?}"</span>,
                 sz,
                 src,
                 dst
@@ -4055,7 +4057,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst <span class="kw">as </span>u8) + disp], Rq(src <span class="kw">as </span>u8));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit LOCK CMPXCHG {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit LOCK CMPXCHG {:?} {:?} {:?}"</span>,
                 sz,
                 src,
                 dst
@@ -4099,7 +4101,7 @@
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; movaps [Rq(base <span class="kw">as </span>u8) + disp], Rx(src <span class="kw">as </span>u8))
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit VMOVAPS {:?} {:?}&quot;</span>, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit VMOVAPS {:?} {:?}"</span>, src, dst),
         };
         <span class="prelude-val">Ok</span>(())
     }
@@ -4115,7 +4117,7 @@
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; movapd [Rq(base <span class="kw">as </span>u8) + disp], Rx(src <span class="kw">as </span>u8))
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit VMOVAPD {:?} {:?}&quot;</span>, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit VMOVAPD {:?} {:?}"</span>, src, dst),
         };
         <span class="prelude-val">Ok</span>(())
     }
@@ -4815,7 +4817,7 @@
         <span class="kw">match </span>loc {
             Location::GPR(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; call Rq(x <span class="kw">as </span>u8)),
             Location::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; call QWORD [Rq(base <span class="kw">as </span>u8) + disp]),
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CALL {:?}&quot;</span>, loc),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CALL {:?}"</span>, loc),
         }
         <span class="prelude-val">Ok</span>(())
     }

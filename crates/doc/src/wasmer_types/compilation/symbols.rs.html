@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/symbols.rs`."><title>symbols.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/symbols.rs`."><title>symbols.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -212,48 +212,28 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! This module define the required structures for compilation symbols.
+</pre></div><pre class="rust"><code><span class="comment">/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+</span><span class="attr">#![allow(missing_docs)]
+
+</span><span class="doccomment">//! This module define the required structures for compilation symbols.
 </span><span class="kw">use crate</span>::{
     entity::{EntityRef, PrimaryMap},
     CompileModuleInfo, DeserializeError, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer,
     SectionIndex, SerializeError, SignatureIndex,
 };
-<span class="kw">use </span>rkyv::{
-    archived_value, check_archived_value, de::deserializers::SharedDeserializeMap,
-    ser::serializers::AllocSerializer, ser::Serializer <span class="kw">as </span>RkyvSerializer, Archive,
-    Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize,
-};
-<span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// The kinds of wasmer_types objects that might be found in a native object file.
 </span><span class="attr">#[derive(
     RkyvSerialize, RkyvDeserialize, Archive, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug,
 )]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
 </span><span class="kw">pub enum </span>Symbol {
     <span class="doccomment">/// A metadata section, indexed by a unique prefix
     /// (usually the wasm file SHA256 hash)
@@ -285,8 +265,8 @@
 
 <span class="doccomment">/// Serializable struct that represents the compiled metadata.
 </span><span class="attr">#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+#[rkyv(derive(Debug))]
 </span><span class="kw">pub struct </span>ModuleMetadata {
     <span class="doccomment">/// Compile info
     </span><span class="kw">pub </span>compile_info: CompileModuleInfo,
@@ -326,13 +306,9 @@
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
     </span><span class="kw">pub fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerializeError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>serializer = AllocSerializer::&lt;<span class="number">4096</span>&gt;::default();
-        <span class="kw">let </span>pos = serializer
-            .serialize_value(<span class="self">self</span>)
-            .map_err(|err| SerializeError::Generic(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err)))<span class="question-mark">? </span><span class="kw">as </span>u64;
-        <span class="kw">let </span><span class="kw-2">mut </span>serialized_data = serializer.into_serializer().into_inner();
-        serialized_data.extend_from_slice(<span class="kw-2">&amp;</span>pos.to_le_bytes());
-        <span class="prelude-val">Ok</span>(serialized_data.to_vec())
+        rkyv::to_bytes::&lt;rkyv::rancor::Error&gt;(<span class="self">self</span>)
+            .map(|v| v.into_vec())
+            .map_err(|e| SerializeError::Generic(e.to_string()))
     }
 
     <span class="doccomment">/// Deserialize a Module from a slice.
@@ -366,18 +342,7 @@
     </span><span class="kw">unsafe fn </span>archive_from_slice(
         metadata_slice: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ArchivedModuleMetadata, DeserializeError&gt; {
-        <span class="kw">if </span>metadata_slice.len() &lt; <span class="number">8 </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                <span class="string">&quot;invalid serialized ModuleMetadata&quot;</span>.into(),
-            ));
-        }
-        <span class="kw">let </span><span class="kw-2">mut </span>pos: [u8; <span class="number">8</span>] = Default::default();
-        pos.copy_from_slice(<span class="kw-2">&amp;</span>metadata_slice[metadata_slice.len() - <span class="number">8</span>..metadata_slice.len()]);
-        <span class="kw">let </span>pos: u64 = u64::from_le_bytes(pos);
-        <span class="prelude-val">Ok</span>(archived_value::&lt;<span class="self">Self</span>&gt;(
-            <span class="kw-2">&amp;</span>metadata_slice[..metadata_slice.len() - <span class="number">8</span>],
-            pos <span class="kw">as </span>usize,
-        ))
+        <span class="prelude-val">Ok</span>(rkyv::access_unchecked(metadata_slice))
     }
 
     <span class="doccomment">/// # Safety
@@ -387,15 +352,7 @@
     </span><span class="kw">fn </span>archive_from_slice_checked(
         metadata_slice: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ArchivedModuleMetadata, DeserializeError&gt; {
-        <span class="kw">if </span>metadata_slice.len() &lt; <span class="number">8 </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                <span class="string">&quot;invalid serialized ModuleMetadata&quot;</span>.into(),
-            ));
-        }
-        <span class="kw">let </span><span class="kw-2">mut </span>pos: [u8; <span class="number">8</span>] = Default::default();
-        pos.copy_from_slice(<span class="kw-2">&amp;</span>metadata_slice[metadata_slice.len() - <span class="number">8</span>..metadata_slice.len()]);
-        <span class="kw">let </span>pos: u64 = u64::from_le_bytes(pos);
-        check_archived_value::&lt;<span class="self">Self</span>&gt;(<span class="kw-2">&amp;</span>metadata_slice[..metadata_slice.len() - <span class="number">8</span>], pos <span class="kw">as </span>usize)
+        rkyv::access::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(metadata_slice)
             .map_err(|e| DeserializeError::CorruptedBinary(e.to_string()))
     }
 
@@ -403,9 +360,8 @@
     </span><span class="kw">pub fn </span>deserialize_from_archive(
         archived: <span class="kw-2">&amp;</span>ArchivedModuleMetadata,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>deserializer = SharedDeserializeMap::new();
-        RkyvDeserialize::deserialize(archived, <span class="kw-2">&amp;mut </span>deserializer)
-            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
+        rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(archived)
+            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
     }
 }
 
@@ -413,22 +369,22 @@
     <span class="kw">fn </span>symbol_to_name(<span class="kw-2">&amp;</span><span class="self">self</span>, symbol: Symbol) -&gt; String {
         <span class="kw">match </span>symbol {
             Symbol::Metadata =&gt; {
-                <span class="macro">format!</span>(<span class="string">&quot;WASMER_METADATA_{}&quot;</span>, <span class="self">self</span>.prefix.to_uppercase())
+                <span class="macro">format!</span>(<span class="string">"WASMER_METADATA_{}"</span>, <span class="self">self</span>.prefix.to_uppercase())
             }
             Symbol::LocalFunction(index) =&gt; {
-                <span class="macro">format!</span>(<span class="string">&quot;wasmer_function_{}_{}&quot;</span>, <span class="self">self</span>.prefix, index.index())
+                <span class="macro">format!</span>(<span class="string">"wasmer_function_{}_{}"</span>, <span class="self">self</span>.prefix, index.index())
             }
-            Symbol::Section(index) =&gt; <span class="macro">format!</span>(<span class="string">&quot;wasmer_section_{}_{}&quot;</span>, <span class="self">self</span>.prefix, index.index()),
+            Symbol::Section(index) =&gt; <span class="macro">format!</span>(<span class="string">"wasmer_section_{}_{}"</span>, <span class="self">self</span>.prefix, index.index()),
             Symbol::FunctionCallTrampoline(index) =&gt; {
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;wasmer_trampoline_function_call_{}_{}&quot;</span>,
+                    <span class="string">"wasmer_trampoline_function_call_{}_{}"</span>,
                     <span class="self">self</span>.prefix,
                     index.index()
                 )
             }
             Symbol::DynamicFunctionTrampoline(index) =&gt; {
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;wasmer_trampoline_dynamic_function_{}_{}&quot;</span>,
+                    <span class="string">"wasmer_trampoline_dynamic_function_{}_{}"</span>,
                     <span class="self">self</span>.prefix,
                     index.index()
                 )
@@ -439,26 +395,26 @@
     <span class="kw">fn </span>name_to_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
         <span class="kw">if </span>name == <span class="self">self</span>.symbol_to_name(Symbol::Metadata) {
             <span class="prelude-val">Some</span>(Symbol::Metadata)
-        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(index) = name.strip_prefix(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;wasmer_function_{}_&quot;</span>, <span class="self">self</span>.prefix))
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(index) = name.strip_prefix(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"wasmer_function_{}_"</span>, <span class="self">self</span>.prefix))
         {
             index
                 .parse::&lt;u32&gt;()
                 .ok()
                 .map(|index| Symbol::LocalFunction(LocalFunctionIndex::from_u32(index)))
-        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(index) = name.strip_prefix(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;wasmer_section_{}_&quot;</span>, <span class="self">self</span>.prefix)) {
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(index) = name.strip_prefix(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"wasmer_section_{}_"</span>, <span class="self">self</span>.prefix)) {
             index
                 .parse::&lt;u32&gt;()
                 .ok()
                 .map(|index| Symbol::Section(SectionIndex::from_u32(index)))
         } <span class="kw">else if let </span><span class="prelude-val">Some</span>(index) =
-            name.strip_prefix(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;wasmer_trampoline_function_call_{}_&quot;</span>, <span class="self">self</span>.prefix))
+            name.strip_prefix(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"wasmer_trampoline_function_call_{}_"</span>, <span class="self">self</span>.prefix))
         {
             index
                 .parse::&lt;u32&gt;()
                 .ok()
                 .map(|index| Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(index)))
         } <span class="kw">else if let </span><span class="prelude-val">Some</span>(index) = name.strip_prefix(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-            <span class="string">&quot;wasmer_trampoline_dynamic_function_{}_&quot;</span>,
+            <span class="string">"wasmer_trampoline_dynamic_function_{}_"</span>,
             <span class="self">self</span>.prefix
         )) {
             index

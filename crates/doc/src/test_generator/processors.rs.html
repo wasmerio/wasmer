@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/test-generator/src/processors.rs`."><title>processors.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="test_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../test_generator/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/test-generator/src/processors.rs`."><title>processors.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="test_generator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -59,40 +59,6 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
-<a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Here we define the processors usable for each test genrator
 </span><span class="kw">use crate</span>::{extract_name, Test, Testsuite};
 <span class="kw">use </span>std::path::PathBuf;
@@ -102,53 +68,19 @@
 </span><span class="kw">pub fn </span>wast_processor(_out: <span class="kw-2">&amp;mut </span>Testsuite, p: PathBuf) -&gt; <span class="prelude-ty">Option</span>&lt;Test&gt; {
     <span class="kw">let </span>ext = p.extension()<span class="question-mark">?</span>;
     <span class="comment">// Only look at wast files.
-    </span><span class="kw">if </span>ext != <span class="string">&quot;wast&quot; </span>{
+    </span><span class="kw">if </span>ext != <span class="string">"wast" </span>{
         <span class="kw">return </span><span class="prelude-val">None</span>;
     }
 
     <span class="comment">// Ignore files starting with `.`, which could be editor temporary files
-    </span><span class="kw">if </span>p.file_stem()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.starts_with(<span class="string">&#39;.&#39;</span>) {
+    </span><span class="kw">if </span>p.file_stem()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.starts_with(<span class="string">'.'</span>) {
         <span class="kw">return </span><span class="prelude-val">None</span>;
     }
 
     <span class="kw">let </span>testname = extract_name(<span class="kw-2">&amp;</span>p);
 
     <span class="comment">// The implementation of `run_wast` lives in /tests/spectest.rs
-    </span><span class="kw">let </span>body = <span class="macro">format!</span>(<span class="string">&quot;crate::run_wast(config, r#\&quot;{}\&quot;#)&quot;</span>, p.display());
-
-    <span class="prelude-val">Some</span>(Test {
-        name: testname,
-        body,
-    })
-}
-
-<span class="doccomment">/// Given a Testsuite and a path, process the path in case is a Emscripten
-/// wasm file.
-</span><span class="kw">pub fn </span>emscripten_processor(_out: <span class="kw-2">&amp;mut </span>Testsuite, p: PathBuf) -&gt; <span class="prelude-ty">Option</span>&lt;Test&gt; {
-    <span class="kw">let </span>ext = p.extension()<span class="question-mark">?</span>;
-    <span class="comment">// Only look at wast files.
-    </span><span class="kw">if </span>ext != <span class="string">&quot;wasm&quot; </span>{
-        <span class="kw">return </span><span class="prelude-val">None</span>;
-    }
-
-    <span class="kw">let </span>outfile = {
-        <span class="kw">let </span><span class="kw-2">mut </span>out_ext = p.clone();
-        out_ext.set_extension(<span class="string">&quot;out&quot;</span>);
-        <span class="kw">if </span>out_ext.exists() {
-            out_ext
-        } <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        }
-    };
-
-    <span class="kw">let </span>testname = extract_name(<span class="kw-2">&amp;</span>p);
-
-    <span class="comment">// The implementation of `run_emscripten` lives in /tests/emtest.rs
-    </span><span class="kw">let </span>body = <span class="macro">format!</span>(
-        <span class="string">&quot;crate::emscripten::run_emscripten(config, r#\&quot;{}\&quot;#, r#\&quot;{}\&quot;#)&quot;</span>,
-        p.display(),
-        outfile.display()
-    );
+    </span><span class="kw">let </span>body = <span class="macro">format!</span>(<span class="string">"crate::run_wast(config, r#\"{}\"#)"</span>, p.display());
 
     <span class="prelude-val">Some</span>(Test {
         name: testname,
@@ -165,7 +97,7 @@
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Test&gt; {
     <span class="kw">let </span>ext = p.extension()<span class="question-mark">?</span>;
     <span class="comment">// Only look at wast files.
-    </span><span class="kw">if </span>ext != <span class="string">&quot;wast&quot; </span>{
+    </span><span class="kw">if </span>ext != <span class="string">"wast" </span>{
         <span class="kw">return </span><span class="prelude-val">None</span>;
     }
 
@@ -177,7 +109,7 @@
     <span class="kw">let </span>testname = extract_name(<span class="kw-2">&amp;</span>p);
 
     <span class="kw">let </span>body = <span class="macro">format!</span>(
-        <span class="string">&quot;crate::run_wasi(config, r#\&quot;{}\&quot;#, \&quot;{}\&quot;, crate::{})&quot;</span>,
+        <span class="string">"crate::run_wasi(config, r#\"{}\"#, \"{}\", crate::{})"</span>,
         p.display(),
         wasm_dir.display(),
         wasi_filesystem_kind,

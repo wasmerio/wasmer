@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/capabilities/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/capabilities/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -147,22 +147,26 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::PackageSource;
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
+
+<span class="kw">use </span><span class="kw">super</span>::PackageSource;
 <span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>std::{
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
+
 <span class="kw">use </span>wasmer_config::package::PackageSource <span class="kw">as </span>PackageSpecifier;
-<span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 
 <span class="doccomment">/// A custom implementation of the [`virtual_net::VirtualNetwork`] that asks users if they want to
 /// use networking features at runtime.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>net;
 
 <span class="doccomment">/// The default name of the directory to store cached capabilities for packages.
-</span><span class="kw">const </span>DEFAULT_WASMER_PKG_CAPABILITY_CACHE_DIR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;pkg_capabilities&quot;</span>;
+</span><span class="kw">const </span>DEFAULT_WASMER_PKG_CAPABILITY_CACHE_DIR: <span class="kw-2">&amp;</span>str = <span class="string">"pkg_capabilities"</span>;
 
 <span class="doccomment">/// A struct representing cached capabilities for a specific package.
 </span><span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -177,17 +181,17 @@
     <span class="kw">let </span>registry_name = env
         .registry_public_url()<span class="question-mark">?
         </span>.host_str()
-        .unwrap_or(<span class="string">&quot;unknown_registry&quot;</span>)
-        .replace(<span class="string">&#39;.&#39;</span>, <span class="string">&quot;_&quot;</span>);
+        .unwrap_or(<span class="string">"unknown_registry"</span>)
+        .replace(<span class="string">'.'</span>, <span class="string">"_"</span>);
 
-    <span class="comment">// We don&#39;t have the bytes of the module yet, but we still want to have the
+    <span class="comment">// We don't have the bytes of the module yet, but we still want to have the
     // package-capabilities cache be as close to an actual identifier as possible.
     </span><span class="kw">let </span>package_cache_path = <span class="kw">match </span><span class="kw-2">&amp;</span>input {
         PackageSource::File(f) =&gt; {
             <span class="kw">let </span>full_path = f.canonicalize()<span class="question-mark">?</span>.to_path_buf();
             <span class="kw">let </span>metadata = full_path
                 .parent()
-                .ok_or(<span class="macro">anyhow!</span>(<span class="string">&quot;No parent!&quot;</span>))<span class="question-mark">?
+                .ok_or(<span class="macro">anyhow!</span>(<span class="string">"No parent!"</span>))<span class="question-mark">?
                 </span>.metadata()<span class="question-mark">?
                 </span>.modified()<span class="question-mark">?</span>;
 
@@ -196,7 +200,7 @@
                 full_path
                     .into_os_string()
                     .into_string()
-                    .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e:?}&quot;</span>))<span class="question-mark">?
+                    .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">"{e:?}"</span>))<span class="question-mark">?
                     </span>.as_bytes(),
             );
             hash.update(
@@ -206,7 +210,7 @@
                     .to_be_bytes(),
             );
 
-            <span class="macro">format!</span>(<span class="string">&quot;path_{}.json&quot;</span>, hex::encode(hash.finalize()))
+            <span class="macro">format!</span>(<span class="string">"path_{}.json"</span>, hex::encode(hash.finalize()))
         }
         PackageSource::Dir(f) =&gt; {
             <span class="kw">let </span>full_path = f.canonicalize()<span class="question-mark">?</span>.to_path_buf();
@@ -217,7 +221,7 @@
                 full_path
                     .into_os_string()
                     .into_string()
-                    .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e:?}&quot;</span>))<span class="question-mark">?
+                    .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">"{e:?}"</span>))<span class="question-mark">?
                     </span>.as_bytes(),
             );
             hash.update(
@@ -227,17 +231,17 @@
                     .to_be_bytes(),
             );
 
-            <span class="macro">format!</span>(<span class="string">&quot;path_{}.json&quot;</span>, hex::encode(hash.finalize()))
+            <span class="macro">format!</span>(<span class="string">"path_{}.json"</span>, hex::encode(hash.finalize()))
         }
         PackageSource::Package(p) =&gt; <span class="kw">match </span>p {
             PackageSpecifier::Ident(id) =&gt; <span class="kw">match </span>id {
                 wasmer_config::package::PackageIdent::Named(n) =&gt; <span class="macro">format!</span>(
-                    <span class="string">&quot;ident_{}_{}&quot;</span>,
-                    n.namespace.clone().unwrap_or(<span class="string">&quot;unknown_namespace&quot;</span>.into()),
+                    <span class="string">"ident_{}_{}"</span>,
+                    n.namespace.clone().unwrap_or(<span class="string">"unknown_namespace"</span>.into()),
                     n.name
                 ),
                 wasmer_config::package::PackageIdent::Hash(h) =&gt; {
-                    <span class="macro">format!</span>(<span class="string">&quot;hash_{}&quot;</span>, h)
+                    <span class="macro">format!</span>(<span class="string">"hash_{}"</span>, h)
                 }
             },
             PackageSpecifier::Path(f) =&gt; {
@@ -249,7 +253,7 @@
                         .clone()
                         .into_os_string()
                         .into_string()
-                        .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e:?}&quot;</span>))<span class="question-mark">?
+                        .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">"{e:?}"</span>))<span class="question-mark">?
                         </span>.as_bytes(),
                 );
 
@@ -266,7 +270,7 @@
                     hasher.update(
                         full_path
                             .parent()
-                            .ok_or(<span class="macro">anyhow!</span>(<span class="string">&quot;No parent!&quot;</span>))<span class="question-mark">?
+                            .ok_or(<span class="macro">anyhow!</span>(<span class="string">"No parent!"</span>))<span class="question-mark">?
                             </span>.metadata()<span class="question-mark">?
                             </span>.modified()<span class="question-mark">?
                             </span>.duration_since(UNIX_EPOCH)<span class="question-mark">?
@@ -274,12 +278,12 @@
                             .to_be_bytes(),
                     );
                 }
-                <span class="macro">format!</span>(<span class="string">&quot;path_{}.json&quot;</span>, hex::encode(hasher.finalize()))
+                <span class="macro">format!</span>(<span class="string">"path_{}.json"</span>, hex::encode(hasher.finalize()))
             }
             PackageSpecifier::Url(u) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>hasher = Sha256::new();
                 hasher.update(u.to_string().as_bytes());
-                <span class="macro">format!</span>(<span class="string">&quot;path_{}.json&quot;</span>, hex::encode(hasher.finalize()))
+                <span class="macro">format!</span>(<span class="string">"path_{}.json"</span>, hex::encode(hasher.finalize()))
             }
         },
     };
@@ -292,8 +296,8 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_cached_capability(path: <span class="kw-2">&amp;</span>Path) -&gt; anyhow::Result&lt;PkgCapabilityCache&gt; {
     <span class="kw">let </span>raw = std::fs::read_to_string(path)<span class="question-mark">?</span>;
-    <span class="macro">tracing::debug!</span>(<span class="string">&quot;cache hit for package capability at {}&quot;</span>, path.display());
+    <span class="macro">tracing::debug!</span>(<span class="string">"cache hit for package capability at {}"</span>, path.display());
     serde_json::from_str::&lt;PkgCapabilityCache&gt;(<span class="kw-2">&amp;</span>raw)
-        .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;while deserializing package capability cache: {e:?}&quot;</span>))
+        .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">"while deserializing package capability cache: {e:?}"</span>))
 }
 </code></pre></div></section></main></body></html>

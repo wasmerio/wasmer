@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference Counted’."><title>wasmer_types::lib::std::rc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a></nav><nav class="sidebar"><a class="logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module rc</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">rc</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.74.1/src/alloc/lib.rs.html#247">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference Counted’."><title>wasmer_types::lib::std::rc - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../wasmer_types/index.html">wasmer_types</a><span class="version">5.0.0</span></h2></div><h2 class="location"><a href="#">Module rc</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li></ul></section><h2><a href="../index.html">In wasmer_types::lib::std</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">rc</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.81.0/src/alloc/lib.rs.html#244">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference
 Counted’.</p>
 <p>The type <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc&lt;T&gt;</code></a> provides shared ownership of a value of type <code>T</code>,
-allocated in the heap. Invoking <a href="https://doc.rust-lang.org/1.74.1/core/clone/trait.Clone.html#tymethod.clone" title="method core::clone::Clone::clone"><code>clone</code></a> on <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc</code></a> produces a new
+allocated in the heap. Invoking <a href="https://doc.rust-lang.org/1.81.0/core/clone/trait.Clone.html#tymethod.clone" title="method core::clone::Clone::clone"><code>clone</code></a> on <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc</code></a> produces a new
 pointer to the same allocation in the heap. When the last <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc</code></a> pointer to a
 given allocation is destroyed, the value stored in that allocation (often
 referred to as “inner value”) is also dropped.</p>
@@ -18,7 +18,7 @@ threads. If you need multi-threaded, atomic reference counting, use
 <a href="../sync/struct.Arc.html" title="struct wasmer_types::lib::std::sync::Arc"><code>sync::Arc</code></a>.</p>
 <p>The <a href="struct.Rc.html#method.downgrade" title="associated function wasmer_types::lib::std::rc::Rc::downgrade"><code>downgrade</code></a> method can be used to create a non-owning
 <a href="struct.Weak.html" title="struct wasmer_types::lib::std::rc::Weak"><code>Weak</code></a> pointer. A <a href="struct.Weak.html" title="struct wasmer_types::lib::std::rc::Weak"><code>Weak</code></a> pointer can be <a href="struct.Weak.html#method.upgrade" title="method wasmer_types::lib::std::rc::Weak::upgrade"><code>upgrade</code></a>d
-to an <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc</code></a>, but this will return <a href="https://doc.rust-lang.org/1.74.1/core/option/enum.Option.html#variant.None" title="variant core::option::Option::None"><code>None</code></a> if the value stored in the allocation has
+to an <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc</code></a>, but this will return <a href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html#variant.None" title="variant core::option::Option::None"><code>None</code></a> if the value stored in the allocation has
 already been dropped. In other words, <code>Weak</code> pointers do not keep the value
 inside the allocation alive; however, they <em>do</em> keep the allocation
 (the backing store for the inner value) alive.</p>
@@ -48,7 +48,7 @@ while others prefer using method-call syntax.</p>
 </span><span class="kw">let </span>rc3 = Rc::clone(<span class="kw-2">&amp;</span>rc);</code></pre></div>
 <p><a href="struct.Weak.html" title="struct wasmer_types::lib::std::rc::Weak"><code>Weak&lt;T&gt;</code></a> does not auto-dereference to <code>T</code>, because the inner value may have
 already been dropped.</p>
-<h2 id="cloning-references"><a href="#cloning-references">Cloning references</a></h2>
+<h2 id="cloning-references"><a class="doc-anchor" href="#cloning-references">§</a>Cloning references</h2>
 <p>Creating a new reference to the same allocation as an existing reference counted pointer
 is done using the <code>Clone</code> trait implemented for <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc&lt;T&gt;</code></a> and <a href="struct.Weak.html" title="struct wasmer_types::lib::std::rc::Weak"><code>Weak&lt;T&gt;</code></a>.</p>
 
@@ -62,7 +62,7 @@ is done using the <code>Clone</code> trait implemented for <a href="struct.Rc.ht
 <p>The <code>Rc::clone(&amp;from)</code> syntax is the most idiomatic because it conveys more explicitly
 the meaning of the code. In the example above, this syntax makes it easier to see that
 this code is creating a new reference rather than copying the whole content of foo.</p>
-<h2 id="examples"><a href="#examples">Examples</a></h2>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
 <p>Consider a scenario where a set of <code>Gadget</code>s are owned by a given <code>Owner</code>.
 We want to have our <code>Gadget</code>s point to their <code>Owner</code>. We can’t do this with
 unique ownership, because more than one gadget may belong to the same
@@ -86,7 +86,7 @@ and have the <code>Owner</code> remain allocated as long as any <code>Gadget</co
     <span class="comment">// Create a reference-counted `Owner`.
     </span><span class="kw">let </span>gadget_owner: Rc&lt;Owner&gt; = Rc::new(
         Owner {
-            name: <span class="string">&quot;Gadget Man&quot;</span>.to_string(),
+            name: <span class="string">"Gadget Man"</span>.to_string(),
         }
     );
 
@@ -105,14 +105,14 @@ and have the <code>Owner</code> remain allocated as long as any <code>Gadget</co
     <span class="comment">// Dispose of our local variable `gadget_owner`.
     </span>drop(gadget_owner);
 
-    <span class="comment">// Despite dropping `gadget_owner`, we&#39;re still able to print out the name
-    // of the `Owner` of the `Gadget`s. This is because we&#39;ve only dropped a
+    <span class="comment">// Despite dropping `gadget_owner`, we're still able to print out the name
+    // of the `Owner` of the `Gadget`s. This is because we've only dropped a
     // single `Rc&lt;Owner&gt;`, not the `Owner` it points to. As long as there are
     // other `Rc&lt;Owner&gt;` pointing at the same `Owner` allocation, it will remain
     // live. The field projection `gadget1.owner.name` works because
     // `Rc&lt;Owner&gt;` automatically dereferences to `Owner`.
-    </span><span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget1.id, gadget1.owner.name);
-    <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget2.id, gadget2.owner.name);
+    </span><span class="macro">println!</span>(<span class="string">"Gadget {} owned by {}"</span>, gadget1.id, gadget1.owner.name);
+    <span class="macro">println!</span>(<span class="string">"Gadget {} owned by {}"</span>, gadget2.id, gadget2.owner.name);
 
     <span class="comment">// At the end of the function, `gadget1` and `gadget2` are destroyed, and
     // with them the last counted references to our `Owner`. Gadget Man now
@@ -150,12 +150,12 @@ mutability</em>: a method to achieve mutability through a shared reference.
 </span>}
 
 <span class="kw">fn </span>main() {
-    <span class="comment">// Create a reference-counted `Owner`. Note that we&#39;ve put the `Owner`&#39;s
+    <span class="comment">// Create a reference-counted `Owner`. Note that we've put the `Owner`'s
     // vector of `Gadget`s inside a `RefCell` so that we can mutate it through
     // a shared reference.
     </span><span class="kw">let </span>gadget_owner: Rc&lt;Owner&gt; = Rc::new(
         Owner {
-            name: <span class="string">&quot;Gadget Man&quot;</span>.to_string(),
+            name: <span class="string">"Gadget Man"</span>.to_string(),
             gadgets: RefCell::new(<span class="macro">vec!</span>[]),
         }
     );
@@ -186,7 +186,7 @@ mutability</em>: a method to achieve mutability through a shared reference.
     <span class="comment">// Iterate over our `Gadget`s, printing their details out.
     </span><span class="kw">for </span>gadget_weak <span class="kw">in </span>gadget_owner.gadgets.borrow().iter() {
 
-        <span class="comment">// `gadget_weak` is a `Weak&lt;Gadget&gt;`. Since `Weak` pointers can&#39;t
+        <span class="comment">// `gadget_weak` is a `Weak&lt;Gadget&gt;`. Since `Weak` pointers can't
         // guarantee the allocation still exists, we need to call
         // `upgrade`, which returns an `Option&lt;Rc&lt;Gadget&gt;&gt;`.
         //
@@ -195,7 +195,7 @@ mutability</em>: a method to achieve mutability through a shared reference.
         // need graceful error handling for a `None` result.
 
         </span><span class="kw">let </span>gadget = gadget_weak.upgrade().unwrap();
-        <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget.id, gadget.owner.name);
+        <span class="macro">println!</span>(<span class="string">"Gadget {} owned by {}"</span>, gadget.id, gadget.owner.name);
     }
 
     <span class="comment">// At the end of the function, `gadget_owner`, `gadget1`, and `gadget2`
@@ -203,7 +203,7 @@ mutability</em>: a method to achieve mutability through a shared reference.
     // gadgets, so they are destroyed. This zeroes the reference count on
     // Gadget Man, so he gets destroyed as well.
 </span>}</code></pre></div>
-</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.UniqueRc.html" title="struct wasmer_types::lib::std::rc::UniqueRc">UniqueRc</a><span class="stab unstable" title="">Experimental</span></div><div class="desc docblock-short">A uniquely owned <code>Rc</code></div></li><li><div class="item-name"><a class="struct" href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc">Rc</a></div><div class="desc docblock-short">A single-threaded reference-counting pointer. ‘Rc’ stands for ‘Reference
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc">Rc</a></div><div class="desc docblock-short">A single-threaded reference-counting pointer. ‘Rc’ stands for ‘Reference
 Counted’.</div></li><li><div class="item-name"><a class="struct" href="struct.Weak.html" title="struct wasmer_types::lib::std::rc::Weak">Weak</a></div><div class="desc docblock-short"><code>Weak</code> is a version of <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc</code></a> that holds a non-owning reference to the
 managed allocation. The allocation is accessed by calling <a href="struct.Weak.html#method.upgrade" title="method wasmer_types::lib::std::rc::Weak::upgrade"><code>upgrade</code></a> on the <code>Weak</code>
-pointer, which returns an <code><a href="https://doc.rust-lang.org/1.74.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc">Rc</a>&lt;T&gt;&gt;</code>.</div></li></ul></section></div></main></body></html>
+pointer, which returns an <code><a href="https://doc.rust-lang.org/1.81.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc">Rc</a>&lt;T&gt;&gt;</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.UniqueRc.html" title="struct wasmer_types::lib::std::rc::UniqueRc">UniqueRc</a><span class="stab unstable" title="">Experimental</span></div><div class="desc docblock-short">A uniquely owned <a href="struct.Rc.html" title="struct wasmer_types::lib::std::rc::Rc"><code>Rc</code></a>.</div></li></ul></section></div></main></body></html>

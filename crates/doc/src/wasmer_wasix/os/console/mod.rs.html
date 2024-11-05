@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/console/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/console/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -433,7 +433,7 @@
     ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
     PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">use </span>wasmer::Engine;
 <span class="kw">use </span>wasmer_config::package::PackageSource;
 <span class="kw">use </span>wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
@@ -465,12 +465,12 @@
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
     capabilities: Capabilities,
-    ro_files: HashMap&lt;String, Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;&gt;,
+    ro_files: HashMap&lt;String, Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;&gt;,
     memfs_memory_limiter: <span class="prelude-ty">Option</span>&lt;virtual_fs::limiter::DynFsMemoryLimiter&gt;,
 }
 
 <span class="kw">impl </span>Console {
-    <span class="kw">pub fn </span>new(webc_boot_package: <span class="kw-2">&amp;</span>str, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(webc_boot_package: <span class="kw-2">&amp;</span>str, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             boot_cmd: webc_boot_package.to_string(),
             uses: LinkedHashSet::new(),
@@ -482,7 +482,7 @@
             no_welcome: <span class="bool-val">false</span>,
             env: HashMap::new(),
             runtime,
-            prompt: <span class="string">&quot;wasmer.sh&quot;</span>.to_string(),
+            prompt: <span class="string">"wasmer.sh"</span>.to_string(),
             stdin: ArcBoxFile::new(Box::new(Pipe::channel().<span class="number">0</span>)),
             stdout: ArcBoxFile::new(Box::new(Pipe::channel().<span class="number">0</span>)),
             stderr: ArcBoxFile::new(Box::new(Pipe::channel().<span class="number">0</span>)),
@@ -498,7 +498,7 @@
     </span>}
 
     <span class="kw">pub fn </span>with_boot_cmd(<span class="kw-2">mut </span><span class="self">self</span>, cmd: String) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>prog = cmd.split_once(<span class="string">&#39; &#39;</span>).map(|a| a.<span class="number">0</span>).unwrap_or(cmd.as_str());
+        <span class="kw">let </span>prog = cmd.split_once(<span class="string">' '</span>).map(|a| a.<span class="number">0</span>).unwrap_or(cmd.as_str());
         <span class="self">self</span>.uses.insert(prog.to_string());
         <span class="self">self</span>.boot_cmd = cmd;
         <span class="self">self
@@ -536,22 +536,22 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_stdin(<span class="kw-2">mut </span><span class="self">self</span>, stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_stdin(<span class="kw-2">mut </span><span class="self">self</span>, stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.stdin = ArcBoxFile::new(stdin);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_stdout(<span class="kw-2">mut </span><span class="self">self</span>, stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_stdout(<span class="kw-2">mut </span><span class="self">self</span>, stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.stdout = ArcBoxFile::new(stdout);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_stderr(<span class="kw-2">mut </span><span class="self">self</span>, stderr: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_stderr(<span class="kw-2">mut </span><span class="self">self</span>, stderr: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.stderr = ArcBoxFile::new(stderr);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_ro_files(<span class="kw-2">mut </span><span class="self">self</span>, ro_files: HashMap&lt;String, Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_ro_files(<span class="kw-2">mut </span><span class="self">self</span>, ro_files: HashMap&lt;String, Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.ro_files = ro_files;
         <span class="self">self
     </span>}
@@ -567,16 +567,16 @@
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(TaskJoinHandle, WasiProcess), SpawnError&gt; {
         <span class="comment">// Extract the program name from the arguments
         </span><span class="kw">let </span>empty_args: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = Vec::new();
-        <span class="kw">let </span>(webc, prog, args) = <span class="kw">match </span><span class="self">self</span>.boot_cmd.split_once(<span class="string">&#39; &#39;</span>) {
+        <span class="kw">let </span>(webc, prog, args) = <span class="kw">match </span><span class="self">self</span>.boot_cmd.split_once(<span class="string">' '</span>) {
             <span class="prelude-val">Some</span>((webc, args)) =&gt; (
                 webc,
-                webc.split_once(<span class="string">&#39;/&#39;</span>).map(|a| a.<span class="number">1</span>).unwrap_or(webc),
-                args.split(<span class="string">&#39; &#39;</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+                webc.split_once(<span class="string">'/'</span>).map(|a| a.<span class="number">1</span>).unwrap_or(webc),
+                args.split(<span class="string">' '</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
             ),
             <span class="prelude-val">None </span>=&gt; (
                 <span class="self">self</span>.boot_cmd.as_str(),
                 <span class="self">self</span>.boot_cmd
-                    .split_once(<span class="string">&#39;/&#39;</span>)
+                    .split_once(<span class="string">'/'</span>)
                     .map(|a| a.<span class="number">1</span>)
                     .unwrap_or(<span class="self">self</span>.boot_cmd.as_str()),
                 empty_args,
@@ -586,7 +586,7 @@
         <span class="kw">let </span>webc_ident: PackageSource = <span class="kw">match </span>webc.parse() {
             <span class="prelude-val">Ok</span>(ident) =&gt; ident,
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::debug!</span>(webc, error = <span class="question-mark">?</span>e, <span class="string">&quot;Unable to parse the WEBC identifier&quot;</span>);
+                <span class="macro">tracing::debug!</span>(webc, error = <span class="question-mark">?</span>e, <span class="string">"Unable to parse the WEBC identifier"</span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::BadRequest);
             }
         };
@@ -602,10 +602,10 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
                 InlineWaker::block_on(<span class="kw">async </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
-                    <span class="macro">writeln!</span>(buffer, <span class="string">&quot;Error: {e}&quot;</span>).ok();
+                    <span class="macro">writeln!</span>(buffer, <span class="string">"Error: {e}"</span>).ok();
                     <span class="kw">let </span><span class="kw-2">mut </span>source = e.source();
                     <span class="kw">while let </span><span class="prelude-val">Some</span>(s) = source {
-                        <span class="macro">writeln!</span>(buffer, <span class="string">&quot;  Caused by: {s}&quot;</span>).ok();
+                        <span class="macro">writeln!</span>(buffer, <span class="string">"  Caused by: {s}"</span>).ok();
                         source = s.source();
                     }
 
@@ -613,7 +613,7 @@
                         .<span class="kw">await
                         </span>.ok();
                 });
-                <span class="macro">tracing::debug!</span>(error=<span class="question-mark">?</span>e, %webc, <span class="string">&quot;failed to get webc dependency&quot;</span>);
+                <span class="macro">tracing::debug!</span>(error=<span class="question-mark">?</span>e, %webc, <span class="string">"failed to get webc dependency"</span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::NotFound {
                     message: e.to_string(),
                 });
@@ -664,12 +664,12 @@
             InlineWaker::block_on(<span class="kw">async </span>{
                 virtual_fs::AsyncWriteExt::write_all(
                     <span class="kw-2">&amp;mut </span>stderr,
-                    <span class="macro">format!</span>(<span class="string">&quot;{}\r\n&quot;</span>, err).as_bytes(),
+                    <span class="macro">format!</span>(<span class="string">"{}\r\n"</span>, err).as_bytes(),
                 )
                 .<span class="kw">await
                 </span>.ok();
             });
-            <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to load used dependency - {}&quot;</span>, err);
+            <span class="macro">tracing::debug!</span>(<span class="string">"failed to load used dependency - {}"</span>, err);
             <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::BadRequest);
         }
 
@@ -706,9 +706,9 @@
             (<span class="kw">_</span>, <span class="kw">_</span>) =&gt; ConsoleConst::WELCOME_LARGE,
         };
         <span class="kw">let </span><span class="kw-2">mut </span>data = welcome
-            .replace(<span class="string">&quot;\\x1B&quot;</span>, <span class="string">&quot;\x1B&quot;</span>)
-            .replace(<span class="string">&quot;\\r&quot;</span>, <span class="string">&quot;\r&quot;</span>)
-            .replace(<span class="string">&quot;\\n&quot;</span>, <span class="string">&quot;\n&quot;</span>);
+            .replace(<span class="string">"\\x1B"</span>, <span class="string">"\x1B"</span>)
+            .replace(<span class="string">"\\r"</span>, <span class="string">"\r"</span>)
+            .replace(<span class="string">"\\n"</span>, <span class="string">"\n"</span>);
         data.insert_str(<span class="number">0</span>, ConsoleConst::TERM_NO_WRAPAROUND);
 
         <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
@@ -718,7 +718,7 @@
     }
 }
 
-<span class="attr">#[cfg(all(test, not(target_family = <span class="string">&quot;wasm&quot;</span>)))]
+<span class="attr">#[cfg(all(test, not(target_family = <span class="string">"wasm"</span>)))]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>virtual_fs::{AsyncSeekExt, BufferFile, Pipe};
 
@@ -736,12 +736,12 @@
     ///
     /// Note that this test currently aborts the process unconditionally due
     /// to a misaligned pointer access in stack_checkpoint() triggering a panic
-    /// in a function that isn&#39;t allowed to unwind.
+    /// in a function that isn't allowed to unwind.
     ///
     /// See [#4284](https://github.com/wasmerio/wasmer/issues/4284) for more.
     </span><span class="attr">#[test]
-    #[cfg_attr(not(feature = <span class="string">&quot;host-reqwest&quot;</span>), ignore = <span class="string">&quot;Requires a HTTP client&quot;</span>)]
-    #[ignore = <span class="string">&quot;Unconditionally aborts (CC #4284)&quot;</span>]
+    #[cfg_attr(not(feature = <span class="string">"host-reqwest"</span>), ignore = <span class="string">"Requires a HTTP client"</span>)]
+    #[ignore = <span class="string">"Unconditionally aborts (CC #4284)"</span>]
     </span><span class="kw">fn </span>test_console_dash_tty_with_args_and_env() {
         <span class="kw">let </span>tokio_rt = tokio::runtime::Runtime::new().unwrap();
         <span class="kw">let </span>rt_handle = tokio_rt.handle().clone();
@@ -753,12 +753,12 @@
         rt.set_engine(<span class="prelude-val">Some</span>(wasmer::Engine::default()))
             .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
-        <span class="kw">let </span>env: HashMap&lt;String, String&gt; = [(<span class="string">&quot;MYENV1&quot;</span>.to_string(), <span class="string">&quot;VAL1&quot;</span>.to_string())]
+        <span class="kw">let </span>env: HashMap&lt;String, String&gt; = [(<span class="string">"MYENV1"</span>.to_string(), <span class="string">"VAL1"</span>.to_string())]
             .into_iter()
             .collect();
 
         <span class="comment">// Pass some arguments.
-        </span><span class="kw">let </span>cmd = <span class="string">&quot;sharrattj/dash -s stdin&quot;</span>;
+        </span><span class="kw">let </span>cmd = <span class="string">"sharrattj/dash -s stdin"</span>;
 
         <span class="kw">let </span>(<span class="kw-2">mut </span>stdin_tx, stdin_rx) = Pipe::channel();
         <span class="kw">let </span>(stdout_tx, <span class="kw-2">mut </span>stdout_rx) = Pipe::channel();
@@ -774,7 +774,7 @@
             .block_on(<span class="kw">async move </span>{
                 virtual_fs::AsyncWriteExt::write_all(
                     <span class="kw-2">&amp;mut </span>stdin_tx,
-                    <span class="string">b&quot;echo hello $MYENV1 &gt; /dev/tty; exit\n&quot;</span>,
+                    <span class="string">b"echo hello $MYENV1 &gt; /dev/tty; exit\n"</span>,
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -791,12 +791,12 @@
         <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
         stdout_rx.read_to_string(<span class="kw-2">&amp;mut </span>out).unwrap();
 
-        <span class="macro">assert_eq!</span>(out, <span class="string">&quot;hello VAL1\n&quot;</span>);
+        <span class="macro">assert_eq!</span>(out, <span class="string">"hello VAL1\n"</span>);
     }
 
     <span class="doccomment">/// Regression test to ensure merging of multiple packages works correctly.
     </span><span class="attr">#[test]
-    #[ignore = <span class="string">&quot;must be re-enabled after backend is deployed&quot;</span>]
+    #[ignore = <span class="string">"must be re-enabled after backend is deployed"</span>]
     </span><span class="kw">fn </span>test_console_python_merge() {
         <span class="kw">let </span>tokio_rt = tokio::runtime::Runtime::new().unwrap();
         <span class="kw">let </span>rt_handle = tokio_rt.handle().clone();
@@ -808,7 +808,7 @@
         rt.set_engine(<span class="prelude-val">Some</span>(wasmer::Engine::default()))
             .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
-        <span class="kw">let </span>cmd = <span class="string">&quot;wasmer-tests/python-env-dump --help&quot;</span>;
+        <span class="kw">let </span>cmd = <span class="string">"wasmer-tests/python-env-dump --help"</span>;
 
         <span class="kw">let </span>(<span class="kw-2">mut </span>handle, _proc) = Console::new(cmd, Arc::new(rt)).run().unwrap();
 

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/emitter_arm64.rs`."><title>emitter_arm64.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/emitter_arm64.rs`."><title>emitter_arm64.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3774,6 +3774,7 @@
 <a href="#3774" id="3774">3774</a>
 <a href="#3775" id="3775">3775</a>
 <a href="#3776" id="3776">3776</a>
+<a href="#3777" id="3777">3777</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span><span class="kw">crate</span>::arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON};
 <span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
@@ -3797,7 +3798,7 @@
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
-</span><span class="macro">macro_rules! </span>dynasm {
+</span><span class="macro">macro_rules!</span> dynasm {
     (<span class="macro-nonterminal">$a</span>:expr ; $(<span class="macro-nonterminal">$tt</span>:tt)<span class="kw-2">*</span>) =&gt; {
         <span class="macro">dynasm::dynasm!</span>(
             <span class="macro-nonterminal">$a
@@ -3822,13 +3823,13 @@
     </span>Cs = <span class="number">2</span>,
     <span class="doccomment">/// Unsigned lower (or carry clear)
     </span>Cc = <span class="number">3</span>,
-    <span class="doccomment">/// Negative. The mnemonic stands for &quot;minus&quot;
+    <span class="doccomment">/// Negative. The mnemonic stands for "minus"
     </span>Mi = <span class="number">4</span>,
-    <span class="doccomment">/// Positive or zero. The mnemonic stands for &quot;plus&quot;
+    <span class="doccomment">/// Positive or zero. The mnemonic stands for "plus"
     </span>Pl = <span class="number">5</span>,
-    <span class="doccomment">/// Signed overflow. The mnemonic stands for &quot;V set&quot;
+    <span class="doccomment">/// Signed overflow. The mnemonic stands for "V set"
     </span>Vs = <span class="number">6</span>,
-    <span class="doccomment">/// No signed overflow. The mnemonic stands for &quot;V clear&quot;
+    <span class="doccomment">/// No signed overflow. The mnemonic stands for "V clear"
     </span>Vc = <span class="number">7</span>,
     <span class="doccomment">/// Unsigned higher
     </span>Hi = <span class="number">8</span>,
@@ -3860,7 +3861,8 @@
     Memory(GPR, i32),
 }
 
-<span class="kw">pub trait </span>EmitterARM64 {
+<span class="attr">#[allow(unused)]
+</span><span class="kw">pub trait </span>EmitterARM64 {
     <span class="kw">fn </span>get_label(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Label;
     <span class="kw">fn </span>get_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Offset;
     <span class="kw">fn </span>get_jmp_instr_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8;
@@ -4274,7 +4276,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         _loc: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_indirect_call_with_trampoline unimplemented&quot;</span>)
+        <span class="macro">codegen_error!</span>(<span class="string">"singlepass arch_emit_indirect_call_with_trampoline unimplemented"</span>)
     }
 }
 
@@ -4371,7 +4373,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; str W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STR {:?}, {:?}, {:?}&quot;</span>, sz, reg, addr),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STR {:?}, {:?}, {:?}"</span>, sz, reg, addr),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4467,7 +4469,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ldr S(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDR {:?}, {:?}, {:?}&quot;</span>, sz, reg, addr),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDR {:?}, {:?}, {:?}"</span>, sz, reg, addr),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4501,7 +4503,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; stur S(reg), [X(addr), offset]);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit STUR {:?}, {:?}, {:?}, {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit STUR {:?}, {:?}, {:?}, {:?}"</span>,
                 sz,
                 reg,
                 addr,
@@ -4540,7 +4542,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ldur S(reg), [X(addr), offset]);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit LDUR {:?}, {:?}, {:?}, {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit LDUR {:?}, {:?}, {:?}, {:?}"</span>,
                 sz,
                 reg,
                 addr,
@@ -4569,7 +4571,7 @@
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; str D(reg), [X(addr), -(offset <span class="kw">as </span>i32)]!);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STRDB&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STRDB"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4592,7 +4594,7 @@
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; str D(reg), [X(addr)], (offset <span class="kw">as </span>i32));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STRIA&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STRIA"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4615,7 +4617,7 @@
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ldr D(reg), [X(addr)], offset);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDRIA&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDRIA"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4636,7 +4638,7 @@
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; stp X(reg1), X(reg2), [X(addr), -(offset <span class="kw">as </span>i32)]!);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STPDB&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STPDB"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4656,7 +4658,7 @@
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ldp X(reg1), X(reg2), [X(addr)], offset);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDPIA&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDPIA"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4682,7 +4684,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ldrb W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDRB {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDRB {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4707,7 +4709,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ldrh W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDRH {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDRH {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4751,7 +4753,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ldrsb W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDRSB {:?}, {:?}, {:?}&quot;</span>, sz, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDRSB {:?}, {:?}, {:?}"</span>, sz, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4795,7 +4797,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ldrsh W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDRSH {:?}, {:?}, {:?}&quot;</span>, sz, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDRSH {:?}, {:?}, {:?}"</span>, sz, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4820,7 +4822,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ldrsw X(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDRSW {:?}, {:?}, {:?}&quot;</span>, sz, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDRSW {:?}, {:?}, {:?}"</span>, sz, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4845,7 +4847,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; strb W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STRB {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STRB {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4870,7 +4872,7 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; strh W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STRH {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STRH {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4887,7 +4889,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ldaxr X(reg), [X(dst)]);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDAXR {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDAXR {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4898,7 +4900,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ldaxrb W(reg), [X(dst)]);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDAXRB {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDAXRB {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4909,7 +4911,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ldaxrh W(reg), [X(dst)]);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit LDAXRH {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDAXRH {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4933,7 +4935,7 @@
                 <span class="kw">let </span>status = status.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; stlxr W(status), X(reg), [X(dst)]);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STLXR {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STLXR {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4951,7 +4953,7 @@
                 <span class="kw">let </span>status = status.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; stlxrb W(status), W(reg), [X(dst)]);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STLXRB {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STLXRB {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -4969,7 +4971,7 @@
                 <span class="kw">let </span>status = status.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; stlxrh W(status), W(reg), [X(dst)]);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit STLXRH {:?}, {:?}&quot;</span>, reg, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STLXRH {:?}, {:?}"</span>, reg, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5023,7 +5025,7 @@
                 } <span class="kw">else if </span>encode_logical_immediate_32bit(val <span class="kw">as _</span>).is_some() {
                     <span class="macro">dynasm!</span>(<span class="self">self </span>; orr W(dst), wzr, val);
                 } <span class="kw">else </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOV S32 {}, {:?}&quot;</span>, val, dst);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV S32 {}, {:?}"</span>, val, dst);
                 }
             }
             (Size::S64, Location::Imm32(val), Location::GPR(dst)) =&gt; {
@@ -5033,7 +5035,7 @@
                 } <span class="kw">else if </span>encode_logical_immediate_64bit(val <span class="kw">as _</span>).is_some() {
                     <span class="macro">dynasm!</span>(<span class="self">self </span>; orr X(dst), xzr, val <span class="kw">as </span>u64);
                 } <span class="kw">else </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOV S64 {}, {:?}&quot;</span>, val, dst);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV S64 {}, {:?}"</span>, val, dst);
                 }
             }
             (Size::S64, Location::Imm64(val), Location::GPR(dst)) =&gt; {
@@ -5043,10 +5045,10 @@
                 } <span class="kw">else if </span>encode_logical_immediate_64bit(val <span class="kw">as _</span>).is_some() {
                     <span class="macro">dynasm!</span>(<span class="self">self </span>; orr X(dst), xzr, val <span class="kw">as </span>u64);
                 } <span class="kw">else </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singleplasse can&#39;t emit MOV S64 {}, {:?}&quot;</span>, val, dst);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singleplasse can't emit MOV S64 {}, {:?}"</span>, val, dst);
                 }
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOV {:?}, {:?}, {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV {:?}, {:?}, {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5061,7 +5063,7 @@
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; movn X(reg), val);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOVN&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOVN"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5071,7 +5073,7 @@
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; movz W(reg), val);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOVZ&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOVZ"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5081,7 +5083,7 @@
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; movk X(reg), val, LSL shift);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOVK&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOVK"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5116,7 +5118,7 @@
                     }
                 }
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit MOVW {:?}&quot;</span>, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOVW {:?}"</span>, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5182,7 +5184,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; add W(dst), W(src1), imm);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit ADD {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit ADD {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5246,7 +5248,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; sub X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit SUB {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit SUB {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5276,7 +5278,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; mul W(dst), W(src1), W(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit MUL {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit MUL {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5316,7 +5318,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ADD.S with imm too large {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ADD.S with imm too large {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; adds X(dst), X(src1), imm);
             }
@@ -5331,12 +5333,12 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ADD.S with imm too large {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ADD.S with imm too large {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; adds W(dst), W(src1), imm);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit ADD.S {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit ADD.S {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5376,7 +5378,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; subs W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit SUB.S {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit SUB.S {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5401,7 +5403,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; add X(dst), X(src1), X(src2), LSL lsl);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit LSL {:?} {:?} {:?} {:?} LSL {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit LSL {:?} {:?} {:?} {:?} LSL {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5431,14 +5433,14 @@
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass CMP with imm too large {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass CMP with imm too large {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp X(dst), imm <span class="kw">as </span>u32);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass CMP with imm too large {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass CMP with imm too large {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp X(dst), imm <span class="kw">as </span>u32);
             }
@@ -5449,11 +5451,11 @@
             (Size::S32, Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass CMP with imm too large {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass CMP with imm too large {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp W(dst), imm <span class="kw">as </span>u32);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CMP {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CMP {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5468,14 +5470,14 @@
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_64bit(imm <span class="kw">as </span>u64).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass TST with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass TST with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; tst X(dst), imm <span class="kw">as </span>u64);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_64bit(imm <span class="kw">as </span>u64).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass TST with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass TST with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; tst X(dst), imm <span class="kw">as </span>u64);
             }
@@ -5487,11 +5489,11 @@
             (Size::S32, Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_64bit(imm <span class="kw">as </span>u64).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass TST with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass TST with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; tst W(dst), imm);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit TST&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit TST"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5513,7 +5515,7 @@
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSL with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSL with incompatible imm {}"</span>, imm);
                 }
                 <span class="kw">let </span>imm = imm <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
@@ -5530,7 +5532,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSL with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSL with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsl X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
@@ -5539,7 +5541,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSL with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSL with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsl X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
@@ -5548,7 +5550,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSL with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSL with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsl W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
@@ -5557,12 +5559,12 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSL with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSL with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsl W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit LSL {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit LSL {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5590,7 +5592,7 @@
                 <span class="kw">let </span>imm = imm <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ASR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ASR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; asr X(dst), X(src1), imm);
             }
@@ -5605,7 +5607,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ASR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ASR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; asr X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
@@ -5614,7 +5616,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ASR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ASR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; asr X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
@@ -5623,7 +5625,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ASR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ASR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; asr W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
@@ -5632,12 +5634,12 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ASR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ASR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; asr W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit ASR {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit ASR {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5665,7 +5667,7 @@
                 <span class="kw">let </span>imm = imm <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsr X(dst), X(src1), imm);
             }
@@ -5680,7 +5682,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsr X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
@@ -5689,7 +5691,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsr X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
@@ -5698,7 +5700,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsr W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
@@ -5707,12 +5709,12 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass LSR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass LSR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; lsr W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit LSR {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit LSR {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5741,7 +5743,7 @@
                 <span class="kw">let </span>imm = imm <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ROR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ROR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ror X(dst), X(src1), imm);
             }
@@ -5751,7 +5753,7 @@
                 <span class="kw">let </span>imm = imm <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ROR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ROR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ror X(dst), X(src1), imm);
             }
@@ -5760,7 +5762,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ROR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ROR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ror W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
@@ -5775,7 +5777,7 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">63 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ROR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ROR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ror X(dst), X(src1), imm <span class="kw">as </span>u32);
             }
@@ -5784,12 +5786,12 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm == <span class="number">0 </span>|| imm &gt; <span class="number">31 </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ROR with incompatible imm {}&quot;</span>, imm);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass ROR with incompatible imm {}"</span>, imm);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ror W(dst), W(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit ROR {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit ROR {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5818,7 +5820,7 @@
                 <span class="kw">let </span>src2 = src2 <span class="kw">as </span>u64;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_64bit(src2 <span class="kw">as </span>u64).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass OR with incompatible imm {}&quot;</span>, src2);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass OR with incompatible imm {}"</span>, src2);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; orr X(dst), X(src1), src2);
             }
@@ -5827,7 +5829,7 @@
                 <span class="kw">let </span>src2 = src2 <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_32bit(src2).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass OR with incompatible imm {}&quot;</span>, src2);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass OR with incompatible imm {}"</span>, src2);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; orr W(dst), W(src1), src2);
             }
@@ -5838,7 +5840,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; orr W(dst), W(src1), W(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit OR {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit OR {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5866,7 +5868,7 @@
                 <span class="kw">let </span>src2 = src2 <span class="kw">as </span>u64;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_64bit(src2 <span class="kw">as </span>u64).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass AND with incompatible imm {}&quot;</span>, src2);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass AND with incompatible imm {}"</span>, src2);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; and X(dst), X(src1), src2);
             }
@@ -5875,7 +5877,7 @@
                 <span class="kw">let </span>src2 = src2 <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_32bit(src2).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass AND with incompatible imm {}&quot;</span>, src2);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass AND with incompatible imm {}"</span>, src2);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; and W(dst), W(src1), src2);
             }
@@ -5886,7 +5888,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; and W(dst), W(src1), W(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit AND {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit AND {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5914,7 +5916,7 @@
                 <span class="kw">let </span>src2 = src2 <span class="kw">as </span>u64;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_64bit(src2 <span class="kw">as </span>u64).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass EOR with incompatible imm {}&quot;</span>, src2);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass EOR with incompatible imm {}"</span>, src2);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; eor X(dst), X(src1), src2);
             }
@@ -5923,7 +5925,7 @@
                 <span class="kw">let </span>src2 = src2 <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>encode_logical_immediate_32bit(src2).is_none() {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass EOR with incompatible imm {}&quot;</span>, src2);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass EOR with incompatible imm {}"</span>, src2);
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; eor W(dst), W(src1), src2);
             }
@@ -5934,7 +5936,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; eor W(dst), W(src1), W(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit EOR {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit EOR {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -5958,7 +5960,7 @@
             (Size::S64, Location::GPR(dst)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; bfc X(dst <span class="kw">as </span>u32), lsb, width);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit BFC&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit BFC"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -5977,7 +5979,7 @@
             (Size::S64, Location::GPR(src), Location::GPR(dst)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; bfi X(dst <span class="kw">as </span>u32), X(src <span class="kw">as </span>u32), lsb, width);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit BFI&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit BFI"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6003,7 +6005,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; udiv X(dst), X(src1), X(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit UDIV {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit UDIV {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6033,7 +6035,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; sdiv X(dst), X(src1), X(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit UDIV {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit UDIV {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6080,7 +6082,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; msub X(dst), X(a), X(b), X(c));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit msub {:?} {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit msub {:?} {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 a,
                 b,
@@ -6103,7 +6105,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; sxtb X(dst), W(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SXTB {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SXTB {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6119,7 +6121,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; sxth X(dst), W(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SXTH {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SXTH {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6130,7 +6132,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; sxtw X(dst), W(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit SXTW {:?} {:?}&quot;</span>, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SXTW {:?} {:?}"</span>, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6141,7 +6143,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; uxtb W(dst), W(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit UXTB {:?} {:?}&quot;</span>, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit UXTB {:?} {:?}"</span>, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6152,7 +6154,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; uxth W(dst), W(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit UXTH {:?} {:?}&quot;</span>, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit UXTH {:?} {:?}"</span>, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6199,7 +6201,7 @@
                     Condition::Al =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cset X(reg), al),
                 }
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CSET {:?} {:?} {:?}&quot;</span>, sz, dst, cond),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CSET {:?} {:?} {:?}"</span>, sz, dst, cond),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6245,7 +6247,7 @@
                     Condition::Al =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; csetm X(reg), al),
                 }
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CSETM {:?} {:?} {:?}&quot;</span>, sz, dst, cond),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CSETM {:?} {:?} {:?}"</span>, sz, dst, cond),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6299,7 +6301,7 @@
                     Condition::Al =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cinc X(src), X(dst), al),
                 };
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CINC&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CINC"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6316,7 +6318,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; clz W(dst), W(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CLS {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CLS {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6332,7 +6334,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; rbit W(dst), W(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CLS {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CLS {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6366,7 +6368,7 @@
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; cbz X(reg), =&gt;label);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CBZ {:?} {:?} {:?}&quot;</span>, sz, reg, label),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CBZ {:?} {:?} {:?}"</span>, sz, reg, label),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6385,7 +6387,7 @@
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; cbnz X(reg), =&gt;label);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CBNZ {:?} {:?} {:?}&quot;</span>, sz, reg, label),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CBNZ {:?} {:?} {:?}"</span>, sz, reg, label),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6410,7 +6412,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; cbz X(reg), =&gt; near_label);
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; b =&gt; continue_label);
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CBZ {:?} {:?} {:?}&quot;</span>, sz, reg, label),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CBZ {:?} {:?} {:?}"</span>, sz, reg, label),
         }
         <span class="self">self</span>.emit_label(near_label)<span class="question-mark">?</span>;
         <span class="macro">dynasm!</span>(<span class="self">self </span>; b =&gt; label );
@@ -6436,7 +6438,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; tbz X(reg), n, =&gt;label);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit TBZ {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit TBZ {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 reg,
                 n,
@@ -6462,7 +6464,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; tbnz X(reg), n, =&gt;label);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit TBNZ {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit TBNZ {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 reg,
                 n,
@@ -6561,7 +6563,7 @@
                 <span class="kw">let </span>src2 = src2.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fcmp D(src1), D(src2));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit FCMP {:?} {:?} {:?}&quot;</span>, sz, src1, src2),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit FCMP {:?} {:?} {:?}"</span>, sz, src1, src2),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6578,7 +6580,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fneg D(dst), D(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit FNEG {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit FNEG {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6594,7 +6596,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fsqrt D(dst), D(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit FSQRT {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit FSQRT {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6620,7 +6622,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fadd D(dst), D(src1), D(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FADD {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FADD {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6650,7 +6652,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fsub D(dst), D(src1), D(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FSUB {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FSUB {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6680,7 +6682,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fmul D(dst), D(src1), D(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FMUL {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FMUL {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6710,7 +6712,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fdiv D(dst), D(src1), D(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FDIV {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FDIV {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6741,7 +6743,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fmin D(dst), D(src1), D(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FMIN {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FMIN {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6771,7 +6773,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fmax D(dst), D(src1), D(src2));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FMAX {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FMAX {:?} {:?} {:?} {:?}"</span>,
                 sz,
                 src1,
                 src2,
@@ -6793,7 +6795,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; frintz D(dst), D(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit FRINTZ {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit FRINTZ {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6809,7 +6811,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; frintn D(dst), D(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit FRINTN {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit FRINTN {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6825,7 +6827,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; frintm D(dst), D(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit FRINTM {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit FRINTM {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6841,7 +6843,7 @@
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; frintp D(dst), D(src));
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit FRINTP {:?} {:?} {:?}&quot;</span>, sz, src, dst),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit FRINTP {:?} {:?} {:?}"</span>, sz, src, dst),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -6875,7 +6877,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; scvtf D(dst), X(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit SCVTF {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit SCVTF {:?} {:?} {:?} {:?}"</span>,
                 sz_in,
                 src,
                 sz_out,
@@ -6913,7 +6915,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; ucvtf D(dst), X(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit UCVTF {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit UCVTF {:?} {:?} {:?} {:?}"</span>,
                 sz_in,
                 src,
                 sz_out,
@@ -6935,7 +6937,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fcvt S(dst), D(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit UCVTF {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit UCVTF {:?} {:?} {:?}"</span>,
                 sz_in,
                 src,
                 dst
@@ -6972,7 +6974,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fcvtzs X(dst), D(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FCVTZS {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FCVTZS {:?} {:?} {:?} {:?}"</span>,
                 sz_in,
                 src,
                 sz_out,
@@ -7010,7 +7012,7 @@
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; fcvtzu X(dst), D(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit FCVTZU {:?} {:?} {:?} {:?}&quot;</span>,
+                <span class="string">"singlepass can't emit FCVTZU {:?} {:?} {:?} {:?}"</span>,
                 sz_in,
                 src,
                 sz_out,
@@ -7080,7 +7082,7 @@
         <span class="kw">match </span>res {
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass can&#39;t generate fmov instruction for src_size: {:?}, src: {:?}, dst_size: {:?}, dst: {:?}&quot;</span>,
+                <span class="string">"singlepass can't generate fmov instruction for src_size: {:?}, src: {:?}, dst_size: {:?}, dst: {:?}"</span>,
                 src_size,
                 src,
                 dst_size,
@@ -7128,7 +7130,7 @@
             Type::ExternRef =&gt; Size::S64,
             Type::FuncRef =&gt; Size::S64,
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                <span class="string">&quot;singlepass unsupported param type for trampoline {:?}&quot;</span>,
+                <span class="string">"singlepass unsupported param type for trampoline {:?}"</span>,
                 <span class="kw-2">*</span>param
             ),
         };
@@ -7279,7 +7281,7 @@
                         Size::S32 =&gt; <span class="number">4</span>,
                         Size::S64 =&gt; <span class="number">8</span>,
                         <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-                            <span class="string">&quot;singlepass unreachable in gen_std_dynamic_import_trampoline_arm64&quot;
+                            <span class="string">"singlepass unreachable in gen_std_dynamic_import_trampoline_arm64"
                         </span>),
                     };
                     Location::GPR(GPR::X26)

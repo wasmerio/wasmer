@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/relocation.rs`."><title>relocation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/relocation.rs`."><title>relocation.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -230,7 +230,60 @@
 <a href="#230" id="230">230</a>
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+</pre></div><pre class="rust"><code><span class="comment">/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+</span><span class="attr">#![allow(missing_docs)]
+
+</span><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent
 //! code and data of a program and adjusting the code and data to reflect the
 //! assigned addresses.
 //!
@@ -248,16 +301,14 @@
 <span class="kw">use crate</span>::{Addend, CodeOffset};
 <span class="kw">use crate</span>::{LibCall, LocalFunctionIndex};
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
-<span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// Relocation kinds for every ISA.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Copy, Clone, Debug, PartialEq, Eq,
-)]
-#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 </span><span class="kw">pub enum </span>RelocationKind {
     <span class="doccomment">/// absolute 4-byte
@@ -274,6 +325,22 @@
     </span>X86CallPLTRel4,
     <span class="doccomment">/// x86 GOT PC-relative 4-byte
     </span>X86GOTPCRel4,
+
+    <span class="doccomment">/// R_AARCH64_ADR_PREL_LO21
+    </span>Aarch64AdrPrelLo21,
+
+    <span class="doccomment">/// R_AARCH64_ADR_PREL_PG_HI21
+    </span>Aarch64AdrPrelPgHi21,
+
+    <span class="doccomment">/// R_AARCH64_ADD_ABS_LO12_NC
+    </span>Aarch64AddAbsLo12Nc,
+
+    <span class="doccomment">/// R_AARCH64_LDST128_ABS_LO12_NC
+    </span>Aarch64Ldst128AbsLo12Nc,
+
+    <span class="doccomment">/// R_AARCH64_LDST64_ABS_LO12_NC
+    </span>Aarch64Ldst64AbsLo12Nc,
+
     <span class="doccomment">/// Arm32 call target
     </span>Arm32Call,
     <span class="doccomment">/// Arm64 call target
@@ -292,6 +359,14 @@
     </span>RiscvPCRelLo12I,
     <span class="doccomment">/// RISC-V call target
     </span>RiscvCall,
+    <span class="doccomment">/// LoongArch absolute high 20bit
+    </span>LArchAbsHi20,
+    <span class="doccomment">/// LoongArch absolute low 12bit
+    </span>LArchAbsLo12,
+    <span class="doccomment">/// LoongArch absolute high 12bit
+    </span>LArchAbs64Hi12,
+    <span class="doccomment">/// LoongArch absolute low 20bit
+    </span>LArchAbs64Lo20,
     <span class="doccomment">/// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
     </span>ElfX86_64TlsGd,
     <span class="comment">// /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
@@ -303,31 +378,40 @@
     /// already unambiguous, e.g. clif syntax with isa specified. In other contexts, use Debug.
     </span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
         <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-            <span class="self">Self</span>::Abs4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Abs4&quot;</span>),
-            <span class="self">Self</span>::Abs8 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Abs8&quot;</span>),
-            <span class="self">Self</span>::X86PCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;PCRel4&quot;</span>),
-            <span class="self">Self</span>::X86PCRel8 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;PCRel8&quot;</span>),
-            <span class="self">Self</span>::X86CallPCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;CallPCRel4&quot;</span>),
-            <span class="self">Self</span>::X86CallPLTRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;CallPLTRel4&quot;</span>),
-            <span class="self">Self</span>::X86GOTPCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;GOTPCRel4&quot;</span>),
-            <span class="self">Self</span>::Arm32Call | <span class="self">Self</span>::Arm64Call | <span class="self">Self</span>::RiscvCall =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Call&quot;</span>),
-            <span class="self">Self</span>::Arm64Movw0 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG0&quot;</span>),
-            <span class="self">Self</span>::Arm64Movw1 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG1&quot;</span>),
-            <span class="self">Self</span>::Arm64Movw2 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG2&quot;</span>),
-            <span class="self">Self</span>::Arm64Movw3 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG3&quot;</span>),
-            <span class="self">Self</span>::ElfX86_64TlsGd =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ElfX86_64TlsGd&quot;</span>),
-            <span class="self">Self</span>::RiscvPCRelHi20 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;RiscvPCRelHi20&quot;</span>),
-            <span class="self">Self</span>::RiscvPCRelLo12I =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;RiscvPCRelLo12I&quot;</span>),
-            <span class="comment">// Self::MachOX86_64Tlv =&gt; write!(f, &quot;MachOX86_64Tlv&quot;),
+            <span class="self">Self</span>::Abs4 =&gt; <span class="macro">write!</span>(f, <span class="string">"Abs4"</span>),
+            <span class="self">Self</span>::Abs8 =&gt; <span class="macro">write!</span>(f, <span class="string">"Abs8"</span>),
+            <span class="self">Self</span>::X86PCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">"PCRel4"</span>),
+            <span class="self">Self</span>::X86PCRel8 =&gt; <span class="macro">write!</span>(f, <span class="string">"PCRel8"</span>),
+            <span class="self">Self</span>::X86CallPCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">"CallPCRel4"</span>),
+            <span class="self">Self</span>::X86CallPLTRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">"CallPLTRel4"</span>),
+            <span class="self">Self</span>::X86GOTPCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">"GOTPCRel4"</span>),
+            <span class="self">Self</span>::Arm32Call | <span class="self">Self</span>::Arm64Call | <span class="self">Self</span>::RiscvCall =&gt; <span class="macro">write!</span>(f, <span class="string">"Call"</span>),
+            <span class="self">Self</span>::Arm64Movw0 =&gt; <span class="macro">write!</span>(f, <span class="string">"Arm64MovwG0"</span>),
+            <span class="self">Self</span>::Arm64Movw1 =&gt; <span class="macro">write!</span>(f, <span class="string">"Arm64MovwG1"</span>),
+            <span class="self">Self</span>::Arm64Movw2 =&gt; <span class="macro">write!</span>(f, <span class="string">"Arm64MovwG2"</span>),
+            <span class="self">Self</span>::Arm64Movw3 =&gt; <span class="macro">write!</span>(f, <span class="string">"Arm64MovwG3"</span>),
+            <span class="self">Self</span>::ElfX86_64TlsGd =&gt; <span class="macro">write!</span>(f, <span class="string">"ElfX86_64TlsGd"</span>),
+            <span class="self">Self</span>::RiscvPCRelHi20 =&gt; <span class="macro">write!</span>(f, <span class="string">"RiscvPCRelHi20"</span>),
+            <span class="self">Self</span>::RiscvPCRelLo12I =&gt; <span class="macro">write!</span>(f, <span class="string">"RiscvPCRelLo12I"</span>),
+            <span class="self">Self</span>::LArchAbsHi20 =&gt; <span class="macro">write!</span>(f, <span class="string">"LArchAbsHi20"</span>),
+            <span class="self">Self</span>::LArchAbsLo12 =&gt; <span class="macro">write!</span>(f, <span class="string">"LArchAbsLo12"</span>),
+            <span class="self">Self</span>::LArchAbs64Hi12 =&gt; <span class="macro">write!</span>(f, <span class="string">"LArchAbs64Hi12"</span>),
+            <span class="self">Self</span>::LArchAbs64Lo20 =&gt; <span class="macro">write!</span>(f, <span class="string">"LArchAbs64Lo20"</span>),
+            <span class="self">Self</span>::Aarch64AdrPrelLo21 =&gt; <span class="macro">write!</span>(f, <span class="string">"Aarch64AdrPrelLo21"</span>),
+            <span class="self">Self</span>::Aarch64AdrPrelPgHi21 =&gt; <span class="macro">write!</span>(f, <span class="string">"Aarch64AdrPrelPgHi21"</span>),
+            <span class="self">Self</span>::Aarch64AddAbsLo12Nc =&gt; <span class="macro">write!</span>(f, <span class="string">"Aarch64AddAbsLo12Nc"</span>),
+            <span class="self">Self</span>::Aarch64Ldst128AbsLo12Nc =&gt; <span class="macro">write!</span>(f, <span class="string">"Aarch64Ldst128AbsLo12Nc"</span>),
+            <span class="self">Self</span>::Aarch64Ldst64AbsLo12Nc =&gt; <span class="macro">write!</span>(f, <span class="string">"Aarch64Ldst64AbsLo12Nc"</span>),
+            <span class="comment">// Self::MachOX86_64Tlv =&gt; write!(f, "MachOX86_64Tlv"),
         </span>}
     }
 }
 
 <span class="doccomment">/// A record of a relocation to perform.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug), compare(PartialEq))]
 </span><span class="kw">pub struct </span>Relocation {
     <span class="doccomment">/// The relocation kind.
     </span><span class="kw">pub </span>kind: RelocationKind,
@@ -358,7 +442,10 @@
             | RelocationKind::Arm64Movw1
             | RelocationKind::Arm64Movw2
             | RelocationKind::Arm64Movw3
-            | RelocationKind::RiscvPCRelLo12I =&gt; {
+            | RelocationKind::RiscvPCRelLo12I
+            | RelocationKind::Aarch64AddAbsLo12Nc
+            | RelocationKind::Aarch64Ldst128AbsLo12Nc
+            | RelocationKind::Aarch64Ldst64AbsLo12Nc =&gt; {
                 <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
                 <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
                 <span class="kw">let </span>reloc_abs = target_func_address
@@ -394,7 +481,8 @@
             }
             RelocationKind::Arm64Call
             | RelocationKind::RiscvCall
-            | RelocationKind::RiscvPCRelHi20 =&gt; {
+            | RelocationKind::RiscvPCRelHi20
+            | RelocationKind::Aarch64AdrPrelLo21 =&gt; {
                 <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
                 <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
                 <span class="kw">let </span>reloc_delta_u32 = target_func_address
@@ -402,7 +490,15 @@
                     .wrapping_add(reloc_addend <span class="kw">as </span>u64);
                 (reloc_address, reloc_delta_u32)
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Relocation kind unsupported&quot;</span>),
+            RelocationKind::Aarch64AdrPrelPgHi21 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
+                <span class="kw">let </span>target_page =
+                    (target_func_address.wrapping_add(reloc_addend <span class="kw">as </span>u64) &amp; !(<span class="number">0xFFF</span>)) <span class="kw">as </span>usize;
+                <span class="kw">let </span>pc_page = reloc_address &amp; !(<span class="number">0xFFF</span>);
+                (reloc_address, target_page.wrapping_sub(pc_page) <span class="kw">as </span>u64)
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Relocation kind unsupported"</span>),
         }
     }
 }
@@ -427,29 +523,27 @@
 
 <span class="kw">impl </span>RelocationLike <span class="kw">for </span>ArchivedRelocation {
     <span class="kw">fn </span>kind(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationKind {
-        <span class="self">self</span>.kind
+        rkyv::deserialize::&lt;<span class="kw">_</span>, String&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.kind).unwrap()
     }
 
     <span class="kw">fn </span>reloc_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationTarget {
-        <span class="self">self</span>.reloc_target
+        rkyv::deserialize::&lt;<span class="kw">_</span>, String&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.reloc_target).unwrap()
     }
 
     <span class="kw">fn </span>offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CodeOffset {
-        <span class="self">self</span>.offset
+        <span class="self">self</span>.offset.into()
     }
 
     <span class="kw">fn </span>addend(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Addend {
-        <span class="self">self</span>.addend
+        <span class="self">self</span>.addend.into()
     }
 }
 
 <span class="doccomment">/// Destination function. Can be either user function or some special one, like `memory.grow`.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Copy, Clone, PartialEq, Eq,
-)]
-#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Copy, Clone, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 </span><span class="kw">pub enum </span>RelocationTarget {
     <span class="doccomment">/// A relocation to a function defined locally in the wasm (not an imported one).

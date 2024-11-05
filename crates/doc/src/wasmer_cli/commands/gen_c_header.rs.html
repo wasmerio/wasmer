@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/gen_c_header.rs`."><title>gen_c_header.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/gen_c_header.rs`."><title>gen_c_header.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -141,16 +141,24 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer_compiler::Artifact;
+<span class="kw">use </span>wasmer_package::package::WasmerPackageError;
+<span class="kw">use </span>wasmer_package::utils::from_bytes;
 <span class="kw">use </span>wasmer_types::{
     compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
 };
-<span class="kw">use </span>webc::{compat::SharedBytes, Container, DetectError};
+<span class="kw">use </span>webc::{compat::SharedBytes, DetectError};
+<span class="kw">use </span>webc::{Container, ContainerError};
 
 <span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
 
@@ -158,7 +166,7 @@
 </span><span class="doccomment">/// The options for the `wasmer gen-c-header` subcommand
 </span><span class="kw">pub struct </span>GenCHeader {
     <span class="doccomment">/// Input file
-    </span><span class="attr">#[clap(name = <span class="string">&quot;FILE&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"FILE"</span>)]
     </span>path: PathBuf,
 
     <span class="doccomment">/// Prefix hash (default: SHA256 of input .wasm file)
@@ -170,25 +178,25 @@
     </span>atom: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Output file
-    </span><span class="attr">#[clap(name = <span class="string">&quot;OUTPUT PATH&quot;</span>, short = <span class="string">&#39;o&#39;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"OUTPUT PATH"</span>, short = <span class="string">'o'</span>)]
     </span>output: PathBuf,
 
     <span class="doccomment">/// Compilation Target triple
     ///
     /// Accepted target triple values must follow the
-    /// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.
+    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
     ///
     /// The recommended targets we try to support are:
     ///
-    /// - &quot;x86_64-linux-gnu&quot;
-    /// - &quot;aarch64-linux-gnu&quot;
-    /// - &quot;x86_64-apple-darwin&quot;
-    /// - &quot;arm64-apple-darwin&quot;
-    /// - &quot;x86_64-windows-gnu&quot;
-    </span><span class="attr">#[clap(long = <span class="string">&quot;target&quot;</span>)]
+    /// - "x86_64-linux-gnu"
+    /// - "aarch64-linux-gnu"
+    /// - "x86_64-apple-darwin"
+    /// - "arm64-apple-darwin"
+    /// - "x86_64-windows-gnu"
+    </span><span class="attr">#[clap(long = <span class="string">"target"</span>)]
     </span>target_triple: <span class="prelude-ty">Option</span>&lt;Triple&gt;,
 
-    <span class="attr">#[clap(long, short = <span class="string">&#39;m&#39;</span>, number_of_values = <span class="number">1</span>)]
+    <span class="attr">#[clap(long, short = <span class="string">'m'</span>, number_of_values = <span class="number">1</span>)]
     </span>cpu_features: Vec&lt;CpuFeature&gt;,
 }
 
@@ -196,21 +204,23 @@
     <span class="doccomment">/// Runs logic for the `gen-c-header` subcommand
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>file: Bytes = std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.path)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, <span class="self">self</span>.path.display()))<span class="question-mark">?
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to read \"{}\""</span>, <span class="self">self</span>.path.display()))<span class="question-mark">?
             </span>.into();
         <span class="kw">let </span>prefix = <span class="kw">match </span><span class="self">self</span>.prefix.as_deref() {
             <span class="prelude-val">Some</span>(s) =&gt; s.to_string(),
             <span class="prelude-val">None </span>=&gt; <span class="kw">crate</span>::commands::PrefixMapCompilation::hash_for_bytes(<span class="kw-2">&amp;</span>file),
         };
 
-        <span class="kw">let </span>atom = <span class="kw">match </span>Container::from_bytes(file.clone()) {
+        <span class="kw">let </span>atom = <span class="kw">match </span>from_bytes(file.clone()) {
             <span class="prelude-val">Ok</span>(webc) =&gt; <span class="self">self</span>.get_atom(<span class="kw-2">&amp;</span>webc)<span class="question-mark">?</span>,
-            <span class="prelude-val">Err</span>(webc::compat::ContainerError::Detect(DetectError::InvalidMagic { .. })) =&gt; {
-                <span class="comment">// we&#39;ve probably got a WebAssembly file
+            <span class="prelude-val">Err</span>(WasmerPackageError::ContainerError(ContainerError::Detect(
+                DetectError::InvalidMagic { .. },
+            ))) =&gt; {
+                <span class="comment">// we've probably got a WebAssembly file
                 </span>file.into()
             }
             <span class="prelude-val">Err</span>(other) =&gt; {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(other).context(<span class="string">&quot;Unable to parse the webc file&quot;</span>));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(other).context(<span class="string">"Unable to parse the webc file"</span>));
             }
         };
 
@@ -232,11 +242,11 @@
             tunables,
             features,
         )
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not generate metadata: {e}&quot;</span>))<span class="question-mark">?</span>;
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not generate metadata: {e}"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>serialized_data = metadata
             .serialize()
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to serialize: {e}&quot;</span>))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"failed to serialize: {e}"</span>))<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>metadata_binary = <span class="macro">vec!</span>[];
         metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
         metadata_binary.extend(serialized_data);
@@ -254,8 +264,8 @@
         <span class="kw">let </span>output = <span class="kw">crate</span>::common::normalize_path(<span class="kw-2">&amp;</span><span class="self">self</span>.output.display().to_string());
 
         std::fs::write(<span class="kw-2">&amp;</span>output, header_file_src)
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{output}&quot;</span>))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"{e}"</span>))
+            .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"{output}"</span>))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -265,19 +275,19 @@
         <span class="kw">let </span>atom_names: Vec&lt;<span class="kw">_</span>&gt; = atoms.keys().map(|s| s.as_str()).collect();
 
         <span class="kw">match </span><span class="kw-2">*</span>atom_names.as_slice() {
-            [] =&gt; <span class="prelude-val">Err</span>(Error::msg(<span class="string">&quot;The file doesn&#39;t contain any atoms&quot;</span>)),
+            [] =&gt; <span class="prelude-val">Err</span>(Error::msg(<span class="string">"The file doesn't contain any atoms"</span>)),
             [name] =&gt; <span class="prelude-val">Ok</span>(atoms[name].clone()),
             [..] =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.atom {
                 <span class="prelude-val">Some</span>(name) =&gt; atoms
                     .get(name)
                     .cloned()
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The file doesn&#39;t contain a \&quot;{name}\&quot; atom&quot;</span>))
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">"The file doesn't contain a \"{name}\" atom"</span>))
                     .with_context(|| {
-                        <span class="macro">format!</span>(<span class="string">&quot;-&gt; note: available atoms are: {}&quot;</span>, atom_names.join(<span class="string">&quot;, &quot;</span>))
+                        <span class="macro">format!</span>(<span class="string">"-&gt; note: available atoms are: {}"</span>, atom_names.join(<span class="string">", "</span>))
                     }),
                 <span class="prelude-val">None </span>=&gt; {
-                    <span class="kw">let </span>err = Error::msg(<span class="string">&quot;file has multiple atoms, please specify which atom to generate the header file for&quot;</span>)
-                            .context(<span class="macro">format!</span>(<span class="string">&quot;-&gt; note: available atoms are: {}&quot;</span>, atom_names.join(<span class="string">&quot;, &quot;</span>)));
+                    <span class="kw">let </span>err = Error::msg(<span class="string">"file has multiple atoms, please specify which atom to generate the header file for"</span>)
+                            .context(<span class="macro">format!</span>(<span class="string">"-&gt; note: available atoms are: {}"</span>, atom_names.join(<span class="string">", "</span>)));
                     <span class="prelude-val">Err</span>(err)
                 }
             },

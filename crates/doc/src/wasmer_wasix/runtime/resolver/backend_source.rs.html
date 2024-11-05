@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/resolver/backend_source.rs`."><title>backend_source.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/resolver/backend_source.rs`."><title>backend_source.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1271,8 +1271,8 @@
 }
 
 <span class="kw">impl </span>BackendSource {
-    <span class="kw">pub const </span>WASMER_DEV_ENDPOINT: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>;
-    <span class="kw">pub const </span>WASMER_PROD_ENDPOINT: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;https://registry.wasmer.io/graphql&quot;</span>;
+    <span class="kw">pub const </span>WASMER_DEV_ENDPOINT: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"https://registry.wasmer.wtf/graphql"</span>;
+    <span class="kw">pub const </span>WASMER_PROD_ENDPOINT: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"https://registry.wasmer.io/graphql"</span>;
 
     <span class="kw">pub fn </span>new(registry_endpoint: Url, client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
         BackendSource {
@@ -1310,7 +1310,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.registry_endpoint
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">async fn </span>query_graphql_named(<span class="kw-2">&amp;</span><span class="self">self</span>, package_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;WebQuery, Error&gt; {
         <span class="attr">#[derive(serde::Serialize)]
         </span><span class="kw">struct </span>Body {
@@ -1318,7 +1318,7 @@
         }
 
         <span class="kw">let </span>body = Body {
-            query: WASMER_WEBC_QUERY_ALL.replace(<span class="string">&quot;$NAME&quot;</span>, package_name),
+            query: WASMER_WEBC_QUERY_ALL.replace(<span class="string">"$NAME"</span>, package_name),
         };
 
         <span class="kw">let </span>request = HttpRequest {
@@ -1329,7 +1329,7 @@
             options: Default::default(),
         };
 
-        <span class="macro">tracing::debug!</span>(%request.url, %request.method, <span class="string">&quot;Querying the GraphQL API&quot;</span>);
+        <span class="macro">tracing::debug!</span>(%request.url, %request.method, <span class="string">"Querying the GraphQL API"</span>);
         <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>request.headers, request.body=body.query.as_str());
 
         <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1341,7 +1341,7 @@
             <span class="kw">let </span>body = <span class="kw">if let </span><span class="prelude-val">Some</span>(body) = <span class="kw-2">&amp;</span>response.body {
                 String::from_utf8_lossy(body).into_owned()
             } <span class="kw">else </span>{
-                <span class="string">&quot;&lt;no body&gt;&quot;</span>.to_string()
+                <span class="string">"&lt;no body&gt;"</span>.to_string()
             };
 
             <span class="macro">tracing::warn!</span>(
@@ -1349,10 +1349,10 @@
                 %status,
                 package=%package_name,
                 %body,
-                <span class="string">&quot;failed to query package info from registry&quot;
+                <span class="string">"failed to query package info from registry"
             </span>);
 
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;\&quot;{url}\&quot; replied with {status}&quot;</span>);
+            <span class="macro">anyhow::bail!</span>(<span class="string">"\"{url}\" replied with {status}"</span>);
         }
 
         <span class="kw">let </span>body = response.body.unwrap_or_default();
@@ -1360,16 +1360,16 @@
             %response.status,
             %response.redirected,
             <span class="question-mark">?</span>response.headers,
-            <span class="string">&quot;Received a response from GraphQL&quot;</span>,
+            <span class="string">"Received a response from GraphQL"</span>,
         );
 
         <span class="kw">let </span>response: WebQuery =
-            serde_json::from_slice(<span class="kw-2">&amp;</span>body).context(<span class="string">&quot;Unable to deserialize the response&quot;</span>)<span class="question-mark">?</span>;
+            serde_json::from_slice(<span class="kw-2">&amp;</span>body).context(<span class="string">"Unable to deserialize the response"</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(response)
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">async fn </span>query_graphql_by_hash(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         hash: <span class="kw-2">&amp;</span>PackageHash,
@@ -1380,7 +1380,7 @@
         }
 
         <span class="kw">let </span>body = Body {
-            query: WASMER_WEBC_QUERY_BY_HASH.replace(<span class="string">&quot;$HASH&quot;</span>, <span class="kw-2">&amp;</span>hash.to_string()),
+            query: WASMER_WEBC_QUERY_BY_HASH.replace(<span class="string">"$HASH"</span>, <span class="kw-2">&amp;</span>hash.to_string()),
         };
 
         <span class="kw">let </span>request = HttpRequest {
@@ -1391,7 +1391,7 @@
             options: Default::default(),
         };
 
-        <span class="macro">tracing::debug!</span>(%request.url, %request.method, <span class="string">&quot;Querying the GraphQL API&quot;</span>);
+        <span class="macro">tracing::debug!</span>(%request.url, %request.method, <span class="string">"Querying the GraphQL API"</span>);
         <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>request.headers, request.body=body.query.as_str());
 
         <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1403,7 +1403,7 @@
             <span class="kw">let </span>body = <span class="kw">if let </span><span class="prelude-val">Some</span>(body) = <span class="kw-2">&amp;</span>response.body {
                 String::from_utf8_lossy(body).into_owned()
             } <span class="kw">else </span>{
-                <span class="string">&quot;&lt;no body&gt;&quot;</span>.to_string()
+                <span class="string">"&lt;no body&gt;"</span>.to_string()
             };
 
             <span class="macro">tracing::warn!</span>(
@@ -1411,10 +1411,10 @@
                 %status,
                 %hash,
                 %body,
-                <span class="string">&quot;failed to query package info from registry&quot;
+                <span class="string">"failed to query package info from registry"
             </span>);
 
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;\&quot;{url}\&quot; replied with {status}&quot;</span>);
+            <span class="macro">anyhow::bail!</span>(<span class="string">"\"{url}\" replied with {status}"</span>);
         }
 
         <span class="kw">let </span>body = response.body.unwrap_or_default();
@@ -1422,22 +1422,22 @@
             %response.status,
             %response.redirected,
             <span class="question-mark">?</span>response.headers,
-            <span class="string">&quot;Received a response from GraphQL&quot;</span>,
+            <span class="string">"Received a response from GraphQL"</span>,
         );
 
         <span class="kw">let </span>response: Reply&lt;GetPackageRelease&gt; =
-            serde_json::from_slice(<span class="kw-2">&amp;</span>body).context(<span class="string">&quot;Unable to deserialize the response&quot;</span>)<span class="question-mark">?</span>;
+            serde_json::from_slice(<span class="kw-2">&amp;</span>body).context(<span class="string">"Unable to deserialize the response"</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(response.data.get_package_release)
     }
 
     <span class="kw">fn </span>headers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HeaderMap {
         <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
-        headers.insert(<span class="string">&quot;Content-Type&quot;</span>, <span class="string">&quot;application/json&quot;</span>.parse().unwrap());
-        headers.insert(<span class="string">&quot;User-Agent&quot;</span>, USER_AGENT.parse().unwrap());
+        headers.insert(<span class="string">"Content-Type"</span>, <span class="string">"application/json"</span>.parse().unwrap());
+        headers.insert(<span class="string">"User-Agent"</span>, USER_AGENT.parse().unwrap());
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = <span class="self">self</span>.token.as_deref() {
-            <span class="kw">let </span>raw_header = <span class="macro">format!</span>(<span class="string">&quot;Bearer {token}&quot;</span>);
+            <span class="kw">let </span>raw_header = <span class="macro">format!</span>(<span class="string">"Bearer {token}"</span>);
 
             <span class="kw">match </span>http::HeaderValue::from_str(<span class="kw-2">&amp;</span>raw_header) {
                 <span class="prelude-val">Ok</span>(header) =&gt; {
@@ -1446,7 +1446,7 @@
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">tracing::warn!</span>(
                         error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                        <span class="string">&quot;Unable to parse the token into a header&quot;</span>,
+                        <span class="string">"Unable to parse the token into a header"</span>,
                     );
                 }
             }
@@ -1473,7 +1473,7 @@
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>BackendSource {
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
+    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%package))]
     </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSource) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">let </span>(package_name, version_constraint) = <span class="kw">match </span>package {
             PackageSource::Ident(PackageIdent::Named(n)) =&gt; (
@@ -1511,7 +1511,7 @@
                         <span class="kw-2">&amp;</span>version_constraint,
                         <span class="self">self</span>.preferred_webc_version,
                     ) {
-                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
+                        <span class="macro">tracing::debug!</span>(<span class="string">"Cache hit!"</span>);
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(cached);
                     }
                 }
@@ -1520,7 +1520,7 @@
                     <span class="macro">tracing::warn!</span>(
                         package_name,
                         error = <span class="kw-2">&amp;*</span>e,
-                        <span class="string">&quot;An unexpected error occurred while checking the local query cache&quot;</span>,
+                        <span class="string">"An unexpected error occurred while checking the local query cache"</span>,
                     );
                 }
             }
@@ -1536,7 +1536,7 @@
                 <span class="macro">tracing::warn!</span>(
                     package_name,
                     error = <span class="kw-2">&amp;*</span>e,
-                    <span class="string">&quot;An error occurred while caching the GraphQL response&quot;</span>,
+                    <span class="string">"An error occurred while caching the GraphQL response"</span>,
                 );
             }
         }
@@ -1579,7 +1579,7 @@
                 <span class="macro">tracing::debug!</span>(
                     pkg.version = pkg_version.version.as_str(),
                     error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                    <span class="string">&quot;Skipping a version because it doesn&#39;t have a valid version number&quot;</span>,
+                    <span class="string">"Skipping a version because it doesn't have a valid version number"</span>,
                 );
                 <span class="kw">continue</span>;
             }
@@ -1588,7 +1588,7 @@
         <span class="kw">if </span>pkg_version.is_archived {
             <span class="macro">tracing::debug!</span>(
                 pkg.version=%version,
-                <span class="string">&quot;Skipping an archived version&quot;</span>,
+                <span class="string">"Skipping an archived version"</span>,
             );
             archived_versions.push(version);
             <span class="kw">continue</span>;
@@ -1606,7 +1606,7 @@
                     <span class="macro">tracing::debug!</span>(
                         version=%version,
                         error=<span class="kw-2">&amp;*</span>e,
-                        <span class="string">&quot;Skipping version because its metadata couldn&#39;t be parsed&quot;
+                        <span class="string">"Skipping version because its metadata couldn't be parsed"
                     </span>);
                 }
             }
@@ -1663,21 +1663,21 @@
         };
 
     <span class="kw">let </span>id = PackageId::Named(NamedPackageId {
-        full_name: <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, namespace, package_name),
+        full_name: <span class="macro">format!</span>(<span class="string">"{}/{}"</span>, namespace, package_name),
         version: pkg_version
             .version
             .parse()
-            .context(<span class="string">&quot;could not parse package version&quot;</span>)<span class="question-mark">?</span>,
+            .context(<span class="string">"could not parse package version"</span>)<span class="question-mark">?</span>,
     });
 
-    <span class="kw">let </span>manifest = manifest.context(<span class="string">&quot;missing Manifest&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>hash = pirita_sha256_hash.context(<span class="string">&quot;missing sha256&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>webc = pirita_download_url.context(<span class="string">&quot;missing download URL&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>manifest = manifest.context(<span class="string">"missing Manifest"</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>hash = pirita_sha256_hash.context(<span class="string">"missing sha256"</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>webc = pirita_download_url.context(<span class="string">"missing download URL"</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
-        .context(<span class="string">&quot;Unable to deserialize the manifest&quot;</span>)<span class="question-mark">?</span>;
+        .context(<span class="string">"Unable to deserialize the manifest"</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>webc_sha256 = WebcHash::parse_hex(<span class="kw-2">&amp;</span>hash).context(<span class="string">&quot;invalid webc sha256 hash in manifest&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>webc_sha256 = WebcHash::parse_hex(<span class="kw-2">&amp;</span>hash).context(<span class="string">"invalid webc sha256 hash in manifest"</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(PackageSummary {
         pkg: PackageInfo::from_manifest(id, <span class="kw-2">&amp;</span>manifest, version)<span class="question-mark">?</span>,
@@ -1708,18 +1708,18 @@
         <span class="kw">let </span>filename = <span class="self">self</span>.path(package_name);
 
         <span class="kw">let </span>_span =
-            <span class="macro">tracing::debug_span!</span>(<span class="string">&quot;lookup_cached_query&quot;</span>, filename=%filename.display()).entered();
+            <span class="macro">tracing::debug_span!</span>(<span class="string">"lookup_cached_query"</span>, filename=%filename.display()).entered();
 
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;Reading cached entry from disk&quot;</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Reading cached entry from disk"</span>);
         <span class="kw">let </span>json = <span class="kw">match </span>std::fs::read(<span class="kw-2">&amp;</span>filename) {
             <span class="prelude-val">Ok</span>(json) =&gt; json,
             <span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound =&gt; {
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache miss&quot;</span>);
+                <span class="macro">tracing::debug!</span>(<span class="string">"Cache miss"</span>);
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
             }
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(
-                    Error::new(e).context(<span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, filename.display()))
+                    Error::new(e).context(<span class="macro">format!</span>(<span class="string">"Unable to read \"{}\""</span>, filename.display()))
                 );
             }
         };
@@ -1731,12 +1731,12 @@
                 // in the future
                 </span><span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span>filename);
 
-                <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(e).context(<span class="string">&quot;Unable to parse the cached query&quot;</span>));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(e).context(<span class="string">"Unable to parse the cached query"</span>));
             }
         };
 
         <span class="kw">if </span>!entry.is_still_valid(<span class="self">self</span>.timeout) {
-            <span class="macro">tracing::debug!</span>(timestamp = entry.unix_timestamp, <span class="string">&quot;Cached entry is stale&quot;</span>);
+            <span class="macro">tracing::debug!</span>(timestamp = entry.unix_timestamp, <span class="string">"Cached entry is stale"</span>);
             <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span>filename);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         }
@@ -1744,7 +1744,7 @@
         <span class="kw">if </span>entry.package_name != package_name {
             <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span>filename);
             <span class="macro">anyhow::bail!</span>(
-                <span class="string">&quot;The cached response at \&quot;{}\&quot; corresponds to the \&quot;{}\&quot; package, but expected \&quot;{}\&quot;&quot;</span>,
+                <span class="string">"The cached response at \"{}\" corresponds to the \"{}\" package, but expected \"{}\""</span>,
                 filename.display(),
                 entry.package_name,
                 package_name,
@@ -1768,21 +1768,21 @@
 
         <span class="comment">// First, save our cache entry to disk
         </span><span class="kw">let </span><span class="kw-2">mut </span>temp = tempfile::NamedTempFile::new_in(<span class="kw-2">&amp;</span><span class="self">self</span>.cache_dir)
-            .context(<span class="string">&quot;Unable to create a temporary file&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Unable to create a temporary file"</span>)<span class="question-mark">?</span>;
         serde_json::to_writer_pretty(<span class="kw-2">&amp;mut </span>temp, <span class="kw-2">&amp;</span>entry)
-            .context(<span class="string">&quot;Unable to serialize the cache entry&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Unable to serialize the cache entry"</span>)<span class="question-mark">?</span>;
         temp.as_file()
             .sync_all()
-            .context(<span class="string">&quot;Flushing the temp file failed&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Flushing the temp file failed"</span>)<span class="question-mark">?</span>;
 
-        <span class="comment">// Now we&#39;ve saved our cache entry we need to move it to the right
-        // location. We do this in two steps so concurrent queries don&#39;t see
+        <span class="comment">// Now we've saved our cache entry we need to move it to the right
+        // location. We do this in two steps so concurrent queries don't see
         // the cache entry until it has been completely written.
         </span><span class="kw">let </span>filename = <span class="self">self</span>.path(package_name);
         <span class="macro">tracing::debug!</span>(
             filename=%filename.display(),
             package_name,
-            <span class="string">&quot;Saving the query to disk&quot;</span>,
+            <span class="string">"Saving the query to disk"</span>,
         );
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = filename.parent() {
@@ -1790,7 +1790,7 @@
         }
         temp.persist(<span class="kw-2">&amp;</span>filename).with_context(|| {
             <span class="macro">format!</span>(
-                <span class="string">&quot;Unable to persist the temp file to \&quot;{}\&quot;&quot;</span>,
+                <span class="string">"Unable to persist the temp file to \"{}\""</span>,
                 filename.display()
             )
         })<span class="question-mark">?</span>;
@@ -1835,8 +1835,8 @@
 }
 
 <span class="attr">#[allow(dead_code)]
-</span><span class="kw">pub const </span>WASMER_WEBC_QUERY_ALL: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;{
-    getPackage(name: &quot;$NAME&quot;) {
+</span><span class="kw">pub const </span>WASMER_WEBC_QUERY_ALL: <span class="kw-2">&amp;</span>str = <span class="string">r#"{
+    getPackage(name: "$NAME") {
         packageName
         namespace
         versions {
@@ -1857,15 +1857,15 @@
     info {
         defaultFrontend
     }
-}&quot;#</span>;
+}"#</span>;
 
-<span class="kw">pub const </span>WASMER_WEBC_QUERY_BY_HASH: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;{
-    getPackageRelease(hash: &quot;$HASH&quot;) {
+<span class="kw">pub const </span>WASMER_WEBC_QUERY_BY_HASH: <span class="kw-2">&amp;</span>str = <span class="string">r#"{
+    getPackageRelease(hash: "$HASH") {
         piritaManifest
         isArchived
         webcUrl
     }
-}&quot;#</span>;
+}"#</span>;
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Reply&lt;T&gt; {
@@ -1874,36 +1874,36 @@
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">struct </span>GetPackageRelease {
-    <span class="attr">#[serde(rename = <span class="string">&quot;getPackageRelease&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"getPackageRelease"</span>)]
     </span>get_package_release: <span class="prelude-ty">Option</span>&lt;PackageWebc&gt;,
 }
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">struct </span>PackageWebc {
-    <span class="attr">#[serde(rename = <span class="string">&quot;piritaManifest&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"piritaManifest"</span>)]
     </span><span class="kw">pub </span>pirita_manifest: String,
-    <span class="attr">#[serde(rename = <span class="string">&quot;isArchived&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"isArchived"</span>)]
     </span><span class="kw">pub </span>is_archived: bool,
-    <span class="attr">#[serde(rename = <span class="string">&quot;webcUrl&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"webcUrl"</span>)]
     </span><span class="kw">pub </span>webc_url: url::Url,
 }
 
 <span class="kw">impl </span>PackageWebc {
     <span class="kw">fn </span>try_into_summary(<span class="self">self</span>, hash: PackageHash) -&gt; <span class="prelude-ty">Result</span>&lt;PackageSummary, anyhow::Error&gt; {
         <span class="kw">let </span>manifest: Manifest = serde_json::from_str(<span class="kw-2">&amp;</span><span class="self">self</span>.pirita_manifest)
-            .context(<span class="string">&quot;Unable to deserialize the manifest&quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"Unable to deserialize the manifest"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>id = PackageId::Hash(hash.clone());
 
         <span class="kw">let </span>info = PackageInfo::from_manifest(id, <span class="kw-2">&amp;</span>manifest, webc::Version::V3)
-            .context(<span class="string">&quot;could not convert the manifest &quot;</span>)<span class="question-mark">?</span>;
+            .context(<span class="string">"could not convert the manifest "</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(PackageSummary {
             pkg: info,
             dist: DistributionInfo {
                 webc: <span class="self">self</span>.webc_url,
                 <span class="comment">// TODO: replace with different hash type?
-                </span>webc_sha256: WebcHash(hash.as_sha256().context(<span class="string">&quot;invalid hash&quot;</span>)<span class="question-mark">?</span>.<span class="number">0</span>),
+                </span>webc_sha256: WebcHash(hash.as_sha256().context(<span class="string">"invalid hash"</span>)<span class="question-mark">?</span>.<span class="number">0</span>),
             },
         })
     }
@@ -1911,26 +1911,26 @@
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">pub struct </span>WebQuery {
-    <span class="attr">#[serde(rename = <span class="string">&quot;data&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"data"</span>)]
     </span><span class="kw">pub </span>data: WebQueryData,
 }
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">pub struct </span>WebQueryData {
-    <span class="attr">#[serde(rename = <span class="string">&quot;getPackage&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"getPackage"</span>)]
     </span><span class="kw">pub </span>get_package: <span class="prelude-ty">Option</span>&lt;WebQueryGetPackage&gt;,
     <span class="kw">pub </span>info: WebQueryInfo,
 }
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">pub struct </span>WebQueryInfo {
-    <span class="attr">#[serde(rename = <span class="string">&quot;defaultFrontend&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"defaultFrontend"</span>)]
     </span><span class="kw">pub </span>default_frontend: Url,
 }
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">pub struct </span>WebQueryGetPackage {
-    <span class="attr">#[serde(rename = <span class="string">&quot;packageName&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"packageName"</span>)]
     </span><span class="kw">pub </span>package_name: String,
     <span class="kw">pub </span>namespace: String,
     <span class="kw">pub </span>versions: Vec&lt;WebQueryGetPackageVersion&gt;,
@@ -1940,7 +1940,7 @@
 </span><span class="kw">pub struct </span>WebQueryGetPackageVersion {
     <span class="kw">pub </span>version: String,
     <span class="doccomment">/// Has the package been archived?
-    </span><span class="attr">#[serde(rename = <span class="string">&quot;isArchived&quot;</span>, default)]
+    </span><span class="attr">#[serde(rename = <span class="string">"isArchived"</span>, default)]
     </span><span class="kw">pub </span>is_archived: bool,
     <span class="kw">pub </span>v2: WebQueryGetPackageVersionDistribution,
     <span class="kw">pub </span>v3: WebQueryGetPackageVersionDistribution,
@@ -1969,11 +1969,11 @@
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">pub struct </span>WebQueryGetPackageVersionDistribution {
-    <span class="attr">#[serde(rename = <span class="string">&quot;piritaDownloadUrl&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"piritaDownloadUrl"</span>)]
     </span><span class="kw">pub </span>pirita_download_url: <span class="prelude-ty">Option</span>&lt;Url&gt;,
-    <span class="attr">#[serde(rename = <span class="string">&quot;piritaSha256Hash&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"piritaSha256Hash"</span>)]
     </span><span class="kw">pub </span>pirita_sha256_hash: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[serde(rename = <span class="string">&quot;webcManifest&quot;</span>)]
+    <span class="attr">#[serde(rename = <span class="string">"webcManifest"</span>)]
     </span><span class="kw">pub </span>webc_manifest: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
@@ -1992,141 +1992,141 @@
 
     <span class="comment">// You can check the response with:
     // curl https://registry.wasmer.io/graphql \
-    //      -H &quot;Content-Type: application/json&quot; \
+    //      -H "Content-Type: application/json" \
     //      -X POST \
-    //      -d &#39;@wasmer_pack_cli_request.json&#39; &gt; wasmer_pack_cli_response.json
-    </span><span class="kw">const </span>WASMER_PACK_CLI_REQUEST: <span class="kw-2">&amp;</span>[u8] = <span class="string">br#&quot;
+    //      -d '@wasmer_pack_cli_request.json' &gt; wasmer_pack_cli_response.json
+    </span><span class="kw">const </span>WASMER_PACK_CLI_REQUEST: <span class="kw-2">&amp;</span>[u8] = <span class="string">br#"
     {
-        &quot;query&quot;:&quot;{\n    getPackage(name: \&quot;wasmer/wasmer-pack-cli\&quot;) {\n        packageName\n        namespace\n        versions {\n          version\n          isArchived\n          v2: distribution(version: V2) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n          v3: distribution(version: V3) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n        }\n    }\n    info {\n        defaultFrontend\n    }\n}&quot;
+        "query":"{\n    getPackage(name: \"wasmer/wasmer-pack-cli\") {\n        packageName\n        namespace\n        versions {\n          version\n          isArchived\n          v2: distribution(version: V2) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n          v3: distribution(version: V3) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n        }\n    }\n    info {\n        defaultFrontend\n    }\n}"
     }
-    &quot;#</span>;
-    <span class="kw">const </span>WASMER_PACK_CLI_RESPONSE: <span class="kw-2">&amp;</span>[u8] = <span class="string">br#&quot;
+    "#</span>;
+    <span class="kw">const </span>WASMER_PACK_CLI_RESPONSE: <span class="kw-2">&amp;</span>[u8] = <span class="string">br#"
     {
-        &quot;data&quot;: {
-          &quot;getPackage&quot;: {
-            &quot;packageName&quot;: &quot;wasmer-pack-cli&quot;,
-            &quot;namespace&quot;: &quot;wasmer&quot;,
-            &quot;versions&quot;: [
+        "data": {
+          "getPackage": {
+            "packageName": "wasmer-pack-cli",
+            "namespace": "wasmer",
+            "versions": [
               {
-                &quot;version&quot;: &quot;0.7.1&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:gGeLZqPitpg893Jj/nvGa+1235RezSWA9FjssopzOZY=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.7.1\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                  &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.1/wasmer-pack-cli-0.7.1.webc&quot;,
-                  &quot;piritaSha256Hash&quot;: &quot;e821047f446dd20fb6b43a1648fe98b882276dfc480f020df6f00a49f69771fa&quot;
+                "version": "0.7.1",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:gGeLZqPitpg893Jj/nvGa+1235RezSWA9FjssopzOZY=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.7.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                  "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.1/wasmer-pack-cli-0.7.1.webc",
+                  "piritaSha256Hash": "e821047f446dd20fb6b43a1648fe98b882276dfc480f020df6f00a49f69771fa"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:gGeLZqPitpg893Jj/nvGa+1235RezSWA9FjssopzOZY=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.7.1\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                  &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.1/wasmer-pack-cli-0.7.1.webc&quot;,
-                  &quot;piritaSha256Hash&quot;: &quot;e821047f446dd20fb6b43a1648fe98b882276dfc480f020df6f00a49f69771fa&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:gGeLZqPitpg893Jj/nvGa+1235RezSWA9FjssopzOZY=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.7.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                  "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.1/wasmer-pack-cli-0.7.1.webc",
+                  "piritaSha256Hash": "e821047f446dd20fb6b43a1648fe98b882276dfc480f020df6f00a49f69771fa"
                 }
               },
               {
-                &quot;version&quot;: &quot;0.7.0&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:FesCIAS6URjrIAAyy4G5u5HjJjGQBLGmnafjHPHRvqo=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.7.0\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.0/wasmer-pack-cli-0.7.0.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;d085869201aa602673f70abbd5e14e5a6936216fa93314c5b103cda3da56e29e&quot;
+                "version": "0.7.0",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:FesCIAS6URjrIAAyy4G5u5HjJjGQBLGmnafjHPHRvqo=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.7.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.0/wasmer-pack-cli-0.7.0.webc",
+                    "piritaSha256Hash": "d085869201aa602673f70abbd5e14e5a6936216fa93314c5b103cda3da56e29e"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:FesCIAS6URjrIAAyy4G5u5HjJjGQBLGmnafjHPHRvqo=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.7.0\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.0/wasmer-pack-cli-0.7.0.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;d085869201aa602673f70abbd5e14e5a6936216fa93314c5b103cda3da56e29e&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:FesCIAS6URjrIAAyy4G5u5HjJjGQBLGmnafjHPHRvqo=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.7.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.0/wasmer-pack-cli-0.7.0.webc",
+                    "piritaSha256Hash": "d085869201aa602673f70abbd5e14e5a6936216fa93314c5b103cda3da56e29e"
                 }
               },
               {
-                &quot;version&quot;: &quot;0.6.0&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:CzzhNaav3gjBkCJECGbk7e+qAKurWbcIAzQvEqsr2Co=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.6.0\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;7e1add1640d0037ff6a726cd7e14ea36159ec2db8cb6debd0e42fa2739bea52b&quot;
+                "version": "0.6.0",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:CzzhNaav3gjBkCJECGbk7e+qAKurWbcIAzQvEqsr2Co=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.6.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc",
+                    "piritaSha256Hash": "7e1add1640d0037ff6a726cd7e14ea36159ec2db8cb6debd0e42fa2739bea52b"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:CzzhNaav3gjBkCJECGbk7e+qAKurWbcIAzQvEqsr2Co=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.6.0\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;7e1add1640d0037ff6a726cd7e14ea36159ec2db8cb6debd0e42fa2739bea52b&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:CzzhNaav3gjBkCJECGbk7e+qAKurWbcIAzQvEqsr2Co=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.6.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc",
+                    "piritaSha256Hash": "7e1add1640d0037ff6a726cd7e14ea36159ec2db8cb6debd0e42fa2739bea52b"
                 }
               },
               {
-                &quot;version&quot;: &quot;0.5.3&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:qdiJVfpi4icJXdR7Y5US/pJ4PjqbAq9PkU+obMZIMlE=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.3\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.3/wasmer-pack-cli-0.5.3.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;44fdcdde23d34175887243d7c375e4e4a7e6e2cd1ae063ebffbede4d1f68f14a&quot;
+                "version": "0.5.3",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:qdiJVfpi4icJXdR7Y5US/pJ4PjqbAq9PkU+obMZIMlE=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.3\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.3/wasmer-pack-cli-0.5.3.webc",
+                    "piritaSha256Hash": "44fdcdde23d34175887243d7c375e4e4a7e6e2cd1ae063ebffbede4d1f68f14a"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:qdiJVfpi4icJXdR7Y5US/pJ4PjqbAq9PkU+obMZIMlE=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.3\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.3/wasmer-pack-cli-0.5.3.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;44fdcdde23d34175887243d7c375e4e4a7e6e2cd1ae063ebffbede4d1f68f14a&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:qdiJVfpi4icJXdR7Y5US/pJ4PjqbAq9PkU+obMZIMlE=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.3\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.3/wasmer-pack-cli-0.5.3.webc",
+                    "piritaSha256Hash": "44fdcdde23d34175887243d7c375e4e4a7e6e2cd1ae063ebffbede4d1f68f14a"
                 }
               },
               {
-                &quot;version&quot;: &quot;0.5.2&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:xiwrUFAo+cU1xW/IE6MVseiyjNGHtXooRlkYKiOKzQc=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.2\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.2/wasmer-pack-cli-0.5.2.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;d1dbc8168c3a2491a7158017a9c88df9e0c15bed88ebcd6d9d756e4b03adde95&quot;
+                "version": "0.5.2",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:xiwrUFAo+cU1xW/IE6MVseiyjNGHtXooRlkYKiOKzQc=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.2\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.2/wasmer-pack-cli-0.5.2.webc",
+                    "piritaSha256Hash": "d1dbc8168c3a2491a7158017a9c88df9e0c15bed88ebcd6d9d756e4b03adde95"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:xiwrUFAo+cU1xW/IE6MVseiyjNGHtXooRlkYKiOKzQc=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.2\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.2/wasmer-pack-cli-0.5.2.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;d1dbc8168c3a2491a7158017a9c88df9e0c15bed88ebcd6d9d756e4b03adde95&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:xiwrUFAo+cU1xW/IE6MVseiyjNGHtXooRlkYKiOKzQc=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.2\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.2/wasmer-pack-cli-0.5.2.webc",
+                    "piritaSha256Hash": "d1dbc8168c3a2491a7158017a9c88df9e0c15bed88ebcd6d9d756e4b03adde95"
                 }
               },
               {
-                &quot;version&quot;: &quot;0.5.1&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:TliPwutfkFvRite/3/k3OpLqvV0EBKGwyp3L5UjCuEI=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.1\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.1/wasmer-pack-cli-0.5.1.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;c42924619660e2befd69b5c72729388985dcdcbf912d51a00015237fec3e1ade&quot;
+                "version": "0.5.1",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:TliPwutfkFvRite/3/k3OpLqvV0EBKGwyp3L5UjCuEI=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.1/wasmer-pack-cli-0.5.1.webc",
+                    "piritaSha256Hash": "c42924619660e2befd69b5c72729388985dcdcbf912d51a00015237fec3e1ade"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:TliPwutfkFvRite/3/k3OpLqvV0EBKGwyp3L5UjCuEI=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.1\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.1/wasmer-pack-cli-0.5.1.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;c42924619660e2befd69b5c72729388985dcdcbf912d51a00015237fec3e1ade&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:TliPwutfkFvRite/3/k3OpLqvV0EBKGwyp3L5UjCuEI=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.1/wasmer-pack-cli-0.5.1.webc",
+                    "piritaSha256Hash": "c42924619660e2befd69b5c72729388985dcdcbf912d51a00015237fec3e1ade"
                 }
               },
               {
-                &quot;version&quot;: &quot;0.5.0&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:6UD7NS4KtyNYa3TcnKOvd+kd3LxBCw+JQ8UWRpMXeC0=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.0\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0/wasmer-pack-cli-0.5.0.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;d30ca468372faa96469163d2d1546dd34be9505c680677e6ab86a528a268e5f5&quot;
+                "version": "0.5.0",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:6UD7NS4KtyNYa3TcnKOvd+kd3LxBCw+JQ8UWRpMXeC0=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0/wasmer-pack-cli-0.5.0.webc",
+                    "piritaSha256Hash": "d30ca468372faa96469163d2d1546dd34be9505c680677e6ab86a528a268e5f5"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:6UD7NS4KtyNYa3TcnKOvd+kd3LxBCw+JQ8UWRpMXeC0=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.0\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0/wasmer-pack-cli-0.5.0.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;d30ca468372faa96469163d2d1546dd34be9505c680677e6ab86a528a268e5f5&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:6UD7NS4KtyNYa3TcnKOvd+kd3LxBCw+JQ8UWRpMXeC0=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0/wasmer-pack-cli-0.5.0.webc",
+                    "piritaSha256Hash": "d30ca468372faa96469163d2d1546dd34be9505c680677e6ab86a528a268e5f5"
                 }
               },
               {
-                &quot;version&quot;: &quot;0.5.0-rc.1&quot;,
-                &quot;isArchived&quot;: false,
-                &quot;v2&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:ThybHIc2elJEcDdQiq5ffT1TVaNs70+WAqoKw4Tkh3E=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.0-rc.1\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0-rc.1/wasmer-pack-cli-0.5.0-rc.1.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;0cd5d6e4c33c92c52784afed3a60c056953104d719717948d4663ff2521fe2bb&quot;
+                "version": "0.5.0-rc.1",
+                "isArchived": false,
+                "v2": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:ThybHIc2elJEcDdQiq5ffT1TVaNs70+WAqoKw4Tkh3E=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.0-rc.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0-rc.1/wasmer-pack-cli-0.5.0-rc.1.webc",
+                    "piritaSha256Hash": "0cd5d6e4c33c92c52784afed3a60c056953104d719717948d4663ff2521fe2bb"
                 },
-                &quot;v3&quot;: {
-                    &quot;webcManifest&quot;: &quot;{\&quot;atoms\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:ThybHIc2elJEcDdQiq5ffT1TVaNs70+WAqoKw4Tkh3E=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;license\&quot;: \&quot;MIT\&quot;, \&quot;version\&quot;: \&quot;0.5.0-rc.1\&quot;, \&quot;homepage\&quot;: \&quot;https://wasmer.io/\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wasmerio/wasmer-pack\&quot;, \&quot;description\&quot;: \&quot;A code generator that lets you treat WebAssembly modules like native dependencies.\&quot;}}, \&quot;commands\&quot;: {\&quot;wasmer-pack\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;wasmer-pack\&quot;, \&quot;package\&quot;: \&quot;wasmer/wasmer-pack-cli\&quot;, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;wasmer-pack\&quot;}&quot;,
-                    &quot;piritaDownloadUrl&quot;: &quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0-rc.1/wasmer-pack-cli-0.5.0-rc.1.webc&quot;,
-                    &quot;piritaSha256Hash&quot;: &quot;0cd5d6e4c33c92c52784afed3a60c056953104d719717948d4663ff2521fe2bb&quot;
+                "v3": {
+                    "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:ThybHIc2elJEcDdQiq5ffT1TVaNs70+WAqoKw4Tkh3E=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.0-rc.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
+                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0-rc.1/wasmer-pack-cli-0.5.0-rc.1.webc",
+                    "piritaSha256Hash": "0cd5d6e4c33c92c52784afed3a60c056953104d719717948d4663ff2521fe2bb"
                 }
               }
             ]
           },
-          &quot;info&quot;: {
-            &quot;defaultFrontend&quot;: &quot;https://wasmer.io&quot;
+          "info": {
+            "defaultFrontend": "https://wasmer.io"
           }
         }
       }
-    &quot;#</span>;
+    "#</span>;
 
     <span class="attr">#[derive(Debug)]
     </span><span class="kw">struct </span>DummyClient {
@@ -2151,7 +2151,7 @@
         <span class="kw">fn </span>request(
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             request: HttpRequest,
-        ) -&gt; futures::future::BoxFuture&lt;<span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
+        ) -&gt; futures::future::BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
             <span class="self">self</span>.requests.lock().unwrap().push(request);
             <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().remove(<span class="number">0</span>);
             Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })
@@ -2168,7 +2168,7 @@
         };
         <span class="kw">let </span>client = Arc::new(DummyClient::new(<span class="macro">vec!</span>[response]));
         <span class="kw">let </span>registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
-        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">&quot;wasmer/wasmer-pack-cli@^0.6&quot;</span>).unwrap();
+        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">"wasmer/wasmer-pack-cli@^0.6"</span>).unwrap();
         <span class="kw">let </span>source = BackendSource::new(registry_endpoint, client.clone());
 
         <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
@@ -2177,16 +2177,16 @@
             summaries,
             [PackageSummary {
                 pkg: PackageInfo {
-                    id: PackageId::new_named(<span class="string">&quot;wasmer/wasmer-pack-cli&quot;</span>, Version::new(<span class="number">0</span>, <span class="number">6</span>, <span class="number">0</span>)),
+                    id: PackageId::new_named(<span class="string">"wasmer/wasmer-pack-cli"</span>, Version::new(<span class="number">0</span>, <span class="number">6</span>, <span class="number">0</span>)),
                     dependencies: Vec::new(),
                     commands: <span class="macro">vec!</span>[<span class="kw">crate</span>::runtime::resolver::Command {
-                        name: <span class="string">&quot;wasmer-pack&quot;</span>.to_string(),
+                        name: <span class="string">"wasmer-pack"</span>.to_string(),
                     },],
-                    entrypoint: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer-pack&quot;</span>.to_string()),
+                    entrypoint: <span class="prelude-val">Some</span>(<span class="string">"wasmer-pack"</span>.to_string()),
                     filesystem: <span class="macro">vec!</span>[],
                 },
                 dist: DistributionInfo {
-                    webc: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc&quot;
+                    webc: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc"
                         </span>.parse()
                         .unwrap(),
                     webc_sha256: WebcHash::from_bytes([
@@ -2202,8 +2202,8 @@
         <span class="macro">assert_eq!</span>(request.method, http::Method::POST);
         <span class="macro">assert_eq!</span>(request.url.as_str(), BackendSource::WASMER_PROD_ENDPOINT);
         <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;User-Agent&quot;</span>], USER_AGENT);
-        <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;Content-Type&quot;</span>], <span class="string">&quot;application/json&quot;</span>);
+        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"User-Agent"</span>], USER_AGENT);
+        <span class="macro">assert_eq!</span>(request.headers[<span class="string">"Content-Type"</span>], <span class="string">"application/json"</span>);
         <span class="kw">let </span>body: serde_json::Value =
             serde_json::from_slice(request.body.as_deref().unwrap()).unwrap();
         <span class="kw">let </span>expected_body: serde_json::Value =
@@ -2216,67 +2216,67 @@
     /// Slack](https://wasmerio.slack.com/archives/C03MX4KL6KH/p1685706988500919).
     </span><span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>skip_package_versions_with_missing_fields() {
-        <span class="kw">let </span>body = <span class="macro">serde_json::json! </span>{
+        <span class="kw">let </span>body = <span class="macro">serde_json::json!</span> {
             {
-                <span class="string">&quot;data&quot;</span>: {
-                    <span class="string">&quot;getPackage&quot;</span>: {
-                        <span class="string">&quot;packageName&quot;</span>: <span class="string">&quot;cowsay&quot;</span>,
-                        <span class="string">&quot;namespace&quot;</span>: <span class="string">&quot;_&quot;</span>,
-                        <span class="string">&quot;versions&quot;</span>: [
+                <span class="string">"data"</span>: {
+                    <span class="string">"getPackage"</span>: {
+                        <span class="string">"packageName"</span>: <span class="string">"cowsay"</span>,
+                        <span class="string">"namespace"</span>: <span class="string">"_"</span>,
+                        <span class="string">"versions"</span>: [
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;0.2.0&quot;</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/_/cowsay/cowsay-0.2.0.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;9586938a0a89219dafe4ae97a901c56d4b3e2a9941520d1309ae880c9a1868c9&quot;</span>,
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;cowsay\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:DPmhiSNXCg5261eTUi3BIvAc/aJttGj+nD+bGhQkVQo=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;cowsay\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;version\&quot;: \&quot;0.2.0\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/cowsay\&quot;, \&quot;description\&quot;: \&quot;cowsay is a program that generates ASCII pictures of a cow with a message\&quot;}}, \&quot;commands\&quot;: {\&quot;cowsay\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;cowsay\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}, \&quot;cowthink\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;cowsay\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}}&quot;</span>,
+                                <span class="string">"version"</span>: <span class="string">"0.2.0"</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/_/cowsay/cowsay-0.2.0.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"9586938a0a89219dafe4ae97a901c56d4b3e2a9941520d1309ae880c9a1868c9"</span>,
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"cowsay\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:DPmhiSNXCg5261eTUi3BIvAc/aJttGj+nD+bGhQkVQo=\"}}, \"package\": {\"wapm\": {\"name\": \"cowsay\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"version\": \"0.2.0\", \"repository\": \"https://github.com/wapm-packages/cowsay\", \"description\": \"cowsay is a program that generates ASCII pictures of a cow with a message\"}}, \"commands\": {\"cowsay\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"cowsay\", \"package\": null, \"main_args\": null}}}, \"cowthink\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"cowsay\", \"package\": null, \"main_args\": null}}}}}"</span>,
                                 },
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/_/cowsay/cowsay-0.2.0.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;9586938a0a89219dafe4ae97a901c56d4b3e2a9941520d1309ae880c9a1868c9&quot;</span>,
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;cowsay\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:DPmhiSNXCg5261eTUi3BIvAc/aJttGj+nD+bGhQkVQo=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;cowsay\&quot;, \&quot;readme\&quot;: {\&quot;path\&quot;: \&quot;README.md\&quot;, \&quot;volume\&quot;: \&quot;metadata\&quot;}, \&quot;version\&quot;: \&quot;0.2.0\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/cowsay\&quot;, \&quot;description\&quot;: \&quot;cowsay is a program that generates ASCII pictures of a cow with a message\&quot;}}, \&quot;commands\&quot;: {\&quot;cowsay\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;cowsay\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}, \&quot;cowthink\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;cowsay\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}}&quot;</span>,
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/_/cowsay/cowsay-0.2.0.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"9586938a0a89219dafe4ae97a901c56d4b3e2a9941520d1309ae880c9a1868c9"</span>,
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"cowsay\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:DPmhiSNXCg5261eTUi3BIvAc/aJttGj+nD+bGhQkVQo=\"}}, \"package\": {\"wapm\": {\"name\": \"cowsay\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"version\": \"0.2.0\", \"repository\": \"https://github.com/wapm-packages/cowsay\", \"description\": \"cowsay is a program that generates ASCII pictures of a cow with a message\"}}, \"commands\": {\"cowsay\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"cowsay\", \"package\": null, \"main_args\": null}}}, \"cowthink\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"cowsay\", \"package\": null, \"main_args\": null}}}}}"</span>,
                                 }
                             },
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;0.1.3&quot;</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://example.com/&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;1234asdf&quot;
+                                <span class="string">"version"</span>: <span class="string">"0.1.3"</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://example.com/"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"1234asdf"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://example.com/&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;1234asdf&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://example.com/"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"1234asdf"
                                 </span>}
                             },
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;0.1.2&quot;</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://example.com/&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;1234asdf&quot;</span>,
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{}&quot;</span>,
+                                <span class="string">"version"</span>: <span class="string">"0.1.2"</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://example.com/"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"1234asdf"</span>,
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{}"</span>,
                                 },
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://example.com/&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;1234asdf&quot;</span>,
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{}&quot;</span>,
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://example.com/"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"1234asdf"</span>,
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{}"</span>,
                                 }
                             },
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;0.1.3&quot;</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://example.com/&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;1234asdf&quot;
+                                <span class="string">"version"</span>: <span class="string">"0.1.3"</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://example.com/"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"1234asdf"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://example.com/&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;1234asdf&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://example.com/"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"1234asdf"
                                 </span>}
                             }
                         ]
                     },
-                    <span class="string">&quot;info&quot;</span>: {
-                        <span class="string">&quot;defaultFrontend&quot;</span>: <span class="string">&quot;https://wasmer.io/&quot;</span>,
+                    <span class="string">"info"</span>: {
+                        <span class="string">"defaultFrontend"</span>: <span class="string">"https://wasmer.io/"</span>,
                     },
                 }
             }
@@ -2290,7 +2290,7 @@
         };
         <span class="kw">let </span>client = Arc::new(DummyClient::new(<span class="macro">vec!</span>[response]));
         <span class="kw">let </span>registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
-        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">&quot;_/cowsay&quot;</span>).unwrap();
+        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">"_/cowsay"</span>).unwrap();
         <span class="kw">let </span>source = BackendSource::new(registry_endpoint, client.clone());
 
         <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
@@ -2298,65 +2298,65 @@
         <span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(
             summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().version.to_string(),
-            <span class="string">&quot;0.2.0&quot;
+            <span class="string">"0.2.0"
         </span>);
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>skip_archived_package_versions() {
-        <span class="kw">let </span>body = <span class="macro">serde_json::json! </span>{
+        <span class="kw">let </span>body = <span class="macro">serde_json::json!</span> {
             {
-                <span class="string">&quot;data&quot;</span>: {
-                    <span class="string">&quot;getPackage&quot;</span>: {
-                        <span class="string">&quot;packageName&quot;</span>: <span class="string">&quot;python&quot;</span>,
-                        <span class="string">&quot;namespace&quot;</span>: <span class="string">&quot;wasmer&quot;</span>,
-                        <span class="string">&quot;versions&quot;</span>: [
+                <span class="string">"data"</span>: {
+                    <span class="string">"getPackage"</span>: {
+                        <span class="string">"packageName"</span>: <span class="string">"python"</span>,
+                        <span class="string">"namespace"</span>: <span class="string">"wasmer"</span>,
+                        <span class="string">"versions"</span>: [
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;3.12.2&quot;</span>,
-                                <span class="string">&quot;isArchived&quot;</span>: <span class="bool-val">true</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;python\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:ibsq6QL4qB4GtCE8IA2yfHVwI4fLoIGXsALsAx16y5M=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;license\&quot;: \&quot;ISC\&quot;, \&quot;version\&quot;: \&quot;3.12.2\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/python\&quot;, \&quot;description\&quot;: \&quot;Python is an interpreted, high-level, general-purpose programming language\&quot;}}, \&quot;commands\&quot;: {\&quot;python\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;python\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;python\&quot;}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.5-a11e0414-c68d-473c-958f-fc96ef7adb20.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;7771ed54376c16da86581736fad84fb761a049915902a7070e854965be0d5874&quot;
+                                <span class="string">"version"</span>: <span class="string">"3.12.2"</span>,
+                                <span class="string">"isArchived"</span>: <span class="bool-val">true</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:ibsq6QL4qB4GtCE8IA2yfHVwI4fLoIGXsALsAx16y5M=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.2\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.5-a11e0414-c68d-473c-958f-fc96ef7adb20.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"7771ed54376c16da86581736fad84fb761a049915902a7070e854965be0d5874"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;python\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:ibsq6QL4qB4GtCE8IA2yfHVwI4fLoIGXsALsAx16y5M=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;license\&quot;: \&quot;ISC\&quot;, \&quot;version\&quot;: \&quot;3.12.2\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/python\&quot;, \&quot;description\&quot;: \&quot;Python is an interpreted, high-level, general-purpose programming language\&quot;}}, \&quot;commands\&quot;: {\&quot;python\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;python\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;python\&quot;}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.5-a11e0414-c68d-473c-958f-fc96ef7adb20.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;7771ed54376c16da86581736fad84fb761a049915902a7070e854965be0d5874&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:ibsq6QL4qB4GtCE8IA2yfHVwI4fLoIGXsALsAx16y5M=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.2\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.5-a11e0414-c68d-473c-958f-fc96ef7adb20.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"7771ed54376c16da86581736fad84fb761a049915902a7070e854965be0d5874"
                                 </span>}
                             },
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;3.12.1&quot;</span>,
-                                <span class="string">&quot;isArchived&quot;</span>: <span class="bool-val">false</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;python\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;license\&quot;: \&quot;ISC\&quot;, \&quot;version\&quot;: \&quot;3.12.1\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/python\&quot;, \&quot;description\&quot;: \&quot;Python is an interpreted, high-level, general-purpose programming language\&quot;}}, \&quot;commands\&quot;: {\&quot;python\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;python\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;python\&quot;}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.2-ed98c999-fcda-4f80-96dc-7c0f8be8baa6.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;7835401e3ca1977ba05b5e51541363783b8a7700da270dd851f10fe2e4f27f07&quot;
+                                <span class="string">"version"</span>: <span class="string">"3.12.1"</span>,
+                                <span class="string">"isArchived"</span>: <span class="bool-val">false</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.1\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.2-ed98c999-fcda-4f80-96dc-7c0f8be8baa6.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"7835401e3ca1977ba05b5e51541363783b8a7700da270dd851f10fe2e4f27f07"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;python\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;license\&quot;: \&quot;ISC\&quot;, \&quot;version\&quot;: \&quot;3.12.1\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/python\&quot;, \&quot;description\&quot;: \&quot;Python is an interpreted, high-level, general-purpose programming language\&quot;}}, \&quot;commands\&quot;: {\&quot;python\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;python\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;python\&quot;}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.2-ed98c999-fcda-4f80-96dc-7c0f8be8baa6.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;7835401e3ca1977ba05b5e51541363783b8a7700da270dd851f10fe2e4f27f07&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.1\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.2-ed98c999-fcda-4f80-96dc-7c0f8be8baa6.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"7835401e3ca1977ba05b5e51541363783b8a7700da270dd851f10fe2e4f27f07"
                                 </span>}
                             },
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;3.12.0&quot;</span>,
-                                <span class="string">&quot;isArchived&quot;</span>: <span class="bool-val">true</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;python\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;license\&quot;: \&quot;ISC\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/python\&quot;, \&quot;description\&quot;: \&quot;Python is an interpreted, high-level, general-purpose programming language\&quot;}}, \&quot;commands\&quot;: {\&quot;python\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;python\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;python\&quot;}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-32065e5e-84fe-4483-a380-0aa750772a3a.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;e5d6e9d16db988eb323e34e2c152ebfb32dc7043d6b7ddc00ad57d3beae24adb&quot;
+                                <span class="string">"version"</span>: <span class="string">"3.12.0"</span>,
+                                <span class="string">"isArchived"</span>: <span class="bool-val">true</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.0\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-32065e5e-84fe-4483-a380-0aa750772a3a.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"e5d6e9d16db988eb323e34e2c152ebfb32dc7043d6b7ddc00ad57d3beae24adb"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;atoms\&quot;: {\&quot;python\&quot;: {\&quot;kind\&quot;: \&quot;https://webc.org/kind/wasm\&quot;, \&quot;signature\&quot;: \&quot;sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\&quot;}}, \&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;license\&quot;: \&quot;ISC\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;repository\&quot;: \&quot;https://github.com/wapm-packages/python\&quot;, \&quot;description\&quot;: \&quot;Python is an interpreted, high-level, general-purpose programming language\&quot;}}, \&quot;commands\&quot;: {\&quot;python\&quot;: {\&quot;runner\&quot;: \&quot;https://webc.org/runner/wasi/command@unstable_\&quot;, \&quot;annotations\&quot;: {\&quot;wasi\&quot;: {\&quot;atom\&quot;: \&quot;python\&quot;, \&quot;package\&quot;: null, \&quot;main_args\&quot;: null}}}}, \&quot;entrypoint\&quot;: \&quot;python\&quot;}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-32065e5e-84fe-4483-a380-0aa750772a3a.webc&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;e5d6e9d16db988eb323e34e2c152ebfb32dc7043d6b7ddc00ad57d3beae24adb&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.0\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-32065e5e-84fe-4483-a380-0aa750772a3a.webc"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"e5d6e9d16db988eb323e34e2c152ebfb32dc7043d6b7ddc00ad57d3beae24adb"
                                 </span>}
                             },
                         ]
                     },
-                    <span class="string">&quot;info&quot;</span>: {
-                        <span class="string">&quot;defaultFrontend&quot;</span>: <span class="string">&quot;https://wasmer.io/&quot;</span>,
+                    <span class="string">"info"</span>: {
+                        <span class="string">"defaultFrontend"</span>: <span class="string">"https://wasmer.io/"</span>,
                     },
                 }
             }
@@ -2369,7 +2369,7 @@
         };
         <span class="kw">let </span>client = Arc::new(DummyClient::new(<span class="macro">vec!</span>[response]));
         <span class="kw">let </span>registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
-        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">&quot;wasmer/python&quot;</span>).unwrap();
+        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">"wasmer/python"</span>).unwrap();
         <span class="kw">let </span>source = BackendSource::new(registry_endpoint, client.clone());
 
         <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
@@ -2377,77 +2377,77 @@
         <span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(
             summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().version.to_string(),
-            <span class="string">&quot;3.12.1&quot;
+            <span class="string">"3.12.1"
         </span>);
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>query_the_backend_again_if_cached_queries_dont_match() {
-        <span class="kw">let </span>cached_value = serde_json::from_value(<span class="macro">serde_json::json! </span>{
+        <span class="kw">let </span>cached_value = serde_json::from_value(<span class="macro">serde_json::json!</span> {
             {
-                <span class="string">&quot;data&quot;</span>: {
-                    <span class="string">&quot;getPackage&quot;</span>: {
-                        <span class="string">&quot;packageName&quot;</span>: <span class="string">&quot;python&quot;</span>,
-                        <span class="string">&quot;namespace&quot;</span>: <span class="string">&quot;wasmer&quot;</span>,
-                        <span class="string">&quot;versions&quot;</span>: [
+                <span class="string">"data"</span>: {
+                    <span class="string">"getPackage"</span>: {
+                        <span class="string">"packageName"</span>: <span class="string">"python"</span>,
+                        <span class="string">"namespace"</span>: <span class="string">"wasmer"</span>,
+                        <span class="string">"versions"</span>: [
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;3.12.0&quot;</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@3.12.0&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&quot;
+                                <span class="string">"version"</span>: <span class="string">"3.12.0"</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://wasmer.io/wasmer/python@3.12.0"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@3.12.0&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://wasmer.io/wasmer/python@3.12.0"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                 </span>}
                             },
                         ]
                     },
-                    <span class="string">&quot;info&quot;</span>: {
-                        <span class="string">&quot;defaultFrontend&quot;</span>: <span class="string">&quot;https://wasmer.io/&quot;</span>,
+                    <span class="string">"info"</span>: {
+                        <span class="string">"defaultFrontend"</span>: <span class="string">"https://wasmer.io/"</span>,
                     },
                 }
             }
         }).unwrap();
-        <span class="kw">let </span>body = <span class="macro">serde_json::json! </span>{
+        <span class="kw">let </span>body = <span class="macro">serde_json::json!</span> {
             {
-                <span class="string">&quot;data&quot;</span>: {
-                    <span class="string">&quot;getPackage&quot;</span>: {
-                        <span class="string">&quot;packageName&quot;</span>: <span class="string">&quot;python&quot;</span>,
-                        <span class="string">&quot;namespace&quot;</span>: <span class="string">&quot;wasmer&quot;</span>,
-                        <span class="string">&quot;versions&quot;</span>: [
+                <span class="string">"data"</span>: {
+                    <span class="string">"getPackage"</span>: {
+                        <span class="string">"packageName"</span>: <span class="string">"python"</span>,
+                        <span class="string">"namespace"</span>: <span class="string">"wasmer"</span>,
+                        <span class="string">"versions"</span>: [
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;4.0.0&quot;</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;4.0.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@4.0.0&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&quot;
+                                <span class="string">"version"</span>: <span class="string">"4.0.0"</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"4.0.0\", \"description\": \"Python\"}}}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://wasmer.io/wasmer/python@4.0.0"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;4.0.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@4.0.0&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"4.0.0\", \"description\": \"Python\"}}}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://wasmer.io/wasmer/python@4.0.0"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                                 </span>}
                             },
                             {
-                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;3.12.0&quot;</span>,
-                                <span class="string">&quot;v2&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@3.12.0&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&quot;
+                                <span class="string">"version"</span>: <span class="string">"3.12.0"</span>,
+                                <span class="string">"v2"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://wasmer.io/wasmer/python@3.12.0"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                 </span>},
-                                <span class="string">&quot;v3&quot;</span>: {
-                                    <span class="string">&quot;webcManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
-                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@3.12.0&quot;</span>,
-                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&quot;
+                                <span class="string">"v3"</span>: {
+                                    <span class="string">"webcManifest"</span>: <span class="string">"{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}"</span>,
+                                    <span class="string">"piritaDownloadUrl"</span>: <span class="string">"https://wasmer.io/wasmer/python@3.12.0"</span>,
+                                    <span class="string">"piritaSha256Hash"</span>: <span class="string">"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                 </span>}
                             },
                         ]
                     },
-                    <span class="string">&quot;info&quot;</span>: {
-                        <span class="string">&quot;defaultFrontend&quot;</span>: <span class="string">&quot;https://wasmer.io/&quot;</span>,
+                    <span class="string">"info"</span>: {
+                        <span class="string">"defaultFrontend"</span>: <span class="string">"https://wasmer.io/"</span>,
                     },
                 }
             }
@@ -2460,7 +2460,7 @@
         };
         <span class="kw">let </span>client = Arc::new(DummyClient::new(<span class="macro">vec!</span>[response]));
         <span class="kw">let </span>registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
-        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">&quot;wasmer/python@4.0.0&quot;</span>).unwrap();
+        <span class="kw">let </span>request = PackageSource::from_str(<span class="string">"wasmer/python@4.0.0"</span>).unwrap();
         <span class="kw">let </span>temp = tempfile::tempdir().unwrap();
         <span class="kw">let </span>source = BackendSource::new(registry_endpoint, client.clone())
             .with_local_cache(temp.path(), Duration::from_secs(<span class="number">0</span>));
@@ -2468,7 +2468,7 @@
             .cache
             .as_ref()
             .unwrap()
-            .update(<span class="string">&quot;wasmer/python&quot;</span>, <span class="kw-2">&amp;</span>cached_value)
+            .update(<span class="string">"wasmer/python"</span>, <span class="kw-2">&amp;</span>cached_value)
             .unwrap();
 
         <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
@@ -2476,7 +2476,7 @@
         <span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(
             summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().version.to_string(),
-            <span class="string">&quot;4.0.0&quot;
+            <span class="string">"4.0.0"
         </span>);
     }
 }

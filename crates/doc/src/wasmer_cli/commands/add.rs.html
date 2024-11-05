@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/add.rs`."><title>add.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/add.rs`."><title>add.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -207,76 +207,94 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::process::{Command, Stdio};
-
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
+<span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, Bindings, ProgrammingLanguage};
+<span class="kw">use </span>std::process::{Command, Stdio};
+<span class="kw">use </span>wasmer_backend_api::{
+    types::{Bindings, ProgrammingLanguage},
+    WasmerClient,
+};
+<span class="kw">use </span>wasmer_config::package::NamedPackageIdent;
 
-<span class="doccomment">/// Add a Wasmer package&#39;s bindings to your application.
+<span class="doccomment">/// Add a Wasmer package's bindings to your application.
 </span><span class="attr">#[derive(Debug, Parser)]
-</span><span class="kw">pub struct </span>Add {
+</span><span class="kw">pub struct </span>CmdAdd {
     <span class="attr">#[clap(flatten)]
     </span>env: WasmerEnv,
-    <span class="doccomment">/// Add the JavaScript bindings using &quot;npm install&quot;.
-    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
+    <span class="doccomment">/// Add the JavaScript bindings using "npm install".
+    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">"bindings"</span>, <span class="string">"js"</span>]</span>)]
     npm: bool,
-    <span class="doccomment">/// Add the JavaScript bindings using &quot;yarn add&quot;.
-    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
+    <span class="doccomment">/// Add the JavaScript bindings using "yarn add".
+    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">"bindings"</span>, <span class="string">"js"</span>]</span>)]
     yarn: bool,
-    <span class="doccomment">/// Add the JavaScript bindings using &quot;pnpm add&quot;.
-    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
+    <span class="doccomment">/// Add the JavaScript bindings using "pnpm add".
+    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">"bindings"</span>, <span class="string">"js"</span>]</span>)]
     pnpm: bool,
     <span class="doccomment">/// Add the package as a dev-dependency.
-    </span><span class="attr">#[clap(long, requires = <span class="string">&quot;js&quot;</span>)]
+    </span><span class="attr">#[clap(long, requires = <span class="string">"js"</span>)]
     </span>dev: bool,
-    <span class="doccomment">/// Add the Python bindings using &quot;pip install&quot;.
-    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;py&quot;</span>]</span>)]
+    <span class="doccomment">/// Add the Python bindings using "pip install".
+    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">"bindings"</span>, <span class="string">"py"</span>]</span>)]
     pip: bool,
-    <span class="doccomment">/// The packages to add (e.g. &quot;wasmer/wasmer-pack@0.5.0&quot; or &quot;python/python&quot;)
-    </span>packages: Vec&lt;wasmer_registry::Package&gt;,
+    <span class="doccomment">/// The packages to add (e.g. "wasmer/wasmer-pack@0.5.0" or "python/python")
+    </span>packages: Vec&lt;NamedPackageIdent&gt;,
 }
 
-<span class="kw">impl </span>Add {
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdAdd {
+    <span class="kw">type </span>Output = ();
+
     <span class="doccomment">/// Execute [`Add`].
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">anyhow::ensure!</span>(!<span class="self">self</span>.packages.is_empty(), <span class="string">&quot;No packages specified&quot;</span>);
+    </span><span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
+        <span class="macro">anyhow::ensure!</span>(!<span class="self">self</span>.packages.is_empty(), <span class="string">"No packages specified"</span>);
 
-        <span class="kw">let </span>registry = <span class="self">self
-            </span>.env
-            .registry_endpoint()
-            .context(<span class="string">&quot;Unable to determine which registry to use&quot;</span>)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>bindings = <span class="self">self</span>.lookup_bindings(registry.as_str())<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client_unauthennticated()<span class="question-mark">?</span>;
+        <span class="kw">let </span>bindings = <span class="self">self</span>.lookup_bindings(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>cmd = <span class="self">self</span>.target()<span class="question-mark">?</span>.command(<span class="kw-2">&amp;</span>bindings)<span class="question-mark">?</span>;
         cmd.stdin(Stdio::null())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
 
-        <span class="macro">println!</span>(<span class="string">&quot;Running: {cmd:?}&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">"Running: {cmd:?}"</span>);
 
         <span class="kw">let </span>status = cmd.status().with_context(|| {
             <span class="macro">format!</span>(
-                <span class="string">&quot;Unable to start \&quot;{:?}\&quot;. Is it installed?&quot;</span>,
+                <span class="string">"Unable to start \"{:?}\". Is it installed?"</span>,
                 cmd.get_program()
             )
         })<span class="question-mark">?</span>;
 
-        <span class="macro">anyhow::ensure!</span>(status.success(), <span class="string">&quot;Command failed: {:?}&quot;</span>, cmd);
+        <span class="macro">anyhow::ensure!</span>(status.success(), <span class="string">"Command failed: {:?}"</span>, cmd);
 
         <span class="prelude-val">Ok</span>(())
     }
+}
 
-    <span class="kw">fn </span>lookup_bindings(<span class="kw-2">&amp;</span><span class="self">self</span>, registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bindings&gt;, Error&gt; {
-        <span class="macro">println!</span>(<span class="string">&quot;Querying Wasmer for package bindings&quot;</span>);
+<span class="kw">impl </span>CmdAdd {
+    <span class="kw">async fn </span>lookup_bindings(<span class="kw-2">&amp;</span><span class="self">self</span>, client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bindings&gt;, Error&gt; {
+        <span class="macro">println!</span>(<span class="string">"Querying Wasmer for package bindings"</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>bindings_to_add = Vec::new();
         <span class="kw">let </span>language = <span class="self">self</span>.target()<span class="question-mark">?</span>.language();
 
         <span class="kw">for </span>pkg <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.packages {
-            <span class="kw">let </span>bindings = lookup_bindings_for_package(registry, pkg, <span class="kw-2">&amp;</span>language)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to find bindings for {pkg}&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>bindings = lookup_bindings_for_package(client, pkg, <span class="kw-2">&amp;</span>language)
+                .<span class="kw">await
+                </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to find bindings for {pkg}"</span>))<span class="question-mark">?</span>;
             bindings_to_add.push(bindings);
         }
 
@@ -286,37 +304,41 @@
     <span class="kw">fn </span>target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Target, Error&gt; {
         <span class="kw">match </span>(<span class="self">self</span>.pip, <span class="self">self</span>.npm, <span class="self">self</span>.yarn, <span class="self">self</span>.pnpm) {
             (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;at least one of --npm, --pip, --yarn or --pnpm has to be specified&quot;
+                <span class="string">"at least one of --npm, --pip, --yarn or --pnpm has to be specified"
             </span>)),
             (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Pip),
             (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Npm { dev: <span class="self">self</span>.dev }),
             (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Yarn { dev: <span class="self">self</span>.dev }),
             (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Pnpm { dev: <span class="self">self</span>.dev }),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;only one of --npm, --pip or --yarn has to be specified&quot;
+                <span class="string">"only one of --npm, --pip or --yarn has to be specified"
             </span>)),
         }
     }
 }
 
-<span class="kw">fn </span>lookup_bindings_for_package(
-    registry: <span class="kw-2">&amp;</span>str,
-    pkg: <span class="kw-2">&amp;</span>wasmer_registry::Package,
+<span class="kw">async fn </span>lookup_bindings_for_package(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    pkg: <span class="kw-2">&amp;</span>NamedPackageIdent,
     language: <span class="kw-2">&amp;</span>ProgrammingLanguage,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Bindings, Error&gt; {
-    <span class="kw">let </span>all_bindings =
-        wasmer_registry::list_bindings(registry, <span class="kw-2">&amp;</span>pkg.package(), pkg.version.as_deref())<span class="question-mark">?</span>;
+    <span class="kw">let </span>all_bindings = wasmer_backend_api::query::list_bindings(
+        client,
+        <span class="kw-2">&amp;</span>pkg.name,
+        pkg.version_opt().map(|v| v.to_string()).as_deref(),
+    )
+    .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="kw">match </span>all_bindings.iter().find(|b| b.language == <span class="kw-2">*</span>language) {
         <span class="prelude-val">Some</span>(b) =&gt; {
             <span class="kw">let </span>Bindings { url, generator, .. } = b;
-            <span class="macro">log::debug!</span>(<span class="string">&quot;Found {pkg} bindings generated by {generator} at {url}&quot;</span>);
+            <span class="macro">log::debug!</span>(<span class="string">"Found {pkg} bindings generated by {generator:?} at {url}"</span>);
 
             <span class="prelude-val">Ok</span>(b.clone())
         }
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">if </span>all_bindings.is_empty() {
-                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;The package doesn&#39;t contain any bindings&quot;</span>);
+                <span class="macro">anyhow::bail!</span>(<span class="string">"The package doesn't contain any bindings"</span>);
             } <span class="kw">else </span>{
                 <span class="macro">todo!</span>();
             }
@@ -335,9 +357,9 @@
 <span class="kw">impl </span>Target {
     <span class="kw">fn </span>language(<span class="self">self</span>) -&gt; ProgrammingLanguage {
         <span class="kw">match </span><span class="self">self </span>{
-            Target::Pip =&gt; ProgrammingLanguage::PYTHON,
+            Target::Pip =&gt; ProgrammingLanguage::Python,
             Target::Pnpm { .. } | Target::Yarn { .. } | Target::Npm { .. } =&gt; {
-                ProgrammingLanguage::JAVASCRIPT
+                ProgrammingLanguage::Javascript
             }
         }
     }
@@ -353,65 +375,65 @@
     </span><span class="kw">fn </span>command(<span class="self">self</span>, packages: <span class="kw-2">&amp;</span>[Bindings]) -&gt; <span class="prelude-ty">Result</span>&lt;Command, Error&gt; {
         <span class="kw">let </span>command_line = <span class="kw">match </span><span class="self">self </span>{
             Target::Pip =&gt; {
-                <span class="kw">if </span>Command::new(<span class="string">&quot;pip&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
-                    <span class="string">&quot;pip install&quot;
-                </span>} <span class="kw">else if </span>Command::new(<span class="string">&quot;pip3&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
-                    <span class="string">&quot;pip3 install&quot;
-                </span>} <span class="kw">else if </span>Command::new(<span class="string">&quot;python&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
-                    <span class="string">&quot;python -m pip install&quot;
-                </span>} <span class="kw">else if </span>Command::new(<span class="string">&quot;python3&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
-                    <span class="string">&quot;python3 -m pip install&quot;
+                <span class="kw">if </span>Command::new(<span class="string">"pip"</span>).arg(<span class="string">"--version"</span>).output().is_ok() {
+                    <span class="string">"pip install"
+                </span>} <span class="kw">else if </span>Command::new(<span class="string">"pip3"</span>).arg(<span class="string">"--version"</span>).output().is_ok() {
+                    <span class="string">"pip3 install"
+                </span>} <span class="kw">else if </span>Command::new(<span class="string">"python"</span>).arg(<span class="string">"--version"</span>).output().is_ok() {
+                    <span class="string">"python -m pip install"
+                </span>} <span class="kw">else if </span>Command::new(<span class="string">"python3"</span>).arg(<span class="string">"--version"</span>).output().is_ok() {
+                    <span class="string">"python3 -m pip install"
                 </span>} <span class="kw">else </span>{
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;neither pip, pip3, python or python3 installed&quot;
+                        <span class="string">"neither pip, pip3, python or python3 installed"
                     </span>));
                 }
             }
             Target::Yarn { dev } =&gt; {
-                <span class="kw">if </span>Command::new(<span class="string">&quot;yarn&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_err() {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
+                <span class="kw">if </span>Command::new(<span class="string">"yarn"</span>).arg(<span class="string">"--version"</span>).output().is_err() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"yarn not installed"</span>));
                 }
                 <span class="kw">if </span>dev {
-                    <span class="string">&quot;yarn add --dev&quot;
+                    <span class="string">"yarn add --dev"
                 </span>} <span class="kw">else </span>{
-                    <span class="string">&quot;yarn add&quot;
+                    <span class="string">"yarn add"
                 </span>}
             }
             Target::Npm { dev } =&gt; {
-                <span class="kw">if </span>Command::new(<span class="string">&quot;npm&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_err() {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;npm not installed&quot;</span>));
+                <span class="kw">if </span>Command::new(<span class="string">"npm"</span>).arg(<span class="string">"--version"</span>).output().is_err() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"npm not installed"</span>));
                 }
                 <span class="kw">if </span>dev {
-                    <span class="string">&quot;npm install --dev&quot;
+                    <span class="string">"npm install --dev"
                 </span>} <span class="kw">else </span>{
-                    <span class="string">&quot;npm install&quot;
+                    <span class="string">"npm install"
                 </span>}
             }
             Target::Pnpm { dev } =&gt; {
-                <span class="kw">if </span>Command::new(<span class="string">&quot;pnpm&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_err() {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;pnpm not installed&quot;</span>));
+                <span class="kw">if </span>Command::new(<span class="string">"pnpm"</span>).arg(<span class="string">"--version"</span>).output().is_err() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"pnpm not installed"</span>));
                 }
                 <span class="kw">if </span>dev {
-                    <span class="string">&quot;pnpm add --dev&quot;
+                    <span class="string">"pnpm add --dev"
                 </span>} <span class="kw">else </span>{
-                    <span class="string">&quot;pnpm add&quot;
+                    <span class="string">"pnpm add"
                 </span>}
             }
         };
         <span class="kw">let </span><span class="kw-2">mut </span>command_line = command_line.to_string();
 
         <span class="kw">for </span>pkg <span class="kw">in </span>packages {
-            command_line.push(<span class="string">&#39; &#39;</span>);
+            command_line.push(<span class="string">' '</span>);
             command_line.push_str(<span class="kw-2">&amp;</span>pkg.url);
         }
 
         <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
-            <span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">&quot;cmd&quot;</span>);
-            cmd.arg(<span class="string">&quot;/C&quot;</span>).arg(command_line);
+            <span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">"cmd"</span>);
+            cmd.arg(<span class="string">"/C"</span>).arg(command_line);
             <span class="prelude-val">Ok</span>(cmd)
         } <span class="kw">else </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">&quot;sh&quot;</span>);
-            cmd.arg(<span class="string">&quot;-c&quot;</span>).arg(command_line);
+            <span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">"sh"</span>);
+            cmd.arg(<span class="string">"-c"</span>).arg(command_line);
             <span class="prelude-val">Ok</span>(cmd)
         }
     }

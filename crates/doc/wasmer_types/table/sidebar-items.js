@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TableStyle","TableStyleResolver"]};
+window.SIDEBAR_ITEMS = {"enum":["ArchivedTableStyle","TableStyle","TableStyleResolver"]};

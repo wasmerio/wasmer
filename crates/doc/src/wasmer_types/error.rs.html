@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/error.rs`."><title>error.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -305,7 +305,7 @@
     </span><span class="attr">#[error(transparent)]
     </span>Io(<span class="attr">#[from] </span>io::Error),
     <span class="doccomment">/// A generic serialization error
-    </span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>Generic(String),
 }
 
@@ -317,20 +317,20 @@
     </span><span class="attr">#[error(transparent)]
     </span>Io(<span class="attr">#[from] </span>io::Error),
     <span class="doccomment">/// A generic deserialization error
-    </span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>Generic(String),
     <span class="doccomment">/// Incompatible serialized binary
-    </span><span class="attr">#[error(<span class="string">&quot;incompatible binary: {0}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"incompatible binary: {0}"</span>)]
     </span>Incompatible(String),
     <span class="doccomment">/// The provided binary is corrupted
-    </span><span class="attr">#[error(<span class="string">&quot;corrupted binary: {0}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"corrupted binary: {0}"</span>)]
     </span>CorruptedBinary(String),
     <span class="doccomment">/// The binary was valid, but we got an error when
     /// trying to allocate the required resources.
     </span><span class="attr">#[error(transparent)]
     </span>Compiler(<span class="attr">#[from] </span>CompileError),
     <span class="doccomment">/// Input artifact bytes have an invalid length
-    </span><span class="attr">#[error(<span class="string">&quot;invalid input bytes: expected {expected} bytes, got {got}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"invalid input bytes: expected {expected} bytes, got {got}"</span>)]
     </span>InvalidByteLength {
         <span class="doccomment">/// How many bytes were expected
         </span>expected: usize,
@@ -344,11 +344,11 @@
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>MemoryError {
     <span class="doccomment">/// Low level error with mmap.
-    </span><span class="attr">#[error(<span class="string">&quot;Error when allocating memory: {0}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"Error when allocating memory: {0}"</span>)]
     </span>Region(String),
     <span class="doccomment">/// The operation would cause the size of the memory to exceed the maximum or would cause
     /// an overflow leading to unindexable memory.
-    </span><span class="attr">#[error(<span class="string">&quot;The memory could not grow: current size {} pages, requested increase: {} pages&quot;</span>, current.<span class="number">0</span>, attempted_delta.<span class="number">0</span>)]
+    </span><span class="attr">#[error(<span class="string">"The memory could not grow: current size {} pages, requested increase: {} pages"</span>, current.<span class="number">0</span>, attempted_delta.<span class="number">0</span>)]
     </span>CouldNotGrow {
         <span class="doccomment">/// The current size in pages.
         </span>current: Pages,
@@ -356,13 +356,13 @@
         </span>attempted_delta: Pages,
     },
     <span class="doccomment">/// Invalid memory was provided.
-    </span><span class="attr">#[error(<span class="string">&quot;The memory is invalid because {}&quot;</span>, reason)]
+    </span><span class="attr">#[error(<span class="string">"The memory is invalid because {}"</span>, reason)]
     </span>InvalidMemory {
         <span class="doccomment">/// The reason why the provided memory is invalid.
         </span>reason: String,
     },
     <span class="doccomment">/// Caller asked for more minimum memory than we can give them.
-    </span><span class="attr">#[error(<span class="string">&quot;The minimum requested ({} pages) memory is greater than the maximum allowed memory ({} pages)&quot;</span>, min_requested.<span class="number">0</span>, max_allowed.<span class="number">0</span>)]
+    </span><span class="attr">#[error(<span class="string">"The minimum requested ({} pages) memory is greater than the maximum allowed memory ({} pages)"</span>, min_requested.<span class="number">0</span>, max_allowed.<span class="number">0</span>)]
     </span>MinimumMemoryTooLarge {
         <span class="doccomment">/// The number of pages requested as the minimum amount of memory.
         </span>min_requested: Pages,
@@ -370,7 +370,7 @@
         </span>max_allowed: Pages,
     },
     <span class="doccomment">/// Caller asked for a maximum memory greater than we can give them.
-    </span><span class="attr">#[error(<span class="string">&quot;The maximum requested memory ({} pages) is greater than the maximum allowed memory ({} pages)&quot;</span>, max_requested.<span class="number">0</span>, max_allowed.<span class="number">0</span>)]
+    </span><span class="attr">#[error(<span class="string">"The maximum requested memory ({} pages) is greater than the maximum allowed memory ({} pages)"</span>, max_requested.<span class="number">0</span>, max_allowed.<span class="number">0</span>)]
     </span>MaximumMemoryTooLarge {
         <span class="doccomment">/// The number of pages requested as the maximum amount of memory.
         </span>max_requested: Pages,
@@ -378,41 +378,41 @@
         </span>max_allowed: Pages,
     },
     <span class="doccomment">/// Returned when a shared memory is required, but the given memory is not shared.
-    </span><span class="attr">#[error(<span class="string">&quot;The memory is not shared&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"The memory is not shared"</span>)]
     </span>MemoryNotShared,
     <span class="doccomment">/// Returned when trying to call a memory operation that is not supported by
     /// the particular memory implementation.
-    </span><span class="attr">#[error(<span class="string">&quot;tried to call an unsupported memory operation: {message}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"tried to call an unsupported memory operation: {message}"</span>)]
     </span>UnsupportedOperation {
         <span class="doccomment">/// Message describing the unsupported operation.
         </span>message: String,
     },
     <span class="doccomment">/// The memory does not support atomic operations.
-    </span><span class="attr">#[error(<span class="string">&quot;The memory does not support atomic operations&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"The memory does not support atomic operations"</span>)]
     </span>AtomicsNotSupported,
     <span class="doccomment">/// A user defined error value, used for error cases not listed above.
-    </span><span class="attr">#[error(<span class="string">&quot;A user-defined error occurred: {0}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"A user-defined error occurred: {0}"</span>)]
     </span>Generic(String),
 }
 
 <span class="doccomment">/// An ImportError.
 ///
-/// Note: this error is not standard to WebAssembly, but it&#39;s
+/// Note: this error is not standard to WebAssembly, but it's
 /// useful to determine the import issue on the API side.
 </span><span class="attr">#[derive(Error, Debug, Clone)]
 </span><span class="kw">pub enum </span>ImportError {
     <span class="doccomment">/// Incompatible Import Type.
     /// This error occurs when the import types mismatch.
-    </span><span class="attr">#[error(<span class="string">&quot;incompatible import type. Expected {0:?} but received {1:?}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"incompatible import type. Expected {0:?} but received {1:?}"</span>)]
     </span>IncompatibleType(ExternType, ExternType),
 
     <span class="doccomment">/// Unknown Import.
     /// This error occurs when an import was expected but not provided.
-    </span><span class="attr">#[error(<span class="string">&quot;unknown import. Expected {0:?}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"unknown import. Expected {0:?}"</span>)]
     </span>UnknownImport(ExternType),
 
     <span class="doccomment">/// Memory Error
-    </span><span class="attr">#[error(<span class="string">&quot;memory error. {0}&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"memory error. {0}"</span>)]
     </span>MemoryError(String),
 }
 
@@ -422,7 +422,7 @@
 </span><span class="kw">pub enum </span>PreInstantiationError {
     <span class="doccomment">/// The module was compiled with a CPU feature that is not available on
     /// the current host.
-    </span><span class="attr">#[error(<span class="string">&quot;module compiled with CPU feature that is missing from host&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">"module compiled with CPU feature that is missing from host"</span>)]
     </span>CpuFeature(String),
 }
 
@@ -430,7 +430,7 @@
 
 <span class="comment">// Compilation Errors
 //
-// If `std` feature is enable, we can&#39;t use `thiserror` until
+// If `std` feature is enable, we can't use `thiserror` until
 // https://github.com/dtolnay/thiserror/pull/64 is merged.
 
 </span><span class="doccomment">/// The WebAssembly.CompileError object indicates an error during
@@ -440,38 +440,38 @@
 ///
 /// [compiler-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/CompileError
 </span><span class="attr">#[derive(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Error))]
 </span><span class="kw">pub enum </span>CompileError {
     <span class="doccomment">/// A Wasm translation error occured.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;WebAssembly translation error: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"WebAssembly translation error: {0}"</span>))]
     </span>Wasm(WasmError),
 
     <span class="doccomment">/// A compilation error occured.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Compilation error: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Compilation error: {0}"</span>))]
     </span>Codegen(String),
 
     <span class="doccomment">/// The module did not pass validation.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Validation error: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Validation error: {0}"</span>))]
     </span>Validate(String),
 
-    <span class="doccomment">/// The compiler doesn&#39;t support a Wasm feature
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Feature {0} is not yet supported&quot;</span>))]
+    <span class="doccomment">/// The compiler doesn't support a Wasm feature
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Feature {0} is not yet supported"</span>))]
     </span>UnsupportedFeature(String),
 
     <span class="doccomment">/// The compiler cannot compile for the given target.
     /// This can refer to the OS, the chipset or any other aspect of the target system.
     </span><span class="attr">#[cfg_attr(
-        feature = <span class="string">&quot;std&quot;</span>,
-        error(<span class="string">&quot;The target {0} is not yet supported (see https://docs.wasmer.io/runtime/features)&quot;</span>)
+        feature = <span class="string">"std"</span>,
+        error(<span class="string">"The target {0} is not yet supported (see https://docs.wasmer.io/runtime/features)"</span>)
     )]
     </span>UnsupportedTarget(String),
 
     <span class="doccomment">/// Insufficient resources available for execution.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Insufficient resources: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Insufficient resources: {0}"</span>))]
     </span>Resource(String),
 
     <span class="doccomment">/// Middleware error occurred.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Middleware error: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Middleware error: {0}"</span>))]
     </span>MiddlewareError(String),
 }
 
@@ -483,8 +483,8 @@
 
 <span class="doccomment">/// A error in the middleware.
 </span><span class="attr">#[derive(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Error in middleware {name}: {message}&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error in middleware {name}: {message}"</span>))]
 </span><span class="kw">pub struct </span>MiddlewareError {
     <span class="doccomment">/// The name of the middleware where the error was created
     </span><span class="kw">pub </span>name: String,
@@ -504,18 +504,18 @@
 
 <span class="doccomment">/// A WebAssembly translation error.
 ///
-/// When a WebAssembly function can&#39;t be translated, one of these error codes will be returned
+/// When a WebAssembly function can't be translated, one of these error codes will be returned
 /// to describe the failure.
 </span><span class="attr">#[derive(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Error))]
 </span><span class="kw">pub enum </span>WasmError {
     <span class="doccomment">/// The input WebAssembly code is invalid.
     ///
     /// This error code is used by a WebAssembly translator when it encounters invalid WebAssembly
     /// code. This should never happen for validated WebAssembly code.
     </span><span class="attr">#[cfg_attr(
-        feature = <span class="string">&quot;std&quot;</span>,
-        error(<span class="string">&quot;Invalid input WebAssembly code at offset {offset}: {message}&quot;</span>)
+        feature = <span class="string">"std"</span>,
+        error(<span class="string">"Invalid input WebAssembly code at offset {offset}: {message}"</span>)
     )]
     </span>InvalidWebAssembly {
         <span class="doccomment">/// A string describing the validation error.
@@ -527,19 +527,19 @@
     <span class="doccomment">/// A feature used by the WebAssembly code is not supported by the embedding environment.
     ///
     /// Embedding environments may have their own limitations and feature restrictions.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Unsupported feature: {0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Unsupported feature: {0}"</span>))]
     </span>Unsupported(String),
 
     <span class="doccomment">/// An implementation limit was exceeded.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Implementation limit exceeded&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Implementation limit exceeded"</span>))]
     </span>ImplLimitExceeded,
 
     <span class="doccomment">/// An error from the middleware error.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;{0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"{0}"</span>))]
     </span>Middleware(MiddlewareError),
 
     <span class="doccomment">/// A generic error.
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;{0}&quot;</span>))]
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"{0}"</span>))]
     </span>Generic(String),
 }
 
@@ -552,10 +552,10 @@
 <span class="doccomment">/// The error that can happen while parsing a `str`
 /// to retrieve a [`CpuFeature`](crate::CpuFeature).
 </span><span class="attr">#[derive(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Error))]
 </span><span class="kw">pub enum </span>ParseCpuFeatureError {
-    <span class="doccomment">/// The provided string feature doesn&#39;t exist
-    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;CpuFeature {0} not recognized&quot;</span>))]
+    <span class="doccomment">/// The provided string feature doesn't exist
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"CpuFeature {0} not recognized"</span>))]
     </span>Missing(String),
 }
 
@@ -568,21 +568,21 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>middleware_error_can_be_created() {
-        <span class="kw">let </span>msg = String::from(<span class="string">&quot;Something went wrong&quot;</span>);
-        <span class="kw">let </span>error = MiddlewareError::new(<span class="string">&quot;manipulator3000&quot;</span>, msg);
-        <span class="macro">assert_eq!</span>(error.name, <span class="string">&quot;manipulator3000&quot;</span>);
-        <span class="macro">assert_eq!</span>(error.message, <span class="string">&quot;Something went wrong&quot;</span>);
+        <span class="kw">let </span>msg = String::from(<span class="string">"Something went wrong"</span>);
+        <span class="kw">let </span>error = MiddlewareError::new(<span class="string">"manipulator3000"</span>, msg);
+        <span class="macro">assert_eq!</span>(error.name, <span class="string">"manipulator3000"</span>);
+        <span class="macro">assert_eq!</span>(error.message, <span class="string">"Something went wrong"</span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>middleware_error_be_converted_to_wasm_error() {
-        <span class="kw">let </span>error = WasmError::from(MiddlewareError::new(<span class="string">&quot;manipulator3000&quot;</span>, <span class="string">&quot;foo&quot;</span>));
+        <span class="kw">let </span>error = WasmError::from(MiddlewareError::new(<span class="string">"manipulator3000"</span>, <span class="string">"foo"</span>));
         <span class="kw">match </span>error {
             WasmError::Middleware(MiddlewareError { name, message }) =&gt; {
-                <span class="macro">assert_eq!</span>(name, <span class="string">&quot;manipulator3000&quot;</span>);
-                <span class="macro">assert_eq!</span>(message, <span class="string">&quot;foo&quot;</span>);
+                <span class="macro">assert_eq!</span>(name, <span class="string">"manipulator3000"</span>);
+                <span class="macro">assert_eq!</span>(message, <span class="string">"foo"</span>);
             }
-            err =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, err),
+            err =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {:?}"</span>, err),
         }
     }
 }

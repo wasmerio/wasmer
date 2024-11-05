@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/c_gen/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/c_gen/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -630,64 +630,64 @@
     </span><span class="kw">fn </span>generate_c(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>String) {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
             <span class="self">Self</span>::Void =&gt; {
-                w.push_str(<span class="string">&quot;void&quot;</span>);
+                w.push_str(<span class="string">"void"</span>);
             }
             <span class="self">Self</span>::PointerTo { is_const, inner } =&gt; {
                 <span class="kw">if </span><span class="kw-2">*</span>is_const {
-                    w.push_str(<span class="string">&quot;const &quot;</span>);
+                    w.push_str(<span class="string">"const "</span>);
                 }
                 inner.generate_c(w);
-                w.push(<span class="string">&#39;*&#39;</span>);
+                w.push(<span class="string">'*'</span>);
             }
             <span class="self">Self</span>::U8 =&gt; {
-                w.push_str(<span class="string">&quot;unsigned char&quot;</span>);
+                w.push_str(<span class="string">"unsigned char"</span>);
             }
             <span class="self">Self</span>::U16 =&gt; {
-                w.push_str(<span class="string">&quot;unsigned short&quot;</span>);
+                w.push_str(<span class="string">"unsigned short"</span>);
             }
             <span class="self">Self</span>::U32 =&gt; {
-                w.push_str(<span class="string">&quot;unsigned int&quot;</span>);
+                w.push_str(<span class="string">"unsigned int"</span>);
             }
             <span class="self">Self</span>::U64 =&gt; {
-                w.push_str(<span class="string">&quot;unsigned long long&quot;</span>);
+                w.push_str(<span class="string">"unsigned long long"</span>);
             }
             <span class="self">Self</span>::USize =&gt; {
-                w.push_str(<span class="string">&quot;unsigned size_t&quot;</span>);
+                w.push_str(<span class="string">"unsigned size_t"</span>);
             }
             <span class="self">Self</span>::I8 =&gt; {
-                w.push_str(<span class="string">&quot;char&quot;</span>);
+                w.push_str(<span class="string">"char"</span>);
             }
             <span class="self">Self</span>::I16 =&gt; {
-                w.push_str(<span class="string">&quot;short&quot;</span>);
+                w.push_str(<span class="string">"short"</span>);
             }
             <span class="self">Self</span>::I32 =&gt; {
-                w.push_str(<span class="string">&quot;int&quot;</span>);
+                w.push_str(<span class="string">"int"</span>);
             }
             <span class="self">Self</span>::I64 =&gt; {
-                w.push_str(<span class="string">&quot;long long&quot;</span>);
+                w.push_str(<span class="string">"long long"</span>);
             }
             <span class="self">Self</span>::ISize =&gt; {
-                w.push_str(<span class="string">&quot;size_t&quot;</span>);
+                w.push_str(<span class="string">"size_t"</span>);
             }
             <span class="self">Self</span>::Function {
                 arguments,
                 return_value,
             } =&gt; {
-                <span class="comment">// function with no, name, assume it&#39;s a function pointer
+                <span class="comment">// function with no, name, assume it's a function pointer
                 </span><span class="attr">#[allow(clippy::borrowed_box)]
                 </span><span class="kw">let </span>ret: CType = return_value
                     .as_ref()
                     .map(|i: <span class="kw-2">&amp;</span>Box&lt;CType&gt;| (<span class="kw-2">**</span>i).clone())
                     .unwrap_or_default();
                 ret.generate_c(w);
-                w.push(<span class="string">&#39; &#39;</span>);
-                w.push_str(<span class="string">&quot;(*)&quot;</span>);
-                w.push(<span class="string">&#39;(&#39;</span>);
+                w.push(<span class="string">' '</span>);
+                w.push_str(<span class="string">"(*)"</span>);
+                w.push(<span class="string">'('</span>);
                 <span class="kw">match </span>arguments.len() {
                     l <span class="kw">if </span>l &gt; <span class="number">1 </span>=&gt; {
                         <span class="kw">for </span>arg <span class="kw">in </span><span class="kw-2">&amp;</span>arguments[..arguments.len() - <span class="number">1</span>] {
                             arg.generate_c(w);
-                            w.push_str(<span class="string">&quot;, &quot;</span>);
+                            w.push_str(<span class="string">", "</span>);
                         }
                         arguments.last().unwrap().generate_c(w);
                     }
@@ -696,11 +696,11 @@
                     }
                     <span class="kw">_ </span>=&gt; {}
                 }
-                w.push(<span class="string">&#39;)&#39;</span>);
+                w.push(<span class="string">')'</span>);
             }
             <span class="self">Self</span>::Array { inner } =&gt; {
                 inner.generate_c(w);
-                w.push_str(<span class="string">&quot;[]&quot;</span>);
+                w.push_str(<span class="string">"[]"</span>);
             }
             <span class="self">Self</span>::TypeDef(inner) =&gt; {
                 w.push_str(inner);
@@ -725,7 +725,7 @@
             | <span class="self">Self</span>::I64
             | <span class="self">Self</span>::ISize =&gt; {
                 <span class="self">self</span>.generate_c(w);
-                w.push(<span class="string">&#39; &#39;</span>);
+                w.push(<span class="string">' '</span>);
                 w.push_str(name);
             }
             <span class="self">Self</span>::Function {
@@ -738,14 +738,14 @@
                     .map(|i: <span class="kw-2">&amp;</span>Box&lt;CType&gt;| (<span class="kw-2">**</span>i).clone())
                     .unwrap_or_default();
                 ret.generate_c(w);
-                w.push(<span class="string">&#39; &#39;</span>);
+                w.push(<span class="string">' '</span>);
                 w.push_str(name);
-                w.push(<span class="string">&#39;(&#39;</span>);
+                w.push(<span class="string">'('</span>);
                 <span class="kw">match </span>arguments.len() {
                     l <span class="kw">if </span>l &gt; <span class="number">1 </span>=&gt; {
                         <span class="kw">for </span>arg <span class="kw">in </span><span class="kw-2">&amp;</span>arguments[..arguments.len() - <span class="number">1</span>] {
                             arg.generate_c(w);
-                            w.push_str(<span class="string">&quot;, &quot;</span>);
+                            w.push_str(<span class="string">", "</span>);
                         }
                         arguments.last().unwrap().generate_c(w);
                     }
@@ -754,20 +754,20 @@
                     }
                     <span class="kw">_ </span>=&gt; {}
                 }
-                w.push(<span class="string">&#39;)&#39;</span>);
+                w.push(<span class="string">')'</span>);
             }
             <span class="self">Self</span>::Array { inner } =&gt; {
                 inner.generate_c(w);
-                w.push(<span class="string">&#39; &#39;</span>);
+                w.push(<span class="string">' '</span>);
                 w.push_str(name);
-                w.push_str(<span class="string">&quot;[]&quot;</span>);
+                w.push_str(<span class="string">"[]"</span>);
             }
         }
     }
 }
 
 <span class="doccomment">/// A statement in the C programming language. This may not be exact to what an
-/// AST would look like or what the C standard says about the C language, it&#39;s
+/// AST would look like or what the C standard says about the C language, it's
 /// simply a structed way to organize data for generating C code.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>CStatement {
@@ -809,7 +809,7 @@
 
     <span class="doccomment">/// Typedef one type to another.
     </span>TypeDef {
-        <span class="doccomment">/// The type of the thing being typedef&#39;d.
+        <span class="doccomment">/// The type of the thing being typedef'd.
         </span>source_type: CType,
         <span class="doccomment">/// The new name by which this type may be called.
         </span>new_name: CIdent,
@@ -828,31 +828,31 @@
                 definition,
             } =&gt; {
                 <span class="kw">if </span><span class="kw-2">*</span>is_const {
-                    w.push_str(<span class="string">&quot;const &quot;</span>);
+                    w.push_str(<span class="string">"const "</span>);
                 }
                 <span class="kw">if </span><span class="kw-2">*</span>is_extern {
-                    w.push_str(<span class="string">&quot;extern &quot;</span>);
+                    w.push_str(<span class="string">"extern "</span>);
                 }
                 ctype.generate_c_with_name(name, w);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = definition {
-                    w.push_str(<span class="string">&quot; = &quot;</span>);
+                    w.push_str(<span class="string">" = "</span>);
                     def.generate_c(w);
                 }
-                w.push(<span class="string">&#39;;&#39;</span>);
-                w.push(<span class="string">&#39;\n&#39;</span>);
+                w.push(<span class="string">';'</span>);
+                w.push(<span class="string">'\n'</span>);
             }
             <span class="self">Self</span>::LiteralArray { items } =&gt; {
-                w.push(<span class="string">&#39;{&#39;</span>);
+                w.push(<span class="string">'{'</span>);
                 <span class="kw">if </span>!items.is_empty() {
-                    w.push(<span class="string">&#39;\n&#39;</span>);
+                    w.push(<span class="string">'\n'</span>);
                 }
                 <span class="kw">for </span>item <span class="kw">in </span>items {
-                    w.push(<span class="string">&#39;\t&#39;</span>);
+                    w.push(<span class="string">'\t'</span>);
                     item.generate_c(w);
-                    w.push(<span class="string">&#39;,&#39;</span>);
-                    w.push(<span class="string">&#39;\n&#39;</span>);
+                    w.push(<span class="string">','</span>);
+                    w.push(<span class="string">'\n'</span>);
                 }
-                w.push(<span class="string">&#39;}&#39;</span>);
+                w.push(<span class="string">'}'</span>);
             }
             <span class="self">Self</span>::LiteralConstant { value } =&gt; {
                 w.push_str(value);
@@ -861,27 +861,27 @@
                 target_type,
                 expression,
             } =&gt; {
-                w.push(<span class="string">&#39;(&#39;</span>);
+                w.push(<span class="string">'('</span>);
                 target_type.generate_c(w);
-                w.push(<span class="string">&#39;)&#39;</span>);
-                w.push(<span class="string">&#39; &#39;</span>);
+                w.push(<span class="string">')'</span>);
+                w.push(<span class="string">' '</span>);
                 expression.generate_c(w);
             }
             <span class="self">Self</span>::TypeDef {
                 source_type,
                 new_name,
             } =&gt; {
-                w.push_str(<span class="string">&quot;typedef &quot;</span>);
-                <span class="comment">// leaky abstraction / hack, doesn&#39;t fully solve the problem
+                w.push_str(<span class="string">"typedef "</span>);
+                <span class="comment">// leaky abstraction / hack, doesn't fully solve the problem
                 </span><span class="kw">if let </span>CType::Function { .. } = source_type {
-                    source_type.generate_c_with_name(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;(*{})&quot;</span>, new_name), w);
+                    source_type.generate_c_with_name(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"(*{})"</span>, new_name), w);
                 } <span class="kw">else </span>{
                     source_type.generate_c(w);
-                    w.push(<span class="string">&#39; &#39;</span>);
+                    w.push(<span class="string">' '</span>);
                     w.push_str(new_name);
                 }
-                w.push(<span class="string">&#39;;&#39;</span>);
-                w.push(<span class="string">&#39;\n&#39;</span>);
+                w.push(<span class="string">';'</span>);
+                w.push(<span class="string">'\n'</span>);
             }
         }
     }
@@ -903,7 +903,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>generate_types() {
-        <span class="macro">macro_rules! </span>assert_c_type {
+        <span class="macro">macro_rules!</span> assert_c_type {
             (<span class="macro-nonterminal">$ctype</span>:expr, <span class="macro-nonterminal">$expected</span>:expr) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>w = String::new();
                 <span class="kw">let </span>ctype = <span class="macro-nonterminal">$ctype</span>;
@@ -912,33 +912,33 @@
             };
         }
 
-        <span class="macro">assert_c_type!</span>(CType::Void, <span class="string">&quot;void&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::void_ptr(), <span class="string">&quot;void*&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::const_void_ptr(), <span class="string">&quot;const void*&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U8, <span class="string">&quot;unsigned char&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U16, <span class="string">&quot;unsigned short&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U32, <span class="string">&quot;unsigned int&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U64, <span class="string">&quot;unsigned long long&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::USize, <span class="string">&quot;unsigned size_t&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I8, <span class="string">&quot;char&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I16, <span class="string">&quot;short&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I32, <span class="string">&quot;int&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I64, <span class="string">&quot;long long&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::ISize, <span class="string">&quot;size_t&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::TypeDef(<span class="string">&quot;my_type&quot;</span>.to_string()), <span class="string">&quot;my_type&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::Void, <span class="string">"void"</span>);
+        <span class="macro">assert_c_type!</span>(CType::void_ptr(), <span class="string">"void*"</span>);
+        <span class="macro">assert_c_type!</span>(CType::const_void_ptr(), <span class="string">"const void*"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U8, <span class="string">"unsigned char"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U16, <span class="string">"unsigned short"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U32, <span class="string">"unsigned int"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U64, <span class="string">"unsigned long long"</span>);
+        <span class="macro">assert_c_type!</span>(CType::USize, <span class="string">"unsigned size_t"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I8, <span class="string">"char"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I16, <span class="string">"short"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I32, <span class="string">"int"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I64, <span class="string">"long long"</span>);
+        <span class="macro">assert_c_type!</span>(CType::ISize, <span class="string">"size_t"</span>);
+        <span class="macro">assert_c_type!</span>(CType::TypeDef(<span class="string">"my_type"</span>.to_string()), <span class="string">"my_type"</span>);
         <span class="macro">assert_c_type!</span>(
             CType::Function {
                 arguments: <span class="macro">vec!</span>[CType::U8, CType::ISize],
                 return_value: <span class="prelude-val">None
             </span>},
-            <span class="string">&quot;void (*)(unsigned char, size_t)&quot;
+            <span class="string">"void (*)(unsigned char, size_t)"
         </span>);
         <span class="macro">assert_c_type!</span>(
             CType::Function {
                 arguments: <span class="macro">vec!</span>[],
                 return_value: <span class="prelude-val">Some</span>(Box::new(CType::ISize))
             },
-            <span class="string">&quot;size_t (*)()&quot;
+            <span class="string">"size_t (*)()"
         </span>);
         <span class="macro">assert_c_type!</span>(
             CType::PointerTo {
@@ -948,14 +948,14 @@
                     inner: Box::new(CType::U32)
                 })
             },
-            <span class="string">&quot;const unsigned int**&quot;
+            <span class="string">"const unsigned int**"
         </span>);
         <span class="comment">// TODO: test more complicated const correctness rules: there are bugs relating to it.
     </span>}
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>generate_types_with_names() {
-        <span class="macro">macro_rules! </span>assert_c_type {
+        <span class="macro">macro_rules!</span> assert_c_type {
             (<span class="macro-nonterminal">$ctype</span>:expr, <span class="macro-nonterminal">$name</span>:literal, <span class="macro-nonterminal">$expected</span>:expr) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>w = String::new();
                 <span class="kw">let </span>ctype = <span class="macro-nonterminal">$ctype</span>;
@@ -964,39 +964,39 @@
             };
         }
 
-        <span class="macro">assert_c_type!</span>(CType::Void, <span class="string">&quot;main&quot;</span>, <span class="string">&quot;void main&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::void_ptr(), <span class="string">&quot;data&quot;</span>, <span class="string">&quot;void* data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::const_void_ptr(), <span class="string">&quot;data&quot;</span>, <span class="string">&quot;const void* data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U8, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned char data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U16, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned short data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U32, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned int data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::U64, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned long long data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::USize, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned size_t data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I8, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;char data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I16, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;short data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I32, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;int data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::I64, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;long long data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(CType::ISize, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;size_t data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::Void, <span class="string">"main"</span>, <span class="string">"void main"</span>);
+        <span class="macro">assert_c_type!</span>(CType::void_ptr(), <span class="string">"data"</span>, <span class="string">"void* data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::const_void_ptr(), <span class="string">"data"</span>, <span class="string">"const void* data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U8, <span class="string">"data"</span>, <span class="string">"unsigned char data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U16, <span class="string">"data"</span>, <span class="string">"unsigned short data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U32, <span class="string">"data"</span>, <span class="string">"unsigned int data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::U64, <span class="string">"data"</span>, <span class="string">"unsigned long long data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::USize, <span class="string">"data"</span>, <span class="string">"unsigned size_t data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I8, <span class="string">"data"</span>, <span class="string">"char data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I16, <span class="string">"data"</span>, <span class="string">"short data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I32, <span class="string">"data"</span>, <span class="string">"int data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::I64, <span class="string">"data"</span>, <span class="string">"long long data"</span>);
+        <span class="macro">assert_c_type!</span>(CType::ISize, <span class="string">"data"</span>, <span class="string">"size_t data"</span>);
         <span class="macro">assert_c_type!</span>(
-            CType::TypeDef(<span class="string">&quot;my_type&quot;</span>.to_string()),
-            <span class="string">&quot;data&quot;</span>,
-            <span class="string">&quot;my_type data&quot;
+            CType::TypeDef(<span class="string">"my_type"</span>.to_string()),
+            <span class="string">"data"</span>,
+            <span class="string">"my_type data"
         </span>);
         <span class="macro">assert_c_type!</span>(
             CType::Function {
                 arguments: <span class="macro">vec!</span>[CType::U8, CType::ISize],
                 return_value: <span class="prelude-val">None
             </span>},
-            <span class="string">&quot;my_func&quot;</span>,
-            <span class="string">&quot;void my_func(unsigned char, size_t)&quot;
+            <span class="string">"my_func"</span>,
+            <span class="string">"void my_func(unsigned char, size_t)"
         </span>);
         <span class="macro">assert_c_type!</span>(
             CType::Function {
                 arguments: <span class="macro">vec!</span>[],
                 return_value: <span class="prelude-val">Some</span>(Box::new(CType::ISize))
             },
-            <span class="string">&quot;my_func&quot;</span>,
-            <span class="string">&quot;size_t my_func()&quot;
+            <span class="string">"my_func"</span>,
+            <span class="string">"size_t my_func()"
         </span>);
         <span class="macro">assert_c_type!</span>(
             CType::PointerTo {
@@ -1006,15 +1006,15 @@
                     inner: Box::new(CType::U32)
                 })
             },
-            <span class="string">&quot;data&quot;</span>,
-            <span class="string">&quot;const unsigned int** data&quot;
+            <span class="string">"data"</span>,
+            <span class="string">"const unsigned int** data"
         </span>);
         <span class="comment">// TODO: test more complicated const correctness rules: there are bugs relating to it.
     </span>}
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>generate_expressions_works() {
-        <span class="macro">macro_rules! </span>assert_c_expr {
+        <span class="macro">macro_rules!</span> assert_c_expr {
             (<span class="macro-nonterminal">$cexpr</span>:expr, <span class="macro-nonterminal">$expected</span>:expr) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>w = String::new();
                 <span class="kw">let </span>cexpr = <span class="macro-nonterminal">$cexpr</span>;
@@ -1025,9 +1025,9 @@
 
         <span class="macro">assert_c_expr!</span>(
             CStatement::LiteralConstant {
-                value: <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;</span>.to_string()
+                value: <span class="string">"\"Hello, world!\""</span>.to_string()
             },
-            <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;
+            <span class="string">"\"Hello, world!\""
         </span>);
         <span class="macro">assert_c_expr!</span>(
             CStatement::TypeDef {
@@ -1035,30 +1035,30 @@
                     arguments: <span class="macro">vec!</span>[CType::I32, CType::I32],
                     return_value: <span class="prelude-val">None</span>,
                 },
-                new_name: <span class="string">&quot;my_func_ptr&quot;</span>.to_string(),
+                new_name: <span class="string">"my_func_ptr"</span>.to_string(),
             },
-            <span class="string">&quot;typedef void (*my_func_ptr)(int, int);\n&quot;
+            <span class="string">"typedef void (*my_func_ptr)(int, int);\n"
         </span>);
         <span class="macro">assert_c_expr!</span>(
             CStatement::LiteralArray {
                 items: <span class="macro">vec!</span>[
                     CStatement::LiteralConstant {
-                        value: <span class="string">&quot;1&quot;</span>.to_string()
+                        value: <span class="string">"1"</span>.to_string()
                     },
                     CStatement::LiteralConstant {
-                        value: <span class="string">&quot;2&quot;</span>.to_string()
+                        value: <span class="string">"2"</span>.to_string()
                     },
                     CStatement::LiteralConstant {
-                        value: <span class="string">&quot;3&quot;</span>.to_string()
+                        value: <span class="string">"3"</span>.to_string()
                     },
                 ]
             },
-            <span class="string">&quot;{\n\t1,\n\t2,\n\t3,\n}&quot;
+            <span class="string">"{\n\t1,\n\t2,\n\t3,\n}"
         </span>);
-        <span class="macro">assert_c_expr!</span>(CStatement::LiteralArray { items: <span class="macro">vec!</span>[] }, <span class="string">&quot;{}&quot;</span>);
+        <span class="macro">assert_c_expr!</span>(CStatement::LiteralArray { items: <span class="macro">vec!</span>[] }, <span class="string">"{}"</span>);
         <span class="macro">assert_c_expr!</span>(
             CStatement::Declaration {
-                name: <span class="string">&quot;my_array&quot;</span>.to_string(),
+                name: <span class="string">"my_array"</span>.to_string(),
                 is_extern: <span class="bool-val">false</span>,
                 is_const: <span class="bool-val">true</span>,
                 ctype: CType::Array {
@@ -1067,22 +1067,22 @@
                 definition: <span class="prelude-val">Some</span>(Box::new(CStatement::LiteralArray {
                     items: <span class="macro">vec!</span>[
                         CStatement::LiteralConstant {
-                            value: <span class="string">&quot;1&quot;</span>.to_string()
+                            value: <span class="string">"1"</span>.to_string()
                         },
                         CStatement::LiteralConstant {
-                            value: <span class="string">&quot;2&quot;</span>.to_string()
+                            value: <span class="string">"2"</span>.to_string()
                         },
                         CStatement::LiteralConstant {
-                            value: <span class="string">&quot;3&quot;</span>.to_string()
+                            value: <span class="string">"3"</span>.to_string()
                         },
                     ]
                 }))
             },
-            <span class="string">&quot;const int my_array[] = {\n\t1,\n\t2,\n\t3,\n};\n&quot;
+            <span class="string">"const int my_array[] = {\n\t1,\n\t2,\n\t3,\n};\n"
         </span>);
         <span class="macro">assert_c_expr!</span>(
             CStatement::Declaration {
-                name: <span class="string">&quot;my_array&quot;</span>.to_string(),
+                name: <span class="string">"my_array"</span>.to_string(),
                 is_extern: <span class="bool-val">true</span>,
                 is_const: <span class="bool-val">true</span>,
                 ctype: CType::Array {
@@ -1090,7 +1090,7 @@
                 },
                 definition: <span class="prelude-val">None</span>,
             },
-            <span class="string">&quot;const extern int my_array[];\n&quot;
+            <span class="string">"const extern int my_array[];\n"
         </span>);
     }
 }

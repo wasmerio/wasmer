@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AddrPcc"],"fn":["bounds_check_and_compute_addr","cast_index_to_pointer_ty","compute_addr","explicit_check_oob_condition_and_compute_addr","get_dynamic_heap_bound","offset_plus_size"]};

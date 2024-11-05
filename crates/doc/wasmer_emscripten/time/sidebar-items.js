@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["___clock_gettime","_asctime","_asctime_r","_clock","_clock_getres","_clock_gettime","_clock_settime","_ctime","_ctime_r","_difftime","_gettimeofday","_gmtime","_gmtime_r","_localtime","_localtime_r","_mktime","_strftime","_strftime_l","_time","_timegm","_tvset","fmt_time"],"struct":["guest_tm"]};

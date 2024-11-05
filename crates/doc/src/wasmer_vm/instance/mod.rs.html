@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/instance/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_vm/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/instance/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_vm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1534,6 +1534,17 @@
 <a href="#1534" id="1534">1534</a>
 <a href="#1535" id="1535">1535</a>
 <a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -1580,7 +1591,7 @@
 <span class="doccomment">/// A WebAssembly instance.
 ///
 /// The type is dynamically-sized. Indeed, the `vmctx` field can
-/// contain various data. That&#39;s why the type has a C representation
+/// contain various data. That's why the type has a C representation
 /// to ensure that the `vmctx` field is last. See the documentation of
 /// the `vmctx` field to learn more.
 </span><span class="attr">#[repr(C)]
@@ -1635,7 +1646,7 @@
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Instance {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-        formatter.debug_struct(<span class="string">&quot;Instance&quot;</span>).finish()
+        formatter.debug_struct(<span class="string">"Instance"</span>).finish()
     }
 }
 
@@ -1863,7 +1874,7 @@
     </span><span class="kw">fn </span>invoke_start_function(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         config: <span class="kw-2">&amp;</span>VMConfig,
-        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
         <span class="kw">let </span>start_index = <span class="kw">match </span><span class="self">self</span>.module.start_function {
             <span class="prelude-val">Some</span>(idx) =&gt; idx,
@@ -1875,7 +1886,7 @@
                 <span class="kw">let </span>body = <span class="self">self
                     </span>.functions
                     .get(local_index)
-                    .expect(<span class="string">&quot;function index is out of bounds&quot;</span>)
+                    .expect(<span class="string">"function index is out of bounds"</span>)
                     .<span class="number">0</span>;
                 (
                     body <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
@@ -1894,7 +1905,7 @@
         <span class="comment">// Make the call.
         </span><span class="kw">unsafe </span>{
             catch_traps(trap_handler, config, <span class="kw">move </span>|| {
-                mem::transmute::&lt;<span class="kw-2">*const </span>VMFunctionBody, <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(VMFunctionContext)&gt;(
+                mem::transmute::&lt;<span class="kw-2">*const </span>VMFunctionBody, <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(VMFunctionContext)&gt;(
                     callee_address,
                 )(callee_vmctx)
             })
@@ -1933,7 +1944,7 @@
 
     <span class="doccomment">/// Grow memory by the specified amount of pages.
     ///
-    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>memory_grow&lt;IntoPages&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1946,18 +1957,18 @@
         <span class="kw">let </span>mem = <span class="kw-2">*</span><span class="self">self
             </span>.memories
             .get(memory_index)
-            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;no memory for index {}&quot;</span>, memory_index.index()));
+            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"no memory for index {}"</span>, memory_index.index()));
         mem.get_mut(<span class="self">self</span>.context_mut()).grow(delta.into())
     }
 
     <span class="doccomment">/// Grow imported memory by the specified amount of pages.
     ///
-    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
     ///
     /// # Safety
     /// This and `imported_memory_size` are currently unsafe because they
-    /// dereference the memory import&#39;s pointers.
+    /// dereference the memory import's pointers.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>imported_memory_grow&lt;IntoPages&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         memory_index: MemoryIndex,
@@ -1976,7 +1987,7 @@
         <span class="kw">let </span>mem = <span class="kw-2">*</span><span class="self">self
             </span>.memories
             .get(memory_index)
-            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;no memory for index {}&quot;</span>, memory_index.index()));
+            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"no memory for index {}"</span>, memory_index.index()));
         mem.get(<span class="self">self</span>.context()).size()
     }
 
@@ -1984,7 +1995,7 @@
     ///
     /// # Safety
     /// This and `imported_memory_grow` are currently unsafe because they
-    /// dereference the memory import&#39;s pointers.
+    /// dereference the memory import's pointers.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>imported_memory_size(<span class="kw-2">&amp;</span><span class="self">self</span>, memory_index: MemoryIndex) -&gt; Pages {
         <span class="kw">let </span>import = <span class="self">self</span>.imported_memory(memory_index);
         <span class="kw">let </span>mem = import.handle;
@@ -1996,7 +2007,7 @@
         <span class="kw">let </span>table = <span class="self">self
             </span>.tables
             .get(table_index)
-            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, table_index.index()));
+            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"no table for index {}"</span>, table_index.index()));
         table.get(<span class="self">self</span>.context()).size()
     }
 
@@ -2012,7 +2023,7 @@
 
     <span class="doccomment">/// Grow table by the specified amount of elements.
     ///
-    /// Returns `None` if table can&#39;t be grown by the specified amount
+    /// Returns `None` if table can't be grown by the specified amount
     /// of elements.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>table_grow(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -2023,7 +2034,7 @@
         <span class="kw">let </span>table = <span class="kw-2">*</span><span class="self">self
             </span>.tables
             .get(table_index)
-            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, table_index.index()));
+            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"no table for index {}"</span>, table_index.index()));
         table.get_mut(<span class="self">self</span>.context_mut()).grow(delta, init_value)
     }
 
@@ -2051,7 +2062,7 @@
         <span class="kw">let </span>table = <span class="self">self
             </span>.tables
             .get(table_index)
-            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, table_index.index()));
+            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"no table for index {}"</span>, table_index.index()));
         table.get(<span class="self">self</span>.context()).get(index)
     }
 
@@ -2079,7 +2090,7 @@
         <span class="kw">let </span>table = <span class="kw-2">*</span><span class="self">self
             </span>.tables
             .get(table_index)
-            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, table_index.index()));
+            .unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"no table for index {}"</span>, table_index.index()));
         table.get_mut(<span class="self">self</span>.context_mut()).set(index, val)
     }
 
@@ -2146,7 +2157,7 @@
         <span class="kw">for </span>(dst, src) <span class="kw">in </span>(dst..dst + len).zip(src..src + len) {
             table
                 .set(dst, TableElement::FuncRef(elem[src <span class="kw">as </span>usize]))
-                .expect(<span class="string">&quot;should never panic because we already did the bounds check above&quot;</span>);
+                .expect(<span class="string">"should never panic because we already did the bounds check above"</span>);
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -2179,7 +2190,7 @@
         <span class="kw">for </span>i <span class="kw">in </span>start_index..(start_index + len) {
             table
                 .set(i, item.clone())
-                .expect(<span class="string">&quot;should never panic because we already did the bounds check above&quot;</span>);
+                .expect(<span class="string">"should never panic because we already did the bounds check above"</span>);
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -2191,7 +2202,7 @@
 
         </span><span class="kw">let </span><span class="kw-2">mut </span>passive_elements = <span class="self">self</span>.passive_elements.borrow_mut();
         passive_elements.remove(<span class="kw-2">&amp;</span>elem_index);
-        <span class="comment">// Note that we don&#39;t check that we actually removed an element because
+        <span class="comment">// Note that we don't check that we actually removed an element because
         // dropping a non-passive element is a no-op (not a trap).
     </span>}
 
@@ -2268,8 +2279,8 @@
     ///
     /// # Errors
     ///
-    /// Returns a `Trap` error if the destination range is out of this module&#39;s
-    /// memory&#39;s bounds or if the source range is outside the data segment&#39;s
+    /// Returns a `Trap` error if the destination range is out of this module's
+    /// memory's bounds or if the source range is outside the data segment's
     /// bounds.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>memory_init(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -2500,18 +2511,18 @@
 
     <span class="doccomment">/// The `Instance` itself.
     ///
-    /// `Instance` must not be dropped manually by Rust, because it&#39;s
+    /// `Instance` must not be dropped manually by Rust, because it's
     /// allocated manually with `alloc` and a specific layout (Rust
     /// would be able to drop `Instance` itself but it will imply a
     /// memory leak because of `alloc`).
     ///
-    /// No one in the code has a copy of the `Instance`&#39;s
+    /// No one in the code has a copy of the `Instance`'s
     /// pointer. `Self` is the only one.
     </span>instance: NonNull&lt;Instance&gt;,
 }
 
 <span class="doccomment">/// VMInstance are created with an InstanceAllocator
-/// and it will &quot;consume&quot; the memory
+/// and it will "consume" the memory
 /// So the Drop here actualy free it (else it would be leaked)
 </span><span class="kw">impl </span>Drop <span class="kw">for </span>VMInstance {
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -2537,9 +2548,9 @@
     /// method is a low-overhead way of saying “this is an extremely unsafe type
     /// to work with”.
     ///
-    /// Extreme care must be taken when working with `VMInstance` and it&#39;s
+    /// Extreme care must be taken when working with `VMInstance` and it's
     /// recommended to have relatively intimate knowledge of how it works
-    /// internally if you&#39;d like to do so. If possible it&#39;s recommended to use
+    /// internally if you'd like to do so. If possible it's recommended to use
     /// the `wasmer` crate API rather than this type since that is vetted for
     /// safety.
     ///
@@ -2599,7 +2610,7 @@
 
             <span class="kw">let </span><span class="kw-2">mut </span>instance_handle = allocator.into_vminstance(instance);
 
-            <span class="comment">// Set the funcrefs after we&#39;ve built the instance
+            <span class="comment">// Set the funcrefs after we've built the instance
             </span>{
                 <span class="kw">let </span>instance = instance_handle.instance_mut();
                 <span class="kw">let </span>vmctx_ptr = instance.vmctx_ptr();
@@ -2682,8 +2693,8 @@
     </span><span class="kw">pub unsafe fn </span>finish_instantiation(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         config: <span class="kw-2">&amp;</span>VMConfig,
-        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
-        data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">&#39;_</span>&gt;],
+        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
+        data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">'_</span>&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
         <span class="kw">let </span>instance = <span class="self">self</span>.instance_mut();
 
@@ -2808,7 +2819,7 @@
 
     <span class="doccomment">/// Grow memory in this instance by the specified amount of pages.
     ///
-    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
     </span><span class="kw">pub fn </span>memory_grow&lt;IntoPages&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -2828,7 +2839,7 @@
 
     <span class="doccomment">/// Grow table in this instance by the specified amount of pages.
     ///
-    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
     </span><span class="kw">pub fn </span>table_grow(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -2866,7 +2877,7 @@
 }
 
 <span class="doccomment">/// Compute the offset for a memory data initializer.
-</span><span class="kw">fn </span>get_memory_init_start(init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">&#39;_</span>&gt;, instance: <span class="kw-2">&amp;</span>Instance) -&gt; usize {
+</span><span class="kw">fn </span>get_memory_init_start(init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">'_</span>&gt;, instance: <span class="kw-2">&amp;</span>Instance) -&gt; usize {
     <span class="kw">let </span><span class="kw-2">mut </span>start = init.location.offset;
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(base) = init.location.base {
@@ -2885,11 +2896,11 @@
 
 <span class="attr">#[allow(clippy::mut_from_ref)]
 #[allow(dead_code)]
-</span><span class="doccomment">/// Return a byte-slice view of a memory&#39;s data.
-</span><span class="kw">unsafe fn </span>get_memory_slice&lt;<span class="lifetime">&#39;instance</span>&gt;(
-    init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">&#39;_</span>&gt;,
-    instance: <span class="kw-2">&amp;</span><span class="lifetime">&#39;instance </span>Instance,
-) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;instance </span><span class="kw-2">mut </span>[u8] {
+</span><span class="doccomment">/// Return a byte-slice view of a memory's data.
+</span><span class="kw">unsafe fn </span>get_memory_slice&lt;<span class="lifetime">'instance</span>&gt;(
+    init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">'_</span>&gt;,
+    instance: <span class="kw-2">&amp;</span><span class="lifetime">'instance </span>Instance,
+) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'instance </span><span class="kw-2">mut </span>[u8] {
     <span class="kw">let </span>memory = <span class="kw">if let </span><span class="prelude-val">Some</span>(local_memory_index) = instance
         .module
         .local_memory_index(init.location.memory_index)
@@ -2935,14 +2946,25 @@
             <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
-        <span class="kw">for </span>(i, func_idx) <span class="kw">in </span>init.elements.iter().enumerate() {
-            <span class="kw">let </span>anyfunc = instance.func_ref(<span class="kw-2">*</span>func_idx);
-            table
-                .set(
-                    u32::try_from(start + i).unwrap(),
-                    TableElement::FuncRef(anyfunc),
-                )
-                .unwrap();
+        <span class="kw">if let </span>wasmer_types::Type::FuncRef = table.ty().ty {
+            <span class="kw">for </span>(i, func_idx) <span class="kw">in </span>init.elements.iter().enumerate() {
+                <span class="kw">let </span>anyfunc = instance.func_ref(<span class="kw-2">*</span>func_idx);
+                table
+                    .set(
+                        u32::try_from(start + i).unwrap(),
+                        TableElement::FuncRef(anyfunc),
+                    )
+                    .unwrap();
+            }
+        } <span class="kw">else </span>{
+            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..init.elements.len() {
+                table
+                    .set(
+                        u32::try_from(start + i).unwrap(),
+                        TableElement::ExternRef(<span class="prelude-val">None</span>),
+                    )
+                    .unwrap();
+            }
         }
     }
 
@@ -2950,13 +2972,13 @@
 }
 
 <span class="doccomment">/// Initialize the `Instance::passive_elements` map by resolving the
-/// `ModuleInfo::passive_elements`&#39;s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
+/// `ModuleInfo::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
 /// this instance.
 </span><span class="kw">fn </span>initialize_passive_elements(instance: <span class="kw-2">&amp;</span>Instance) {
     <span class="kw">let </span><span class="kw-2">mut </span>passive_elements = instance.passive_elements.borrow_mut();
     <span class="macro">debug_assert!</span>(
         passive_elements.is_empty(),
-        <span class="string">&quot;should only be called once, at initialization time&quot;
+        <span class="string">"should only be called once, at initialization time"
     </span>);
 
     passive_elements.extend(
@@ -2977,7 +2999,7 @@
 <span class="doccomment">/// Initialize the table memory from the provided initializers.
 </span><span class="kw">fn </span>initialize_memories(
     instance: <span class="kw-2">&amp;mut </span>Instance,
-    data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">&#39;_</span>&gt;],
+    data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">'_</span>&gt;],
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
     <span class="kw">for </span>init <span class="kw">in </span>data_initializers {
         <span class="kw">let </span>memory = instance.get_vmmemory(init.location.memory_index);

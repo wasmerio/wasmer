@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/filesystem.rs`."><title>filesystem.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../virtual_fs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/filesystem.rs`."><title>filesystem.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1969,7 +1969,7 @@
 
 <span class="doccomment">/// The in-memory file system!
 ///
-/// This `FileSystem` type can be cloned, it&#39;s a light copy of the
+/// This `FileSystem` type can be cloned, it's a light copy of the
 /// `FileSystemInner` (which is behind a `Arc` + `RwLock`).
 </span><span class="attr">#[derive(Clone, Default)]
 </span><span class="kw">pub struct </span>FileSystem {
@@ -1985,7 +1985,7 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Uses a mmap&#39;ed file as a cache for file data thus removing the
+    <span class="doccomment">/// Uses a mmap'ed file as a cache for file data thus removing the
     /// need to copy the data into memory.
     ///
     /// This is especially important for journals as it means that the
@@ -2024,9 +2024,9 @@
 
         <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
             <span class="comment">// We need to take some care here because
-            // canonicalize_without_inode() doesn&#39;t accept Windows paths that
+            // canonicalize_without_inode() doesn't accept Windows paths that
             // start with a prefix (drive letters, UNC paths, etc.). If we
-            // somehow get one of those paths, we&#39;ll automatically trim it away.
+            // somehow get one of those paths, we'll automatically trim it away.
             </span><span class="kw">let </span><span class="kw-2">mut </span>components = source_path.components();
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(Component::Prefix(<span class="kw">_</span>)) = components.next() {
@@ -2076,15 +2076,15 @@
         <span class="comment">// Iterate all the directories and files in the other filesystem
         // and create references back to them in this filesystem
         </span><span class="kw">let </span><span class="kw-2">mut </span>remaining = VecDeque::new();
-        remaining.push_back(PathBuf::from(<span class="string">&quot;/&quot;</span>));
+        remaining.push_back(PathBuf::from(<span class="string">"/"</span>));
         <span class="kw">while let </span><span class="prelude-val">Some</span>(next) = remaining.pop_back() {
             <span class="kw">if </span>next
                 .file_name()
-                .map(|n| n.to_string_lossy().starts_with(<span class="string">&quot;.wh.&quot;</span>))
+                .map(|n| n.to_string_lossy().starts_with(<span class="string">".wh."</span>))
                 .unwrap_or(<span class="bool-val">false</span>)
             {
                 <span class="kw">let </span>rm = next.to_string_lossy();
-                <span class="kw">let </span>rm = <span class="kw-2">&amp;</span>rm[<span class="string">&quot;.wh.&quot;</span>.len()..];
+                <span class="kw">let </span>rm = <span class="kw-2">&amp;</span>rm[<span class="string">".wh."</span>.len()..];
                 <span class="kw">let </span>rm = PathBuf::from(rm);
                 <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_dir(<span class="self">self</span>, rm.as_path());
                 <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_file(<span class="self">self</span>, rm.as_path());
@@ -2114,9 +2114,9 @@
                         remaining.push_back(sub_dir.path());
                     }
                     <span class="prelude-val">Ok</span>(t) <span class="kw">if </span>t.is_file() =&gt; {
-                        <span class="kw">if </span>sub_dir.file_name().to_string_lossy().starts_with(<span class="string">&quot;.wh.&quot;</span>) {
+                        <span class="kw">if </span>sub_dir.file_name().to_string_lossy().starts_with(<span class="string">".wh."</span>) {
                             <span class="kw">let </span>rm = next.to_string_lossy();
-                            <span class="kw">let </span>rm = <span class="kw-2">&amp;</span>rm[<span class="string">&quot;.wh.&quot;</span>.len()..];
+                            <span class="kw">let </span>rm = <span class="kw-2">&amp;</span>rm[<span class="string">".wh."</span>.len()..];
                             <span class="kw">let </span>rm = PathBuf::from(rm);
                             <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_dir(<span class="self">self</span>, rm.as_path());
                             <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_file(<span class="self">self</span>, rm.as_path());
@@ -2147,7 +2147,7 @@
             </span><span class="kw">let </span>guard = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
             <span class="comment">// Canonicalize the path without checking the path exists,
-            // because it&#39;s about to be created.
+            // because it's about to be created.
             </span><span class="kw">let </span>path = guard.canonicalize_without_inode(target_path.as_path())<span class="question-mark">?</span>;
 
             <span class="comment">// Check the path has a parent.
@@ -2199,7 +2199,7 @@
 
             <span class="macro">assert_eq!</span>(
                 inode_of_directory, real_inode_of_directory,
-                <span class="string">&quot;new directory inode should have been correctly calculated&quot;</span>,
+                <span class="string">"new directory inode should have been correctly calculated"</span>,
             );
 
             <span class="comment">// Adding the new directory to its parent.
@@ -2236,7 +2236,7 @@
             }
         };
 
-        <span class="comment">// Check it&#39;s a directory and fetch the immediate children as `DirEntry`.
+        <span class="comment">// Check it's a directory and fetch the immediate children as `DirEntry`.
         </span><span class="kw">let </span>inode = guard.storage.get(inode_of_directory);
         <span class="kw">let </span>children = <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::Directory(DirectoryNode { children, .. })) =&gt; children
@@ -2273,7 +2273,7 @@
             </span><span class="kw">let </span>guard = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
             <span class="comment">// Canonicalize the path without checking the path exists,
-            // because it&#39;s about to be created.
+            // because it's about to be created.
             </span><span class="kw">let </span>path = guard.canonicalize_without_inode(path)<span class="question-mark">?</span>;
 
             <span class="comment">// Check the path has a parent.
@@ -2330,7 +2330,7 @@
 
             <span class="macro">assert_eq!</span>(
                 inode_of_directory, real_inode_of_directory,
-                <span class="string">&quot;new directory inode should have been correctly calculated&quot;</span>,
+                <span class="string">"new directory inode should have been correctly calculated"</span>,
             );
 
             <span class="comment">// Adding the new directory to its parent.
@@ -2400,7 +2400,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
         Box::pin(<span class="kw">async </span>{
             <span class="kw">let </span>name_of_to;
 
@@ -2503,7 +2503,7 @@
                         <span class="comment">// Update the file name, and update the modified time.
                         </span>fs.update_node_name(inode, name_of_to)<span class="question-mark">?</span>;
 
-                        <span class="comment">// The parents are different. Let&#39;s update them.
+                        <span class="comment">// The parents are different. Let's update them.
                         </span><span class="kw">if </span>inode_of_from_parent != inode_of_to_parent {
                             <span class="comment">// Remove the file from its parent, and update the
                             // modified time.
@@ -2642,12 +2642,12 @@
         fs: Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>fs: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt; = Arc::new(fs);
-        <span class="self">self</span>.mount(path.to_owned(), <span class="kw-2">&amp;</span>fs, PathBuf::from(<span class="string">&quot;/&quot;</span>))
+        <span class="self">self</span>.mount(path.to_owned(), <span class="kw-2">&amp;</span>fs, PathBuf::from(<span class="string">"/"</span>))
     }
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>FileSystem {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">let </span>fs: <span class="kw-2">&amp;</span>FileSystemInner = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.read().unwrap();
 
         fs.fmt(formatter)
@@ -2665,7 +2665,7 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">enum </span>InodeResolution {
     Found(Inode),
-    Redirect(Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync + <span class="lifetime">&#39;static</span>&gt;, PathBuf),
+    Redirect(Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync + <span class="lifetime">'static</span>&gt;, PathBuf),
 }
 
 <span class="kw">impl </span>InodeResolution {
@@ -2674,7 +2674,7 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Found(a) =&gt; <span class="kw-2">*</span>a,
             <span class="self">Self</span>::Redirect(..) =&gt; {
-                <span class="macro">panic!</span>(<span class="string">&quot;failed to unwrap the inode as the resolution is a redirect&quot;</span>);
+                <span class="macro">panic!</span>(<span class="string">"failed to unwrap the inode as the resolution is a redirect"</span>);
             }
         }
     }
@@ -2683,7 +2683,7 @@
 <span class="kw">impl </span>FileSystemInner {
     <span class="doccomment">/// Get the inode associated to a path if it exists.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>inode_of(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;InodeResolution&gt; {
-        <span class="comment">// SAFETY: The root node always exists, so it&#39;s safe to unwrap here.
+        <span class="comment">// SAFETY: The root node always exists, so it's safe to unwrap here.
         </span><span class="kw">let </span><span class="kw-2">mut </span>node = <span class="self">self</span>.storage.get(ROOT_INODE).unwrap();
         <span class="kw">let </span><span class="kw-2">mut </span>components = path.components();
 
@@ -2948,18 +2948,18 @@
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>new_path = PathBuf::with_capacity(path.as_os_str().len());
-        new_path.push(<span class="string">&quot;/&quot;</span>);
+        new_path.push(<span class="string">"/"</span>);
 
         <span class="kw">for </span>component <span class="kw">in </span>components {
             <span class="kw">match </span>component {
-                <span class="comment">// That&#39;s an error to get a `RootDir` a second time.
+                <span class="comment">// That's an error to get a `RootDir` a second time.
                 </span>Component::RootDir =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::UnknownError),
 
                 <span class="comment">// Nothing to do on `new_path`.
                 </span>Component::CurDir =&gt; (),
 
                 <span class="comment">// Pop the lastly inserted component on `new_path` if
-                // any, otherwise it&#39;s an error.
+                // any, otherwise it's an error.
                 </span>Component::ParentDir =&gt; {
                     <span class="kw">if </span>!new_path.pop() {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
@@ -2971,7 +2971,7 @@
                     new_path.push(name);
                 }
 
-                <span class="comment">// We don&#39;t support Windows path prefix.
+                <span class="comment">// We don't support Windows path prefix.
                 </span>Component::Prefix(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput),
             }
         }
@@ -2981,36 +2981,36 @@
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>FileSystemInner {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="macro">writeln!</span>(
             formatter,
-            <span class="string">&quot;\n{inode:&lt;8}    {ty:&lt;4}    name&quot;</span>,
-            inode = <span class="string">&quot;inode&quot;</span>,
-            ty = <span class="string">&quot;type&quot;</span>,
+            <span class="string">"\n{inode:&lt;8}    {ty:&lt;4}    name"</span>,
+            inode = <span class="string">"inode"</span>,
+            ty = <span class="string">"type"</span>,
         )<span class="question-mark">?</span>;
 
         <span class="kw">fn </span>debug(
             nodes: Vec&lt;<span class="kw-2">&amp;</span>Node&gt;,
             slf: <span class="kw-2">&amp;</span>FileSystemInner,
-            formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;,
+            formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;,
             indentation: usize,
         ) -&gt; fmt::Result {
             <span class="kw">for </span>node <span class="kw">in </span>nodes {
                 <span class="macro">writeln!</span>(
                     formatter,
-                    <span class="string">&quot;{inode:&lt;8}    {ty:&lt;4}   {indentation_symbol:indentation_width$}{name}&quot;</span>,
+                    <span class="string">"{inode:&lt;8}    {ty:&lt;4}   {indentation_symbol:indentation_width$}{name}"</span>,
                     inode = node.inode(),
                     ty = <span class="kw">match </span>node {
-                        Node::File { .. } =&gt; <span class="string">&quot;file&quot;</span>,
-                        Node::OffloadedFile { .. } =&gt; <span class="string">&quot;offloaded-file&quot;</span>,
-                        Node::ReadOnlyFile { .. } =&gt; <span class="string">&quot;ro-file&quot;</span>,
-                        Node::ArcFile { .. } =&gt; <span class="string">&quot;arc-file&quot;</span>,
-                        Node::CustomFile { .. } =&gt; <span class="string">&quot;custom-file&quot;</span>,
-                        Node::Directory { .. } =&gt; <span class="string">&quot;dir&quot;</span>,
-                        Node::ArcDirectory { .. } =&gt; <span class="string">&quot;arc-dir&quot;</span>,
+                        Node::File { .. } =&gt; <span class="string">"file"</span>,
+                        Node::OffloadedFile { .. } =&gt; <span class="string">"offloaded-file"</span>,
+                        Node::ReadOnlyFile { .. } =&gt; <span class="string">"ro-file"</span>,
+                        Node::ArcFile { .. } =&gt; <span class="string">"arc-file"</span>,
+                        Node::CustomFile { .. } =&gt; <span class="string">"custom-file"</span>,
+                        Node::Directory { .. } =&gt; <span class="string">"dir"</span>,
+                        Node::ArcDirectory { .. } =&gt; <span class="string">"arc-dir"</span>,
                     },
                     name = node.name().to_string_lossy(),
-                    indentation_symbol = <span class="string">&quot; &quot;</span>,
+                    indentation_symbol = <span class="string">" "</span>,
                     indentation_width = indentation * <span class="number">2 </span>+ <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
 
@@ -3046,7 +3046,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>slab = Slab::new();
         slab.insert(Node::Directory(DirectoryNode {
             inode: ROOT_INODE,
-            name: OsString::from(<span class="string">&quot;/&quot;</span>),
+            name: OsString::from(<span class="string">"/"</span>),
             children: Vec::new(),
             metadata: Metadata {
                 ft: FileType {
@@ -3092,7 +3092,7 @@
 
     <span class="kw">use crate</span>::{mem_fs::<span class="kw-2">*</span>, ops, DirEntry, FileSystem <span class="kw">as </span>FS, FileType, FsError};
 
-    <span class="macro">macro_rules! </span>path {
+    <span class="macro">macro_rules!</span> path {
         (<span class="macro-nonterminal">$path</span>:expr) =&gt; {
             std::path::Path::new(<span class="macro-nonterminal">$path</span>)
         };
@@ -3107,7 +3107,7 @@
         <span class="kw">let </span>fs = FileSystem::default();
         <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
 
-        <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">1</span>, <span class="string">&quot;storage has a root&quot;</span>);
+        <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">1</span>, <span class="string">"storage has a root"</span>);
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
                 fs_inner.storage.get(ROOT_INODE),
@@ -3116,9 +3116,9 @@
                     name,
                     children,
                     ..
-                })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children.is_empty(),
+                })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children.is_empty(),
             ),
-            <span class="string">&quot;storage has a well-defined root&quot;</span>,
+            <span class="string">"storage has a well-defined root"</span>,
         );
     }
 
@@ -3127,19 +3127,19 @@
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)),
+            fs.create_dir(<span class="macro">path!</span>(<span class="string">"/"</span>)),
             <span class="prelude-val">Err</span>(FsError::AlreadyExists),
-            <span class="string">&quot;creating the root which already exists&quot;</span>,
+            <span class="string">"creating the root which already exists"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating a directory&quot;</span>,);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating a directory"</span>,);
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
             <span class="macro">assert_eq!</span>(
                 fs_inner.storage.len(),
                 <span class="number">2</span>,
-                <span class="string">&quot;storage contains the new directory&quot;
+                <span class="string">"storage contains the new directory"
             </span>);
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3149,9 +3149,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
                 ),
-                <span class="string">&quot;the root is updated and well-defined&quot;</span>,
+                <span class="string">"the root is updated and well-defined"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3161,16 +3161,16 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;foo&quot; </span>&amp;&amp; children.is_empty(),
+                    })) <span class="kw">if </span>name == <span class="string">"foo" </span>&amp;&amp; children.is_empty(),
                 ),
-                <span class="string">&quot;the new directory is well-defined&quot;</span>,
+                <span class="string">"the new directory is well-defined"</span>,
             );
         }
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar&quot;</span>)),
+            fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/bar"</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating a sub-directory&quot;</span>,
+            <span class="string">"creating a sub-directory"</span>,
         );
 
         {
@@ -3178,7 +3178,7 @@
             <span class="macro">assert_eq!</span>(
                 fs_inner.storage.len(),
                 <span class="number">3</span>,
-                <span class="string">&quot;storage contains the new sub-directory&quot;</span>,
+                <span class="string">"storage contains the new sub-directory"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3188,9 +3188,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
                 ),
-                <span class="string">&quot;the root is updated again and well-defined&quot;</span>,
+                <span class="string">"the root is updated again and well-defined"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3200,9 +3200,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;foo&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">2</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"foo" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">2</span>]
                 ),
-                <span class="string">&quot;the new directory is updated and well-defined&quot;</span>,
+                <span class="string">"the new directory is updated and well-defined"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3212,9 +3212,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;bar&quot; </span>&amp;&amp; children.is_empty()
+                    })) <span class="kw">if </span>name == <span class="string">"bar" </span>&amp;&amp; children.is_empty()
                 ),
-                <span class="string">&quot;the new directory is well-defined&quot;</span>,
+                <span class="string">"the new directory is well-defined"</span>,
             );
         }
     }
@@ -3224,23 +3224,23 @@
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)),
+            fs.remove_dir(<span class="macro">path!</span>(<span class="string">"/"</span>)),
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
-            <span class="string">&quot;removing a directory that has no parent&quot;</span>,
+            <span class="string">"removing a directory that has no parent"</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)),
+            fs.remove_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)),
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
-            <span class="string">&quot;cannot remove a directory that doesn&#39;t exist&quot;</span>,
+            <span class="string">"cannot remove a directory that doesn't exist"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating a directory&quot;</span>,);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating a directory"</span>,);
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar&quot;</span>)),
+            fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/bar"</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating a sub-directory&quot;</span>,
+            <span class="string">"creating a sub-directory"</span>,
         );
 
         {
@@ -3248,30 +3248,30 @@
             <span class="macro">assert_eq!</span>(
                 fs_inner.storage.len(),
                 <span class="number">3</span>,
-                <span class="string">&quot;storage contains all the directories&quot;</span>,
+                <span class="string">"storage contains all the directories"</span>,
             );
         }
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)),
+            fs.remove_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)),
             <span class="prelude-val">Err</span>(FsError::DirectoryNotEmpty),
-            <span class="string">&quot;removing a directory that has children&quot;</span>,
+            <span class="string">"removing a directory that has children"</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar&quot;</span>)),
+            fs.remove_dir(<span class="macro">path!</span>(<span class="string">"/foo/bar"</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;removing a sub-directory&quot;</span>,
+            <span class="string">"removing a sub-directory"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.remove_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;removing a directory&quot;</span>,);
+        <span class="macro">assert_eq!</span>(fs.remove_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"removing a directory"</span>,);
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
             <span class="macro">assert_eq!</span>(
                 fs_inner.storage.len(),
                 <span class="number">1</span>,
-                <span class="string">&quot;storage contains all the directories&quot;</span>,
+                <span class="string">"storage contains all the directories"</span>,
             );
         }
     }
@@ -3281,55 +3281,55 @@
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="kw">let </span>fs2 = FileSystem::default();
-        fs2.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/boz&quot;</span>)).unwrap();
+        fs2.create_dir(<span class="macro">path!</span>(<span class="string">"/boz"</span>)).unwrap();
         <span class="kw">let </span>arc_fs2: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt; = Arc::new(fs2);
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>,
+            fs.rename(<span class="macro">path!</span>(<span class="string">"/"</span>), <span class="macro">path!</span>(<span class="string">"/bar"</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
-            <span class="string">&quot;renaming a directory that has no parent&quot;</span>,
+            <span class="string">"renaming a directory that has no parent"</span>,
         );
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)).<span class="kw">await</span>,
+            fs.rename(<span class="macro">path!</span>(<span class="string">"/foo"</span>), <span class="macro">path!</span>(<span class="string">"/"</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
-            <span class="string">&quot;renaming to a directory that has no parent&quot;</span>,
+            <span class="string">"renaming to a directory that has no parent"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/qux&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/qux"</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/baz&quot;</span>)).<span class="kw">await</span>,
+            fs.rename(<span class="macro">path!</span>(<span class="string">"/foo"</span>), <span class="macro">path!</span>(<span class="string">"/bar/baz"</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
-            <span class="string">&quot;renaming to a directory that has parent that doesn&#39;t exist&quot;</span>,
+            <span class="string">"renaming to a directory that has parent that doesn't exist"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/bar"</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert!</span>(
             fs.new_open_options()
                 .write(<span class="bool-val">true</span>)
                 .create_new(<span class="bool-val">true</span>)
-                .open(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello1.txt&quot;</span>))
+                .open(<span class="macro">path!</span>(<span class="string">"/bar/hello1.txt"</span>))
                 .is_ok(),
-            <span class="string">&quot;creating a new file (`hello1.txt`)&quot;</span>,
+            <span class="string">"creating a new file (`hello1.txt`)"</span>,
         );
         <span class="macro">assert!</span>(
             fs.new_open_options()
                 .write(<span class="bool-val">true</span>)
                 .create_new(<span class="bool-val">true</span>)
-                .open(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello2.txt&quot;</span>))
+                .open(<span class="macro">path!</span>(<span class="string">"/bar/hello2.txt"</span>))
                 .is_ok(),
-            <span class="string">&quot;creating a new file (`hello2.txt`)&quot;</span>,
+            <span class="string">"creating a new file (`hello2.txt`)"</span>,
         );
 
-        fs.mount(<span class="macro">path!</span>(buf <span class="string">&quot;/mnt&quot;</span>), <span class="kw-2">&amp;</span>arc_fs2, <span class="macro">path!</span>(buf <span class="string">&quot;/&quot;</span>))
+        fs.mount(<span class="macro">path!</span>(buf <span class="string">"/mnt"</span>), <span class="kw-2">&amp;</span>arc_fs2, <span class="macro">path!</span>(buf <span class="string">"/"</span>))
             .unwrap();
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
 
-            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">7</span>, <span class="string">&quot;storage has all files&quot;</span>);
+            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">7</span>, <span class="string">"storage has all files"</span>);
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
                     fs_inner.storage.get(ROOT_INODE),
@@ -3338,9 +3338,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">3</span>, <span class="number">6</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">3</span>, <span class="number">6</span>]
                 ),
-                <span class="string">&quot;`/` contains `foo` and `bar` and `mnt`&quot;</span>,
+                <span class="string">"`/` contains `foo` and `bar` and `mnt`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3350,9 +3350,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;foo&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">2</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"foo" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">2</span>]
                 ),
-                <span class="string">&quot;`foo` contains `qux`&quot;</span>,
+                <span class="string">"`foo` contains `qux`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3362,9 +3362,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;qux&quot; </span>&amp;&amp; children.is_empty()
+                    })) <span class="kw">if </span>name == <span class="string">"qux" </span>&amp;&amp; children.is_empty()
                 ),
-                <span class="string">&quot;`qux` is empty&quot;</span>,
+                <span class="string">"`qux` is empty"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3374,9 +3374,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;bar&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">5</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"bar" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">5</span>]
                 ),
-                <span class="string">&quot;`bar` is contains `hello.txt`&quot;</span>,
+                <span class="string">"`bar` is contains `hello.txt`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3385,9 +3385,9 @@
                         inode: <span class="number">4</span>,
                         name,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;hello1.txt&quot;
+                    })) <span class="kw">if </span>name == <span class="string">"hello1.txt"
                 </span>),
-                <span class="string">&quot;`hello1.txt` exists&quot;</span>,
+                <span class="string">"`hello1.txt` exists"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3396,41 +3396,41 @@
                         inode: <span class="number">5</span>,
                         name,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;hello2.txt&quot;
+                    })) <span class="kw">if </span>name == <span class="string">"hello2.txt"
                 </span>),
-                <span class="string">&quot;`hello2.txt` exists&quot;</span>,
+                <span class="string">"`hello2.txt` exists"</span>,
             );
         }
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello2.txt&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/foo/world2.txt&quot;</span>))
+            fs.rename(<span class="macro">path!</span>(<span class="string">"/bar/hello2.txt"</span>), <span class="macro">path!</span>(<span class="string">"/foo/world2.txt"</span>))
                 .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;renaming (and moving) a file&quot;</span>,
+            <span class="string">"renaming (and moving) a file"</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/baz&quot;</span>)).<span class="kw">await</span>,
+            fs.rename(<span class="macro">path!</span>(<span class="string">"/foo"</span>), <span class="macro">path!</span>(<span class="string">"/bar/baz"</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;renaming a directory&quot;</span>,
+            <span class="string">"renaming a directory"</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/mnt/boz&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/mnt/cat&quot;</span>)).<span class="kw">await</span>,
+            fs.rename(<span class="macro">path!</span>(<span class="string">"/mnt/boz"</span>), <span class="macro">path!</span>(<span class="string">"/mnt/cat"</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;renaming a directory within a mounted FS&quot;
+            <span class="string">"renaming a directory within a mounted FS"
         </span>);
 
         <span class="macro">assert!</span>(
-            arc_fs2.read_dir(<span class="macro">path!</span>(<span class="string">&quot;/cat&quot;</span>)).is_ok(),
-            <span class="string">&quot;The directory was renamed in the inner FS&quot;
+            arc_fs2.read_dir(<span class="macro">path!</span>(<span class="string">"/cat"</span>)).is_ok(),
+            <span class="string">"The directory was renamed in the inner FS"
         </span>);
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello1.txt&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/world1.txt&quot;</span>))
+            fs.rename(<span class="macro">path!</span>(<span class="string">"/bar/hello1.txt"</span>), <span class="macro">path!</span>(<span class="string">"/bar/world1.txt"</span>))
                 .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;renaming a file (in the same directory)&quot;</span>,
+            <span class="string">"renaming a file (in the same directory)"</span>,
         );
 
         {
@@ -3441,7 +3441,7 @@
             <span class="macro">assert_eq!</span>(
                 fs_inner.storage.len(),
                 <span class="number">7</span>,
-                <span class="string">&quot;storage has still all directories&quot;
+                <span class="string">"storage has still all directories"
             </span>);
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3451,9 +3451,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">3</span>, <span class="number">6</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">3</span>, <span class="number">6</span>]
                 ),
-                <span class="string">&quot;`/` contains `bar` and `mnt`&quot;</span>,
+                <span class="string">"`/` contains `bar` and `mnt`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3463,9 +3463,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;baz&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">5</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"baz" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">5</span>]
                 ),
-                <span class="string">&quot;`foo` has been renamed to `baz` and contains `qux` and `world2.txt`&quot;</span>,
+                <span class="string">"`foo` has been renamed to `baz` and contains `qux` and `world2.txt`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3475,9 +3475,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;qux&quot; </span>&amp;&amp; children.is_empty()
+                    })) <span class="kw">if </span>name == <span class="string">"qux" </span>&amp;&amp; children.is_empty()
                 ),
-                <span class="string">&quot;`qux` is empty&quot;</span>,
+                <span class="string">"`qux` is empty"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3487,9 +3487,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;bar&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">1</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"bar" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">1</span>]
                 ),
-                <span class="string">&quot;`bar` contains `bar` (ex `foo`)  and `world1.txt` (ex `hello1`)&quot;</span>,
+                <span class="string">"`bar` contains `bar` (ex `foo`)  and `world1.txt` (ex `hello1`)"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3498,9 +3498,9 @@
                         inode: <span class="number">4</span>,
                         name,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;world1.txt&quot;
+                    })) <span class="kw">if </span>name == <span class="string">"world1.txt"
                 </span>),
-                <span class="string">&quot;`hello1.txt` has been renamed to `world1.txt`&quot;</span>,
+                <span class="string">"`hello1.txt` has been renamed to `world1.txt`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3509,9 +3509,9 @@
                         inode: <span class="number">5</span>,
                         name,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;world2.txt&quot;
+                    })) <span class="kw">if </span>name == <span class="string">"world2.txt"
                 </span>),
-                <span class="string">&quot;`hello2.txt` has been renamed to `world2.txt`&quot;</span>,
+                <span class="string">"`hello2.txt` has been renamed to `world2.txt`"</span>,
             );
         }
     }
@@ -3522,7 +3522,7 @@
         <span class="kw">use </span>std::time::Duration;
 
         <span class="kw">let </span>fs = FileSystem::default();
-        <span class="kw">let </span>root_metadata = fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>));
+        <span class="kw">let </span>root_metadata = fs.metadata(<span class="macro">path!</span>(<span class="string">"/"</span>));
 
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(
             root_metadata,
@@ -3535,9 +3535,9 @@
             </span>}) <span class="kw">if </span>accessed == created &amp;&amp; created == modified &amp;&amp; modified &gt; <span class="number">0
         </span>));
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()));
 
-        <span class="kw">let </span>foo_metadata = fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>));
+        <span class="kw">let </span>foo_metadata = fs.metadata(<span class="macro">path!</span>(<span class="string">"/foo"</span>));
         <span class="macro">assert!</span>(foo_metadata.is_ok());
         <span class="kw">let </span>foo_metadata = foo_metadata.unwrap();
 
@@ -3554,11 +3554,11 @@
 
         sleep(Duration::from_secs(<span class="number">3</span>));
 
-        <span class="macro">assert_eq!</span>(fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.rename(<span class="macro">path!</span>(<span class="string">"/foo"</span>), <span class="macro">path!</span>(<span class="string">"/bar"</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
-                fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)),
+                fs.metadata(<span class="macro">path!</span>(<span class="string">"/bar"</span>)),
                 <span class="prelude-val">Ok</span>(Metadata {
                     ft: FileType { dir: <span class="bool-val">true</span>, .. },
                     accessed,
@@ -3570,11 +3570,11 @@
                     created == foo_metadata.created &amp;&amp;
                     modified &gt; foo_metadata.modified
             ),
-            <span class="string">&quot;the modified time is updated when file is renamed&quot;</span>,
+            <span class="string">"the modified time is updated when file is renamed"</span>,
         );
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
-                fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)),
+                fs.metadata(<span class="macro">path!</span>(<span class="string">"/"</span>)),
                 <span class="prelude-val">Ok</span>(Metadata {
                     ft: FileType { dir: <span class="bool-val">true</span>, .. },
                     accessed,
@@ -3586,8 +3586,8 @@
                     created &lt;= foo_metadata.created &amp;&amp;
                     modified &gt; foo_metadata.modified
             ),
-            <span class="string">&quot;the modified time of the parent is updated when file is renamed \n{:?}\n{:?}&quot;</span>,
-            fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)),
+            <span class="string">"the modified time of the parent is updated when file is renamed \n{:?}\n{:?}"</span>,
+            fs.metadata(<span class="macro">path!</span>(<span class="string">"/"</span>)),
             foo_metadata,
         );
     }
@@ -3600,15 +3600,15 @@
             fs.new_open_options()
                 .write(<span class="bool-val">true</span>)
                 .create_new(<span class="bool-val">true</span>)
-                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
+                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
                 .is_ok(),
-            <span class="string">&quot;creating a new file&quot;</span>,
+            <span class="string">"creating a new file"</span>,
         );
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
 
-            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">2</span>, <span class="string">&quot;storage has all files&quot;</span>);
+            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">2</span>, <span class="string">"storage has all files"</span>);
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
                     fs_inner.storage.get(ROOT_INODE),
@@ -3617,9 +3617,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
                 ),
-                <span class="string">&quot;`/` contains `foo.txt`&quot;</span>,
+                <span class="string">"`/` contains `foo.txt`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -3628,22 +3628,22 @@
                         inode: <span class="number">1</span>,
                         name,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;foo.txt&quot;
+                    })) <span class="kw">if </span>name == <span class="string">"foo.txt"
                 </span>),
-                <span class="string">&quot;`foo.txt` exists and is a file&quot;</span>,
+                <span class="string">"`foo.txt` exists and is a file"</span>,
             );
         }
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
+            fs.remove_file(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;removing a file that exists&quot;</span>,
+            <span class="string">"removing a file that exists"</span>,
         );
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
 
-            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">1</span>, <span class="string">&quot;storage no longer has the file&quot;</span>);
+            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">1</span>, <span class="string">"storage no longer has the file"</span>);
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
                     fs_inner.storage.get(ROOT_INODE),
@@ -3652,16 +3652,16 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children.is_empty()
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children.is_empty()
                 ),
-                <span class="string">&quot;`/` is empty&quot;</span>,
+                <span class="string">"`/` is empty"</span>,
             );
         }
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
+            fs.remove_file(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
-            <span class="string">&quot;removing a file that exists&quot;</span>,
+            <span class="string">"removing a file that exists"</span>,
         );
     }
 
@@ -3669,30 +3669,30 @@
     </span><span class="kw">async fn </span>test_readdir() {
         <span class="kw">let </span>fs = FileSystem::default();
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `foo`&quot;</span>);
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/sub&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `sub`&quot;</span>);
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/baz&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `foo`"</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/sub"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `sub`"</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/bar"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `bar`"</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/baz"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `bar`"</span>);
         <span class="macro">assert!</span>(
             fs.new_open_options()
                 .write(<span class="bool-val">true</span>)
                 .create_new(<span class="bool-val">true</span>)
-                .open(<span class="macro">path!</span>(<span class="string">&quot;/a.txt&quot;</span>))
+                .open(<span class="macro">path!</span>(<span class="string">"/a.txt"</span>))
                 .is_ok(),
-            <span class="string">&quot;creating `a.txt`&quot;</span>,
+            <span class="string">"creating `a.txt`"</span>,
         );
         <span class="macro">assert!</span>(
             fs.new_open_options()
                 .write(<span class="bool-val">true</span>)
                 .create_new(<span class="bool-val">true</span>)
-                .open(<span class="macro">path!</span>(<span class="string">&quot;/b.txt&quot;</span>))
+                .open(<span class="macro">path!</span>(<span class="string">"/b.txt"</span>))
                 .is_ok(),
-            <span class="string">&quot;creating `b.txt`&quot;</span>,
+            <span class="string">"creating `b.txt`"</span>,
         );
 
-        <span class="kw">let </span>readdir = fs.read_dir(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>));
+        <span class="kw">let </span>readdir = fs.read_dir(<span class="macro">path!</span>(<span class="string">"/"</span>));
 
-        <span class="macro">assert!</span>(readdir.is_ok(), <span class="string">&quot;reading the directory `/`&quot;</span>);
+        <span class="macro">assert!</span>(readdir.is_ok(), <span class="string">"reading the directory `/`"</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>readdir = readdir.unwrap();
 
@@ -3703,9 +3703,9 @@
                     path,
                     metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
                 }))
-                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">&quot;/foo&quot;</span>) &amp;&amp; ft.is_dir()
+                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/foo"</span>) &amp;&amp; ft.is_dir()
             ),
-            <span class="string">&quot;checking entry #1&quot;</span>,
+            <span class="string">"checking entry #1"</span>,
         );
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
@@ -3714,9 +3714,9 @@
                     path,
                     metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
                 }))
-                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">&quot;/bar&quot;</span>) &amp;&amp; ft.is_dir()
+                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/bar"</span>) &amp;&amp; ft.is_dir()
             ),
-            <span class="string">&quot;checking entry #2&quot;</span>,
+            <span class="string">"checking entry #2"</span>,
         );
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
@@ -3725,9 +3725,9 @@
                     path,
                     metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
                 }))
-                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">&quot;/baz&quot;</span>) &amp;&amp; ft.is_dir()
+                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/baz"</span>) &amp;&amp; ft.is_dir()
             ),
-            <span class="string">&quot;checking entry #3&quot;</span>,
+            <span class="string">"checking entry #3"</span>,
         );
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
@@ -3736,9 +3736,9 @@
                     path,
                     metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
                 }))
-                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">&quot;/a.txt&quot;</span>) &amp;&amp; ft.is_file()
+                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/a.txt"</span>) &amp;&amp; ft.is_file()
             ),
-            <span class="string">&quot;checking entry #4&quot;</span>,
+            <span class="string">"checking entry #4"</span>,
         );
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
@@ -3747,127 +3747,127 @@
                     path,
                     metadata: <span class="prelude-val">Ok</span>(Metadata { ft, .. }),
                 }))
-                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">&quot;/b.txt&quot;</span>) &amp;&amp; ft.is_file()
+                    <span class="kw">if </span>path == <span class="macro">path!</span>(buf <span class="string">"/b.txt"</span>) &amp;&amp; ft.is_file()
             ),
-            <span class="string">&quot;checking entry #5&quot;</span>,
+            <span class="string">"checking entry #5"</span>,
         );
-        <span class="macro">assert!</span>(readdir.next().is_none(), <span class="string">&quot;no more entries&quot;</span>);
+        <span class="macro">assert!</span>(readdir.next().is_none(), <span class="string">"no more entries"</span>);
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_canonicalize() {
         <span class="kw">let </span>fs = FileSystem::default();
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `foo`&quot;</span>);
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `foo`"</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/bar"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating `bar`"</span>);
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/baz&quot;</span>)),
+            fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/bar/baz"</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `baz`&quot;</span>,
+            <span class="string">"creating `baz`"</span>,
         );
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/baz/qux&quot;</span>)),
+            fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/bar/baz/qux"</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `qux`&quot;</span>,
+            <span class="string">"creating `qux`"</span>,
         );
         <span class="macro">assert!</span>(
             fs.new_open_options()
                 .write(<span class="bool-val">true</span>)
                 .create_new(<span class="bool-val">true</span>)
-                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/baz/qux/hello.txt&quot;</span>))
+                .open(<span class="macro">path!</span>(<span class="string">"/foo/bar/baz/qux/hello.txt"</span>))
                 .is_ok(),
-            <span class="string">&quot;creating `hello.txt`&quot;</span>,
+            <span class="string">"creating `hello.txt`"</span>,
         );
 
         <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
 
         <span class="macro">assert_eq!</span>(
             fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>))
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"/"</span>))
                 .map(|(a, b)| (a, b.unwrap())),
-            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">&quot;/&quot;</span>), ROOT_INODE)),
-            <span class="string">&quot;canonicalizing `/`&quot;</span>,
+            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">"/"</span>), ROOT_INODE)),
+            <span class="string">"canonicalizing `/`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;foo&quot;</span>))
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"foo"</span>))
                 .map(|(a, b)| (a, b.unwrap())),
             <span class="prelude-val">Err</span>(FsError::InvalidInput),
-            <span class="string">&quot;canonicalizing `foo`&quot;</span>,
+            <span class="string">"canonicalizing `foo`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;/././././foo/&quot;</span>))
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"/././././foo/"</span>))
                 .map(|(a, b)| (a, b.unwrap())),
-            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">&quot;/foo&quot;</span>), <span class="number">1</span>)),
-            <span class="string">&quot;canonicalizing `/././././foo/`&quot;</span>,
+            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">"/foo"</span>), <span class="number">1</span>)),
+            <span class="string">"canonicalizing `/././././foo/`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar//&quot;</span>))
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"/foo/bar//"</span>))
                 .map(|(a, b)| (a, b.unwrap())),
-            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">&quot;/foo/bar&quot;</span>), <span class="number">2</span>)),
-            <span class="string">&quot;canonicalizing `/foo/bar//`&quot;</span>,
+            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">"/foo/bar"</span>), <span class="number">2</span>)),
+            <span class="string">"canonicalizing `/foo/bar//`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/../bar&quot;</span>))
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"/foo/bar/../bar"</span>))
                 .map(|(a, b)| (a, b.unwrap())),
-            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">&quot;/foo/bar&quot;</span>), <span class="number">2</span>)),
-            <span class="string">&quot;canonicalizing `/foo/bar/../bar`&quot;</span>,
+            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">"/foo/bar"</span>), <span class="number">2</span>)),
+            <span class="string">"canonicalizing `/foo/bar/../bar`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/../..&quot;</span>))
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"/foo/bar/../.."</span>))
                 .map(|(a, b)| (a, b.unwrap())),
-            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">&quot;/&quot;</span>), ROOT_INODE)),
-            <span class="string">&quot;canonicalizing `/foo/bar/../..`&quot;</span>,
+            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">"/"</span>), ROOT_INODE)),
+            <span class="string">"canonicalizing `/foo/bar/../..`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/../../..&quot;</span>))
-                .map(|(a, b)| (a, b.unwrap())),
-            <span class="prelude-val">Err</span>(FsError::InvalidInput),
-            <span class="string">&quot;canonicalizing `/foo/bar/../../..`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs_inner
-                .canonicalize(<span class="macro">path!</span>(<span class="string">&quot;C:/foo/&quot;</span>))
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"/foo/bar/../../.."</span>))
                 .map(|(a, b)| (a, b.unwrap())),
             <span class="prelude-val">Err</span>(FsError::InvalidInput),
-            <span class="string">&quot;canonicalizing `C:/foo/`&quot;</span>,
+            <span class="string">"canonicalizing `/foo/bar/../../..`"</span>,
+        );
+        <span class="macro">assert_eq!</span>(
+            fs_inner
+                .canonicalize(<span class="macro">path!</span>(<span class="string">"C:/foo/"</span>))
+                .map(|(a, b)| (a, b.unwrap())),
+            <span class="prelude-val">Err</span>(FsError::InvalidInput),
+            <span class="string">"canonicalizing `C:/foo/`"</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs_inner
                 .canonicalize(<span class="macro">path!</span>(
-                    <span class="string">&quot;/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt&quot;
+                    <span class="string">"/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
                 </span>))
                 .map(|(a, b)| (a, b.unwrap())),
-            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">&quot;/foo/bar/baz/qux/hello.txt&quot;</span>), <span class="number">5</span>)),
-            <span class="string">&quot;canonicalizing a crazily stupid path name&quot;</span>,
+            <span class="prelude-val">Ok</span>((<span class="macro">path!</span>(buf <span class="string">"/foo/bar/baz/qux/hello.txt"</span>), <span class="number">5</span>)),
+            <span class="string">"canonicalizing a crazily stupid path name"</span>,
         );
     }
 
     <span class="attr">#[tokio::test]
-    #[ignore = <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]
+    #[ignore = <span class="string">"Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678"</span>]
     </span><span class="kw">async fn </span>mount_to_overlapping_directories() {
         <span class="kw">let </span>top_level = FileSystem::default();
-        ops::touch(<span class="kw-2">&amp;</span>top_level, <span class="string">&quot;/file.txt&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>top_level, <span class="string">"/file.txt"</span>).unwrap();
         <span class="kw">let </span>nested = FileSystem::default();
-        ops::touch(<span class="kw-2">&amp;</span>nested, <span class="string">&quot;/another-file.txt&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>nested, <span class="string">"/another-file.txt"</span>).unwrap();
         <span class="kw">let </span>top_level: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt; = Arc::new(top_level);
         <span class="kw">let </span>nested: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt; = Arc::new(nested);
 
         <span class="kw">let </span>fs = FileSystem::default();
-        fs.mount(<span class="string">&quot;/top-level&quot;</span>.into(), <span class="kw-2">&amp;</span>top_level, <span class="string">&quot;/&quot;</span>.into())
+        fs.mount(<span class="string">"/top-level"</span>.into(), <span class="kw-2">&amp;</span>top_level, <span class="string">"/"</span>.into())
             .unwrap();
-        fs.mount(<span class="string">&quot;/top-level/nested&quot;</span>.into(), <span class="kw-2">&amp;</span>nested, <span class="string">&quot;/&quot;</span>.into())
+        fs.mount(<span class="string">"/top-level/nested"</span>.into(), <span class="kw-2">&amp;</span>nested, <span class="string">"/"</span>.into())
             .unwrap();
 
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/nested&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/nested/another-file.txt&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/top-level"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">"/top-level/file.txt"</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">"/top-level/nested"</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">"/top-level/nested/another-file.txt"</span>));
     }
 
     <span class="attr">#[tokio::test]
@@ -3875,23 +3875,23 @@
         <span class="kw">let </span>main = FileSystem::default();
 
         <span class="kw">let </span>other = FileSystem::default();
-        <span class="kw">crate</span>::ops::create_dir_all(<span class="kw-2">&amp;</span>other, <span class="string">&quot;/a/x&quot;</span>).unwrap();
+        <span class="kw">crate</span>::ops::create_dir_all(<span class="kw-2">&amp;</span>other, <span class="string">"/a/x"</span>).unwrap();
         other
-            .insert_ro_file(Path::new(<span class="string">&quot;/a/x/a.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;a&quot;</span>))
+            .insert_ro_file(Path::new(<span class="string">"/a/x/a.txt"</span>), Cow::Borrowed(<span class="string">b"a"</span>))
             .unwrap();
         other
-            .insert_ro_file(Path::new(<span class="string">&quot;/a/x/b.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;b&quot;</span>))
+            .insert_ro_file(Path::new(<span class="string">"/a/x/b.txt"</span>), Cow::Borrowed(<span class="string">b"b"</span>))
             .unwrap();
         other
-            .insert_ro_file(Path::new(<span class="string">&quot;/a/x/c.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;c&quot;</span>))
+            .insert_ro_file(Path::new(<span class="string">"/a/x/c.txt"</span>), Cow::Borrowed(<span class="string">b"c"</span>))
             .unwrap();
 
-        <span class="kw">let </span>out = other.read_dir(Path::new(<span class="string">&quot;/&quot;</span>)).unwrap();
+        <span class="kw">let </span>out = other.read_dir(Path::new(<span class="string">"/"</span>)).unwrap();
         <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>out);
 
         <span class="kw">let </span>other: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt; = Arc::new(other);
 
-        main.mount_directory_entries(Path::new(<span class="string">&quot;/&quot;</span>), <span class="kw-2">&amp;</span>other, Path::new(<span class="string">&quot;/a&quot;</span>))
+        main.mount_directory_entries(Path::new(<span class="string">"/"</span>), <span class="kw-2">&amp;</span>other, Path::new(<span class="string">"/a"</span>))
             .unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
@@ -3899,11 +3899,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>f = main
             .new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(Path::new(<span class="string">&quot;/x/a.txt&quot;</span>))
+            .open(Path::new(<span class="string">"/x/a.txt"</span>))
             .unwrap();
         f.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
 
-        <span class="macro">assert_eq!</span>(buf, <span class="string">b&quot;a&quot;</span>);
+        <span class="macro">assert_eq!</span>(buf, <span class="string">b"a"</span>);
     }
 }
 </code></pre></div></section></main></body></html>

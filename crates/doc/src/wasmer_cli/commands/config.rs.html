@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/config.rs`."><title>config.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -302,13 +302,24 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::str::ParseBoolError;
-
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    config::{UpdateRegistry, WasmerConfig, WasmerEnv},
+    VERSION,
+};
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, WasmerConfig};
+<span class="kw">use </span>std::str::ParseBoolError;
 
-<span class="kw">use </span><span class="kw">crate</span>::VERSION;
+<span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`
@@ -327,31 +338,31 @@
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Flags {
     <span class="doccomment">/// Print the installation prefix.
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"pkg_config"</span>)]
     </span>prefix: bool,
 
     <span class="doccomment">/// Directory containing Wasmer executables.
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"pkg_config"</span>)]
     </span>bindir: bool,
 
     <span class="doccomment">/// Directory containing Wasmer headers.
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"pkg_config"</span>)]
     </span>includedir: bool,
 
     <span class="doccomment">/// Directory containing Wasmer libraries.
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"pkg_config"</span>)]
     </span>libdir: bool,
 
     <span class="doccomment">/// Libraries needed to link against Wasmer components.
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"pkg_config"</span>)]
     </span>libs: bool,
 
     <span class="doccomment">/// C compiler flags for files that include Wasmer headers.
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"pkg_config"</span>)]
     </span>cflags: bool,
 
     <span class="doccomment">/// Print the path to the wasmer configuration file where all settings are stored
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"pkg_config"</span>)]
     </span>config_path: bool,
 
     <span class="doccomment">/// Outputs the necessary details for compiling
@@ -375,19 +386,19 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 </span><span class="kw">pub enum </span>RetrievableConfigField {
     <span class="doccomment">/// Print the registry URL of the currently active registry
-    </span><span class="attr">#[clap(name = <span class="string">&quot;registry.url&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"registry.url"</span>)]
     </span>RegistryUrl,
     <span class="doccomment">/// Print the token for the currently active registry or nothing if not logged in
-    </span><span class="attr">#[clap(name = <span class="string">&quot;registry.token&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"registry.token"</span>)]
     </span>RegistryToken,
     <span class="doccomment">/// Print whether telemetry is currently enabled
-    </span><span class="attr">#[clap(name = <span class="string">&quot;telemetry.enabled&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"telemetry.enabled"</span>)]
     </span>TelemetryEnabled,
     <span class="doccomment">/// Print whether update notifications are enabled
-    </span><span class="attr">#[clap(name = <span class="string">&quot;update-notifications.enabled&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"update-notifications.enabled"</span>)]
     </span>UpdateNotificationsEnabled,
     <span class="doccomment">/// Print the proxy URL
-    </span><span class="attr">#[clap(name = <span class="string">&quot;proxy.url&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"proxy.url"</span>)]
     </span>ProxyUrl,
 }
 
@@ -395,19 +406,19 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 </span><span class="kw">pub enum </span>StorableConfigField {
     <span class="doccomment">/// Set the registry URL of the currently active registry
-    </span><span class="attr">#[clap(name = <span class="string">&quot;registry.url&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"registry.url"</span>)]
     </span>RegistryUrl(SetRegistryUrl),
     <span class="doccomment">/// Set the token for the currently active registry or nothing if not logged in
-    </span><span class="attr">#[clap(name = <span class="string">&quot;registry.token&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"registry.token"</span>)]
     </span>RegistryToken(SetRegistryToken),
     <span class="doccomment">/// Set whether telemetry is currently enabled
-    </span><span class="attr">#[clap(name = <span class="string">&quot;telemetry.enabled&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"telemetry.enabled"</span>)]
     </span>TelemetryEnabled(SetTelemetryEnabled),
     <span class="doccomment">/// Set whether update notifications are enabled
-    </span><span class="attr">#[clap(name = <span class="string">&quot;update-notifications.enabled&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"update-notifications.enabled"</span>)]
     </span>UpdateNotificationsEnabled(SetUpdateNotificationsEnabled),
     <span class="doccomment">/// Set the active proxy URL
-    </span><span class="attr">#[clap(name = <span class="string">&quot;proxy.url&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"proxy.url"</span>)]
     </span>ProxyUrl(SetProxyUrl),
 }
 
@@ -415,7 +426,7 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 </span><span class="kw">pub struct </span>SetRegistryUrl {
     <span class="doccomment">/// Url of the registry
-    </span><span class="attr">#[clap(name = <span class="string">&quot;URL&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"URL"</span>)]
     </span><span class="kw">pub </span>url: String,
 }
 
@@ -423,7 +434,7 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 </span><span class="kw">pub struct </span>SetRegistryToken {
     <span class="doccomment">/// Token to set
-    </span><span class="attr">#[clap(name = <span class="string">&quot;TOKEN&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"TOKEN"</span>)]
     </span><span class="kw">pub </span>token: String,
 }
 
@@ -432,12 +443,12 @@
 </span><span class="kw">pub struct </span>SetUpdateNotificationsEnabled {
     <span class="doccomment">/// Whether to enable update notifications
     ///
-    /// (&quot;true&quot; | &quot;false&quot;)
-    </span><span class="attr">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>)]
+    /// ("true" | "false")
+    </span><span class="attr">#[clap(name = <span class="string">"ENABLED"</span>)]
     </span><span class="kw">pub </span>enabled: BoolString,
 }
 
-<span class="doccomment">/// &quot;true&quot; or &quot;false&quot; for handling input in the CLI
+<span class="doccomment">/// "true" or "false" for handling input in the CLI
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 </span><span class="kw">pub struct </span>BoolString(<span class="kw">pub </span>bool);
 
@@ -453,8 +464,8 @@
 </span><span class="kw">pub struct </span>SetTelemetryEnabled {
     <span class="doccomment">/// Whether to enable telemetry
     ///
-    /// (&quot;true&quot; | &quot;false&quot;)
-    </span><span class="attr">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>)]
+    /// ("true" | "false")
+    </span><span class="attr">#[clap(name = <span class="string">"ENABLED"</span>)]
     </span><span class="kw">pub </span>enabled: BoolString,
 }
 
@@ -462,20 +473,26 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 </span><span class="kw">pub struct </span>SetProxyUrl {
     <span class="doccomment">/// Set if a proxy URL should be used (empty = unset proxy)
-    </span><span class="attr">#[clap(name = <span class="string">&quot;URL&quot;</span>)]
+    </span><span class="attr">#[clap(name = <span class="string">"URL"</span>)]
     </span><span class="kw">pub </span>url: String,
 }
 
-<span class="kw">impl </span>Config {
-    <span class="doccomment">/// Runs logic for the `config` subcommand
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.inner_execute()
-            .context(<span class="string">&quot;failed to retrieve the wasmer config&quot;</span>.to_string())
-    }
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>Config {
+    <span class="kw">type </span>Output = ();
 
-    <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="doccomment">/// Runs logic for the `config` subcommand
+    </span><span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
+        <span class="self">self</span>.inner_execute()
+            .<span class="kw">await
+            </span>.context(<span class="string">"failed to retrieve the wasmer config"</span>.to_string())
+    }
+}
+
+<span class="kw">impl </span>Config {
+    <span class="kw">async fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = <span class="self">self</span>.set.as_ref() {
-            <span class="kw">return </span>s.execute(<span class="kw-2">&amp;</span><span class="self">self</span>.env);
+            <span class="kw">return </span>s.execute(<span class="kw-2">&amp;</span><span class="self">self</span>.env).<span class="kw">await</span>;
         }
 
         <span class="kw">let </span>flags = <span class="kw-2">&amp;</span><span class="self">self</span>.flags;
@@ -483,48 +500,48 @@
         <span class="kw">let </span>prefix = <span class="self">self</span>.env.dir();
 
         <span class="kw">let </span>prefixdir = prefix.display().to_string();
-        <span class="kw">let </span>bindir = prefix.join(<span class="string">&quot;bin&quot;</span>).display().to_string();
-        <span class="kw">let </span>includedir = prefix.join(<span class="string">&quot;include&quot;</span>).display().to_string();
-        <span class="kw">let </span>libdir = prefix.join(<span class="string">&quot;lib&quot;</span>).display().to_string();
-        <span class="kw">let </span>cflags = <span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, includedir);
-        <span class="kw">let </span>libs = <span class="macro">format!</span>(<span class="string">&quot;-L{} -lwasmer&quot;</span>, libdir);
+        <span class="kw">let </span>bindir = prefix.join(<span class="string">"bin"</span>).display().to_string();
+        <span class="kw">let </span>includedir = prefix.join(<span class="string">"include"</span>).display().to_string();
+        <span class="kw">let </span>libdir = prefix.join(<span class="string">"lib"</span>).display().to_string();
+        <span class="kw">let </span>cflags = <span class="macro">format!</span>(<span class="string">"-I{}"</span>, includedir);
+        <span class="kw">let </span>libs = <span class="macro">format!</span>(<span class="string">"-L{} -lwasmer"</span>, libdir);
 
         <span class="kw">if </span>flags.pkg_config {
-            <span class="macro">println!</span>(<span class="string">&quot;prefix={}&quot;</span>, prefixdir);
-            <span class="macro">println!</span>(<span class="string">&quot;exec_prefix={}&quot;</span>, bindir);
-            <span class="macro">println!</span>(<span class="string">&quot;includedir={}&quot;</span>, includedir);
-            <span class="macro">println!</span>(<span class="string">&quot;libdir={}&quot;</span>, libdir);
+            <span class="macro">println!</span>(<span class="string">"prefix={}"</span>, prefixdir);
+            <span class="macro">println!</span>(<span class="string">"exec_prefix={}"</span>, bindir);
+            <span class="macro">println!</span>(<span class="string">"includedir={}"</span>, includedir);
+            <span class="macro">println!</span>(<span class="string">"libdir={}"</span>, libdir);
             <span class="macro">println!</span>();
-            <span class="macro">println!</span>(<span class="string">&quot;Name: wasmer&quot;</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;Description: The Wasmer library for running WebAssembly&quot;</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;Version: {}&quot;</span>, VERSION);
-            <span class="macro">println!</span>(<span class="string">&quot;Cflags: {}&quot;</span>, cflags);
-            <span class="macro">println!</span>(<span class="string">&quot;Libs: {}&quot;</span>, libs);
+            <span class="macro">println!</span>(<span class="string">"Name: wasmer"</span>);
+            <span class="macro">println!</span>(<span class="string">"Description: The Wasmer library for running WebAssembly"</span>);
+            <span class="macro">println!</span>(<span class="string">"Version: {}"</span>, VERSION);
+            <span class="macro">println!</span>(<span class="string">"Cflags: {}"</span>, cflags);
+            <span class="macro">println!</span>(<span class="string">"Libs: {}"</span>, libs);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
         <span class="kw">if </span>flags.prefix {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, prefixdir);
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, prefixdir);
         }
         <span class="kw">if </span>flags.bindir {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, bindir);
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, bindir);
         }
         <span class="kw">if </span>flags.includedir {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, includedir);
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, includedir);
         }
         <span class="kw">if </span>flags.libdir {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, libdir);
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, libdir);
         }
         <span class="kw">if </span>flags.libs {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, libs);
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, libs);
         }
         <span class="kw">if </span>flags.cflags {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, cflags);
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, cflags);
         }
 
         <span class="kw">if </span>flags.config_path {
             <span class="kw">let </span>path = WasmerConfig::get_file_location(<span class="self">self</span>.env.dir());
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, path.display());
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, path.display());
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -532,63 +549,64 @@
 }
 
 <span class="kw">impl </span>GetOrSet {
-    <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">async fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>config_file = WasmerConfig::get_file_location(env.dir());
         <span class="kw">let </span><span class="kw-2">mut </span>config = env.config()<span class="question-mark">?</span>;
 
         <span class="kw">match </span><span class="self">self </span>{
             GetOrSet::Get(g) =&gt; <span class="kw">match </span>g {
                 RetrievableConfigField::RegistryUrl =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, config.registry.get_current_registry());
+                    <span class="macro">println!</span>(<span class="string">"{}"</span>, config.registry.get_current_registry());
                 }
                 RetrievableConfigField::RegistryToken =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = config
                         .registry
                         .get_login_token_for_registry(<span class="kw-2">&amp;</span>config.registry.get_current_registry())
                     {
-                        <span class="macro">println!</span>(<span class="string">&quot;{s}&quot;</span>);
+                        <span class="macro">println!</span>(<span class="string">"{s}"</span>);
                     }
                 }
                 RetrievableConfigField::TelemetryEnabled =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, config.telemetry_enabled);
+                    <span class="macro">println!</span>(<span class="string">"{:?}"</span>, config.telemetry_enabled);
                 }
                 RetrievableConfigField::UpdateNotificationsEnabled =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, config.update_notifications_enabled);
+                    <span class="macro">println!</span>(<span class="string">"{:?}"</span>, config.update_notifications_enabled);
                 }
                 RetrievableConfigField::ProxyUrl =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = config.proxy.url.as_ref() {
-                        <span class="macro">println!</span>(<span class="string">&quot;{s}&quot;</span>);
+                        <span class="macro">println!</span>(<span class="string">"{s}"</span>);
                     } <span class="kw">else </span>{
-                        <span class="macro">println!</span>(<span class="string">&quot;none&quot;</span>);
+                        <span class="macro">println!</span>(<span class="string">"none"</span>);
                     }
                 }
             },
             GetOrSet::Set(s) =&gt; {
                 <span class="kw">match </span>s {
                     StorableConfigField::RegistryUrl(s) =&gt; {
-                        config.registry.set_current_registry(<span class="kw-2">&amp;</span>s.url);
+                        config.registry.set_current_registry(<span class="kw-2">&amp;</span>s.url).<span class="kw">await</span>;
                         <span class="kw">let </span>current_registry = config.registry.get_current_registry();
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = wasmer_registry::utils::get_username(<span class="kw-2">&amp;</span>current_registry)
-                            .ok()
-                            .and_then(|o| o)
-                        {
-                            <span class="macro">println!</span>(
-                                <span class="string">&quot;Successfully logged into registry {current_registry:?} as user {u:?}&quot;
+                        <span class="kw">if let </span><span class="prelude-val">Ok</span>(client) = env.client() {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(u) =
+                                wasmer_backend_api::query::current_user(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?
+                            </span>{
+                                <span class="macro">println!</span>(
+                                <span class="string">"Successfully logged into registry {current_registry:?} as user {u:?}"
                             </span>);
+                            }
                         }
                     }
                     StorableConfigField::RegistryToken(t) =&gt; {
                         config.registry.set_login_token_for_registry(
                             <span class="kw-2">&amp;</span>config.registry.get_current_registry(),
                             <span class="kw-2">&amp;</span>t.token,
-                            wasmer_registry::config::UpdateRegistry::LeaveAsIs,
+                            UpdateRegistry::LeaveAsIs,
                         );
                     }
                     StorableConfigField::TelemetryEnabled(t) =&gt; {
                         config.telemetry_enabled = t.enabled.<span class="number">0</span>;
                     }
                     StorableConfigField::ProxyUrl(p) =&gt; {
-                        <span class="kw">if </span>p.url == <span class="string">&quot;none&quot; </span>|| p.url.is_empty() {
+                        <span class="kw">if </span>p.url == <span class="string">"none" </span>|| p.url.is_empty() {
                             config.proxy.url = <span class="prelude-val">None</span>;
                         } <span class="kw">else </span>{
                             config.proxy.url = <span class="prelude-val">Some</span>(p.url.clone());
@@ -600,7 +618,7 @@
                 }
                 config
                     .save(config_file)
-                    .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not save config file&quot;</span>))<span class="question-mark">?</span>;
+                    .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not save config file"</span>))<span class="question-mark">?</span>;
             }
         }
         <span class="prelude-val">Ok</span>(())

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/func_environ.rs`."><title>func_environ.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/func_environ.rs`."><title>func_environ.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1607,32 +1607,122 @@
 <a href="#1607" id="1607">1607</a>
 <a href="#1608" id="1608">1608</a>
 <a href="#1609" id="1609">1609</a>
+<a href="#1610" id="1610">1610</a>
+<a href="#1611" id="1611">1611</a>
+<a href="#1612" id="1612">1612</a>
+<a href="#1613" id="1613">1613</a>
+<a href="#1614" id="1614">1614</a>
+<a href="#1615" id="1615">1615</a>
+<a href="#1616" id="1616">1616</a>
+<a href="#1617" id="1617">1617</a>
+<a href="#1618" id="1618">1618</a>
+<a href="#1619" id="1619">1619</a>
+<a href="#1620" id="1620">1620</a>
+<a href="#1621" id="1621">1621</a>
+<a href="#1622" id="1622">1622</a>
+<a href="#1623" id="1623">1623</a>
+<a href="#1624" id="1624">1624</a>
+<a href="#1625" id="1625">1625</a>
+<a href="#1626" id="1626">1626</a>
+<a href="#1627" id="1627">1627</a>
+<a href="#1628" id="1628">1628</a>
+<a href="#1629" id="1629">1629</a>
+<a href="#1630" id="1630">1630</a>
+<a href="#1631" id="1631">1631</a>
+<a href="#1632" id="1632">1632</a>
+<a href="#1633" id="1633">1633</a>
+<a href="#1634" id="1634">1634</a>
+<a href="#1635" id="1635">1635</a>
+<a href="#1636" id="1636">1636</a>
+<a href="#1637" id="1637">1637</a>
+<a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
+<a href="#1646" id="1646">1646</a>
+<a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
+<a href="#1660" id="1660">1660</a>
+<a href="#1661" id="1661">1661</a>
+<a href="#1662" id="1662">1662</a>
+<a href="#1663" id="1663">1663</a>
+<a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
+<a href="#1666" id="1666">1666</a>
+<a href="#1667" id="1667">1667</a>
+<a href="#1668" id="1668">1668</a>
+<a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
-</span><span class="kw">use </span><span class="kw">crate</span>::translator::{
-    type_to_irtype, FuncEnvironment <span class="kw">as </span>BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
+</span><span class="kw">use crate</span>::{
+    heap::{Heap, HeapData, HeapStyle},
+    table::{TableData, TableSize},
+    translator::{FuncEnvironment <span class="kw">as </span>BaseFuncEnvironment, GlobalVariable, TargetEnvironment},
 };
-<span class="kw">use </span>cranelift_codegen::cursor::FuncCursor;
-<span class="kw">use </span>cranelift_codegen::ir;
-<span class="kw">use </span>cranelift_codegen::ir::condcodes::<span class="kw-2">*</span>;
-<span class="kw">use </span>cranelift_codegen::ir::immediates::{Offset32, Uimm64};
-<span class="kw">use </span>cranelift_codegen::ir::types::<span class="kw-2">*</span>;
-<span class="kw">use </span>cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Signature};
-<span class="kw">use </span>cranelift_codegen::isa::TargetFrontendConfig;
+<span class="kw">use </span>cranelift_codegen::{
+    cursor::FuncCursor,
+    ir::{
+        <span class="self">self</span>,
+        condcodes::IntCC,
+        immediates::{Offset32, Uimm64},
+        types::<span class="kw-2">*</span>,
+        AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
+    },
+    isa::TargetFrontendConfig,
+};
 <span class="kw">use </span>cranelift_frontend::FunctionBuilder;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>wasmer_compiler::wasmparser::HeapType;
-<span class="kw">use </span>wasmer_types::entity::EntityRef;
-<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
-<span class="kw">use </span>wasmer_types::VMBuiltinFunctionIndex;
-<span class="kw">use </span>wasmer_types::VMOffsets;
 <span class="kw">use </span>wasmer_types::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, Type <span class="kw">as </span>WasmerType,
+    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
+    ModuleInfo, SignatureIndex, TableIndex, TableStyle, Type <span class="kw">as </span>WasmerType, VMBuiltinFunctionIndex,
+    VMOffsets, WasmError, WasmResult,
 };
-<span class="kw">use </span>wasmer_types::{MemoryStyle, TableStyle};
-<span class="kw">use </span>wasmer_types::{WasmError, WasmResult};
 
 <span class="doccomment">/// Compute an `ir::ExternalName` for a given wasm function index.
 </span><span class="kw">pub fn </span>get_function_name(func_index: FunctionIndex) -&gt; ir::ExternalName {
@@ -1640,111 +1730,118 @@
 }
 
 <span class="doccomment">/// The type of the `current_elements` field.
+</span><span class="attr">#[allow(unused)]
 </span><span class="kw">pub fn </span>type_of_vmtable_definition_current_elements(vmoffsets: <span class="kw-2">&amp;</span>VMOffsets) -&gt; ir::Type {
     ir::Type::int(u16::from(vmoffsets.size_of_vmtable_definition_current_elements()) * <span class="number">8</span>).unwrap()
 }
 
 <span class="doccomment">/// The `FuncEnvironment` implementation for use by the `ModuleEnvironment`.
-</span><span class="kw">pub struct </span>FuncEnvironment&lt;<span class="lifetime">&#39;module_environment</span>&gt; {
+</span><span class="kw">pub struct </span>FuncEnvironment&lt;<span class="lifetime">'module_environment</span>&gt; {
     <span class="doccomment">/// Target-specified configuration.
     </span>target_config: TargetFrontendConfig,
 
     <span class="doccomment">/// The module-level environment which this function-level environment belongs to.
-    </span>module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>ModuleInfo,
+    </span>module: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>ModuleInfo,
 
     <span class="doccomment">/// A stack tracking the type of local variables.
     </span>type_stack: Vec&lt;WasmerType&gt;,
 
     <span class="doccomment">/// The module function signatures
-    </span>signatures: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>PrimaryMap&lt;SignatureIndex, ir::Signature&gt;,
+    </span>signatures: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>PrimaryMap&lt;SignatureIndex, ir::Signature&gt;,
+
+    <span class="doccomment">/// Heaps implementing WebAssembly linear memories.
+    </span>heaps: PrimaryMap&lt;Heap, HeapData&gt;,
 
     <span class="doccomment">/// The Cranelift global holding the vmctx address.
     </span>vmctx: <span class="prelude-ty">Option</span>&lt;ir::GlobalValue&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory.size`
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory.size`
     /// for locally-defined 32-bit memories.
     </span>memory32_size_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `table.size`
+    <span class="doccomment">/// The external function signature for implementing wasm's `table.size`
     /// for locally-defined tables.
     </span>table_size_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory.grow`
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory.grow`
     /// for locally-defined memories.
     </span>memory_grow_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `table.grow`
+    <span class="doccomment">/// The external function signature for implementing wasm's `table.grow`
     /// for locally-defined tables.
     </span>table_grow_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `table.copy`
-    /// (it&#39;s the same for both local and imported tables).
+    <span class="doccomment">/// The external function signature for implementing wasm's `table.copy`
+    /// (it's the same for both local and imported tables).
     </span>table_copy_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `table.init`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `table.init`.
     </span>table_init_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `elem.drop`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `elem.drop`.
     </span>elem_drop_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory.copy`
-    /// (it&#39;s the same for both local and imported memories).
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory.copy`
+    /// (it's the same for both local and imported memories).
     </span>memory_copy_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory.fill`
-    /// (it&#39;s the same for both local and imported memories).
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory.fill`
+    /// (it's the same for both local and imported memories).
     </span>memory_fill_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory.init`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory.init`.
     </span>memory_init_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `data.drop`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `data.drop`.
     </span>data_drop_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `table.get`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `table.get`.
     </span>table_get_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `table.set`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `table.set`.
     </span>table_set_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `func.ref`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `func.ref`.
     </span>func_ref_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `table.fill`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `table.fill`.
     </span>table_fill_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory32.atomic.wait32`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory32.atomic.wait32`.
     </span>memory32_atomic_wait32_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory32.atomic.wait64`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory32.atomic.wait64`.
     </span>memory32_atomic_wait64_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
-    <span class="doccomment">/// The external function signature for implementing wasm&#39;s `memory32.atomic.notify`.
+    <span class="doccomment">/// The external function signature for implementing wasm's `memory32.atomic.notify`.
     </span>memory32_atomic_notify_sig: <span class="prelude-ty">Option</span>&lt;ir::SigRef&gt;,
 
     <span class="doccomment">/// Offsets to struct fields accessed by JIT code.
     </span>offsets: VMOffsets,
 
     <span class="doccomment">/// The memory styles
-    </span>memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+    </span>memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
 
-    <span class="doccomment">/// The table styles
-    </span>table_styles: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
+    <span class="doccomment">/// Cranelift tables we have created to implement Wasm tables.
+    </span>tables: SecondaryMap&lt;TableIndex, <span class="prelude-ty">Option</span>&lt;TableData&gt;&gt;,
+
+    table_styles: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;module_environment</span>&gt; FuncEnvironment&lt;<span class="lifetime">&#39;module_environment</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'module_environment</span>&gt; FuncEnvironment&lt;<span class="lifetime">'module_environment</span>&gt; {
     <span class="kw">pub fn </span>new(
         target_config: TargetFrontendConfig,
-        module: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>ModuleInfo,
-        signatures: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>PrimaryMap&lt;SignatureIndex, ir::Signature&gt;,
-        memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
-        table_styles: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module_environment </span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
+        module: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>ModuleInfo,
+        signatures: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>PrimaryMap&lt;SignatureIndex, ir::Signature&gt;,
+        memory_styles: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+        table_styles: <span class="kw-2">&amp;</span><span class="lifetime">'module_environment </span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             target_config,
             module,
             signatures,
             type_stack: <span class="macro">vec!</span>[],
+            heaps: PrimaryMap::new(),
             vmctx: <span class="prelude-val">None</span>,
             memory32_size_sig: <span class="prelude-val">None</span>,
             table_size_sig: <span class="prelude-val">None</span>,
@@ -1766,12 +1863,87 @@
             memory32_atomic_notify_sig: <span class="prelude-val">None</span>,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
+            tables: Default::default(),
             table_styles,
         }
     }
 
     <span class="kw">fn </span>pointer_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ir::Type {
         <span class="self">self</span>.target_config.pointer_type()
+    }
+
+    <span class="kw">fn </span>ensure_table_exists(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>ir::Function, index: TableIndex) {
+        <span class="kw">if </span><span class="self">self</span>.tables[index].is_some() {
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
+
+        <span class="kw">let </span>(ptr, base_offset, current_elements_offset) = {
+            <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(func);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = <span class="self">self</span>.module.local_table_index(index) {
+                <span class="kw">let </span>base_offset =
+                    i32::try_from(<span class="self">self</span>.offsets.vmctx_vmtable_definition_base(def_index)).unwrap();
+                <span class="kw">let </span>current_elements_offset = i32::try_from(
+                    <span class="self">self</span>.offsets
+                        .vmctx_vmtable_definition_current_elements(def_index),
+                )
+                .unwrap();
+                (vmctx, base_offset, current_elements_offset)
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>from_offset = <span class="self">self</span>.offsets.vmctx_vmtable_import(index);
+                <span class="kw">let </span>table = func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
+                    global_type: pointer_type,
+                    flags: MemFlags::trusted().with_readonly(),
+                });
+                <span class="kw">let </span>base_offset = i32::from(<span class="self">self</span>.offsets.vmtable_definition_base());
+                <span class="kw">let </span>current_elements_offset =
+                    i32::from(<span class="self">self</span>.offsets.vmtable_definition_current_elements());
+                (table, base_offset, current_elements_offset)
+            }
+        };
+
+        <span class="kw">let </span>table = <span class="kw-2">&amp;</span><span class="self">self</span>.module.tables[index];
+        <span class="kw">let </span>element_size = <span class="self">self</span>.reference_type().bytes();
+
+        <span class="kw">let </span>base_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: ptr,
+            offset: Offset32::new(base_offset),
+            global_type: pointer_type,
+            flags: <span class="kw">if </span><span class="prelude-val">Some</span>(table.minimum) == table.maximum {
+                <span class="comment">// A fixed-size table can't be resized so its base address won't
+                // change.
+                </span>MemFlags::trusted().with_readonly()
+            } <span class="kw">else </span>{
+                MemFlags::trusted()
+            },
+        });
+
+        <span class="kw">let </span>bound = <span class="kw">if </span><span class="prelude-val">Some</span>(table.minimum) == table.maximum {
+            TableSize::Static {
+                bound: table.minimum,
+            }
+        } <span class="kw">else </span>{
+            TableSize::Dynamic {
+                bound_gv: func.create_global_value(ir::GlobalValueData::Load {
+                    base: ptr,
+                    offset: Offset32::new(current_elements_offset),
+                    global_type: ir::Type::int(
+                        u16::from(<span class="self">self</span>.offsets.size_of_vmtable_definition_current_elements()) * <span class="number">8</span>,
+                    )
+                    .unwrap(),
+                    flags: MemFlags::trusted(),
+                }),
+            }
+        };
+
+        <span class="self">self</span>.tables[index] = <span class="prelude-val">Some</span>(TableData {
+            base_gv,
+            bound,
+            element_size,
+        });
     }
 
     <span class="kw">fn </span>vmctx(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>Function) -&gt; ir::GlobalValue {
@@ -2442,10 +2614,10 @@
     /// and address of the loaded function.
     </span><span class="kw">fn </span>translate_load_builtin_function_address(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        pos: <span class="kw-2">&amp;mut </span>FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        pos: <span class="kw-2">&amp;mut </span>FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         callee_func_idx: VMBuiltinFunctionIndex,
     ) -&gt; (ir::Value, ir::Value) {
-        <span class="comment">// We use an indirect call so that we don&#39;t have to patch the code at runtime.
+        <span class="comment">// We use an indirect call so that we don't have to patch the code at runtime.
         </span><span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
         <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(pos.func);
         <span class="kw">let </span>base = pos.ins().global_value(pointer_type, vmctx);
@@ -2460,83 +2632,47 @@
 
         (base, func_addr)
     }
+
+    <span class="kw">fn </span>get_or_init_funcref_table_elem(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+        table_index: TableIndex,
+        index: ir::Value,
+    ) -&gt; ir::Value {
+        <span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
+        <span class="self">self</span>.ensure_table_exists(builder.func, table_index);
+        <span class="kw">let </span>table_data = <span class="self">self</span>.tables[table_index].as_ref().unwrap();
+
+        <span class="comment">// To support lazy initialization of table
+        // contents, we check for a null entry here, and
+        // if null, we take a slow-path that invokes a
+        // libcall.
+        </span><span class="kw">let </span>(table_entry_addr, flags) =
+            table_data.prepare_table_addr(builder, index, pointer_type, <span class="bool-val">false</span>);
+        builder.ins().load(pointer_type, flags, table_entry_addr, <span class="number">0</span>)
+    }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;module_environment</span>&gt; TargetEnvironment <span class="kw">for </span>FuncEnvironment&lt;<span class="lifetime">&#39;module_environment</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'module_environment</span>&gt; TargetEnvironment <span class="kw">for </span>FuncEnvironment&lt;<span class="lifetime">'module_environment</span>&gt; {
     <span class="kw">fn </span>target_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TargetFrontendConfig {
         <span class="self">self</span>.target_config
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;module_environment</span>&gt; BaseFuncEnvironment <span class="kw">for </span>FuncEnvironment&lt;<span class="lifetime">&#39;module_environment</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'module_environment</span>&gt; BaseFuncEnvironment <span class="kw">for </span>FuncEnvironment&lt;<span class="lifetime">'module_environment</span>&gt; {
     <span class="kw">fn </span>is_wasm_parameter(<span class="kw-2">&amp;</span><span class="self">self</span>, _signature: <span class="kw-2">&amp;</span>ir::Signature, index: usize) -&gt; bool {
         <span class="comment">// The first parameter is the vmctx. The rest are the wasm parameters.
         </span>index &gt;= <span class="number">1
     </span>}
 
-    <span class="kw">fn </span>make_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>ir::Function, index: TableIndex) -&gt; WasmResult&lt;ir::Table&gt; {
-        <span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
-
-        <span class="kw">let </span>(ptr, base_offset, current_elements_offset) = {
-            <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(func);
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = <span class="self">self</span>.module.local_table_index(index) {
-                <span class="kw">let </span>base_offset =
-                    i32::try_from(<span class="self">self</span>.offsets.vmctx_vmtable_definition_base(def_index)).unwrap();
-                <span class="kw">let </span>current_elements_offset = i32::try_from(
-                    <span class="self">self</span>.offsets
-                        .vmctx_vmtable_definition_current_elements(def_index),
-                )
-                .unwrap();
-                (vmctx, base_offset, current_elements_offset)
-            } <span class="kw">else </span>{
-                <span class="kw">let </span>from_offset = <span class="self">self</span>.offsets.vmctx_vmtable_import_definition(index);
-                <span class="kw">let </span>table = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                    global_type: pointer_type,
-                    readonly: <span class="bool-val">true</span>,
-                });
-                <span class="kw">let </span>base_offset = i32::from(<span class="self">self</span>.offsets.vmtable_definition_base());
-                <span class="kw">let </span>current_elements_offset =
-                    i32::from(<span class="self">self</span>.offsets.vmtable_definition_current_elements());
-                (table, base_offset, current_elements_offset)
-            }
-        };
-
-        <span class="kw">let </span>base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: ptr,
-            offset: Offset32::new(base_offset),
-            global_type: pointer_type,
-            readonly: <span class="bool-val">false</span>,
-        });
-        <span class="kw">let </span>bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: ptr,
-            offset: Offset32::new(current_elements_offset),
-            global_type: type_of_vmtable_definition_current_elements(<span class="kw-2">&amp;</span><span class="self">self</span>.offsets),
-            readonly: <span class="bool-val">false</span>,
-        });
-
-        <span class="kw">let </span>element_size = <span class="kw">match </span><span class="self">self</span>.table_styles[index] {
-            TableStyle::CallerChecksSignature =&gt; u64::from(<span class="self">self</span>.offsets.size_of_vm_funcref()),
-        };
-
-        <span class="prelude-val">Ok</span>(func.create_table(ir::TableData {
-            base_gv,
-            min_size: Uimm64::new(<span class="number">0</span>),
-            bound_gv,
-            element_size: Uimm64::new(element_size),
-            index_type: I32,
-        }))
-    }
-
     <span class="kw">fn </span>translate_table_grow(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        <span class="kw-2">mut </span>pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         table_index: TableIndex,
-        _table: ir::Table,
         delta: ir::Value,
         init_value: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
+        <span class="self">self</span>.ensure_table_exists(pos.func, table_index);
         <span class="kw">let </span>(func_sig, index_arg, func_idx) = <span class="self">self</span>.get_table_grow_func(pos.func, table_index);
         <span class="kw">let </span>table_index = pos.ins().iconst(I32, index_arg <span class="kw">as </span>i64);
         <span class="kw">let </span>(vmctx, func_addr) = <span class="self">self</span>.translate_load_builtin_function_address(<span class="kw-2">&amp;mut </span>pos, func_idx);
@@ -2552,9 +2688,9 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         table_index: TableIndex,
-        _table: ir::Table,
         index: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
+        <span class="self">self</span>.ensure_table_exists(builder.func, table_index);
         <span class="kw">let </span><span class="kw-2">mut </span>pos = builder.cursor();
 
         <span class="kw">let </span>(func_sig, table_index_arg, func_idx) = <span class="self">self</span>.get_table_get_func(pos.func, table_index);
@@ -2570,28 +2706,29 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         table_index: TableIndex,
-        _table: ir::Table,
         value: ir::Value,
         index: ir::Value,
     ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.ensure_table_exists(builder.func, table_index);
         <span class="kw">let </span><span class="kw-2">mut </span>pos = builder.cursor();
 
         <span class="kw">let </span>(func_sig, table_index_arg, func_idx) = <span class="self">self</span>.get_table_set_func(pos.func, table_index);
-        <span class="kw">let </span>table_index = pos.ins().iconst(I32, table_index_arg <span class="kw">as </span>i64);
+        <span class="kw">let </span>n_table_index = pos.ins().iconst(I32, table_index_arg <span class="kw">as </span>i64);
         <span class="kw">let </span>(vmctx, func_addr) = <span class="self">self</span>.translate_load_builtin_function_address(<span class="kw-2">&amp;mut </span>pos, func_idx);
         pos.ins()
-            .call_indirect(func_sig, func_addr, <span class="kw-2">&amp;</span>[vmctx, table_index, index, value]);
+            .call_indirect(func_sig, func_addr, <span class="kw-2">&amp;</span>[vmctx, n_table_index, index, value]);
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>translate_table_fill(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        <span class="kw-2">mut </span>pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         table_index: TableIndex,
         dst: ir::Value,
         val: ir::Value,
         len: ir::Value,
     ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.ensure_table_exists(pos.func, table_index);
         <span class="kw">let </span>(func_sig, table_index_arg, func_idx) = <span class="self">self</span>.get_table_fill_func(pos.func, table_index);
         <span class="kw">let </span>(vmctx, func_addr) = <span class="self">self</span>.translate_load_builtin_function_address(<span class="kw-2">&amp;mut </span>pos, func_idx);
 
@@ -2611,12 +2748,23 @@
         ty: HeapType,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
         <span class="prelude-val">Ok</span>(<span class="kw">match </span>ty {
-            HeapType::Func =&gt; pos.ins().null(<span class="self">self</span>.reference_type()),
-            HeapType::Extern =&gt; pos.ins().null(<span class="self">self</span>.reference_type()),
-            <span class="kw">_ </span>=&gt; {
+            HeapType::Abstract { ty, .. } =&gt; <span class="kw">match </span>ty {
+                wasmer_compiler::wasmparser::AbstractHeapType::Func =&gt; {
+                    pos.ins().null(<span class="self">self</span>.reference_type())
+                }
+                wasmer_compiler::wasmparser::AbstractHeapType::Extern =&gt; {
+                    pos.ins().null(<span class="self">self</span>.reference_type())
+                }
+                <span class="kw">_ </span>=&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(
+                        <span class="string">"`ref.null T` that is not a `funcref` or an `externref`"</span>.into(),
+                    ))
+                }
+            },
+            HeapType::Concrete(<span class="kw">_</span>) =&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(
-                    <span class="string">&quot;`ref.null T` that is not a `funcref` or an `externref`&quot;</span>.into(),
-                ));
+                    <span class="string">"`ref.null T` that is not a `funcref` or an `externref`"</span>.into(),
+                ))
             }
         })
     }
@@ -2642,18 +2790,10 @@
 
     <span class="kw">fn </span>translate_ref_func(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        <span class="kw-2">mut </span>pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         func_index: FunctionIndex,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
-        <span class="comment">// TODO: optimize this by storing a pointer to local func_index funcref metadata
-        // so that local funcref is just (*global + offset) instead of a function call
-        //
-        // Actually we can do the above for both local and imported functions because
-        // all of those are known statically.
-        //
-        // prototyping with a function call though
-
-        </span><span class="kw">let </span>(func_sig, func_index_arg, func_idx) = <span class="self">self</span>.get_func_ref_func(pos.func, func_index);
+        <span class="kw">let </span>(func_sig, func_index_arg, func_idx) = <span class="self">self</span>.get_func_ref_func(pos.func, func_index);
         <span class="kw">let </span>(vmctx, func_addr) = <span class="self">self</span>.translate_load_builtin_function_address(<span class="kw-2">&amp;mut </span>pos, func_idx);
 
         <span class="kw">let </span>func_index_arg = pos.ins().iconst(I32, func_index_arg <span class="kw">as </span>i64);
@@ -2666,22 +2806,22 @@
 
     <span class="kw">fn </span>translate_custom_global_get(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>_pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        <span class="kw-2">mut </span>_pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         _index: GlobalIndex,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
-        <span class="macro">unreachable!</span>(<span class="string">&quot;we don&#39;t make any custom globals&quot;</span>)
+        <span class="macro">unreachable!</span>(<span class="string">"we don't make any custom globals"</span>)
     }
 
     <span class="kw">fn </span>translate_custom_global_set(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>_pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        <span class="kw-2">mut </span>_pos: cranelift_codegen::cursor::FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         _index: GlobalIndex,
         _value: ir::Value,
     ) -&gt; WasmResult&lt;()&gt; {
-        <span class="macro">unreachable!</span>(<span class="string">&quot;we don&#39;t make any custom globals&quot;</span>)
+        <span class="macro">unreachable!</span>(<span class="string">"we don't make any custom globals"</span>)
     }
 
-    <span class="kw">fn </span>make_heap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>ir::Function, index: MemoryIndex) -&gt; WasmResult&lt;ir::Heap&gt; {
+    <span class="kw">fn </span>make_heap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func: <span class="kw-2">&amp;mut </span>ir::Function, index: MemoryIndex) -&gt; WasmResult&lt;Heap&gt; {
         <span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
 
         <span class="kw">let </span>(ptr, base_offset, current_length_offset) = {
@@ -2701,7 +2841,7 @@
                     base: vmctx,
                     offset: Offset32::new(i32::try_from(from_offset).unwrap()),
                     global_type: pointer_type,
-                    readonly: <span class="bool-val">true</span>,
+                    flags: ir::MemFlags::trusted().with_readonly(),
                 });
                 <span class="kw">let </span>base_offset = i32::from(<span class="self">self</span>.offsets.vmmemory_definition_base());
                 <span class="kw">let </span>current_length_offset =
@@ -2710,7 +2850,7 @@
             }
         };
 
-        <span class="comment">// If we have a declared maximum, we can make this a &quot;static&quot; heap, which is
+        <span class="comment">// If we have a declared maximum, we can make this a "static" heap, which is
         // allocated up front and never moved.
         </span><span class="kw">let </span>(offset_guard_size, heap_style, readonly_base) = <span class="kw">match </span><span class="self">self</span>.memory_styles[index] {
             MemoryStyle::Dynamic { offset_guard_size } =&gt; {
@@ -2718,11 +2858,11 @@
                     base: ptr,
                     offset: Offset32::new(current_length_offset),
                     global_type: pointer_type,
-                    readonly: <span class="bool-val">false</span>,
+                    flags: ir::MemFlags::trusted(),
                 });
                 (
                     Uimm64::new(offset_guard_size),
-                    ir::HeapStyle::Dynamic {
+                    HeapStyle::Dynamic {
                         bound_gv: heap_bound,
                     },
                     <span class="bool-val">false</span>,
@@ -2733,8 +2873,8 @@
                 offset_guard_size,
             } =&gt; (
                 Uimm64::new(offset_guard_size),
-                ir::HeapStyle::Static {
-                    bound: Uimm64::new(bound.bytes().<span class="number">0 </span><span class="kw">as </span>u64),
+                HeapStyle::Static {
+                    bound: bound.bytes().<span class="number">0 </span><span class="kw">as </span>u64,
                 },
                 <span class="bool-val">true</span>,
             ),
@@ -2744,14 +2884,21 @@
             base: ptr,
             offset: Offset32::new(base_offset),
             global_type: pointer_type,
-            readonly: readonly_base,
+            flags: <span class="kw">if </span>readonly_base {
+                ir::MemFlags::trusted().with_readonly()
+            } <span class="kw">else </span>{
+                ir::MemFlags::trusted()
+            },
         });
-        <span class="prelude-val">Ok</span>(func.create_heap(ir::HeapData {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.heaps.push(HeapData {
             base: heap_base,
-            min_size: <span class="number">0</span>.into(),
-            offset_guard_size,
+            min_size: <span class="number">0</span>,
+            max_size: <span class="prelude-val">None</span>,
+            memory_type: <span class="prelude-val">None</span>,
+            offset_guard_size: offset_guard_size.into(),
             style: heap_style,
             index_type: I32,
+            page_size_log2: <span class="self">self</span>.target_config.page_size_align_log2,
         }))
     }
 
@@ -2764,16 +2911,18 @@
 
         <span class="kw">let </span>(ptr, offset) = {
             <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(func);
+
             <span class="kw">let </span>from_offset = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = <span class="self">self</span>.module.local_global_index(index) {
                 <span class="self">self</span>.offsets.vmctx_vmglobal_definition(def_index)
             } <span class="kw">else </span>{
                 <span class="self">self</span>.offsets.vmctx_vmglobal_import_definition(index)
             };
+
             <span class="kw">let </span>global = func.create_global_value(ir::GlobalValueData::Load {
                 base: vmctx,
                 offset: Offset32::new(i32::try_from(from_offset).unwrap()),
                 global_type: pointer_type,
-                readonly: <span class="bool-val">true</span>,
+                flags: MemFlags::trusted(),
             });
 
             (global, <span class="number">0</span>)
@@ -2782,7 +2931,14 @@
         <span class="prelude-val">Ok</span>(GlobalVariable::Memory {
             gv: ptr,
             offset: offset.into(),
-            ty: type_to_irtype(<span class="self">self</span>.module.globals[index].ty, <span class="self">self</span>.target_config())<span class="question-mark">?</span>,
+            ty: <span class="kw">match </span><span class="self">self</span>.module.globals[index].ty {
+                WasmerType::I32 =&gt; ir::types::I32,
+                WasmerType::I64 =&gt; ir::types::I64,
+                WasmerType::F32 =&gt; ir::types::F32,
+                WasmerType::F64 =&gt; ir::types::F64,
+                WasmerType::V128 =&gt; ir::types::I8X16,
+                WasmerType::FuncRef | WasmerType::ExternRef =&gt; <span class="self">self</span>.reference_type(),
+            },
         })
     }
 
@@ -2811,9 +2967,8 @@
 
     <span class="kw">fn </span>translate_call_indirect(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         table_index: TableIndex,
-        table: ir::Table,
         sig_index: SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
@@ -2821,25 +2976,21 @@
     ) -&gt; WasmResult&lt;ir::Inst&gt; {
         <span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
 
-        <span class="kw">let </span>table_entry_addr = pos.ins().table_addr(pointer_type, table, callee, <span class="number">0</span>);
+        <span class="comment">// Get the anyfunc pointer (the funcref) from the table.
+        </span><span class="kw">let </span>anyfunc_ptr = <span class="self">self</span>.get_or_init_funcref_table_elem(builder, table_index, callee);
 
         <span class="comment">// Dereference table_entry_addr to get the function address.
         </span><span class="kw">let </span>mem_flags = ir::MemFlags::trusted();
-        <span class="kw">let </span>table_entry_addr = pos.ins().load(
-            pointer_type,
-            mem_flags,
-            table_entry_addr,
-            i32::from(<span class="self">self</span>.offsets.vm_funcref_anyfunc_ptr()),
-        );
 
         <span class="comment">// check if the funcref is null
-        </span>pos.ins()
-            .trapz(table_entry_addr, ir::TrapCode::IndirectCallToNull);
+        </span>builder
+            .ins()
+            .trapz(anyfunc_ptr, ir::TrapCode::IndirectCallToNull);
 
-        <span class="kw">let </span>func_addr = pos.ins().load(
+        <span class="kw">let </span>func_addr = builder.ins().load(
             pointer_type,
             mem_flags,
-            table_entry_addr,
+            anyfunc_ptr,
             i32::from(<span class="self">self</span>.offsets.vmcaller_checked_anyfunc_func_ptr()),
         );
 
@@ -2848,38 +2999,40 @@
             TableStyle::CallerChecksSignature =&gt; {
                 <span class="kw">let </span>sig_id_size = <span class="self">self</span>.offsets.size_of_vmshared_signature_index();
                 <span class="kw">let </span>sig_id_type = ir::Type::int(u16::from(sig_id_size) * <span class="number">8</span>).unwrap();
-                <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(pos.func);
-                <span class="kw">let </span>base = pos.ins().global_value(pointer_type, vmctx);
+                <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(builder.func);
+                <span class="kw">let </span>base = builder.ins().global_value(pointer_type, vmctx);
                 <span class="kw">let </span>offset =
                     i32::try_from(<span class="self">self</span>.offsets.vmctx_vmshared_signature_id(sig_index)).unwrap();
 
                 <span class="comment">// Load the caller ID.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>mem_flags = ir::MemFlags::trusted();
                 mem_flags.set_readonly();
-                <span class="kw">let </span>caller_sig_id = pos.ins().load(sig_id_type, mem_flags, base, offset);
+                <span class="kw">let </span>caller_sig_id = builder.ins().load(sig_id_type, mem_flags, base, offset);
 
                 <span class="comment">// Load the callee ID.
                 </span><span class="kw">let </span>mem_flags = ir::MemFlags::trusted();
-                <span class="kw">let </span>callee_sig_id = pos.ins().load(
+                <span class="kw">let </span>callee_sig_id = builder.ins().load(
                     sig_id_type,
                     mem_flags,
-                    table_entry_addr,
+                    anyfunc_ptr,
                     i32::from(<span class="self">self</span>.offsets.vmcaller_checked_anyfunc_type_index()),
                 );
 
                 <span class="comment">// Check that they match.
-                </span><span class="kw">let </span>cmp = pos.ins().icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
-                pos.ins().trapz(cmp, ir::TrapCode::BadSignature);
+                </span><span class="kw">let </span>cmp = builder
+                    .ins()
+                    .icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
+                builder.ins().trapz(cmp, ir::TrapCode::BadSignature);
             }
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>real_call_args = Vec::with_capacity(call_args.len() + <span class="number">2</span>);
 
         <span class="comment">// First append the callee vmctx address.
-        </span><span class="kw">let </span>vmctx = pos.ins().load(
+        </span><span class="kw">let </span>vmctx = builder.ins().load(
             pointer_type,
             mem_flags,
-            table_entry_addr,
+            anyfunc_ptr,
             i32::from(<span class="self">self</span>.offsets.vmcaller_checked_anyfunc_vmctx()),
         );
         real_call_args.push(vmctx);
@@ -2887,12 +3040,14 @@
         <span class="comment">// Then append the regular call arguments.
         </span>real_call_args.extend_from_slice(call_args);
 
-        <span class="prelude-val">Ok</span>(pos.ins().call_indirect(sig_ref, func_addr, <span class="kw-2">&amp;</span>real_call_args))
+        <span class="prelude-val">Ok</span>(builder
+            .ins()
+            .call_indirect(sig_ref, func_addr, <span class="kw-2">&amp;</span>real_call_args))
     }
 
     <span class="kw">fn </span>translate_call(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
         callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: <span class="kw-2">&amp;</span>[ir::Value],
@@ -2901,8 +3056,11 @@
 
         <span class="comment">// Handle direct calls to locally-defined functions.
         </span><span class="kw">if </span>!<span class="self">self</span>.module.is_imported_function(callee_index) {
-            <span class="comment">// Let&#39;s get the caller vmctx
-            </span><span class="kw">let </span>caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
+            <span class="comment">// Let's get the caller vmctx
+            </span><span class="kw">let </span>caller_vmctx = builder
+                .func
+                .special_param(ArgumentPurpose::VMContext)
+                .unwrap();
             <span class="comment">// First append the callee vmctx address, which is the same as the caller vmctx in
             // this case.
             </span>real_call_args.push(caller_vmctx);
@@ -2910,40 +3068,46 @@
             <span class="comment">// Then append the regular call arguments.
             </span>real_call_args.extend_from_slice(call_args);
 
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(pos.ins().call(callee, <span class="kw-2">&amp;</span>real_call_args));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(builder.ins().call(callee, <span class="kw-2">&amp;</span>real_call_args));
         }
 
         <span class="comment">// Handle direct calls to imported functions. We use an indirect call
-        // so that we don&#39;t have to patch the code at runtime.
+        // so that we don't have to patch the code at runtime.
         </span><span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
-        <span class="kw">let </span>sig_ref = pos.func.dfg.ext_funcs[callee].signature;
-        <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(pos.func);
-        <span class="kw">let </span>base = pos.ins().global_value(pointer_type, vmctx);
+        <span class="kw">let </span>sig_ref = builder.func.dfg.ext_funcs[callee].signature;
+        <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(builder.func);
+        <span class="kw">let </span>base = builder.ins().global_value(pointer_type, vmctx);
 
         <span class="kw">let </span>mem_flags = ir::MemFlags::trusted();
 
         <span class="comment">// Load the callee address.
         </span><span class="kw">let </span>body_offset =
             i32::try_from(<span class="self">self</span>.offsets.vmctx_vmfunction_import_body(callee_index)).unwrap();
-        <span class="kw">let </span>func_addr = pos.ins().load(pointer_type, mem_flags, base, body_offset);
+        <span class="kw">let </span>func_addr = builder
+            .ins()
+            .load(pointer_type, mem_flags, base, body_offset);
 
         <span class="comment">// First append the callee vmctx address.
         </span><span class="kw">let </span>vmctx_offset =
             i32::try_from(<span class="self">self</span>.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
-        <span class="kw">let </span>vmctx = pos.ins().load(pointer_type, mem_flags, base, vmctx_offset);
+        <span class="kw">let </span>vmctx = builder
+            .ins()
+            .load(pointer_type, mem_flags, base, vmctx_offset);
         real_call_args.push(vmctx);
 
         <span class="comment">// Then append the regular call arguments.
         </span>real_call_args.extend_from_slice(call_args);
 
-        <span class="prelude-val">Ok</span>(pos.ins().call_indirect(sig_ref, func_addr, <span class="kw-2">&amp;</span>real_call_args))
+        <span class="prelude-val">Ok</span>(builder
+            .ins()
+            .call_indirect(sig_ref, func_addr, <span class="kw-2">&amp;</span>real_call_args))
     }
 
     <span class="kw">fn </span>translate_memory_grow(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        <span class="kw-2">mut </span>pos: FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         val: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
         <span class="kw">let </span>(func_sig, index_arg, func_idx) = <span class="self">self</span>.get_memory_grow_func(pos.func, index);
@@ -2957,9 +3121,9 @@
 
     <span class="kw">fn </span>translate_memory_size(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>pos: FuncCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+        <span class="kw-2">mut </span>pos: FuncCursor&lt;<span class="lifetime">'_</span>&gt;,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
         <span class="kw">let </span>(func_sig, index_arg, func_idx) = <span class="self">self</span>.get_memory_size_func(pos.func, index);
         <span class="kw">let </span>memory_index = pos.ins().iconst(I32, index_arg <span class="kw">as </span>i64);
@@ -2974,9 +3138,9 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: FuncCursor,
         src_index: MemoryIndex,
-        _src_heap: ir::Heap,
+        _src_heap: Heap,
         _dst_index: MemoryIndex,
-        _dst_heap: ir::Heap,
+        _dst_heap: Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -2997,7 +3161,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: FuncCursor,
         memory_index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         dst: ir::Value,
         val: ir::Value,
         len: ir::Value,
@@ -3021,7 +3185,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: FuncCursor,
         memory_index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         seg_index: u32,
         dst: ir::Value,
         src: ir::Value,
@@ -3056,8 +3220,8 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: FuncCursor,
         table_index: TableIndex,
-        _table: ir::Table,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
+        <span class="self">self</span>.ensure_table_exists(pos.func, table_index);
         <span class="kw">let </span>(func_sig, index_arg, func_idx) = <span class="self">self</span>.get_table_size_func(pos.func, table_index);
         <span class="kw">let </span>table_index = pos.ins().iconst(I32, index_arg <span class="kw">as </span>i64);
         <span class="kw">let </span>(vmctx, func_addr) = <span class="self">self</span>.translate_load_builtin_function_address(<span class="kw-2">&amp;mut </span>pos, func_idx);
@@ -3071,13 +3235,13 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: FuncCursor,
         dst_table_index: TableIndex,
-        _dst_table: ir::Table,
         src_table_index: TableIndex,
-        _src_table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
     ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.ensure_table_exists(pos.func, src_table_index);
+        <span class="self">self</span>.ensure_table_exists(pos.func, dst_table_index);
         <span class="kw">let </span>(func_sig, dst_table_index_arg, src_table_index_arg, func_idx) =
             <span class="self">self</span>.get_table_copy_func(pos.func, dst_table_index, src_table_index);
 
@@ -3107,11 +3271,11 @@
         <span class="kw-2">mut </span>pos: FuncCursor,
         seg_index: u32,
         table_index: TableIndex,
-        _table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
     ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.ensure_table_exists(pos.func, table_index);
         <span class="kw">let </span>(func_sig, table_index_arg, func_idx) = <span class="self">self</span>.get_table_init_func(pos.func, table_index);
 
         <span class="kw">let </span>table_index_arg = pos.ins().iconst(I32, table_index_arg <span class="kw">as </span>i64);
@@ -3145,7 +3309,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: FuncCursor,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         addr: ir::Value,
         expected: ir::Value,
         timeout: ir::Value,
@@ -3169,7 +3333,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: FuncCursor,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         addr: ir::Value,
         count: ir::Value,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
@@ -3214,6 +3378,18 @@
 
     <span class="kw">fn </span>get_function_sig(<span class="kw-2">&amp;</span><span class="self">self</span>, sig_index: SignatureIndex) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>FunctionType&gt; {
         <span class="self">self</span>.module.signatures.get(sig_index)
+    }
+
+    <span class="kw">fn </span>heap_access_spectre_mitigation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+
+    <span class="kw">fn </span>proof_carrying_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+
+    <span class="kw">fn </span>heaps(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;Heap, HeapData&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.heaps
     }
 }
 </code></pre></div></section></main></body></html>

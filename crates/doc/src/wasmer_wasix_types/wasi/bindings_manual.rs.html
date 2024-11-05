@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/wasi/bindings_manual.rs`."><title>bindings_manual.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix_types/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/wasi/bindings_manual.rs`."><title>bindings_manual.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -397,47 +397,47 @@
     }
 
     <span class="doccomment">/// expects a single right, returns None if out of bounds or &gt; 1 bit set
-    </span><span class="kw">pub fn </span>to_str(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+    </span><span class="kw">pub fn </span>to_str(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
         <span class="prelude-val">Some</span>(<span class="kw">match </span><span class="self">self </span>{
-            Rights::FD_DATASYNC =&gt; <span class="string">&quot;Rights::FD_DATASYNC&quot;</span>,
-            Rights::FD_READ =&gt; <span class="string">&quot;Rights::FD_READ&quot;</span>,
-            Rights::FD_SEEK =&gt; <span class="string">&quot;Rights::FD_SEEK&quot;</span>,
-            Rights::FD_FDSTAT_SET_FLAGS =&gt; <span class="string">&quot;Rights::FD_FDSTAT_SET_FLAGS&quot;</span>,
-            Rights::FD_SYNC =&gt; <span class="string">&quot;Rights::FD_SYNC&quot;</span>,
-            Rights::FD_TELL =&gt; <span class="string">&quot;Rights::FD_TELL&quot;</span>,
-            Rights::FD_WRITE =&gt; <span class="string">&quot;Rights::FD_WRITE&quot;</span>,
-            Rights::FD_ADVISE =&gt; <span class="string">&quot;Rights::FD_ADVISE&quot;</span>,
-            Rights::FD_ALLOCATE =&gt; <span class="string">&quot;Rights::FD_ALLOCATE&quot;</span>,
-            Rights::PATH_CREATE_DIRECTORY =&gt; <span class="string">&quot;Rights::PATH_CREATE_DIRECTORY&quot;</span>,
-            Rights::PATH_CREATE_FILE =&gt; <span class="string">&quot;Rights::PATH_CREATE_FILE&quot;</span>,
-            Rights::PATH_LINK_SOURCE =&gt; <span class="string">&quot;Rights::PATH_LINK_SOURCE&quot;</span>,
-            Rights::PATH_LINK_TARGET =&gt; <span class="string">&quot;Rights::PATH_LINK_TARGET&quot;</span>,
-            Rights::PATH_OPEN =&gt; <span class="string">&quot;Rights::PATH_OPEN&quot;</span>,
-            Rights::FD_READDIR =&gt; <span class="string">&quot;Rights::FD_READDIR&quot;</span>,
-            Rights::PATH_READLINK =&gt; <span class="string">&quot;Rights::PATH_READLINK&quot;</span>,
-            Rights::PATH_RENAME_SOURCE =&gt; <span class="string">&quot;Rights::PATH_RENAME_SOURCE&quot;</span>,
-            Rights::PATH_RENAME_TARGET =&gt; <span class="string">&quot;Rights::PATH_RENAME_TARGET&quot;</span>,
-            Rights::PATH_FILESTAT_GET =&gt; <span class="string">&quot;Rights::PATH_FILESTAT_GET&quot;</span>,
-            Rights::PATH_FILESTAT_SET_SIZE =&gt; <span class="string">&quot;Rights::PATH_FILESTAT_SET_SIZE&quot;</span>,
-            Rights::PATH_FILESTAT_SET_TIMES =&gt; <span class="string">&quot;Rights::PATH_FILESTAT_SET_TIMES&quot;</span>,
-            Rights::FD_FILESTAT_GET =&gt; <span class="string">&quot;Rights::FD_FILESTAT_GET&quot;</span>,
-            Rights::FD_FILESTAT_SET_SIZE =&gt; <span class="string">&quot;Rights::FD_FILESTAT_SET_SIZE&quot;</span>,
-            Rights::FD_FILESTAT_SET_TIMES =&gt; <span class="string">&quot;Rights::FD_FILESTAT_SET_TIMES&quot;</span>,
-            Rights::PATH_SYMLINK =&gt; <span class="string">&quot;Rights::PATH_SYMLINK&quot;</span>,
-            Rights::PATH_REMOVE_DIRECTORY =&gt; <span class="string">&quot;Rights::PATH_REMOVE_DIRECTORY&quot;</span>,
-            Rights::PATH_UNLINK_FILE =&gt; <span class="string">&quot;Rights::PATH_UNLINK_FILE&quot;</span>,
-            Rights::POLL_FD_READWRITE =&gt; <span class="string">&quot;Rights::POLL_FD_READWRITE&quot;</span>,
-            Rights::SOCK_SHUTDOWN =&gt; <span class="string">&quot;Rights::SOCK_SHUTDOWN&quot;</span>,
-            Rights::SOCK_ACCEPT =&gt; <span class="string">&quot;Rights::SOCK_ACCEPT&quot;</span>,
-            Rights::SOCK_CONNECT =&gt; <span class="string">&quot;Rights::SOCK_CONNECT&quot;</span>,
-            Rights::SOCK_LISTEN =&gt; <span class="string">&quot;Rights::SOCK_LISTEN&quot;</span>,
-            Rights::SOCK_BIND =&gt; <span class="string">&quot;Rights::SOCK_BIND&quot;</span>,
-            Rights::SOCK_RECV =&gt; <span class="string">&quot;Rights::SOCK_RECV&quot;</span>,
-            Rights::SOCK_SEND =&gt; <span class="string">&quot;Rights::SOCK_SEND&quot;</span>,
-            Rights::SOCK_ADDR_LOCAL =&gt; <span class="string">&quot;Rights::SOCK_ADDR_LOCAL&quot;</span>,
-            Rights::SOCK_ADDR_REMOTE =&gt; <span class="string">&quot;Rights::SOCK_ADDR_REMOTE&quot;</span>,
-            Rights::SOCK_RECV_FROM =&gt; <span class="string">&quot;Rights::SOCK_RECV_FROM&quot;</span>,
-            Rights::SOCK_SEND_TO =&gt; <span class="string">&quot;Rights::SOCK_SEND_TO&quot;</span>,
+            Rights::FD_DATASYNC =&gt; <span class="string">"Rights::FD_DATASYNC"</span>,
+            Rights::FD_READ =&gt; <span class="string">"Rights::FD_READ"</span>,
+            Rights::FD_SEEK =&gt; <span class="string">"Rights::FD_SEEK"</span>,
+            Rights::FD_FDSTAT_SET_FLAGS =&gt; <span class="string">"Rights::FD_FDSTAT_SET_FLAGS"</span>,
+            Rights::FD_SYNC =&gt; <span class="string">"Rights::FD_SYNC"</span>,
+            Rights::FD_TELL =&gt; <span class="string">"Rights::FD_TELL"</span>,
+            Rights::FD_WRITE =&gt; <span class="string">"Rights::FD_WRITE"</span>,
+            Rights::FD_ADVISE =&gt; <span class="string">"Rights::FD_ADVISE"</span>,
+            Rights::FD_ALLOCATE =&gt; <span class="string">"Rights::FD_ALLOCATE"</span>,
+            Rights::PATH_CREATE_DIRECTORY =&gt; <span class="string">"Rights::PATH_CREATE_DIRECTORY"</span>,
+            Rights::PATH_CREATE_FILE =&gt; <span class="string">"Rights::PATH_CREATE_FILE"</span>,
+            Rights::PATH_LINK_SOURCE =&gt; <span class="string">"Rights::PATH_LINK_SOURCE"</span>,
+            Rights::PATH_LINK_TARGET =&gt; <span class="string">"Rights::PATH_LINK_TARGET"</span>,
+            Rights::PATH_OPEN =&gt; <span class="string">"Rights::PATH_OPEN"</span>,
+            Rights::FD_READDIR =&gt; <span class="string">"Rights::FD_READDIR"</span>,
+            Rights::PATH_READLINK =&gt; <span class="string">"Rights::PATH_READLINK"</span>,
+            Rights::PATH_RENAME_SOURCE =&gt; <span class="string">"Rights::PATH_RENAME_SOURCE"</span>,
+            Rights::PATH_RENAME_TARGET =&gt; <span class="string">"Rights::PATH_RENAME_TARGET"</span>,
+            Rights::PATH_FILESTAT_GET =&gt; <span class="string">"Rights::PATH_FILESTAT_GET"</span>,
+            Rights::PATH_FILESTAT_SET_SIZE =&gt; <span class="string">"Rights::PATH_FILESTAT_SET_SIZE"</span>,
+            Rights::PATH_FILESTAT_SET_TIMES =&gt; <span class="string">"Rights::PATH_FILESTAT_SET_TIMES"</span>,
+            Rights::FD_FILESTAT_GET =&gt; <span class="string">"Rights::FD_FILESTAT_GET"</span>,
+            Rights::FD_FILESTAT_SET_SIZE =&gt; <span class="string">"Rights::FD_FILESTAT_SET_SIZE"</span>,
+            Rights::FD_FILESTAT_SET_TIMES =&gt; <span class="string">"Rights::FD_FILESTAT_SET_TIMES"</span>,
+            Rights::PATH_SYMLINK =&gt; <span class="string">"Rights::PATH_SYMLINK"</span>,
+            Rights::PATH_REMOVE_DIRECTORY =&gt; <span class="string">"Rights::PATH_REMOVE_DIRECTORY"</span>,
+            Rights::PATH_UNLINK_FILE =&gt; <span class="string">"Rights::PATH_UNLINK_FILE"</span>,
+            Rights::POLL_FD_READWRITE =&gt; <span class="string">"Rights::POLL_FD_READWRITE"</span>,
+            Rights::SOCK_SHUTDOWN =&gt; <span class="string">"Rights::SOCK_SHUTDOWN"</span>,
+            Rights::SOCK_ACCEPT =&gt; <span class="string">"Rights::SOCK_ACCEPT"</span>,
+            Rights::SOCK_CONNECT =&gt; <span class="string">"Rights::SOCK_CONNECT"</span>,
+            Rights::SOCK_LISTEN =&gt; <span class="string">"Rights::SOCK_LISTEN"</span>,
+            Rights::SOCK_BIND =&gt; <span class="string">"Rights::SOCK_BIND"</span>,
+            Rights::SOCK_RECV =&gt; <span class="string">"Rights::SOCK_RECV"</span>,
+            Rights::SOCK_SEND =&gt; <span class="string">"Rights::SOCK_SEND"</span>,
+            Rights::SOCK_ADDR_LOCAL =&gt; <span class="string">"Rights::SOCK_ADDR_LOCAL"</span>,
+            Rights::SOCK_ADDR_REMOTE =&gt; <span class="string">"Rights::SOCK_ADDR_REMOTE"</span>,
+            Rights::SOCK_RECV_FROM =&gt; <span class="string">"Rights::SOCK_RECV_FROM"</span>,
+            Rights::SOCK_SEND_TO =&gt; <span class="string">"Rights::SOCK_SEND_TO"</span>,
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
         })
     }
@@ -487,7 +487,7 @@
 
 <span class="kw">impl </span>From&lt;Snapshot0SubscriptionClock&gt; <span class="kw">for </span>SubscriptionClock {
     <span class="kw">fn </span>from(other: Snapshot0SubscriptionClock) -&gt; <span class="self">Self </span>{
-        <span class="comment">// TODO: this removes Snapshot0SubscriptionClock::identifier, I don&#39;t
+        <span class="comment">// TODO: this removes Snapshot0SubscriptionClock::identifier, I don't
         // think this is how it should be
         </span><span class="self">Self </span>{
             clock_id: Clockid::from(other.id),
@@ -499,37 +499,37 @@
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Sockoption {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">let </span>s = <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-            <span class="self">Self</span>::Noop =&gt; <span class="string">&quot;Sockoption::Noop&quot;</span>,
-            <span class="self">Self</span>::ReusePort =&gt; <span class="string">&quot;Sockoption::ReusePort&quot;</span>,
-            <span class="self">Self</span>::ReuseAddr =&gt; <span class="string">&quot;Sockoption::ReuseAddr&quot;</span>,
-            <span class="self">Self</span>::NoDelay =&gt; <span class="string">&quot;Sockoption::NoDelay&quot;</span>,
-            <span class="self">Self</span>::DontRoute =&gt; <span class="string">&quot;Sockoption::DontRoute&quot;</span>,
-            <span class="self">Self</span>::OnlyV6 =&gt; <span class="string">&quot;Sockoption::OnlyV6&quot;</span>,
-            <span class="self">Self</span>::Broadcast =&gt; <span class="string">&quot;Sockoption::Broadcast&quot;</span>,
-            <span class="self">Self</span>::MulticastLoopV4 =&gt; <span class="string">&quot;Sockoption::MulticastLoopV4&quot;</span>,
-            <span class="self">Self</span>::MulticastLoopV6 =&gt; <span class="string">&quot;Sockoption::MulticastLoopV6&quot;</span>,
-            <span class="self">Self</span>::Promiscuous =&gt; <span class="string">&quot;Sockoption::Promiscuous&quot;</span>,
-            <span class="self">Self</span>::Listening =&gt; <span class="string">&quot;Sockoption::Listening&quot;</span>,
-            <span class="self">Self</span>::LastError =&gt; <span class="string">&quot;Sockoption::LastError&quot;</span>,
-            <span class="self">Self</span>::KeepAlive =&gt; <span class="string">&quot;Sockoption::KeepAlive&quot;</span>,
-            <span class="self">Self</span>::Linger =&gt; <span class="string">&quot;Sockoption::Linger&quot;</span>,
-            <span class="self">Self</span>::OobInline =&gt; <span class="string">&quot;Sockoption::OobInline&quot;</span>,
-            <span class="self">Self</span>::RecvBufSize =&gt; <span class="string">&quot;Sockoption::RecvBufSize&quot;</span>,
-            <span class="self">Self</span>::SendBufSize =&gt; <span class="string">&quot;Sockoption::SendBufSize&quot;</span>,
-            <span class="self">Self</span>::RecvLowat =&gt; <span class="string">&quot;Sockoption::RecvLowat&quot;</span>,
-            <span class="self">Self</span>::SendLowat =&gt; <span class="string">&quot;Sockoption::SendLowat&quot;</span>,
-            <span class="self">Self</span>::RecvTimeout =&gt; <span class="string">&quot;Sockoption::RecvTimeout&quot;</span>,
-            <span class="self">Self</span>::SendTimeout =&gt; <span class="string">&quot;Sockoption::SendTimeout&quot;</span>,
-            <span class="self">Self</span>::ConnectTimeout =&gt; <span class="string">&quot;Sockoption::ConnectTimeout&quot;</span>,
-            <span class="self">Self</span>::AcceptTimeout =&gt; <span class="string">&quot;Sockoption::AcceptTimeout&quot;</span>,
-            <span class="self">Self</span>::Ttl =&gt; <span class="string">&quot;Sockoption::Ttl&quot;</span>,
-            <span class="self">Self</span>::MulticastTtlV4 =&gt; <span class="string">&quot;Sockoption::MulticastTtlV4&quot;</span>,
-            <span class="self">Self</span>::Type =&gt; <span class="string">&quot;Sockoption::Type&quot;</span>,
-            <span class="self">Self</span>::Proto =&gt; <span class="string">&quot;Sockoption::Proto&quot;</span>,
+            <span class="self">Self</span>::Noop =&gt; <span class="string">"Sockoption::Noop"</span>,
+            <span class="self">Self</span>::ReusePort =&gt; <span class="string">"Sockoption::ReusePort"</span>,
+            <span class="self">Self</span>::ReuseAddr =&gt; <span class="string">"Sockoption::ReuseAddr"</span>,
+            <span class="self">Self</span>::NoDelay =&gt; <span class="string">"Sockoption::NoDelay"</span>,
+            <span class="self">Self</span>::DontRoute =&gt; <span class="string">"Sockoption::DontRoute"</span>,
+            <span class="self">Self</span>::OnlyV6 =&gt; <span class="string">"Sockoption::OnlyV6"</span>,
+            <span class="self">Self</span>::Broadcast =&gt; <span class="string">"Sockoption::Broadcast"</span>,
+            <span class="self">Self</span>::MulticastLoopV4 =&gt; <span class="string">"Sockoption::MulticastLoopV4"</span>,
+            <span class="self">Self</span>::MulticastLoopV6 =&gt; <span class="string">"Sockoption::MulticastLoopV6"</span>,
+            <span class="self">Self</span>::Promiscuous =&gt; <span class="string">"Sockoption::Promiscuous"</span>,
+            <span class="self">Self</span>::Listening =&gt; <span class="string">"Sockoption::Listening"</span>,
+            <span class="self">Self</span>::LastError =&gt; <span class="string">"Sockoption::LastError"</span>,
+            <span class="self">Self</span>::KeepAlive =&gt; <span class="string">"Sockoption::KeepAlive"</span>,
+            <span class="self">Self</span>::Linger =&gt; <span class="string">"Sockoption::Linger"</span>,
+            <span class="self">Self</span>::OobInline =&gt; <span class="string">"Sockoption::OobInline"</span>,
+            <span class="self">Self</span>::RecvBufSize =&gt; <span class="string">"Sockoption::RecvBufSize"</span>,
+            <span class="self">Self</span>::SendBufSize =&gt; <span class="string">"Sockoption::SendBufSize"</span>,
+            <span class="self">Self</span>::RecvLowat =&gt; <span class="string">"Sockoption::RecvLowat"</span>,
+            <span class="self">Self</span>::SendLowat =&gt; <span class="string">"Sockoption::SendLowat"</span>,
+            <span class="self">Self</span>::RecvTimeout =&gt; <span class="string">"Sockoption::RecvTimeout"</span>,
+            <span class="self">Self</span>::SendTimeout =&gt; <span class="string">"Sockoption::SendTimeout"</span>,
+            <span class="self">Self</span>::ConnectTimeout =&gt; <span class="string">"Sockoption::ConnectTimeout"</span>,
+            <span class="self">Self</span>::AcceptTimeout =&gt; <span class="string">"Sockoption::AcceptTimeout"</span>,
+            <span class="self">Self</span>::Ttl =&gt; <span class="string">"Sockoption::Ttl"</span>,
+            <span class="self">Self</span>::MulticastTtlV4 =&gt; <span class="string">"Sockoption::MulticastTtlV4"</span>,
+            <span class="self">Self</span>::Type =&gt; <span class="string">"Sockoption::Type"</span>,
+            <span class="self">Self</span>::Proto =&gt; <span class="string">"Sockoption::Proto"</span>,
         };
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, s)
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, s)
     }
 }
 
@@ -631,17 +631,17 @@
 
 <span class="kw">unsafe impl </span>wasmer::ValueType <span class="kw">for </span>Prestat {
     <span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;mut </span>[core::mem::MaybeUninit&lt;u8&gt;]) {
-        <span class="macro">macro_rules! </span>field {
+        <span class="macro">macro_rules!</span> field {
             ($(<span class="macro-nonterminal">$f</span>:tt)<span class="kw-2">*</span>) =&gt; {
                 <span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$f</span>)* <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_ as </span>usize - <span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_ as </span>usize
             };
         }
-        <span class="macro">macro_rules! </span>field_end {
+        <span class="macro">macro_rules!</span> field_end {
             ($(<span class="macro-nonterminal">$f</span>:tt)<span class="kw-2">*</span>) =&gt; {
                 <span class="macro">field!</span>($(<span class="macro-nonterminal">$f</span>)<span class="kw-2">*</span>) + core::mem::size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>.$(<span class="macro-nonterminal">$f</span>)<span class="kw-2">*</span>)
             };
         }
-        <span class="macro">macro_rules! </span>zero {
+        <span class="macro">macro_rules!</span> zero {
             (<span class="macro-nonterminal">$start</span>:expr, <span class="macro-nonterminal">$end</span>:expr) =&gt; {
                 <span class="kw">for </span>i <span class="kw">in </span><span class="macro-nonterminal">$start</span>..<span class="macro-nonterminal">$end </span>{
                     bytes[i] = core::mem::MaybeUninit::new(<span class="number">0</span>);

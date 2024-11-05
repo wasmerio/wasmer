@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1573,15 +1573,15 @@
 }
 
 <span class="attr">#[cfg(any(
-    target_os = <span class="string">&quot;freebsd&quot;</span>,
-    target_os = <span class="string">&quot;linux&quot;</span>,
-    target_os = <span class="string">&quot;android&quot;</span>,
-    target_vendor = <span class="string">&quot;apple&quot;
+    target_os = <span class="string">"freebsd"</span>,
+    target_os = <span class="string">"linux"</span>,
+    target_os = <span class="string">"android"</span>,
+    target_vendor = <span class="string">"apple"
 </span>))]
 </span><span class="kw">pub mod </span>unix;
-<span class="attr">#[cfg(target_family = <span class="string">&quot;wasm&quot;</span>)]
+<span class="attr">#[cfg(target_family = <span class="string">"wasm"</span>)]
 </span><span class="kw">pub mod </span>wasm;
-<span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+<span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
 </span><span class="kw">pub mod </span>windows;
 
 <span class="kw">pub mod </span>journal;
@@ -1629,13 +1629,13 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sha2::Sha256;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>tracing::{debug, error, trace, warn};
 <span class="attr">#[cfg(any(
-    target_os = <span class="string">&quot;freebsd&quot;</span>,
-    target_os = <span class="string">&quot;linux&quot;</span>,
-    target_os = <span class="string">&quot;android&quot;</span>,
-    target_vendor = <span class="string">&quot;apple&quot;
+    target_os = <span class="string">"freebsd"</span>,
+    target_os = <span class="string">"linux"</span>,
+    target_os = <span class="string">"android"</span>,
+    target_vendor = <span class="string">"apple"
 </span>))]
 </span><span class="kw">pub use </span>unix::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(target_family = <span class="string">&quot;wasm&quot;</span>)]
+<span class="attr">#[cfg(target_family = <span class="string">"wasm"</span>)]
 </span><span class="kw">pub use </span>wasm::<span class="kw-2">*</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>virtual_fs::{
@@ -1648,7 +1648,7 @@
     OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>wasmer_wasix_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
-<span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+<span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
 </span><span class="kw">pub use </span>windows::<span class="kw-2">*</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::types::{
@@ -1805,10 +1805,10 @@
 
 </span><span class="comment">// TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
 </span><span class="attr">#[allow(clippy::await_holding_lock)]
-</span><span class="kw">pub unsafe fn </span>stderr_write&lt;<span class="lifetime">&#39;a</span>&gt;(
-    ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+</span><span class="kw">pub unsafe fn </span>stderr_write&lt;<span class="lifetime">'a</span>&gt;(
+    ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     buf: <span class="kw-2">&amp;</span>[u8],
-) -&gt; LocalBoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), Errno&gt;&gt; {
+) -&gt; LocalBoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;(), Errno&gt;&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, <span class="number">0</span>);
 
@@ -1845,7 +1845,7 @@
     };
 
     <span class="kw">let </span>work = <span class="kw">async move </span>{
-        <span class="macro">tokio::select! </span>{
+        <span class="macro">tokio::select!</span> {
             <span class="comment">// The main work we are doing
             </span>res = work =&gt; res,
             <span class="comment">// Optional timeout
@@ -1873,12 +1873,12 @@
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
 /// synchronous IO engine
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__asyncify&lt;T, Fut&gt;(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     work: Fut,
 ) -&gt; WasiResult&lt;T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;static</span>,
+    </span>T: <span class="lifetime">'static</span>,
     Fut: std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
@@ -1889,19 +1889,19 @@
     }
 
     <span class="comment">// This poller will process any signals when the main working function is idle
-    </span><span class="kw">struct </span>SignalPoller&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, Fut, T&gt;
+    </span><span class="kw">struct </span>SignalPoller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, Fut, T&gt;
     <span class="kw">where
         </span>Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
     {
-        ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;b</span>, WasiEnv&gt;,
+        ctx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">'b</span>, WasiEnv&gt;,
         pinned_work: Pin&lt;Box&lt;Fut&gt;&gt;,
     }
-    <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, Fut, T&gt; Future <span class="kw">for </span>SignalPoller&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, Fut, T&gt;
+    <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, Fut, T&gt; Future <span class="kw">for </span>SignalPoller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, Fut, T&gt;
     <span class="kw">where
         </span>Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
     {
         <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Fut::Output, WasiError&gt;;
-        <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
             <span class="kw">if let </span>Poll::Ready(res) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.pinned_work).poll(cx) {
                 <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(res));
             }
@@ -1925,23 +1925,23 @@
 <span class="doccomment">/// Future that will be polled by asyncify methods
 /// (the return value is what will be returned in rewind
 ///  or in the instant response)
-</span><span class="kw">pub type </span>AsyncifyFuture = <span class="kw">dyn </span>Future&lt;Output = Bytes&gt; + Send + Sync + <span class="lifetime">&#39;static</span>;
+</span><span class="kw">pub type </span>AsyncifyFuture = <span class="kw">dyn </span>Future&lt;Output = Bytes&gt; + Send + Sync + <span class="lifetime">'static</span>;
 
 <span class="comment">// This poller will process any signals when the main working function is idle
-</span><span class="kw">struct </span>AsyncifyPoller&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;c</span>, T, Fut&gt;
+</span><span class="kw">struct </span>AsyncifyPoller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, <span class="lifetime">'c</span>, T, Fut&gt;
 <span class="kw">where
-    </span>Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    </span>Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
-    ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;c</span>, WasiEnv&gt;,
-    work: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Pin&lt;Box&lt;Fut&gt;&gt;,
+    ctx: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">'c</span>, WasiEnv&gt;,
+    work: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Pin&lt;Box&lt;Fut&gt;&gt;,
 }
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;c</span>, T, Fut&gt; Future <span class="kw">for </span>AsyncifyPoller&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;c</span>, T, Fut&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, <span class="lifetime">'c</span>, T, Fut&gt; Future <span class="kw">for </span>AsyncifyPoller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, <span class="lifetime">'c</span>, T, Fut&gt;
 <span class="kw">where
-    </span>Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    </span>Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
     <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;T, WasiError&gt;;
 
-    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         <span class="kw">if let </span>Poll::Ready(res) = <span class="self">self</span>.work.as_mut().poll(cx) {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(res));
         }
@@ -1949,7 +1949,7 @@
         <span class="kw">let </span>env = <span class="self">self</span>.ctx.data();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(forced_exit) = env.thread.try_join() {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;exit runtime error - {}&quot;</span>, err);
+                <span class="macro">tracing::debug!</span>(<span class="string">"exit runtime error - {}"</span>, err);
                 Errno::Child.into()
             }))));
         }
@@ -1981,7 +1981,7 @@
                         Poll::Pending
                     }
                 }
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(ExitCode::Errno(err)))),
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(ExitCode::from(err)))),
                 <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(err)),
             };
         }
@@ -1989,10 +1989,10 @@
     }
 }
 
-<span class="kw">pub enum </span>AsyncifyAction&lt;<span class="lifetime">&#39;a</span>, R&gt; {
+<span class="kw">pub enum </span>AsyncifyAction&lt;<span class="lifetime">'a</span>, R&gt; {
     <span class="doccomment">/// Indicates that asyncify callback finished and the
     /// caller now has ownership of the ctx again
-    </span>Finish(FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;, R),
+    </span>Finish(FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;, R),
     <span class="doccomment">/// Indicates that asyncify should unwind by immediately exiting
     /// the current function
     </span>Unwind,
@@ -2009,8 +2009,8 @@
 /// throttled
 ///
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>maybe_backoff&lt;M: MemorySize&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, Errno&gt;, WasiError&gt; {
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, Errno&gt;, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
 
     <span class="comment">// Fast path that exits this high volume call if we do not have
@@ -2021,7 +2021,7 @@
 
     <span class="comment">// Determine if we need to do a backoff, if so lets do one
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(backoff) = env.process.acquire_cpu_backoff_token(env.tasks()) {
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;exponential CPU backoff {:?}&quot;</span>, backoff.backoff_time());
+        <span class="macro">tracing::trace!</span>(<span class="string">"exponential CPU backoff {:?}"</span>, backoff.backoff_time());
         <span class="kw">if let </span>AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx, <span class="kw">_</span>) =
             __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, backoff)<span class="question-mark">?
         </span>{
@@ -2044,12 +2044,12 @@
 /// and instead process it on a shared task
 ///
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__asyncify_with_deep_sleep&lt;M: MemorySize, T, Fut&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     work: Fut,
-) -&gt; <span class="prelude-ty">Result</span>&lt;AsyncifyAction&lt;<span class="lifetime">&#39;_</span>, T&gt;, WasiError&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;AsyncifyAction&lt;<span class="lifetime">'_</span>, T&gt;, WasiError&gt;
 <span class="kw">where
     </span>T: serde::Serialize + serde::de::DeserializeOwned,
-    Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
     <span class="comment">// Determine the deep sleep time
     </span><span class="kw">let </span>deep_sleep_time = <span class="kw">match </span>ctx.data().enable_journal {
@@ -2080,7 +2080,7 @@
             </span>}
         };
 
-        <span class="prelude-val">Ok</span>(<span class="macro">tokio::select! </span>{
+        <span class="prelude-val">Ok</span>(<span class="macro">tokio::select!</span> {
             <span class="comment">// Inner wait with finializer
             </span>res = AsyncifyPoller {
                 ctx: <span class="kw-2">&amp;mut </span>ctx,
@@ -2100,12 +2100,12 @@
                 thread.set_deep_sleeping(<span class="bool-val">true</span>);
                 ctx.data().process.inner.<span class="number">1</span>.notify_one();
 
-                <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">&quot;thread entering deep sleep&quot;</span>);
+                <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">"thread entering deep sleep"</span>);
                 deep_sleep::&lt;M&gt;(ctx, Box::pin(<span class="kw">async move </span>{
                     <span class="comment">// After this wakes the background work or waking
                     // event has triggered and its time to result
                     </span><span class="kw">let </span>result = trigger.<span class="kw">await</span>;
-                    <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">&quot;thread leaving deep sleep&quot;</span>);
+                    <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">"thread leaving deep sleep"</span>);
                     thread.set_deep_sleeping(<span class="bool-val">false</span>);
                     bincode::serialize(<span class="kw-2">&amp;</span>result).unwrap().into()
                 }))<span class="question-mark">?</span>;
@@ -2129,26 +2129,26 @@
     work: Fut,
 ) -&gt; WasiResult&lt;T&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;static</span>,
+    </span>T: <span class="lifetime">'static</span>,
     Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
 {
     <span class="kw">let </span>snapshot_wait = wait_for_snapshot(env);
 
     <span class="comment">// This poller will process any signals when the main working function is idle
-    </span><span class="kw">struct </span>Poller&lt;<span class="lifetime">&#39;a</span>, Fut, T&gt;
+    </span><span class="kw">struct </span>Poller&lt;<span class="lifetime">'a</span>, Fut, T&gt;
     <span class="kw">where
         </span>Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
     {
-        env: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>WasiEnv,
+        env: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasiEnv,
         pinned_work: Pin&lt;Box&lt;Fut&gt;&gt;,
         pinned_snapshot: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt;&gt;&gt;,
     }
-    <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Fut, T&gt; Future <span class="kw">for </span>Poller&lt;<span class="lifetime">&#39;a</span>, Fut, T&gt;
+    <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Fut, T&gt; Future <span class="kw">for </span>Poller&lt;<span class="lifetime">'a</span>, Fut, T&gt;
     <span class="kw">where
         </span>Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
     {
         <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Fut::Output, WasiError&gt;;
-        <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
             <span class="kw">if let </span>Poll::Ready(res) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.pinned_work).poll(cx) {
                 <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(res));
             }
@@ -2177,7 +2177,7 @@
 </span><span class="kw">pub struct </span>InfiniteSleep {}
 <span class="kw">impl </span>std::future::Future <span class="kw">for </span>InfiniteSleep {
     <span class="kw">type </span>Output = ();
-    <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+    <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         Poll::Pending
     }
 }
@@ -2226,7 +2226,7 @@
 <span class="doccomment">/// Performs mutable work on a socket under an asynchronous runtime with
 /// built in signal processing
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__sock_asyncify_mut&lt;T, F, Fut&gt;(
-    ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -2265,13 +2265,13 @@
 <span class="doccomment">/// Performs an immutable operation on the socket while running in an asynchronous runtime
 /// This has built in signal support
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__sock_actor&lt;T, F&gt;(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;T, Errno&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;static</span>,
+    </span>T: <span class="lifetime">'static</span>,
     F: FnOnce(<span class="kw">crate</span>::net::socket::InodeSocket, Fd) -&gt; <span class="prelude-ty">Result</span>&lt;T, Errno&gt;,
 {
     <span class="kw">let </span>env = ctx.data();
@@ -2302,13 +2302,13 @@
 <span class="doccomment">/// Performs mutable work on a socket under an asynchronous runtime with
 /// built in signal processing
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__sock_actor_mut&lt;T, F&gt;(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;T, Errno&gt;
 <span class="kw">where
-    </span>T: <span class="lifetime">&#39;static</span>,
+    </span>T: <span class="lifetime">'static</span>,
     F: FnOnce(<span class="kw">crate</span>::net::socket::InodeSocket, Fd) -&gt; <span class="prelude-ty">Result</span>&lt;T, Errno&gt;,
 {
     <span class="kw">let </span>env = ctx.data();
@@ -2337,21 +2337,21 @@
 <span class="doccomment">/// Replaces a socket with another socket in under an asynchronous runtime.
 /// This is used for opening sockets or connecting sockets which changes
 /// the fundamental state of the socket to another state machine
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__sock_upgrade&lt;<span class="lifetime">&#39;a</span>, F, Fut&gt;(
-    ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__sock_upgrade&lt;<span class="lifetime">'a</span>, F, Fut&gt;(
+    ctx: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt;
 <span class="kw">where
     </span>F: FnOnce(<span class="kw">crate</span>::net::socket::InodeSocket, Fdflags) -&gt; Fut,
-    Fut: std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::net::socket::InodeSocket&gt;, Errno&gt;&gt; + <span class="lifetime">&#39;a</span>,
+    Fut: std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::net::socket::InodeSocket&gt;, Errno&gt;&gt; + <span class="lifetime">'a</span>,
 {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock)<span class="question-mark">?</span>;
     <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.rights.contains(rights) {
         <span class="macro">tracing::warn!</span>(
-            <span class="string">&quot;wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade&quot;</span>,
+            <span class="string">"wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade"</span>,
             ctx.data().pid(),
             ctx.data().tid(),
             sock,
@@ -2384,7 +2384,7 @@
                         }
                         <span class="kw">_ </span>=&gt; {
                             <span class="macro">tracing::warn!</span>(
-                                <span class="string">&quot;wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket&quot;</span>,
+                                <span class="string">"wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket"</span>,
                                 ctx.data().pid(),
                                 ctx.data().tid(),
                                 sock,
@@ -2397,7 +2397,7 @@
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">tracing::warn!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket&quot;</span>,
+                    <span class="string">"wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket"</span>,
                     ctx.data().pid(),
                     ctx.data().tid(),
                     sock,
@@ -2455,7 +2455,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>get_memory_stack_pointer(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;u64, String&gt; {
     <span class="comment">// Get the current value of the stack pointer (which we will use
     // to save all of the stack)
@@ -2467,13 +2467,13 @@
             <span class="kw">_ </span>=&gt; stack_upper,
         }
     } <span class="kw">else </span>{
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;failed to save stack: not exported __stack_pointer global&quot;</span>.to_string());
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: not exported __stack_pointer global"</span>.to_string());
     };
     <span class="prelude-val">Ok</span>(stack_pointer)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>get_memory_stack_offset(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;u64, String&gt; {
     <span class="kw">let </span>stack_upper = get_stack_upper(ctx.data());
     <span class="kw">let </span>stack_pointer = get_memory_stack_pointer(ctx)<span class="question-mark">?</span>;
@@ -2490,7 +2490,7 @@
     <span class="kw">let </span>stack_pointer = stack_upper - offset;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer_ptr) = env
         .try_inner()
-        .ok_or_else(|| <span class="string">&quot;unable to access the stack pointer of the instance&quot;</span>.to_string())<span class="question-mark">?
+        .ok_or_else(|| <span class="string">"unable to access the stack pointer of the instance"</span>.to_string())<span class="question-mark">?
         </span>.stack_pointer
         .clone()
     {
@@ -2503,13 +2503,13 @@
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(
-                    <span class="string">&quot;failed to save stack: __stack_pointer global is of an unknown type&quot;
+                    <span class="string">"failed to save stack: __stack_pointer global is of an unknown type"
                         </span>.to_string(),
                 );
             }
         }
     } <span class="kw">else </span>{
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;failed to save stack: not exported __stack_pointer global&quot;</span>.to_string());
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: not exported __stack_pointer global"</span>.to_string());
     }
     <span class="prelude-val">Ok</span>(())
 }
@@ -2524,7 +2524,7 @@
     </span><span class="kw">let </span>stack_base = get_stack_upper(env);
     <span class="kw">let </span>stack_pointer = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = env
         .try_inner()
-        .ok_or_else(|| <span class="string">&quot;unable to access the stack pointer of the instance&quot;</span>.to_string())<span class="question-mark">?
+        .ok_or_else(|| <span class="string">"unable to access the stack pointer of the instance"</span>.to_string())<span class="question-mark">?
         </span>.stack_pointer
         .clone()
     {
@@ -2534,18 +2534,18 @@
             <span class="kw">_ </span>=&gt; stack_base,
         }
     } <span class="kw">else </span>{
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;failed to save stack: not exported __stack_pointer global&quot;</span>.to_string());
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: not exported __stack_pointer global"</span>.to_string());
     };
     <span class="kw">let </span>memory = env
         .try_memory_view(store)
-        .ok_or_else(|| <span class="string">&quot;unable to access the memory of the instance&quot;</span>.to_string())<span class="question-mark">?</span>;
+        .ok_or_else(|| <span class="string">"unable to access the memory of the instance"</span>.to_string())<span class="question-mark">?</span>;
     <span class="kw">let </span>stack_offset = env.layout.stack_upper - stack_pointer;
 
     <span class="comment">// Read the memory stack into a vector
     </span><span class="kw">let </span>memory_stack_ptr = WasmPtr::&lt;u8, M&gt;::new(
         stack_pointer
             .try_into()
-            .map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;failed to save stack: stack pointer overflow (stack_pointer={}, stack_lower={}, stack_upper={})&quot;</span>, stack_offset, env.layout.stack_lower, env.layout.stack_upper))<span class="question-mark">?</span>,
+            .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to save stack: stack pointer overflow (stack_pointer={}, stack_lower={}, stack_upper={})"</span>, stack_offset, env.layout.stack_lower, env.layout.stack_upper))<span class="question-mark">?</span>,
     );
 
     memory_stack_ptr
@@ -2553,10 +2553,10 @@
             <span class="kw-2">&amp;</span>memory,
             stack_offset
                 .try_into()
-                .map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;failed to save stack: stack pointer overflow (stack_pointer={}, stack_lower={}, stack_upper={})&quot;</span>, stack_offset, env.layout.stack_lower, env.layout.stack_upper))<span class="question-mark">?</span>,
+                .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to save stack: stack pointer overflow (stack_pointer={}, stack_lower={}, stack_upper={})"</span>, stack_offset, env.layout.stack_lower, env.layout.stack_upper))<span class="question-mark">?</span>,
         )
         .and_then(|memory_stack| memory_stack.read_to_bytes())
-        .map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;failed to read stack: {}&quot;</span>, err))
+        .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to read stack: {}"</span>, err))
 }
 
 <span class="attr">#[allow(dead_code)]
@@ -2572,21 +2572,21 @@
     <span class="kw">let </span>stack_ptr = WasmPtr::&lt;u8, M&gt;::new(
         stack_pointer
             .try_into()
-            .map_err(|<span class="kw">_</span>| <span class="string">&quot;failed to restore stack: stack pointer overflow&quot;</span>.to_string())<span class="question-mark">?</span>,
+            .map_err(|<span class="kw">_</span>| <span class="string">"failed to restore stack: stack pointer overflow"</span>.to_string())<span class="question-mark">?</span>,
     );
 
     <span class="kw">let </span>memory = env
         .try_memory_view(store)
-        .ok_or_else(|| <span class="string">&quot;unable to set the stack pointer of the instance&quot;</span>.to_string())<span class="question-mark">?</span>;
+        .ok_or_else(|| <span class="string">"unable to set the stack pointer of the instance"</span>.to_string())<span class="question-mark">?</span>;
     stack_ptr
         .slice(
             <span class="kw-2">&amp;</span>memory,
             stack_offset
                 .try_into()
-                .map_err(|<span class="kw">_</span>| <span class="string">&quot;failed to restore stack: stack pointer overflow&quot;</span>.to_string())<span class="question-mark">?</span>,
+                .map_err(|<span class="kw">_</span>| <span class="string">"failed to restore stack: stack pointer overflow"</span>.to_string())<span class="question-mark">?</span>,
         )
         .and_then(|memory_stack| memory_stack.write_slice(<span class="kw-2">&amp;</span>stack[..]))
-        .map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;failed to write stack: {}&quot;</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to write stack: {}"</span>, err))<span class="question-mark">?</span>;
 
     <span class="comment">// Set the stack pointer itself and return
     </span>set_memory_stack_offset(env, store, stack_offset)<span class="question-mark">?</span>;
@@ -2595,9 +2595,9 @@
 
 <span class="doccomment">/// Puts the process to deep sleep and wakes it again when
 /// the supplied future completes
-</span><span class="attr">#[must_use = <span class="string">&quot;you must return the result immediately so the stack can unwind&quot;</span>]
+</span><span class="attr">#[must_use = <span class="string">"you must return the result immediately so the stack can unwind"</span>]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>deep_sleep&lt;M: MemorySize&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     trigger: Pin&lt;Box&lt;AsyncifyFuture&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiError&gt; {
     <span class="comment">// Grab all the globals and serialize them
@@ -2614,7 +2614,7 @@
         <span class="kw">let </span>rewind_stack = rewind_stack.freeze();
         <span class="kw">let </span>thread_layout = ctx.data().thread.memory_layout().clone();
 
-        <span class="comment">// If journal&#39;ing is enabled then we dump the stack into the journal
+        <span class="comment">// If journal'ing is enabled then we dump the stack into the journal
         </span><span class="kw">if </span>ctx.data().enable_journal {
             <span class="comment">// Grab all the globals and serialize them
             </span><span class="kw">let </span>store_data = <span class="kw">crate</span>::utils::store::capture_store_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
@@ -2623,13 +2623,13 @@
             <span class="kw">let </span>store_data = Bytes::from(store_data);
 
             <span class="macro">tracing::debug!</span>(
-                <span class="string">&quot;stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})&quot;</span>,
+                <span class="string">"stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})"</span>,
                 memory_stack.len(),
                 rewind_stack.len(),
                 store_data.len(),
             );
 
-            <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
             </span>{
                 <span class="comment">// Write our thread state to the snapshot
                 </span><span class="kw">let </span>tid = ctx.data().thread.tid();
@@ -2658,7 +2658,7 @@
             <span class="comment">// When we idle the journal functionality may be set
             // will take a snapshot of the memory and threads so
             // that it can resumed.
-            </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+            </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
             </span>{
                 <span class="kw">if </span>is_idle &amp;&amp; ctx.data_mut().has_snapshot_trigger(SnapshotTrigger::Idle) {
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.<span class="number">0</span>.lock().unwrap();
@@ -2690,20 +2690,20 @@
     <span class="comment">// If there is an error then exit the process, otherwise we are done
     </span><span class="kw">match </span>res {
         Errno::Success =&gt; <span class="prelude-val">Ok</span>(()),
-        err =&gt; <span class="prelude-val">Err</span>(WasiError::Exit(ExitCode::Errno(err))),
+        err =&gt; <span class="prelude-val">Err</span>(WasiError::Exit(ExitCode::from(err))),
     }
 }
 
-<span class="attr">#[must_use = <span class="string">&quot;you must return the result immediately so the stack can unwind&quot;</span>]
+<span class="attr">#[must_use = <span class="string">"you must return the result immediately so the stack can unwind"</span>]
 </span><span class="kw">pub fn </span>unwind&lt;M: MemorySize, F&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     callback: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt;
 <span class="kw">where
-    </span>F: FnOnce(FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, BytesMut, BytesMut) -&gt; OnCalledAction
+    </span>F: FnOnce(FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, BytesMut, BytesMut) -&gt; OnCalledAction
         + Send
         + Sync
-        + <span class="lifetime">&#39;static</span>,
+        + <span class="lifetime">'static</span>,
 {
     <span class="comment">// Get the current stack pointer (this will be used to determine the
     // upper limit of stack space remaining to unwind into)
@@ -2711,7 +2711,7 @@
     <span class="kw">let </span>memory_stack = <span class="kw">match </span>get_memory_stack::&lt;M&gt;(env, <span class="kw-2">&amp;mut </span>store) {
         <span class="prelude-val">Ok</span>(a) =&gt; a,
         <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="macro">warn!</span>(<span class="string">&quot;unable to get the memory stack - {}&quot;</span>, err);
+            <span class="macro">warn!</span>(<span class="string">"unable to get the memory stack - {}"</span>, err);
             <span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(Errno::Unknown.into()));
         }
     };
@@ -2745,7 +2745,7 @@
     {
         asyncify_start_unwind.call(<span class="kw-2">&amp;mut </span>ctx, asyncify_data);
     } <span class="kw">else </span>{
-        <span class="macro">warn!</span>(<span class="string">&quot;failed to unwind the stack because the asyncify_start_rewind export is missing&quot;</span>);
+        <span class="macro">warn!</span>(<span class="string">"failed to unwind the stack because the asyncify_start_rewind export is missing"</span>);
         <span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(Errno::Noexec.into()));
     }
 
@@ -2757,7 +2757,7 @@
     <span class="macro">trace!</span>(
         stack_upper = env.layout.stack_upper,
         stack_lower = env.layout.stack_lower,
-        <span class="string">&quot;wasi[{}:{}]::unwinding (used_stack_space={} total_stack_space={})&quot;</span>,
+        <span class="string">"wasi[{}:{}]::unwinding (used_stack_space={} total_stack_space={})"</span>,
         ctx.data().pid(),
         ctx.data().tid(),
         memory_stack.len(),
@@ -2768,7 +2768,7 @@
         <span class="kw">let </span>env = ctx.data();
         <span class="kw">let </span>memory = env
             .try_memory_view(<span class="kw-2">&amp;</span>ctx)
-            .ok_or_else(|| <span class="string">&quot;failed to save stack: stack pointer overflow - unable to access the memory of the instance&quot;</span>.to_string())<span class="question-mark">?</span>;
+            .ok_or_else(|| <span class="string">"failed to save stack: stack pointer overflow - unable to access the memory of the instance"</span>.to_string())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>unwind_data_ptr: WasmPtr&lt;__wasi_asyncify_t&lt;M::Offset&gt;, M&gt; = WasmPtr::new(
             unwind_pointer
@@ -2780,7 +2780,7 @@
         <span class="kw">let </span>unwind_stack_finish: u64 = unwind_data_result.start.into();
         <span class="kw">let </span>unwind_size = unwind_stack_finish - unwind_stack_begin;
         <span class="macro">trace!</span>(
-            <span class="string">&quot;wasi[{}:{}]::unwound (memory_stack_size={} unwind_size={})&quot;</span>,
+            <span class="string">"wasi[{}:{}]::unwound (memory_stack_size={} unwind_size={})"</span>,
             ctx.data().pid(),
             ctx.data().tid(),
             memory_stack.len(),
@@ -2791,17 +2791,17 @@
         </span><span class="kw">let </span>unwind_stack_ptr = WasmPtr::&lt;u8, M&gt;::new(
             unwind_stack_begin
                 .try_into()
-                .map_err(|<span class="kw">_</span>| <span class="string">&quot;failed to save stack: stack pointer overflow&quot;</span>.to_string())<span class="question-mark">?</span>,
+                .map_err(|<span class="kw">_</span>| <span class="string">"failed to save stack: stack pointer overflow"</span>.to_string())<span class="question-mark">?</span>,
         );
         <span class="kw">let </span>unwind_stack = unwind_stack_ptr
             .slice(
                 <span class="kw-2">&amp;</span>memory,
                 unwind_size
                     .try_into()
-                    .map_err(|<span class="kw">_</span>| <span class="string">&quot;failed to save stack: stack pointer overflow&quot;</span>.to_string())<span class="question-mark">?</span>,
+                    .map_err(|<span class="kw">_</span>| <span class="string">"failed to save stack: stack pointer overflow"</span>.to_string())<span class="question-mark">?</span>,
             )
             .and_then(|memory_stack| memory_stack.read_to_bytes())
-            .map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;failed to read stack: {}&quot;</span>, err))<span class="question-mark">?</span>;
+            .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to read stack: {}"</span>, err))<span class="question-mark">?</span>;
 
         <span class="comment">// Notify asyncify that we are no longer unwinding
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_stop_unwind) = env
@@ -2812,7 +2812,7 @@
         {
             asyncify_stop_unwind.call(<span class="kw-2">&amp;mut </span>ctx);
         } <span class="kw">else </span>{
-            <span class="macro">warn!</span>(<span class="string">&quot;failed to unwind the stack because the asyncify_start_rewind export is missing&quot;</span>);
+            <span class="macro">warn!</span>(<span class="string">"failed to unwind the stack because the asyncify_start_rewind export is missing"</span>);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(OnCalledAction::Finish);
         }
 
@@ -2824,7 +2824,7 @@
 }
 
 <span class="comment">// NOTE: not tracing-instrumented because [`rewind_ext`] already is.
-</span><span class="attr">#[must_use = <span class="string">&quot;the action must be passed to the call loop&quot;</span>]
+</span><span class="attr">#[must_use = <span class="string">"the action must be passed to the call loop"</span>]
 </span><span class="kw">pub fn </span>rewind&lt;M: MemorySize, T&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     memory_stack: Bytes,
@@ -2845,8 +2845,8 @@
     )
 }
 
-<span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
-#[must_use = <span class="string">&quot;the action must be passed to the call loop&quot;</span>]
+<span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+#[must_use = <span class="string">"the action must be passed to the call loop"</span>]
 </span><span class="kw">pub fn </span>rewind_ext&lt;M: MemorySize&gt;(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;WasiEnv&gt;,
     memory_stack: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
@@ -2864,7 +2864,7 @@
     </span><span class="kw">let </span>store_snapshot = <span class="kw">match </span>StoreSnapshot::deserialize(<span class="kw-2">&amp;</span>store_data[..]) {
         <span class="prelude-val">Ok</span>(a) =&gt; a,
         <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="macro">warn!</span>(<span class="string">&quot;snapshot restore failed - the store snapshot could not be deserialized&quot;</span>);
+            <span class="macro">warn!</span>(<span class="string">"snapshot restore failed - the store snapshot could not be deserialized"</span>);
             <span class="kw">return </span>Errno::Unknown;
         }
     };
@@ -2873,7 +2873,7 @@
     <span class="kw">let </span>memory = <span class="kw">match </span>env.try_memory_view(<span class="kw-2">&amp;</span>ctx) {
         <span class="prelude-val">Some</span>(v) =&gt; v,
         <span class="prelude-val">None </span>=&gt; {
-            <span class="macro">warn!</span>(<span class="string">&quot;snapshot restore failed - unable to access the memory of the instance&quot;</span>);
+            <span class="macro">warn!</span>(<span class="string">"snapshot restore failed - unable to access the memory of the instance"</span>);
             <span class="kw">return </span>Errno::Unknown;
         }
     };
@@ -2885,7 +2885,7 @@
     <span class="kw">let </span>rewind_data_end = rewind_data_start + (rewind_stack.len() <span class="kw">as </span>u64);
     <span class="kw">if </span>rewind_data_end &gt; env.layout.stack_upper {
         <span class="macro">warn!</span>(
-            <span class="string">&quot;attempting to rewind a stack bigger than the allocated stack space ({} &gt; {})&quot;</span>,
+            <span class="string">"attempting to rewind a stack bigger than the allocated stack space ({} &gt; {})"</span>,
             rewind_data_end, env.layout.stack_upper
         );
         <span class="kw">return </span>Errno::Overflow;
@@ -2925,7 +2925,7 @@
     {
         asyncify_start_rewind.call(ctx, asyncify_data);
     } <span class="kw">else </span>{
-        <span class="macro">warn!</span>(<span class="string">&quot;failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible&quot;</span>);
+        <span class="macro">warn!</span>(<span class="string">"failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible"</span>);
         <span class="kw">return </span>Errno::Noexec;
     }
 
@@ -2937,7 +2937,7 @@
     rewind_state: RewindStateOption,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExitCode&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;Rewinding&quot;</span>);
+        <span class="macro">tracing::trace!</span>(<span class="string">"Rewinding"</span>);
         <span class="kw">let </span>errno = <span class="kw">if </span>rewind_state.is_64bit {
             <span class="kw">crate</span>::rewind_ext::&lt;wasmer_types::Memory64&gt;(
                 ctx,
@@ -2971,7 +2971,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>handle_rewind&lt;M: MemorySize, T&gt;(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt;
 <span class="kw">where
     </span>T: serde::de::DeserializeOwned,
@@ -2988,7 +2988,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>handle_rewind_ext_with_default&lt;M: MemorySize, T&gt;(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     type_: HandleRewindType,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt;
 <span class="kw">where
@@ -2999,7 +2999,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>handle_rewind_ext&lt;M: MemorySize, T&gt;(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     type_: HandleRewindType,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Option</span>&lt;T&gt;&gt;
 <span class="kw">where
@@ -3022,7 +3022,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_stop_rewind) = env.inner().asyncify_stop_unwind.clone() {
             asyncify_stop_rewind.call(ctx);
         } <span class="kw">else </span>{
-            <span class="macro">warn!</span>(<span class="string">&quot;failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible&quot;</span>);
+            <span class="macro">warn!</span>(<span class="string">"failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible"</span>);
             <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="prelude-val">None</span>);
         }
 
@@ -3034,22 +3034,22 @@
 
         <span class="kw">match </span>result.rewind_result {
             RewindResultType::RewindRestart =&gt; {
-                <span class="macro">debug!</span>(%pid, %tid, <span class="string">&quot;rewind for syscall restart&quot;</span>);
+                <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind for syscall restart"</span>);
                 <span class="prelude-val">None
             </span>}
             RewindResultType::RewindWithoutResult =&gt; {
-                <span class="macro">debug!</span>(%pid, %tid, <span class="string">&quot;rewind with no result&quot;</span>);
+                <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind with no result"</span>);
                 <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>)
             }
             RewindResultType::RewindWithResult(rewind_result) =&gt; {
-                <span class="macro">debug!</span>(%pid, %tid, <span class="string">&quot;rewind with result (data={})&quot;</span>, rewind_result.len());
+                <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind with result (data={})"</span>, rewind_result.len());
                 <span class="kw">let </span>ret = bincode::deserialize(<span class="kw-2">&amp;</span>rewind_result)
-                    .expect(<span class="string">&quot;failed to deserialize the rewind result&quot;</span>);
+                    .expect(<span class="string">"failed to deserialize the rewind result"</span>);
                 <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(ret))
             }
         }
     } <span class="kw">else </span>{
-        <span class="macro">debug!</span>(%pid, %tid, <span class="string">&quot;rewind miss&quot;</span>);
+        <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind miss"</span>);
         <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>)
     }
 }
@@ -3075,7 +3075,7 @@
             .iter()
             .map(|b| {
                 <span class="kw">let </span>string = String::from_utf8_lossy(b);
-                <span class="kw">let </span>(key, val) = string.split_once(<span class="string">&#39;=&#39;</span>).expect(<span class="string">&quot;env var is malformed&quot;</span>);
+                <span class="kw">let </span>(key, val) = string.split_once(<span class="string">'='</span>).expect(<span class="string">"env var is malformed"</span>);
 
                 (key.to_string(), val.to_string().as_bytes().to_vec())
             })

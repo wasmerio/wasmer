@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -530,9 +530,14 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc(
-    html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
-    html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;
+    html_logo_url = <span class="string">"https://github.com/wasmerio.png?size=200"</span>,
+    html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"
 </span>)]
 #![deny(
     missing_docs,
@@ -541,7 +546,7 @@
     rustdoc::broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
-#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![allow(clippy::new_without_default, ambiguous_wide_pointer_comparisons)]
 #![warn(
     clippy::float_arithmetic,
     clippy::mut_mut,
@@ -552,14 +557,14 @@
     clippy::use_self
 )]
 #![allow(deprecated_cfg_attr_crate_type_name)]
-#![cfg_attr(feature = <span class="string">&quot;js&quot;</span>, crate_type = <span class="string">&quot;cdylib&quot;</span>)]
+#![cfg_attr(feature = <span class="string">"js"</span>, crate_type = <span class="string">"cdylib"</span>)]
 
 </span><span class="doccomment">//! [`Wasmer`](https://wasmer.io/) is the most popular
 //! [WebAssembly](https://webassembly.org/) runtime for Rust. It supports
 //! JIT (Just In Time) and AOT (Ahead Of Time) compilation as well as
 //! pluggable compilers suited to your needs.
 //!
-//! It&#39;s designed to be safe and secure, and runnable in any kind of environment.
+//! It's designed to be safe and secure, and runnable in any kind of environment.
 //!
 //! # Usage
 //!
@@ -570,22 +575,22 @@
 //! use wasmer::{Store, Module, Instance, Value, imports};
 //!
 //! fn main() -&gt; anyhow::Result&lt;()&gt; {
-//!     let module_wat = r#&quot;
+//!     let module_wat = r#"
 //!     (module
 //!       (type $t0 (func (param i32) (result i32)))
-//!       (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)
-//!         get_local $p0
+//!       (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+//!         local.get $p0
 //!         i32.const 1
 //!         i32.add))
-//!     &quot;#;
+//!     "#;
 //!
 //!     let mut store = Store::default();
 //!     let module = Module::new(&amp;store, &amp;module_wat)?;
-//!     // The module doesn&#39;t import anything, so we create an empty import object.
+//!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
 //!     let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object)?;
 //!
-//!     let add_one = instance.exports.get_function(&quot;add_one&quot;)?;
+//!     let add_one = instance.exports.get_function("add_one")?;
 //!     let result = add_one.call(&amp;mut store, &amp;[Value::I32(42)])?;
 //!     assert_eq!(result[0], Value::I32(43));
 //!
@@ -611,7 +616,7 @@
 //! * **Headless mode** — Once a WebAssembly module has been compiled, it
 //!   is possible to serialize it in a file for example, and later execute
 //!   it with Wasmer with headless mode turned on. Headless Wasmer has no
-//!   compiler, which makes it more portable and faster to load. It&#39;s
+//!   compiler, which makes it more portable and faster to load. It's
 //!   ideal for constrainted environments.
 //!
 //! * **Cross-compilation** — Most compilers support cross-compilation. It
@@ -624,7 +629,7 @@
 //!   WebAssembly. In this context, the resulting WebAssembly module will
 //!   expect to run in a JavaScript environment, like a browser, Node.js,
 //!   Deno and so on. In this specific scenario, there is no engines or
-//!   compilers available, it&#39;s the one available in the JavaScript
+//!   compilers available, it's the one available in the JavaScript
 //!   environment that will be used.
 //!
 //! Wasmer ships by default with the Cranelift compiler as its great for
@@ -632,7 +637,7 @@
 //! compiler in production as it performs about 50% faster, achieving
 //! near-native speeds.
 //!
-//! Note: if one wants to use multiple compilers at the same time, it&#39;s
+//! Note: if one wants to use multiple compilers at the same time, it's
 //! also possible! One will need to import them directly via each of the
 //! compiler crates.
 //!
@@ -653,14 +658,14 @@
 //!
 //! # WebAssembly Primitives
 //!
-//! In order to make use of the power of the `wasmer` API, it&#39;s important
+//! In order to make use of the power of the `wasmer` API, it's important
 //! to understand the primitives around which the API is built.
 //!
 //! Wasm only deals with a small number of core data types, these data
 //! types can be found in the [`Value`] type.
 //!
 //! In addition to the core Wasm types, the core types of the API are
-//! referred to as &quot;externs&quot;.
+//! referred to as "externs".
 //!
 //! ## Externs
 //!
@@ -675,9 +680,9 @@
 //! # fn imports_example(mut store: &amp;mut Store) -&gt; Imports {
 //! let memory = Memory::new(&amp;mut store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
-//!     &quot;env&quot; =&gt; {
-//!          &quot;my_function&quot; =&gt; Function::new_typed(&amp;mut store, || println!(&quot;Hello&quot;)),
-//!          &quot;memory&quot; =&gt; memory,
+//!     "env" =&gt; {
+//!          "my_function" =&gt; Function::new_typed(&amp;mut store, || println!("Hello")),
+//!          "memory" =&gt; memory,
 //!     }
 //! }
 //! # }
@@ -689,9 +694,9 @@
 //! ```
 //! # use wasmer::{imports, Instance, FunctionEnv, Memory, TypedFunction, Store};
 //! # fn exports_example(mut env: FunctionEnv&lt;()&gt;, mut store: &amp;mut Store, instance: &amp;Instance) -&gt; anyhow::Result&lt;()&gt; {
-//! let memory = instance.exports.get_memory(&quot;memory&quot;)?;
-//! let memory: &amp;Memory = instance.exports.get(&quot;some_other_memory&quot;)?;
-//! let add: TypedFunction&lt;(i32, i32), i32&gt; = instance.exports.get_typed_function(&amp;mut store, &quot;add&quot;)?;
+//! let memory = instance.exports.get_memory("memory")?;
+//! let memory: &amp;Memory = instance.exports.get("some_other_memory")?;
+//! let add: TypedFunction&lt;(i32, i32), i32&gt; = instance.exports.get_typed_function(&amp;mut store, "add")?;
 //! let result = add.call(&amp;mut store, 5, 37)?;
 //! assert_eq!(result, 42);
 //! # Ok(())
@@ -720,7 +725,7 @@
 //! on the core types in [`Value`]. In order to make them more useful we
 //! give them access to the outside world with [`imports!`].
 //!
-//! If you&#39;re looking for a sandboxed, POSIX-like environment to execute Wasm
+//! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
 //! in, check out the [`wasmer-wasix`] crate for our implementation of WASI,
 //! the WebAssembly System Interface, and WASIX, the Extended version of WASI.
 //!
@@ -752,15 +757,13 @@
 //! graph with transitive dependencies removed.
 //!
 //! &lt;div&gt;
-//! &lt;img src=&quot;https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg&quot; /&gt;
+//! &lt;img src="https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg" /&gt;
 //! &lt;/div&gt;
 //!
 //! While this crate is the top level API, we also publish crates built
 //! on top of this API that you may be interested in using, including:
 //!
 //! - [`wasmer-cache`] for caching compiled Wasm modules,
-//! - [`wasmer-emscripten`] for running Wasm modules compiled to the
-//!   Emscripten ABI,
 //! - [`wasmer-wasix`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
@@ -786,13 +789,13 @@
 //! This crate comes in 2 flavors:
 //!
 //! 1. `sys`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;sys&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;sys&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"sys"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"sys"</span>), doc = <span class="string">"(disabled),"</span>)]
 </span><span class="doccomment">//!    where `wasmer` will be compiled to a native executable
 //!    which provides compilers, engines, a full VM etc.
 //! 2. `js`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;js&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;js&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"js"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"js"</span>), doc = <span class="string">"(disabled),"</span>)]
 </span><span class="doccomment">//!    where `wasmer` will be compiled to WebAssembly to run in a
 //!    JavaScript host (see [Using Wasmer in a JavaScript
 //!    environment](#using-wasmer-in-a-javascript-environment)).
@@ -801,12 +804,12 @@
 //! features.
 //!
 </span><span class="attr">#![cfg_attr(
-    feature = <span class="string">&quot;sys&quot;</span>,
-    doc = <span class="string">&quot;## Features for the `sys` feature group (enabled)&quot;
+    feature = <span class="string">"sys"</span>,
+    doc = <span class="string">"## Features for the `sys` feature group (enabled)"
 </span>)]
 #![cfg_attr(
-    not(feature = <span class="string">&quot;sys&quot;</span>),
-    doc = <span class="string">&quot;## Features for the `sys` feature group (disabled)&quot;
+    not(feature = <span class="string">"sys"</span>),
+    doc = <span class="string">"## Features for the `sys` feature group (disabled)"
 </span>)]
 </span><span class="doccomment">//!
 //! The default features can be enabled with the `sys-default` feature.
@@ -817,33 +820,33 @@
 //!
 //! The features that enable new functionality are:
 //! - `cranelift`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;cranelift&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;cranelift&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
-</span><span class="doccomment">//!   enables Wasmer&#39;s [Cranelift compiler][wasmer-compiler-cranelift],
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"cranelift"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"cranelift"</span>), doc = <span class="string">"(disabled),"</span>)]
+</span><span class="doccomment">//!   enables Wasmer's [Cranelift compiler][wasmer-compiler-cranelift],
 //! - `llvm`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;llvm&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;llvm&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
-</span><span class="doccomment">//!   enables Wasmer&#39;s [LLVM compiler][wasmer-compiler-lvm],
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"llvm"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"llvm"</span>), doc = <span class="string">"(disabled),"</span>)]
+</span><span class="doccomment">//!   enables Wasmer's [LLVM compiler][wasmer-compiler-lvm],
 //! - `singlepass`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;singlepass&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;singlepass&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
-</span><span class="doccomment">//!   enables Wasmer&#39;s [Singlepass compiler][wasmer-compiler-singlepass],
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"singlepass"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"singlepass"</span>), doc = <span class="string">"(disabled),"</span>)]
+</span><span class="doccomment">//!   enables Wasmer's [Singlepass compiler][wasmer-compiler-singlepass],
 //! - `wat`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;wat&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;wat&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"wat"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"wat"</span>), doc = <span class="string">"(disabled),"</span>)]
 </span><span class="doccomment">//!   enables `wasmer` to parse the WebAssembly text format,
 //! - `compilation`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;compiler&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;compiler&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"compiler"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"compiler"</span>), doc = <span class="string">"(disabled),"</span>)]
 </span><span class="doccomment">//!   enables compilation with the wasmer engine.
 //!
 </span><span class="attr">#![cfg_attr(
-    feature = <span class="string">&quot;js&quot;</span>,
-    doc = <span class="string">&quot;## Features for the `js` feature group (enabled)&quot;
+    feature = <span class="string">"js"</span>,
+    doc = <span class="string">"## Features for the `js` feature group (enabled)"
 </span>)]
 #![cfg_attr(
-    not(feature = <span class="string">&quot;js&quot;</span>),
-    doc = <span class="string">&quot;## Features for the `js` feature group (disabled)&quot;
+    not(feature = <span class="string">"js"</span>),
+    doc = <span class="string">"## Features for the `js` feature group (disabled)"
 </span>)]
 </span><span class="doccomment">//!
 //! The default features can be enabled with the `js-default` feature.
@@ -851,8 +854,8 @@
 //! Here are the detailed list of features:
 //!
 //! - `wasm-types-polyfill`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;wasm-types-polyfill&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;wasm-types-polyfill&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"wasm-types-polyfill"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"wasm-types-polyfill"</span>), doc = <span class="string">"(disabled),"</span>)]
 </span><span class="doccomment">//!   parses the Wasm file, allowing to do type reflection of the
 //!   inner Wasm types. It adds 100kb to the Wasm bundle (28kb
 //!   gzipped). It is possible to disable it and to use
@@ -861,8 +864,8 @@
 //!   proposal](https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md)
 //!   is adopted by browsers,
 //! - `wat`
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;wat&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;wat&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"wat"</span>, doc = <span class="string">"(enabled),"</span>)]
+#![cfg_attr(not(feature = <span class="string">"wat"</span>), doc = <span class="string">"(disabled),"</span>)]
 </span><span class="doccomment">//!  allows to read a Wasm file in its text format. This feature is
 //!  normally used only in development environments. It will add
 //!  around 650kb to the Wasm bundle (120Kb gzipped).
@@ -883,21 +886,21 @@
 //!
 //! #[wasm_bindgen]
 //! pub extern fn do_add_one_in_wasmer() -&gt; i32 {
-//!     let module_wat = r#&quot;
+//!     let module_wat = r#"
 //!     (module
 //!       (type $t0 (func (param i32) (result i32)))
-//!       (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)
-//!         get_local $p0
+//!       (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+//!         local.get $p0
 //!         i32.const 1
 //!         i32.add))
-//!     &quot;#;
+//!     "#;
 //!     let mut store = Store::default();
 //!     let module = Module::new(&amp;store, &amp;module_wat).unwrap();
-//!     // The module doesn&#39;t import anything, so we create an empty import object.
+//!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
 //!     let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).unwrap();
 //!
-//!     let add_one = instance.exports.get_function(&quot;add_one&quot;).unwrap();
+//!     let add_one = instance.exports.get_function("add_one").unwrap();
 //!     let result = add_one.call(&amp;mut store, &amp;[Value::I32(42)]).unwrap();
 //!     assert_eq!(result[0], Value::I32(43));
 //!
@@ -905,7 +908,7 @@
 //! }
 //! ```
 //!
-//! Note that it&#39;s the same code as above with the former example. The
+//! Note that it's the same code as above with the former example. The
 //! API is the same!
 //!
 //! Then, compile with `wasm-pack build`. Take care of using the `js`
@@ -915,7 +918,6 @@
 //! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/main/examples
 //! [`wasmer-cache`]: https://docs.rs/wasmer-cache/
 //! [wasmer-compiler]: https://docs.rs/wasmer-compiler/
-//! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/
@@ -923,33 +925,55 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;sys&quot;</span>), not(feature = <span class="string">&quot;js&quot;</span>), not(feature = <span class="string">&quot;jsc&quot;</span>)))]
-</span><span class="macro">compile_error!</span>(<span class="string">&quot;One of: `sys`, `js` or `jsc` features must be enabled. Please, pick one.&quot;</span>);
-
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, feature = <span class="string">&quot;js&quot;</span>))]
+</span><span class="attr">#[cfg(all(
+    not(feature = <span class="string">"sys"</span>),
+    not(feature = <span class="string">"js"</span>),
+    not(feature = <span class="string">"jsc"</span>),
+    not(feature = <span class="string">"wasm-c-api"</span>)
+))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">&quot;Cannot have both `sys` and `js` features enabled at the same time. Please, pick one.&quot;
+    <span class="string">"One of: `sys`, `js`, `jsc` or `wasm-c-api` features must be enabled. Please, pick one."
 </span>);
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;js&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>))]
+<span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, feature = <span class="string">"js"</span>))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">&quot;Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one.&quot;
+    <span class="string">"Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
 </span>);
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>))]
+<span class="attr">#[cfg(all(feature = <span class="string">"js"</span>, feature = <span class="string">"jsc"</span>))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">&quot;Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one.&quot;
+    <span class="string">"Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one."
 </span>);
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="macro">compile_error!</span>(<span class="string">&quot;The `sys` feature must be enabled only for non-`wasm32` target.&quot;</span>);
-
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;jsc&quot;</span>, target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="macro">compile_error!</span>(<span class="string">&quot;The `jsc` feature must be enabled only for non-`wasm32` target.&quot;</span>);
-
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;js&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
+<span class="attr">#[cfg(all(feature = <span class="string">"js"</span>, feature = <span class="string">"wasm-c-api"</span>))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">&quot;The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`).&quot;
+    <span class="string">"Cannot have both `js` and `wasm-c-api` features enabled at the same time. Please, pick one."
+</span>);
+
+<span class="attr">#[cfg(all(feature = <span class="string">"jsc"</span>, feature = <span class="string">"wasm-c-api"</span>))]
+</span><span class="macro">compile_error!</span>(
+    <span class="string">"Cannot have both `jsc` and `wasm-c-api` features enabled at the same time. Please, pick one."
+</span>);
+
+<span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, feature = <span class="string">"jsc"</span>))]
+</span><span class="macro">compile_error!</span>(
+    <span class="string">"Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one."
+</span>);
+
+<span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, feature = <span class="string">"wasm-c-api"</span>))]
+</span><span class="macro">compile_error!</span>(
+    <span class="string">"Cannot have both `sys` and `wasm-c-api` features enabled at the same time. Please, pick one."
+</span>);
+
+<span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, target_arch = <span class="string">"wasm32"</span>))]
+</span><span class="macro">compile_error!</span>(<span class="string">"The `sys` feature must be enabled only for non-`wasm32` target."</span>);
+
+<span class="attr">#[cfg(all(feature = <span class="string">"jsc"</span>, target_arch = <span class="string">"wasm32"</span>))]
+</span><span class="macro">compile_error!</span>(<span class="string">"The `jsc` feature must be enabled only for non-`wasm32` target."</span>);
+
+<span class="attr">#[cfg(all(feature = <span class="string">"js"</span>, not(target_arch = <span class="string">"wasm32"</span>)))]
+</span><span class="macro">compile_error!</span>(
+    <span class="string">"The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 </span>);
 
 <span class="kw">mod </span>access;
@@ -971,51 +995,37 @@
 <span class="kw">mod </span>value;
 <span class="kw">pub mod </span>vm;
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;wasm-types-polyfill&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>))]
+<span class="attr">#[cfg(any(feature = <span class="string">"wasm-types-polyfill"</span>, feature = <span class="string">"jsc"</span>))]
 </span><span class="kw">mod </span>module_info_polyfill;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-</span><span class="doccomment">/// sys
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+</span><span class="doccomment">/// The `sys` engine.
 </span><span class="kw">pub mod </span>sys;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+</span><span class="doccomment">/// Re-export `sys` definitions.
 </span><span class="kw">pub use </span>sys::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-#[deprecated(note = <span class="string">&quot;wasmer::Artifact is deprecated, use wasmer::sys::Artifact instead&quot;</span>)]
-</span><span class="doccomment">/// A compiled wasm module, ready to be instantiated.
-</span><span class="kw">pub type </span>Artifact = sys::Artifact;
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-#[deprecated(note = <span class="string">&quot;wasmer::EngineBuilder is deprecated, use wasmer::sys::EngineBuilder instead&quot;</span>)]
-</span><span class="doccomment">/// The Builder contents of `Engine`
-</span><span class="kw">pub type </span>EngineBuilder = sys::EngineBuilder;
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-#[deprecated(note = <span class="string">&quot;wasmer::Features is deprecated, use wasmer::sys::Features instead&quot;</span>)]
-</span><span class="doccomment">/// Controls which experimental features will be enabled.
-</span><span class="kw">pub type </span>Features = sys::Features;
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-#[deprecated(note = <span class="string">&quot;wasmer::BaseTunables is deprecated, use wasmer::sys::BaseTunables instead&quot;</span>)]
-</span><span class="doccomment">/// Tunable parameters for WebAssembly compilation.
-/// This is the reference implementation of the `Tunables` trait,
-/// used by default.
-</span><span class="kw">pub type </span>BaseTunables = sys::BaseTunables;
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-#[deprecated(note = <span class="string">&quot;wasmer::VMConfig is deprecated, use wasmer::sys::VMConfig instead&quot;</span>)]
-</span><span class="doccomment">/// Configuration for the runtime VM
-/// Currently only the stack size is configurable
-</span><span class="kw">pub type </span>VMConfig = sys::VMConfig;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+</span><span class="doccomment">/// The `js` engine.
 </span><span class="kw">mod </span>js;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+</span><span class="doccomment">/// Re-export `js` definitions.
 </span><span class="kw">pub use </span>js::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+</span><span class="doccomment">/// The `jsc` engine.
 </span><span class="kw">mod </span>jsc;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+</span><span class="doccomment">/// Re-export `jsc` definitions.
 </span><span class="kw">pub use </span>jsc::<span class="kw-2">*</span>;
+
+<span class="attr">#[cfg(feature = <span class="string">"wasm-c-api"</span>)]
+</span><span class="doccomment">/// The `c-api` engine.
+</span><span class="kw">mod </span>c_api;
+<span class="attr">#[cfg(feature = <span class="string">"wasm-c-api"</span>)]
+</span><span class="doccomment">/// Re-export `c-api` definitions.
+</span><span class="attr">#[allow(unused_imports)]
+</span><span class="kw">pub use </span>c_api::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::externals::{
     Extern, Function, Global, HostFunction, Memory, MemoryLocation, MemoryView, SharedMemory, Table,
@@ -1036,9 +1046,9 @@
 <span class="kw">pub use </span>store::{
     AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreObjects, StoreRef,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">pub use </span>store::{TrapHandlerFn, Tunables};
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;sys&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>))]
+<span class="attr">#[cfg(any(feature = <span class="string">"sys"</span>, feature = <span class="string">"jsc"</span>, feature = <span class="string">"wasm-c-api"</span>))]
 </span><span class="kw">pub use </span>target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 <span class="kw">pub use </span>typed_function::TypedFunction;
 <span class="kw">pub use </span>value::Value;
@@ -1054,12 +1064,12 @@
     ParseCpuFeatureError, SerializeError, TableType, Target, Type, ValueType, WasmError,
     WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;wat&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"wat"</span>)]
 </span><span class="kw">pub use </span>wat::parse_bytes <span class="kw">as </span>wat2wasm;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;wasmparser&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"wasmparser"</span>)]
 </span><span class="kw">pub use </span>wasmparser;
 
 <span class="doccomment">/// Version number of this crate.
-</span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
+</span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>);
 </code></pre></div></section></main></body></html>

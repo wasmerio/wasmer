@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/error.rs`."><title>error.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -153,11 +153,11 @@
 <a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implements `PretyError` to print pretty errors in the CLI (when they happen)
 
-</span><span class="kw">use </span>std::fmt::{<span class="self">self</span>, Debug, Write};
-
-<span class="kw">use </span>anyhow::{Chain, Error};
+</span><span class="kw">use </span>anyhow::{Chain, Error};
 <span class="kw">use </span>colored::<span class="kw-2">*</span>;
-<span class="kw">use </span>wasmer::RuntimeError;
+<span class="kw">use </span>std::fmt::{<span class="self">self</span>, Debug, Write};
+<span class="attr">#[cfg(not(any(feature = <span class="string">"jsc"</span>, feature = <span class="string">"wamr"</span>, feature = <span class="string">"wasmi"</span>, feature = <span class="string">"v8"</span>)))]
+</span><span class="kw">use </span>wasmer::RuntimeError;
 
 <span class="doccomment">/// A `PrettyError` for printing `anyhow::Error` nicely.
 </span><span class="kw">pub struct </span>PrettyError {
@@ -173,14 +173,14 @@
 
 <span class="doccomment">/// A macro that prints a warning with nice colors
 </span><span class="attr">#[macro_export]
-</span><span class="macro">macro_rules! </span>warning {
+</span><span class="macro">macro_rules!</span> warning {
     ($(<span class="macro-nonterminal">$arg</span>:tt)<span class="kw-2">*</span>) =&gt; ({
         <span class="kw">use </span>colored::<span class="kw-2">*</span>;
-        <span class="macro">eprintln!</span>(<span class="string">&quot;{}: {}&quot;</span>, <span class="string">&quot;warning&quot;</span>.yellow().bold(), <span class="macro">format!</span>($(<span class="macro-nonterminal">$arg</span>)<span class="kw-2">*</span>));
+        <span class="macro">eprintln!</span>(<span class="string">"{}: {}"</span>, <span class="string">"warning"</span>.yellow().bold(), <span class="macro">format!</span>($(<span class="macro-nonterminal">$arg</span>)<span class="kw-2">*</span>));
     })
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;jsc&quot;</span>))]
+<span class="attr">#[cfg(not(any(feature = <span class="string">"jsc"</span>, feature = <span class="string">"wamr"</span>, feature = <span class="string">"wasmi"</span>, feature = <span class="string">"v8"</span>)))]
 </span><span class="kw">impl </span>PrettyError {
     <span class="doccomment">/// Process a `Result` printing any errors and exiting
     /// the process after
@@ -190,14 +190,14 @@
             <span class="prelude-val">Err</span>(error) =&gt; {
                 <span class="kw">let </span>runtime: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RuntimeError&gt; = error.downcast_ref();
                 <span class="kw">let </span>trapcode = runtime.map(|e| e.clone().to_trap());
-                <span class="macro">eprintln!</span>(<span class="string">&quot;{:?}&quot;</span>, PrettyError { error });
-                <span class="comment">// we don&#39;t use process:abort() here to avoid message from rust
+                <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, PrettyError { error });
+                <span class="comment">// we don't use process:abort() here to avoid message from rust
                 // that could interfer with testing tools
                 // but still exit with the expected error code
                 </span><span class="kw">match </span>trapcode {
-                    <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+                    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
                     </span><span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="number">3</span>,
-                    <span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+                    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
                     </span><span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="number">128 </span>+ libc::SIGABRT,
                     <span class="kw">_ </span>=&gt; <span class="number">1</span>,
                 }
@@ -206,7 +206,7 @@
     }
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+<span class="attr">#[cfg(any(feature = <span class="string">"jsc"</span>, feature = <span class="string">"wamr"</span>, feature = <span class="string">"wasmi"</span>, feature = <span class="string">"v8"</span>))]
 </span><span class="kw">impl </span>PrettyError {
     <span class="doccomment">/// Process a `Result` printing any errors and exiting
     /// the process after
@@ -214,8 +214,8 @@
         std::process::exit(<span class="kw">match </span>result {
             <span class="prelude-val">Ok</span>(_t) =&gt; <span class="number">0</span>,
             <span class="prelude-val">Err</span>(error) =&gt; {
-                <span class="macro">eprintln!</span>(<span class="string">&quot;{:?}&quot;</span>, PrettyError { error });
-                <span class="comment">// we don&#39;t use process:abort() here to avoid message from rust
+                <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, PrettyError { error });
+                <span class="comment">// we don't use process:abort() here to avoid message from rust
                 // that could interfer with testing tools
                 // but still exit with the expected error code
                 </span><span class="number">1
@@ -232,11 +232,11 @@
             <span class="kw">return </span>Debug::fmt(<span class="kw-2">&amp;</span>error, f);
         }
 
-        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, <span class="string">&quot;error&quot;</span>.red(), error).bold())<span class="question-mark">?</span>;
-        <span class="comment">// write!(f, &quot;{}&quot;, error)?;
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="macro">format!</span>(<span class="string">"{}: {}"</span>, <span class="string">"error"</span>.red(), error).bold())<span class="question-mark">?</span>;
+        <span class="comment">// write!(f, "{}", error)?;
 
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cause) = error.source() {
-            <span class="comment">// write!(f, &quot;\n{}:&quot;, &quot;caused by&quot;.bold().blue())?;
+            <span class="comment">// write!(f, "\n{}:", "caused by".bold().blue())?;
             </span><span class="kw">let </span>chain = Chain::new(cause);
             <span class="kw">let </span>(total_errors, <span class="kw">_</span>) = chain.size_hint();
             <span class="kw">for </span>(n, error) <span class="kw">in </span>chain.enumerate() {
@@ -247,26 +247,26 @@
                     is_last: n == total_errors - <span class="number">1</span>,
                     started: <span class="bool-val">false</span>,
                 };
-                <span class="macro">write!</span>(indented, <span class="string">&quot;{}&quot;</span>, error)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(indented, <span class="string">"{}"</span>, error)<span class="question-mark">?</span>;
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="kw">struct </span>Indented&lt;<span class="lifetime">&#39;a</span>, D&gt; {
-    inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>D,
+<span class="kw">struct </span>Indented&lt;<span class="lifetime">'a</span>, D&gt; {
+    inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>D,
     number: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     started: bool,
     is_last: bool,
 }
 
-<span class="kw">impl</span>&lt;T&gt; Write <span class="kw">for </span>Indented&lt;<span class="lifetime">&#39;_</span>, T&gt;
+<span class="kw">impl</span>&lt;T&gt; Write <span class="kw">for </span>Indented&lt;<span class="lifetime">'_</span>, T&gt;
 <span class="kw">where
     </span>T: Write,
 {
     <span class="kw">fn </span>write_str(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>str) -&gt; fmt::Result {
-        <span class="kw">for </span>(i, line) <span class="kw">in </span>s.split(<span class="string">&#39;\n&#39;</span>).enumerate() {
+        <span class="kw">for </span>(i, line) <span class="kw">in </span>s.split(<span class="string">'\n'</span>).enumerate() {
             <span class="kw">if </span>!<span class="self">self</span>.started {
                 <span class="self">self</span>.started = <span class="bool-val">true</span>;
                 <span class="kw">match </span><span class="self">self</span>.number {
@@ -274,27 +274,27 @@
                         <span class="kw">if </span>!<span class="self">self</span>.is_last {
                             <span class="macro">write!</span>(
                                 <span class="self">self</span>.inner,
-                                <span class="string">&quot;{} {: &gt;4} &quot;</span>,
-                                <span class="string">&quot;│&quot;</span>.bold().blue(),
-                                <span class="macro">format!</span>(<span class="string">&quot;{}:&quot;</span>, number).dimmed()
+                                <span class="string">"{} {: &gt;4} "</span>,
+                                <span class="string">"│"</span>.bold().blue(),
+                                <span class="macro">format!</span>(<span class="string">"{}:"</span>, number).dimmed()
                             )<span class="question-mark">?
                         </span>} <span class="kw">else </span>{
                             <span class="macro">write!</span>(
                                 <span class="self">self</span>.inner,
-                                <span class="string">&quot;{}{: &gt;2}: &quot;</span>,
-                                <span class="string">&quot;╰─▶&quot;</span>.bold().blue(),
-                                <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, number).bold().blue()
+                                <span class="string">"{}{: &gt;2}: "</span>,
+                                <span class="string">"╰─▶"</span>.bold().blue(),
+                                <span class="macro">format!</span>(<span class="string">"{}"</span>, number).bold().blue()
                             )<span class="question-mark">?
                         </span>}
                     }
-                    <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.inner.write_str(<span class="string">&quot;    &quot;</span>)<span class="question-mark">?</span>,
+                    <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.inner.write_str(<span class="string">"    "</span>)<span class="question-mark">?</span>,
                 }
             } <span class="kw">else if </span>i &gt; <span class="number">0 </span>{
-                <span class="self">self</span>.inner.write_char(<span class="string">&#39;\n&#39;</span>)<span class="question-mark">?</span>;
+                <span class="self">self</span>.inner.write_char(<span class="string">'\n'</span>)<span class="question-mark">?</span>;
                 <span class="kw">if </span><span class="self">self</span>.number.is_some() {
-                    <span class="self">self</span>.inner.write_str(<span class="string">&quot;       &quot;</span>)<span class="question-mark">?</span>;
+                    <span class="self">self</span>.inner.write_str(<span class="string">"       "</span>)<span class="question-mark">?</span>;
                 } <span class="kw">else </span>{
-                    <span class="self">self</span>.inner.write_str(<span class="string">&quot;    &quot;</span>)<span class="question-mark">?</span>;
+                    <span class="self">self</span>.inner.write_str(<span class="string">"    "</span>)<span class="question-mark">?</span>;
                 }
             }
 

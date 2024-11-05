@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/tty/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/tty/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -572,9 +572,9 @@
 <span class="attr">#[derive(Derivative)]
 #[derivative(Debug)]
 </span><span class="kw">pub struct </span>Tty {
-    stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    signaler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>SignalHandlerAbi + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
+    stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+    stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+    signaler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>SignalHandlerAbi + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;,
     is_mobile: bool,
     last: <span class="prelude-ty">Option</span>&lt;(String, u128)&gt;,
     options: TtyOptions,
@@ -583,8 +583,8 @@
 
 <span class="kw">impl </span>Tty {
     <span class="kw">pub fn </span>new(
-        stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-        stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+        stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
         is_mobile: bool,
         options: TtyOptions,
     ) -&gt; <span class="self">Self </span>{
@@ -599,24 +599,24 @@
         }
     }
 
-    <span class="kw">pub fn </span>stdin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>) {
+    <span class="kw">pub fn </span>stdin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>) {
         <span class="self">self</span>.stdin.as_ref()
     }
 
-    <span class="kw">pub fn </span>stdin_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>(<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>) {
+    <span class="kw">pub fn </span>stdin_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>(<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>) {
         <span class="self">self</span>.stdin.as_mut()
     }
 
     <span class="kw">pub fn </span>stdin_replace(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    ) -&gt; Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+        <span class="kw-2">mut </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt; {
         std::mem::swap(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stdin, <span class="kw-2">&amp;mut </span>stdin);
         stdin
     }
 
-    <span class="kw">pub fn </span>stdin_take(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; = Box::&lt;NullFile&gt;::default();
+    <span class="kw">pub fn </span>stdin_take(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt; = Box::&lt;NullFile&gt;::default();
         std::mem::swap(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stdin, <span class="kw-2">&amp;mut </span>stdin);
         stdin
     }
@@ -625,11 +625,11 @@
         <span class="self">self</span>.options.clone()
     }
 
-    <span class="kw">pub fn </span>set_signaler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, signaler: Box&lt;<span class="kw">dyn </span>SignalHandlerAbi + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) {
+    <span class="kw">pub fn </span>set_signaler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, signaler: Box&lt;<span class="kw">dyn </span>SignalHandlerAbi + Send + Sync + <span class="lifetime">'static</span>&gt;) {
         <span class="self">self</span>.signaler.replace(signaler);
     }
 
-    <span class="kw">pub fn </span>on_event(<span class="kw-2">mut </span><span class="self">self</span>, event: InputEvent) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">pub fn </span>on_event(<span class="kw-2">mut </span><span class="self">self</span>, event: InputEvent) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">match </span>event {
                 InputEvent::Key =&gt; {
@@ -658,12 +658,12 @@
         })
     }
 
-    <span class="kw">fn </span>on_enter(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_enter(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="comment">// Add a line feed on the end and take the line
             </span><span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.line.clone();
             <span class="self">self</span>.line.clear();
-            data.push(<span class="string">&#39;\n&#39;</span>);
+            data.push(<span class="string">'\n'</span>);
 
             <span class="comment">// If echo is on then write a new line
             </span>{
@@ -672,7 +672,7 @@
                     options.echo
                 };
                 <span class="kw">if </span>echo {
-                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">&quot;\n&quot;</span>.as_bytes()).<span class="kw">await</span>;
+                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">"\n"</span>.as_bytes()).<span class="kw">await</span>;
                 }
             }
 
@@ -682,7 +682,7 @@
         </span>})
     }
 
-    <span class="kw">fn </span>on_ctrl_c(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_ctrl_c(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">if let </span><span class="prelude-val">Some</span>(signaler) = <span class="self">self</span>.signaler.as_ref() {
                 signaler.signal(Signal::Sigint <span class="kw">as </span>u8).ok();
@@ -694,14 +694,14 @@
 
                 <span class="self">self</span>.line.clear();
                 <span class="kw">if </span>echo {
-                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">&quot;\n&quot;</span>.as_bytes()).<span class="kw">await</span>;
+                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">"\n"</span>.as_bytes()).<span class="kw">await</span>;
                 }
             }
             <span class="self">self
         </span>})
     }
 
-    <span class="kw">fn </span>on_backspace(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_backspace(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         <span class="comment">// Remove a character (if there are none left we are done)
         </span><span class="kw">if </span><span class="self">self</span>.line.is_empty() {
             <span class="kw">return </span>Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>});
@@ -717,132 +717,132 @@
                     options.echo
                 };
                 <span class="kw">if </span>echo {
-                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">&quot;\u{0008} \u{0008}&quot;</span>.as_bytes()).<span class="kw">await</span>;
+                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">"\u{0008} \u{0008}"</span>.as_bytes()).<span class="kw">await</span>;
                 }
             }
             <span class="self">self
         </span>})
     }
 
-    <span class="kw">fn </span>on_tab(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_tab(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_cursor_left(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_cursor_left(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_cursor_right(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_cursor_right(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_cursor_up(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_cursor_up(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_cursor_down(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_cursor_down(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_home(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_home(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_end(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_end(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_ctrl_l(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_ctrl_l(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_page_up(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_page_up(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_page_down(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_page_down(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f1(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f1(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f2(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f2(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f3(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f3(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f4(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f4(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f5(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f5(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f6(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f6(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f7(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f7(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f8(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f8(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f9(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f9(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f10(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f10(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f11(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f11(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_f12(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_f12(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn </span>on_data(<span class="kw-2">mut </span><span class="self">self</span>, data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>on_data(<span class="kw-2">mut </span><span class="self">self</span>, data: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt; {
         <span class="comment">// If we are line buffering then we need to check for some special cases
         </span><span class="kw">let </span>options = { <span class="self">self</span>.options.inner.lock().unwrap().clone() };
         <span class="kw">if </span>options.line_buffering {
             <span class="kw">let </span>echo = options.echo;
             <span class="kw">return match </span>String::from_utf8_lossy(data.as_ref()).as_ref() {
-                <span class="string">&quot;\r&quot; </span>| <span class="string">&quot;\u{000A}&quot; </span>=&gt; <span class="self">self</span>.on_enter(data),
-                <span class="string">&quot;\u{0003}&quot; </span>=&gt; <span class="self">self</span>.on_ctrl_c(data),
-                <span class="string">&quot;\u{007F}&quot; </span>=&gt; <span class="self">self</span>.on_backspace(data),
-                <span class="string">&quot;\u{0009}&quot; </span>=&gt; <span class="self">self</span>.on_tab(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0044}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_left(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0043}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_right(data),
-                <span class="string">&quot;\u{0001}&quot; </span>| <span class="string">&quot;\u{001B}\u{005B}\u{0048}&quot; </span>=&gt; <span class="self">self</span>.on_home(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0046}&quot; </span>=&gt; <span class="self">self</span>.on_end(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0041}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_up(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0042}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_down(data),
-                <span class="string">&quot;\u{000C}&quot; </span>=&gt; <span class="self">self</span>.on_ctrl_l(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0035}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_page_up(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0036}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_page_down(data),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0050}&quot; </span>=&gt; <span class="self">self</span>.on_f1(data),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0051}&quot; </span>=&gt; <span class="self">self</span>.on_f2(data),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0052}&quot; </span>=&gt; <span class="self">self</span>.on_f3(data),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0053}&quot; </span>=&gt; <span class="self">self</span>.on_f4(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0035}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f5(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0037}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f6(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0038}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f7(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0039}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f8(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0030}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f9(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0031}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f10(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0033}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f11(data),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0034}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f12(data),
+                <span class="string">"\r" </span>| <span class="string">"\u{000A}" </span>=&gt; <span class="self">self</span>.on_enter(data),
+                <span class="string">"\u{0003}" </span>=&gt; <span class="self">self</span>.on_ctrl_c(data),
+                <span class="string">"\u{007F}" </span>=&gt; <span class="self">self</span>.on_backspace(data),
+                <span class="string">"\u{0009}" </span>=&gt; <span class="self">self</span>.on_tab(data),
+                <span class="string">"\u{001B}\u{005B}\u{0044}" </span>=&gt; <span class="self">self</span>.on_cursor_left(data),
+                <span class="string">"\u{001B}\u{005B}\u{0043}" </span>=&gt; <span class="self">self</span>.on_cursor_right(data),
+                <span class="string">"\u{0001}" </span>| <span class="string">"\u{001B}\u{005B}\u{0048}" </span>=&gt; <span class="self">self</span>.on_home(data),
+                <span class="string">"\u{001B}\u{005B}\u{0046}" </span>=&gt; <span class="self">self</span>.on_end(data),
+                <span class="string">"\u{001B}\u{005B}\u{0041}" </span>=&gt; <span class="self">self</span>.on_cursor_up(data),
+                <span class="string">"\u{001B}\u{005B}\u{0042}" </span>=&gt; <span class="self">self</span>.on_cursor_down(data),
+                <span class="string">"\u{000C}" </span>=&gt; <span class="self">self</span>.on_ctrl_l(data),
+                <span class="string">"\u{001B}\u{005B}\u{0035}\u{007E}" </span>=&gt; <span class="self">self</span>.on_page_up(data),
+                <span class="string">"\u{001B}\u{005B}\u{0036}\u{007E}" </span>=&gt; <span class="self">self</span>.on_page_down(data),
+                <span class="string">"\u{001B}\u{004F}\u{0050}" </span>=&gt; <span class="self">self</span>.on_f1(data),
+                <span class="string">"\u{001B}\u{004F}\u{0051}" </span>=&gt; <span class="self">self</span>.on_f2(data),
+                <span class="string">"\u{001B}\u{004F}\u{0052}" </span>=&gt; <span class="self">self</span>.on_f3(data),
+                <span class="string">"\u{001B}\u{004F}\u{0053}" </span>=&gt; <span class="self">self</span>.on_f4(data),
+                <span class="string">"\u{001B}\u{005B}\u{0031}\u{0035}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f5(data),
+                <span class="string">"\u{001B}\u{005B}\u{0031}\u{0037}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f6(data),
+                <span class="string">"\u{001B}\u{005B}\u{0031}\u{0038}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f7(data),
+                <span class="string">"\u{001B}\u{005B}\u{0031}\u{0039}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f8(data),
+                <span class="string">"\u{001B}\u{005B}\u{0032}\u{0030}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f9(data),
+                <span class="string">"\u{001B}\u{005B}\u{0032}\u{0031}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f10(data),
+                <span class="string">"\u{001B}\u{005B}\u{0032}\u{0033}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f11(data),
+                <span class="string">"\u{001B}\u{005B}\u{0032}\u{0034}\u{007E}" </span>=&gt; <span class="self">self</span>.on_f12(data),
                 <span class="kw">_ </span>=&gt; Box::pin(<span class="kw">async move </span>{
                     <span class="kw">if </span>echo {
                         <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(data.as_ref()).<span class="kw">await</span>;

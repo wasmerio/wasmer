@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/file.rs`."><title>file.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../virtual_fs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-fs/src/mem_fs/file.rs`."><title>file.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1561,8 +1561,20 @@
 <a href="#1561" id="1561">1561</a>
 <a href="#1562" id="1562">1562</a>
 <a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the `FileHandle` and `File`
-//! implementations. They aren&#39;t exposed to the public API. Only
+//! implementations. They aren't exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
 
 </span><span class="kw">use </span>futures::future::BoxFuture;
@@ -1582,7 +1594,7 @@
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::task::{Context, Poll};
 
-<span class="doccomment">/// A file handle. The file system doesn&#39;t return the [`File`] type
+<span class="doccomment">/// A file handle. The file system doesn't return the [`File`] type
 /// directly, but rather this `FileHandle` type, which contains the
 /// inode, the flags, and (a light copy of) the filesystem. For each
 /// operations, it is checked that the permissions allow the
@@ -1596,7 +1608,7 @@
     writable: bool,
     append_mode: bool,
     cursor: u64,
-    arc_file: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;&gt;,
+    arc_file: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;&gt;,
 }
 
 <span class="kw">impl </span>Clone <span class="kw">for </span>FileHandle {
@@ -1873,8 +1885,8 @@
 
     <span class="kw">fn </span>copy_reference(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;_</span>, std::io::Result&lt;()&gt;&gt; {
+        src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+    ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, std::io::Result&lt;()&gt;&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.filesystem.inner.clone();
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>fs = inner.write().unwrap();
@@ -1905,12 +1917,12 @@
         })
     }
 
-    <span class="kw">fn </span>poll_read_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+    <span class="kw">fn </span>poll_read_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.readable {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;the file (inode `{}) doesn&#39;t have the `read` permission&quot;</span>,
+                    <span class="string">"the file (inode `{}) doesn't have the `read` permission"</span>,
                     <span class="self">self</span>.inode
                 ),
             )));
@@ -1918,7 +1930,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>fs =
             <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -1949,23 +1961,23 @@
                     }
                     <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     ))),
                 }
             }
             <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::NotFound,
-                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
             ))),
         }
     }
 
-    <span class="kw">fn </span>poll_write_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+    <span class="kw">fn </span>poll_write_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.readable {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;the file (inode `{}) doesn&#39;t have the `read` permission&quot;</span>,
+                    <span class="string">"the file (inode `{}) doesn't have the `read` permission"</span>,
                     <span class="self">self</span>.inode
                 ),
             )));
@@ -1973,7 +1985,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>fs =
             <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -1995,13 +2007,13 @@
                     }
                     <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     ))),
                 }
             }
             <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::NotFound,
-                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
             ))),
         }
     }
@@ -2011,7 +2023,7 @@
             <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;the file (inode `{}) doesn&#39;t have the `write` permission&quot;</span>,
+                    <span class="string">"the file (inode `{}) doesn't have the `write` permission"</span>,
                     <span class="self">self</span>.inode
                 ),
             ));
@@ -2020,7 +2032,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="self">self</span>.cursor;
         {
             <span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -2046,7 +2058,7 @@
     <span class="kw">use </span>std::thread::sleep;
     <span class="kw">use </span>std::time::Duration;
 
-    <span class="macro">macro_rules! </span>path {
+    <span class="macro">macro_rules!</span> path {
         (<span class="macro-nonterminal">$path</span>:expr) =&gt; {
             std::path::Path::new(<span class="macro-nonterminal">$path</span>)
         };
@@ -2060,24 +2072,24 @@
             .new_open_options()
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
         <span class="kw">let </span>last_accessed_time = file.last_accessed();
 
-        <span class="macro">assert!</span>(last_accessed_time &gt; <span class="number">0</span>, <span class="string">&quot;last accessed time is not zero&quot;</span>);
+        <span class="macro">assert!</span>(last_accessed_time &gt; <span class="number">0</span>, <span class="string">"last accessed time is not zero"</span>);
 
         sleep(Duration::from_secs(<span class="number">3</span>));
 
         <span class="kw">let </span>file = fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to open a file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to open a file"</span>);
         <span class="kw">let </span>next_last_accessed_time = file.last_accessed();
 
         <span class="macro">assert!</span>(
             next_last_accessed_time &gt; last_accessed_time,
-            <span class="string">&quot;the last accessed time is updated&quot;
+            <span class="string">"the last accessed time is updated"
         </span>);
     }
 
@@ -2089,10 +2101,10 @@
             .new_open_options()
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
-        <span class="macro">assert!</span>(file.last_modified() &gt; <span class="number">0</span>, <span class="string">&quot;last modified time is not zero&quot;</span>);
+        <span class="macro">assert!</span>(file.last_modified() &gt; <span class="number">0</span>, <span class="string">"last modified time is not zero"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -2103,22 +2115,22 @@
             .new_open_options()
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
         <span class="kw">let </span>created_time = file.created_time();
 
-        <span class="macro">assert!</span>(created_time &gt; <span class="number">0</span>, <span class="string">&quot;created time is not zero&quot;</span>);
+        <span class="macro">assert!</span>(created_time &gt; <span class="number">0</span>, <span class="string">"created time is not zero"</span>);
 
         <span class="kw">let </span>file = fs
             .new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
         <span class="kw">let </span>next_created_time = file.created_time();
 
         <span class="macro">assert_eq!</span>(
             next_created_time, created_time,
-            <span class="string">&quot;created time stays constant&quot;
+            <span class="string">"created time stays constant"
         </span>);
     }
 
@@ -2130,10 +2142,10 @@
             .new_open_options()
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
-        <span class="macro">assert_eq!</span>(file.size(), <span class="number">0</span>, <span class="string">&quot;new file is empty&quot;</span>);
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">0</span>, <span class="string">"new file is empty"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -2144,11 +2156,11 @@
             .new_open_options()
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.set_len(<span class="number">7</span>), <span class="prelude-val">Ok</span>(())), <span class="string">&quot;setting a new length&quot;</span>);
-        <span class="macro">assert_eq!</span>(file.size(), <span class="number">7</span>, <span class="string">&quot;file has a new length&quot;</span>);
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.set_len(<span class="number">7</span>), <span class="prelude-val">Ok</span>(())), <span class="string">"setting a new length"</span>);
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">7</span>, <span class="string">"file has a new length"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -2159,13 +2171,13 @@
             .new_open_options()
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
 
-            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">2</span>, <span class="string">&quot;storage has the new file&quot;</span>);
+            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">2</span>, <span class="string">"storage has the new file"</span>);
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
                     fs_inner.storage.get(ROOT_INODE),
@@ -2174,9 +2186,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
                 ),
-                <span class="string">&quot;`/` contains `foo.txt`&quot;</span>,
+                <span class="string">"`/` contains `foo.txt`"</span>,
             );
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -2185,13 +2197,13 @@
                         inode: <span class="number">1</span>,
                         name,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;foo.txt&quot;
+                    })) <span class="kw">if </span>name == <span class="string">"foo.txt"
                 </span>),
-                <span class="string">&quot;`foo.txt` exists and is a file&quot;</span>,
+                <span class="string">"`foo.txt` exists and is a file"</span>,
             );
         }
 
-        <span class="macro">assert_eq!</span>(file.unlink(), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;unlinking the file&quot;</span>);
+        <span class="macro">assert_eq!</span>(file.unlink(), <span class="prelude-val">Ok</span>(()), <span class="string">"unlinking the file"</span>);
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
@@ -2199,7 +2211,7 @@
             <span class="macro">assert_eq!</span>(
                 fs_inner.storage.len(),
                 <span class="number">1</span>,
-                <span class="string">&quot;storage no longer has the new file&quot;
+                <span class="string">"storage no longer has the new file"
             </span>);
             <span class="macro">assert!</span>(
                 <span class="macro">matches!</span>(
@@ -2209,9 +2221,9 @@
                         name,
                         children,
                         ..
-                    })) <span class="kw">if </span>name == <span class="string">&quot;/&quot; </span>&amp;&amp; children.is_empty()
+                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children.is_empty()
                 ),
-                <span class="string">&quot;`/` is empty&quot;</span>,
+                <span class="string">"`/` is empty"</span>,
             );
         }
     }
@@ -2220,14 +2232,14 @@
 <span class="kw">impl </span>AsyncRead <span class="kw">for </span>FileHandle {
     <span class="kw">fn </span>poll_read(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
+        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.readable {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;the file (inode `{}) doesn&#39;t have the `read` permission&quot;</span>,
+                    <span class="string">"the file (inode `{}) doesn't have the `read` permission"</span>,
                     <span class="self">self</span>.inode
                 ),
             )));
@@ -2236,15 +2248,19 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="self">self</span>.cursor;
         <span class="kw">let </span>ret = {
             <span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
             <span class="kw">match </span>inode {
                 <span class="prelude-val">Some</span>(Node::File(node)) =&gt; {
                     <span class="kw">let </span>read = <span class="kw">unsafe </span>{
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), <span class="kw-2">&amp;mut </span>cursor)
+                        node.file.read(
+                            std::mem::transmute::&lt;<span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;], <span class="kw-2">&amp;mut </span>[u8]&gt;(
+                                buf.unfilled_mut(),
+                            ),
+                            <span class="kw-2">&amp;mut </span>cursor,
+                        )
                     };
                     <span class="kw">if let </span><span class="prelude-val">Ok</span>(read) = <span class="kw-2">&amp;</span>read {
                         <span class="kw">unsafe </span>{ buf.assume_init(<span class="kw-2">*</span>read) };
@@ -2254,8 +2270,12 @@
                 }
                 <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; {
                     <span class="kw">let </span>read = <span class="kw">unsafe </span>{
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), <span class="kw-2">&amp;mut </span>cursor)
+                        node.file.read(
+                            std::mem::transmute::&lt;<span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;], <span class="kw-2">&amp;mut </span>[u8]&gt;(
+                                buf.unfilled_mut(),
+                            ),
+                            <span class="kw-2">&amp;mut </span>cursor,
+                        )
                     };
                     <span class="kw">if let </span><span class="prelude-val">Ok</span>(read) = <span class="kw-2">&amp;</span>read {
                         <span class="kw">unsafe </span>{ buf.assume_init(<span class="kw-2">*</span>read) };
@@ -2265,8 +2285,12 @@
                 }
                 <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
                     <span class="kw">let </span>read = <span class="kw">unsafe </span>{
-                        node.file
-                            .read(std::mem::transmute(buf.unfilled_mut()), <span class="kw-2">&amp;mut </span>cursor)
+                        node.file.read(
+                            std::mem::transmute::&lt;<span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;], <span class="kw-2">&amp;mut </span>[u8]&gt;(
+                                buf.unfilled_mut(),
+                            ),
+                            <span class="kw-2">&amp;mut </span>cursor,
+                        )
                     };
                     <span class="kw">if let </span><span class="prelude-val">Ok</span>(read) = <span class="kw-2">&amp;</span>read {
                         <span class="kw">unsafe </span>{ buf.assume_init(<span class="kw-2">*</span>read) };
@@ -2289,7 +2313,7 @@
                         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                                 io::ErrorKind::NotFound,
-                                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                             )))
                         }
                     }
@@ -2297,7 +2321,7 @@
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     )));
                 }
             }
@@ -2316,7 +2340,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="self">self</span>.cursor;
         <span class="kw">let </span>ret = {
             <span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -2348,7 +2372,7 @@
                         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                             <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
                                 io::ErrorKind::NotFound,
-                                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                             ));
                         }
                     }
@@ -2356,7 +2380,7 @@
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     ));
                 }
             }
@@ -2365,8 +2389,8 @@
         ret
     }
 
-    <span class="kw">fn </span>poll_complete(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
-        <span class="comment">// In `append` mode, it&#39;s not possible to seek in the file. In
+    <span class="kw">fn </span>poll_complete(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
+        <span class="comment">// In `append` mode, it's not possible to seek in the file. In
         // [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html),
         // the `O_APPEND` option describes this behavior well:
         //
@@ -2378,7 +2402,7 @@
         // &gt; O_APPEND may lead to corrupted files on NFS filesystems
         // &gt; if more than one process appends data to a file at once.
         // &gt; This is because NFS does not support appending to a file,
-        // &gt; so the client kernel has to simulate it, which can&#39;t be
+        // &gt; so the client kernel has to simulate it, which can't be
         // &gt; done without a race condition.
         </span><span class="kw">if </span><span class="self">self</span>.append_mode {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>));
@@ -2386,7 +2410,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>fs =
             <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -2408,13 +2432,13 @@
                     }
                     <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     ))),
                 }
             }
             <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::NotFound,
-                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
             ))),
         }
     }
@@ -2423,14 +2447,14 @@
 <span class="kw">impl </span>AsyncWrite <span class="kw">for </span>FileHandle {
     <span class="kw">fn </span>poll_write(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
         buf: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.writable {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 <span class="macro">format!</span>(
-                    <span class="string">&quot;the file (inode `{}) doesn&#39;t have the `write` permission&quot;</span>,
+                    <span class="string">"the file (inode `{}) doesn't have the `write` permission"</span>,
                     <span class="self">self</span>.inode
                 ),
             )));
@@ -2439,7 +2463,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="self">self</span>.cursor;
         <span class="kw">let </span>bytes_written = {
             <span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -2490,7 +2514,7 @@
                         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                                 io::ErrorKind::NotFound,
-                                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                             )))
                         }
                     }
@@ -2498,7 +2522,7 @@
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     )))
                 }
             }
@@ -2509,13 +2533,13 @@
 
     <span class="kw">fn </span>poll_write_vectored(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-        bufs: <span class="kw-2">&amp;</span>[io::IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;],
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
+        bufs: <span class="kw-2">&amp;</span>[io::IoSlice&lt;<span class="lifetime">'_</span>&gt;],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="self">self</span>.cursor;
         <span class="kw">let </span>ret = {
             <span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -2561,13 +2585,13 @@
                         }
                         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                             io::ErrorKind::NotFound,
-                            <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                            <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                         ))),
                     }
                 }
                 <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                     io::ErrorKind::NotFound,
-                    <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                    <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                 ))),
             }
         };
@@ -2575,10 +2599,10 @@
         ret
     }
 
-    <span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+    <span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>fs =
             <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -2600,21 +2624,21 @@
                     }
                     <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     ))),
                 }
             }
             <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::NotFound,
-                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
             ))),
         }
     }
 
-    <span class="kw">fn </span>poll_shutdown(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+    <span class="kw">fn </span>poll_shutdown(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>fs =
             <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
-                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+                io::Error::new(io::ErrorKind::Other, <span class="string">"failed to acquire a write lock"</span>)
             })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
@@ -2636,13 +2660,13 @@
                     }
                     <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                         io::ErrorKind::NotFound,
-                        <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                        <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
                     ))),
                 }
             }
             <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::NotFound,
-                <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
+                <span class="macro">format!</span>(<span class="string">"inode `{}` doesn't match a file"</span>, <span class="self">self</span>.inode),
             ))),
         }
     }
@@ -2681,7 +2705,7 @@
     <span class="kw">use crate</span>::{mem_fs::<span class="kw-2">*</span>, FileSystem <span class="kw">as </span>FS};
     <span class="kw">use </span>std::io;
 
-    <span class="macro">macro_rules! </span>path {
+    <span class="macro">macro_rules!</span> path {
         (<span class="macro-nonterminal">$path</span>:expr) =&gt; {
             std::path::Path::new(<span class="macro-nonterminal">$path</span>)
         };
@@ -2696,73 +2720,73 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;foo&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing `foo` at the end of the file&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"foo"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing `foo` at the end of the file"</span>,
         );
-        <span class="macro">assert_eq!</span>(file.size(), <span class="number">3</span>, <span class="string">&quot;checking the size of the file&quot;</span>);
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">3</span>, <span class="string">"checking the size of the file"</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;bar&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing `bar` at the end of the file&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"bar"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing `bar` at the end of the file"</span>,
         );
-        <span class="macro">assert_eq!</span>(file.size(), <span class="number">6</span>, <span class="string">&quot;checking the size of the file&quot;</span>);
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">6</span>, <span class="string">"checking the size of the file"</span>);
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-            <span class="string">&quot;seeking to 0&quot;</span>,
+            <span class="string">"seeking to 0"</span>,
         );
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;baz&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing `baz` at the beginning of the file&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"baz"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing `baz` at the beginning of the file"</span>,
         );
-        <span class="macro">assert_eq!</span>(file.size(), <span class="number">6</span>, <span class="string">&quot;checking the size of the file&quot;</span>);
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">6</span>, <span class="string">"checking the size of the file"</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;qux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;writing `qux` in the middle of the file&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"qux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="string">"writing `qux` in the middle of the file"</span>,
         );
-        <span class="macro">assert_eq!</span>(file.size(), <span class="number">6</span>, <span class="string">&quot;checking the size of the file&quot;</span>);
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">6</span>, <span class="string">"checking the size of the file"</span>);
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-            <span class="string">&quot;seeking to 0&quot;</span>,
+            <span class="string">"seeking to 0"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>string = String::new();
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.read_to_string(<span class="kw-2">&amp;mut </span>string).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-            <span class="string">&quot;reading `bazqux`&quot;</span>,
+            <span class="string">"reading `bazqux`"</span>,
         );
-        <span class="macro">assert_eq!</span>(string, <span class="string">&quot;bazqux&quot;</span>);
+        <span class="macro">assert_eq!</span>(string, <span class="string">"bazqux"</span>);
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(-<span class="number">3</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;seeking to 3&quot;</span>,
+            <span class="string">"seeking to 3"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>string = String::new();
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.read_to_string(<span class="kw-2">&amp;mut </span>string).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
-            <span class="string">&quot;reading `qux`&quot;</span>,
+            <span class="string">"reading `qux`"</span>,
         );
-        <span class="macro">assert_eq!</span>(string, <span class="string">&quot;qux&quot;</span>);
+        <span class="macro">assert_eq!</span>(string, <span class="string">"qux"</span>);
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-            <span class="string">&quot;seeking to 6&quot;</span>,
+            <span class="string">"seeking to 6"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>string = String::new();
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.read_to_string(<span class="kw-2">&amp;mut </span>string).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-            <span class="string">&quot;reading ``&quot;</span>,
+            <span class="string">"reading ``"</span>,
         );
-        <span class="macro">assert_eq!</span>(string, <span class="string">&quot;&quot;</span>);
+        <span class="macro">assert_eq!</span>(string, <span class="string">""</span>);
     }
 
     <span class="attr">#[test]
@@ -2771,7 +2795,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; expected.len() + <span class="number">1</span>];
             <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="number">0</span>;
             <span class="kw">let </span>read = file.read(buf.as_mut(), <span class="kw-2">&amp;mut </span>cursor).unwrap();
-            <span class="macro">assert_eq!</span>(read, expected.len(), <span class="string">&quot;Must have the same amount of data&quot;</span>);
+            <span class="macro">assert_eq!</span>(read, expected.len(), <span class="string">"Must have the same amount of data"</span>);
             <span class="macro">assert_eq!</span>(buf[<span class="number">0</span>..expected.len()], <span class="kw-2">*</span>expected);
         }
 
@@ -2780,32 +2804,32 @@
         <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="number">0</span>;
 
         <span class="comment">// Write to empty file
-        </span>file.write(<span class="string">b&quot;hello, world.&quot;</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
+        </span>file.write(<span class="string">b"hello, world."</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
         <span class="macro">assert_eq!</span>(cursor, <span class="number">13</span>);
-        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b&quot;hello, world.&quot;</span>);
+        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b"hello, world."</span>);
 
         <span class="comment">// Write to end of file
-        </span>file.write(<span class="string">b&quot;goodbye!&quot;</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
+        </span>file.write(<span class="string">b"goodbye!"</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
         <span class="macro">assert_eq!</span>(cursor, <span class="number">21</span>);
-        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b&quot;hello, world.goodbye!&quot;</span>);
+        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b"hello, world.goodbye!"</span>);
 
         <span class="comment">// Write to middle of file
         </span>cursor = <span class="number">5</span>;
-        file.write(<span class="string">b&quot;BOOM&quot;</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
+        file.write(<span class="string">b"BOOM"</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
         <span class="macro">assert_eq!</span>(cursor, <span class="number">9</span>);
-        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b&quot;helloBOOMrld.goodbye!&quot;</span>);
+        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b"helloBOOMrld.goodbye!"</span>);
 
         <span class="comment">// Write to middle of file until last byte
         </span>cursor = <span class="number">17</span>;
-        file.write(<span class="string">b&quot;BANG&quot;</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
+        file.write(<span class="string">b"BANG"</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
         <span class="macro">assert_eq!</span>(cursor, <span class="number">21</span>);
-        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b&quot;helloBOOMrld.goodBANG&quot;</span>);
+        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b"helloBOOMrld.goodBANG"</span>);
 
         <span class="comment">// Write to middle past end of file
         </span>cursor = <span class="number">17</span>;
-        file.write(<span class="string">b&quot;OUCH!&quot;</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
+        file.write(<span class="string">b"OUCH!"</span>, <span class="kw-2">&amp;mut </span>cursor).unwrap();
         <span class="macro">assert_eq!</span>(cursor, <span class="number">22</span>);
-        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b&quot;helloBOOMrld.goodOUCH!&quot;</span>);
+        assert_contents(<span class="kw-2">&amp;</span>file, <span class="string">b"helloBOOMrld.goodOUCH!"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -2817,44 +2841,44 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)), <span class="prelude-val">Ok</span>(Metadata { len: <span class="number">0</span>, .. })),
-            <span class="string">&quot;checking the `metadata.len` is 0&quot;</span>,
+            <span class="macro">matches!</span>(fs.metadata(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)), <span class="prelude-val">Ok</span>(Metadata { len: <span class="number">0</span>, .. })),
+            <span class="string">"checking the `metadata.len` is 0"</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;foobarbazqux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
-            <span class="string">&quot;writing `foobarbazqux`&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"foobarbazqux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
+            <span class="string">"writing `foobarbazqux`"</span>,
         );
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-            <span class="string">&quot;seeking to 0&quot;</span>,
+            <span class="string">"seeking to 0"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">6</span>];
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.read(<span class="kw-2">&amp;mut </span>buffer[..]).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-            <span class="string">&quot;reading 6 bytes&quot;</span>,
+            <span class="string">"reading 6 bytes"</span>,
         );
-        <span class="macro">assert_eq!</span>(buffer, <span class="string">b&quot;foobar&quot;</span>[..], <span class="string">&quot;checking the 6 bytes&quot;</span>);
+        <span class="macro">assert_eq!</span>(buffer, <span class="string">b"foobar"</span>[..], <span class="string">"checking the 6 bytes"</span>);
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-            <span class="string">&quot;seeking to 0&quot;</span>,
+            <span class="string">"seeking to 0"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">16</span>];
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.read(<span class="kw-2">&amp;mut </span>buffer[..]).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
-            <span class="string">&quot;reading more bytes than available&quot;</span>,
+            <span class="string">"reading more bytes than available"</span>,
         );
-        <span class="macro">assert_eq!</span>(buffer[..<span class="number">12</span>], <span class="string">b&quot;foobarbazqux&quot;</span>[..], <span class="string">&quot;checking the 12 bytes&quot;</span>);
+        <span class="macro">assert_eq!</span>(buffer[..<span class="number">12</span>], <span class="string">b"foobarbazqux"</span>[..], <span class="string">"checking the 12 bytes"</span>);
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)), <span class="prelude-val">Ok</span>(Metadata { len: <span class="number">12</span>, .. })),
-            <span class="string">&quot;checking the `metadata.len` is 0&quot;</span>,
+            <span class="macro">matches!</span>(fs.metadata(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)), <span class="prelude-val">Ok</span>(Metadata { len: <span class="number">12</span>, .. })),
+            <span class="string">"checking the `metadata.len` is 0"</span>,
         );
     }
 
@@ -2867,25 +2891,25 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;foobarbazqux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
-            <span class="string">&quot;writing `foobarbazqux`&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"foobarbazqux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
+            <span class="string">"writing `foobarbazqux`"</span>,
         );
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-            <span class="string">&quot;seeking to 0&quot;</span>,
+            <span class="string">"seeking to 0"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
-            <span class="string">&quot;reading all bytes&quot;</span>,
+            <span class="string">"reading all bytes"</span>,
         );
-        <span class="macro">assert_eq!</span>(buffer, <span class="string">b&quot;foobarbazqux&quot;</span>[..], <span class="string">&quot;checking all the bytes&quot;</span>);
+        <span class="macro">assert_eq!</span>(buffer, <span class="string">b"foobarbazqux"</span>[..], <span class="string">"checking all the bytes"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -2897,25 +2921,25 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;foobarbazqux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
-            <span class="string">&quot;writing `foobarbazqux`&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"foobarbazqux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
+            <span class="string">"writing `foobarbazqux`"</span>,
         );
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">6</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-            <span class="string">&quot;seeking to 0&quot;</span>,
+            <span class="string">"seeking to 0"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>string = String::new();
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.read_to_string(<span class="kw-2">&amp;mut </span>string).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-            <span class="string">&quot;reading a string&quot;</span>,
+            <span class="string">"reading a string"</span>,
         );
-        <span class="macro">assert_eq!</span>(string, <span class="string">&quot;bazqux&quot;</span>, <span class="string">&quot;checking the string&quot;</span>);
+        <span class="macro">assert_eq!</span>(string, <span class="string">"bazqux"</span>, <span class="string">"checking the string"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -2927,45 +2951,45 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
-            .expect(<span class="string">&quot;failed to create a new file&quot;</span>);
+            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+            .expect(<span class="string">"failed to create a new file"</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.write(<span class="string">b&quot;foobarbazqux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
-            <span class="string">&quot;writing `foobarbazqux`&quot;</span>,
+            <span class="macro">matches!</span>(file.write(<span class="string">b"foobarbazqux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">12</span>)),
+            <span class="string">"writing `foobarbazqux`"</span>,
         );
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">6</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-            <span class="string">&quot;seeking to 0&quot;</span>,
+            <span class="string">"seeking to 0"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">16</span>];
         <span class="macro">assert!</span>(
             file.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.is_err(),
-            <span class="string">&quot;failing to read an exact buffer&quot;</span>,
+            <span class="string">"failing to read an exact buffer"</span>,
         );
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(-<span class="number">5</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">7</span>)),
-            <span class="string">&quot;seeking to 7&quot;</span>,
+            <span class="string">"seeking to 7"</span>,
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">3</span>];
         <span class="macro">assert!</span>(
             file.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.is_ok(),
-            <span class="string">&quot;failing to read an exact buffer&quot;</span>,
+            <span class="string">"failing to read an exact buffer"</span>,
         );
     }
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>FileHandle {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         formatter
-            .debug_struct(<span class="string">&quot;FileHandle&quot;</span>)
-            .field(<span class="string">&quot;inode&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inode)
-            .field(<span class="string">&quot;readable&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.readable)
-            .field(<span class="string">&quot;writable&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.writable)
+            .debug_struct(<span class="string">"FileHandle"</span>)
+            .field(<span class="string">"inode"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inode)
+            .field(<span class="string">"readable"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.readable)
+            .field(<span class="string">"writable"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.writable)
             .finish()
     }
 }
@@ -3029,15 +3053,15 @@
             }
         };
 
-        <span class="comment">// It&#39;s an error to seek before byte 0.
+        <span class="comment">// It's an error to seek before byte 0.
         </span><span class="kw">if </span>next_cursor &lt; <span class="number">0 </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                <span class="string">&quot;seeking before the byte 0&quot;</span>,
+                <span class="string">"seeking before the byte 0"</span>,
             ));
         }
 
-        <span class="comment">// In this implementation, it&#39;s an error to seek beyond the
+        <span class="comment">// In this implementation, it's an error to seek beyond the
         // end of the buffer.
         </span><span class="kw">let </span>next_cursor = next_cursor.try_into().map_err(to_err)<span class="question-mark">?</span>;
         <span class="kw-2">*</span>cursor = cmp::min(<span class="self">self</span>.buffer.len() <span class="kw">as </span>u64, next_cursor);
@@ -3074,11 +3098,11 @@
 <span class="doccomment">/// Read only file that uses copy-on-write
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>ReadOnlyFile {
-    buffer: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;,
+    buffer: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;,
 }
 
 <span class="kw">impl </span>ReadOnlyFile {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(buffer: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(buffer: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ buffer }
     }
 
@@ -3107,7 +3131,7 @@
     <span class="kw">pub fn </span>seek(<span class="kw-2">&amp;</span><span class="self">self</span>, _position: io::SeekFrom, _cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;u64&gt; {
         <span class="prelude-val">Err</span>(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            <span class="string">&quot;file is read-only&quot;</span>,
+            <span class="string">"file is read-only"</span>,
         ))
     }
 }
@@ -3116,7 +3140,7 @@
     <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _buf: <span class="kw-2">&amp;</span>[u8], _cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
         <span class="prelude-val">Err</span>(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            <span class="string">&quot;file is read-only&quot;</span>,
+            <span class="string">"file is read-only"</span>,
         ))
     }
 

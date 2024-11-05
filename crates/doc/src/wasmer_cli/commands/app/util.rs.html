@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/app/util.rs`."><title>util.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer_cli/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/app/util.rs`."><title>util.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -304,12 +304,15 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, str::FromStr};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Confirm};
-<span class="kw">use </span>wasmer_api::{
+<span class="kw">use </span>wasmer_backend_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
     WasmerClient,
@@ -326,9 +329,9 @@
 /// Can be either a namespace/name a plain name or an app id.
 </span><span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
 </span><span class="kw">pub enum </span>AppIdent {
-    <span class="doccomment">/// Backend app id like &quot;da_xxysw34234&quot;
+    <span class="doccomment">/// Backend app id like "da_xxysw34234"
     </span>AppId(String),
-    <span class="doccomment">/// Backend app VERSION id like &quot;dav_xxysw34234&quot;
+    <span class="doccomment">/// Backend app VERSION id like "dav_xxysw34234"
     </span>AppVersionId(String),
     NamespacedName(String, String),
     Name(String),
@@ -338,32 +341,34 @@
     <span class="doccomment">/// Resolve an app identifier through the API.
     </span><span class="kw">pub async fn </span>resolve(<span class="kw-2">&amp;</span><span class="self">self</span>, client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; <span class="prelude-ty">Result</span>&lt;DeployApp, anyhow::Error&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            AppIdent::AppId(app_id) =&gt; wasmer_api::query::get_app_by_id(client, app_id.clone())
-                .<span class="kw">await
-                </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not find app with id &#39;{}&#39;&quot;</span>, app_id)),
+            AppIdent::AppId(app_id) =&gt; {
+                wasmer_backend_api::query::get_app_by_id(client, app_id.clone())
+                    .<span class="kw">await
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not find app with id '{}'"</span>, app_id))
+            }
             AppIdent::AppVersionId(id) =&gt; {
                 <span class="kw">let </span>(app, _version) =
-                    wasmer_api::query::get_app_version_by_id_with_app(client, id.clone())
+                    wasmer_backend_api::query::get_app_version_by_id_with_app(client, id.clone())
                         .<span class="kw">await
-                        </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not query for app version id &#39;{}&#39;&quot;</span>, id))<span class="question-mark">?</span>;
+                        </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not query for app version id '{}'"</span>, id))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(app)
             }
             AppIdent::Name(name) =&gt; {
                 <span class="comment">// The API only allows to query by owner + name,
                 // so default to the current user as the owner.
                 // To to so the username must first be retrieved.
-                </span><span class="kw">let </span>user = wasmer_api::query::current_user(client)
+                </span><span class="kw">let </span>user = wasmer_backend_api::query::current_user(client)
                     .<span class="kw">await</span><span class="question-mark">?
-                    </span>.context(<span class="string">&quot;not logged in&quot;</span>)<span class="question-mark">?</span>;
+                    </span>.context(<span class="string">"not logged in"</span>)<span class="question-mark">?</span>;
 
-                wasmer_api::query::get_app(client, user.username, name.clone())
+                wasmer_backend_api::query::get_app(client, user.username, name.clone())
                     .<span class="kw">await</span><span class="question-mark">?
-                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not find app with name &#39;{name}&#39;&quot;</span>))
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not find app with name '{name}'"</span>))
             }
             AppIdent::NamespacedName(owner, name) =&gt; {
-                wasmer_api::query::get_app(client, owner.clone(), name.clone())
+                wasmer_backend_api::query::get_app(client, owner.clone(), name.clone())
                     .<span class="kw">await</span><span class="question-mark">?
-                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not find app &#39;{owner}/{name}&#39;&quot;</span>))
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not find app '{owner}/{name}'"</span>))
             }
         }
     }
@@ -373,12 +378,12 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= anyhow::Error;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>((namespace, name)) = s.split_once(<span class="string">&#39;/&#39;</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((namespace, name)) = s.split_once(<span class="string">'/'</span>) {
             <span class="kw">if </span>namespace.is_empty() {
-                <span class="macro">bail!</span>(<span class="string">&quot;invalid app identifier &#39;{s}&#39;: namespace can not be empty&quot;</span>);
+                <span class="macro">bail!</span>(<span class="string">"invalid app identifier '{s}': namespace can not be empty"</span>);
             }
             <span class="kw">if </span>name.is_empty() {
-                <span class="macro">bail!</span>(<span class="string">&quot;invalid app identifier &#39;{s}&#39;: name can not be empty&quot;</span>);
+                <span class="macro">bail!</span>(<span class="string">"invalid app identifier '{s}': name can not be empty"</span>);
             }
 
             <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NamespacedName(
@@ -391,7 +396,7 @@
                 NodeKind::DeployAppVersion =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AppVersionId(s.to_string())),
                 <span class="kw">_ </span>=&gt; {
                     <span class="macro">bail!</span>(
-                        <span class="string">&quot;invalid app identifier &#39;{s}&#39;: expected an app id, but id is of type {kind}&quot;</span>,
+                        <span class="string">"invalid app identifier '{s}': expected an app id, but id is of type {kind}"</span>,
                         kind = id.kind(),
                     );
                 }
@@ -427,7 +432,8 @@
 </span><span class="attr">#[allow(clippy::large_enum_variant)]
 </span><span class="kw">pub enum </span>ResolvedAppIdent {
     Ident(AppIdent),
-    Config {
+    <span class="attr">#[allow(dead_code)]
+    </span>Config {
         ident: AppIdent,
         config: AppConfigV1,
         path: std::path::PathBuf,
@@ -488,17 +494,17 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_app_ident() {
         <span class="macro">assert_eq!</span>(
-            AppIdent::from_str(<span class="string">&quot;da_MRrWI0t5U582&quot;</span>).unwrap(),
-            AppIdent::AppId(<span class="string">&quot;da_MRrWI0t5U582&quot;</span>.to_string()),
+            AppIdent::from_str(<span class="string">"da_MRrWI0t5U582"</span>).unwrap(),
+            AppIdent::AppId(<span class="string">"da_MRrWI0t5U582"</span>.to_string()),
         );
         <span class="macro">assert_eq!</span>(
-            AppIdent::from_str(<span class="string">&quot;lala&quot;</span>).unwrap(),
-            AppIdent::Name(<span class="string">&quot;lala&quot;</span>.to_string()),
+            AppIdent::from_str(<span class="string">"lala"</span>).unwrap(),
+            AppIdent::Name(<span class="string">"lala"</span>.to_string()),
         );
 
         <span class="macro">assert_eq!</span>(
-            AppIdent::from_str(<span class="string">&quot;alpha/beta&quot;</span>).unwrap(),
-            AppIdent::NamespacedName(<span class="string">&quot;alpha&quot;</span>.to_string(), <span class="string">&quot;beta&quot;</span>.to_string()),
+            AppIdent::from_str(<span class="string">"alpha/beta"</span>).unwrap(),
+            AppIdent::NamespacedName(<span class="string">"alpha"</span>.to_string(), <span class="string">"beta"</span>.to_string()),
         );
     }
 }
@@ -533,12 +539,12 @@
     <span class="kw">if </span>env.token().is_none() {
         <span class="kw">if </span>interactive {
             <span class="macro">eprintln!</span>(
-                <span class="string">&quot;{}: You need to be logged in to {msg}.&quot;</span>,
-                <span class="string">&quot;WARN&quot;</span>.yellow().bold()
+                <span class="string">"{}: You need to be logged in to {msg}."</span>,
+                <span class="string">"WARN"</span>.yellow().bold()
             );
 
             <span class="kw">if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
-                .with_prompt(<span class="string">&quot;Do you want to login now?&quot;</span>)
+                .with_prompt(<span class="string">"Do you want to login now?"</span>)
                 .interact()<span class="question-mark">?
             </span>{
                 Login {
@@ -552,16 +558,16 @@
                 .<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="comment">// self.api = ApiOpts::default();
             </span>} <span class="kw">else </span>{
-                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Stopping the flow as the user is not logged in.&quot;</span>)
+                <span class="macro">anyhow::bail!</span>(<span class="string">"Stopping the flow as the user is not logged in."</span>)
             }
         } <span class="kw">else </span>{
             <span class="kw">let </span>bin_name = <span class="kw">match </span>std::env::args().next() {
                 <span class="prelude-val">Some</span>(n) =&gt; n,
-                <span class="prelude-val">None </span>=&gt; String::from(<span class="string">&quot;wasmer&quot;</span>),
+                <span class="prelude-val">None </span>=&gt; String::from(<span class="string">"wasmer"</span>),
             };
-            <span class="macro">eprintln!</span>(<span class="string">&quot;You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}.&quot;</span>);
+            <span class="macro">eprintln!</span>(<span class="string">"You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}."</span>);
 
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Stopping execution as the user is not logged in.&quot;</span>)
+            <span class="macro">anyhow::bail!</span>(<span class="string">"Stopping execution as the user is not logged in."</span>)
         }
     }
 
@@ -575,17 +581,17 @@
 
     <span class="kw">if </span>!app_config_path.exists() || !app_config_path.is_file() {
         <span class="macro">bail!</span>(
-            <span class="string">&quot;Could not find app.yaml at path: &#39;{}&#39;.\nPlease specify an app like &#39;wasmer app get &lt;namespace&gt;/&lt;name&gt;&#39; or &#39;wasmer app get &lt;name&gt;`&#39;&quot;</span>,
+            <span class="string">"Could not find app.yaml at path: '{}'.\nPlease specify an app like 'wasmer app get &lt;namespace&gt;/&lt;name&gt;' or 'wasmer app get &lt;name&gt;`'"</span>,
             app_config_path.display()
         );
     }
     <span class="comment">// read the app.yaml
     </span><span class="kw">let </span>raw_app_config = std::fs::read_to_string(<span class="kw-2">&amp;</span>app_config_path)
-        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not read file &#39;{}&#39;&quot;</span>, app_config_path.display()))<span class="question-mark">?</span>;
+        .with_context(|| <span class="macro">format!</span>(<span class="string">"Could not read file '{}'"</span>, app_config_path.display()))<span class="question-mark">?</span>;
 
     <span class="comment">// parse the app.yaml
     </span><span class="kw">let </span>config = AppConfigV1::parse_yaml(<span class="kw-2">&amp;</span>raw_app_config)
-        .map_err(|err| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse app.yaml: {err:?}&quot;</span>))<span class="question-mark">?</span>;
+        .map_err(|err| <span class="macro">anyhow::anyhow!</span>(<span class="string">"Could not parse app.yaml: {err:?}"</span>))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>((config, app_config_path))
 }
@@ -606,7 +612,7 @@
             .interact_text()<span class="question-mark">?</span>;
         <span class="kw">match </span>AppIdent::from_str(<span class="kw-2">&amp;</span>ident) {
             <span class="prelude-val">Ok</span>(id) =&gt; <span class="kw">break </span><span class="prelude-val">Ok</span>(id),
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">&quot;{e}&quot;</span>),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">"{e}"</span>),
         }
     }
 }

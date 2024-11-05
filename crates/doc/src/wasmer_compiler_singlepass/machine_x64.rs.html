@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine_x64.rs`."><title>machine_x64.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine_x64.rs`."><title>machine_x64.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -8716,12 +8716,12 @@
 <span class="kw">use </span><span class="kw">crate</span>::location::Reg;
 <span class="kw">use </span><span class="kw">crate</span>::machine::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::unwind::{UnwindInstructions, UnwindOps};
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts;
 <span class="kw">use </span><span class="kw">crate</span>::x64_decl::new_machine_state;
 <span class="kw">use </span><span class="kw">crate</span>::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 <span class="kw">use </span>dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::{write::CallFrameInstruction, X86_64};
 <span class="kw">use </span>std::ops::{Deref, DerefMut};
 <span class="kw">use </span>wasmer_compiler::wasmparser::ValType <span class="kw">as </span>WpType;
@@ -8756,7 +8756,7 @@
                 <span class="prelude-val">Some</span>(CpuFeature::SSE42)
             } <span class="kw">else </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
-                    <span class="string">&quot;x86_64 without AVX or SSE 4.2, use -m avx to enable&quot;</span>.to_string(),
+                    <span class="string">"x86_64 without AVX or SSE 4.2, use -m avx to enable"</span>.to_string(),
                 ));
             }
         };
@@ -8789,7 +8789,7 @@
 
 <span class="kw">type </span>Location = AbstractLocation&lt;GPR, XMM&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">fn </span>dwarf_index(reg: u16) -&gt; gimli::Register {
     <span class="kw">static </span>DWARF_GPR: [gimli::Register; <span class="number">16</span>] = [
         X86_64::RAX,
@@ -8830,7 +8830,7 @@
     <span class="kw">match </span>reg {
         <span class="number">0</span>..=<span class="number">15 </span>=&gt; DWARF_GPR[reg <span class="kw">as </span>usize],
         <span class="number">17</span>..=<span class="number">24 </span>=&gt; DWARF_XMM[reg <span class="kw">as </span>usize - <span class="number">17</span>],
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unknown register index {}&quot;</span>, reg),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unknown register index {}"</span>, reg),
     }
 }
 
@@ -8903,7 +8903,7 @@
         <span class="kw">match </span>mode {
             RelaxMode::SrcToGPR =&gt; {
                 <span class="kw">let </span>temp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(sz, src, Location::GPR(temp))<span class="question-mark">?</span>;
                 op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz, Location::GPR(temp), dst)<span class="question-mark">?</span>;
@@ -8911,7 +8911,7 @@
             }
             RelaxMode::DstToGPR =&gt; {
                 <span class="kw">let </span>temp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(sz, dst, Location::GPR(temp))<span class="question-mark">?</span>;
                 op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz, src, Location::GPR(temp))<span class="question-mark">?</span>;
@@ -8919,10 +8919,10 @@
             }
             RelaxMode::BothToGPR =&gt; {
                 <span class="kw">let </span>temp_src = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="kw">let </span>temp_dst = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(sz, src, Location::GPR(temp_src))<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(sz, dst, Location::GPR(temp_dst))<span class="question-mark">?</span>;
@@ -8958,7 +8958,7 @@
         <span class="kw">match </span>src {
             Location::Imm32(<span class="kw">_</span>) | Location::Imm64(<span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp_src = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.assembler
                     .emit_mov(Size::S64, src, Location::GPR(tmp_src))<span class="question-mark">?</span>;
@@ -8968,7 +8968,7 @@
                     Location::Imm32(<span class="kw">_</span>) | Location::Imm64(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(),
                     Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                         <span class="kw">let </span>tmp_dst = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                         })<span class="question-mark">?</span>;
                         op(
                             <span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler,
@@ -8985,7 +8985,7 @@
                         op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz_src, src, sz_dst, dst)<span class="question-mark">?</span>;
                     }
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_relaxed_zx_sx unreachable&quot;</span>);
+                        <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_zx_sx unreachable"</span>);
                     }
                 };
 
@@ -8996,7 +8996,7 @@
                     Location::Imm32(<span class="kw">_</span>) | Location::Imm64(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(),
                     Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                         <span class="kw">let </span>tmp_dst = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                         })<span class="question-mark">?</span>;
                         op(
                             <span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler,
@@ -9013,12 +9013,12 @@
                         op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz_src, src, sz_dst, dst)<span class="question-mark">?</span>;
                     }
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_relaxed_zx_sx unreachable&quot;</span>);
+                        <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_zx_sx unreachable"</span>);
                     }
                 };
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_relaxed_zx_sx unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_zx_sx unreachable"</span>);
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -9033,7 +9033,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span>loc_a != ret {
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc_a, Location::GPR(tmp))<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp))<span class="question-mark">?</span>;
@@ -9054,7 +9054,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span>loc_a != ret {
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc_a, Location::GPR(tmp))<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp))<span class="question-mark">?</span>;
@@ -9082,7 +9082,7 @@
             }
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.emit_relaxed_cmp(Size::S64, loc_b, loc_a)<span class="question-mark">?</span>;
                 <span class="self">self</span>.assembler.emit_set(c, tmp)<span class="question-mark">?</span>;
@@ -9092,7 +9092,7 @@
                 <span class="self">self</span>.release_gpr(tmp);
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_cmpop_i64_dynamic_b unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_cmpop_i64_dynamic_b unreachable"</span>);
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -9159,7 +9159,7 @@
             }
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.emit_relaxed_cmp(Size::S32, loc_b, loc_a)<span class="question-mark">?</span>;
                 <span class="self">self</span>.assembler.emit_set(c, tmp)<span class="question-mark">?</span>;
@@ -9169,7 +9169,7 @@
                 <span class="self">self</span>.release_gpr(tmp);
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_cmpop_i32_dynamic_b unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_cmpop_i32_dynamic_b unreachable"</span>);
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -9212,13 +9212,13 @@
         // Register pressure is high on x86_64, and this is needed to be able to use
         // instruction that neead RAX, like cmpxchg for example
         </span><span class="kw">let </span>tmp_addr = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp2 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
-        <span class="comment">// Reusing `tmp_addr` for temporary indirection here, since it&#39;s not used before the last reference to `{base,bound}_loc`.
+        <span class="comment">// Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
         </span><span class="kw">let </span>base_loc = <span class="kw">if </span>imported_memories {
             <span class="comment">// Imported memories require one level of indirection.
             </span><span class="self">self</span>.emit_relaxed_binop(
@@ -9270,7 +9270,7 @@
             <span class="self">self</span>.assembler
                 .emit_mov(Size::S64, bound_loc, Location::GPR(tmp2))<span class="question-mark">?</span>;
 
-            <span class="comment">// We will compare the upper bound limit without having add the &quot;temp_base&quot; value, as it&#39;s a constant
+            <span class="comment">// We will compare the upper bound limit without having add the "temp_base" value, as it's a constant
             </span><span class="self">self</span>.assembler.emit_lea(
                 Size::S64,
                 Location::Memory(tmp2, -(value_size <span class="kw">as </span>i32)),
@@ -9305,7 +9305,7 @@
         <span class="kw">let </span>align = value_size <span class="kw">as </span>u32;
         <span class="kw">if </span>check_alignment &amp;&amp; align != <span class="number">1 </span>{
             <span class="kw">let </span>tmp_aligncheck = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.emit_mov(
                 Size::S32,
@@ -9348,7 +9348,7 @@
         cb: F,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span>memory_sz &gt; stack_sz {
-            <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_compare_and_swap unreachable&quot;</span>);
+            <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_compare_and_swap unreachable"</span>);
         }
 
         <span class="kw">let </span>compare = <span class="self">self</span>.reserve_unused_temp_gpr(GPR::RAX);
@@ -9409,10 +9409,10 @@
         <span class="kw">let </span>upper_bound = f32::to_bits(upper_bound);
 
         <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_x = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="comment">// Underflow.
@@ -9501,7 +9501,7 @@
         convert_cb: F4,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="comment">// As an optimization nan_cb is optional, and when set to None we turn
-        // use &#39;underflow&#39; as the &#39;nan&#39; label. This is useful for callers who
+        // use 'underflow' as the 'nan' label. This is useful for callers who
         // set the return value to zero for both underflow and nan.
 
         </span><span class="kw">let </span>underflow = <span class="self">self</span>.assembler.get_label();
@@ -9558,10 +9558,10 @@
         <span class="kw">let </span>upper_bound = f64::to_bits(upper_bound);
 
         <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_x = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="comment">// Underflow.
@@ -9646,7 +9646,7 @@
         convert_cb: F4,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="comment">// As an optimization nan_cb is optional, and when set to None we turn
-        // use &#39;underflow&#39; as the &#39;nan&#39; label. This is useful for callers who
+        // use 'underflow' as the 'nan' label. This is useful for callers who
         // set the return value to zero for both underflow and nan.
 
         </span><span class="kw">let </span>underflow = <span class="self">self</span>.assembler.get_label();
@@ -9714,16 +9714,16 @@
         dst: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp3 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmpg = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>src1 = <span class="kw">match </span>src1 {
@@ -9746,7 +9746,7 @@
                 tmp1
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_relaxed_avx_base unreachable&quot;</span>)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_avx_base unreachable"</span>)
             }
         };
 
@@ -9771,7 +9771,7 @@
                 XMMOrMemory::XMM(tmp2)
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_relaxed_avx_base unreachable&quot;</span>)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_avx_base unreachable"</span>)
             }
         };
 
@@ -9785,7 +9785,7 @@
                     .emit_mov(Size::S64, Location::SIMD(tmp3), dst)<span class="question-mark">?</span>;
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_relaxed_avx_base unreachable&quot;</span>)
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_avx_base unreachable"</span>)
             }
         }
 
@@ -9798,10 +9798,10 @@
 
     <span class="kw">fn </span>convert_i64_f64_u_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -9816,7 +9816,7 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::u64::MAX),
+                    Location::Imm64(u64::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -9826,13 +9826,13 @@
                     this.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out)
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>tmp = this.acquire_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="kw">let </span>tmp_x1 = this.acquire_temp_simd().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="kw">let </span>tmp_x2 = this.acquire_temp_simd().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
                     })<span class="question-mark">?</span>;
 
                     this.assembler.emit_mov(
@@ -9887,10 +9887,10 @@
     <span class="kw">fn </span>convert_i64_f64_u_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -9899,23 +9899,23 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// xmm2
 
             </span><span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U64_MIN, LEF64_GT_U64_MAX)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// r15
             </span><span class="kw">let </span>tmp_x1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// xmm1
             </span><span class="kw">let </span>tmp_x2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// xmm3
 
             </span><span class="self">self</span>.move_location(
@@ -9953,10 +9953,10 @@
     }
     <span class="kw">fn </span>convert_i64_f64_s_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -9967,14 +9967,14 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MIN <span class="kw">as </span>u64),
+                    Location::Imm64(i64::MIN <span class="kw">as </span>u64),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MAX <span class="kw">as </span>u64),
+                    Location::Imm64(i64::MAX <span class="kw">as </span>u64),
                     Location::GPR(tmp_out),
                 )
             },
@@ -10001,10 +10001,10 @@
     <span class="kw">fn </span>convert_i64_f64_s_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i64_trunc_sf64(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -10013,10 +10013,10 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10033,10 +10033,10 @@
     }
     <span class="kw">fn </span>convert_i32_f64_s_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>real_in = <span class="kw">match </span>loc {
@@ -10059,14 +10059,14 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MIN <span class="kw">as </span>u32),
+                    Location::Imm32(i32::MIN <span class="kw">as </span>u32),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MAX <span class="kw">as </span>u32),
+                    Location::Imm32(i32::MAX <span class="kw">as </span>u32),
                     Location::GPR(tmp_out),
                 )
             },
@@ -10093,10 +10093,10 @@
     <span class="kw">fn </span>convert_i32_f64_s_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i32_trunc_sf64(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -10105,10 +10105,10 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>real_in = <span class="kw">match </span>loc {
@@ -10137,10 +10137,10 @@
     }
     <span class="kw">fn </span>convert_i32_f64_u_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10155,7 +10155,7 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::u32::MAX),
+                    Location::Imm32(u32::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -10179,10 +10179,10 @@
     <span class="kw">fn </span>convert_i32_f64_u_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -10191,10 +10191,10 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10211,10 +10211,10 @@
     }
     <span class="kw">fn </span>convert_i64_f32_u_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10229,7 +10229,7 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::u64::MAX),
+                    Location::Imm64(u64::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -10239,13 +10239,13 @@
                     this.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out)
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>tmp = this.acquire_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="kw">let </span>tmp_x1 = this.acquire_temp_simd().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="kw">let </span>tmp_x2 = this.acquire_temp_simd().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
                     })<span class="question-mark">?</span>;
 
                     this.assembler.emit_mov(
@@ -10300,10 +10300,10 @@
     <span class="kw">fn </span>convert_i64_f32_u_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -10312,23 +10312,23 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// xmm2
 
             </span><span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U64_MIN, LEF32_GT_U64_MAX)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// r15
             </span><span class="kw">let </span>tmp_x1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// xmm1
             </span><span class="kw">let </span>tmp_x2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>; <span class="comment">// xmm3
 
             </span><span class="self">self</span>.move_location(
@@ -10366,10 +10366,10 @@
     }
     <span class="kw">fn </span>convert_i64_f32_s_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10380,14 +10380,14 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MIN <span class="kw">as </span>u64),
+                    Location::Imm64(i64::MIN <span class="kw">as </span>u64),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(std::i64::MAX <span class="kw">as </span>u64),
+                    Location::Imm64(i64::MAX <span class="kw">as </span>u64),
                     Location::GPR(tmp_out),
                 )
             },
@@ -10414,10 +10414,10 @@
     <span class="kw">fn </span>convert_i64_f32_s_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i64_trunc_sf32(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -10426,10 +10426,10 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10445,10 +10445,10 @@
     }
     <span class="kw">fn </span>convert_i32_f32_s_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10459,14 +10459,14 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MIN <span class="kw">as </span>u32),
+                    Location::Imm32(i32::MIN <span class="kw">as </span>u32),
                     Location::GPR(tmp_out),
                 )
             },
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::i32::MAX <span class="kw">as </span>u32),
+                    Location::Imm32(i32::MAX <span class="kw">as </span>u32),
                     Location::GPR(tmp_out),
                 )
             },
@@ -10493,10 +10493,10 @@
     <span class="kw">fn </span>convert_i32_f32_s_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i32_trunc_sf32(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -10505,10 +10505,10 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
@@ -10525,10 +10525,10 @@
     }
     <span class="kw">fn </span>convert_i32_f32_u_s(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
         <span class="self">self</span>.emit_f32_int_conv_check_sat(
@@ -10542,7 +10542,7 @@
             |this| {
                 this.assembler.emit_mov(
                     Size::S32,
-                    Location::Imm32(std::u32::MAX),
+                    Location::Imm32(u32::MAX),
                     Location::GPR(tmp_out),
                 )
             },
@@ -10566,10 +10566,10 @@
     <span class="kw">fn </span>convert_i32_f32_u_u(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_itruncf() {
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out)<span class="question-mark">?</span>;
@@ -10578,10 +10578,10 @@
             <span class="self">self</span>.release_gpr(tmp_out);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U32_MIN, LEF32_GT_U32_MAX)<span class="question-mark">?</span>;
@@ -10814,7 +10814,7 @@
         <span class="self">self</span>.trap_table.offset_to_code.insert(offset, code);
         <span class="self">self</span>.mark_instruction_address_end(offset);
     }
-    <span class="doccomment">/// Marks the instruction as trappable with trap code `code`. return &quot;begin&quot; offset
+    <span class="doccomment">/// Marks the instruction as trappable with trap code `code`. return "begin" offset
     </span><span class="kw">fn </span>mark_instruction_with_trap_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code: TrapCode) -&gt; usize {
         <span class="kw">let </span>offset = <span class="self">self</span>.assembler.get_offset().<span class="number">0</span>;
         <span class="self">self</span>.trap_table.offset_to_code.insert(offset, code);
@@ -10930,7 +10930,7 @@
         idx &gt; <span class="number">3
     </span>}
 
-    <span class="comment">// Determine a local&#39;s location.
+    <span class="comment">// Determine a local's location.
     </span><span class="kw">fn </span>get_local_location(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize, callee_saved_regs_size: usize) -&gt; Location {
         <span class="comment">// Use callee-saved registers for the first locals.
         </span><span class="kw">match </span>idx {
@@ -11071,37 +11071,37 @@
                 Location::GPR(<span class="kw">_</span>) | Location::SIMD(<span class="kw">_</span>) =&gt; <span class="self">self</span>.assembler.emit_mov(size, source, dest),
                 Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) | Location::Memory2(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                     <span class="kw">let </span>tmp = <span class="self">self</span>.pick_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass can&#39;t pick a temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass can't pick a temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_mov(size, source, Location::GPR(tmp))<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_mov(size, Location::GPR(tmp), dest)
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass move_location unreachable&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass move_location unreachable"</span>),
             },
             Location::Memory2(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="kw">match </span>dest {
                 Location::GPR(<span class="kw">_</span>) | Location::SIMD(<span class="kw">_</span>) =&gt; <span class="self">self</span>.assembler.emit_mov(size, source, dest),
                 Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) | Location::Memory2(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                     <span class="kw">let </span>tmp = <span class="self">self</span>.pick_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass can&#39;t pick a temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass can't pick a temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_mov(size, source, Location::GPR(tmp))<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_mov(size, Location::GPR(tmp), dest)
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass move_location unreachable&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass move_location unreachable"</span>),
             },
             Location::Imm8(<span class="kw">_</span>) | Location::Imm32(<span class="kw">_</span>) | Location::Imm64(<span class="kw">_</span>) =&gt; <span class="kw">match </span>dest {
                 Location::GPR(<span class="kw">_</span>) | Location::SIMD(<span class="kw">_</span>) =&gt; <span class="self">self</span>.assembler.emit_mov(size, source, dest),
                 Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) | Location::Memory2(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                     <span class="kw">let </span>tmp = <span class="self">self</span>.pick_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass can&#39;t pick a temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass can't pick a temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_mov(size, source, Location::GPR(tmp))<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_mov(size, Location::GPR(tmp), dest)
                 }
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass move_location unreachable&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass move_location unreachable"</span>),
             },
             Location::SIMD(<span class="kw">_</span>) =&gt; <span class="self">self</span>.assembler.emit_mov(size, source, dest),
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass move_location unreachable&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass move_location unreachable"</span>),
         }
     }
     <span class="comment">// move a location to another
@@ -11116,11 +11116,11 @@
         <span class="kw">let </span>dst = <span class="kw">match </span>dest {
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) | Location::Memory2(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 Location::GPR(<span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>)
             }
             Location::GPR(<span class="kw">_</span>) | Location::SIMD(<span class="kw">_</span>) =&gt; dest,
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass move_location_extend unreachable&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass move_location_extend unreachable"</span>),
         };
         <span class="kw">match </span>source {
             Location::GPR(<span class="kw">_</span>)
@@ -11138,7 +11138,7 @@
                 }
             },
             <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(
-                <span class="string">&quot;unimplemented move_location_extend({:?}, {}, {:?}, {:?}, {:?}&quot;</span>,
+                <span class="string">"unimplemented move_location_extend({:?}, {}, {:?}, {:?}, {:?}"</span>,
                 size_val, signed, source, size_op, dest
             ),
         }<span class="question-mark">?</span>;
@@ -11146,7 +11146,7 @@
             <span class="self">self</span>.assembler.emit_mov(size_op, dst, dest)<span class="question-mark">?</span>;
             <span class="kw">match </span>dst {
                 Location::GPR(x) =&gt; <span class="self">self</span>.release_gpr(x),
-                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass move_location_extend unreachable&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass move_location_extend unreachable"</span>),
             };
         }
         <span class="prelude-val">Ok</span>(())
@@ -11167,10 +11167,10 @@
                         }
                         <span class="self">self</span>.assembler.emit_mov(size, mem, reg)<span class="question-mark">?</span>;
                     }
-                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass load_address unreachable&quot;</span>),
+                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass load_address unreachable"</span>),
                 }
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass load_address unreachable&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass load_address unreachable"</span>),
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -11212,7 +11212,7 @@
     <span class="comment">// assembler finalize
     </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
         <span class="self">self</span>.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;Assembler failed finalization with: {:?}&quot;</span>, e))
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"Assembler failed finalization with: {:?}"</span>, e))
         })
     }
 
@@ -11248,7 +11248,7 @@
                 <span class="kw">match </span>ty {
                     WpType::F32 =&gt; Size::S32,
                     WpType::F64 =&gt; Size::S64,
-                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_function_return_value unreachable&quot;</span>),
+                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_function_return_value unreachable"</span>),
                 },
                 loc,
                 Location::GPR(GPR::RAX),
@@ -11276,18 +11276,18 @@
         output: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp3 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.emit_relaxed_mov(sz, input, Location::SIMD(tmp1))<span class="question-mark">?</span>;
         <span class="kw">let </span>tmpg1 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="kw">match </span>sz {
@@ -11315,7 +11315,7 @@
                 <span class="self">self</span>.assembler
                     .emit_vblendvpd(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1)<span class="question-mark">?</span>;
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass canonicalize_nan unreachable&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass canonicalize_nan unreachable"</span>),
         }
 
         <span class="self">self</span>.emit_relaxed_mov(sz, Location::SIMD(tmp1), output)<span class="question-mark">?</span>;
@@ -11486,11 +11486,11 @@
     </span><span class="kw">fn </span>emit_jmp_to_jumptable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label, cond: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp1 = <span class="self">self
             </span>.pick_temp_gpr()
-            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;singlepass can&#39;t pick a temp gpr&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+            .ok_or_else(|| CompileError::Codegen(<span class="string">"singlepass can't pick a temp gpr"</span>.to_owned()))<span class="question-mark">?</span>;
         <span class="self">self</span>.reserve_gpr(tmp1);
         <span class="kw">let </span>tmp2 = <span class="self">self
             </span>.pick_temp_gpr()
-            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;singlepass can&#39;t pick a temp gpr&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+            .ok_or_else(|| CompileError::Codegen(<span class="string">"singlepass can't pick a temp gpr"</span>.to_owned()))<span class="question-mark">?</span>;
         <span class="self">self</span>.reserve_gpr(tmp2);
 
         <span class="self">self</span>.assembler.emit_lea_label(label, Location::GPR(tmp1))<span class="question-mark">?</span>;
@@ -11509,7 +11509,7 @@
 
     <span class="kw">fn </span>align_for_loop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="comment">// Pad with NOPs to the next 16-byte boundary.
-        // Here we don&#39;t use the dynasm `.align 16` attribute because it pads the alignment with single-byte nops
+        // Here we don't use the dynasm `.align 16` attribute because it pads the alignment with single-byte nops
         // which may lead to efficiency problems.
         </span><span class="kw">match </span><span class="self">self</span>.assembler.get_offset().<span class="number">0 </span>% <span class="number">16 </span>{
             <span class="number">0 </span>=&gt; {}
@@ -11553,7 +11553,7 @@
         <span class="kw">match </span>size {
             Size::S64 =&gt; <span class="self">self</span>.assembler.emit_imul_imm32_gpr64(imm32, gpr),
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass emit_imul_imm32 unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_imul_imm32 unreachable"</span>);
             }
         }
     }
@@ -11833,23 +11833,23 @@
         <span class="kw">let </span>src = <span class="kw">match </span>loc {
             Location::Imm32(<span class="kw">_</span>) | Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(Size::S32, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
                 tmp
             }
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i32_clz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i32_clz unreachable"</span>);
             }
         };
         <span class="kw">let </span>dst = <span class="kw">match </span>ret {
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>,
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i32_clz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i32_clz unreachable"</span>);
             }
         };
 
@@ -11887,23 +11887,23 @@
         <span class="kw">let </span>src = <span class="kw">match </span>loc {
             Location::Imm32(<span class="kw">_</span>) | Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(Size::S32, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
                 tmp
             }
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i32_ctz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i32_ctz unreachable"</span>);
             }
         };
         <span class="kw">let </span>dst = <span class="kw">match </span>ret {
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>,
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i32_ctz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i32_ctz unreachable"</span>);
             }
         };
 
@@ -11940,12 +11940,12 @@
         <span class="kw">match </span>loc {
             Location::Imm32(<span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(Size::S32, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
                 <span class="kw">if let </span>Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) = ret {
                     <span class="kw">let </span>out_tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_popcnt(
                         Size::S32,
@@ -11963,7 +11963,7 @@
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) | Location::GPR(<span class="kw">_</span>) =&gt; {
                 <span class="kw">if let </span>Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) = ret {
                     <span class="kw">let </span>out_tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler
                         .emit_popcnt(Size::S32, loc, Location::GPR(out_tmp))<span class="question-mark">?</span>;
@@ -11974,7 +11974,7 @@
                 }
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i32_popcnt unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i32_popcnt unreachable"</span>);
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -12467,7 +12467,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location(Size::S32, loc, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -12506,7 +12506,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location_extend(Size::S8, <span class="bool-val">false</span>, loc, Size::S32, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -12545,7 +12545,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location_extend(Size::S16, <span class="bool-val">false</span>, loc, Size::S32, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -12584,7 +12584,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.location_neg(Size::S32, <span class="bool-val">false</span>, loc, Size::S32, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -12623,7 +12623,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.location_neg(Size::S8, <span class="bool-val">false</span>, loc, Size::S32, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -12662,7 +12662,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.location_neg(Size::S16, <span class="bool-val">false</span>, loc, Size::S32, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -12989,7 +12989,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location(Size::S32, loc, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -13025,7 +13025,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.assembler
             .emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value))<span class="question-mark">?</span>;
@@ -13062,7 +13062,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.assembler
             .emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value))<span class="question-mark">?</span>;
@@ -13502,23 +13502,23 @@
         <span class="kw">let </span>src = <span class="kw">match </span>loc {
             Location::Imm64(<span class="kw">_</span>) | Location::Imm32(<span class="kw">_</span>) | Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(Size::S64, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
                 tmp
             }
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i64_clz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_clz unreachable"</span>);
             }
         };
         <span class="kw">let </span>dst = <span class="kw">match </span>ret {
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>,
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i64_clz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_clz unreachable"</span>);
             }
         };
 
@@ -13556,23 +13556,23 @@
         <span class="kw">let </span>src = <span class="kw">match </span>loc {
             Location::Imm64(<span class="kw">_</span>) | Location::Imm32(<span class="kw">_</span>) | Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(Size::S64, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
                 tmp
             }
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i64_ctz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_ctz unreachable"</span>);
             }
         };
         <span class="kw">let </span>dst = <span class="kw">match </span>ret {
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>,
             Location::GPR(reg) =&gt; reg,
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i64_ctz unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_ctz unreachable"</span>);
             }
         };
 
@@ -13609,12 +13609,12 @@
         <span class="kw">match </span>loc {
             Location::Imm64(<span class="kw">_</span>) | Location::Imm32(<span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                    CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                 })<span class="question-mark">?</span>;
                 <span class="self">self</span>.move_location(Size::S64, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
                 <span class="kw">if let </span>Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) = ret {
                     <span class="kw">let </span>out_tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler.emit_popcnt(
                         Size::S64,
@@ -13632,7 +13632,7 @@
             Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) | Location::GPR(<span class="kw">_</span>) =&gt; {
                 <span class="kw">if let </span>Location::Memory(<span class="kw">_</span>, <span class="kw">_</span>) = ret {
                     <span class="kw">let </span>out_tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                        CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                        CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
                     })<span class="question-mark">?</span>;
                     <span class="self">self</span>.assembler
                         .emit_popcnt(Size::S64, loc, Location::GPR(out_tmp))<span class="question-mark">?</span>;
@@ -13643,7 +13643,7 @@
                 }
             }
             <span class="kw">_ </span>=&gt; {
-                <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i64_popcnt unreachable&quot;</span>);
+                <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_popcnt unreachable"</span>);
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -13879,7 +13879,7 @@
                         )<span class="question-mark">?</span>; <span class="comment">// clear upper bits
                     </span>}
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i64_load_32u unreacahble&quot;</span>);
+                        <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_load_32u unreacahble"</span>);
                     }
                 }
                 this.emit_relaxed_binop(
@@ -14041,7 +14041,7 @@
                         )<span class="question-mark">?</span>; <span class="comment">// clear upper bits
                     </span>}
                     <span class="kw">_ </span>=&gt; {
-                        <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass i64_atomic_load_32u unreachable&quot;</span>);
+                        <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_atomic_load_32u unreachable"</span>);
                     }
                 }
                 this.emit_relaxed_zero_extension(
@@ -14287,7 +14287,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location(Size::S64, loc, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14326,7 +14326,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location_extend(Size::S8, <span class="bool-val">false</span>, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14365,7 +14365,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location_extend(Size::S16, <span class="bool-val">false</span>, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14404,7 +14404,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location_extend(Size::S32, <span class="bool-val">false</span>, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14443,7 +14443,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.location_neg(Size::S64, <span class="bool-val">false</span>, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14482,7 +14482,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.location_neg(Size::S8, <span class="bool-val">false</span>, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14521,7 +14521,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.location_neg(Size::S16, <span class="bool-val">false</span>, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14560,7 +14560,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.location_neg(Size::S32, <span class="bool-val">false</span>, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -14975,7 +14975,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location(Size::S64, loc, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.memory_op(
@@ -15011,7 +15011,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.assembler
             .emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
@@ -15048,7 +15048,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.assembler
             .emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
@@ -15085,7 +15085,7 @@
         unaligned_atomic: Label,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>value = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.assembler
             .emit_movzx(Size::S32, loc, Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
@@ -15469,10 +15469,10 @@
         ret: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_fconverti() {
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::GPR(tmp_in))<span class="question-mark">?</span>;
@@ -15490,7 +15490,7 @@
             <span class="self">self</span>.move_location(Size::S64, Location::SIMD(tmp_out), ret)<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>do_convert = <span class="self">self</span>.assembler.get_label();
@@ -15531,10 +15531,10 @@
         ret: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_fconverti() {
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::GPR(tmp_in))<span class="question-mark">?</span>;
@@ -15567,10 +15567,10 @@
         ret: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_fconverti() {
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::GPR(tmp_in))<span class="question-mark">?</span>;
@@ -15588,7 +15588,7 @@
             <span class="self">self</span>.move_location(Size::S32, Location::SIMD(tmp_out), ret)<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>do_convert = <span class="self">self</span>.assembler.get_label();
@@ -15629,10 +15629,10 @@
         ret: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp_out = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>tmp_in = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_fconverti() {
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::GPR(tmp_in))<span class="question-mark">?</span>;
@@ -15723,7 +15723,7 @@
     <span class="kw">fn </span>f64_neg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_fneg() {
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_f64_neg(tmp, tmp)<span class="question-mark">?</span>;
@@ -15731,7 +15731,7 @@
             <span class="self">self</span>.release_simd(tmp);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.move_location(Size::S64, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.emit_btc_gpr_imm8_64(<span class="number">63</span>, tmp)<span class="question-mark">?</span>;
@@ -15742,10 +15742,10 @@
     }
     <span class="kw">fn </span>f64_abs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="kw">let </span>c = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.move_location(Size::S64, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
@@ -15764,7 +15764,7 @@
     }
     <span class="kw">fn </span>emit_i64_copysign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tmp1: GPR, tmp2: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>c = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
 
         <span class="self">self</span>.move_location(
@@ -15868,16 +15868,16 @@
             <span class="self">self</span>.emit_relaxed_avx(AssemblerX64::emit_vminsd, loc_a, loc_b, ret)
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg1 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg2 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>src1 = <span class="kw">match </span>loc_a {
@@ -15897,7 +15897,7 @@
                     tmp1
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f64_min unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f64_min unreachable"</span>);
                 }
             };
             <span class="kw">let </span>src2 = <span class="kw">match </span>loc_b {
@@ -15917,7 +15917,7 @@
                     tmp2
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f64_min unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f64_min unreachable"</span>);
                 }
             };
 
@@ -15974,7 +15974,7 @@
                     <span class="self">self</span>.move_location(Size::S64, Location::SIMD(src1), ret)<span class="question-mark">?</span>;
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f64_min unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f64_min unreachable"</span>);
                 }
             }
 
@@ -15995,16 +15995,16 @@
             <span class="self">self</span>.emit_relaxed_avx(AssemblerX64::emit_vmaxsd, loc_a, loc_b, ret)
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg1 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg2 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>src1 = <span class="kw">match </span>loc_a {
@@ -16024,7 +16024,7 @@
                     tmp1
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f64_max unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f64_max unreachable"</span>);
                 }
             };
             <span class="kw">let </span>src2 = <span class="kw">match </span>loc_b {
@@ -16044,7 +16044,7 @@
                     tmp2
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f64_max unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f64_max unreachable"</span>);
                 }
             };
 
@@ -16096,7 +16096,7 @@
                     <span class="self">self</span>.move_location(Size::S64, Location::SIMD(src1), ret)<span class="question-mark">?</span>;
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f64_max unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f64_max unreachable"</span>);
                 }
             }
 
@@ -16142,7 +16142,7 @@
     <span class="kw">fn </span>f32_neg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">if </span><span class="self">self</span>.assembler.arch_has_fneg() {
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.arch_emit_f32_neg(tmp, tmp)<span class="question-mark">?</span>;
@@ -16150,7 +16150,7 @@
             <span class="self">self</span>.release_simd(tmp);
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="self">self</span>.move_location(Size::S32, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
             <span class="self">self</span>.assembler.emit_btc_gpr_imm8_32(<span class="number">31</span>, tmp)<span class="question-mark">?</span>;
@@ -16161,7 +16161,7 @@
     }
     <span class="kw">fn </span>f32_abs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.move_location(Size::S32, loc, Location::GPR(tmp))<span class="question-mark">?</span>;
         <span class="self">self</span>.assembler.emit_and(
@@ -16266,16 +16266,16 @@
             <span class="self">self</span>.emit_relaxed_avx(AssemblerX64::emit_vminss, loc_a, loc_b, ret)
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg1 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg2 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>src1 = <span class="kw">match </span>loc_a {
@@ -16295,7 +16295,7 @@
                     tmp1
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f32_min unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f32_min unreachable"</span>);
                 }
             };
             <span class="kw">let </span>src2 = <span class="kw">match </span>loc_b {
@@ -16315,7 +16315,7 @@
                     tmp2
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f32_min unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f32_min unreachable"</span>);
                 }
             };
 
@@ -16372,7 +16372,7 @@
                     <span class="self">self</span>.move_location(Size::S64, Location::SIMD(src1), ret)<span class="question-mark">?</span>;
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f32_min unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f32_min unreachable"</span>);
                 }
             }
 
@@ -16393,16 +16393,16 @@
             <span class="self">self</span>.emit_relaxed_avx(AssemblerX64::emit_vmaxss, loc_a, loc_b, ret)
         } <span class="kw">else </span>{
             <span class="kw">let </span>tmp1 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmp2 = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp simd&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp simd"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg1 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>tmpg2 = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
             })<span class="question-mark">?</span>;
 
             <span class="kw">let </span>src1 = <span class="kw">match </span>loc_a {
@@ -16422,7 +16422,7 @@
                     tmp1
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f32_max unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f32_max unreachable"</span>);
                 }
             };
             <span class="kw">let </span>src2 = <span class="kw">match </span>loc_b {
@@ -16442,7 +16442,7 @@
                     tmp2
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f32_max unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f32_max unreachable"</span>);
                 }
             };
 
@@ -16494,7 +16494,7 @@
                     <span class="self">self</span>.move_location(Size::S64, Location::SIMD(src1), ret)<span class="question-mark">?</span>;
                 }
                 <span class="kw">_ </span>=&gt; {
-                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass f32_max unreachable&quot;</span>);
+                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass f32_max unreachable"</span>);
                 }
             }
 
@@ -16614,7 +16614,7 @@
                         )<span class="question-mark">?</span>;
                         n_stack_args += <span class="number">1</span>;
                     }
-                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass gen_std_trampoline unreachable&quot;</span>),
+                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass gen_std_trampoline unreachable"</span>),
                 }
             }
         }
@@ -16791,7 +16791,7 @@
         // Singlepass internally treats all arguments as integers
         // For the standard Windows calling convention requires
         //  floating point arguments to be passed in XMM registers for the 4 first arguments only
-        //  That&#39;s the only change to do, other arguments are not to be changed
+        //  That's the only change to do, other arguments are not to be changed
         // For the standard System V calling convention requires
         //  floating point arguments to be passed in XMM registers.
         //  Translation is expensive, so only do it if needed.
@@ -16872,8 +16872,8 @@
                             <span class="prelude-val">None </span>=&gt; {
                                 <span class="comment">// No register can be allocated. Put this argument on the stack.
                                 //
-                                // Since here we never use fewer registers than by the original call, on the caller&#39;s frame
-                                // we always have enough space to store the rearranged arguments, and the copy &quot;backward&quot; between different
+                                // Since here we never use fewer registers than by the original call, on the caller's frame
+                                // we always have enough space to store the rearranged arguments, and the copy "backward" between different
                                 // slots in the caller argument region will always work.
                                 </span>a.emit_mov(Size::S64, prev_loc, Location::GPR(GPR::RAX))<span class="question-mark">?</span>;
                                 a.emit_mov(
@@ -16946,7 +16946,7 @@
             relocations: <span class="macro">vec!</span>[],
         })
     }
-    <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
     </span><span class="kw">fn </span>gen_dwarf_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInstructions&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>instructions = <span class="macro">vec!</span>[];
         <span class="kw">for </span><span class="kw-2">&amp;</span>(instruction_offset, <span class="kw-2">ref </span>inst) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.unwind_ops {
@@ -16980,12 +16980,12 @@
             len: code_len <span class="kw">as </span>u32,
         })
     }
-    <span class="attr">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+    <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
     </span><span class="kw">fn </span>gen_dwarf_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInstructions&gt; {
         <span class="prelude-val">None
     </span>}
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
     </span><span class="kw">fn </span>gen_windows_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
         <span class="kw">let </span>unwind_info = create_unwind_info_from_insts(<span class="kw-2">&amp;</span><span class="self">self</span>.unwind_ops);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind_info {
@@ -16998,7 +16998,7 @@
         </span>}
     }
 
-    <span class="attr">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+    <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
     </span><span class="kw">fn </span>gen_windows_unwind_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _code_len: usize) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
         <span class="prelude-val">None
     </span>}
@@ -17351,7 +17351,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>tests_avx() -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>set = <span class="macro">enum_set!</span>(CpuFeature::AVX);
-        <span class="kw">let </span>target = Target::new(Triple::from_str(<span class="string">&quot;x86_64-linux-gnu&quot;</span>).unwrap(), set);
+        <span class="kw">let </span>target = Target::new(Triple::from_str(<span class="string">"x86_64-linux-gnu"</span>).unwrap(), set);
         <span class="kw">let </span><span class="kw-2">mut </span>machine = MachineX86_64::new(<span class="prelude-val">Some</span>(target))<span class="question-mark">?</span>;
 
         test_move_location(<span class="kw-2">&amp;mut </span>machine)<span class="question-mark">?</span>;
@@ -17387,7 +17387,7 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>tests_sse42() -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span>set = <span class="macro">enum_set!</span>(CpuFeature::SSE42);
-        <span class="kw">let </span>target = Target::new(Triple::from_str(<span class="string">&quot;x86_64-linux-gnu&quot;</span>).unwrap(), set);
+        <span class="kw">let </span>target = Target::new(Triple::from_str(<span class="string">"x86_64-linux-gnu"</span>).unwrap(), set);
         <span class="kw">let </span><span class="kw-2">mut </span>machine = MachineX86_64::new(<span class="prelude-val">Some</span>(target))<span class="question-mark">?</span>;
 
         test_move_location(<span class="kw-2">&amp;mut </span>machine)<span class="question-mark">?</span>;

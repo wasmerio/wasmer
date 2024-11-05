@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["___map_file","_emscripten_get_heap_size","_emscripten_memcpy_big","_emscripten_resize_heap","abort_on_cannot_grow_memory","abort_on_cannot_grow_memory_old","align_up","alignfault","enlarge_memory","ftfault","get_heap_size","get_total_memory","resize_heap","sbrk","segfault"]};

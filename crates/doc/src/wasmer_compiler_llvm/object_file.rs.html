@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/object_file.rs`."><title>object_file.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_llvm/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/object_file.rs`."><title>object_file.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_llvm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -415,6 +415,52 @@
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
 <a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
 
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
@@ -430,11 +476,11 @@
 <span class="kw">use </span>wasmer_vm::libcalls::LibCall;
 
 <span class="kw">fn </span>map_tryfromint_err(error: TryFromIntError) -&gt; CompileError {
-    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;int doesn&#39;t fit: {}&quot;</span>, error))
+    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"int doesn't fit: {}"</span>, error))
 }
 
 <span class="kw">fn </span>map_object_err(error: object::read::Error) -&gt; CompileError {
-    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;error parsing object file: {}&quot;</span>, error))
+    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"error parsing object file: {}"</span>, error))
 }
 
 <span class="kw">pub struct </span>CompiledFunction {
@@ -454,87 +500,87 @@
 {
     <span class="comment">// TODO: use perfect hash function?
     </span><span class="kw">let </span><span class="kw-2">mut </span>libcalls = HashMap::new();
-    libcalls.insert(<span class="string">&quot;ceilf&quot;</span>.to_string(), LibCall::CeilF32);
-    libcalls.insert(<span class="string">&quot;ceil&quot;</span>.to_string(), LibCall::CeilF64);
-    libcalls.insert(<span class="string">&quot;floorf&quot;</span>.to_string(), LibCall::FloorF32);
-    libcalls.insert(<span class="string">&quot;floor&quot;</span>.to_string(), LibCall::FloorF64);
-    libcalls.insert(<span class="string">&quot;nearbyintf&quot;</span>.to_string(), LibCall::NearestF32);
-    libcalls.insert(<span class="string">&quot;nearbyint&quot;</span>.to_string(), LibCall::NearestF64);
-    libcalls.insert(<span class="string">&quot;truncf&quot;</span>.to_string(), LibCall::TruncF32);
-    libcalls.insert(<span class="string">&quot;trunc&quot;</span>.to_string(), LibCall::TruncF64);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>.to_string(), LibCall::CeilF32);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>.to_string(), LibCall::CeilF64);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_floor&quot;</span>.to_string(), LibCall::FloorF32);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_floor&quot;</span>.to_string(), LibCall::FloorF64);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>.to_string(), LibCall::NearestF32);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>.to_string(), LibCall::NearestF64);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>.to_string(), LibCall::TruncF32);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>.to_string(), LibCall::TruncF64);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_size&quot;</span>.to_string(), LibCall::Memory32Size);
+    libcalls.insert(<span class="string">"ceilf"</span>.to_string(), LibCall::CeilF32);
+    libcalls.insert(<span class="string">"ceil"</span>.to_string(), LibCall::CeilF64);
+    libcalls.insert(<span class="string">"floorf"</span>.to_string(), LibCall::FloorF32);
+    libcalls.insert(<span class="string">"floor"</span>.to_string(), LibCall::FloorF64);
+    libcalls.insert(<span class="string">"nearbyintf"</span>.to_string(), LibCall::NearestF32);
+    libcalls.insert(<span class="string">"nearbyint"</span>.to_string(), LibCall::NearestF64);
+    libcalls.insert(<span class="string">"truncf"</span>.to_string(), LibCall::TruncF32);
+    libcalls.insert(<span class="string">"trunc"</span>.to_string(), LibCall::TruncF64);
+    libcalls.insert(<span class="string">"wasmer_vm_f32_ceil"</span>.to_string(), LibCall::CeilF32);
+    libcalls.insert(<span class="string">"wasmer_vm_f64_ceil"</span>.to_string(), LibCall::CeilF64);
+    libcalls.insert(<span class="string">"wasmer_vm_f32_floor"</span>.to_string(), LibCall::FloorF32);
+    libcalls.insert(<span class="string">"wasmer_vm_f64_floor"</span>.to_string(), LibCall::FloorF64);
+    libcalls.insert(<span class="string">"wasmer_vm_f32_nearest"</span>.to_string(), LibCall::NearestF32);
+    libcalls.insert(<span class="string">"wasmer_vm_f64_nearest"</span>.to_string(), LibCall::NearestF64);
+    libcalls.insert(<span class="string">"wasmer_vm_f32_trunc"</span>.to_string(), LibCall::TruncF32);
+    libcalls.insert(<span class="string">"wasmer_vm_f64_trunc"</span>.to_string(), LibCall::TruncF64);
+    libcalls.insert(<span class="string">"wasmer_vm_memory32_size"</span>.to_string(), LibCall::Memory32Size);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_memory32_size&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_memory32_size"</span>.to_string(),
         LibCall::ImportedMemory32Size,
     );
-    libcalls.insert(<span class="string">&quot;wasmer_vm_table_copy&quot;</span>.to_string(), LibCall::TableCopy);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_table_init&quot;</span>.to_string(), LibCall::TableInit);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_table_fill&quot;</span>.to_string(), LibCall::TableFill);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_table_size&quot;</span>.to_string(), LibCall::TableSize);
+    libcalls.insert(<span class="string">"wasmer_vm_table_copy"</span>.to_string(), LibCall::TableCopy);
+    libcalls.insert(<span class="string">"wasmer_vm_table_init"</span>.to_string(), LibCall::TableInit);
+    libcalls.insert(<span class="string">"wasmer_vm_table_fill"</span>.to_string(), LibCall::TableFill);
+    libcalls.insert(<span class="string">"wasmer_vm_table_size"</span>.to_string(), LibCall::TableSize);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_table_size"</span>.to_string(),
         LibCall::ImportedTableSize,
     );
-    libcalls.insert(<span class="string">&quot;wasmer_vm_table_get&quot;</span>.to_string(), LibCall::TableGet);
+    libcalls.insert(<span class="string">"wasmer_vm_table_get"</span>.to_string(), LibCall::TableGet);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_table_get"</span>.to_string(),
         LibCall::ImportedTableGet,
     );
-    libcalls.insert(<span class="string">&quot;wasmer_vm_table_set&quot;</span>.to_string(), LibCall::TableSet);
+    libcalls.insert(<span class="string">"wasmer_vm_table_set"</span>.to_string(), LibCall::TableSet);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_table_set"</span>.to_string(),
         LibCall::ImportedTableSet,
     );
-    libcalls.insert(<span class="string">&quot;wasmer_vm_table_grow&quot;</span>.to_string(), LibCall::TableGrow);
+    libcalls.insert(<span class="string">"wasmer_vm_table_grow"</span>.to_string(), LibCall::TableGrow);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_table_grow"</span>.to_string(),
         LibCall::ImportedTableGrow,
     );
-    libcalls.insert(<span class="string">&quot;wasmer_vm_func_ref&quot;</span>.to_string(), LibCall::FuncRef);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_elem_drop&quot;</span>.to_string(), LibCall::ElemDrop);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>.to_string(), LibCall::Memory32Copy);
+    libcalls.insert(<span class="string">"wasmer_vm_func_ref"</span>.to_string(), LibCall::FuncRef);
+    libcalls.insert(<span class="string">"wasmer_vm_elem_drop"</span>.to_string(), LibCall::ElemDrop);
+    libcalls.insert(<span class="string">"wasmer_vm_memory32_copy"</span>.to_string(), LibCall::Memory32Copy);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_memory32_copy"</span>.to_string(),
         LibCall::ImportedMemory32Copy,
     );
-    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>.to_string(), LibCall::Memory32Fill);
+    libcalls.insert(<span class="string">"wasmer_vm_memory32_fill"</span>.to_string(), LibCall::Memory32Fill);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_memory32_fill"</span>.to_string(),
         LibCall::ImportedMemory32Fill,
     );
-    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_init&quot;</span>.to_string(), LibCall::Memory32Init);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_data_drop&quot;</span>.to_string(), LibCall::DataDrop);
-    libcalls.insert(<span class="string">&quot;wasmer_vm_raise_trap&quot;</span>.to_string(), LibCall::RaiseTrap);
+    libcalls.insert(<span class="string">"wasmer_vm_memory32_init"</span>.to_string(), LibCall::Memory32Init);
+    libcalls.insert(<span class="string">"wasmer_vm_data_drop"</span>.to_string(), LibCall::DataDrop);
+    libcalls.insert(<span class="string">"wasmer_vm_raise_trap"</span>.to_string(), LibCall::RaiseTrap);
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_memory32_atomic_wait32&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_memory32_atomic_wait32"</span>.to_string(),
         LibCall::Memory32AtomicWait32,
     );
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait32&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_memory32_atomic_wait32"</span>.to_string(),
         LibCall::ImportedMemory32AtomicWait32,
     );
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_memory32_atomic_wait64&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_memory32_atomic_wait64"</span>.to_string(),
         LibCall::Memory32AtomicWait64,
     );
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait64&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_memory32_atomic_wait64"</span>.to_string(),
         LibCall::ImportedMemory32AtomicWait64,
     );
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_memory32_atomic_notify&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_memory32_atomic_notify"</span>.to_string(),
         LibCall::Memory32AtomicNotify,
     );
     libcalls.insert(
-        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_notify&quot;</span>.to_string(),
+        <span class="string">"wasmer_vm_imported_memory32_atomic_notify"</span>.to_string(),
         LibCall::ImportedMemory32AtomicNotify,
     );
 
@@ -546,7 +592,7 @@
 
     <span class="kw">let </span>root_section_index = elf
         .section_by_name(root_section)
-        .ok_or_else(|| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;no section named {}&quot;</span>, root_section)))<span class="question-mark">?
+        .ok_or_else(|| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"no section named {}"</span>, root_section)))<span class="question-mark">?
         </span>.index();
 
     <span class="kw">let </span><span class="kw-2">mut </span>section_to_custom_section = HashMap::new();
@@ -569,15 +615,15 @@
     </span><span class="kw">let </span><span class="kw-2">mut </span>relocations: HashMap&lt;object::read::SectionIndex, Vec&lt;Relocation&gt;&gt; = HashMap::new();
 
     <span class="comment">// Each iteration of this loop pulls a section and the relocations
-    // relocations that apply to it. We begin with the &quot;.root_section&quot;
+    // relocations that apply to it. We begin with the ".root_section"
     // section, and then parse all relocation sections that apply to that
     // section. Those relocations may refer to additional sections which we
-    // then add to the worklist until we&#39;ve visited the closure of
-    // everything needed to run the code in &quot;.root_section&quot;.
+    // then add to the worklist until we've visited the closure of
+    // everything needed to run the code in ".root_section".
     //
     // `worklist` is the list of sections we have yet to visit. It never
-    // contains any duplicates or sections we&#39;ve already visited. `visited`
-    // contains all the sections we&#39;ve ever added to the worklist in a set
+    // contains any duplicates or sections we've already visited. `visited`
+    // contains all the sections we've ever added to the worklist in a set
     // so that we can quickly check whether a section is new before adding
     // it to worklist. `section_to_custom_section` is filled in with all
     // the sections we want to include.
@@ -648,9 +694,55 @@
                     object::RelocationKind::Elf(object::elf::R_RISCV_PCREL_LO12_I),
                     <span class="number">0</span>,
                 ) =&gt; RelocationKind::RiscvPCRelLo12I,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS_HI20),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchAbsHi20,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS_LO12),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchAbsLo12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_HI12),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchAbs64Hi12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_LO20),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchAbs64Lo20,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_LO21),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::Aarch64AdrPrelLo21,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_PG_HI21),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::Aarch64AdrPrelPgHi21,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_LDST128_ABS_LO12_NC),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::Aarch64Ldst128AbsLo12Nc,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADD_ABS_LO12_NC),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::Aarch64AddAbsLo12Nc,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_LDST64_ABS_LO12_NC),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::Aarch64Ldst64AbsLo12Nc,
+
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">&quot;unknown relocation {:?}&quot;</span>,
+                        <span class="string">"unknown relocation {:?}"</span>,
                         reloc
                     )));
                 }
@@ -674,7 +766,7 @@
                             }
                             <span class="kw">_ </span>=&gt; {
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                                    <span class="string">&quot;relocation targets unknown section {:?}&quot;</span>,
+                                    <span class="string">"relocation targets unknown section {:?}"</span>,
                                     reloc
                                 )));
                             }
@@ -701,7 +793,7 @@
                         }
                     } <span class="kw">else </span>{
                         <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                            <span class="string">&quot;relocation targets unknown symbol {:?}&quot;</span>,
+                            <span class="string">"relocation targets unknown symbol {:?}"</span>,
                             reloc
                         )));
                     }
@@ -723,7 +815,7 @@
                     // addresses in them because none of the parts of the Wasm
                     // VM, nor the generated code are loaded at fixed addresses.
                     </span><span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">&quot;relocation targets absolute address {:?}&quot;</span>,
+                        <span class="string">"relocation targets absolute address {:?}"</span>,
                         reloc
                     )));
                 }
@@ -736,7 +828,7 @@
                 // be added to account for any future variants.
                 </span>t =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">&quot;relocation target is unknown `{:?}`&quot;</span>,
+                        <span class="string">"relocation target is unknown `{:?}`"</span>,
                         t
                     )));
                 }
@@ -759,7 +851,7 @@
             section_to_custom_section.get(index).map_or_else(
                 || {
                     <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">&quot;.eh_frame section with index={:?} was never loaded&quot;</span>,
+                        <span class="string">".eh_frame section with index={:?} was never loaded"</span>,
                         index
                     )))
                 },

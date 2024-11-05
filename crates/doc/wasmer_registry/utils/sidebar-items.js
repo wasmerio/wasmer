@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_username","get_username_registry_token","normalize_path"]};

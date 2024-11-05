@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Target"],"fn":["lookup_bindings_for_package"],"struct":["Add"]};
+window.SIDEBAR_ITEMS = {"enum":["Target"],"fn":["lookup_bindings_for_package"],"struct":["CmdAdd"]};

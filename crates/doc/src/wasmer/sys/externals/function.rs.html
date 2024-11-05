@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/function.rs`."><title>function.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../wasmer/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/function.rs`."><title>function.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -660,6 +660,11 @@
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::externals::function::{HostFunction, WithEnv, WithoutEnv};
 <span class="kw">use </span><span class="kw">crate</span>::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
@@ -675,7 +680,7 @@
     VMFunction, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
-<span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+<span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Function {
     <span class="kw">pub</span>(<span class="kw">crate</span>) handle: StoreHandle&lt;VMFunction&gt;,
@@ -688,7 +693,7 @@
 }
 
 <span class="kw">impl </span>Function {
-    <span class="kw">pub fn </span>new_with_env&lt;FT, F, T: Send + <span class="lifetime">&#39;static</span>&gt;(
+    <span class="kw">pub fn </span>new_with_env&lt;FT, F, T: Send + <span class="lifetime">'static</span>&gt;(
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
         env: <span class="kw-2">&amp;</span>FunctionEnv&lt;T&gt;,
         ty: FT,
@@ -697,7 +702,7 @@
     </span><span class="kw">where
         </span>FT: Into&lt;FunctionType&gt;,
         F: Fn(FunctionEnvMut&lt;T&gt;, <span class="kw-2">&amp;</span>[Value]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;, RuntimeError&gt;
-            + <span class="lifetime">&#39;static
+            + <span class="lifetime">'static
             </span>+ Send
             + Sync,
     {
@@ -709,8 +714,13 @@
             <span class="kw">unsafe </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>store = StoreMut::from_raw(raw_store <span class="kw">as </span><span class="kw-2">*mut </span>StoreInner);
                 <span class="kw">let </span><span class="kw-2">mut </span>args = Vec::with_capacity(func_ty.params().len());
+
                 <span class="kw">for </span>(i, ty) <span class="kw">in </span>func_ty.params().iter().enumerate() {
-                    args.push(Value::from_raw(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">*</span>ty, <span class="kw-2">*</span>values_vec.add(i)));
+                    args.push(Value::from_raw(
+                        <span class="kw-2">&amp;mut </span>store,
+                        <span class="kw-2">*</span>ty,
+                        values_vec.add(i).read_unaligned(),
+                    ));
                 }
                 <span class="kw">let </span>store_mut = StoreMut::from_raw(raw_store <span class="kw">as </span><span class="kw-2">*mut </span>StoreInner);
                 <span class="kw">let </span>env = FunctionEnvMut {
@@ -724,13 +734,13 @@
                 </span><span class="kw">let </span>return_types = returns.iter().map(|ret| ret.ty());
                 <span class="kw">if </span>return_types.ne(func_ty.results().iter().copied()) {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
-                        <span class="string">&quot;Dynamic function returned wrong signature. Expected {:?} but got {:?}&quot;</span>,
+                        <span class="string">"Dynamic function returned wrong signature. Expected {:?} but got {:?}"</span>,
                         func_ty.results(),
                         returns.iter().map(|ret| ret.ty())
                     )));
                 }
                 <span class="kw">for </span>(i, ret) <span class="kw">in </span>returns.iter().enumerate() {
-                    <span class="kw-2">*</span>values_vec.add(i) = ret.as_raw(<span class="kw-2">&amp;</span>store);
+                    values_vec.add(i).write_unaligned(ret.as_raw(<span class="kw-2">&amp;</span>store));
                 }
             }
             <span class="prelude-val">Ok</span>(())
@@ -741,7 +751,7 @@
         });
         host_data.address = host_data.ctx.func_body_ptr();
 
-        <span class="comment">// We don&#39;t yet have the address with the Wasm ABI signature.
+        <span class="comment">// We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         </span><span class="kw">let </span>func_ptr = std::ptr::null() <span class="kw">as </span>VMFunctionCallback;
@@ -775,7 +785,7 @@
     <span class="doccomment">/// Creates a new host `Function` from a native function.
     </span><span class="kw">pub fn </span>new_typed&lt;F, Args, Rets&gt;(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, func: F) -&gt; <span class="self">Self
     </span><span class="kw">where
-        </span>F: HostFunction&lt;(), Args, Rets, WithoutEnv&gt; + <span class="lifetime">&#39;static </span>+ Send + Sync,
+        </span>F: HostFunction&lt;(), Args, Rets, WithoutEnv&gt; + <span class="lifetime">'static </span>+ Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -816,13 +826,13 @@
         }
     }
 
-    <span class="kw">pub fn </span>new_typed_with_env&lt;T: Send + <span class="lifetime">&#39;static</span>, F, Args, Rets&gt;(
+    <span class="kw">pub fn </span>new_typed_with_env&lt;T: Send + <span class="lifetime">'static</span>, F, Args, Rets&gt;(
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
         env: <span class="kw-2">&amp;</span>FunctionEnv&lt;T&gt;,
         func: F,
     ) -&gt; <span class="self">Self
     </span><span class="kw">where
-        </span>F: HostFunction&lt;T, Args, Rets, WithEnv&gt; + <span class="lifetime">&#39;static </span>+ Send + Sync,
+        </span>F: HostFunction&lt;T, Args, Rets, WithEnv&gt; + <span class="lifetime">'static </span>+ Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -881,20 +891,20 @@
                 .iter()
                 .map(|param| param.ty().to_string())
                 .collect::&lt;Vec&lt;String&gt;&gt;()
-                .join(<span class="string">&quot;, &quot;</span>)
+                .join(<span class="string">", "</span>)
         };
-        <span class="comment">// TODO: Avoid cloning the signature here, it&#39;s expensive.
+        <span class="comment">// TODO: Avoid cloning the signature here, it's expensive.
         </span><span class="kw">let </span>signature = <span class="self">self</span>.ty(store);
         <span class="kw">if </span>signature.params().len() != params.len() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
-                <span class="string">&quot;Parameters of type [{}] did not match signature {}&quot;</span>,
+                <span class="string">"Parameters of type [{}] did not match signature {}"</span>,
                 format_types_for_error_message(params),
                 <span class="kw-2">&amp;</span>signature
             )));
         }
         <span class="kw">if </span>signature.results().len() != results.len() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
-                <span class="string">&quot;Results of type [{}] did not match signature {}&quot;</span>,
+                <span class="string">"Results of type [{}] did not match signature {}"</span>,
                 format_types_for_error_message(results),
                 <span class="kw-2">&amp;</span>signature,
             )));
@@ -908,12 +918,12 @@
             <span class="kw">if </span>arg.ty() != <span class="kw-2">*</span>ty {
                 <span class="kw">let </span>param_types = format_types_for_error_message(params);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
-                    <span class="string">&quot;Parameters of type [{}] did not match signature {}&quot;</span>,
+                    <span class="string">"Parameters of type [{}] did not match signature {}"</span>,
                     param_types, <span class="kw-2">&amp;</span>signature,
                 )));
             }
             <span class="kw">if </span>!arg.is_from_store(store) {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;cross-`Store` values are not supported&quot;</span>));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">"cross-`Store` values are not supported"</span>));
             }
             <span class="kw-2">*</span>slot = arg.as_raw(store);
         }
@@ -1027,7 +1037,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>vm_funcref(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; VMFuncRef {
         <span class="kw">let </span>vm_function = <span class="self">self</span>.handle.get(store.as_store_ref().objects());
         <span class="kw">if </span>vm_function.kind == VMFunctionKind::Dynamic {
-            <span class="macro">panic!</span>(<span class="string">&quot;dynamic functions cannot be used in tables or as funcrefs&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">"dynamic functions cannot be used in tables or as funcrefs"</span>);
         }
         VMFuncRef(vm_function.anyfunc.as_ptr())
     }
@@ -1038,7 +1048,7 @@
             .engine()
             .<span class="number">0
             </span>.lookup_signature(funcref.<span class="number">0</span>.as_ref().type_index)
-            .expect(<span class="string">&quot;Signature not found in store&quot;</span>);
+            .expect(<span class="string">"Signature not found in store"</span>);
         <span class="kw">let </span>vm_function = VMFunction {
             anyfunc: MaybeInstanceOwned::Instance(funcref.<span class="number">0</span>),
             signature,
@@ -1077,11 +1087,11 @@
 
 <span class="kw">impl</span>&lt;F&gt; DynamicFunction&lt;F&gt;
 <span class="kw">where
-    </span>F: Fn(<span class="kw-2">*mut </span>RawValue) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; + <span class="lifetime">&#39;static</span>,
+    </span>F: Fn(<span class="kw-2">*mut </span>RawValue) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; + <span class="lifetime">'static</span>,
 {
     <span class="comment">// This function wraps our func, to make it compatible with the
     // reverse trampoline signature
-    </span><span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>func_wrapper(
+    </span><span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>func_wrapper(
         this: <span class="kw-2">&amp;mut </span>VMDynamicFunctionContext&lt;<span class="self">Self</span>&gt;,
         values_vec: <span class="kw-2">*mut </span>RawValue,
     ) {
@@ -1103,7 +1113,7 @@
         <span class="self">Self</span>::call_trampoline
     }
 
-    <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>call_trampoline(
+    <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>call_trampoline(
         vmctx: <span class="kw-2">*mut </span>VMContext,
         _body: VMFunctionCallback,
         args: <span class="kw-2">*mut </span>RawValue,
@@ -1124,7 +1134,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) func: F,
 }
 
-<span class="macro">macro_rules! </span>impl_host_function {
+<span class="macro">macro_rules!</span> impl_host_function {
         ( [<span class="macro-nonterminal">$c_struct_representation</span>:ident]
            <span class="macro-nonterminal">$c_struct_name</span>:ident,
            $( <span class="macro-nonterminal">$x</span>:ident ),* ) =&gt; {
@@ -1132,7 +1142,7 @@
             <span class="comment">// Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same
             // arity than the tuple.
             </span><span class="attr">#[allow(unused_parens)]
-            </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, T: Send + <span class="lifetime">&#39;static</span>, Func &gt;
+            </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, T: Send + <span class="lifetime">'static</span>, Func &gt;
                 HostFunction&lt;T, ( $( <span class="macro-nonterminal">$x </span>),* ), Rets, WithEnv&gt;
             <span class="kw">for
                 </span>Func
@@ -1140,35 +1150,35 @@
                 </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult&lt;Rets&gt;,
-                Func: Fn(FunctionEnvMut&lt;T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
+                Func: Fn(FunctionEnvMut&lt;T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static</span>,
             {
                 <span class="attr">#[allow(non_snake_case)]
                 </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMFunctionCallback {
                     <span class="doccomment">/// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    </span><span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>func_wrapper&lt;T: Send + <span class="lifetime">&#39;static</span>, $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func&gt;( env: <span class="kw-2">&amp;</span>StaticFunction&lt;Func, T&gt;, $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )* ) -&gt; Rets::CStruct
+                    </span><span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>func_wrapper&lt;T: Send + <span class="lifetime">'static</span>, $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func&gt;( env: <span class="kw-2">&amp;</span>StaticFunction&lt;Func, T&gt;, $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )* ) -&gt; Rets::CStruct
                     <span class="kw">where
                         </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult&lt;Rets&gt;,
-                        Func: Fn(FunctionEnvMut&lt;T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
+                        Func: Fn(FunctionEnvMut&lt;T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static</span>,
                     {
-                        <span class="comment">// println!(&quot;func wrapper&quot;);
+                        <span class="comment">// println!("func wrapper");
                         </span><span class="kw">let </span><span class="kw-2">mut </span>store = StoreMut::from_raw(env.raw_store <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>);
                         <span class="kw">let </span>result = on_host_stack(|| {
-                            <span class="comment">// println!(&quot;func wrapper1&quot;);
+                            <span class="comment">// println!("func wrapper1");
                             </span>panic::catch_unwind(AssertUnwindSafe(|| {
                                 $(
                                     <span class="kw">let </span><span class="macro-nonterminal">$x </span>= FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(<span class="kw-2">&amp;mut </span>store, <span class="macro-nonterminal">$x</span>));
                                 )*
-                                <span class="comment">// println!(&quot;func wrapper2 {:p}&quot;, *env.raw_env);
+                                <span class="comment">// println!("func wrapper2 {:p}", *env.raw_env);
                                 </span><span class="kw">let </span>store_mut = StoreMut::from_raw(env.raw_store <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>);
                                 <span class="kw">let </span>f_env = FunctionEnvMut {
                                     store_mut,
                                     func_env: env.env.clone(),
                                 };
-                                <span class="comment">// println!(&quot;func wrapper3&quot;);
+                                <span class="comment">// println!("func wrapper3");
                                 </span>(env.func)(f_env, $(<span class="macro-nonterminal">$x</span>),* ).into_result()
                             }))
                         });
@@ -1185,7 +1195,7 @@
 
                 <span class="attr">#[allow(non_snake_case)]
                 </span><span class="kw">fn </span>call_trampoline_address() -&gt; VMTrampoline {
-                    <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>call_trampoline&lt;
+                    <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>call_trampoline&lt;
                         $( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                     &gt;(
@@ -1193,7 +1203,7 @@
                         body: VMFunctionCallback,
                         args: <span class="kw-2">*mut </span>RawValue,
                     ) {
-                            <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(
+                            <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(
                                 vmctx: <span class="kw-2">*mut </span>VMContext,
                                 $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )*
                             ) -&gt; Rets::CStruct
@@ -1224,24 +1234,24 @@
                 </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult&lt;Rets&gt;,
-                Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
+                Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static</span>,
             {
                 <span class="attr">#[allow(non_snake_case)]
                 </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMFunctionCallback {
                     <span class="doccomment">/// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    </span><span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>func_wrapper&lt;$( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func&gt;( env: <span class="kw-2">&amp;</span>StaticFunction&lt;Func, ()&gt;, $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )* ) -&gt; Rets::CStruct
+                    </span><span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>func_wrapper&lt;$( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func&gt;( env: <span class="kw-2">&amp;</span>StaticFunction&lt;Func, ()&gt;, $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )* ) -&gt; Rets::CStruct
                     <span class="kw">where
                         </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult&lt;Rets&gt;,
-                        Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
+                        Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static</span>,
                     {
-                        <span class="comment">// println!(&quot;func wrapper&quot;);
+                        <span class="comment">// println!("func wrapper");
                         </span><span class="kw">let </span><span class="kw-2">mut </span>store = StoreMut::from_raw(env.raw_store <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>);
                         <span class="kw">let </span>result = on_host_stack(|| {
-                            <span class="comment">// println!(&quot;func wrapper1&quot;);
+                            <span class="comment">// println!("func wrapper1");
                             </span>panic::catch_unwind(AssertUnwindSafe(|| {
                                 $(
                                     <span class="kw">let </span><span class="macro-nonterminal">$x </span>= FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(<span class="kw-2">&amp;mut </span>store, <span class="macro-nonterminal">$x</span>));
@@ -1262,7 +1272,7 @@
 
                 <span class="attr">#[allow(non_snake_case)]
                 </span><span class="kw">fn </span>call_trampoline_address() -&gt; VMTrampoline {
-                    <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>call_trampoline&lt;
+                    <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>call_trampoline&lt;
                         $( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                     &gt;(
@@ -1270,7 +1280,7 @@
                         body: VMFunctionCallback,
                         args: <span class="kw-2">*mut </span>RawValue,
                     ) {
-                            <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(
+                            <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(
                                 vmctx: <span class="kw-2">*mut </span>VMContext,
                                 $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )*
                             ) -&gt; Rets::CStruct
@@ -1293,7 +1303,7 @@
         };
     }
 
-<span class="comment">// Here we go! Let&#39;s generate all the C struct, `WasmTypeList`
+<span class="comment">// Here we go! Let's generate all the C struct, `WasmTypeList`
 // implementations and `HostFunction` implementations.
 </span><span class="macro">impl_host_function!</span>([C] S0,);
 <span class="macro">impl_host_function!</span>([transparent] S1, A1);

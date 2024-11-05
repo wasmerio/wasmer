@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SourceLoc","SourceLocResolver"]};
+window.SIDEBAR_ITEMS = {"struct":["ArchivedSourceLoc","SourceLoc","SourceLocResolver"]};

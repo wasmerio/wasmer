@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/state/builder.rs`."><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-fa3bb1812debf86c.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.74.1 (a28077b28 2023-12-04)" data-channel="1.74.1" data-search-js="search-8be46b629f5f14a8.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-c5bd66d33317d69f.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/state/builder.rs`."><title>builder.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1282,6 +1282,28 @@
 <a href="#1282" id="1282">1282</a>
 <a href="#1283" id="1283">1283</a>
 <a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1296,7 +1318,7 @@
 <span class="kw">use </span>wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
 <span class="kw">use </span>wasmer_config::package::PackageId;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::journal::{DynJournal, SnapshotTrigger};
 <span class="kw">use crate</span>::{
     bin_factory::{BinFactory, BinaryPackage},
@@ -1321,18 +1343,20 @@
 /// ```no_run
 /// # use wasmer_wasix::{WasiEnv, WasiStateCreationError};
 /// # fn main() -&gt; Result&lt;(), WasiStateCreationError&gt; {
-/// let mut state_builder = WasiEnv::builder(&quot;wasi-prog-name&quot;);
+/// let mut state_builder = WasiEnv::builder("wasi-prog-name");
 /// state_builder
-///    .env(&quot;ENV_VAR&quot;, &quot;ENV_VAL&quot;)
-///    .arg(&quot;--verbose&quot;)
-///    .preopen_dir(&quot;src&quot;)?
-///    .map_dir(&quot;name_wasi_sees&quot;, &quot;path/on/host/fs&quot;)?
+///    .env("ENV_VAR", "ENV_VAL")
+///    .arg("--verbose")
+///    .preopen_dir("src")?
+///    .map_dir("name_wasi_sees", "path/on/host/fs")?
 ///    .build_init()?;
 /// # Ok(())
 /// # }
 /// ```
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>WasiEnvBuilder {
+    <span class="doccomment">/// Name of entry function. Defaults to running `_start` if not specified.
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) entry_function: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Command line arguments.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) args: Vec&lt;String&gt;,
     <span class="doccomment">/// Environment variables.
@@ -1344,11 +1368,11 @@
     <span class="attr">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) setup_fs_fn:
         <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>WasiInodes, <span class="kw-2">&amp;mut </span>WasiFs) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; + Send&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">super</span>) stdout: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">super</span>) stderr: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">super</span>) stdin: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) stdout: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) stderr: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) stdin: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) fs: <span class="prelude-ty">Option</span>&lt;WasiFsRoot&gt;,
-    <span class="kw">pub</span>(<span class="kw">super</span>) runtime: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) runtime: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) current_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="doccomment">/// List of webc dependencies to be injected.
@@ -1364,32 +1388,33 @@
     <span class="kw">pub</span>(<span class="kw">super</span>) capabilites: Capabilities,
     <span class="kw">pub</span>(<span class="kw">super</span>) additional_imports: Imports,
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) snapshot_interval: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;ctrlc&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) attach_ctrl_c: bool,
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>WasiEnvBuilder {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="comment">// TODO: update this when stable
-        </span>f.debug_struct(<span class="string">&quot;WasiEnvBuilder&quot;</span>)
-            .field(<span class="string">&quot;args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.args)
-            .field(<span class="string">&quot;envs&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.envs)
-            .field(<span class="string">&quot;preopens&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.preopens)
-            .field(<span class="string">&quot;uses&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.uses)
-            .field(<span class="string">&quot;setup_fs_fn exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.setup_fs_fn.is_some())
-            .field(<span class="string">&quot;stdout_override exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stdout.is_some())
-            .field(<span class="string">&quot;stderr_override exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stderr.is_some())
-            .field(<span class="string">&quot;stdin_override exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stdin.is_some())
-            .field(<span class="string">&quot;runtime_override_exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime.is_some())
+        </span>f.debug_struct(<span class="string">"WasiEnvBuilder"</span>)
+            .field(<span class="string">"entry_function"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.entry_function)
+            .field(<span class="string">"args"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.args)
+            .field(<span class="string">"envs"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.envs)
+            .field(<span class="string">"preopens"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.preopens)
+            .field(<span class="string">"uses"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.uses)
+            .field(<span class="string">"setup_fs_fn exists"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.setup_fs_fn.is_some())
+            .field(<span class="string">"stdout_override exists"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stdout.is_some())
+            .field(<span class="string">"stderr_override exists"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stderr.is_some())
+            .field(<span class="string">"stdin_override exists"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stdin.is_some())
+            .field(<span class="string">"runtime_override_exists"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime.is_some())
             .finish()
     }
 }
@@ -1397,34 +1422,34 @@
 <span class="doccomment">/// Error type returned when bad data is given to [`WasiEnvBuilder`].
 </span><span class="attr">#[derive(Error, Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>WasiStateCreationError {
-    <span class="attr">#[error(<span class="string">&quot;bad environment variable format: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"bad environment variable format: `{0}`"</span>)]
     </span>EnvironmentVariableFormatError(String),
-    <span class="attr">#[error(<span class="string">&quot;argument contains null byte: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"argument contains null byte: `{0}`"</span>)]
     </span>ArgumentContainsNulByte(String),
-    <span class="attr">#[error(<span class="string">&quot;preopened directory not found: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"preopened directory not found: `{0}`"</span>)]
     </span>PreopenedDirectoryNotFound(PathBuf),
-    <span class="attr">#[error(<span class="string">&quot;preopened directory error: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"preopened directory error: `{0}`"</span>)]
     </span>PreopenedDirectoryError(String),
-    <span class="attr">#[error(<span class="string">&quot;mapped dir alias has wrong format: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"mapped dir alias has wrong format: `{0}`"</span>)]
     </span>MappedDirAliasFormattingError(String),
-    <span class="attr">#[error(<span class="string">&quot;wasi filesystem creation error: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"wasi filesystem creation error: `{0}`"</span>)]
     </span>WasiFsCreationError(String),
-    <span class="attr">#[error(<span class="string">&quot;wasi filesystem setup error: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"wasi filesystem setup error: `{0}`"</span>)]
     </span>WasiFsSetupError(String),
     <span class="attr">#[error(transparent)]
     </span>FileSystemError(<span class="attr">#[from] </span>FsError),
-    <span class="attr">#[error(<span class="string">&quot;wasi inherit error: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"wasi inherit error: `{0}`"</span>)]
     </span>WasiInheritError(String),
-    <span class="attr">#[error(<span class="string">&quot;wasi include package: `{0}`&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"wasi include package: `{0}`"</span>)]
     </span>WasiIncludePackageError(String),
-    <span class="attr">#[error(<span class="string">&quot;control plane error&quot;</span>)]
+    <span class="attr">#[error(<span class="string">"control plane error"</span>)]
     </span>ControlPlane(<span class="attr">#[from] </span>ControlPlaneError),
 }
 
 <span class="kw">fn </span>validate_mapped_dir_alias(alias: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiStateCreationError&gt; {
-    <span class="kw">if </span>!alias.bytes().all(|b| b != <span class="string">b&#39;\0&#39;</span>) {
+    <span class="kw">if </span>!alias.bytes().all(|b| b != <span class="string">b'\0'</span>) {
         <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::MappedDirAliasFormattingError(
-            <span class="macro">format!</span>(<span class="string">&quot;Alias \&quot;{}\&quot; contains a nul byte&quot;</span>, alias),
+            <span class="macro">format!</span>(<span class="string">"Alias \"{}\" contains a nul byte"</span>, alias),
         ));
     }
 
@@ -1434,7 +1459,7 @@
 <span class="kw">pub type </span>SetupFsFn = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>WasiInodes, <span class="kw-2">&amp;mut </span>WasiFs) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; + Send&gt;;
 
 <span class="comment">// TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
-// return stdout somehow, it&#39;s unclear what that API should look like)
+// return stdout somehow, it's unclear what that API should look like)
 </span><span class="kw">impl </span>WasiEnvBuilder {
     <span class="doccomment">/// Creates an empty [`WasiEnvBuilder`].
     </span><span class="kw">pub fn </span>new(program_name: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
@@ -1460,7 +1485,7 @@
 
     <span class="doccomment">/// Attaches a ctrl-c handler which will send signals to the
     /// process rather than immediately termiante it
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;ctrlc&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
     </span><span class="kw">pub fn </span>attach_ctrl_c(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.attach_ctrl_c = <span class="bool-val">true</span>;
         <span class="self">self
@@ -1522,6 +1547,21 @@
     <span class="doccomment">/// Get a mutable reference to the configured environment variables.
     </span><span class="kw">pub fn </span>get_env_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Vec&lt;(String, Vec&lt;u8&gt;)&gt; {
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.envs
+    }
+
+    <span class="kw">pub fn </span>entry_function&lt;S&gt;(<span class="kw-2">mut </span><span class="self">self</span>, entry_function: S) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>S: AsRef&lt;str&gt;,
+    {
+        <span class="self">self</span>.set_entry_function(entry_function);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_entry_function&lt;S&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, entry_function: S)
+    <span class="kw">where
+        </span>S: AsRef&lt;str&gt;,
+    {
+        <span class="self">self</span>.entry_function = <span class="prelude-val">Some</span>(entry_function.as_ref().to_owned());
     }
 
     <span class="doccomment">/// Add an argument.
@@ -1586,7 +1626,7 @@
 
     <span class="doccomment">/// Adds a container this module inherits from.
     ///
-    /// This will make all of the container&#39;s files and commands available to the
+    /// This will make all of the container's files and commands available to the
     /// resulting WASI instance.
     </span><span class="kw">pub fn </span>use_webc(<span class="kw-2">mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.add_webc(pkg);
@@ -1603,7 +1643,7 @@
 
     <span class="doccomment">/// Adds a container this module inherits from.
     ///
-    /// This will make all of the container&#39;s files and commands available to the
+    /// This will make all of the container's files and commands available to the
     /// resulting WASI instance.
     </span><span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.uses.push(pkg);
@@ -1620,14 +1660,14 @@
     <span class="doccomment">/// Adds packages that is already included in the [`WasiEnvBuilder`] filesystem.
     /// These packages will not be merged to the final filesystem since they are already included.
     </span><span class="kw">pub fn </span>include_packages(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg_ids: <span class="kw">impl </span>IntoIterator&lt;Item = PackageId&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.included_packages.extend(pkg_ids.into_iter());
+        <span class="self">self</span>.included_packages.extend(pkg_ids);
 
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Adds a list of other containers this module inherits from.
     ///
-    /// This will make all of the container&#39;s files and commands available to the
+    /// This will make all of the container's files and commands available to the
     /// resulting WASI instance.
     </span><span class="kw">pub fn </span>uses&lt;I&gt;(<span class="kw-2">mut </span><span class="self">self</span>, uses: I) -&gt; <span class="self">Self
     </span><span class="kw">where
@@ -1736,9 +1776,9 @@
     /// ```no_run
     /// # use wasmer_wasix::{WasiEnv, WasiStateCreationError};
     /// # fn main() -&gt; Result&lt;(), WasiStateCreationError&gt; {
-    /// WasiEnv::builder(&quot;program_name&quot;)
-    ///    .preopen_build(|p| p.directory(&quot;src&quot;).read(true).write(true).create(true))?
-    ///    .preopen_build(|p| p.directory(&quot;.&quot;).alias(&quot;dot&quot;).read(true))?
+    /// WasiEnv::builder("program_name")
+    ///    .preopen_build(|p| p.directory("src").read(true).write(true).create(true))?
+    ///    .preopen_build(|p| p.directory(".").alias("dot").read(true))?
     ///    .build_init()?;
     /// # Ok(())
     /// # }
@@ -1758,9 +1798,9 @@
     /// ```no_run
     /// # use wasmer_wasix::{WasiEnv, WasiStateCreationError};
     /// # fn main() -&gt; Result&lt;(), WasiStateCreationError&gt; {
-    /// WasiEnv::builder(&quot;program_name&quot;)
-    ///    .preopen_build(|p| p.directory(&quot;src&quot;).read(true).write(true).create(true))?
-    ///    .preopen_build(|p| p.directory(&quot;.&quot;).alias(&quot;dot&quot;).read(true))?
+    /// WasiEnv::builder("program_name")
+    ///    .preopen_build(|p| p.directory("src").read(true).write(true).create(true))?
+    ///    .preopen_build(|p| p.directory(".").alias("dot").read(true))?
     ///    .build_init()?;
     /// # Ok(())
     /// # }
@@ -1840,7 +1880,7 @@
     /// The last journal file specified will be created if it does not exist
     /// and opened for read and write. New journal events will be written to this
     /// file
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>add_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) {
         <span class="self">self</span>.journals.push(journal);
     }
@@ -1856,7 +1896,7 @@
 
     <span class="doccomment">/// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
-    </span><span class="kw">pub fn </span>stdout(<span class="kw-2">mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>stdout(<span class="kw-2">mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.stdout = <span class="prelude-val">Some</span>(new_file);
 
         <span class="self">self
@@ -1864,26 +1904,26 @@
 
     <span class="doccomment">/// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
-    </span><span class="kw">pub fn </span>set_stdout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) {
+    </span><span class="kw">pub fn </span>set_stdout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) {
         <span class="self">self</span>.stdout = <span class="prelude-val">Some</span>(new_file);
     }
 
     <span class="doccomment">/// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
-    </span><span class="kw">pub fn </span>stderr(<span class="kw-2">mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>stderr(<span class="kw-2">mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.set_stderr(new_file);
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
-    </span><span class="kw">pub fn </span>set_stderr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) {
+    </span><span class="kw">pub fn </span>set_stderr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) {
         <span class="self">self</span>.stderr = <span class="prelude-val">Some</span>(new_file);
     }
 
     <span class="doccomment">/// Overwrite the default WASI `stdin`, if you want to hold on to the
     /// original `stdin` use [`WasiFs::swap_file`] after building.
-    </span><span class="kw">pub fn </span>stdin(<span class="kw-2">mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>stdin(<span class="kw-2">mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.stdin = <span class="prelude-val">Some</span>(new_file);
 
         <span class="self">self
@@ -1891,7 +1931,7 @@
 
     <span class="doccomment">/// Overwrite the default WASI `stdin`, if you want to hold on to the
     /// original `stdin` use [`WasiFs::swap_file`] after building.
-    </span><span class="kw">pub fn </span>set_stdin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) {
+    </span><span class="kw">pub fn </span>set_stdin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;) {
         <span class="self">self</span>.stdin = <span class="prelude-val">Some</span>(new_file);
     }
 
@@ -1947,12 +1987,12 @@
         <span class="self">self</span>.capabilites = capabilities;
     }
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>add_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) {
         <span class="self">self</span>.snapshot_on.push(on);
     }
 
-    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interval: std::time::Duration) {
         <span class="self">self</span>.snapshot_interval.replace(interval);
     }
@@ -2005,7 +2045,7 @@
     <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
     /// can be used to construct a new [`WasiEnv`].
     ///
-    /// Returns the error from `WasiFs::new` if there&#39;s an error
+    /// Returns the error from `WasiFs::new` if there's an error
     ///
     /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
     /// Use [`WasiEnvBuilder::run`] or [`WasiEnvBuilder::run_with_store`] instead
@@ -2028,7 +2068,7 @@
             <span class="kw">match </span>env_key.as_bytes().iter().find_map(|<span class="kw-2">&amp;</span>ch| {
                 <span class="kw">if </span>ch == <span class="number">0 </span>{
                     <span class="prelude-val">Some</span>(InvalidCharacter::Nul)
-                } <span class="kw">else if </span>ch == <span class="string">b&#39;=&#39; </span>{
+                } <span class="kw">else if </span>ch == <span class="string">b'=' </span>{
                     <span class="prelude-val">Some</span>(InvalidCharacter::Equal)
                 } <span class="kw">else </span>{
                     <span class="prelude-val">None
@@ -2036,14 +2076,14 @@
             }) {
                 <span class="prelude-val">Some</span>(InvalidCharacter::Nul) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
-                        <span class="macro">format!</span>(<span class="string">&quot;found nul byte in env var key \&quot;{}\&quot; (key=value)&quot;</span>, env_key),
+                        <span class="macro">format!</span>(<span class="string">"found nul byte in env var key \"{}\" (key=value)"</span>, env_key),
                     ))
                 }
 
                 <span class="prelude-val">Some</span>(InvalidCharacter::Equal) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
                         <span class="macro">format!</span>(
-                            <span class="string">&quot;found equal sign in env var key \&quot;{}\&quot; (key=value)&quot;</span>,
+                            <span class="string">"found equal sign in env var key \"{}\" (key=value)"</span>,
                             env_key
                         ),
                     ))
@@ -2055,7 +2095,7 @@
             <span class="kw">if </span>env_value.iter().any(|<span class="kw-2">&amp;</span>ch| ch == <span class="number">0</span>) {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;found nul byte in env var value \&quot;{}\&quot; (key=value)&quot;</span>,
+                        <span class="string">"found nul byte in env var value \"{}\" (key=value)"</span>,
                         String::from_utf8_lossy(env_value),
                     ),
                 ));
@@ -2070,7 +2110,7 @@
         //     .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
 
         // Determine the STDIN
-        </span><span class="kw">let </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; = <span class="self">self
+        </span><span class="kw">let </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt; = <span class="self">self
             </span>.stdin
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::&lt;<span class="kw">super</span>::Stdin&gt;::default())));
@@ -2088,14 +2128,14 @@
                 <span class="prelude-val">Err</span>(FsError::EntryNotFound) =&gt; {
                     fs_backing.create_dir(dir).map_err(|err| {
                         WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
-                            <span class="string">&quot;Could not create specified current directory at &#39;{}&#39;: {err}&quot;</span>,
+                            <span class="string">"Could not create specified current directory at '{}': {err}"</span>,
                             dir.display()
                         ))
                     })<span class="question-mark">?</span>;
                 }
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
-                        <span class="string">&quot;Could check specified current directory at &#39;{}&#39;: {err}&quot;</span>,
+                        <span class="string">"Could check specified current directory at '{}': {err}"</span>,
                         dir.display()
                     )));
                 }
@@ -2136,7 +2176,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_dir {
             <span class="kw">let </span>s = dir.to_str().ok_or_else(|| {
                 WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
-                    <span class="string">&quot;Specified current directory is not valid UTF-8: &#39;{}&#39;&quot;</span>,
+                    <span class="string">"Specified current directory is not valid UTF-8: '{}'"</span>,
                     dir.display()
                 ))
             })<span class="question-mark">?</span>;
@@ -2159,20 +2199,20 @@
         };
 
         <span class="kw">let </span>runtime = <span class="self">self</span>.runtime.unwrap_or_else(|| {
-            <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
             </span>{
                 <span class="attr">#[allow(unused_mut)]
                 </span><span class="kw">let </span><span class="kw-2">mut </span>runtime = <span class="kw">crate</span>::runtime::PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default()));
-                <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+                <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
                 </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.journals.clone() {
                     runtime.add_journal(journal);
                 }
                 Arc::new(runtime)
             }
 
-            <span class="attr">#[cfg(not(feature = <span class="string">&quot;sys-thread&quot;</span>))]
+            <span class="attr">#[cfg(not(feature = <span class="string">"sys-thread"</span>))]
             </span>{
-                <span class="macro">panic!</span>(<span class="string">&quot;this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()&quot;</span>);
+                <span class="macro">panic!</span>(<span class="string">"this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()"</span>);
             }
         });
 
@@ -2201,13 +2241,13 @@
             memory_ty: <span class="prelude-val">None</span>,
             process: <span class="prelude-val">None</span>,
             thread: <span class="prelude-val">None</span>,
-            <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
             </span>call_initialize: <span class="self">self</span>.journals.is_empty(),
-            <span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
+            <span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
             </span>call_initialize: <span class="bool-val">true</span>,
             can_deep_sleep: <span class="bool-val">false</span>,
             extra_tracing: <span class="bool-val">true</span>,
-            <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
             </span>snapshot_on: <span class="self">self</span>.snapshot_on,
             additional_imports: <span class="self">self</span>.additional_imports,
         };
@@ -2242,7 +2282,7 @@
     <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
     /// can be used to construct a new [`WasiEnv`].
     ///
-    /// Returns the error from `WasiFs::new` if there&#39;s an error
+    /// Returns the error from `WasiFs::new` if there's an error
     </span><span class="comment">// FIXME: use a proper custom error type
     </span><span class="attr">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub fn </span>instantiate(
@@ -2276,7 +2316,7 @@
     }
 
     <span class="attr">#[allow(clippy::result_large_err)]
-    #[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    #[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">pub fn </span>run_with_store(<span class="self">self</span>, module: Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="self">self</span>.run_with_store_ext(module, xxhash_random(), store)
     }
@@ -2289,7 +2329,7 @@
         store: <span class="kw-2">&amp;mut </span>Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="comment">// If no handle or runtime exists then create one
-        </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+        </span><span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
         </span><span class="kw">let </span>_guard = <span class="kw">if </span>tokio::runtime::Handle::try_current().is_err() {
             <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -2299,14 +2339,16 @@
         } <span class="kw">else </span>{
             <span class="prelude-val">None
         </span>};
-        <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
         </span><span class="kw">let </span>_guard = _guard.as_ref().map(|r| r.enter());
 
         <span class="kw">if </span><span class="self">self</span>.capabilites.threading.enable_asynchronous_threading {
             <span class="macro">tracing::warn!</span>(
-                <span class="string">&quot;The enable_asynchronous_threading capability is enabled. Use WasiEnvBuilder::run_with_store_async() to avoid spurious errors.&quot;</span>,
+                <span class="string">"The enable_asynchronous_threading capability is enabled. Use WasiEnvBuilder::run_with_store_async() to avoid spurious errors."</span>,
             );
         }
+
+        <span class="kw">let </span>entry_function = <span class="self">self</span>.entry_function.clone();
 
         <span class="kw">let </span>(instance, env) = <span class="self">self</span>.instantiate_ext(module, module_hash, store)<span class="question-mark">?</span>;
 
@@ -2320,7 +2362,9 @@
                 .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))<span class="question-mark">?</span>;
         }
 
-        <span class="kw">let </span>start = instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>start = instance
+            .exports
+            .get_function(entry_function.as_deref().unwrap_or(<span class="string">"_start"</span>))<span class="question-mark">?</span>;
         env.data(<span class="kw-2">&amp;</span>store).thread.set_status_running();
 
         <span class="kw">let </span>result = <span class="kw">crate</span>::run_wasi_func_start(start, store);
@@ -2333,7 +2377,7 @@
             %tid,
             %exit_code,
             error=result.as_ref().err().map(|e| e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error),
-            <span class="string">&quot;main exit&quot;</span>,
+            <span class="string">"main exit"</span>,
         );
 
         env.on_exit(store, <span class="prelude-val">Some</span>(exit_code));
@@ -2343,20 +2387,20 @@
 
     <span class="doccomment">/// Start the WASI executable with async threads enabled.
     </span><span class="attr">#[allow(clippy::result_large_err)]
-    #[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    #[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">pub fn </span>run_with_store_async(
         <span class="self">self</span>,
         module: Module,
         module_hash: ModuleHash,
         <span class="kw-2">mut </span>store: Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
-        <span class="attr">#[cfg(feature = <span class="string">&quot;ctrlc&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
         </span><span class="kw">let </span>attach_ctrl_c = <span class="self">self</span>.attach_ctrl_c;
 
         <span class="kw">let </span>(<span class="kw">_</span>, env) = <span class="self">self</span>.instantiate_ext(module, module_hash, <span class="kw-2">&amp;mut </span>store)<span class="question-mark">?</span>;
 
         <span class="comment">// Install the ctrl-c handler
-        </span><span class="attr">#[cfg(feature = <span class="string">&quot;ctrlc&quot;</span>)]
+        </span><span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
         </span><span class="kw">if </span>attach_ctrl_c {
             tokio::spawn({
                 <span class="kw">let </span>process = env.data(<span class="kw-2">&amp;</span>store).process.clone();
@@ -2378,7 +2422,7 @@
         .map(|(key, value)| {
             <span class="kw">let </span><span class="kw-2">mut </span>env = Vec::with_capacity(key.len() + value.len() + <span class="number">1</span>);
             env.extend_from_slice(key.as_bytes());
-            env.push(<span class="string">b&#39;=&#39;</span>);
+            env.push(<span class="string">b'='</span>);
             env.extend_from_slice(<span class="kw-2">&amp;</span>value);
 
             env
@@ -2427,7 +2471,7 @@
     </span><span class="kw">pub fn </span>alias(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="comment">// We mount at preopened dirs at `/` by default and multiple `/` in a row
         // are equal to a single `/`.
-        </span><span class="kw">let </span>alias = alias.trim_start_matches(<span class="string">&#39;/&#39;</span>);
+        </span><span class="kw">let </span>alias = alias.trim_start_matches(<span class="string">'/'</span>);
         <span class="self">self</span>.alias = <span class="prelude-val">Some</span>(alias.to_string());
 
         <span class="self">self
@@ -2462,12 +2506,12 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PreopenedDir, WasiStateCreationError&gt; {
         <span class="comment">// ensure at least one is set
         </span><span class="kw">if </span>!(<span class="self">self</span>.read || <span class="self">self</span>.write || <span class="self">self</span>.create) {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::PreopenedDirectoryError(<span class="string">&quot;Preopened directories must have at least one of read, write, create permissions set&quot;</span>.to_string()));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::PreopenedDirectoryError(<span class="string">"Preopened directories must have at least one of read, write, create permissions set"</span>.to_string()));
         }
 
         <span class="kw">if </span><span class="self">self</span>.path.is_none() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::PreopenedDirectoryError(
-                <span class="string">&quot;Preopened directories must point to a host directory&quot;</span>.to_string(),
+                <span class="string">"Preopened directories must point to a host directory"</span>.to_string(),
             ));
         }
         <span class="kw">let </span>path = <span class="self">self</span>.path.clone().unwrap();
@@ -2498,68 +2542,68 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>env_var_errors() {
-        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
         </span><span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap();
-        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
         </span><span class="kw">let </span>handle = runtime.handle().clone();
-        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
         </span><span class="kw">let </span>_guard = handle.enter();
 
         <span class="comment">// `=` in the key is invalid.
         </span><span class="macro">assert!</span>(
-            WasiEnv::builder(<span class="string">&quot;test_prog&quot;</span>)
-                .env(<span class="string">&quot;HOM=E&quot;</span>, <span class="string">&quot;/home/home&quot;</span>)
+            WasiEnv::builder(<span class="string">"test_prog"</span>)
+                .env(<span class="string">"HOM=E"</span>, <span class="string">"/home/home"</span>)
                 .build_init()
                 .is_err(),
-            <span class="string">&quot;equal sign in key must be invalid&quot;
+            <span class="string">"equal sign in key must be invalid"
         </span>);
 
         <span class="comment">// `\0` in the key is invalid.
         </span><span class="macro">assert!</span>(
-            WasiEnvBuilder::new(<span class="string">&quot;test_prog&quot;</span>)
-                .env(<span class="string">&quot;HOME\0&quot;</span>, <span class="string">&quot;/home/home&quot;</span>)
+            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+                .env(<span class="string">"HOME\0"</span>, <span class="string">"/home/home"</span>)
                 .build_init()
                 .is_err(),
-            <span class="string">&quot;nul in key must be invalid&quot;
+            <span class="string">"nul in key must be invalid"
         </span>);
 
         <span class="comment">// `=` in the value is valid.
         </span><span class="macro">assert!</span>(
-            WasiEnvBuilder::new(<span class="string">&quot;test_prog&quot;</span>)
-                .env(<span class="string">&quot;HOME&quot;</span>, <span class="string">&quot;/home/home=home&quot;</span>)
+            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+                .env(<span class="string">"HOME"</span>, <span class="string">"/home/home=home"</span>)
                 .build_init()
                 .is_ok(),
-            <span class="string">&quot;equal sign in the value must be valid&quot;
+            <span class="string">"equal sign in the value must be valid"
         </span>);
 
         <span class="comment">// `\0` in the value is invalid.
         </span><span class="macro">assert!</span>(
-            WasiEnvBuilder::new(<span class="string">&quot;test_prog&quot;</span>)
-                .env(<span class="string">&quot;HOME&quot;</span>, <span class="string">&quot;/home/home\0&quot;</span>)
+            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+                .env(<span class="string">"HOME"</span>, <span class="string">"/home/home\0"</span>)
                 .build_init()
                 .is_err(),
-            <span class="string">&quot;nul in value must be invalid&quot;
+            <span class="string">"nul in value must be invalid"
         </span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>nul_character_in_args() {
-        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">&quot;test_prog&quot;</span>)
-            .arg(<span class="string">&quot;--h\0elp&quot;</span>)
+        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+            .arg(<span class="string">"--h\0elp"</span>)
             .build_init();
-        <span class="kw">let </span>err = output.expect_err(<span class="string">&quot;should fail&quot;</span>);
+        <span class="kw">let </span>err = output.expect_err(<span class="string">"should fail"</span>);
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(
             err,
             WasiStateCreationError::ArgumentContainsNulByte(<span class="kw">_</span>)
         ));
 
-        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">&quot;test_prog&quot;</span>)
-            .args([<span class="string">&quot;--help&quot;</span>, <span class="string">&quot;--wat\0&quot;</span>])
+        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+            .args([<span class="string">"--help"</span>, <span class="string">"--wat\0"</span>])
             .build_init();
-        <span class="kw">let </span>err = output.expect_err(<span class="string">&quot;should fail&quot;</span>);
+        <span class="kw">let </span>err = output.expect_err(<span class="string">"should fail"</span>);
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(
             err,
             WasiStateCreationError::ArgumentContainsNulByte(<span class="kw">_</span>)
