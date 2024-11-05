@@ -437,7 +437,7 @@ else
 endif
 
 build-docs:
-	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api --locked
+	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api --exclude wasmer-swift --locked
 
 # The tokio crate was excluded from the docs build because the code (which is not under our control)
 # does not currently compile its docs successfully
