@@ -202,9 +202,9 @@ async fn download_cached(url: &str) -> bytes::Bytes {
     let cache_dir = tmp_dir().join("downloads");
     let cached_path = cache_dir.join(file_name);
 
-    if cached_path.exists() {
-        return std::fs::read(&cached_path).unwrap().into();
-    }
+    //if cached_path.exists() {
+    //    return std::fs::read(&cached_path).unwrap().into();
+    //}
 
     let response = client()
         .get(url)
