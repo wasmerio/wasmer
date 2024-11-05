@@ -271,11 +271,6 @@ jobs:
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
         env:
           LLVM_DIR: .llvm
-      - name: Add `brew` libs to `RUSTFLAGS`
-        if: matrix.metadata.os == 'macos-14'
-        shell: bash
-        run: |
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Configure LLVM (Windows)
         # The Custom Windows build does not contains llvm-config.exe, so need to setup manualy here
         if: startsWith(matrix.build, 'windows-x64') && matrix.llvm_url
@@ -292,6 +287,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
         if: startsWith(matrix.os, 'macos')
       - uses: actions/cache@v2
         with:
