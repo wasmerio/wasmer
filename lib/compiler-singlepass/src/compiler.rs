@@ -294,8 +294,11 @@ mod tests {
     use super::*;
     use std::str::FromStr;
     use target_lexicon::triple;
-    use wasmer_compiler::Features;
-    use wasmer_types::{CpuFeature, MemoryStyle, TableStyle, Triple};
+    use wasmer_compiler::{
+        types::target::{CpuFeature, Triple},
+        Features,
+    };
+    use wasmer_types::{MemoryStyle, TableStyle};
 
     fn dummy_compilation_ingredients<'a>() -> (
         CompileModuleInfo,

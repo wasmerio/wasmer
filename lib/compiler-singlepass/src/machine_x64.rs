@@ -8305,7 +8305,7 @@ mod test {
     use super::*;
     use enumset::enum_set;
     use std::str::FromStr;
-    use wasmer_types::{CpuFeature, Target, Triple};
+    use wasmer_compiler::types::target::{CpuFeature, Target, Triple};
 
     fn test_move_location(machine: &mut MachineX86_64) -> Result<(), CompileError> {
         machine.move_location_for_native(
