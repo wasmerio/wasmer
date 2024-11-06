@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 5.0.1 - 06/11/2024
 
+This release adds LLVM support to MacOS ARM64 binaries and contains minor fixes and improvements.
+
 ## Added
 
   - [#5220](https://github.com/wasmerio/wasmer/pull/5220) fix(ci): Move addition of `brew` libs to other step
