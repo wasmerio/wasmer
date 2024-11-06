@@ -6610,7 +6610,6 @@ dependencies = [
  "unix_mode",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
- "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-types",
 ]
