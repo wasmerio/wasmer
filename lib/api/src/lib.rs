@@ -520,7 +520,11 @@ pub use value::Value;
 
 pub use wasmer_derive::ValueType;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+#[cfg(feature == "js")]
+pub use target_lexicon::{CpuFeature, Target};
+#[cfg(not(feature == "js"))]
 pub use wasmer_compiler::types::target::{CpuFeature, Target};
+
 pub use wasmer_types::{
     is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
     FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryType,
