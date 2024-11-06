@@ -3,39 +3,40 @@
 
 #[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
-use crate::ArtifactCreate;
+
 #[cfg(feature = "compiler")]
-use crate::EngineInner;
-use crate::Features;
-#[cfg(feature = "compiler")]
-use crate::{ModuleEnvironment, ModuleMiddlewareChain};
+use crate::{
+    serialize::SerializableCompilation, types::target::Target, EngineInner, ModuleEnvironment,
+    ModuleMiddlewareChain,
+};
+use crate::{
+    serialize::{
+        ArchivedSerializableCompilation, ArchivedSerializableModule, MetadataHeader,
+        SerializableModule,
+    },
+    types::{
+        function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        module::CompileModuleInfo,
+        relocation::Relocation,
+        section::{CustomSection, SectionIndex},
+        target::CpuFeature,
+    },
+    ArtifactCreate, Features,
+};
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
 use rkyv::{option::ArchivedOption, rancor::Error as RkyvError};
 use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
-use wasmer_types::entity::{ArchivedPrimaryMap, PrimaryMap};
-use wasmer_types::ArchivedOwnedDataInitializer;
-use wasmer_types::ArchivedSerializableCompilation;
-use wasmer_types::ArchivedSerializableModule;
-use wasmer_types::CompileModuleInfo;
-use wasmer_types::DeserializeError;
+use wasmer_types::{
+    entity::{ArchivedPrimaryMap, PrimaryMap},
+    DeserializeError,
+};
 
 // Not every compiler backend uses these.
 #[allow(unused)]
-use wasmer_types::{
-    CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleHash, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
-    SignatureIndex, TableIndex, TableStyle, Target,
-};
-
-#[allow(unused)]
-use wasmer_types::{
-    CompiledFunctionFrameInfo, FunctionBody, HashAlgorithm, SerializableCompilation,
-    SerializableModule,
-};
-use wasmer_types::{MetadataHeader, SerializeError};
+use wasmer_types::*;
 
 /// A compiled wasm module, ready to be instantiated.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]

@@ -1,25 +1,32 @@
-use crate::codegen_error;
-use crate::common_decl::*;
-use crate::emitter_x64::*;
-use crate::location::Location as AbstractLocation;
-use crate::location::Reg;
-use crate::machine::*;
-use crate::unwind::{UnwindInstructions, UnwindOps};
 #[cfg(feature = "unwind")]
 use crate::unwind_winx64::create_unwind_info_from_insts;
-use crate::x64_decl::new_machine_state;
-use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
+use crate::{
+    codegen_error,
+    common_decl::*,
+    emitter_x64::*,
+    location::{Location as AbstractLocation, Reg},
+    machine::*,
+    unwind::{UnwindInstructions, UnwindOps},
+    x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
+};
 use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
 #[cfg(feature = "unwind")]
 use gimli::{write::CallFrameInstruction, X86_64};
 use std::ops::{Deref, DerefMut};
-use wasmer_compiler::wasmparser::ValType as WpType;
-use wasmer_types::{
-    CallingConvention, CompileError, CpuFeature, CustomSection, CustomSectionProtection,
-    Relocation, RelocationKind, RelocationTarget, SectionBody, Target,
+use wasmer_compiler::{
+    types::{
+        address_map::InstructionAddressMap,
+        function::FunctionBody,
+        relocation::{Relocation, RelocationKind, RelocationTarget},
+        section::{CustomSection, CustomSectionProtection, SectionBody},
+        target::{CallingConvention, CpuFeature, Target},
+    },
+    wasmparser::{MemArg, ValType as WpType},
 };
-use wasmer_types::{FunctionBody, InstructionAddressMap, SourceLoc, TrapInformation};
-use wasmer_types::{FunctionIndex, FunctionType, TrapCode, Type, VMOffsets};
+use wasmer_types::{
+    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
+    VMOffsets,
+};
 
 type Assembler = VecAssembler<X64Relocation>;
 

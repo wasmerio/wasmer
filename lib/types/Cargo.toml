@@ -23,7 +23,7 @@ more-asserts = "0.2"
 indexmap = { workspace = true }
 rkyv = { workspace = true }
 enum-iterator = "0.7.0"
-target-lexicon = { version = "0.12.2", default-features = false }
+target-lexicon = { workspace = true}
 enumset.workspace = true
 bytecheck = "0.6.8"
 xxhash-rust = { version = "0.8.8", features = ["xxh64"] }

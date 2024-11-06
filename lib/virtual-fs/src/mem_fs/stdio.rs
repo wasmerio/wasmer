@@ -204,11 +204,7 @@ mod test_read_write_seek {
             matches!(stdin.read_to_end(&mut buffer).await, Ok(3)),
             "reading bytes again from `stdin`",
         );
-        assert_eq!(
-            buffer,
-            &[b'b', b'a', b'r'],
-            "checking the bytes read from `stdin`"
-        );
+        assert_eq!(buffer, b"bar", "checking the bytes read from `stdin`");
 
         let mut buffer = [0; 1];
 
@@ -265,11 +261,7 @@ mod test_read_write_seek {
             matches!(stdout.write(b"qux").await, Ok(3)),
             "writing again into `stdout`",
         );
-        assert_eq!(
-            stdout.buf,
-            &[b'b', b'a', b'z', b'q', b'u', b'x'],
-            "checking the content of `stdout`",
-        );
+        assert_eq!(stdout.buf, b"bazqux", "checking the content of `stdout`",);
     }
 
     #[tokio::test]
@@ -309,11 +301,7 @@ mod test_read_write_seek {
             matches!(stderr.write(b"qux").await, Ok(3)),
             "writing again into `stderr`",
         );
-        assert_eq!(
-            stderr.buf,
-            &[b'b', b'a', b'z', b'q', b'u', b'x'],
-            "checking the content of `stderr`",
-        );
+        assert_eq!(stderr.buf, b"bazqux", "checking the content of `stderr`",);
     }
 
     #[tokio::test]

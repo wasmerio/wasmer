@@ -1,6 +1,7 @@
 //! Generate a header file for the static object file produced.
 
-use wasmer_types::{ModuleInfo, Symbol, SymbolRegistry};
+use wasmer_compiler::types::symbols::{Symbol, SymbolRegistry};
+use wasmer_types::ModuleInfo;
 
 use super::{generate_c, CStatement, CType};
 

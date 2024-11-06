@@ -1,18 +1,21 @@
-use crate::error::ObjectError;
-use object::write::{
-    Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
+use super::error::ObjectError;
+use crate::types::{
+    function::Compilation,
+    relocation::{RelocationKind as Reloc, RelocationTarget},
+    section::{CustomSectionProtection, SectionIndex},
+    symbols::{Symbol, SymbolRegistry},
+    target::{Architecture, BinaryFormat, Endianness, Triple},
 };
 use object::{
-    elf, macho, FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags,
-    SymbolKind, SymbolScope,
+    elf, macho,
+    write::{
+        Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
+    },
+    FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
+    SymbolScope,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
-use wasmer_types::{
-    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
-    RelocationKind as Reloc, RelocationTarget, SectionIndex, Triple,
-};
-use wasmer_types::{Symbol, SymbolRegistry};
 
 const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 
@@ -21,7 +24,7 @@ const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_types::Triple;
+/// # use wasmer_compiler::types::target::Triple;
 /// # use wasmer_object::ObjectError;
 /// use wasmer_object::get_object_for_target;
 ///

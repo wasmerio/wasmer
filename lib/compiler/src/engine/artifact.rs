@@ -1,48 +1,47 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use crate::engine::link::link_module;
-use crate::lib::std::vec::IntoIter;
-use crate::ArtifactBuild;
-use crate::ArtifactBuildFromArchive;
-use crate::ArtifactCreate;
-use crate::Features;
-use crate::FrameInfosVariant;
-use crate::ModuleEnvironment;
-use crate::{
-    register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, Tunables,
+use std::sync::{
+    atomic::{AtomicUsize, Ordering::SeqCst},
+    Arc,
 };
+
+use crate::{
+    engine::link::link_module,
+    lib::std::vec::IntoIter,
+    register_frame_info, resolve_imports,
+    serialize::{MetadataHeader, SerializableModule},
+    types::target::{CpuFeature, Target},
+    ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
+    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
+    ModuleEnvironment, Tunables,
+};
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
+use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 #[cfg(feature = "static-artifact-create")]
-use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
-use crate::{Engine, EngineInner};
+use crate::{types::module::CompileModuleInfo, Compiler, FunctionBodyData, ModuleTranslationState};
+
 use enumset::EnumSet;
 use shared_buffer::OwnedBuffer;
+
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
-use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
-use std::sync::Arc;
+
 #[cfg(feature = "static-artifact-create")]
-use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use wasmer_types::compilation::symbols::ModuleMetadata;
-use wasmer_types::entity::{BoxedSlice, PrimaryMap};
-use wasmer_types::ArchivedDataInitializerLocation;
-use wasmer_types::ArchivedOwnedDataInitializer;
-#[cfg(feature = "static-artifact-create")]
-use wasmer_types::CompileModuleInfo;
-use wasmer_types::DataInitializerLike;
-use wasmer_types::DataInitializerLocation;
-use wasmer_types::DataInitializerLocationLike;
-use wasmer_types::MetadataHeader;
+use crate::object::{emit_compilation, emit_data, get_object_for_target, Object};
+
 use wasmer_types::{
-    CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, HashAlgorithm,
-    LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
-    Target,
+    entity::{BoxedSlice, PrimaryMap},
+    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
+    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
+    FunctionIndex, HashAlgorithm, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
 };
-use wasmer_types::{SerializableModule, SerializeError};
-use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
+
+use wasmer_vm::{
+    FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
+    VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
+};
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct AllocatedArtifact {
@@ -975,11 +974,11 @@ impl Artifact {
             ModuleInfo,
             Object<'data>,
             usize,
-            Box<dyn wasmer_types::SymbolRegistry>,
+            Box<dyn crate::types::symbols::SymbolRegistry>,
         ),
         CompileError,
     > {
-        use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, SymbolRegistry};
+        use crate::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
 
         fn to_compile_error(err: impl std::error::Error) -> CompileError {
             CompileError::Codegen(format!("{}", err))
@@ -1014,19 +1013,18 @@ impl Artifact {
 
         let (_compile_info, symbol_registry) = metadata.split();
 
-        let compilation: wasmer_types::compilation::function::Compilation = compiler
-            .compile_module(
-                target,
-                &metadata.compile_info,
-                module_translation.as_ref().unwrap(),
-                function_body_inputs,
-            )?;
+        let compilation: crate::types::function::Compilation = compiler.compile_module(
+            target,
+            &metadata.compile_info,
+            module_translation.as_ref().unwrap(),
+            function_body_inputs,
+        )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
         let object_name = ModuleMetadataSymbolRegistry {
             prefix: metadata_prefix.unwrap_or_default().to_string(),
         }
-        .symbol_to_name(wasmer_types::Symbol::Metadata);
+        .symbol_to_name(crate::types::symbols::Symbol::Metadata);
 
         emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
             .map_err(to_compile_error)?;
@@ -1077,8 +1075,6 @@ impl Artifact {
         engine: &Engine,
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
-        use wasmer_types::SerializableCompilation;
-
         let bytes = bytes.as_slice();
         let metadata_len = MetadataHeader::parse(bytes)?;
         let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
