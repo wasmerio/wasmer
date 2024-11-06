@@ -122,7 +122,7 @@ wasmer-compiler-llvm = { version = "=5.0.1", path = "../compiler-llvm", optional
 wasmer-package.workspace = true
 
 wasmer-vm = { version = "=5.0.1", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.30.0", features = [
+wasmer-wasix = { path = "../wasix", version = "=0.31.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
