@@ -9,6 +9,33 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 5.0.1 - 06/11/2024
+
+This release adds LLVM support to MacOS ARM64 binaries and contains minor fixes and improvements.
+
+## Added
+
+  - [#5220](https://github.com/wasmerio/wasmer/pull/5220) fix(ci): Move addition of `brew` libs to other step
+  - [#5218](https://github.com/wasmerio/wasmer/pull/5218) fix(ci): Add `brew` libs to `RUSTFLAGS` in aarch64
+  - [#5129](https://github.com/wasmerio/wasmer/pull/5129) Experimental: Add support for WASMI
+  - [#5205](https://github.com/wasmerio/wasmer/pull/5205) Add LLVM to docs CI
+
+## Changed
+
+  - [#5216](https://github.com/wasmerio/wasmer/pull/5216) Bump up webc version
+  - [#5215](https://github.com/wasmerio/wasmer/pull/5215) Re-enable RISC-V
+  - [#5194](https://github.com/wasmerio/wasmer/pull/5194) build: Update nix flake devshell for LLVM 18
+  - [#5202](https://github.com/wasmerio/wasmer/pull/5202) chore: Remove `isle-in-source-tree` feature from `cranelift-codegen`
+
+## Fixed
+
+  - [#5210](https://github.com/wasmerio/wasmer/pull/5210) Fix(LLVM): Implement the missing relocations on aarch64, fix SIMD operations
+  - [#5209](https://github.com/wasmerio/wasmer/pull/5209) Revert "Fix(LLVM): Implement the missing relocations on aarch64, fix SIMD operations"
+  - [#5207](https://github.com/wasmerio/wasmer/pull/5207) Fix(LLVM): Implement the missing relocations on aarch64, fix SIMD operations
+  - [#5203](https://github.com/wasmerio/wasmer/pull/5203) Fix the wasmer-swift crate build
+
+
+
 ## 5.0.0 - 29/10/2024
 
 The main star of this release is the experimental support for three new backends: v8, wamr and wasmi. Also, many dependencies, namely LLVM, Cranelift, and rkyv are updated
