@@ -1,6 +1,4 @@
 use std::{fs, path::PathBuf};
-
-use cfg_if::cfg_if;
 use wasmer::{Engine, Module};
 
 #[test]
@@ -57,6 +55,7 @@ fn artifact_serialization_build() {
 #[test]
 #[cfg(target_arch = "x86_64")]
 fn artifact_deserialization_roundtrip() {
+    use cfg_if::cfg_if;
     // This test is included to make sure we don't break the serialized format
     // by mistake. Otherwise, everything in this test is already tested in
     // `artifact_serialization_roundtrip`.

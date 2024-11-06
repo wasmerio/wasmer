@@ -511,8 +511,7 @@ jobs:
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
@@ -744,7 +743,6 @@ jobs:
           }
         ]
         metadata: [
-          # We cannot test on macos-arm since we don't have ARM runners
           {
             build: linux-x64,
             os: ubuntu-22.04,
@@ -758,15 +756,13 @@ jobs:
             target: x86_64-apple-darwin,
             exe: '',
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-
           },
           {
             build: macos-arm,
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,

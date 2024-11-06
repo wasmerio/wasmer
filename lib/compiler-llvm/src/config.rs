@@ -108,22 +108,27 @@ impl LLVM {
         };
         // Hack: we're using is_pic to determine whether this is a native
         // build or not.
-        let operating_system =
-            if target.triple().operating_system == OperatingSystem::Darwin && !self.is_pic {
-                // LLVM detects static relocation + darwin + 64-bit and
-                // force-enables PIC because MachO doesn't support that
-                // combination. They don't check whether they're targeting
-                // MachO, they check whether the OS is set to Darwin.
-                //
-                // Since both linux and darwin use SysV ABI, this should work.
-                //  but not in the case of Aarch64, there the ABI is slightly different
-                #[allow(clippy::match_single_binding)]
-                match target.triple().architecture {
-                    _ => OperatingSystem::Linux,
-                }
-            } else {
-                target.triple().operating_system
-            };
+
+        let operating_system = if target.triple().operating_system
+            == wasmer_types::OperatingSystem::Darwin
+            && !self.is_pic
+        {
+            // LLVM detects static relocation + darwin + 64-bit and
+            // force-enables PIC because MachO doesn't support that
+            // combination. They don't check whether they're targeting
+            // MachO, they check whether the OS is set to Darwin.
+            //
+            // Since both linux and darwin use SysV ABI, this should work.
+            //  but not in the case of Aarch64, there the ABI is slightly different
+            #[allow(clippy::match_single_binding)]
+            match target.triple().architecture {
+                Architecture::Aarch64(_) => wasmer_types::OperatingSystem::Darwin,
+                _ => wasmer_types::OperatingSystem::Linux,
+            }
+        } else {
+            target.triple().operating_system
+        };
+
         let binary_format = if self.is_pic {
             target.triple().binary_format
         } else {

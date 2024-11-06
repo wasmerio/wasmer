@@ -43,6 +43,22 @@ pub enum RelocationKind {
     X86CallPLTRel4,
     /// x86 GOT PC-relative 4-byte
     X86GOTPCRel4,
+
+    /// R_AARCH64_ADR_PREL_LO21
+    Aarch64AdrPrelLo21,
+
+    /// R_AARCH64_ADR_PREL_PG_HI21
+    Aarch64AdrPrelPgHi21,
+
+    /// R_AARCH64_ADD_ABS_LO12_NC
+    Aarch64AddAbsLo12Nc,
+
+    /// R_AARCH64_LDST128_ABS_LO12_NC
+    Aarch64Ldst128AbsLo12Nc,
+
+    /// R_AARCH64_LDST64_ABS_LO12_NC
+    Aarch64Ldst64AbsLo12Nc,
+
     /// Arm32 call target
     Arm32Call,
     /// Arm64 call target
@@ -99,6 +115,11 @@ impl fmt::Display for RelocationKind {
             Self::LArchAbsLo12 => write!(f, "LArchAbsLo12"),
             Self::LArchAbs64Hi12 => write!(f, "LArchAbs64Hi12"),
             Self::LArchAbs64Lo20 => write!(f, "LArchAbs64Lo20"),
+            Self::Aarch64AdrPrelLo21 => write!(f, "Aarch64AdrPrelLo21"),
+            Self::Aarch64AdrPrelPgHi21 => write!(f, "Aarch64AdrPrelPgHi21"),
+            Self::Aarch64AddAbsLo12Nc => write!(f, "Aarch64AddAbsLo12Nc"),
+            Self::Aarch64Ldst128AbsLo12Nc => write!(f, "Aarch64Ldst128AbsLo12Nc"),
+            Self::Aarch64Ldst64AbsLo12Nc => write!(f, "Aarch64Ldst64AbsLo12Nc"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }
@@ -139,7 +160,10 @@ pub trait RelocationLike {
             | RelocationKind::Arm64Movw1
             | RelocationKind::Arm64Movw2
             | RelocationKind::Arm64Movw3
-            | RelocationKind::RiscvPCRelLo12I => {
+            | RelocationKind::RiscvPCRelLo12I
+            | RelocationKind::Aarch64AddAbsLo12Nc
+            | RelocationKind::Aarch64Ldst128AbsLo12Nc
+            | RelocationKind::Aarch64Ldst64AbsLo12Nc => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_abs = target_func_address
@@ -175,13 +199,22 @@ pub trait RelocationLike {
             }
             RelocationKind::Arm64Call
             | RelocationKind::RiscvCall
-            | RelocationKind::RiscvPCRelHi20 => {
+            | RelocationKind::RiscvPCRelHi20
+            | RelocationKind::Aarch64AdrPrelLo21 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_delta_u32 = target_func_address
                     .wrapping_sub(reloc_address as u64)
                     .wrapping_add(reloc_addend as u64);
                 (reloc_address, reloc_delta_u32)
+            }
+            RelocationKind::Aarch64AdrPrelPgHi21 => {
+                let reloc_address = start + self.offset() as usize;
+                let reloc_addend = self.addend() as isize;
+                let target_page =
+                    (target_func_address.wrapping_add(reloc_addend as u64) & !(0xFFF)) as usize;
+                let pc_page = reloc_address & !(0xFFF);
+                (reloc_address, target_page.wrapping_sub(pc_page) as u64)
             }
             _ => panic!("Relocation kind unsupported"),
         }
