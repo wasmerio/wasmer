@@ -49,9 +49,9 @@ mod lib {
 mod engine;
 mod traits;
 
+pub mod object;
 pub mod serialize;
 pub mod types;
-pub mod object;
 
 pub use crate::engine::*;
 pub use crate::traits::*;
