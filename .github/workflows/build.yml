@@ -281,13 +281,16 @@ jobs:
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Add `brew` libraries (Apple Silicon)
+        run: |
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
+        if: matrix.os == 'macos-14'
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
         if: startsWith(matrix.os, 'macos')
       - uses: actions/cache@v2
         with:
