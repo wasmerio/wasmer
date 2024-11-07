@@ -182,10 +182,15 @@ fn apply_relocation(
             write_unaligned(reloc_address as *mut u32, op);
         },
         RelocationKind::Aarch64AddAbsLo12Nc => unsafe {
-            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            let reloc_delta = (reloc_delta as u32 & 0xfff)
-                | (read_unaligned(reloc_address as *mut u32) & 0xFFC003FF);
-            write_unaligned(reloc_address as *mut u32, reloc_delta);
+            let (reloc_address, delta) = r.for_address(body, target_func_address as u64);
+
+            let delta = delta as isize;
+            let op = read_unaligned(reloc_address as *mut u32);
+            let imm = ((delta as u32) & 0xfff) << 10;
+            let mask = !((0xfff) << 10);
+            let op = (op & mask) | imm;
+
+            write_unaligned(reloc_address as *mut u32, op);
         },
         RelocationKind::Aarch64Ldst128AbsLo12Nc => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);

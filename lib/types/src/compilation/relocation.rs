@@ -156,6 +156,16 @@ pub trait RelocationLike {
     /// to that address.
     ///
     /// The function returns the relocation address and the delta.
+    ///
+    // # Nomenclature (from [1]@5.7.3.3)
+    //
+    // * S (when used on its own) is the address of the symbol.
+    // * A is the addend for the relocation.
+    // * P is the address of the place being relocated (derived from r_offset).
+    // * X is the result of a relocation operation, before any masking or bit-selection operation is applied
+    // * Page(expr) is the page address of the expression expr, defined as (expr & ~0xFFF). (This applies even if the machine page size supported by the platform has a different value.)
+    //
+    // [1]: https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
     fn for_address(&self, start: usize, target_func_address: u64) -> (usize, u64) {
         match self.kind() {
             RelocationKind::Abs8
@@ -164,7 +174,6 @@ pub trait RelocationLike {
             | RelocationKind::Arm64Movw2
             | RelocationKind::Arm64Movw3
             | RelocationKind::RiscvPCRelLo12I
-            | RelocationKind::Aarch64AddAbsLo12Nc
             | RelocationKind::Aarch64Ldst128AbsLo12Nc
             | RelocationKind::Aarch64Ldst64AbsLo12Nc => {
                 let reloc_address = start + self.offset() as usize;
@@ -200,10 +209,24 @@ pub trait RelocationLike {
                     .wrapping_add(reloc_addend as u32);
                 (reloc_address, reloc_delta_u32 as u64)
             }
+            RelocationKind::Aarch64AdrPrelLo21 => {
+                let s = target_func_address;
+                let p = start + self.offset() as usize;
+                let a = self.addend() as u64;
+
+                (p, s.wrapping_add(a).wrapping_sub(p as u64))
+            }
+
+            RelocationKind::Aarch64AddAbsLo12Nc => {
+                let s = target_func_address;
+                let p = start + self.offset() as usize;
+                let a = self.addend() as u64;
+
+                (p, s.wrapping_add(a))
+            }
             RelocationKind::Arm64Call
             | RelocationKind::RiscvCall
-            | RelocationKind::RiscvPCRelHi20
-            | RelocationKind::Aarch64AdrPrelLo21 => {
+            | RelocationKind::RiscvPCRelHi20 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_delta_u32 = target_func_address
