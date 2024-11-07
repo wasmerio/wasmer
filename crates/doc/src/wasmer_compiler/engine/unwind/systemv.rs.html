@@ -188,7 +188,7 @@
 
 </span><span class="kw">use </span>core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
-<span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfoReference;
+<span class="kw">use </span><span class="kw">crate</span>::types::unwind::CompiledFunctionUnwindInfoReference;
 
 <span class="doccomment">/// Represents a registry of function unwind information for System V ABI.
 </span><span class="kw">pub struct </span>UnwindRegistry {

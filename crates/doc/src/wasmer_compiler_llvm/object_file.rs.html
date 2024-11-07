@@ -461,18 +461,24 @@
 <a href="#461" id="461">461</a>
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
 
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
 <span class="kw">use </span>std::convert::TryInto;
 <span class="kw">use </span>std::num::TryFromIntError;
 
-<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
-<span class="kw">use </span>wasmer_types::{
-    CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
-    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
-    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
+<span class="kw">use </span>wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
+
+<span class="kw">use </span>wasmer_compiler::types::{
+    address_map::{FunctionAddressMap, InstructionAddressMap},
+    function::{CompiledFunctionFrameInfo, CustomSections, FunctionBody},
+    relocation::{Relocation, RelocationKind, RelocationTarget},
+    section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 };
+
 <span class="kw">use </span>wasmer_vm::libcalls::LibCall;
 
 <span class="kw">fn </span>map_tryfromint_err(error: TryFromIntError) -&gt; CompileError {
@@ -484,7 +490,7 @@
 }
 
 <span class="kw">pub struct </span>CompiledFunction {
-    <span class="kw">pub </span>compiled_function: wasmer_types::CompiledFunction,
+    <span class="kw">pub </span>compiled_function: wasmer_compiler::types::function::CompiledFunction,
     <span class="kw">pub </span>custom_sections: CustomSections,
     <span class="kw">pub </span>eh_frame_section_indices: Vec&lt;SectionIndex&gt;,
 }
@@ -910,7 +916,7 @@
     };
 
     <span class="prelude-val">Ok</span>(CompiledFunction {
-        compiled_function: wasmer_types::CompiledFunction {
+        compiled_function: wasmer_compiler::types::function::CompiledFunction {
             body: function_body,
             relocations: relocations
                 .remove_entry(<span class="kw-2">&amp;</span>root_section_index)

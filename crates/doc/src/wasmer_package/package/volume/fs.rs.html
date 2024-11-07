@@ -964,7 +964,7 @@
         <span class="kw">let </span>volume = FsVolume::new_metadata(<span class="kw-2">&amp;</span>manifest, temp.path().to_path_buf()).unwrap();
 
         <span class="kw">let </span>entries = volume.read_dir(<span class="kw-2">&amp;</span>PathSegments::ROOT).unwrap();
-        <span class="kw">let </span>expected = <span class="macro">vec!</span>[
+        <span class="kw">let </span>expected = [
             PathSegment::parse(<span class="string">"README.md"</span>).unwrap(),
             PathSegment::parse(<span class="string">"asdf.wai"</span>).unwrap(),
             PathSegment::parse(<span class="string">"browser.wai"</span>).unwrap(),
@@ -1015,12 +1015,12 @@
 
         <span class="kw">let </span>manifest: Manifest = toml::from_str(wasmer_toml).unwrap();
 
-        <span class="kw">let </span>volume = FsVolume::new_assets(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>temp.path()).unwrap();
+        <span class="kw">let </span>volume = FsVolume::new_assets(<span class="kw-2">&amp;</span>manifest, temp.path()).unwrap();
 
         <span class="kw">let </span>volume = <span class="kw-2">&amp;</span>volume[<span class="string">"/etc"</span>];
 
         <span class="kw">let </span>entries = volume.read_dir(<span class="kw-2">&amp;</span>PathSegments::ROOT).unwrap();
-        <span class="kw">let </span>expected = <span class="macro">vec!</span>[PathSegment::parse(<span class="string">"share"</span>).unwrap()];
+        <span class="kw">let </span>expected = [PathSegment::parse(<span class="string">"share"</span>).unwrap()];
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..expected.len() {
             <span class="macro">assert_eq!</span>(entries[i].<span class="number">0</span>, expected[i]);

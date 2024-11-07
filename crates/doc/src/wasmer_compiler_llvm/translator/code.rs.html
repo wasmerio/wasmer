@@ -12023,6 +12023,11 @@
 <a href="#12023" id="12023">12023</a>
 <a href="#12024" id="12024">12024</a>
 <a href="#12025" id="12025">12025</a>
+<a href="#12026" id="12026">12026</a>
+<a href="#12027" id="12027">12027</a>
+<a href="#12028" id="12028">12028</a>
+<a href="#12029" id="12029">12029</a>
+<a href="#12030" id="12030">12030</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
@@ -12055,15 +12060,20 @@
     config::{CompiledKind, LLVM},
     error::err_nt,
 };
-<span class="kw">use </span>wasmer_compiler::wasmparser::{MemArg, Operator};
 <span class="kw">use </span>wasmer_compiler::{
-    from_binaryreadererror_wasmerror, wpheaptype_to_type, wptype_to_type, FunctionBinaryReader,
-    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror,
+    types::{
+        relocation::RelocationTarget,
+        symbols::{Symbol, SymbolRegistry},
+    },
+    wasmparser::{MemArg, Operator},
+    wpheaptype_to_type, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
+    MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
 <span class="kw">use </span>wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, RelocationTarget, SignatureIndex, Symbol, SymbolRegistry, TableIndex, Type,
+    ModuleInfo, SignatureIndex, TableIndex, Type,
 };
 <span class="kw">use </span>wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 

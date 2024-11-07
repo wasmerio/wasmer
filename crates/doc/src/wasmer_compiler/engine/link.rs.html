@@ -258,18 +258,28 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Linking for Universal-compiled code.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::get_libcall_trampoline;
-<span class="kw">use </span><span class="kw">crate</span>::FunctionExtent;
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::ptr::{read_unaligned, write_unaligned};
-<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
-<span class="kw">use </span>wasmer_types::RelocationLike;
-<span class="kw">use </span>wasmer_types::{LocalFunctionIndex, ModuleInfo};
-<span class="kw">use </span>wasmer_types::{RelocationKind, RelocationTarget, SectionIndex};
-<span class="kw">use </span>wasmer_vm::libcalls::function_pointer;
-<span class="kw">use </span>wasmer_vm::SectionBodyPtr;
+</span><span class="kw">use crate</span>::{
+    get_libcall_trampoline,
+    types::{
+        relocation::{RelocationKind, RelocationLike, RelocationTarget},
+        section::SectionIndex,
+    },
+    FunctionExtent,
+};
+<span class="kw">use </span>std::{
+    collections::HashMap,
+    ptr::{read_unaligned, write_unaligned},
+};
+
+<span class="kw">use </span>wasmer_types::{entity::PrimaryMap, LocalFunctionIndex, ModuleInfo};
+<span class="kw">use </span>wasmer_vm::{libcalls::function_pointer, SectionBodyPtr};
 
 <span class="kw">fn </span>apply_relocation(
     body: usize,

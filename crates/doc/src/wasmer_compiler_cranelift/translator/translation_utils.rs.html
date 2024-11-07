@@ -142,16 +142,20 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.
 
 </span><span class="kw">use </span><span class="kw">super</span>::func_environ::TargetEnvironment;
 <span class="kw">use </span><span class="kw">crate</span>::std::string::ToString;
-<span class="kw">use </span>cranelift_codegen::binemit::Reloc;
-<span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, AbiParam};
-<span class="kw">use </span>cranelift_codegen::isa::TargetFrontendConfig;
+<span class="kw">use </span>cranelift_codegen::{
+    binemit::Reloc,
+    ir::{<span class="self">self</span>, AbiParam},
+    isa::TargetFrontendConfig,
+};
 <span class="kw">use </span>cranelift_frontend::FunctionBuilder;
-<span class="kw">use </span>wasmer_compiler::wasmparser;
-<span class="kw">use </span>wasmer_types::{FunctionType, LibCall, RelocationKind, Type, WasmError, WasmResult};
+<span class="kw">use </span>wasmer_compiler::{types::relocation::RelocationKind, wasmparser};
+<span class="kw">use </span>wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
 <span class="doccomment">/// Helper function translate a Function signature into Cranelift Ir
 </span><span class="kw">pub fn </span>signature_to_cranelift_ir(

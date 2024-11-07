@@ -533,28 +533,26 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::abi::{get_abi, Abi};
-<span class="kw">use </span><span class="kw">crate</span>::config::{CompiledKind, LLVM};
-<span class="kw">use </span><span class="kw">crate</span>::error::{err, err_nt};
-<span class="kw">use </span><span class="kw">crate</span>::object_file::{load_object_file, CompiledFunction};
-<span class="kw">use </span><span class="kw">crate</span>::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
-<span class="kw">use </span>inkwell::passes::PassBuilderOptions;
-<span class="kw">use </span>inkwell::values::BasicMetadataValueEnum;
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    abi::{get_abi, Abi},
+    config::{CompiledKind, LLVM},
+    error::{err, err_nt},
+    object_file::{load_object_file, CompiledFunction},
+    translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics},
+};
 <span class="kw">use </span>inkwell::{
     attributes::{Attribute, AttributeLoc},
     context::Context,
     module::{Linkage, Module},
+    passes::PassBuilderOptions,
     targets::{FileType, TargetMachine},
     types::FunctionType,
-    values::FunctionValue,
+    values::{BasicMetadataValueEnum, FunctionValue},
     AddressSpace, DLLStorageClass,
 };
-<span class="kw">use </span>std::cmp;
-<span class="kw">use </span>std::convert::TryInto;
-<span class="kw">use </span>wasmer_types::{
-    CompileError, FunctionBody, FunctionType <span class="kw">as </span>FuncType, LocalFunctionIndex, RelocationTarget,
-};
+<span class="kw">use </span>std::{cmp, convert::TryInto};
+<span class="kw">use </span>wasmer_compiler::types::{function::FunctionBody, relocation::RelocationTarget};
+<span class="kw">use </span>wasmer_types::{CompileError, FunctionType <span class="kw">as </span>FuncType, LocalFunctionIndex};
 
 <span class="kw">pub struct </span>FuncTrampoline {
     ctx: Context,

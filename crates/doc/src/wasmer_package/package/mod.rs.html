@@ -571,7 +571,7 @@
         <span class="kw">let </span>out_dir = temp.path().join(<span class="string">"out"</span>);
         container.unpack(<span class="kw-2">&amp;</span>out_dir, <span class="bool-val">false</span>).unwrap();
 
-        <span class="kw">let </span>expected_entries = <span class="macro">vec!</span>[
+        <span class="kw">let </span>expected_entries = [
             <span class="string">"bar"</span>,      <span class="comment">// the volume
             </span><span class="string">"metadata"</span>, <span class="comment">// the metadata volume
             </span><span class="string">"foo"</span>,      <span class="comment">// the atom

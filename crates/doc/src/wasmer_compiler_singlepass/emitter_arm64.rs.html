@@ -3775,22 +3775,26 @@
 <a href="#3775" id="3775">3775</a>
 <a href="#3776" id="3776">3776</a>
 <a href="#3777" id="3777">3777</a>
-</pre></div><pre class="rust"><code><span class="kw">pub use </span><span class="kw">crate</span>::arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON};
-<span class="kw">use </span><span class="kw">crate</span>::codegen_error;
-<span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
-<span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
-<span class="kw">pub use </span><span class="kw">crate</span>::location::{Multiplier, Reg};
-<span class="kw">pub use </span><span class="kw">crate</span>::machine::{Label, Offset};
+<a href="#3778" id="3778">3778</a>
+<a href="#3779" id="3779">3779</a>
+</pre></div><pre class="rust"><code><span class="kw">pub use crate</span>::{
+    arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON},
+    location::{Multiplier, Reg},
+    machine::{Label, Offset},
+};
+<span class="kw">use crate</span>::{codegen_error, common_decl::Size, location::Location <span class="kw">as </span>AbstractLocation};
 <span class="kw">use </span>dynasm::dynasm;
 <span class="kw">pub use </span>dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 <span class="kw">use </span>dynasmrt::{
     aarch64::Aarch64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
     VecAssembler,
 };
-<span class="kw">use </span>wasmer_types::{
-    CallingConvention, CompileError, CustomSection, CustomSectionProtection, FunctionBody,
-    FunctionIndex, FunctionType, SectionBody, Type, VMOffsets,
+<span class="kw">use </span>wasmer_compiler::types::{
+    function::FunctionBody,
+    section::{CustomSection, CustomSectionProtection, SectionBody},
+    target::CallingConvention,
 };
+<span class="kw">use </span>wasmer_types::{CompileError, FunctionIndex, FunctionType, Type, VMOffsets};
 
 <span class="kw">type </span>Assembler = VecAssembler&lt;Aarch64Relocation&gt;;
 

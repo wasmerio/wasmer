@@ -6744,34 +6744,58 @@
 <a href="#6744" id="6744">6744</a>
 <a href="#6745" id="6745">6745</a>
 <a href="#6746" id="6746">6746</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::address_map::get_function_address_map;
-<span class="kw">use </span><span class="kw">crate</span>::codegen_error;
-<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href="#6747" id="6747">6747</a>
+<a href="#6748" id="6748">6748</a>
+<a href="#6749" id="6749">6749</a>
+<a href="#6750" id="6750">6750</a>
+<a href="#6751" id="6751">6751</a>
+<a href="#6752" id="6752">6752</a>
+<a href="#6753" id="6753">6753</a>
+<a href="#6754" id="6754">6754</a>
+<a href="#6755" id="6755">6755</a>
+<a href="#6756" id="6756">6756</a>
+<a href="#6757" id="6757">6757</a>
+<a href="#6758" id="6758">6758</a>
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
-<span class="kw">use </span><span class="kw">crate</span>::location::{Location, Reg};
-<span class="kw">use </span><span class="kw">crate</span>::machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
-<span class="kw">use </span><span class="kw">crate</span>::unwind::UnwindFrame;
-<span class="kw">use crate</span>::{common_decl::<span class="kw-2">*</span>, config::Singlepass};
+
+<span class="kw">use crate</span>::{
+    address_map::get_function_address_map,
+    codegen_error,
+    common_decl::<span class="kw-2">*</span>,
+    config::Singlepass,
+    location::{Location, Reg},
+    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE},
+    unwind::UnwindFrame,
+};
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::write::Address;
 <span class="kw">use </span>smallvec::{smallvec, SmallVec};
-<span class="kw">use </span>std::cmp;
-<span class="kw">use </span>std::iter;
-<span class="kw">use </span>wasmer_compiler::wasmparser::{
-    BlockType <span class="kw">as </span>WpTypeOrFuncType, HeapType <span class="kw">as </span>WpHeapType, Operator, RefType <span class="kw">as </span>WpRefType,
-    ValType <span class="kw">as </span>WpType,
+<span class="kw">use </span>std::{cmp, iter};
+
+<span class="kw">use </span>wasmer_compiler::{
+    types::{
+        function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
+        relocation::{Relocation, RelocationTarget},
+        section::SectionIndex,
+        target::CallingConvention,
+    },
+    wasmparser::{
+        BlockType <span class="kw">as </span>WpTypeOrFuncType, HeapType <span class="kw">as </span>WpHeapType, Operator, RefType <span class="kw">as </span>WpRefType,
+        ValType <span class="kw">as </span>WpType,
+    },
+    FunctionBodyData,
 };
-<span class="kw">use </span>wasmer_compiler::FunctionBodyData;
+
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-</span><span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfo;
+</span><span class="kw">use </span>wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
+
 <span class="kw">use </span>wasmer_types::{
     entity::{EntityRef, PrimaryMap},
-    CallingConvention, CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex,
-    LocalMemoryIndex, MemoryIndex, MemoryStyle, ModuleInfo, Relocation, RelocationTarget,
-    SectionIndex, SignatureIndex, TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex,
-    VMOffsets,
+    CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
+    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
+    VMBuiltinFunctionIndex, VMOffsets,
 };
-<span class="kw">use </span>wasmer_types::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 <span class="doccomment">/// The singlepass per-function code generator.
 </span><span class="kw">pub struct </span>FuncGen&lt;<span class="lifetime">'a</span>, M: Machine&gt; {

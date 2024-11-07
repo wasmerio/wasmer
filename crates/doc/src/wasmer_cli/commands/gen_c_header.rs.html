@@ -146,19 +146,23 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_compiler::Artifact;
-<span class="kw">use </span>wasmer_package::package::WasmerPackageError;
-<span class="kw">use </span>wasmer_package::utils::from_bytes;
-<span class="kw">use </span>wasmer_types::{
-    compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
+<span class="kw">use </span>wasmer_compiler::{
+    types::{
+        symbols::ModuleMetadataSymbolRegistry,
+        target::{CpuFeature, Triple},
+    },
+    Artifact,
 };
-<span class="kw">use </span>webc::{compat::SharedBytes, DetectError};
-<span class="kw">use </span>webc::{Container, ContainerError};
+<span class="kw">use </span>wasmer_package::{package::WasmerPackageError, utils::from_bytes};
+<span class="kw">use </span>wasmer_types::MetadataHeader;
+<span class="kw">use </span>webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
 <span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
 

@@ -8709,28 +8709,42 @@
 <a href="#8709" id="8709">8709</a>
 <a href="#8710" id="8710">8710</a>
 <a href="#8711" id="8711">8711</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::codegen_error;
-<span class="kw">use </span><span class="kw">crate</span>::common_decl::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::emitter_x64::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
-<span class="kw">use </span><span class="kw">crate</span>::location::Reg;
-<span class="kw">use </span><span class="kw">crate</span>::machine::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::unwind::{UnwindInstructions, UnwindOps};
-<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href="#8712" id="8712">8712</a>
+<a href="#8713" id="8713">8713</a>
+<a href="#8714" id="8714">8714</a>
+<a href="#8715" id="8715">8715</a>
+<a href="#8716" id="8716">8716</a>
+<a href="#8717" id="8717">8717</a>
+<a href="#8718" id="8718">8718</a>
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts;
-<span class="kw">use </span><span class="kw">crate</span>::x64_decl::new_machine_state;
-<span class="kw">use </span><span class="kw">crate</span>::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
+<span class="kw">use crate</span>::{
+    codegen_error,
+    common_decl::<span class="kw-2">*</span>,
+    emitter_x64::<span class="kw-2">*</span>,
+    location::{Location <span class="kw">as </span>AbstractLocation, Reg},
+    machine::<span class="kw-2">*</span>,
+    unwind::{UnwindInstructions, UnwindOps},
+    x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
+};
 <span class="kw">use </span>dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::{write::CallFrameInstruction, X86_64};
 <span class="kw">use </span>std::ops::{Deref, DerefMut};
-<span class="kw">use </span>wasmer_compiler::wasmparser::ValType <span class="kw">as </span>WpType;
-<span class="kw">use </span>wasmer_types::{
-    CallingConvention, CompileError, CpuFeature, CustomSection, CustomSectionProtection,
-    Relocation, RelocationKind, RelocationTarget, SectionBody, Target,
+<span class="kw">use </span>wasmer_compiler::{
+    types::{
+        address_map::InstructionAddressMap,
+        function::FunctionBody,
+        relocation::{Relocation, RelocationKind, RelocationTarget},
+        section::{CustomSection, CustomSectionProtection, SectionBody},
+        target::{CallingConvention, CpuFeature, Target},
+    },
+    wasmparser::{MemArg, ValType <span class="kw">as </span>WpType},
 };
-<span class="kw">use </span>wasmer_types::{FunctionBody, InstructionAddressMap, SourceLoc, TrapInformation};
-<span class="kw">use </span>wasmer_types::{FunctionIndex, FunctionType, TrapCode, Type, VMOffsets};
+<span class="kw">use </span>wasmer_types::{
+    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
+    VMOffsets,
+};
 
 <span class="kw">type </span>Assembler = VecAssembler&lt;X64Relocation&gt;;
 
@@ -17009,7 +17023,7 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>enumset::enum_set;
     <span class="kw">use </span>std::str::FromStr;
-    <span class="kw">use </span>wasmer_types::{CpuFeature, Target, Triple};
+    <span class="kw">use </span>wasmer_compiler::types::target::{CpuFeature, Target, Triple};
 
     <span class="kw">fn </span>test_move_location(machine: <span class="kw-2">&amp;mut </span>MachineX86_64) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         machine.move_location_for_native(

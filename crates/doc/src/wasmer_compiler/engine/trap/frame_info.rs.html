@@ -427,23 +427,22 @@
 //! let module: ModuleInfo = ...;
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
-</span><span class="kw">use </span>core::ops::Deref;
+
+</span><span class="kw">use </span><span class="kw">crate</span>::types::address_map::{
+    ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
+    InstructionAddressMap,
+};
+<span class="kw">use </span><span class="kw">crate</span>::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
+<span class="kw">use </span><span class="kw">crate</span>::ArtifactBuildFromArchive;
 <span class="kw">use </span>rkyv::vec::ArchivedVec;
-<span class="kw">use </span>std::cmp;
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::sync::{Arc, RwLock};
-<span class="kw">use </span>wasmer_types::compilation::address_map::{
-    ArchivedFunctionAddressMap, ArchivedInstructionAddressMap,
-};
-<span class="kw">use </span>wasmer_types::compilation::function::ArchivedCompiledFunctionFrameInfo;
-<span class="kw">use </span>wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::lib::std::{cmp, ops::Deref};
 <span class="kw">use </span>wasmer_types::{
-    CompiledFunctionFrameInfo, FrameInfo, FunctionAddressMap, InstructionAddressMap,
-    LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
+    FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
 };
 <span class="kw">use </span>wasmer_vm::FunctionBodyPtr;
-
-<span class="kw">use </span><span class="kw">crate</span>::ArtifactBuildFromArchive;
 
 <span class="macro">lazy_static::lazy_static!</span> {
     <span class="doccomment">/// This is a global cache of backtrace frame information for all active
@@ -675,7 +674,8 @@
     Owned(Vec&lt;TrapInformation&gt;),
 }
 
-<span class="kw">impl </span>Deref <span class="kw">for </span>VecTrapInformationVariant&lt;<span class="lifetime">'_</span>&gt; {
+<span class="comment">// We need to implement it for the `Deref` in `wasmer_types` to support both `core` and `std`.
+</span><span class="kw">impl </span>Deref <span class="kw">for </span>VecTrapInformationVariant&lt;<span class="lifetime">'_</span>&gt; {
     <span class="kw">type </span>Target = [TrapInformation];
 
     <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {

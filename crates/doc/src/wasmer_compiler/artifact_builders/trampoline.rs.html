@@ -125,15 +125,23 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Trampolines for libcalls.
 //!
 //! This is needed because the target of libcall relocations are not reachable
 //! through normal branch instructions.
 
 </span><span class="kw">use </span>enum_iterator::IntoEnumIterator;
-<span class="kw">use </span>wasmer_types::{
-    Architecture, CustomSection, CustomSectionProtection, LibCall, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, Target,
+<span class="kw">use </span>target_lexicon::Architecture;
+<span class="kw">use </span>wasmer_types::LibCall;
+
+<span class="kw">use </span><span class="kw">crate</span>::types::{
+    relocation::{Relocation, RelocationKind, RelocationTarget},
+    section::{CustomSection, CustomSectionProtection, SectionBody},
+    target::Target,
 };
 
 <span class="comment">// SystemV says that both x16 and x17 are available as intra-procedural scratch

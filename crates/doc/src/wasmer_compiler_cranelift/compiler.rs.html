@@ -479,38 +479,64 @@
 <a href="#479" id="479">479</a>
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::address_map::get_function_address_map;
-<span class="kw">use </span><span class="kw">crate</span>::config::Cranelift;
-<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
-<span class="kw">use </span><span class="kw">crate</span>::func_environ::{get_function_name, FuncEnvironment};
-<span class="kw">use </span><span class="kw">crate</span>::trampoline::{
-    make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
+
+<span class="kw">use crate</span>::{
+    address_map::get_function_address_map,
+    config::Cranelift,
+    func_environ::{get_function_name, FuncEnvironment},
+    trampoline::{
+        make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
+    },
+    translator::{
+        compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
+        signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
+    },
 };
-<span class="kw">use </span><span class="kw">crate</span>::translator::{
-    compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
-    signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
+<span class="kw">use </span>cranelift_codegen::{
+    ir::{<span class="self">self</span>, ExternalName, UserFuncName},
+    Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
 };
-<span class="kw">use </span>cranelift_codegen::ir::{ExternalName, UserFuncName};
-<span class="kw">use </span>cranelift_codegen::{ir, FinalizedMachReloc, FinalizedRelocTarget};
-<span class="kw">use </span>cranelift_codegen::{Context, MachTrap};
+
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::write::{Address, EhFrame, FrameTable};
+
 <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
 </span><span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 <span class="kw">use </span>std::sync::Arc;
+
 <span class="kw">use </span>wasmer_compiler::{
+    types::{
+        function::{Compilation, CompiledFunction, CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        module::CompileModuleInfo,
+        relocation::{Relocation, RelocationTarget},
+        section::SectionIndex,
+        target::{CallingConvention, Target},
+        unwind::CompiledFunctionUnwindInfo,
+    },
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState,
 };
 <span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
 <span class="kw">use </span>wasmer_types::{
-    CallingConvention, Compilation, CompileError, CompileModuleInfo, CompiledFunction,
-    CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Dwarf, FunctionBody, FunctionIndex,
-    LocalFunctionIndex, ModuleInfo, Relocation, RelocationTarget, SectionIndex, SignatureIndex,
-    Target, TrapCode, TrapInformation,
+    CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
+    TrapInformation,
 };
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,

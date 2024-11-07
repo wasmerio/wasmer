@@ -527,37 +527,35 @@
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
+</span><span class="kw">use crate</span>::{engine::builder::EngineBuilder, types::target::Target};
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::Artifact;
-<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::BaseTunables;
-<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::CodeMemory;
-<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::GlobalFrameInfoRegistration;
+</span><span class="kw">use crate</span>::{
+    types::{
+        function::FunctionBodyLike,
+        section::{CustomSectionLike, CustomSectionProtection, SectionIndex},
+    },
+    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
+};
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use crate</span>::{Compiler, CompilerConfig};
-<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-</span><span class="kw">use crate</span>::{FunctionExtent, Tunables};
+
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>shared_buffer::OwnedBuffer;
+
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <span class="kw">use </span>std::sync::{Arc, Mutex};
-<span class="kw">use </span>wasmer_types::HashAlgorithm;
+
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionBodyLike, FunctionIndex, FunctionType,
-    LocalFunctionIndex, SignatureIndex,
+    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
+    SignatureIndex,
 };
-<span class="kw">use </span>wasmer_types::{CompileError, Features, ModuleInfo, Target};
-<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-</span><span class="kw">use </span>wasmer_types::{CustomSectionLike, CustomSectionProtection, SectionIndex};
+<span class="kw">use </span>wasmer_types::{CompileError, Features, HashAlgorithm, ModuleInfo};
+
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,

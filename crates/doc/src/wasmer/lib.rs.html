@@ -533,6 +533,10 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc(
     html_logo_url = <span class="string">"https://github.com/wasmerio.png?size=200"</span>,
     html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"
@@ -1052,13 +1056,17 @@
 <span class="comment">// Reexport from other modules
 
 </span><span class="kw">pub use </span>wasmer_derive::ValueType;
+
+<span class="attr">#[cfg(any(feature = <span class="string">"sys"</span>, feature = <span class="string">"jsc"</span>, feature = <span class="string">"wasm-c-api"</span>))]
+</span><span class="kw">pub use </span>wasmer_compiler::types::target::{CpuFeature, Target};
+
 <span class="comment">// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 </span><span class="kw">pub use </span>wasmer_types::{
-    is_wasm, Bytes, CompileError, CpuFeature, DeserializeError, ExportIndex, ExportType,
-    ExternType, FrameInfo, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex,
-    MemoryError, MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages,
-    ParseCpuFeatureError, SerializeError, TableType, Target, Type, ValueType, WasmError,
-    WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
+    FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryType,
+    MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
+    TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
 };
 <span class="attr">#[cfg(feature = <span class="string">"wat"</span>)]
 </span><span class="kw">pub use </span>wat::parse_bytes <span class="kw">as </span>wat2wasm;

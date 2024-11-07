@@ -618,12 +618,12 @@
 
             <span class="kw">let </span><span class="kw-2">mut </span>command = compiler.to_command();
 
-            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.c"</span>));
+            command.arg(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.c"</span>));
             <span class="kw">if </span>!config.wasmer_dir.is_empty() {
                 command.arg(<span class="string">"/I"</span>);
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/wasm-c-api/include/"</span>, config.root_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"{}/wasm-c-api/include/"</span>, config.root_dir));
                 command.arg(<span class="string">"/I"</span>);
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/include/"</span>, config.wasmer_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"{}/include/"</span>, config.wasmer_dir));
                 <span class="kw">let </span><span class="kw-2">mut </span>log = String::new();
                 fixup_symlinks(
                     <span class="kw-2">&amp;</span>[
@@ -639,10 +639,10 @@
             }
             command.arg(<span class="string">"/link"</span>);
             <span class="kw">if </span>!config.wasmer_dir.is_empty() {
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/LIBPATH:{}/lib"</span>, config.wasmer_dir));
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/lib/wasmer.dll.lib"</span>, config.wasmer_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"/LIBPATH:{}/lib"</span>, config.wasmer_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"{}/lib/wasmer.dll.lib"</span>, config.wasmer_dir));
             }
-            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/OUT:{manifest_dir}/../{test}.exe"</span>));
+            command.arg(<span class="macro">format!</span>(<span class="string">"/OUT:{manifest_dir}/../{test}.exe"</span>));
 
             <span class="macro">println!</span>(<span class="string">"compiling {test}: {command:?}"</span>);
 
@@ -663,7 +663,7 @@
             }
 
             <span class="comment">// execute
-            </span><span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.exe"</span>));
+            </span><span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.exe"</span>));
             <span class="macro">println!</span>(<span class="string">"newpath: {}"</span>, newpath.clone());
             command.env(<span class="string">"PATH"</span>, newpath.clone());
             command.current_dir(exe_dir.clone());
@@ -701,9 +701,9 @@
 
             <span class="kw">if </span>!config.wasmer_dir.is_empty() {
                 command.arg(<span class="string">"-I"</span>);
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/wasm-c-api/include/"</span>, config.root_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"{}/wasm-c-api/include/"</span>, config.root_dir));
                 command.arg(<span class="string">"-I"</span>);
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/include/"</span>, config.wasmer_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"{}/include/"</span>, config.wasmer_dir));
                 <span class="kw">let </span><span class="kw-2">mut </span>log = String::new();
                 fixup_symlinks(
                     <span class="kw-2">&amp;</span>[
@@ -716,15 +716,15 @@
                 )
                 .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"failed to fix symlinks: {log}"</span>));
             }
-            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.c"</span>));
+            command.arg(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.c"</span>));
             <span class="kw">if </span>!config.wasmer_dir.is_empty() {
                 command.arg(<span class="string">"-L"</span>);
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/lib/"</span>, config.wasmer_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"{}/lib/"</span>, config.wasmer_dir));
                 command.arg(<span class="string">"-lwasmer"</span>);
-                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"-Wl,-rpath,{}/lib/"</span>, config.wasmer_dir));
+                command.arg(<span class="macro">format!</span>(<span class="string">"-Wl,-rpath,{}/lib/"</span>, config.wasmer_dir));
             }
             command.arg(<span class="string">"-o"</span>);
-            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}"</span>));
+            command.arg(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}"</span>));
 
             <span class="comment">// print_wasmer_root_to_stdout(&amp;config);
 
@@ -744,7 +744,7 @@
             }
 
             <span class="comment">// execute
-            </span><span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}"</span>));
+            </span><span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}"</span>));
             command.env(<span class="string">"LD_PRELOAD"</span>, libwasmer_so_path.clone());
             command.current_dir(exe_dir.clone());
             <span class="macro">println!</span>(<span class="string">"execute: {command:#?}"</span>);
@@ -761,9 +761,9 @@
     }
 
     <span class="kw">for </span>test <span class="kw">in </span>CAPI_BASE_TESTS.iter() {
-        <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/{test}.obj"</span>));
-        <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.exe"</span>));
-        <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}"</span>));
+        <span class="kw">let _ </span>= std::fs::remove_file(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/{test}.obj"</span>));
+        <span class="kw">let _ </span>= std::fs::remove_file(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}.exe"</span>));
+        <span class="kw">let _ </span>= std::fs::remove_file(<span class="macro">format!</span>(<span class="string">"{manifest_dir}/../{test}"</span>));
     }
 }
 

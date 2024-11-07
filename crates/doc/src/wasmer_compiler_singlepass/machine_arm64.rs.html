@@ -8895,26 +8895,40 @@
 <a href="#8895" id="8895">8895</a>
 <a href="#8896" id="8896">8896</a>
 <a href="#8897" id="8897">8897</a>
+<a href="#8898" id="8898">8898</a>
+<a href="#8899" id="8899">8899</a>
+<a href="#8900" id="8900">8900</a>
+<a href="#8901" id="8901">8901</a>
+<a href="#8902" id="8902">8902</a>
+<a href="#8903" id="8903">8903</a>
+<a href="#8904" id="8904">8904</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::{write::CallFrameInstruction, AArch64};
 
-<span class="kw">use </span>wasmer_compiler::wasmparser::ValType <span class="kw">as </span>WpType;
+<span class="kw">use </span>wasmer_compiler::{
+    types::{
+        address_map::InstructionAddressMap,
+        function::FunctionBody,
+        relocation::{Relocation, RelocationKind, RelocationTarget},
+        section::CustomSection,
+        target::{CallingConvention, CpuFeature, Target},
+    },
+    wasmparser::{MemArg, ValType <span class="kw">as </span>WpType},
+};
 <span class="kw">use </span>wasmer_types::{
-    CallingConvention, CompileError, CpuFeature, CustomSection, FunctionBody, FunctionIndex,
-    FunctionType, InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc,
-    Target, TrapCode, TrapInformation, VMOffsets,
+    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::arm64_decl::new_machine_state;
-<span class="kw">use </span><span class="kw">crate</span>::arm64_decl::{GPR, NEON};
-<span class="kw">use </span><span class="kw">crate</span>::codegen_error;
-<span class="kw">use </span><span class="kw">crate</span>::common_decl::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::emitter_arm64::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
-<span class="kw">use </span><span class="kw">crate</span>::location::Reg;
-<span class="kw">use </span><span class="kw">crate</span>::machine::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::unwind::{UnwindInstructions, UnwindOps};
+<span class="kw">use crate</span>::{
+    arm64_decl::{new_machine_state, GPR, NEON},
+    codegen_error,
+    common_decl::<span class="kw-2">*</span>,
+    emitter_arm64::<span class="kw-2">*</span>,
+    location::{Location <span class="kw">as </span>AbstractLocation, Reg},
+    machine::<span class="kw-2">*</span>,
+    unwind::{UnwindInstructions, UnwindOps},
+};
 
 <span class="kw">type </span>Assembler = VecAssembler&lt;Aarch64Relocation&gt;;
 <span class="kw">type </span>Location = AbstractLocation&lt;GPR, NEON&gt;;

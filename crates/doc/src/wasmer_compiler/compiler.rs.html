@@ -144,26 +144,18 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::lib::std::boxed::Box;
-<span class="kw">use </span><span class="kw">crate</span>::lib::std::sync::Arc;
-<span class="kw">use </span><span class="kw">crate</span>::translator::ModuleMiddleware;
-<span class="kw">use </span><span class="kw">crate</span>::FunctionBodyData;
-<span class="kw">use </span><span class="kw">crate</span>::ModuleTranslationState;
+</span><span class="kw">use </span><span class="kw">crate</span>::types::{module::CompileModuleInfo, symbols::SymbolRegistry, target::Target};
+<span class="kw">use crate</span>::{
+    lib::std::{boxed::Box, sync::Arc},
+    translator::ModuleMiddleware,
+    types::{function::Compilation, target::CpuFeature},
+    FunctionBodyData, ModuleTranslationState,
+};
 <span class="kw">use </span>enumset::EnumSet;
-<span class="kw">use </span>wasmer_types::compilation::function::Compilation;
-<span class="kw">use </span>wasmer_types::compilation::module::CompileModuleInfo;
-<span class="kw">use </span>wasmer_types::compilation::symbols::SymbolRegistry;
-<span class="kw">use </span>wasmer_types::compilation::target::Target;
-<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
-<span class="kw">use </span>wasmer_types::error::CompileError;
-<span class="kw">use </span>wasmer_types::{CpuFeature, Features, LocalFunctionIndex};
+<span class="kw">use </span>wasmer_types::{entity::PrimaryMap, error::CompileError, Features, LocalFunctionIndex};
 <span class="kw">use </span>wasmparser::{Validator, WasmFeatures};
 
 <span class="doccomment">/// The compiler configuration options.

@@ -2327,8 +2327,6 @@
 <a href="#2327" id="2327">2327</a>
 <a href="#2328" id="2328">2328</a>
 <a href="#2329" id="2329">2329</a>
-<a href="#2330" id="2330">2330</a>
-<a href="#2331" id="2331">2331</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -2348,14 +2346,14 @@
     process::{Command, Stdio},
 };
 <span class="kw">use </span>tar::Archive;
-<span class="kw">use </span>wasmer::sys::Artifact;
-<span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
-<span class="kw">use </span>wasmer_object::{emit_serialized, get_object_for_target};
+<span class="kw">use </span>wasmer::{sys::Artifact, <span class="kw-2">*</span>};
+<span class="kw">use </span>wasmer_compiler::{
+    object::{emit_serialized, get_object_for_target},
+    types::symbols::ModuleMetadataSymbolRegistry,
+};
 <span class="kw">use </span>wasmer_package::utils::from_disk;
-<span class="kw">use </span>wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-<span class="kw">use </span>webc::Container;
-<span class="kw">use </span>webc::PathSegments;
-<span class="kw">use </span>webc::{Metadata, Volume <span class="kw">as </span>WebcVolume};
+<span class="kw">use </span>wasmer_types::ModuleInfo;
+<span class="kw">use </span>webc::{Container, Metadata, PathSegments, Volume <span class="kw">as </span>WebcVolume};
 
 <span class="kw">const </span>LINK_SYSTEM_LIBRARIES_WINDOWS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"userenv"</span>, <span class="string">"Ws2_32"</span>, <span class="string">"advapi32"</span>, <span class="string">"bcrypt"</span>];
 
@@ -3924,7 +3922,7 @@
 
     <span class="kw">use </span>anyhow::{anyhow, Context};
     <span class="kw">use </span>target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
-    <span class="kw">use </span>wasmer_types::{CpuFeature, Target};
+    <span class="kw">use </span>wasmer_compiler::types::target::{<span class="self">self </span><span class="kw">as </span>wasmer_types, CpuFeature, Target};
 
     <span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 
@@ -4166,22 +4164,20 @@
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>triple_to_zig_triple(target_triple: <span class="kw-2">&amp;</span>Triple) -&gt; String {
         <span class="kw">let </span>arch = <span class="kw">match </span>target_triple.architecture {
-            wasmer_types::Architecture::X86_64 =&gt; <span class="string">"x86_64"</span>.into(),
-            wasmer_types::Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) =&gt; {
-                <span class="string">"aarch64"</span>.into()
-            }
+            Architecture::X86_64 =&gt; <span class="string">"x86_64"</span>.into(),
+            Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) =&gt; <span class="string">"aarch64"</span>.into(),
             v =&gt; v.to_string(),
         };
         <span class="kw">let </span>os = <span class="kw">match </span>target_triple.operating_system {
-            wasmer_types::OperatingSystem::Linux =&gt; <span class="string">"linux"</span>.into(),
-            wasmer_types::OperatingSystem::Darwin =&gt; <span class="string">"macos"</span>.into(),
-            wasmer_types::OperatingSystem::Windows =&gt; <span class="string">"windows"</span>.into(),
+            OperatingSystem::Linux =&gt; <span class="string">"linux"</span>.into(),
+            OperatingSystem::Darwin =&gt; <span class="string">"macos"</span>.into(),
+            OperatingSystem::Windows =&gt; <span class="string">"windows"</span>.into(),
             v =&gt; v.to_string(),
         };
         <span class="kw">let </span>env = <span class="kw">match </span>target_triple.environment {
-            wasmer_types::Environment::Musl =&gt; <span class="string">"musl"</span>,
-            wasmer_types::Environment::Gnu =&gt; <span class="string">"gnu"</span>,
-            wasmer_types::Environment::Msvc =&gt; <span class="string">"msvc"</span>,
+            Environment::Musl =&gt; <span class="string">"musl"</span>,
+            Environment::Gnu =&gt; <span class="string">"gnu"</span>,
+            Environment::Msvc =&gt; <span class="string">"msvc"</span>,
             <span class="kw">_ </span>=&gt; <span class="string">"none"</span>,
         };
         <span class="macro">format!</span>(<span class="string">"{}-{}-{}"</span>, arch, os, env)

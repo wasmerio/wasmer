@@ -2504,22 +2504,34 @@
 <a href="#2504" id="2504">2504</a>
 <a href="#2505" id="2505">2505</a>
 <a href="#2506" id="2506">2506</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::common_decl::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::location::{Location, Reg};
-<span class="kw">use </span><span class="kw">crate</span>::machine_arm64::MachineARM64;
-<span class="kw">use </span><span class="kw">crate</span>::machine_x64::MachineX86_64;
-<span class="kw">use </span><span class="kw">crate</span>::unwind::UnwindInstructions;
-<span class="kw">use </span>dynasmrt::{AssemblyOffset, DynamicLabel};
-<span class="kw">use </span>std::collections::BTreeMap;
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">pub use </span>wasmer_compiler::wasmparser::MemArg;
-<span class="kw">use </span>wasmer_compiler::wasmparser::ValType <span class="kw">as </span>WpType;
-<span class="kw">use </span>wasmer_types::{
-    Architecture, CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex,
-    FunctionType, InstructionAddressMap, Relocation, RelocationTarget, Target, TrapCode,
-    TrapInformation, VMOffsets,
+<a href="#2507" id="2507">2507</a>
+<a href="#2508" id="2508">2508</a>
+<a href="#2509" id="2509">2509</a>
+<a href="#2510" id="2510">2510</a>
+<a href="#2511" id="2511">2511</a>
+<a href="#2512" id="2512">2512</a>
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    common_decl::<span class="kw-2">*</span>,
+    location::{Location, Reg},
+    machine_arm64::MachineARM64,
+    machine_x64::MachineX86_64,
+    unwind::UnwindInstructions,
 };
-
+<span class="kw">use </span>dynasmrt::{AssemblyOffset, DynamicLabel};
+<span class="kw">use </span>std::{collections::BTreeMap, fmt::Debug};
+<span class="kw">use </span>wasmer_compiler::{
+    types::{
+        address_map::InstructionAddressMap,
+        function::FunctionBody,
+        relocation::{Relocation, RelocationTarget},
+        section::CustomSection,
+        target::{Architecture, CallingConvention, Target},
+    },
+    wasmparser::{MemArg, ValType <span class="kw">as </span>WpType},
+};
+<span class="kw">use </span>wasmer_types::{
+    CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
+};
 <span class="kw">pub type </span>Label = DynamicLabel;
 <span class="kw">pub type </span>Offset = AssemblyOffset;
 

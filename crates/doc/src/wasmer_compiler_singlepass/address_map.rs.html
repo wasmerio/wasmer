@@ -19,8 +19,10 @@
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>wasmer_compiler::FunctionBodyData;
-<span class="kw">use </span>wasmer_types::{FunctionAddressMap, InstructionAddressMap, SourceLoc};
+<a href="#22" id="22">22</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>wasmer_compiler::types::address_map::{FunctionAddressMap, InstructionAddressMap};
+<span class="kw">use </span>wasmer_compiler::FunctionBodyData;
+<span class="kw">use </span>wasmer_types::SourceLoc;
 
 <span class="kw">pub fn </span>get_function_address_map(
     instructions: Vec&lt;InstructionAddressMap&gt;,

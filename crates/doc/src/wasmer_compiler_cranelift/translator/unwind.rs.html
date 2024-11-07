@@ -67,16 +67,14 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module.
 
 </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>cranelift_codegen::isa::unwind::{systemv::UnwindInfo <span class="kw">as </span>DwarfFDE, UnwindInfo};
-<span class="kw">use </span>cranelift_codegen::print_errors::pretty_error;
-<span class="kw">use </span>cranelift_codegen::{isa, Context};
+<span class="kw">use </span>cranelift_codegen::{isa, print_errors::pretty_error, Context};
+<span class="kw">use </span>wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 <span class="kw">use </span>wasmer_types::CompileError;
-<span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfo;
 
 <span class="doccomment">/// Cranelift specific unwind info
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>CraneliftUnwindInfo {

@@ -2419,16 +2419,22 @@
 <a href="#2419" id="2419">2419</a>
 <a href="#2420" id="2420">2420</a>
 <a href="#2421" id="2421">2421</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::codegen_error;
-<span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
-<span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
-<span class="kw">pub use </span><span class="kw">crate</span>::location::Multiplier;
-<span class="kw">pub use </span><span class="kw">crate</span>::machine::{Label, Offset};
-<span class="kw">use </span><span class="kw">crate</span>::machine_x64::AssemblerX64;
-<span class="kw">pub use </span><span class="kw">crate</span>::x64_decl::{GPR, XMM};
+<a href="#2422" id="2422">2422</a>
+<a href="#2423" id="2423">2423</a>
+<a href="#2424" id="2424">2424</a>
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+    codegen_error, common_decl::Size, location::Location <span class="kw">as </span>AbstractLocation,
+    machine_x64::AssemblerX64,
+};
+<span class="kw">pub use crate</span>::{
+    location::Multiplier,
+    machine::{Label, Offset},
+    x64_decl::{GPR, XMM},
+};
 <span class="kw">use </span>dynasm::dynasm;
 <span class="kw">use </span>dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-<span class="kw">use </span>wasmer_types::{CompileError, CpuFeature};
+<span class="kw">use </span>wasmer_compiler::types::target::CpuFeature;
+<span class="kw">use </span>wasmer_types::CompileError;
 
 <span class="doccomment">/// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the

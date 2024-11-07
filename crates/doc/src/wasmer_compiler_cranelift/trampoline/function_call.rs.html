@@ -113,6 +113,8 @@
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -124,13 +126,15 @@
 //! my_func.call([1, 2])
 //! ```
 </span><span class="kw">use </span><span class="kw">crate</span>::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
-<span class="kw">use </span>cranelift_codegen::ir;
-<span class="kw">use </span>cranelift_codegen::ir::InstBuilder;
-<span class="kw">use </span>cranelift_codegen::isa::TargetIsa;
-<span class="kw">use </span>cranelift_codegen::Context;
+<span class="kw">use </span>cranelift_codegen::{
+    ir::{<span class="self">self</span>, InstBuilder},
+    isa::TargetIsa,
+    Context,
+};
 <span class="kw">use </span>cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 <span class="kw">use </span>std::mem;
-<span class="kw">use </span>wasmer_types::{CompileError, FunctionBody, FunctionType};
+<span class="kw">use </span>wasmer_compiler::types::function::FunctionBody;
+<span class="kw">use </span>wasmer_types::{CompileError, FunctionType};
 
 <span class="doccomment">/// Create a trampoline for invoking a WebAssembly function.
 </span><span class="kw">pub fn </span>make_trampoline_function_call(

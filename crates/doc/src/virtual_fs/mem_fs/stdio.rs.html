@@ -316,18 +316,6 @@
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the standard I/O streams, i.e. “emulated”
 //! `stdin`, `stdout` and `stderr`.
 
@@ -534,11 +522,7 @@
             <span class="macro">matches!</span>(stdin.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">"reading bytes again from `stdin`"</span>,
         );
-        <span class="macro">assert_eq!</span>(
-            buffer,
-            <span class="kw-2">&amp;</span>[<span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'r'</span>],
-            <span class="string">"checking the bytes read from `stdin`"
-        </span>);
+        <span class="macro">assert_eq!</span>(buffer, <span class="string">b"bar"</span>, <span class="string">"checking the bytes read from `stdin`"</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">1</span>];
 
@@ -595,11 +579,7 @@
             <span class="macro">matches!</span>(stdout.write(<span class="string">b"qux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">"writing again into `stdout`"</span>,
         );
-        <span class="macro">assert_eq!</span>(
-            stdout.buf,
-            <span class="kw-2">&amp;</span>[<span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'z'</span>, <span class="string">b'q'</span>, <span class="string">b'u'</span>, <span class="string">b'x'</span>],
-            <span class="string">"checking the content of `stdout`"</span>,
-        );
+        <span class="macro">assert_eq!</span>(stdout.buf, <span class="string">b"bazqux"</span>, <span class="string">"checking the content of `stdout`"</span>,);
     }
 
     <span class="attr">#[tokio::test]
@@ -639,11 +619,7 @@
             <span class="macro">matches!</span>(stderr.write(<span class="string">b"qux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">"writing again into `stderr`"</span>,
         );
-        <span class="macro">assert_eq!</span>(
-            stderr.buf,
-            <span class="kw-2">&amp;</span>[<span class="string">b'b'</span>, <span class="string">b'a'</span>, <span class="string">b'z'</span>, <span class="string">b'q'</span>, <span class="string">b'u'</span>, <span class="string">b'x'</span>],
-            <span class="string">"checking the content of `stderr`"</span>,
-        );
+        <span class="macro">assert_eq!</span>(stderr.buf, <span class="string">b"bazqux"</span>, <span class="string">"checking the content of `stderr`"</span>,);
     }
 
     <span class="attr">#[tokio::test]

@@ -505,44 +505,46 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
 </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span><span class="kw">super</span>::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
-<span class="kw">use </span><span class="kw">crate</span>::ArtifactCreate;
+
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::EngineInner;
-<span class="kw">use </span><span class="kw">crate</span>::Features;
-<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-</span><span class="kw">use crate</span>::{ModuleEnvironment, ModuleMiddlewareChain};
+</span><span class="kw">use crate</span>::{
+    serialize::SerializableCompilation, types::target::Target, EngineInner, ModuleEnvironment,
+    ModuleMiddlewareChain,
+};
+<span class="kw">use crate</span>::{
+    serialize::{
+        ArchivedSerializableCompilation, ArchivedSerializableModule, MetadataHeader,
+        SerializableModule,
+    },
+    types::{
+        function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        module::CompileModuleInfo,
+        relocation::Relocation,
+        section::{CustomSection, SectionIndex},
+        target::CpuFeature,
+    },
+    ArtifactCreate, Features,
+};
 <span class="kw">use </span>core::mem::MaybeUninit;
 <span class="kw">use </span>enumset::EnumSet;
 <span class="kw">use </span>rkyv::{option::ArchivedOption, rancor::Error <span class="kw">as </span>RkyvError};
 <span class="kw">use </span>self_cell::self_cell;
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>wasmer_types::entity::{ArchivedPrimaryMap, PrimaryMap};
-<span class="kw">use </span>wasmer_types::ArchivedOwnedDataInitializer;
-<span class="kw">use </span>wasmer_types::ArchivedSerializableCompilation;
-<span class="kw">use </span>wasmer_types::ArchivedSerializableModule;
-<span class="kw">use </span>wasmer_types::CompileModuleInfo;
-<span class="kw">use </span>wasmer_types::DeserializeError;
+<span class="kw">use </span>wasmer_types::{
+    entity::{ArchivedPrimaryMap, PrimaryMap},
+    DeserializeError,
+};
 
 <span class="comment">// Not every compiler backend uses these.
 </span><span class="attr">#[allow(unused)]
-</span><span class="kw">use </span>wasmer_types::{
-    CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleHash, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
-    SignatureIndex, TableIndex, TableStyle, Target,
-};
-
-<span class="attr">#[allow(unused)]
-</span><span class="kw">use </span>wasmer_types::{
-    CompiledFunctionFrameInfo, FunctionBody, HashAlgorithm, SerializableCompilation,
-    SerializableModule,
-};
-<span class="kw">use </span>wasmer_types::{MetadataHeader, SerializeError};
+</span><span class="kw">use </span>wasmer_types::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]

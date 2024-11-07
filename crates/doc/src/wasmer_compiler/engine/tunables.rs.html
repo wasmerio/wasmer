@@ -366,12 +366,14 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::error::LinkError;
+<span class="kw">use </span><span class="kw">crate</span>::types::target::{PointerWidth, Target};
 <span class="kw">use </span>std::ptr::NonNull;
 <span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
 <span class="kw">use </span>wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, Pages, PointerWidth, TableIndex, TableType, Target,
+    ModuleInfo, Pages, TableIndex, TableType,
 };
 <span class="kw">use </span>wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 <span class="kw">use </span>wasmer_vm::{MemoryStyle, TableStyle};

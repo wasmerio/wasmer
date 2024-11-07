@@ -299,9 +299,11 @@
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Generate a header file for the static object file produced.
 
-</span><span class="kw">use </span>wasmer_types::{ModuleInfo, Symbol, SymbolRegistry};
+</span><span class="kw">use </span>wasmer_compiler::types::symbols::{Symbol, SymbolRegistry};
+<span class="kw">use </span>wasmer_types::ModuleInfo;
 
 <span class="kw">use super</span>::{generate_c, CStatement, CType};
 

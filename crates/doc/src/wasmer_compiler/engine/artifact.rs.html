@@ -1186,55 +1186,50 @@
 <a href="#1186" id="1186">1186</a>
 <a href="#1187" id="1187">1187</a>
 <a href="#1188" id="1188">1188</a>
-<a href="#1189" id="1189">1189</a>
-<a href="#1190" id="1190">1190</a>
-<a href="#1191" id="1191">1191</a>
-<a href="#1192" id="1192">1192</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::engine::link::link_module;
-<span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::IntoIter;
-<span class="kw">use </span><span class="kw">crate</span>::ArtifactBuild;
-<span class="kw">use </span><span class="kw">crate</span>::ArtifactBuildFromArchive;
-<span class="kw">use </span><span class="kw">crate</span>::ArtifactCreate;
-<span class="kw">use </span><span class="kw">crate</span>::Features;
-<span class="kw">use </span><span class="kw">crate</span>::FrameInfosVariant;
-<span class="kw">use </span><span class="kw">crate</span>::ModuleEnvironment;
-<span class="kw">use crate</span>::{
-    register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, Tunables,
+</span><span class="kw">use </span>std::sync::{
+    atomic::{AtomicUsize, Ordering::SeqCst},
+    Arc,
 };
+
+<span class="kw">use crate</span>::{
+    engine::link::link_module,
+    lib::std::vec::IntoIter,
+    register_frame_info, resolve_imports,
+    serialize::{MetadataHeader, SerializableModule},
+    types::target::{CpuFeature, Target},
+    ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
+    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
+    ModuleEnvironment, Tunables,
+};
+<span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
+</span><span class="kw">use crate</span>::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 <span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-</span><span class="kw">use crate</span>::{Compiler, FunctionBodyData, ModuleTranslationState};
-<span class="kw">use crate</span>::{Engine, EngineInner};
+</span><span class="kw">use crate</span>::{types::module::CompileModuleInfo, Compiler, FunctionBodyData, ModuleTranslationState};
+
 <span class="kw">use </span>enumset::EnumSet;
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
+
 <span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
 </span><span class="kw">use </span>std::mem;
-<span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
-<span class="kw">use </span>std::sync::Arc;
+
 <span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-</span><span class="kw">use </span>wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
-<span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
-</span><span class="kw">use </span>wasmer_types::compilation::symbols::ModuleMetadata;
-<span class="kw">use </span>wasmer_types::entity::{BoxedSlice, PrimaryMap};
-<span class="kw">use </span>wasmer_types::ArchivedDataInitializerLocation;
-<span class="kw">use </span>wasmer_types::ArchivedOwnedDataInitializer;
-<span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-</span><span class="kw">use </span>wasmer_types::CompileModuleInfo;
-<span class="kw">use </span>wasmer_types::DataInitializerLike;
-<span class="kw">use </span>wasmer_types::DataInitializerLocation;
-<span class="kw">use </span>wasmer_types::DataInitializerLocationLike;
-<span class="kw">use </span>wasmer_types::MetadataHeader;
+</span><span class="kw">use </span><span class="kw">crate</span>::object::{emit_compilation, emit_data, get_object_for_target, Object};
+
 <span class="kw">use </span>wasmer_types::{
-    CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, HashAlgorithm,
-    LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
-    Target,
+    entity::{BoxedSlice, PrimaryMap},
+    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
+    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
+    FunctionIndex, HashAlgorithm, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
 };
-<span class="kw">use </span>wasmer_types::{SerializableModule, SerializeError};
-<span class="kw">use </span>wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-<span class="kw">use </span>wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
+
+<span class="kw">use </span>wasmer_vm::{
+    FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
+    VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
+};
 
 <span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>AllocatedArtifact {
@@ -2167,11 +2162,11 @@
             ModuleInfo,
             Object&lt;<span class="lifetime">'data</span>&gt;,
             usize,
-            Box&lt;<span class="kw">dyn </span>wasmer_types::SymbolRegistry&gt;,
+            Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::types::symbols::SymbolRegistry&gt;,
         ),
         CompileError,
     &gt; {
-        <span class="kw">use </span>wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, SymbolRegistry};
+        <span class="kw">use </span><span class="kw">crate</span>::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
 
         <span class="kw">fn </span>to_compile_error(err: <span class="kw">impl </span>std::error::Error) -&gt; CompileError {
             CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"{}"</span>, err))
@@ -2206,19 +2201,18 @@
 
         <span class="kw">let </span>(_compile_info, symbol_registry) = metadata.split();
 
-        <span class="kw">let </span>compilation: wasmer_types::compilation::function::Compilation = compiler
-            .compile_module(
-                target,
-                <span class="kw-2">&amp;</span>metadata.compile_info,
-                module_translation.as_ref().unwrap(),
-                function_body_inputs,
-            )<span class="question-mark">?</span>;
+        <span class="kw">let </span>compilation: <span class="kw">crate</span>::types::function::Compilation = compiler.compile_module(
+            target,
+            <span class="kw-2">&amp;</span>metadata.compile_info,
+            module_translation.as_ref().unwrap(),
+            function_body_inputs,
+        )<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>obj = get_object_for_target(target_triple).map_err(to_compile_error)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>object_name = ModuleMetadataSymbolRegistry {
             prefix: metadata_prefix.unwrap_or_default().to_string(),
         }
-        .symbol_to_name(wasmer_types::Symbol::Metadata);
+        .symbol_to_name(<span class="kw">crate</span>::types::symbols::Symbol::Metadata);
 
         emit_data(<span class="kw-2">&amp;mut </span>obj, object_name.as_bytes(), <span class="kw-2">&amp;</span>metadata_binary, <span class="number">1</span>)
             .map_err(to_compile_error)<span class="question-mark">?</span>;
@@ -2269,8 +2263,6 @@
         engine: <span class="kw-2">&amp;</span>Engine,
         bytes: OwnedBuffer,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-        <span class="kw">use </span>wasmer_types::SerializableCompilation;
-
         <span class="kw">let </span>bytes = bytes.as_slice();
         <span class="kw">let </span>metadata_len = MetadataHeader::parse(bytes)<span class="question-mark">?</span>;
         <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())<span class="question-mark">?</span>;

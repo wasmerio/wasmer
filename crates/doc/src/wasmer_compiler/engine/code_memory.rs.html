@@ -246,15 +246,21 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! Memory management for executable code.
 </span><span class="kw">use </span><span class="kw">super</span>::unwind::UnwindRegistry;
-<span class="kw">use </span><span class="kw">crate</span>::GlobalFrameInfoRegistration;
-<span class="kw">use </span>wasmer_types::{
-    compilation::unwind::CompiledFunctionUnwindInfoLike, CompiledFunctionUnwindInfoReference,
-    CustomSectionLike, FunctionBodyLike,
+<span class="kw">use crate</span>::{
+    types::{
+        function::FunctionBodyLike,
+        section::CustomSectionLike,
+        unwind::{CompiledFunctionUnwindInfoLike, CompiledFunctionUnwindInfoReference},
+    },
+    GlobalFrameInfoRegistration,
 };
 <span class="kw">use </span>wasmer_vm::{Mmap, VMFunctionBody};
 

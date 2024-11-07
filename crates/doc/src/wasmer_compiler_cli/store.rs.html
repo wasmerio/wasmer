@@ -385,6 +385,8 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -394,9 +396,11 @@
 <span class="kw">use </span>std::string::ToString;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>wasmer_compiler::EngineBuilder;
-<span class="kw">use </span>wasmer_compiler::{CompilerConfig, Features};
-<span class="kw">use </span>wasmer_types::{MemoryStyle, MemoryType, Pages, PointerWidth, TableStyle, TableType, Target};
+<span class="kw">use </span>wasmer_compiler::{
+    types::target::{PointerWidth, Target},
+    CompilerConfig, EngineBuilder, Features,
+};
+<span class="kw">use </span>wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
 
 <span class="doccomment">/// Minimul Subset of Tunable parameters for WebAssembly compilation.
 </span><span class="attr">#[derive(Clone)]

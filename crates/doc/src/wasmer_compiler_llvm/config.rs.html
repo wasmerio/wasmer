@@ -301,6 +301,7 @@
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::LLVMCompiler;
 <span class="kw">use </span>inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target <span class="kw">as </span>InkwellTarget, TargetMachine,
@@ -310,9 +311,11 @@
 <span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>target_lexicon::Architecture;
-<span class="kw">use </span>wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
-<span class="kw">use </span>wasmer_types::{FunctionType, LocalFunctionIndex, Target, Triple};
+<span class="kw">use </span>wasmer_compiler::{
+    types::target::{Architecture, OperatingSystem, Target, Triple},
+    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+};
+<span class="kw">use </span>wasmer_types::{FunctionType, LocalFunctionIndex};
 
 <span class="doccomment">/// The InkWell ModuleInfo type
 </span><span class="kw">pub type </span>InkwellModule&lt;<span class="lifetime">'ctx</span>&gt; = inkwell::module::Module&lt;<span class="lifetime">'ctx</span>&gt;;
@@ -409,25 +412,24 @@
         };
         <span class="comment">// Hack: we're using is_pic to determine whether this is a native
         // build or not.
-        </span><span class="kw">let </span>operating_system = <span class="kw">if </span>target.triple().operating_system
-            == wasmer_types::OperatingSystem::Darwin
-            &amp;&amp; !<span class="self">self</span>.is_pic
-        {
-            <span class="comment">// LLVM detects static relocation + darwin + 64-bit and
-            // force-enables PIC because MachO doesn't support that
-            // combination. They don't check whether they're targeting
-            // MachO, they check whether the OS is set to Darwin.
-            //
-            // Since both linux and darwin use SysV ABI, this should work.
-            //  but not in the case of Aarch64, there the ABI is slightly different
-            </span><span class="attr">#[allow(clippy::match_single_binding)]
-            </span><span class="kw">match </span>target.triple().architecture {
-                Architecture::Aarch64(<span class="kw">_</span>) =&gt; wasmer_types::OperatingSystem::Darwin,
-                <span class="kw">_ </span>=&gt; wasmer_types::OperatingSystem::Linux,
-            }
-        } <span class="kw">else </span>{
-            target.triple().operating_system
-        };
+
+        </span><span class="kw">let </span>operating_system =
+            <span class="kw">if </span>target.triple().operating_system == OperatingSystem::Darwin &amp;&amp; !<span class="self">self</span>.is_pic {
+                <span class="comment">// LLVM detects static relocation + darwin + 64-bit and
+                // force-enables PIC because MachO doesn't support that
+                // combination. They don't check whether they're targeting
+                // MachO, they check whether the OS is set to Darwin.
+                //
+                // Since both linux and darwin use SysV ABI, this should work.
+                //  but not in the case of Aarch64, there the ABI is slightly different
+                </span><span class="attr">#[allow(clippy::match_single_binding)]
+                </span><span class="kw">match </span>target.triple().architecture {
+                    Architecture::Aarch64(<span class="kw">_</span>) =&gt; OperatingSystem::Darwin,
+                    <span class="kw">_ </span>=&gt; OperatingSystem::Linux,
+                }
+            } <span class="kw">else </span>{
+                target.triple().operating_system
+            };
 
         <span class="kw">let </span>binary_format = <span class="kw">if </span><span class="self">self</span>.is_pic {
             target.triple().binary_format

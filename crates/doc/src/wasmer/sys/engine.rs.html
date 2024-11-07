@@ -165,11 +165,11 @@
 
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">pub use </span>wasmer_compiler::{
-    Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
+    types::target::Target, Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span>wasmer_types::Features;
-<span class="kw">use </span>wasmer_types::{DeserializeError, HashAlgorithm, Target};
+<span class="kw">use </span>wasmer_types::{DeserializeError, HashAlgorithm};
 
 <span class="doccomment">/// Get the default config for the sys Engine
 </span><span class="attr">#[allow(unreachable_code)]
