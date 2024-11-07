@@ -23,6 +23,7 @@ mod common;
 mod config;
 #[macro_use]
 mod error;
+#[cfg(feature = "static-artifact-create")]
 mod c_gen;
 mod logging;
 mod opts;
