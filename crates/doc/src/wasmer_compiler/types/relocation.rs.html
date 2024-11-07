@@ -274,6 +274,29 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="comment">/*
  * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
  * on their own.
@@ -429,6 +452,16 @@
     /// to that address.
     ///
     /// The function returns the relocation address and the delta.
+    ///
+    </span><span class="comment">// # Nomenclature (from [1]@5.7.3.3)
+    //
+    // * S (when used on its own) is the address of the symbol.
+    // * A is the addend for the relocation.
+    // * P is the address of the place being relocated (derived from r_offset).
+    // * X is the result of a relocation operation, before any masking or bit-selection operation is applied
+    // * Page(expr) is the page address of the expression expr, defined as (expr &amp; ~0xFFF). (This applies even if the machine page size supported by the platform has a different value.)
+    //
+    // [1]: https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
     </span><span class="kw">fn </span>for_address(<span class="kw-2">&amp;</span><span class="self">self</span>, start: usize, target_func_address: u64) -&gt; (usize, u64) {
         <span class="kw">match </span><span class="self">self</span>.kind() {
             RelocationKind::Abs8
@@ -437,7 +470,6 @@
             | RelocationKind::Arm64Movw2
             | RelocationKind::Arm64Movw3
             | RelocationKind::RiscvPCRelLo12I
-            | RelocationKind::Aarch64AddAbsLo12Nc
             | RelocationKind::Aarch64Ldst128AbsLo12Nc
             | RelocationKind::Aarch64Ldst64AbsLo12Nc =&gt; {
                 <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
@@ -473,10 +505,24 @@
                     .wrapping_add(reloc_addend <span class="kw">as </span>u32);
                 (reloc_address, reloc_delta_u32 <span class="kw">as </span>u64)
             }
+            RelocationKind::Aarch64AdrPrelLo21 =&gt; {
+                <span class="kw">let </span>s = target_func_address;
+                <span class="kw">let </span>p = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>a = <span class="self">self</span>.addend() <span class="kw">as </span>u64;
+
+                (p, s.wrapping_add(a).wrapping_sub(p <span class="kw">as </span>u64))
+            }
+
+            RelocationKind::Aarch64AddAbsLo12Nc =&gt; {
+                <span class="kw">let </span>s = target_func_address;
+                <span class="kw">let </span>p = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>a = <span class="self">self</span>.addend() <span class="kw">as </span>u64;
+
+                (p, s.wrapping_add(a))
+            }
             RelocationKind::Arm64Call
             | RelocationKind::RiscvCall
-            | RelocationKind::RiscvPCRelHi20
-            | RelocationKind::Aarch64AdrPrelLo21 =&gt; {
+            | RelocationKind::RiscvPCRelHi20 =&gt; {
                 <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
                 <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
                 <span class="kw">let </span>reloc_delta_u32 = target_func_address
