@@ -70,7 +70,6 @@ wasmer-artifact-create = [
 	"wasmer/wasmer-artifact-create",
 	"wasmer-compiler/wasmer-artifact-load",
 	"wasmer-compiler/wasmer-artifact-create",
-	"wasmer-object",
 ]
 static-artifact-create = [
 	"compiler",
@@ -78,7 +77,6 @@ static-artifact-create = [
 	"wasmer/static-artifact-create",
 	"wasmer-compiler/static-artifact-load",
 	"wasmer-compiler/static-artifact-create",
-	"wasmer-object",
 ]
 wasmer-artifact-load = [
 	"compiler",
@@ -134,7 +132,6 @@ wasmer-wast = { version = "=5.0.1", path = "../../tests/lib/wast", optional = tr
 wasmer-types = { version = "=5.0.1", path = "../types", features = [
 	"enable-serde",
 ] }
-wasmer-object = { version = "=5.0.1", path = "../object", optional = true }
 virtual-fs = { version = "0.19.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
@@ -188,7 +185,7 @@ log = "0.4.17"
 semver = "1.0.14"
 pathdiff = "0.2.1"
 sha2 = "0.10.6"
-object = "0.32.0"
+object = { workspace = true }
 wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [

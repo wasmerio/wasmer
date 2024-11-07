@@ -1,31 +1,43 @@
-use crate::address_map::get_function_address_map;
-use crate::codegen_error;
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::location::{Location, Reg};
-use crate::machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
-use crate::unwind::UnwindFrame;
-use crate::{common_decl::*, config::Singlepass};
+
+use crate::{
+    address_map::get_function_address_map,
+    codegen_error,
+    common_decl::*,
+    config::Singlepass,
+    location::{Location, Reg},
+    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE},
+    unwind::UnwindFrame,
+};
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
-use std::cmp;
-use std::iter;
-use wasmer_compiler::wasmparser::{
-    BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
-    ValType as WpType,
+use std::{cmp, iter};
+
+use wasmer_compiler::{
+    types::{
+        function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
+        relocation::{Relocation, RelocationTarget},
+        section::SectionIndex,
+        target::CallingConvention,
+    },
+    wasmparser::{
+        BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
+        ValType as WpType,
+    },
+    FunctionBodyData,
 };
-use wasmer_compiler::FunctionBodyData;
+
 #[cfg(feature = "unwind")]
-use wasmer_types::CompiledFunctionUnwindInfo;
+use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
+
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
-    CallingConvention, CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex,
-    LocalMemoryIndex, MemoryIndex, MemoryStyle, ModuleInfo, Relocation, RelocationTarget,
-    SectionIndex, SignatureIndex, TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex,
-    VMOffsets,
+    CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
+    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
+    VMBuiltinFunctionIndex, VMOffsets,
 };
-use wasmer_types::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {

@@ -2,11 +2,11 @@ use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
 pub use wasmer_compiler::{
-    Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
+    types::target::Target, Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{DeserializeError, HashAlgorithm, Target};
+use wasmer_types::{DeserializeError, HashAlgorithm};
 
 /// Get the default config for the sys Engine
 #[allow(unreachable_code)]

@@ -1,15 +1,20 @@
 //! Linking for Universal-compiled code.
 
-use crate::get_libcall_trampoline;
-use crate::FunctionExtent;
-use std::collections::HashMap;
-use std::ptr::{read_unaligned, write_unaligned};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::RelocationLike;
-use wasmer_types::{LocalFunctionIndex, ModuleInfo};
-use wasmer_types::{RelocationKind, RelocationTarget, SectionIndex};
-use wasmer_vm::libcalls::function_pointer;
-use wasmer_vm::SectionBodyPtr;
+use crate::{
+    get_libcall_trampoline,
+    types::{
+        relocation::{RelocationKind, RelocationLike, RelocationTarget},
+        section::SectionIndex,
+    },
+    FunctionExtent,
+};
+use std::{
+    collections::HashMap,
+    ptr::{read_unaligned, write_unaligned},
+};
+
+use wasmer_types::{entity::PrimaryMap, LocalFunctionIndex, ModuleInfo};
+use wasmer_vm::{libcalls::function_pointer, SectionBodyPtr};
 
 fn apply_relocation(
     body: usize,

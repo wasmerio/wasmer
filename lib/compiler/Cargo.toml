@@ -14,7 +14,6 @@ version.workspace = true
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=5.0.1", default-features = false }
-wasmer-object = { path = "../object", version = "=5.0.1", optional = true }
 wasmparser = { workspace = true, optional = true, default-features = false }
 enumset.workspace = true
 hashbrown = { version = "0.11", optional = true }
@@ -42,7 +41,9 @@ bytes = "1.0"
 self_cell = "1.0"
 rkyv = { workspace = true }
 shared-buffer = { workspace = true }
-libc.workspace = true
+libc = { workspace = true }
+target-lexicon = { workspace = true }
+object = { workspace = true, features = ["write"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-vm = { path = "../vm", version = "=5.0.1" }
@@ -63,7 +64,7 @@ compiler = ["translator"]
 wasmer-artifact-load = []
 wasmer-artifact-create = []
 static-artifact-load = []
-static-artifact-create = ["wasmer-object"]
+static-artifact-create = []
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]

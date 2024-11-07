@@ -762,7 +762,7 @@ fn test_snapshot_web_server_epoll() {
         .arg("--log-level")
         .arg("warn")
         .arg("--port")
-        .arg(&format!("{}", port));
+        .arg(format!("{}", port));
 
     let snapshot = builder.run_wasm_with(
         include_bytes!("./wasm/web-server-epoll.wasm"),

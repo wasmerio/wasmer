@@ -1,5 +1,6 @@
 //! Generic Artifact abstraction for Wasmer Engines.
 
+use crate::types::target::CpuFeature;
 use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
@@ -7,7 +8,7 @@ use std::sync::Arc;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::SerializeError;
 use wasmer_types::{
-    CpuFeature, DataInitializerLike, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
+    DataInitializerLike, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
 };
 
 /// An `Artifact` is the product that the `Engine`

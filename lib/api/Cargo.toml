@@ -90,6 +90,7 @@ wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
 serde-wasm-bindgen = { version = "0.4.5" }
 serde = { version = "1.0", features = ["derive"] }
+target-lexicon = { workspace = true }
 
 # - Development Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -168,7 +169,11 @@ xz = "0.1.0"
 zip = "2.2.0"
 
 [target.'cfg(target_env = "musl")'.build-dependencies]
-bindgen = { version = "0.70.1", default-features = false, features = ["static", "logging", "prettyplease"] }
+bindgen = { version = "0.70.1", default-features = false, features = [
+	"static",
+	"logging",
+	"prettyplease",
+] }
 
 [target.'cfg(not(target_env = "musl"))'.build-dependencies]
 bindgen = { version = "0.70.1" }

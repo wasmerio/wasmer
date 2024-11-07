@@ -2,8 +2,8 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Module for Windows x64 ABI unwind registry.
+use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 use std::collections::HashMap;
-use wasmer_types::CompiledFunctionUnwindInfoReference;
 use windows_sys::Win32::System::Diagnostics::Debug::{
     RtlAddFunctionTable, RtlDeleteFunctionTable, IMAGE_RUNTIME_FUNCTION_ENTRY,
 };

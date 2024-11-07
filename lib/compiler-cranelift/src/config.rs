@@ -1,10 +1,14 @@
 use crate::compiler::CraneliftCompiler;
-use cranelift_codegen::isa::{lookup, TargetIsa};
-use cranelift_codegen::settings::{self, Configurable};
-use cranelift_codegen::CodegenResult;
+use cranelift_codegen::{
+    isa::{lookup, TargetIsa},
+    settings::{self, Configurable},
+    CodegenResult,
+};
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
-use wasmer_types::{Architecture, CpuFeature, Target};
+use wasmer_compiler::{
+    types::target::{Architecture, CpuFeature, Target},
+    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+};
 
 // Runtime Environment
 

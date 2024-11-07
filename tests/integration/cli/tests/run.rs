@@ -1248,7 +1248,7 @@ fn wait_for(text: &str, reader: &mut dyn Read) -> String {
 fn read_line(reader: &mut dyn Read) -> Result<String, std::io::Error> {
     let mut line = Vec::new();
 
-    while !line.ends_with(&[b'\n']) {
+    while !line.ends_with(b"\n") {
         let mut buffer = [0_u8];
         match reader.read_exact(&mut buffer) {
             Ok(_) => {

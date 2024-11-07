@@ -8,13 +8,13 @@
 // Same things is now happening with unused-unit for the EnumSetType derivative
 #![allow(clippy::unused_unit, clippy::use_self)]
 
-use crate::error::ParseCpuFeatureError;
 use enumset::{EnumSet, EnumSetType};
 use std::str::FromStr;
 pub use target_lexicon::{
     Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, Endianness, Environment,
     OperatingSystem, PointerWidth, Triple, Vendor,
 };
+use wasmer_types::error::ParseCpuFeatureError;
 
 /// The nomenclature is inspired by the [`cpuid` crate].
 /// The list of supported features was initially retrieved from

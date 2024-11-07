@@ -54,7 +54,6 @@ members = [
 	"lib/compiler",
 	"lib/config",
 	"lib/derive",
-	"lib/object",
 	"lib/sys-utils",
 	"lib/types",
 	"lib/virtual-io",
@@ -121,6 +120,8 @@ socket2 = "0.5.7"
 pretty_assertions = "1.4.0"
 base64 = "0.22.0"
 time = "0.3.36"
+target-lexicon = { version = "0.12.2", default-features = false }
+object = "0.32.0"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -158,14 +159,7 @@ reqwest.workspace = true
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = [
-	"wat",
-	"wast",
-	"cache",
-	"wasi",
-	"engine",
-	"middlewares",
-]
+default = ["wat", "wast", "cache", "wasi", "engine", "middlewares"]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []

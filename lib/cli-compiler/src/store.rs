@@ -7,9 +7,11 @@ use clap::Parser;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use wasmer_compiler::EngineBuilder;
-use wasmer_compiler::{CompilerConfig, Features};
-use wasmer_types::{MemoryStyle, MemoryType, Pages, PointerWidth, TableStyle, TableType, Target};
+use wasmer_compiler::{
+    types::target::{PointerWidth, Target},
+    CompilerConfig, EngineBuilder, Features,
+};
+use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
 
 /// Minimul Subset of Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]

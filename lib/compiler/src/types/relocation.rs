@@ -16,14 +16,11 @@
 //! do the corresponding work to run it.
 
 use super::section::SectionIndex;
-use crate::entity::PrimaryMap;
-use crate::lib::std::fmt;
-use crate::lib::std::vec::Vec;
 use crate::{Addend, CodeOffset};
-use crate::{LibCall, LocalFunctionIndex};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use wasmer_types::{entity::PrimaryMap, lib::std::fmt, LibCall, LocalFunctionIndex};
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]

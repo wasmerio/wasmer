@@ -9,19 +9,23 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use crate::entity::PrimaryMap;
-use crate::lib::std::vec::Vec;
-use crate::{ArchivedCompiledFunctionUnwindInfo, TrapInformation};
-use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap};
-use crate::{
-    CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,
+use super::{
+    address_map::FunctionAddressMap,
+    relocation::Relocation,
+    section::{CustomSection, SectionIndex},
+    unwind::{
+        ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo,
+        CompiledFunctionUnwindInfoLike,
+    },
 };
-use rkyv::option::ArchivedOption;
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use rkyv::{
+    option::ArchivedOption, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-
-use super::unwind::CompiledFunctionUnwindInfoLike;
+use wasmer_types::{
+    entity::PrimaryMap, FunctionIndex, LocalFunctionIndex, SignatureIndex, TrapInformation,
+};
 
 /// The frame info for a Compiled function.
 ///

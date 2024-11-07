@@ -4,12 +4,15 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
 
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{
-    CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
-    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
-    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
+use wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
+
+use wasmer_compiler::types::{
+    address_map::{FunctionAddressMap, InstructionAddressMap},
+    function::{CompiledFunctionFrameInfo, CustomSections, FunctionBody},
+    relocation::{Relocation, RelocationKind, RelocationTarget},
+    section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 };
+
 use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
@@ -21,7 +24,7 @@ fn map_object_err(error: object::read::Error) -> CompileError {
 }
 
 pub struct CompiledFunction {
-    pub compiled_function: wasmer_types::CompiledFunction,
+    pub compiled_function: wasmer_compiler::types::function::CompiledFunction,
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
 }
@@ -447,7 +450,7 @@ where
     };
 
     Ok(CompiledFunction {
-        compiled_function: wasmer_types::CompiledFunction {
+        compiled_function: wasmer_compiler::types::function::CompiledFunction {
             body: function_body,
             relocations: relocations
                 .remove_entry(&root_section_index)
