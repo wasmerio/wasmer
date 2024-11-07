@@ -15,9 +15,9 @@ use enumset::EnumSet;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use wasmer_types::{
     entity::PrimaryMap, DeserializeError, Features, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    MemoryStyle, ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    TableStyle,
 };
-use wasmer_vm::{MemoryStyle, TableStyle};
 
 pub use wasmer_types::MetadataHeader;
 
