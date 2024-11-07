@@ -2,22 +2,29 @@ use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 #[cfg(feature = "unwind")]
 use gimli::{write::CallFrameInstruction, AArch64};
 
-use wasmer_compiler::wasmparser::ValType as WpType;
+use wasmer_compiler::{
+    types::{
+        address_map::InstructionAddressMap,
+        function::FunctionBody,
+        relocation::{Relocation, RelocationKind, RelocationTarget},
+        section::CustomSection,
+        target::{CallingConvention, CpuFeature, Target},
+    },
+    wasmparser::{MemArg, ValType as WpType},
+};
 use wasmer_types::{
-    CallingConvention, CompileError, CpuFeature, CustomSection, FunctionBody, FunctionIndex,
-    FunctionType, InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc,
-    Target, TrapCode, TrapInformation, VMOffsets,
+    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
 };
 
-use crate::arm64_decl::new_machine_state;
-use crate::arm64_decl::{GPR, NEON};
-use crate::codegen_error;
-use crate::common_decl::*;
-use crate::emitter_arm64::*;
-use crate::location::Location as AbstractLocation;
-use crate::location::Reg;
-use crate::machine::*;
-use crate::unwind::{UnwindInstructions, UnwindOps};
+use crate::{
+    arm64_decl::{new_machine_state, GPR, NEON},
+    codegen_error,
+    common_decl::*,
+    emitter_arm64::*,
+    location::{Location as AbstractLocation, Reg},
+    machine::*,
+    unwind::{UnwindInstructions, UnwindOps},
+};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 type Location = AbstractLocation<GPR, NEON>;

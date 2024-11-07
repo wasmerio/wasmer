@@ -1,35 +1,48 @@
 //! Support for compiling with Cranelift.
 
-use crate::address_map::get_function_address_map;
-use crate::config::Cranelift;
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::func_environ::{get_function_name, FuncEnvironment};
-use crate::trampoline::{
-    make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
+
+use crate::{
+    address_map::get_function_address_map,
+    config::Cranelift,
+    func_environ::{get_function_name, FuncEnvironment},
+    trampoline::{
+        make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
+    },
+    translator::{
+        compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
+        signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
+    },
 };
-use crate::translator::{
-    compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
-    signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
+use cranelift_codegen::{
+    ir::{self, ExternalName, UserFuncName},
+    Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
 };
-use cranelift_codegen::ir::{ExternalName, UserFuncName};
-use cranelift_codegen::{ir, FinalizedMachReloc, FinalizedRelocTarget};
-use cranelift_codegen::{Context, MachTrap};
+
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
+
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
+
 use wasmer_compiler::{
+    types::{
+        function::{Compilation, CompiledFunction, CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        module::CompileModuleInfo,
+        relocation::{Relocation, RelocationTarget},
+        section::SectionIndex,
+        target::{CallingConvention, Target},
+        unwind::CompiledFunctionUnwindInfo,
+    },
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    CallingConvention, Compilation, CompileError, CompileModuleInfo, CompiledFunction,
-    CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Dwarf, FunctionBody, FunctionIndex,
-    LocalFunctionIndex, ModuleInfo, Relocation, RelocationTarget, SectionIndex, SignatureIndex,
-    Target, TrapCode, TrapInformation,
+    CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
+    TrapInformation,
 };
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,

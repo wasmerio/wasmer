@@ -5,12 +5,13 @@
 #![allow(missing_docs)]
 
 //! Types for modules.
-use crate::entity::PrimaryMap;
-use crate::{Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use wasmer_types::{
+    entity::PrimaryMap, Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
+};
 
 /// The required info for compiling a module.
 ///

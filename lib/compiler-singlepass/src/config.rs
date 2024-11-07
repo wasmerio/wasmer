@@ -3,8 +3,11 @@
 
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
-use wasmer_types::{CpuFeature, Features, Target};
+use wasmer_compiler::{
+    types::target::{CpuFeature, Target},
+    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+};
+use wasmer_types::Features;
 
 #[derive(Debug, Clone)]
 pub struct Singlepass {

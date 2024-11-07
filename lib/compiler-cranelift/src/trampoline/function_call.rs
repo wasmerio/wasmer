@@ -9,13 +9,15 @@
 //! my_func.call([1, 2])
 //! ```
 use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
-use cranelift_codegen::ir;
-use cranelift_codegen::ir::InstBuilder;
-use cranelift_codegen::isa::TargetIsa;
-use cranelift_codegen::Context;
+use cranelift_codegen::{
+    ir::{self, InstBuilder},
+    isa::TargetIsa,
+    Context,
+};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;
-use wasmer_types::{CompileError, FunctionBody, FunctionType};
+use wasmer_compiler::types::function::FunctionBody;
+use wasmer_types::{CompileError, FunctionType};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_function_call(

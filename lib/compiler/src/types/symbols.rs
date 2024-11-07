@@ -5,14 +5,16 @@
 #![allow(missing_docs)]
 
 //! This module define the required structures for compilation symbols.
-use crate::{
-    entity::{EntityRef, PrimaryMap},
-    CompileModuleInfo, DeserializeError, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer,
-    SectionIndex, SerializeError, SignatureIndex,
-};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use wasmer_types::{
+    entity::{EntityRef, PrimaryMap},
+    DeserializeError, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SerializeError,
+    SignatureIndex,
+};
+
+use super::{module::CompileModuleInfo, section::SectionIndex};
 
 /// The kinds of wasmer_types objects that might be found in a native object file.
 #[derive(

@@ -2171,9 +2171,6 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
-dependencies = [
- "ahash 0.7.8",
-]
 
 [[package]]
 name = "hashbrown"
@@ -3273,18 +3270,6 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "object"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
-dependencies = [
- "crc32fast",
- "hashbrown 0.12.3",
- "indexmap 1.9.3",
- "memchr",
-]
-
-[[package]]
-name = "object"
 version = "0.30.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03b4680b86d9cfafba8fc491dc9b6df26b68cf40e9e6cd73909194759a63c385"
@@ -3299,7 +3284,10 @@ version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
+ "crc32fast",
  "flate2",
+ "hashbrown 0.14.5",
+ "indexmap 2.6.0",
  "memchr",
  "ruzstd",
 ]
@@ -6563,7 +6551,6 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-config",
- "wasmer-object",
  "wasmer-package",
  "wasmer-types",
  "wasmer-vm",
@@ -6589,6 +6576,7 @@ dependencies = [
  "loupe",
  "memmap2 0.6.2",
  "more-asserts",
+ "object 0.32.2",
  "region",
  "rkyv",
  "self_cell",
@@ -6596,8 +6584,8 @@ dependencies = [
  "serde_bytes",
  "shared-buffer",
  "smallvec",
+ "target-lexicon 0.12.16",
  "thiserror",
- "wasmer-object",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.216.0",
@@ -6815,15 +6803,6 @@ dependencies = [
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
-]
-
-[[package]]
-name = "wasmer-object"
-version = "5.0.1"
-dependencies = [
- "object 0.29.0",
- "thiserror",
- "wasmer-types",
 ]
 
 [[package]]

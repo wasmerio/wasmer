@@ -446,7 +446,7 @@ mod tests {
         let volume = FsVolume::new_metadata(&manifest, temp.path().to_path_buf()).unwrap();
 
         let entries = volume.read_dir(&PathSegments::ROOT).unwrap();
-        let expected = vec![
+        let expected = [
             PathSegment::parse("README.md").unwrap(),
             PathSegment::parse("asdf.wai").unwrap(),
             PathSegment::parse("browser.wai").unwrap(),
@@ -497,12 +497,12 @@ mod tests {
 
         let manifest: Manifest = toml::from_str(wasmer_toml).unwrap();
 
-        let volume = FsVolume::new_assets(&manifest, &temp.path()).unwrap();
+        let volume = FsVolume::new_assets(&manifest, temp.path()).unwrap();
 
         let volume = &volume["/etc"];
 
         let entries = volume.read_dir(&PathSegments::ROOT).unwrap();
-        let expected = vec![PathSegment::parse("share").unwrap()];
+        let expected = [PathSegment::parse("share").unwrap()];
 
         for i in 0..expected.len() {
             assert_eq!(entries[i].0, expected[i]);

@@ -1,24 +1,23 @@
-use crate::abi::{get_abi, Abi};
-use crate::config::{CompiledKind, LLVM};
-use crate::error::{err, err_nt};
-use crate::object_file::{load_object_file, CompiledFunction};
-use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
-use inkwell::passes::PassBuilderOptions;
-use inkwell::values::BasicMetadataValueEnum;
+use crate::{
+    abi::{get_abi, Abi},
+    config::{CompiledKind, LLVM},
+    error::{err, err_nt},
+    object_file::{load_object_file, CompiledFunction},
+    translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics},
+};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     context::Context,
     module::{Linkage, Module},
+    passes::PassBuilderOptions,
     targets::{FileType, TargetMachine},
     types::FunctionType,
-    values::FunctionValue,
+    values::{BasicMetadataValueEnum, FunctionValue},
     AddressSpace, DLLStorageClass,
 };
-use std::cmp;
-use std::convert::TryInto;
-use wasmer_types::{
-    CompileError, FunctionBody, FunctionType as FuncType, LocalFunctionIndex, RelocationTarget,
-};
+use std::{cmp, convert::TryInto};
+use wasmer_compiler::types::{function::FunctionBody, relocation::RelocationTarget};
+use wasmer_types::{CompileError, FunctionType as FuncType, LocalFunctionIndex};
 
 pub struct FuncTrampoline {
     ctx: Context,

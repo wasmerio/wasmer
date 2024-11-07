@@ -6,7 +6,8 @@ use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
 use std::collections::BTreeMap;
 use std::slice::Iter;
-use wasmer_types::{CallingConvention, Type};
+use wasmer_compiler::types::target::CallingConvention;
+use wasmer_types::Type;
 
 /// General-purpose registers.
 #[repr(u8)]

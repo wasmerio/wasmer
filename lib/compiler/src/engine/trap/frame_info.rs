@@ -11,23 +11,22 @@
 //! let module: ModuleInfo = ...;
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
-use core::ops::Deref;
+
+use crate::types::address_map::{
+    ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
+    InstructionAddressMap,
+};
+use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
+use crate::ArtifactBuildFromArchive;
 use rkyv::vec::ArchivedVec;
-use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use wasmer_types::compilation::address_map::{
-    ArchivedFunctionAddressMap, ArchivedInstructionAddressMap,
-};
-use wasmer_types::compilation::function::ArchivedCompiledFunctionFrameInfo;
-use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasmer_types::lib::std::{cmp, ops::Deref};
 use wasmer_types::{
-    CompiledFunctionFrameInfo, FrameInfo, FunctionAddressMap, InstructionAddressMap,
-    LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
+    FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
 };
 use wasmer_vm::FunctionBodyPtr;
-
-use crate::ArtifactBuildFromArchive;
 
 lazy_static::lazy_static! {
     /// This is a global cache of backtrace frame information for all active
@@ -259,6 +258,7 @@ pub enum VecTrapInformationVariant<'a> {
     Owned(Vec<TrapInformation>),
 }
 
+// We need to implement it for the `Deref` in `wasmer_types` to support both `core` and `std`.
 impl Deref for VecTrapInformationVariant<'_> {
     type Target = [TrapInformation];
 

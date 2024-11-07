@@ -4,12 +4,12 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs;
 use std::path::{Path, PathBuf};
-use wasmer_compiler::{ArtifactBuild, ArtifactCreate, ModuleEnvironment};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{
-    Architecture, CompileError, CpuFeature, MemoryIndex, MemoryStyle, TableIndex, TableStyle,
-    Target, Triple,
+use wasmer_compiler::{
+    types::target::{Architecture, CpuFeature, Target, Triple},
+    ArtifactBuild, ArtifactCreate, ModuleEnvironment,
 };
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{CompileError, MemoryIndex, MemoryStyle, TableIndex, TableStyle};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand

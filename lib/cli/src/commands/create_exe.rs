@@ -17,14 +17,14 @@ use std::{
     process::{Command, Stdio},
 };
 use tar::Archive;
-use wasmer::sys::Artifact;
-use wasmer::*;
-use wasmer_object::{emit_serialized, get_object_for_target};
+use wasmer::{sys::Artifact, *};
+use wasmer_compiler::{
+    object::{emit_serialized, get_object_for_target},
+    types::symbols::ModuleMetadataSymbolRegistry,
+};
 use wasmer_package::utils::from_disk;
-use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-use webc::Container;
-use webc::PathSegments;
-use webc::{Metadata, Volume as WebcVolume};
+use wasmer_types::ModuleInfo;
+use webc::{Container, Metadata, PathSegments, Volume as WebcVolume};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -1593,7 +1593,7 @@ pub(super) mod utils {
 
     use anyhow::{anyhow, Context};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
-    use wasmer_types::{CpuFeature, Target};
+    use wasmer_compiler::types::target::{self as wasmer_types, CpuFeature, Target};
 
     use crate::config::WasmerEnv;
 
@@ -1835,22 +1835,20 @@ pub(super) mod utils {
 
     pub(super) fn triple_to_zig_triple(target_triple: &Triple) -> String {
         let arch = match target_triple.architecture {
-            wasmer_types::Architecture::X86_64 => "x86_64".into(),
-            wasmer_types::Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => {
-                "aarch64".into()
-            }
+            Architecture::X86_64 => "x86_64".into(),
+            Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => "aarch64".into(),
             v => v.to_string(),
         };
         let os = match target_triple.operating_system {
-            wasmer_types::OperatingSystem::Linux => "linux".into(),
-            wasmer_types::OperatingSystem::Darwin => "macos".into(),
-            wasmer_types::OperatingSystem::Windows => "windows".into(),
+            OperatingSystem::Linux => "linux".into(),
+            OperatingSystem::Darwin => "macos".into(),
+            OperatingSystem::Windows => "windows".into(),
             v => v.to_string(),
         };
         let env = match target_triple.environment {
-            wasmer_types::Environment::Musl => "musl",
-            wasmer_types::Environment::Gnu => "gnu",
-            wasmer_types::Environment::Msvc => "msvc",
+            Environment::Musl => "musl",
+            Environment::Gnu => "gnu",
+            Environment::Msvc => "msvc",
             _ => "none",
         };
         format!("{}-{}-{}", arch, os, env)
