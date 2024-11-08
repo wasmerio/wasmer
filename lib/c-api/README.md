@@ -14,7 +14,6 @@ $WASMER_DIR/
     wasm.h
     wasmer.h
     wasmer.hh
-    wasmer.h
 ```
 
 Wasmer binary also ships with [`wasmer-config`](#wasmer-config)
