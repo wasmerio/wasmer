@@ -2244,14 +2244,6 @@
 <a href="#2244" id="2244">2244</a>
 <a href="#2245" id="2245">2245</a>
 <a href="#2246" id="2246">2246</a>
-<a href="#2247" id="2247">2247</a>
-<a href="#2248" id="2248">2248</a>
-<a href="#2249" id="2249">2249</a>
-<a href="#2250" id="2250">2250</a>
-<a href="#2251" id="2251">2251</a>
-<a href="#2252" id="2252">2252</a>
-<a href="#2253" id="2253">2253</a>
-<a href="#2254" id="2254">2254</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2930,7 +2922,7 @@
         <span class="kw">let </span>root_inode = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: <span class="bool-val">true</span>,
-            name: RwLock::new(<span class="string">"/"</span>.into()),
+            name: <span class="string">"/"</span>.into(),
             kind: RwLock::new(root_kind),
         });
 
@@ -3238,13 +3230,6 @@
 
         <span class="comment">// TODO: rights checks
         </span><span class="lifetime">'path_iter</span>: <span class="kw">for </span>(i, component) <span class="kw">in </span>path.components().enumerate() {
-            <span class="comment">// Since we're resolving the path against the given inode, we want to
-            // assume '/a/b' to be the same as `a/b` relative to the inode, so
-            // we skip over the RootDir component.
-            </span><span class="kw">if </span><span class="macro">matches!</span>(component, Component::RootDir) {
-                <span class="kw">continue</span>;
-            }
-
             <span class="comment">// used to terminate symlink resolution properly
             </span><span class="kw">let </span>last_component = i + <span class="number">1 </span>== n_components;
             <span class="comment">// for each component traverse file structure
@@ -3598,14 +3583,13 @@
         follow_symlinks: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeGuard, Errno&gt; {
         <span class="kw">let </span>base_inode = <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?</span>;
-        <span class="kw">let </span>start_inode = <span class="kw">if </span>!base_inode.deref().name.read().unwrap().starts_with(<span class="string">'/'</span>)
-            &amp;&amp; <span class="self">self</span>.is_wasix.load(Ordering::Acquire)
-        {
-            <span class="kw">let </span>(cur_inode, <span class="kw">_</span>) = <span class="self">self</span>.get_current_dir(inodes, base)<span class="question-mark">?</span>;
-            cur_inode
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?
-        </span>};
+        <span class="kw">let </span>start_inode =
+            <span class="kw">if </span>!base_inode.deref().name.starts_with(<span class="string">'/'</span>) &amp;&amp; <span class="self">self</span>.is_wasix.load(Ordering::Acquire) {
+                <span class="kw">let </span>(cur_inode, <span class="kw">_</span>) = <span class="self">self</span>.get_current_dir(inodes, base)<span class="question-mark">?</span>;
+                cur_inode
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?
+            </span>};
         <span class="self">self</span>.get_inode_at_path_inner(inodes, start_inode, path, <span class="number">0</span>, follow_symlinks)
     }
 
@@ -3760,7 +3744,7 @@
                 <span class="comment">// REVIEW:
                 // no need for +1, because there is no 0 end-of-string marker
                 // john: removing the +1 seems cause regression issues
-                </span>pr_name_len: inode_val.name.read().unwrap().len() <span class="kw">as </span>u32 + <span class="number">1</span>,
+                </span>pr_name_len: inode_val.name.len() <span class="kw">as </span>u32 + <span class="number">1</span>,
             }
             .untagged(),
         }
@@ -3871,7 +3855,7 @@
         inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
-            name: RwLock::new(name),
+            name,
             kind: RwLock::new(kind),
         })
     }
@@ -4257,7 +4241,7 @@
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: <span class="bool-val">true</span>,
-                name: RwLock::new(name.to_string().into()),
+                name: name.to_string().into(),
                 kind: RwLock::new(kind),
             })
         };

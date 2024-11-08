@@ -176,21 +176,7 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    path::{Component, PathBuf},
-    str::FromStr,
-};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::PathBuf, str::FromStr};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
@@ -222,7 +208,7 @@
     Span::current().record(<span class="string">"path"</span>, path_string.as_str());
 
     <span class="comment">// Convert relative paths into absolute paths
-    </span><span class="kw">if </span>!path_string.starts_with(<span class="string">"/"</span>) {
+    </span><span class="kw">if </span>path_string.starts_with(<span class="string">"./"</span>) {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
         <span class="macro">trace!</span>(
             %path_string
@@ -260,14 +246,11 @@
     <span class="kw">let </span>path = std::path::PathBuf::from(path);
     <span class="kw">let </span>path_vec = path
         .components()
-        .filter_map(|comp| <span class="kw">match </span>comp {
-            Component::RootDir =&gt; <span class="prelude-val">None</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(
-                comp.as_os_str()
-                    .to_str()
-                    .map(|inner_str| inner_str.to_string())
-                    .ok_or(Errno::Inval),
-            ),
+        .map(|comp| {
+            comp.as_os_str()
+                .to_str()
+                .map(|inner_str| inner_str.to_string())
+                .ok_or(Errno::Inval)
         })
         .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Errno&gt;&gt;()<span class="question-mark">?</span>;
     <span class="kw">if </span>path_vec.is_empty() {
@@ -281,12 +264,7 @@
         <span class="kw">let </span>processing_cur_dir_inode = cur_dir_inode.clone();
         <span class="kw">let </span><span class="kw-2">mut </span>guard = processing_cur_dir_inode.write();
         <span class="kw">match </span>guard.deref_mut() {
-            <span class="comment">// TODO: this depends on entries already being filled in. This is the case when you go
-            // through wasix-libc (which is, realistically, what everybody does) because it stats
-            // the path before calling path_create_directory, at which point entries is filled in.
-            // However, an alternate implementation or a manually implemented module may not always
-            // do this.
-            </span>Kind::Dir {
+            Kind::Dir {
                 <span class="kw-2">ref mut </span>entries,
                 path,
                 parent,

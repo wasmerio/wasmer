@@ -139,14 +139,6 @@
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -213,11 +205,7 @@
                 entry_vec.extend(entries.iter().filter(|(<span class="kw">_</span>, inode)| inode.is_preopened).map(
                     |(name, inode)| {
                         <span class="kw">let </span>stat = inode.stat.read().unwrap();
-                        (
-                            inode.name.read().unwrap().to_string(),
-                            stat.st_filetype,
-                            stat.st_ino,
-                        )
+                        (inode.name.to_string(), stat.st_filetype, stat.st_ino)
                     },
                 ));
                 <span class="comment">// adding . and .. special folders
@@ -241,11 +229,7 @@
                     .into_iter()
                     .map(|(name, inode)| {
                         <span class="kw">let </span>stat = inode.stat.read().unwrap();
-                        (
-                            <span class="macro">format!</span>(<span class="string">"/{}"</span>, inode.name.read().unwrap().as_ref()),
-                            stat.st_filetype,
-                            stat.st_ino,
-                        )
+                        (<span class="macro">format!</span>(<span class="string">"/{}"</span>, inode.name), stat.st_filetype, stat.st_ino)
                     })
                     .collect()
             }
