@@ -223,6 +223,7 @@
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -297,7 +298,7 @@
         }
     }
 
-    <span class="comment">// this is to be sure the source file is fetch from filesystem if needed
+    <span class="comment">// this is to be sure the source file is fetched from the filesystem if needed
     </span><span class="macro">wasi_try_ok!</span>(state
         .fs
         .get_inode_at_path(inodes, source_fd, source_path, <span class="bool-val">true</span>));
@@ -431,7 +432,7 @@
     <span class="kw">if </span>need_create {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = target_parent_inode.write();
         <span class="kw">if let </span>Kind::Dir { entries, .. } = guard.deref_mut() {
-            <span class="kw">let </span>result = entries.insert(target_entry_name, source_entry);
+            <span class="kw">let </span>result = entries.insert(target_entry_name.clone(), source_entry);
             <span class="macro">assert!</span>(
                 result.is_none(),
                 <span class="string">"fatal error: race condition on filesystem detected or internal logic error"
@@ -444,6 +445,7 @@
         <span class="macro">wasi_try_ok!</span>(state
             .fs
             .get_inode_at_path(inodes, target_fd, target_path, <span class="bool-val">true</span>));
+    <span class="kw-2">*</span>target_inode.name.write().unwrap() = target_entry_name.into();
     target_inode.stat.write().unwrap().st_size = source_size;
 
     <span class="prelude-val">Ok</span>(Errno::Success)

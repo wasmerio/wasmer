@@ -287,7 +287,7 @@
 </span><span class="kw">pub struct </span>InodeVal {
     <span class="kw">pub </span>stat: RwLock&lt;Filestat&gt;,
     <span class="kw">pub </span>is_preopened: bool,
-    <span class="kw">pub </span>name: Cow&lt;<span class="lifetime">'static</span>, str&gt;,
+    <span class="kw">pub </span>name: RwLock&lt;Cow&lt;<span class="lifetime">'static</span>, str&gt;&gt;,
     <span class="kw">pub </span>kind: RwLock&lt;Kind&gt;,
 }
 
