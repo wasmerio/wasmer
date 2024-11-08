@@ -29,12 +29,11 @@ pub fn path_create_directory<M: MemorySize>(
     let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        trace!(
-            %path_string
-        );
+    let path = PathBuf::from(&path_string);
+
+    if path.is_relative() {
+        let cur_dir = PathBuf::from(ctx.data().state.fs.current_dir.lock().unwrap().deref());
+        path_string = cur_dir.join(path).to_str().unwrap().to_owned();
     }
 
     wasi_try_ok!(path_create_directory_internal(&mut ctx, fd, &path_string));
