@@ -206,7 +206,7 @@ pub fn path_rename_internal(
     if need_create {
         let mut guard = target_parent_inode.write();
         if let Kind::Dir { entries, .. } = guard.deref_mut() {
-            let result = entries.insert(target_entry_name, source_entry);
+            let result = entries.insert(target_entry_name.clone(), source_entry);
             assert!(
                 result.is_none(),
                 "fatal error: race condition on filesystem detected or internal logic error"
@@ -219,6 +219,7 @@ pub fn path_rename_internal(
         wasi_try_ok!(state
             .fs
             .get_inode_at_path(inodes, target_fd, target_path, true));
+    *target_inode.name.write().unwrap() = target_entry_name.into();
     target_inode.stat.write().unwrap().st_size = source_size;
 
     Ok(Errno::Success)

@@ -676,7 +676,7 @@ impl WasiFs {
         let root_inode = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: true,
-            name: "/".into(),
+            name: RwLock::new("/".into()),
             kind: RwLock::new(root_kind),
         });
 
@@ -1344,13 +1344,14 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        let start_inode =
-            if !base_inode.deref().name.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
-                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-                cur_inode
-            } else {
-                self.get_fd_inode(base)?
-            };
+        let start_inode = if !base_inode.deref().name.read().unwrap().starts_with('/')
+            && self.is_wasix.load(Ordering::Acquire)
+        {
+            let (cur_inode, _) = self.get_current_dir(inodes, base)?;
+            cur_inode
+        } else {
+            self.get_fd_inode(base)?
+        };
         self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
     }
 
@@ -1505,7 +1506,7 @@ impl WasiFs {
                 // REVIEW:
                 // no need for +1, because there is no 0 end-of-string marker
                 // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.len() as u32 + 1,
+                pr_name_len: inode_val.name.read().unwrap().len() as u32 + 1,
             }
             .untagged(),
         }
@@ -1616,7 +1617,7 @@ impl WasiFs {
         inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
-            name,
+            name: RwLock::new(name),
             kind: RwLock::new(kind),
         })
     }
@@ -2002,7 +2003,7 @@ impl WasiFs {
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: true,
-                name: name.to_string().into(),
+                name: RwLock::new(name.to_string().into()),
                 kind: RwLock::new(kind),
             })
         };
