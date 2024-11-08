@@ -78,7 +78,7 @@ pub fn download_and_compile_medium(c: &mut BenchmarkGroup<'_, WallTime>) {
         panic!("Unrecognized backend!")
     };
 
-    let modules = ["bash"];
+    let modules = ["bash", "irb", "argon2"];
 
     for module in modules {
         let bytes =
@@ -108,11 +108,11 @@ pub fn download_and_compile_large(c: &mut BenchmarkGroup<'_, WallTime>) {
     };
 
     let modules = [
-        //"winterjs",
-        //"wasix_axum",
-        //"static_web_server",
-        //"s3_server",
-        //"python",
+        "winterjs",
+        "wasix_axum",
+        "static_web_server",
+        "s3_server",
+        "python",
         "php",
     ];
 
@@ -133,38 +133,17 @@ pub fn download_and_compile(c: &mut Criterion) {
         download_and_compile_large(&mut group);
     }
 
-    //{
-    //    let mut group = c.benchmark_group("medium_benches");
-    //    group.sample_size(40);
-    //    download_and_compile_medium(&mut group);
-    //}
-    //{
-    //    let mut group = c.benchmark_group("small_benches");
-    //    group.sample_size(60);
-    //    download_and_compile_small(&mut group);
-    //}
+    {
+        let mut group = c.benchmark_group("medium_benches");
+        group.sample_size(40);
+        download_and_compile_medium(&mut group);
+    }
+    {
+        let mut group = c.benchmark_group("small_benches");
+        group.sample_size(60);
+        download_and_compile_small(&mut group);
+    }
 }
 
 criterion_group!(benches, download_and_compile);
-
-//criterion_group!(
-//    name = small_benches;
-//    config = Criterion::default().sample_size(60);
-//    targets = download_and_compile_small
-//);
-//
-//criterion_group!(
-//    name = medium_benches;
-//    config = Criterion::default().sample_size(40);
-//    targets = download_and_compile_medium
-//);
-//
-//criterion_group!(
-//    name = large_benches;
-//    config = Criterion::default().sample_size(10);
-//    targets = download_and_compile_large
-//);
-//
-//criterion_main!(small_benches);
-//criterion_main!(medium_benches);
 criterion_main!(benches);
