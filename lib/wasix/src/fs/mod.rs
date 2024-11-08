@@ -676,7 +676,7 @@ impl WasiFs {
         let root_inode = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: true,
-            name: RwLock::new("/".into()),
+            name: "/".into(),
             kind: RwLock::new(root_kind),
         });
 
@@ -984,13 +984,6 @@ impl WasiFs {
 
         // TODO: rights checks
         'path_iter: for (i, component) in path.components().enumerate() {
-            // Since we're resolving the path against the given inode, we want to
-            // assume '/a/b' to be the same as `a/b` relative to the inode, so
-            // we skip over the RootDir component.
-            if matches!(component, Component::RootDir) {
-                continue;
-            }
-
             // used to terminate symlink resolution properly
             let last_component = i + 1 == n_components;
             // for each component traverse file structure
@@ -1344,14 +1337,13 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        let start_inode = if !base_inode.deref().name.read().unwrap().starts_with('/')
-            && self.is_wasix.load(Ordering::Acquire)
-        {
-            let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-            cur_inode
-        } else {
-            self.get_fd_inode(base)?
-        };
+        let start_inode =
+            if !base_inode.deref().name.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
+                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
+                cur_inode
+            } else {
+                self.get_fd_inode(base)?
+            };
         self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
     }
 
@@ -1506,7 +1498,7 @@ impl WasiFs {
                 // REVIEW:
                 // no need for +1, because there is no 0 end-of-string marker
                 // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.read().unwrap().len() as u32 + 1,
+                pr_name_len: inode_val.name.len() as u32 + 1,
             }
             .untagged(),
         }
@@ -1617,7 +1609,7 @@ impl WasiFs {
         inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
-            name: RwLock::new(name),
+            name,
             kind: RwLock::new(kind),
         })
     }
@@ -2003,7 +1995,7 @@ impl WasiFs {
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: true,
-                name: RwLock::new(name.to_string().into()),
+                name: name.to_string().into(),
                 kind: RwLock::new(kind),
             })
         };
