@@ -72,7 +72,7 @@ pub fn path_rename_internal(
         }
     }
 
-    // this is to be sure the source file is fetch from filesystem if needed
+    // this is to be sure the source file is fetched from the filesystem if needed
     wasi_try_ok!(state
         .fs
         .get_inode_at_path(inodes, source_fd, source_path, true));

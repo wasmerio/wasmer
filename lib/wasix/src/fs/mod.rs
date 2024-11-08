@@ -984,6 +984,13 @@ impl WasiFs {
 
         // TODO: rights checks
         'path_iter: for (i, component) in path.components().enumerate() {
+            // Since we're resolving the path against the given inode, we want to
+            // assume '/a/b' to be the same as `a/b` relative to the inode, so
+            // we skip over the RootDir component.
+            if matches!(component, Component::RootDir) {
+                continue;
+            }
+
             // used to terminate symlink resolution properly
             let last_component = i + 1 == n_components;
             // for each component traverse file structure
