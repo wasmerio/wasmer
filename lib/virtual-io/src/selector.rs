@@ -138,7 +138,9 @@ impl Selector {
         let mut events = mio::Events::with_capacity(128);
         loop {
             // Wait for an event to trigger
-            poll.poll(&mut events, None).unwrap();
+            if poll.poll(&mut events, None).is_err() {
+                continue;
+            }
 
             // Loop through all the events while under a guard lock
             let mut guard = engine.inner.lock().unwrap();
