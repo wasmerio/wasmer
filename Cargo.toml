@@ -154,7 +154,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
-reqwest = {workspace = true, default-features = true, features = ["blocking"]}
+reqwest = {workspace = true, features = ["blocking", "rustls-tls"]}
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
