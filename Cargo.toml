@@ -154,7 +154,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
-reqwest.workspace = true
+reqwest = {workspace = true, features = ["blocking", "rustls-tls"]}
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
@@ -220,7 +220,11 @@ opt-level = 3
 opt-level = 3
 
 [[bench]]
-name = "compiler_run"
+name = "run"
+harness = false
+
+[[bench]]
+name = "compile"
 harness = false
 
 [[bench]]
