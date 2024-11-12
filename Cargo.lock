@@ -6299,6 +6299,7 @@ dependencies = [
  "loupe",
  "macro-wasmer-universal-test",
  "more-asserts",
+ "paste",
  "rustc-demangle",
  "rusty_jsc",
  "seq-macro",

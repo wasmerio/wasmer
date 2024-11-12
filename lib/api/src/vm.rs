@@ -1,49 +1,78 @@
-//! The `vm` module re-exports wasmer-vm types.
+//! This module defines traits to handle abstractions created by the embedders.
 
-#[cfg(feature = "js")]
-pub(crate) use crate::js::vm::{
-    VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
-};
+use wasmer_types::RawValue;
+macro_rules! define_vm_like {
+    ($name: ident) => {
+        paste::paste! {
+        /// The trait that defines the shared behaviour of those types that can be considered [<VM
+        /// $name>]-like.
+        pub trait [<VM $name Like>] {
+            #[cfg(feature = "sys")]
+            fn as_sys(&self) -> Option<&crate::embedders::sys::vm::[<VM $name>]> {
+                None
+            }
+            #[cfg(feature = "sys")]
+            fn as_sys_mut(&mut self) -> Option<&mut crate::embedders::sys::vm::[<VM $name>]> {
+                None
+            }
 
-#[cfg(feature = "jsc")]
-pub(crate) use crate::jsc::vm::{
-    VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
-};
+            #[cfg(feature = "sys")]
+            fn into_sys(self) -> Option<crate::embedders::sys::vm::[<VM $name>]> where Self: Sized {
+                None
+            }
+        }
+        /// A new type for references to those that implement [<VM $name Like>].
+        pub type [<VM $name>]  = Box<dyn [<VM $name Like>]>;
+        }
+    };
+}
 
-#[cfg(feature = "wasm-c-api")]
-pub(crate) use crate::c_api::vm::{
-    VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
-};
+define_vm_like!(Extern);
+define_vm_like!(ExternFunction);
+define_vm_like!(ExternGlobal);
+define_vm_like!(ExternMemory);
+define_vm_like!(ExternTable);
+define_vm_like!(FunctionCallback);
+define_vm_like!(FunctionEnvironment);
+define_vm_like!(Instance);
+define_vm_like!(Trampoline);
 
-#[cfg(feature = "sys")]
-pub(crate) use crate::sys::vm::{
-    VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
-};
+define_vm_like!(Config);
+define_vm_like!(Function);
+define_vm_like!(Global);
+define_vm_like!(Memory);
+define_vm_like!(SharedMemory);
+define_vm_like!(Table);
 
-#[cfg(feature = "js")]
-pub use crate::js::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
+define_vm_like!(ExternRef);
+define_vm_like!(FuncRef);
 
-#[cfg(feature = "sys")]
-pub use wasmer_vm::{VMConfig, VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
+/// The trait implemented by all those that can create new VM external references.
+pub trait VMExternRefCreator {
+    /// Extracts a [`VMExternRef`] from a [`RawValue`].
+    ///
+    /// # Safety
+    /// `raw` must be a valid [`VMExternRef`] instance.
+    unsafe fn extern_ref_from_raw(&self, raw: RawValue) -> Option<VMExternRef>;
+}
 
-#[cfg(feature = "jsc")]
-pub use crate::jsc::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
+/// The trait implemented by all those that can inspect and resolve VM external references.
+pub trait VMExternRefResolver {
+    /// Converts the [`VMExternRef`] into a [`RawValue`].
+    fn extern_ref_into_raw(&self, value: VMExternRef) -> RawValue;
+}
 
-#[cfg(feature = "wasm-c-api")]
-pub use crate::c_api::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
+/// The trait implemented by all those that can create new VM function references.
+pub trait VMFuncRefCreator {
+    /// Extracts a [`VMFuncRef`] from a [`RawValue`].
+    ///
+    /// # Safety
+    /// `raw` must be a valid [`VMFuncRef`] instance.
+    unsafe fn func_ref_from_raw(&self, raw: RawValue) -> Option<VMFuncRef>;
+}
 
-// Needed for tunables customization (those are public types now)
-#[cfg(feature = "sys")]
-pub use wasmer_vm::{
-    // An extra one for VMMemory implementors
-    LinearMemory,
-    VMMemoryDefinition,
-    VMTableDefinition,
-};
-
-// Deprecated exports
-pub use wasmer_types::{MemoryError, MemoryStyle, TableStyle};
+/// The trait implemented by all those that can inspect and resolve VM function references.
+pub trait VMFuncRefResolver {
+    /// Converts the [`VMFuncRef`] into a [`RawValue`].
+    fn func_ref_into_raw(&self, value: VMFuncRef) -> RawValue;
+}
