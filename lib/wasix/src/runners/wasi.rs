@@ -262,6 +262,18 @@ impl WasiRunner {
             None
         };
 
+        if self.wasi.is_home_mapped {
+            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
+        }
+
+        if let Some(current_dir) = &self.wasi.current_dir {
+            builder.set_current_dir(current_dir.clone());
+        }
+
+        if let Some(cwd) = &wasi.cwd {
+            builder.set_current_dir(cwd);
+        }
+
         self.wasi
             .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
 
@@ -273,13 +285,6 @@ impl WasiRunner {
         }
         if let Some(stderr) = &self.stderr {
             builder.set_stderr(Box::new(stderr.clone()));
-        }
-
-        if self.wasi.is_home_mapped {
-            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
-        }
-        if let Some(current_dir) = &self.wasi.current_dir {
-            builder.set_current_dir(current_dir.clone());
         }
 
         Ok(builder)
@@ -375,10 +380,6 @@ impl crate::runners::Runner for WasiRunner {
             for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
                 env.add_snapshot_trigger(snapshot_trigger);
             }
-        }
-
-        if let Some(cwd) = &wasi.cwd {
-            env.set_current_dir(cwd);
         }
 
         let env = env.build()?;
