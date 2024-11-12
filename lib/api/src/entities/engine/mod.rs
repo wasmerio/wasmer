@@ -6,7 +6,7 @@ use std::{path::Path, sync::Arc};
 use wasmer_compiler::Artifact;
 use wasmer_types::DeserializeError;
 
-use crate::{store::StoreLike, IntoBytes, ModuleCreator};
+use crate::{store::StoreLike, IntoBytes, ModuleCreator, Store};
 
 /// Create temporary handles to engines.
 mod engine_ref;
@@ -93,8 +93,8 @@ impl Engine {
     }
 
     /// Consume [`self`] and create the default [`StoreLike`] implementer for this engine.
-    pub fn default_store(self) -> Box<dyn StoreLike> {
-        todo!()
+    pub(crate) fn default_store(self) -> Box<dyn StoreLike> {
+        self.0.default_store()
     }
 }
 
@@ -112,6 +112,9 @@ impl Default for Engine {
 
 /// The trait that every concrete engine must implement.
 pub trait EngineLike: std::fmt::Debug + ModuleCreator {
+    /// Consume [`self`] and create the default [`StoreLike`] implementer for this engine.
+    fn default_store(self) -> Store;
+
     /// Returns the deterministic id of this engine.
     fn deterministic_id(&self) -> &str;
 

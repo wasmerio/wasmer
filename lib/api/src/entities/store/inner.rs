@@ -1,8 +1,13 @@
 use crate::{
+    embedders::Embedder,
     entities::{
         engine::{AsEngineRef, Engine},
         store::StoreMut,
-    }, view::MemoryViewCreator, vm::{VMExternRefCreator, VMExternRefResolver, VMFuncRefCreator, VMFuncRefResolver}, AsStoreMut, ExternRefCreator, ExternRefLike, ExternRefResolver, GlobalCreator, MemoryCreator, TableCreator
+    },
+    view::MemoryViewCreator,
+    vm::{VMExternRefCreator, VMExternRefResolver, VMFuncRefCreator, VMFuncRefResolver},
+    AsStoreMut, ExternRefCreator, ExternRefLike, ExternRefResolver, GlobalCreator, MemoryCreator,
+    TableCreator,
 };
 use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
@@ -29,7 +34,7 @@ pub type OnCalledHandler = Box<
 >;
 
 /// The trait that every concrete store must implement.
-pub trait StoreLike:
+pub(crate) trait StoreLike:
     std::fmt::Debug
     + AsEngineRef
     + MemoryViewCreator
@@ -87,4 +92,7 @@ pub trait StoreLike:
     fn as_sys_mut(&mut self) -> Option<&mut crate::embedders::sys::entitites::store::Store> {
         None
     }
+
+    /// Get the embedder for this store.
+    fn get_embedder(&self) -> Embedder;
 }

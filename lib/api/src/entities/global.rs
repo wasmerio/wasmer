@@ -210,5 +210,6 @@ pub trait GlobalCreator {
         mutability: Mutability,
     ) -> Result<Box<dyn GlobalLike>, RuntimeError>;
 
+    /// Create a `Global` from the provided [`VMExternGlobal`].
     fn global_from_vm_extern(&mut self, vm_extern: VMExternGlobal) -> Box<dyn GlobalLike>;
 }

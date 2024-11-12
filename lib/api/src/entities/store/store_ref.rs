@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use super::inner::StoreInner;
 use wasmer_types::ExternType;
 use wasmer_vm::{StoreObjects, TrapHandlerFn};
@@ -7,7 +9,8 @@ use crate::{
     error::RuntimeError,
     view::MemoryViewCreator,
     vm::{VMExternRefCreator, VMExternRefResolver, VMFuncRefCreator, VMFuncRefResolver},
-    ExternRefCreator, ExternRefResolver, GlobalCreator, MemoryCreator, StoreLike, TableCreator,
+    ExternRefCreator, ExternRefResolver, GlobalCreator, MemoryCreator, StoreHandleCreator,
+    StoreLike, TableCreator, VMFunctionEnvCreator,
 };
 
 /// A temporary handle to a [`Store`].
@@ -82,14 +85,30 @@ impl<'a> MemoryViewCreator for StoreRef<'a> {
     }
 }
 
+impl AsStoreRef for StoreRef<'_> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        StoreRef { inner: self.inner }
+    }
+}
+
+impl<P> AsStoreRef for P
+where
+    P: Deref,
+    P::Target: AsStoreRef,
+{
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        (**self).as_store_ref()
+    }
+}
+
 /// A mutable temporary handle to a [`Store`].
 pub struct StoreMut<'a> {
     pub(crate) inner: &'a mut StoreInner,
 }
 
-impl AsEngineRef for StoreMut<'_> {
-    fn as_engine_ref(&self) -> EngineRef<'_> {
-        self.inner.store.as_engine_ref()
+impl AsStoreRef for StoreMut<'_> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        StoreRef { inner: self.inner }
     }
 }
 
@@ -102,19 +121,46 @@ pub trait AsStoreMut: AsStoreRef {
     fn objects_mut(&mut self) -> &mut StoreObjects;
 }
 
+impl AsStoreMut for StoreMut<'_> {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        StoreMut { inner: self.inner }
+    }
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        &mut self.inner.objects
+    }
+}
+
+impl<P> AsStoreMut for P
+where
+    P: DerefMut,
+    P::Target: AsStoreMut,
+{
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        (**self).as_store_mut()
+    }
+
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        (**self).objects_mut()
+    }
+}
+
+impl AsEngineRef for StoreMut<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        self.inner.store.as_engine_ref()
+    }
+}
+
 impl<'a> ExternRefCreator for StoreMut<'a> {
     fn extern_ref_new<T>(&mut self, value: T) -> Box<dyn crate::ExternRefLike>
     where
         T: std::any::Any + Send + Sync + 'static + Sized,
         Self: Sized,
     {
-        let engine = self.as_engine_ref();
-        let engine_id = engine.engine().0.deterministic_id();
+        let embedder = self.inner.store.get_embedder();
 
-        // Hacky (and PoC)
         #[cfg(feature = "sys")]
         {
-            if engine_id == "sys" {
+            if matches!(crate::embedders::Embedder::Sys, embedder) {
                 match self.inner.store.as_sys_mut() {
                     Some(store) => {
                         return Box::new(
@@ -217,6 +263,30 @@ impl<'a> MemoryCreator for StoreMut<'a> {
         &mut self,
         vm_extern: crate::vm::VMExternMemory,
     ) -> Box<dyn crate::MemoryLike> {
+        todo!()
+    }
+}
+
+impl<'a> StoreHandleCreator for StoreMut<'a> {
+    fn store_handle_from_value<T>(&mut self, val: T) -> crate::StoreHandle<T>
+    where
+        Self: Sized,
+    {
+        let embedder = self.inner.store.get_embedder();
+
+        #[cfg(feature = "sys")]
+        {
+            if matches!(crate::embedders::Embedder::Sys, embedder) {
+                todo!()
+            }
+        }
+
+        panic!()
+    }
+}
+
+impl<'a> VMFunctionEnvCreator for StoreMut<'a> {
+    fn vm_env_from_value<T>(&mut self, value: T) -> crate::vm::VMFunctionEnvironment {
         todo!()
     }
 }

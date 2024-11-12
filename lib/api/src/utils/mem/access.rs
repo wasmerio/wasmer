@@ -257,7 +257,7 @@ impl<'a, T> WasmRefAccess<'a, T>
 where
     T: wasmer_types::ValueType,
 {
-    pub(crate) fn new(ptr: WasmRef< T>) -> Result<Self, MemoryAccessError> {
+    pub(crate) fn new(ptr: WasmRef<T>) -> Result<Self, MemoryAccessError> {
         let total_len = mem::size_of::<T>() as u64;
         let end = ptr
             .offset

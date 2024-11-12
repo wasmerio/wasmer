@@ -251,7 +251,7 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for RuntimeError {
         match error.downcast::<Self>() {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,
-            Err(error) => Trap::user(error).into(),
+            Err(error) => Self::user(error),
         }
     }
 }

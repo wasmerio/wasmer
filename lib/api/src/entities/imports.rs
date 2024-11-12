@@ -166,6 +166,7 @@ impl Imports {
     }
 }
 
+/// An iterator over module imports.
 pub struct ImportsIterator<'a> {
     iter: std::collections::hash_map::Iter<'a, (String, String), Extern>,
 }

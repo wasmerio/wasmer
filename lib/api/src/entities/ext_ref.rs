@@ -71,6 +71,7 @@ pub trait ExternRefLike: std::fmt::Debug {
     /// with that context.
     fn is_from_store(&self, store: &StoreRef) -> bool;
 
+    /// Create a boxed clone of this implementer.
     fn clone_box(&self) -> Box<dyn ExternRefLike>;
 }
 

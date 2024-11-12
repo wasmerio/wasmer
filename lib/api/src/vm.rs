@@ -1,6 +1,8 @@
 //! This module defines traits to handle abstractions created by the embedders.
 
+use crate::VMExternToExtern;
 use wasmer_types::RawValue;
+
 macro_rules! define_vm_like {
     ($name: ident) => {
         paste::paste! {
@@ -8,20 +10,24 @@ macro_rules! define_vm_like {
         /// $name>]-like.
         pub trait [<VM $name Like>] {
             #[cfg(feature = "sys")]
-            fn as_sys(&self) -> Option<&crate::embedders::sys::vm::[<VM $name>]> {
+            fn as_sys(&self) -> Option<&crate::embedders::sys::vm::[<SysVM $name>]> {
                 None
             }
             #[cfg(feature = "sys")]
-            fn as_sys_mut(&mut self) -> Option<&mut crate::embedders::sys::vm::[<VM $name>]> {
+            fn as_sys_mut(&mut self) -> Option<&mut crate::embedders::sys::vm::[<SysVM $name>]> {
                 None
             }
 
             #[cfg(feature = "sys")]
-            fn into_sys(self) -> Option<crate::embedders::sys::vm::[<VM $name>]> where Self: Sized {
+            fn into_sys(self) -> Option<crate::embedders::sys::vm::[<SysVM $name>]> where Self: Sized {
                 None
             }
+
+            fn as_any(&self) -> &dyn std::any::Any;
+
+            fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
         }
-        /// A new type for references to those that implement [<VM $name Like>].
+        /// A newtype for references to those that implement [<VM $name Like>].
         pub type [<VM $name>]  = Box<dyn [<VM $name Like>]>;
         }
     };
@@ -33,6 +39,7 @@ define_vm_like!(ExternGlobal);
 define_vm_like!(ExternMemory);
 define_vm_like!(ExternTable);
 define_vm_like!(FunctionCallback);
+define_vm_like!(FunctionBody);
 define_vm_like!(FunctionEnvironment);
 define_vm_like!(Instance);
 define_vm_like!(Trampoline);
@@ -75,4 +82,10 @@ pub trait VMFuncRefCreator {
 pub trait VMFuncRefResolver {
     /// Converts the [`VMFuncRef`] into a [`RawValue`].
     fn func_ref_into_raw(&self, value: VMFuncRef) -> RawValue;
+}
+
+impl VMExternToExtern for VMExtern {
+    fn to_extern(self, store: &mut impl crate::AsStoreMut) -> crate::Extern {
+        todo!()
+    }
 }

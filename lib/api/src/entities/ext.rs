@@ -6,6 +6,7 @@ use crate::{
 
 /// Trait convert a VMExtern to a Extern
 pub trait VMExternToExtern {
+    /// Convert to [`Extern`] 
     fn to_extern(self, store: &mut impl AsStoreMut) -> Extern;
 }
 

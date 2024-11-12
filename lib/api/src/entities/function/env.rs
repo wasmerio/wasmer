@@ -1,5 +1,10 @@
+use wasmer_vm::StoreObjects;
+
+use crate::{
+    vm::VMFunctionEnvironment, AsStoreMut, AsStoreRef, StoreHandle, StoreHandleCreator, StoreMut,
+    StoreRef,
+};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
-use crate::vm::VMFunctionEnvironment;
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -10,6 +15,12 @@ pub struct FunctionEnv<T> {
     marker: PhantomData<T>,
 }
 
+/// The trait implemented by all those that can create new VM function environments.
+pub trait VMFunctionEnvCreator {
+    /// Crate a new instance of [`VMFunctionEnv`].
+    fn vm_env_from_value<T>(&mut self, value: T) -> VMFunctionEnvironment;
+}
+
 impl<T> FunctionEnv<T> {
     /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
@@ -17,10 +28,11 @@ impl<T> FunctionEnv<T> {
         T: Any + Send + 'static + Sized,
     {
         Self {
-            handle: StoreHandle::new(
-                store.as_store_mut().objects_mut(),
-                VMFunctionEnvironment::new(value),
-            ),
+            handle: {
+                let mut store_mut = store.as_store_mut();
+                let value = store_mut.vm_env_from_value(value);
+                store_mut.store_handle_from_value(value)
+            },
             marker: PhantomData,
         }
     }
@@ -33,6 +45,7 @@ impl<T> FunctionEnv<T> {
         self.handle
             .get(store.as_store_ref().objects())
             .as_ref()
+            .as_any()
             .downcast_ref::<T>()
             .unwrap()
     }
@@ -53,6 +66,7 @@ impl<T> FunctionEnv<T> {
         self.handle
             .get_mut(store.objects_mut())
             .as_mut()
+            .as_any_mut()
             .downcast_mut::<T>()
             .unwrap()
     }
@@ -71,7 +85,7 @@ impl<T> FunctionEnv<T> {
 
 impl<T> PartialEq for FunctionEnv<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.handle == other.handle
+        self.handle.cmp(other.handle.as_ref()).is_eq()
     }
 }
 
@@ -79,7 +93,8 @@ impl<T> Eq for FunctionEnv<T> {}
 
 impl<T> std::hash::Hash for FunctionEnv<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.handle.hash(state);
+        let handle_hash = self.handle.hash();
+        handle_hash.hash(state);
         self.marker.hash(state);
     }
 }
@@ -87,7 +102,7 @@ impl<T> std::hash::Hash for FunctionEnv<T> {
 impl<T> Clone for FunctionEnv<T> {
     fn clone(&self) -> Self {
         Self {
-            handle: self.handle.clone(),
+            handle: self.handle.clone_boxed(),
             marker: self.marker,
         }
     }

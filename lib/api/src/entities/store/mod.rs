@@ -8,6 +8,9 @@ mod inner;
 mod store_ref;
 pub use store_ref::*;
 
+mod handle;
+pub use handle::*;
+
 use inner::StoreInner;
 pub(crate) use inner::StoreLike;
 use wasmer_vm::{StoreId, StoreObjects, TrapHandlerFn};
