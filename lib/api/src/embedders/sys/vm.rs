@@ -1,23 +1,52 @@
-use wasmer_vm::InternalStoreHandle;
-pub(crate) use wasmer_vm::{
-    VMConfig, VMExtern, VMExternRef, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment,
-    VMGlobal, VMInstance, VMMemory, VMSharedMemory, VMTable, VMTrampoline,
+use crate::{
+    embedders::{vm_gen_impl, vm_impex},
+    vm::*,
 };
+use wasmer_vm::InternalStoreHandle;
 
-pub(crate) type VMExternTable = InternalStoreHandle<VMTable>;
-pub(crate) type VMExternMemory = InternalStoreHandle<VMMemory>;
-pub(crate) type VMExternGlobal = InternalStoreHandle<VMGlobal>;
-pub(crate) type VMExternFunction = InternalStoreHandle<VMFunction>;
+vm_impex!(
+    wasmer_vm,
+    Sys,
+    VMConfig,
+    VMExtern,
+    VMExternRef,
+    VMFuncRef,
+    VMFunction,
+    VMFunctionBody,
+    VMFunctionEnvironment,
+    VMGlobal,
+    VMInstance,
+    VMMemory,
+    VMSharedMemory,
+    VMTable,
+    VMTrampoline
+);
 
-pub type VMFunctionCallback = *const VMFunctionBody;
+pub(crate) type SysVMExternTable = InternalStoreHandle<SysVMTable>;
+pub(crate) type SysVMExternMemory = InternalStoreHandle<SysVMMemory>;
+pub(crate) type SysVMExternGlobal = InternalStoreHandle<SysVMGlobal>;
+pub(crate) type SysVMExternFunction = InternalStoreHandle<SysVMFunction>;
+pub(crate) type SysVMFunctionCallback = *const SysVMFunctionBody;
 
-//impl VMExternToExtern for VMExtern {
-//    fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
-//        match self {
-//            Self::Function(f) => Extern::Function(Function::from_vm_extern(store, f)),
-//            Self::Memory(m) => Extern::Memory(Memory::from_vm_extern(store, m)),
-//            Self::Global(g) => Extern::Global(Global::from_vm_extern(store, g)),
-//            Self::Table(t) => Extern::Table(Table::from_vm_extern(store, t)),
-//        }
-//    }
-//}
+vm_gen_impl!(
+    sys,
+    Sys,
+    VMConfig,
+    VMExtern,
+    VMExternRef,
+    VMFuncRef,
+    VMFunction,
+    VMFunctionBody,
+    VMFunctionEnvironment,
+    VMGlobal,
+    VMInstance,
+    VMMemory,
+    VMSharedMemory,
+    VMTable,
+    VMTrampoline,
+    VMExternTable,
+    VMExternMemory,
+    VMExternGlobal,
+    VMExternFunction,
+    VMFunctionCallback
+);
