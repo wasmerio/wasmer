@@ -535,6 +535,7 @@
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -610,7 +611,8 @@
 
         <span class="kw">if </span><span class="self">self</span>.mounts.iter().all(|m| m.guest != <span class="string">"."</span>) {
             <span class="comment">// The user hasn't mounted "." to anything, so let's map it to "/"
-            </span>builder.add_map_dir(<span class="string">"."</span>, <span class="string">"/"</span>)<span class="question-mark">?</span>;
+            </span><span class="kw">let </span>path = builder.get_current_dir().unwrap_or(PathBuf::from(<span class="string">"/"</span>));
+            builder.add_map_dir(<span class="string">"."</span>, path)<span class="question-mark">?</span>;
         }
 
         builder.set_fs(Box::new(fs));

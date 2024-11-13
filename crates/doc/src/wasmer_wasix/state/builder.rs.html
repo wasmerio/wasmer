@@ -1304,6 +1304,10 @@
 <a href="#1304" id="1304">1304</a>
 <a href="#1305" id="1305">1305</a>
 <a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1883,6 +1887,10 @@
     </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub fn </span>add_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) {
         <span class="self">self</span>.journals.push(journal);
+    }
+
+    <span class="kw">pub fn </span>get_current_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
+        <span class="self">self</span>.current_dir.clone()
     }
 
     <span class="kw">pub fn </span>set_current_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;) {

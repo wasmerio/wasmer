@@ -567,6 +567,7 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -831,6 +832,18 @@
             <span class="prelude-val">None
         </span>};
 
+        <span class="kw">if </span><span class="self">self</span>.wasi.is_home_mapped {
+            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(current_dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.wasi.current_dir {
+            builder.set_current_dir(current_dir.clone());
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cwd) = <span class="kw-2">&amp;</span>wasi.cwd {
+            builder.set_current_dir(cwd);
+        }
+
         <span class="self">self</span>.wasi
             .prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, container_fs, wasi, root_fs)<span class="question-mark">?</span>;
 
@@ -842,13 +855,6 @@
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(stderr) = <span class="kw-2">&amp;</span><span class="self">self</span>.stderr {
             builder.set_stderr(Box::new(stderr.clone()));
-        }
-
-        <span class="kw">if </span><span class="self">self</span>.wasi.is_home_mapped {
-            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(current_dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.wasi.current_dir {
-            builder.set_current_dir(current_dir.clone());
         }
 
         <span class="prelude-val">Ok</span>(builder)
@@ -944,10 +950,6 @@
             <span class="kw">for </span>snapshot_trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                 env.add_snapshot_trigger(snapshot_trigger);
             }
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cwd) = <span class="kw-2">&amp;</span>wasi.cwd {
-            env.set_current_dir(cwd);
         }
 
         <span class="kw">let </span>env = env.build()<span class="question-mark">?</span>;
