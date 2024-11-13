@@ -73,7 +73,8 @@ impl CommonWasiOptions {
 
         if self.mounts.iter().all(|m| m.guest != ".") {
             // The user hasn't mounted "." to anything, so let's map it to "/"
-            builder.add_map_dir(".", "/")?;
+            let path = builder.get_current_dir().unwrap_or(PathBuf::from("/"));
+            builder.add_map_dir(".", path)?;
         }
 
         builder.set_fs(Box::new(fs));
