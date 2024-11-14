@@ -110,6 +110,8 @@ endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../wamr)
 
+set (WAMR_BUILD_LIB_WASI_THREADS 1)
+
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
