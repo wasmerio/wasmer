@@ -14,7 +14,7 @@ use crate::store::AsStoreRef;
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TypedFunction<Args, Rets> {
     pub(crate) func: Function,
     _phantom: PhantomData<fn(Args) -> Rets>,

@@ -53,9 +53,10 @@ impl Deref for Handler {
     }
 }
 
-#[derive(derivative::Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub(crate) struct SharedState {
+    #[allow(dead_code)]
     pub(crate) inner: Arc<wcgi::SharedState>,
     factory: DcgiInstanceFactory,
     master_lock: Arc<tokio::sync::Mutex<()>>,

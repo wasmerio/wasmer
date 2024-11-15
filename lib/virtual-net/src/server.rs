@@ -5,7 +5,6 @@ use crate::{
     VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
-use derivative::Derivative;
 use futures_util::stream::FuturesOrdered;
 #[cfg(any(feature = "hyper", feature = "tokio-tungstenite"))]
 use futures_util::stream::{SplitSink, SplitStream};
@@ -1223,6 +1222,7 @@ impl RemoteNetworkingServerDriver {
     }
 }
 
+#[derive(Debug)]
 enum RemoteAdapterSocket {
     TcpListener {
         socket: Box<dyn VirtualTcpListener + Sync + 'static>,
@@ -1616,14 +1616,10 @@ impl InterestHandler for RemoteAdapterHandler {
 
 type SocketMap<T> = HashMap<SocketId, T>;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 struct RemoteAdapterCommon {
-    #[derivative(Debug = "ignore")]
     tx: RemoteTx<MessageResponse>,
-    #[derivative(Debug = "ignore")]
     rx: Mutex<RemoteRx<MessageRequest>>,
-    #[derivative(Debug = "ignore")]
     sockets: Mutex<SocketMap<RemoteAdapterSocket>>,
     socket_accept: Mutex<SocketMap<SocketId>>,
     handler: RemoteAdapterHandler,

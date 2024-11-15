@@ -122,6 +122,7 @@ base64 = "0.22.0"
 time = "0.3.36"
 target-lexicon = { version = "0.12.2", default-features = false }
 object = "0.32.0"
+derive_more = { version = "1", features = ["debug"] }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

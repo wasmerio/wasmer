@@ -7,20 +7,23 @@ use std::{
 };
 
 use anyhow::Error;
-use derivative::Derivative;
 use futures::TryFutureExt;
 use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
-#[derive(Derivative, serde::Serialize, serde::Deserialize, Clone)]
-#[derivative(Debug, PartialEq)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct TestIncludeWeb {
     pub name: String,
-    #[derivative(Debug = "ignore", PartialEq = "ignore")]
     #[serde(skip, default = "default_include_webc")]
     pub webc: Arc<NamedTempFile>,
+}
+
+impl PartialEq for TestIncludeWeb {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 fn default_include_webc() -> Arc<NamedTempFile> {

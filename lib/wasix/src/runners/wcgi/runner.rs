@@ -200,12 +200,10 @@ impl crate::runners::Runner for WcgiRunner {
     }
 }
 
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct Config {
     pub(crate) wasi: CommonWasiOptions,
     pub(crate) addr: SocketAddr,
-    #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
 }
 

@@ -3,6 +3,7 @@ use crate::engine::{AsEngineRef, Engine, EngineRef};
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
+#[derive(Debug)]
 pub(crate) struct Store {
     pub(crate) engine: Engine,
 }
