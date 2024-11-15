@@ -1054,7 +1054,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                 .unwrap();
             let store_data = Bytes::from(store_data);
 
-            tracing::debug!(
+            tracing::trace!(
                 "stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})",
                 memory_stack.len(),
                 rewind_stack.len(),
@@ -1466,22 +1466,22 @@ where
 
         match result.rewind_result {
             RewindResultType::RewindRestart => {
-                debug!(%pid, %tid, "rewind for syscall restart");
+                tracing::trace!(%pid, %tid, "rewind for syscall restart");
                 None
             }
             RewindResultType::RewindWithoutResult => {
-                debug!(%pid, %tid, "rewind with no result");
+                tracing::trace!(%pid, %tid, "rewind with no result");
                 Some(None)
             }
             RewindResultType::RewindWithResult(rewind_result) => {
-                debug!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
+                tracing::trace!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
                 let ret = bincode::deserialize(&rewind_result)
                     .expect("failed to deserialize the rewind result");
                 Some(Some(ret))
             }
         }
     } else {
-        debug!(%pid, %tid, "rewind miss");
+        tracing::trace!(%pid, %tid, "rewind miss");
         Some(None)
     }
 }
