@@ -2622,7 +2622,7 @@
                 .unwrap();
             <span class="kw">let </span>store_data = Bytes::from(store_data);
 
-            <span class="macro">tracing::debug!</span>(
+            <span class="macro">tracing::trace!</span>(
                 <span class="string">"stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})"</span>,
                 memory_stack.len(),
                 rewind_stack.len(),
@@ -3034,22 +3034,22 @@
 
         <span class="kw">match </span>result.rewind_result {
             RewindResultType::RewindRestart =&gt; {
-                <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind for syscall restart"</span>);
+                <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">"rewind for syscall restart"</span>);
                 <span class="prelude-val">None
             </span>}
             RewindResultType::RewindWithoutResult =&gt; {
-                <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind with no result"</span>);
+                <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">"rewind with no result"</span>);
                 <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>)
             }
             RewindResultType::RewindWithResult(rewind_result) =&gt; {
-                <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind with result (data={})"</span>, rewind_result.len());
+                <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">"rewind with result (data={})"</span>, rewind_result.len());
                 <span class="kw">let </span>ret = bincode::deserialize(<span class="kw-2">&amp;</span>rewind_result)
                     .expect(<span class="string">"failed to deserialize the rewind result"</span>);
                 <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(ret))
             }
         }
     } <span class="kw">else </span>{
-        <span class="macro">debug!</span>(%pid, %tid, <span class="string">"rewind miss"</span>);
+        <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">"rewind miss"</span>);
         <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>)
     }
 }
