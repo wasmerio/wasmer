@@ -14,12 +14,10 @@ use crate::Runtime;
 use super::factory::DProxyInstanceFactory;
 use super::Config;
 
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct SharedState {
     pub(crate) config: Config,
     pub(crate) command_name: String,
-    #[derivative(Debug = "ignore")]
     pub(crate) runtime: Arc<dyn Runtime + Send + Sync>,
     pub(crate) factory: DProxyInstanceFactory,
 }

@@ -1,7 +1,6 @@
 use std::{path::Path, sync::Arc};
 
 use anyhow::Context;
-use derivative::*;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
 use virtual_fs::FileSystem;
@@ -17,12 +16,11 @@ use crate::{
 };
 use wasmer_types::ModuleHash;
 
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(derive_more::Debug, Clone)]
 pub struct BinaryPackageCommand {
     name: String,
     metadata: webc::metadata::Command,
-    #[derivative(Debug = "ignore")]
+    #[debug(ignore)]
     pub(crate) atom: SharedBytes,
     hash: ModuleHash,
 }
@@ -64,8 +62,7 @@ impl BinaryPackageCommand {
 }
 
 /// A WebAssembly package that has been loaded into memory.
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryPackage {
     pub id: PackageId,
     /// Includes the ids of all the packages in the tree

@@ -7,7 +7,6 @@ use crate::{
     VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 use bytes::{Buf, BytesMut};
-use derivative::Derivative;
 use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 use std::mem::MaybeUninit;
@@ -29,8 +28,7 @@ use virtual_mio::{
     state_as_waker_map, HandlerGuardState, InterestGuard, InterestHandler, InterestType, Selector,
 };
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct LocalNetworking {
     selector: Arc<Selector>,
     handle: Handle,
@@ -148,8 +146,7 @@ impl VirtualNetworking for LocalNetworking {
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct LocalTcpListener {
     stream: mio::net::TcpListener,
     selector: Arc<Selector>,

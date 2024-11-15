@@ -164,6 +164,8 @@ impl EpollJoinWaker {
         unsafe { Waker::from_raw(raw_waker) }
     }
 }
+
+#[derive(Debug)]
 pub struct EpollHandler {
     fd: WasiFd,
     tx: Arc<watch::Sender<EpollInterest>>,

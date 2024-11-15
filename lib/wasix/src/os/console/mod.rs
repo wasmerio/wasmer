@@ -12,7 +12,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-use derivative::*;
 use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
 #[allow(unused_imports, dead_code)]
@@ -35,8 +34,7 @@ use crate::{
     Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct Console {
     user_agent: Option<String>,
     boot_cmd: String,

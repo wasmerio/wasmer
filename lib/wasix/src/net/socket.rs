@@ -9,7 +9,6 @@ use std::{
     time::Duration,
 };
 
-use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use virtual_mio::InterestHandler;
@@ -33,8 +32,7 @@ pub enum InodeHttpSocketType {
     Headers,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct SocketProperties {
     pub family: Addressfamily,
     pub ty: Socktype,
@@ -51,7 +49,6 @@ pub struct SocketProperties {
     pub read_timeout: Option<Duration>,
     pub accept_timeout: Option<Duration>,
     pub connect_timeout: Option<Duration>,
-    #[derivative(Debug = "ignore")]
     pub handler: Option<Box<dyn InterestHandler + Send + Sync>>,
 }
 

@@ -318,19 +318,16 @@ async fn consume_stderr(
 
 pub type SetupBuilder = Arc<dyn Fn(&mut WasiEnvBuilder) -> Result<(), anyhow::Error> + Send + Sync>;
 
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+#[derive(derive_more::Debug)]
 pub(crate) struct SharedState {
     pub(crate) module: Module,
     pub(crate) module_hash: ModuleHash,
     pub(crate) dialect: CgiDialect,
     pub(crate) program_name: String,
     pub(crate) propagate_stderr: bool,
-    #[derivative(Debug = "ignore")]
+    #[debug(ignore)]
     pub(crate) setup_builder: SetupBuilder,
-    #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
-    #[derivative(Debug = "ignore")]
     pub(crate) runtime: Arc<dyn Runtime + Send + Sync>,
 }
 

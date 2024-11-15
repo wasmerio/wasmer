@@ -1372,17 +1372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derivative"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "derive_arbitrary"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1435,6 +1424,27 @@ dependencies = [
  "quote",
  "rustc_version 0.4.1",
  "syn 2.0.85",
+]
+
+[[package]]
+name = "derive_more"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.85",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -4374,7 +4384,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58c4eb8a81997cf040a091d1f7e1938aeab6749d3a0dfa73af43cdc32393483d"
 dependencies = [
  "byteorder",
- "derive_more",
+ "derive_more 0.99.18",
  "twox-hash",
 ]
 
@@ -5877,7 +5887,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "dashmap 6.1.0",
- "derivative",
+ "derive_more 1.0.0",
  "dunce",
  "filetime",
  "fs_extra",
@@ -5908,7 +5918,6 @@ version = "0.5.0"
 dependencies = [
  "async-trait",
  "bytes",
- "derivative",
  "futures",
  "mio",
  "serde",
@@ -5927,7 +5936,7 @@ dependencies = [
  "bincode",
  "bytecheck 0.6.12",
  "bytes",
- "derivative",
+ "derive_more 1.0.0",
  "futures-util",
  "hyper",
  "hyper-tungstenite",
@@ -6292,7 +6301,6 @@ dependencies = [
  "bytes",
  "cfg-if",
  "cmake",
- "derivative",
  "hashbrown 0.11.2",
  "indexmap 1.9.3",
  "js-sys",
@@ -6336,7 +6344,7 @@ dependencies = [
  "async-trait",
  "clap",
  "cynic",
- "derive_more",
+ "derive_more 0.99.18",
  "futures",
  "indicatif",
  "log",
@@ -6743,7 +6751,6 @@ version = "5.0.1"
 dependencies = [
  "anyhow",
  "assert_cmd 2.0.16",
- "derivative",
  "dirs",
  "flate2",
  "futures",
@@ -6779,7 +6786,7 @@ dependencies = [
  "bincode",
  "bytecheck 0.6.12",
  "bytes",
- "derivative",
+ "derive_more 1.0.0",
  "lz4_flex",
  "num_enum",
  "rkyv",
@@ -6893,7 +6900,6 @@ dependencies = [
  "corosensei",
  "crossbeam-queue",
  "dashmap 6.1.0",
- "derivative",
  "enum-iterator",
  "fnv",
  "indexmap 2.6.0",
@@ -6928,7 +6934,7 @@ dependencies = [
  "chrono",
  "cooked-waker",
  "dashmap 6.1.0",
- "derivative",
+ "derive_more 1.0.0",
  "env_logger",
  "futures",
  "getrandom",

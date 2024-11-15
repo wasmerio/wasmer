@@ -34,7 +34,6 @@ indexmap = { version = "1.6" }
 cfg-if = "1.0"
 thiserror = "1.0"
 more-asserts = "0.2"
-derivative = { version = "^2" }
 bytes = "1"
 tracing = { version = "0.1" }
 # - Optional shared dependencies.

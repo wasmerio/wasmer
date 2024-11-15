@@ -1,4 +1,3 @@
-use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::{Shutdown, SocketAddr};
@@ -79,8 +78,7 @@ pub enum SocketOptTimeType {
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
 #[allow(clippy::large_enum_variant)]
-#[derive(Derivative, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[derivative(Debug)]
+#[derive(derive_more::Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JournalEntry<'a> {
     InitModuleV1 {
@@ -89,7 +87,7 @@ pub enum JournalEntry<'a> {
     ClearEtherealV1,
     UpdateMemoryRegionV1 {
         region: Range<u64>,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         #[serde(with = "base64")]
         compressed_data: Cow<'a, [u8]>,
     },
@@ -98,13 +96,13 @@ pub enum JournalEntry<'a> {
     },
     SetThreadV1 {
         id: u32,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         #[serde(with = "base64")]
         call_stack: Cow<'a, [u8]>,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         #[serde(with = "base64")]
         memory_stack: Cow<'a, [u8]>,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         #[serde(with = "base64")]
         store_data: Cow<'a, [u8]>,
         start: ThreadStartType,
@@ -123,7 +121,7 @@ pub enum JournalEntry<'a> {
     FileDescriptorWriteV1 {
         fd: Fd,
         offset: u64,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         #[serde(with = "base64")]
         data: Cow<'a, [u8]>,
         is_64bit: bool,
@@ -141,9 +139,9 @@ pub enum JournalEntry<'a> {
         dirflags: LookupFlags,
         path: Cow<'a, str>,
         o_flags: Oflags,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         fs_rights_base: Rights,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         fs_rights_inheriting: Rights,
         fs_flags: Fdflags,
     },
@@ -330,7 +328,7 @@ pub enum JournalEntry<'a> {
     },
     SocketSendToV1 {
         fd: Fd,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         #[serde(with = "base64")]
         data: Cow<'a, [u8]>,
         flags: SiFlags,
@@ -339,7 +337,7 @@ pub enum JournalEntry<'a> {
     },
     SocketSendV1 {
         fd: Fd,
-        #[derivative(Debug = "ignore")]
+        #[debug(ignore)]
         #[serde(with = "base64")]
         data: Cow<'a, [u8]>,
         flags: SiFlags,

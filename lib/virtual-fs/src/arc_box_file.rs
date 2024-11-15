@@ -8,15 +8,12 @@ use std::{
     task::{Context, Poll},
 };
 
-use derivative::Derivative;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::VirtualFile;
 
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArcBoxFile {
-    #[derivative(Debug = "ignore")]
     inner: Arc<Mutex<Box<dyn VirtualFile + Send + Sync + 'static>>>,
 }
 

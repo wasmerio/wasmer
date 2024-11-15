@@ -6,6 +6,7 @@ use crate::{
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
+#[derive(Debug)]
 pub(crate) struct Store {
     pub(crate) engine: Engine,
     pub(crate) inner: *mut wasm_store_t,

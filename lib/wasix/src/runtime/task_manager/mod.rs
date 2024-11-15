@@ -7,7 +7,6 @@ use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
 use bytes::Bytes;
-use derivative::Derivative;
 use futures::future::BoxFuture;
 use futures::{Future, TryFutureExt};
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
@@ -39,8 +38,7 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
     + Sync;
 
 /// The properties passed to the task
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(derive_more::Debug)]
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
@@ -49,7 +47,7 @@ pub struct TaskWasmRunProperties {
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
     pub trigger_result: Option<Result<Bytes, ExitCode>>,
     /// The instance will be recycled back to this function when the WASM run has finished
-    #[derivative(Debug = "ignore")]
+    #[debug(ignore)]
     pub recycle: Option<Box<TaskWasmRecycle>>,
 }
 

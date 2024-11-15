@@ -5,8 +5,6 @@ use std::{
     task::{Context, RawWaker, RawWakerVTable, Waker},
 };
 
-use derivative::Derivative;
-
 #[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum InterestType {
     Readable,
@@ -71,7 +69,7 @@ impl InterestHandler for SharedWakerInterestHandler {
     }
 }
 
-pub trait InterestHandler: Send + Sync {
+pub trait InterestHandler: Send + Sync + std::fmt::Debug {
     fn push_interest(&mut self, interest: InterestType);
 
     fn pop_interest(&mut self, interest: InterestType) -> bool;
@@ -101,10 +99,8 @@ pub fn handler_into_waker(
     })
 }
 
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct InterestHandlerWaker {
-    #[derivative(Debug = "ignore")]
     handler: Arc<Mutex<Box<dyn InterestHandler + Send + Sync>>>,
     interest: InterestType,
 }
