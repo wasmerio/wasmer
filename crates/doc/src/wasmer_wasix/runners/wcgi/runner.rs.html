@@ -554,7 +554,7 @@
             command_name,
             pkg,
             <span class="bool-val">false</span>,
-            CgiDialect::Wcgi,
+            CgiDialect::Rfc3875,
             Arc::clone(<span class="kw-2">&amp;</span>runtime),
         )<span class="question-mark">?</span>;
         <span class="self">self</span>.run_command_with_handler(handler, runtime)
