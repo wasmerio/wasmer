@@ -7149,16 +7149,6 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.95.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2ea896273ea99b15132414be1da01ab0d8836415083298ecaffbe308eaac87a"
-dependencies = [
- "indexmap 1.9.3",
- "url",
-]
-
-[[package]]
-name = "wasmparser"
 version = "0.121.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9dbe55c8f9d0dbd25d9447a5a889ff90c0cc3feaa7395310d3d826b2c703eaab"
@@ -7224,9 +7214,9 @@ dependencies = [
 
 [[package]]
 name = "wcgi"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b51540185fb0764ba68176a955c9530f8f7501b418b034e30607f892fec261b2"
+checksum = "3977728575e8a79833db34f835b810dd7e1affdec0fa18cf141f060421cade6a"
 dependencies = [
  "http",
  "http-serde",
@@ -7237,14 +7227,13 @@ dependencies = [
 
 [[package]]
 name = "wcgi-host"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cfc134be64da186b33675e0154827ba8eb4eb30579c1142cebec88607cd2cf6"
+checksum = "4d78a0358eebb970afcacc158f4172d2b7355d37572b350f1ed46dc44fe2e464"
 dependencies = [
  "http",
  "serde",
  "tokio",
- "wasmparser 0.95.0",
  "wcgi",
 ]
 

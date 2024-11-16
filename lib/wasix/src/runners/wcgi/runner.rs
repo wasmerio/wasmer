@@ -193,7 +193,7 @@ impl crate::runners::Runner for WcgiRunner {
             command_name,
             pkg,
             false,
-            CgiDialect::Wcgi,
+            CgiDialect::Rfc3875,
             Arc::clone(&runtime),
         )?;
         self.run_command_with_handler(handler, runtime)

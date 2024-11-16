@@ -86,8 +86,8 @@ semver = "1.0.17"
 tempfile = "3.6.0"
 num_enum = "0.5.7"
 # Used by the WCGI runner
-wcgi = { version = "0.2.0", optional = true }
-wcgi-host = { version = "0.2.0", optional = true }
+wcgi = { version = "0.3.0", optional = true }
+wcgi-host = { version = "0.3.0", optional = true }
 tower-http = { version = "0.5.0", features = [
 	"trace",
 	"util",
