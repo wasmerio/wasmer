@@ -29,7 +29,7 @@ use crate::{
 };
 use wasmer_types::ModuleHash;
 
-use super::env::WasiEnvInit;
+use super::env::{AdditionalImportsBuilder, WasiEnvInit};
 
 /// Builder API for configuring a [`WasiEnv`] environment needed to run WASI modules.
 ///
@@ -93,6 +93,8 @@ pub struct WasiEnvBuilder {
 
     #[cfg(feature = "ctrlc")]
     pub(super) attach_ctrl_c: bool,
+
+    pub additional_imports_builder: Option<Arc<dyn AdditionalImportsBuilder + Send + Sync>>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -736,6 +738,14 @@ impl WasiEnvBuilder {
         self
     }
 
+    pub fn import_builder(
+        mut self,
+        additional_imports_builder: Arc<dyn AdditionalImportsBuilder + Send + Sync>,
+    ) -> Self {
+        self.additional_imports_builder = Some(additional_imports_builder);
+        self
+    }
+
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
     /// can be used to construct a new [`WasiEnv`].
     ///
@@ -944,6 +954,7 @@ impl WasiEnvBuilder {
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on,
             additional_imports: self.additional_imports,
+            additional_imports_builder: self.additional_imports_builder,
         };
 
         Ok(init)

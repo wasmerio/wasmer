@@ -67,8 +67,8 @@ pub use wasmer;
 pub use wasmer_wasix_types;
 
 use wasmer::{
-    imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
-    MemorySize, RuntimeError,
+    imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory, Memory32,
+    MemoryAccessError, MemorySize, RuntimeError,
 };
 
 pub use virtual_fs;
@@ -96,8 +96,8 @@ pub use crate::{
     rewind::*,
     runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
-        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
-        WasiStateCreationError, ALL_RIGHTS,
+        AdditionalImportsBuilder, AdditionalImportsInitializer, WasiEnv, WasiEnvBuilder,
+        WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles, WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::{journal::wait_for_snapshot, rewind, rewind_ext, types, unwind},
     utils::is_wasix_module,
@@ -735,16 +735,11 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
-pub type InstanceInitializer =
-    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
-
-type ModuleInitializer =
-    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
-
 /// No-op module initializer.
 fn stub_initializer(
     _instance: &wasmer::Instance,
-    _store: &dyn wasmer::AsStoreRef,
+    _memory: &Memory,
+    _store: &mut dyn wasmer::AsStoreMut,
 ) -> Result<(), anyhow::Error> {
     Ok(())
 }
@@ -755,7 +750,7 @@ fn import_object_for_all_wasi_versions(
     _module: &wasmer::Module,
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
-) -> (Imports, ModuleInitializer) {
+) -> (Imports, AdditionalImportsInitializer) {
     let exports_wasi_generic = wasi_exports_generic(store, env);
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
@@ -772,7 +767,21 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    let init = Box::new(stub_initializer) as ModuleInitializer;
+    let init = if let Some(additional_imports_builder) =
+        &env.as_ref(&store).additional_imports_builder.clone()
+    {
+        let (additional_imports, callback) = additional_imports_builder.initialize(store);
+        for (namespace, name, value) in additional_imports.iter() {
+            // Note: We don't want to let downstream users override WASIX
+            // syscalls
+            if !imports.exists(&namespace, &name) {
+                imports.define(&namespace, &name, value.clone());
+            }
+        }
+        callback
+    } else {
+        Box::new(stub_initializer) as AdditionalImportsInitializer
+    };
 
     (imports, init)
 }

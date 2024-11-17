@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt,
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
@@ -146,8 +147,18 @@ pub struct WasiInstanceHandles {
     pub(crate) asyncify_get_state: Option<TypedFunction<(), i32>>,
 }
 
+pub trait AdditionalImportsBuilder
+where
+    Self: fmt::Debug,
+{
+    fn initialize(&self, store: &mut dyn AsStoreMut) -> (Imports, AdditionalImportsInitializer);
+}
+
+pub type AdditionalImportsInitializer =
+    Box<dyn Fn(&Instance, &Memory, &mut dyn AsStoreMut) -> Result<(), anyhow::Error>>;
+
 impl WasiInstanceHandles {
-    pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
+    pub fn new(memory: Memory, store: &mut impl AsStoreMut, instance: Instance) -> Self {
         let has_stack_checkpoint = instance
             .module()
             .imports()
@@ -257,6 +268,8 @@ pub struct WasiEnvInit {
     /// normal WASIX syscalls.
     pub additional_imports: Imports,
 
+    pub additional_imports_builder: Option<Arc<dyn AdditionalImportsBuilder + Send + Sync>>,
+
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
@@ -299,6 +312,7 @@ impl WasiEnvInit {
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
             additional_imports: self.additional_imports.clone(),
+            additional_imports_builder: self.additional_imports_builder.clone(),
         }
     }
 }
@@ -353,6 +367,8 @@ pub struct WasiEnv {
     ///  not be cloned when `WasiEnv` is cloned)
     /// TODO: We should move this outside of `WasiEnv` with some refactoring
     inner: WasiInstanceHandlesPointer,
+
+    pub(crate) additional_imports_builder: Option<Arc<dyn AdditionalImportsBuilder + Send + Sync>>,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -381,6 +397,7 @@ impl Clone for WasiEnv {
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
             disable_fs_cleanup: self.disable_fs_cleanup,
+            additional_imports_builder: self.additional_imports_builder.clone(),
         }
     }
 }
@@ -421,6 +438,7 @@ impl WasiEnv {
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
             disable_fs_cleanup: self.disable_fs_cleanup,
+            additional_imports_builder: self.additional_imports_builder.clone(),
         };
         Ok((new_env, handle))
     }
@@ -556,6 +574,7 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
+            additional_imports_builder: init.additional_imports_builder,
         };
         env.owned_handles.push(thread);
 
@@ -646,9 +665,6 @@ impl WasiEnv {
             }
         };
 
-        // Run initializers.
-        instance_init_callback(&instance, &store).unwrap();
-
         // Initialize the WASI environment
         if let Err(err) =
             func_env.initialize_with_memory(&mut store, instance.clone(), imported_memory, true)
@@ -663,6 +679,9 @@ impl WasiEnv {
                 .blocking_on_exit(Some(Errno::Noexec.into()));
             return Err(err.into());
         }
+        let memory = unsafe { func_env.data(&store).inner().memory().clone() };
+        // Run initializers.
+        instance_init_callback(&instance, &memory, &mut store).unwrap();
 
         // If this module exports an _initialize function, run that first.
         if call_initialize {

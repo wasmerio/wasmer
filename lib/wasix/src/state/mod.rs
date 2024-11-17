@@ -38,7 +38,10 @@ use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
     builder::*,
-    env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
+    env::{
+        AdditionalImportsBuilder, AdditionalImportsInitializer, WasiEnv, WasiEnvInit,
+        WasiInstanceHandles,
+    },
     func_env::WasiFunctionEnv,
     types::*,
 };
