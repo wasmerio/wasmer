@@ -118,14 +118,21 @@ impl StackSnapshot {
     pub fn new(user: u64, hash: u128) -> Self {
         Self {
             user,
-            hash_lower: (hash & 0xffffffffffffffff) as u64,
+            hash_lower: (hash & 0xffff_ffff_ffff_ffff) as u64,
             hash_upper: (hash >> 64) as u64,
         }
     }
 
     pub fn hash(&self) -> u128 {
-        ((self.hash_upper as u128) << 64) & (self.hash_lower as u128)
+        ((self.hash_upper as u128) << 64) | (self.hash_lower as u128)
     }
+}
+
+#[test]
+fn snapshot_hash_roundtrip() {
+    let hash = 0x1234_5678_90ab_cdef_0987_6543_fedc_ba12;
+    let snapshot = StackSnapshot::new(0, hash);
+    assert_eq!(snapshot.hash(), hash);
 }
 
 /// An event that occurred.
