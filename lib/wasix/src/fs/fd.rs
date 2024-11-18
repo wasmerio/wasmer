@@ -62,7 +62,7 @@ impl Fd {
 pub struct InodeVal {
     pub stat: RwLock<Filestat>,
     pub is_preopened: bool,
-    pub name: Cow<'static, str>,
+    pub name: RwLock<Cow<'static, str>>,
     pub kind: RwLock<Kind>,
 }
 
