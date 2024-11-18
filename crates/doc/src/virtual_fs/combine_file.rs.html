@@ -99,17 +99,11 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
-
-<span class="kw">use super</span>::<span class="kw-2">*</span>;
+</pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::VirtualFile;
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>CombineFile {
     tx: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
     rx: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,

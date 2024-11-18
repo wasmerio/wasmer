@@ -533,9 +533,6 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -543,7 +540,6 @@
 };
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
@@ -567,8 +563,7 @@
     </span><span class="kw">pub </span>target: String,
 }
 
-<span class="attr">#[derive(Derivative, Default, Clone)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CommonWasiOptions {
     <span class="kw">pub</span>(<span class="kw">crate</span>) entry_function: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) args: Vec&lt;String&gt;,
@@ -580,8 +575,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) is_tmp_mapped: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) injected_packages: Vec&lt;BinaryPackage&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) capabilities: Capabilities,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_interval: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) current_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,

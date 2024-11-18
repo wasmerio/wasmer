@@ -101,11 +101,8 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::{Arc, Mutex};
 
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>virtual_fs::Pipe;
 <span class="kw">use </span>wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
@@ -125,8 +122,7 @@
 
 <span class="doccomment">/// This factory will store and reuse instances between invocations thus
 /// allowing for the instances to be stateful.
-</span><span class="attr">#[derive(Derivative, Clone, Default)]
-#[derivative(Debug)]
+</span><span class="attr">#[derive(Debug, Clone, Default)]
 </span><span class="kw">pub struct </span>DcgiInstanceFactory {
     state: Arc&lt;Mutex&lt;State&gt;&gt;,
 }

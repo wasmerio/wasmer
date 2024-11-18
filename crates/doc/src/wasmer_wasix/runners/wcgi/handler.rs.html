@@ -350,9 +350,6 @@
 <a href="#350" id="350">350</a>
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc};
 
 <span class="kw">use </span>anyhow::Error;
@@ -673,20 +670,17 @@
 
 <span class="kw">pub type </span>SetupBuilder = Arc&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>WasiEnvBuilder) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; + Send + Sync&gt;;
 
-<span class="attr">#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(derive_more::Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SharedState {
     <span class="kw">pub</span>(<span class="kw">crate</span>) module: Module,
     <span class="kw">pub</span>(<span class="kw">crate</span>) module_hash: ModuleHash,
     <span class="kw">pub</span>(<span class="kw">crate</span>) dialect: CgiDialect,
     <span class="kw">pub</span>(<span class="kw">crate</span>) program_name: String,
     <span class="kw">pub</span>(<span class="kw">crate</span>) propagate_stderr: bool,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+    <span class="attr">#[debug(ignore)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) setup_builder: SetupBuilder,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
 }
 
 <span class="kw">impl </span>tower::Service&lt;Request&lt;hyper::body::Incoming&gt;&gt; <span class="kw">for </span>Handler {

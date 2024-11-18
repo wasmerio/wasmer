@@ -63,14 +63,28 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::{AsEngineRef, Engine, EngineRef};
 <span class="kw">use </span>wasmer_vm::init_traps;
 <span class="kw">use </span>wasmer_vm::TrapHandlerFn;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Store {
     <span class="kw">pub</span>(<span class="kw">crate</span>) engine: Engine,
-
     <span class="kw">pub</span>(<span class="kw">crate</span>) trap_handler: <span class="prelude-ty">Option</span>&lt;Box&lt;TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;&gt;,
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Store {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"Store"</span>)
+            .field(<span class="string">"engine"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.engine)
+            .finish()
+    }
 }
 
 <span class="kw">impl </span>Store {

@@ -60,6 +60,7 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
 <span class="kw">use </span>virtual_fs::Pipe;
@@ -98,7 +99,7 @@
 <span class="doccomment">/// Callbacks that are triggered at various points in the lifecycle of a runner
 /// and any WebAssembly instances it may start.
 </span><span class="attr">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>Callbacks: Send + Sync + <span class="lifetime">'static </span>{
+</span><span class="kw">pub trait </span>Callbacks: std::fmt::Debug + Send + Sync + <span class="lifetime">'static </span>{
     <span class="doccomment">/// A callback that is called whenever the server starts.
     </span><span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {}
 
@@ -119,7 +120,8 @@
     </span>}
 }
 
-<span class="kw">pub struct </span>NoOpWcgiCallbacks;
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>NoOpWcgiCallbacks;
 
 <span class="kw">impl </span>Callbacks <span class="kw">for </span>NoOpWcgiCallbacks {}
 </code></pre></div></section></main></body></html>

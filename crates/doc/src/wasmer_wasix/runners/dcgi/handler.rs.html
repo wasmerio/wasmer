@@ -80,6 +80,7 @@
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{ops::Deref, pin::Pin, sync::Arc};
 
 <span class="kw">use </span>anyhow::Error;
@@ -135,10 +136,11 @@
     }
 }
 
-<span class="attr">#[derive(derivative::Derivative, Clone)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug, Clone)]
+#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SharedState {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) inner: Arc&lt;wcgi::SharedState&gt;,
+    <span class="attr">#[allow(dead_code)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) inner: Arc&lt;wcgi::SharedState&gt;,
     factory: DcgiInstanceFactory,
     master_lock: Arc&lt;tokio::sync::Mutex&lt;()&gt;&gt;,
 }

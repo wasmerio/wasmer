@@ -111,24 +111,18 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
-
-<span class="kw">use super</span>::<span class="kw-2">*</span>;
+</pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use </span><span class="kw">crate</span>::VirtualFile;
 
 <span class="doccomment">/// Wraps a [`VirtualFile`], and also invokes a provided function for each write.
 ///
 /// Useful for debugging.
-</span><span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+</span><span class="attr">#[derive(derive_more::Debug)]
 </span><span class="kw">pub struct </span>DualWriteFile {
     inner: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    #[allow(clippy::type_complexity)]
+    <span class="attr">#[allow(clippy::type_complexity)]
+    #[debug(ignore)]
     </span>extra_write: Box&lt;<span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;</span>[u8]) + Send + Sync + <span class="lifetime">'static</span>&gt;,
 }
 

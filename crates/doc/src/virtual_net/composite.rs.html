@@ -116,21 +116,15 @@
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::task::{Context, Poll};
 
 <span class="kw">use crate</span>::{Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource, VirtualTcpListener};
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>virtual_mio::ArcInterestHandler;
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>CompositeTcpListener {
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>ports: Vec&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync&gt;&gt;,
+    ports: Vec&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync&gt;&gt;,
 }
 
 <span class="kw">impl </span>CompositeTcpListener {

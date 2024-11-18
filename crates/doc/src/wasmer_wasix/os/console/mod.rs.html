@@ -408,8 +408,6 @@
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -424,7 +422,6 @@
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-<span class="kw">use </span>derivative::<span class="kw-2">*</span>;
 <span class="kw">use </span>linked_hash_set::LinkedHashSet;
 <span class="kw">use </span>tokio::sync::{mpsc, RwLock};
 <span class="attr">#[allow(unused_imports, dead_code)]
@@ -447,8 +444,7 @@
     Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Console {
     user_agent: <span class="prelude-ty">Option</span>&lt;String&gt;,
     boot_cmd: String,

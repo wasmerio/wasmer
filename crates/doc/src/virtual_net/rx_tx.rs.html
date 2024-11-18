@@ -617,6 +617,10 @@
 <a href="#617" id="617">617</a>
 <a href="#618" id="618">618</a>
 <a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     io,
     pin::Pin,
@@ -681,7 +685,8 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>StreamSink&lt;T&gt; = Pin&lt;Box&lt;<span class="kw">dyn </span>Sink&lt;T, Error = std::io::Error&gt; + Send + <span class="lifetime">'static</span>&gt;&gt;;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RemoteTx&lt;T&gt;
+<span class="attr">#[derive(derive_more::Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RemoteTx&lt;T&gt;
 <span class="kw">where
     </span>T: Serialize,
 {
@@ -691,7 +696,8 @@
         wakers: RemoteTxWakers,
     },
     Stream {
-        tx: Arc&lt;tokio::sync::Mutex&lt;StreamSink&lt;T&gt;&gt;&gt;,
+        <span class="attr">#[debug(ignore)]
+        </span>tx: Arc&lt;tokio::sync::Mutex&lt;StreamSink&lt;T&gt;&gt;&gt;,
         work: mpsc::UnboundedSender&lt;BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;&gt;,
         wakers: RemoteTxWakers,
     },
@@ -1123,7 +1129,8 @@
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RemoteRx&lt;T&gt;
+<span class="attr">#[derive(derive_more::Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RemoteRx&lt;T&gt;
 <span class="kw">where
     </span>T: serde::de::DeserializeOwned,
 {
@@ -1132,7 +1139,8 @@
         wakers: RemoteTxWakers,
     },
     Stream {
-        rx: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = std::io::Result&lt;T&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;&gt;,
+        <span class="attr">#[debug(ignore)]
+        </span>rx: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = std::io::Result&lt;T&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;&gt;,
     },
     <span class="attr">#[cfg(feature = <span class="string">"hyper"</span>)]
     </span>HyperWebSocket {

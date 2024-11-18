@@ -793,10 +793,7 @@
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>serde::{Deserialize, Serialize};
+</pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 <span class="kw">use </span>std::net::{Shutdown, SocketAddr};
 <span class="kw">use </span>std::time::{Duration, SystemTime};
@@ -876,8 +873,7 @@
 <span class="doccomment">/// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
 </span><span class="attr">#[allow(clippy::large_enum_variant)]
-#[derive(Derivative, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[derivative(Debug)]
+#[derive(derive_more::Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = <span class="string">"snake_case"</span>)]
 </span><span class="kw">pub enum </span>JournalEntry&lt;<span class="lifetime">'a</span>&gt; {
     InitModuleV1 {
@@ -886,7 +882,7 @@
     ClearEtherealV1,
     UpdateMemoryRegionV1 {
         region: Range&lt;u64&gt;,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         #[serde(with = <span class="string">"base64"</span>)]
         </span>compressed_data: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
     },
@@ -895,13 +891,13 @@
     },
     SetThreadV1 {
         id: u32,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         #[serde(with = <span class="string">"base64"</span>)]
         </span>call_stack: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         #[serde(with = <span class="string">"base64"</span>)]
         </span>memory_stack: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         #[serde(with = <span class="string">"base64"</span>)]
         </span>store_data: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
         start: ThreadStartType,
@@ -920,7 +916,7 @@
     FileDescriptorWriteV1 {
         fd: Fd,
         offset: u64,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         #[serde(with = <span class="string">"base64"</span>)]
         </span>data: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
         is_64bit: bool,
@@ -938,9 +934,9 @@
         dirflags: LookupFlags,
         path: Cow&lt;<span class="lifetime">'a</span>, str&gt;,
         o_flags: Oflags,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         </span>fs_rights_base: Rights,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         </span>fs_rights_inheriting: Rights,
         fs_flags: Fdflags,
     },
@@ -1127,7 +1123,7 @@
     },
     SocketSendToV1 {
         fd: Fd,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         #[serde(with = <span class="string">"base64"</span>)]
         </span>data: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
         flags: SiFlags,
@@ -1136,7 +1132,7 @@
     },
     SocketSendV1 {
         fd: Fd,
-        <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+        <span class="attr">#[debug(ignore)]
         #[serde(with = <span class="string">"base64"</span>)]
         </span>data: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
         flags: SiFlags,

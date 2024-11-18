@@ -367,13 +367,9 @@
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>derivative::<span class="kw-2">*</span>;
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>sha2::Digest;
 <span class="kw">use </span>virtual_fs::FileSystem;
@@ -389,12 +385,11 @@
 };
 <span class="kw">use </span>wasmer_types::ModuleHash;
 
-<span class="attr">#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+<span class="attr">#[derive(derive_more::Debug, Clone)]
 </span><span class="kw">pub struct </span>BinaryPackageCommand {
     name: String,
     metadata: webc::metadata::Command,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+    <span class="attr">#[debug(ignore)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) atom: SharedBytes,
     hash: ModuleHash,
 }
@@ -436,8 +431,7 @@
 }
 
 <span class="doccomment">/// A WebAssembly package that has been loaded into memory.
-</span><span class="attr">#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>BinaryPackage {
     <span class="kw">pub </span>id: PackageId,
     <span class="doccomment">/// Includes the ids of all the packages in the tree

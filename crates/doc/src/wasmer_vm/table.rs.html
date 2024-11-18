@@ -352,10 +352,6 @@
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -368,7 +364,6 @@
 <span class="kw">use </span><span class="kw">crate</span>::Trap;
 <span class="kw">use </span><span class="kw">crate</span>::VMExternRef;
 <span class="kw">use </span><span class="kw">crate</span>::VMFuncRef;
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::cell::UnsafeCell;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::fmt;
@@ -428,18 +423,15 @@
 }
 
 <span class="doccomment">/// A table instance.
-</span><span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>VMTable {
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>vec: Vec&lt;RawTableElement&gt;,
+    vec: Vec&lt;RawTableElement&gt;,
     maximum: <span class="prelude-ty">Option</span>&lt;u32&gt;,
     <span class="doccomment">/// The WebAssembly table description.
     </span>table: TableType,
     <span class="doccomment">/// Our chosen implementation style.
     </span>style: TableStyle,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>vm_table_definition: MaybeInstanceOwned&lt;VMTableDefinition&gt;,
+    vm_table_definition: MaybeInstanceOwned&lt;VMTableDefinition&gt;,
 }
 
 <span class="kw">impl </span>VMTable {

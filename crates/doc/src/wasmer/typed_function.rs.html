@@ -56,7 +56,7 @@
 
 <span class="doccomment">/// A WebAssembly function that can be called natively
 /// (using the Native ABI).
-</span><span class="attr">#[derive(Clone)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>TypedFunction&lt;Args, Rets&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) func: Function,
     _phantom: PhantomData&lt;<span class="kw">fn</span>(Args) -&gt; Rets&gt;,

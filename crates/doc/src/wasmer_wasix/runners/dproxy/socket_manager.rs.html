@@ -98,8 +98,6 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::poll_fn,
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -111,17 +109,15 @@
     time::Duration,
 };
 
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>tokio::sync::broadcast;
 <span class="kw">use </span>virtual_net::{tcp_pair::TcpSocketHalf, LoopbackNetworking};
 
 <span class="kw">pub type </span>PollListeningFn =
     Arc&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;SocketAddr&gt; + Send + Sync + <span class="lifetime">'static</span>&gt;;
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(derive_more::Debug)]
 </span><span class="kw">pub struct </span>SocketManager {
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
+    <span class="attr">#[debug(ignore)]
     </span>poll_listening: PollListeningFn,
     loopback_networking: LoopbackNetworking,
     proxy_connect_init_timeout: Duration,

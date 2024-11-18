@@ -302,10 +302,14 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::{AsEngineRef, Engine, EngineRef};
 <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::NativeStoreExt;
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::{
     fmt,
     ops::{Deref, DerefMut},
@@ -349,14 +353,20 @@
 <span class="doccomment">/// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-</span><span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>StoreInner {
     <span class="kw">pub</span>(<span class="kw">crate</span>) objects: StoreObjects,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) store: store_imp::Store,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) on_called: <span class="prelude-ty">Option</span>&lt;OnCalledHandler&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) store: store_imp::Store,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) on_called: <span class="prelude-ty">Option</span>&lt;OnCalledHandler&gt;,
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>StoreInner {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"StoreInner"</span>)
+            .field(<span class="string">"objects"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.objects)
+            .field(<span class="string">"store"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.store)
+            .field(<span class="string">"on_called"</span>, <span class="kw-2">&amp;</span><span class="string">"&lt;...&gt;"</span>)
+            .finish()
+    }
 }
 
 <span class="doccomment">/// The store represents all global state that can be manipulated by

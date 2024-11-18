@@ -557,13 +557,6 @@
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
-<a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
@@ -579,7 +572,6 @@
     sync::{Arc, Mutex},
 };
 
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
 <span class="kw">use </span>wasmer::{Module, RuntimeError};
@@ -771,8 +763,7 @@
     }
 }
 
-<span class="attr">#[derive(Clone, Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>PluggableRuntime {
     <span class="kw">pub </span>rt: Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;,
     <span class="kw">pub </span>networking: DynVirtualNetworking,
@@ -781,10 +772,8 @@
     <span class="kw">pub </span>source: Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;,
     <span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
     <span class="kw">pub </span>module_cache: Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
+    <span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    #[derivative(Debug = <span class="string">"ignore"</span>)]
     </span><span class="kw">pub </span>journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
 }
 
@@ -932,8 +921,7 @@
 
 <span class="doccomment">/// Runtime that allows for certain things to be overridden
 /// such as the active journals
-</span><span class="attr">#[derive(Clone, Derivative)]
-#[derivative(Debug)]
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>OverriddenRuntime {
     inner: Arc&lt;DynRuntime&gt;,
     task_manager: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;&gt;,
@@ -943,10 +931,8 @@
     source: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;&gt;,
     engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
     module_cache: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
+    tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    #[derivative(Debug = <span class="string">"ignore"</span>)]
     </span>journals: <span class="prelude-ty">Option</span>&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt;,
 }
 

@@ -29,15 +29,23 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>std::any::Any;
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::any::Any;
 
 <span class="doccomment">/// Underlying FunctionEnvironment used by a `VMFunction`.
-</span><span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
 </span><span class="kw">pub struct </span>VMFunctionEnvironment {
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>contents: Box&lt;<span class="kw">dyn </span>Any + Send + <span class="lifetime">'static</span>&gt;,
+    contents: Box&lt;<span class="kw">dyn </span>Any + Send + <span class="lifetime">'static</span>&gt;,
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>VMFunctionEnvironment {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"VMFunctionEnvironment"</span>)
+            .field(<span class="string">"contents"</span>, <span class="kw-2">&amp;</span>(<span class="kw-2">&amp;*</span><span class="self">self</span>.contents <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>))
+            .finish()
+    }
 }
 
 <span class="kw">impl </span>VMFunctionEnvironment {

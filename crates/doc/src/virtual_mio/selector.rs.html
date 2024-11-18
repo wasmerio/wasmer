@@ -177,32 +177,24 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     io,
     sync::{Arc, Mutex},
 };
 
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>mio::{Registry, Token};
 
 <span class="kw">use crate</span>::{InterestHandler, InterestType};
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>EngineInner {
     seed: usize,
     registry: Registry,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>lookup: HashMap&lt;Token, Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
+    lookup: HashMap&lt;Token, Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
 }
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Selector {
     token_close: Token,
     inner: Mutex&lt;EngineInner&gt;,

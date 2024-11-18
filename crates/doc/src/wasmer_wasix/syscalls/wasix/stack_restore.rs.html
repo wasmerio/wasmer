@@ -92,7 +92,7 @@
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>snapshot = <span class="kw">match </span>snapshot_ptr.read(<span class="kw-2">&amp;</span>memory) {
         <span class="prelude-val">Ok</span>(a) =&gt; {
-            <span class="macro">trace!</span>(<span class="string">"with_ret={}, hash={}, user={}"</span>, val, a.hash, a.user);
+            <span class="macro">trace!</span>(<span class="string">"with_ret={}, hash={}, user={}"</span>, val, a.hash(), a.user);
             a
         }
         <span class="prelude-val">Err</span>(err) =&gt; {
@@ -106,7 +106,7 @@
         <span class="comment">// Let the stack (or fail trying!)
         </span><span class="kw">let </span>env = ctx.data();
         <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>memory_stack, rewind_stack, store_data)) =
-            env.thread.get_snapshot(snapshot.hash)
+            env.thread.get_snapshot(snapshot.hash())
         {
             <span class="kw">let </span>env = ctx.data();
             <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
@@ -134,7 +134,7 @@
         } <span class="kw">else </span>{
             <span class="macro">warn!</span>(
                 <span class="string">"snapshot stack restore failed - the snapshot can not be found and hence restored (hash={})"</span>,
-                snapshot.hash
+                snapshot.hash()
             );
             OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Unknown.into())))
         }

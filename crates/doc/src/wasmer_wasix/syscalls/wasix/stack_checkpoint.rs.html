@@ -144,9 +144,6 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -185,7 +182,7 @@
 
     <span class="comment">// We clear the target memory location before we grab the stack so that
     // it correctly hashes
-    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = snapshot_ptr.write(<span class="kw-2">&amp;</span>memory, StackSnapshot { hash: <span class="number">0</span>, user: <span class="number">0 </span>}) {
+    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = snapshot_ptr.write(<span class="kw-2">&amp;</span>memory, StackSnapshot::new(<span class="number">0</span>, <span class="number">0</span>)) {
         <span class="macro">warn!</span>(
             %err
         );
@@ -216,10 +213,7 @@
         };
 
         <span class="comment">// Build a stack snapshot
-        </span><span class="kw">let </span>snapshot = StackSnapshot {
-            hash,
-            user: ret_offset.into(),
-        };
+        </span><span class="kw">let </span>snapshot = StackSnapshot::new(ret_offset.into(), hash);
 
         <span class="comment">// Get a reference directly to the bytes of snapshot
         </span><span class="kw">let </span>val_bytes = <span class="kw">unsafe </span>{
@@ -264,7 +258,7 @@
             <span class="kw-2">&amp;</span>rewind_stack[..],
             <span class="kw-2">&amp;</span>store_data[..],
         );
-        <span class="macro">trace!</span>(hash = snapshot.hash, user = snapshot.user);
+        <span class="macro">trace!</span>(hash = snapshot.hash(), user = snapshot.user);
 
         <span class="comment">// Save the stack snapshot
         </span><span class="kw">let </span>env = ctx.data();

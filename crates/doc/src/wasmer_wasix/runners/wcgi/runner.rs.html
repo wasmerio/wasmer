@@ -357,8 +357,6 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc};
 
 <span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::Body;
@@ -561,13 +559,11 @@
     }
 }
 
-<span class="attr">#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Config {
     <span class="kw">pub</span>(<span class="kw">crate</span>) wasi: CommonWasiOptions,
     <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
 }
 
 <span class="kw">impl </span>Config {

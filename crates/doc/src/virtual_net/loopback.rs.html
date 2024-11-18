@@ -235,9 +235,6 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::sync::Mutex;
@@ -249,7 +246,6 @@
     InterestHandler, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource,
     VirtualNetworking, VirtualTcpListener, VirtualTcpSocket,
 };
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>virtual_mio::InterestType;
 
 <span class="kw">const </span>DEFAULT_MAX_BUFFER_SIZE: usize = <span class="number">1_048_576</span>;
@@ -376,11 +372,9 @@
     }
 }
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>LoopbackTcpListenerState {
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
+    handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
     addr_local: SocketAddr,
     backlog: VecDeque&lt;TcpSocketHalf&gt;,
     wakers: Vec&lt;Waker&gt;,

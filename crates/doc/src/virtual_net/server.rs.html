@@ -1638,10 +1638,6 @@
 <a href="#1638" id="1638">1638</a>
 <a href="#1639" id="1639">1639</a>
 <a href="#1640" id="1640">1640</a>
-<a href="#1641" id="1641">1641</a>
-<a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::meta::{FrameSerializationFormat, ResponseType};
 <span class="kw">use </span><span class="kw">crate</span>::rx_tx::{RemoteRx, RemoteTx, RemoteTxWakers};
 <span class="kw">use crate</span>::{
@@ -1649,7 +1645,6 @@
     VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 <span class="kw">use crate</span>::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures_util::stream::FuturesOrdered;
 <span class="attr">#[cfg(any(feature = <span class="string">"hyper"</span>, feature = <span class="string">"tokio-tungstenite"</span>))]
 </span><span class="kw">use </span>futures_util::stream::{SplitSink, SplitStream};
@@ -2867,7 +2862,8 @@
     }
 }
 
-<span class="kw">enum </span>RemoteAdapterSocket {
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">enum </span>RemoteAdapterSocket {
     TcpListener {
         socket: Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync + <span class="lifetime">'static</span>&gt;,
         next_accept: <span class="prelude-ty">Option</span>&lt;SocketId&gt;,
@@ -3260,15 +3256,11 @@
 
 <span class="kw">type </span>SocketMap&lt;T&gt; = HashMap&lt;SocketId, T&gt;;
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>RemoteAdapterCommon {
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>tx: RemoteTx&lt;MessageResponse&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>rx: Mutex&lt;RemoteRx&lt;MessageRequest&gt;&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>sockets: Mutex&lt;SocketMap&lt;RemoteAdapterSocket&gt;&gt;,
+    tx: RemoteTx&lt;MessageResponse&gt;,
+    rx: Mutex&lt;RemoteRx&lt;MessageRequest&gt;&gt;,
+    sockets: Mutex&lt;SocketMap&lt;RemoteAdapterSocket&gt;&gt;,
     socket_accept: Mutex&lt;SocketMap&lt;SocketId&gt;&gt;,
     handler: RemoteAdapterHandler,
 

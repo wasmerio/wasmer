@@ -1541,9 +1541,6 @@
 <a href="#1541" id="1541">1541</a>
 <a href="#1542" id="1542">1542</a>
 <a href="#1543" id="1543">1543</a>
-<a href="#1544" id="1544">1544</a>
-<a href="#1545" id="1545">1545</a>
-<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io,
@@ -1555,7 +1552,6 @@
     time::Duration,
 };
 
-<span class="kw">use </span>derivative::Derivative;
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>virtual_mio::InterestHandler;
@@ -1579,8 +1575,7 @@
     </span>Headers,
 }
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>SocketProperties {
     <span class="kw">pub </span>family: Addressfamily,
     <span class="kw">pub </span>ty: Socktype,
@@ -1597,8 +1592,7 @@
     <span class="kw">pub </span>read_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     <span class="kw">pub </span>accept_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     <span class="kw">pub </span>connect_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span><span class="kw">pub </span>handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
+    <span class="kw">pub </span>handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
 }
 
 <span class="attr">#[derive(Debug)]

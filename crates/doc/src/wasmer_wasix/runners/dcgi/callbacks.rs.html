@@ -81,24 +81,16 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
-
-<span class="kw">use </span>derivative::Derivative;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::runners::wcgi::{<span class="self">self</span>, CreateEnvConfig, CreateEnvResult, RecycleEnvConfig};
 <span class="kw">use </span>virtual_fs::NullFile;
 <span class="kw">use </span>wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
-<span class="attr">#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>DcgiCallbacks {
-    <span class="attr">#[derivative(Debug = <span class="string">"ignore"</span>)]
-    </span>inner: Arc&lt;<span class="kw">dyn </span>wcgi::Callbacks&gt;,
+    inner: Arc&lt;<span class="kw">dyn </span>wcgi::Callbacks&gt;,
     factory: DcgiInstanceFactory,
 }
 

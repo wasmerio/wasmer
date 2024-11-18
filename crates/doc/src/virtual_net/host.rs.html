@@ -916,9 +916,6 @@
 <a href="#916" id="916">916</a>
 <a href="#917" id="917">917</a>
 <a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_variables)]
 </span><span class="kw">use crate</span>::{io_err_into_net_error, VirtualIoSource};
 <span class="attr">#[allow(unused_imports)]
@@ -928,7 +925,6 @@
     VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 <span class="kw">use </span>bytes::{Buf, BytesMut};
-<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Read, Write};
 <span class="kw">use </span>std::mem::MaybeUninit;
@@ -950,8 +946,7 @@
     state_as_waker_map, HandlerGuardState, InterestGuard, InterestHandler, InterestType, Selector,
 };
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>LocalNetworking {
     selector: Arc&lt;Selector&gt;,
     handle: Handle,
@@ -1069,8 +1064,7 @@
     }
 }
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>LocalTcpListener {
     stream: mio::net::TcpListener,
     selector: Arc&lt;Selector&gt;,
