@@ -108,7 +108,24 @@ pub union EventUnion {
 #[repr(C)]
 pub struct StackSnapshot {
     pub user: u64,
-    pub hash: u128,
+    // The hash is defined as two u64s in wasix-libc, so we must do the same
+    // here to make sure the alignment and padding are the same.
+    pub hash_lower: u64,
+    pub hash_upper: u64,
+}
+
+impl StackSnapshot {
+    pub fn new(user: u64, hash: u128) -> Self {
+        Self {
+            user,
+            hash_lower: (hash & 0xffffffffffffffff) as u64,
+            hash_upper: (hash >> 64) as u64,
+        }
+    }
+
+    pub fn hash(&self) -> u128 {
+        ((self.hash_upper as u128) << 64) & (self.hash_lower as u128)
+    }
 }
 
 /// An event that occurred.
