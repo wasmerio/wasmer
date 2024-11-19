@@ -887,7 +887,7 @@
             <span class="kw">let </span>curr_offset = <span class="kw">if </span>is_file &amp;&amp; should_update_cursor {
                 <span class="kw">let </span>bytes_written = bytes_written <span class="kw">as </span>u64;
                 <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-                <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
+                <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
                 fd_entry
                     .offset
                     .fetch_add(bytes_written, Ordering::AcqRel)

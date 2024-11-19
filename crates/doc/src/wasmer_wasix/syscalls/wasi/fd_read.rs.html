@@ -803,7 +803,7 @@
         <span class="kw">if </span>!is_stdio &amp;&amp; should_update_cursor &amp;&amp; can_update_cursor {
             <span class="comment">// reborrow
             </span><span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
+            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
             <span class="kw">let </span>old = fd_entry
                 .offset
                 .fetch_add(bytes_read <span class="kw">as </span>u64, Ordering::AcqRel);

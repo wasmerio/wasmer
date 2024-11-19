@@ -54,7 +54,6 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -98,7 +97,7 @@
     <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>from).ok_or(Errno::Badf));
+    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(fd_map.get(from).ok_or(Errno::Badf));
 
     <span class="kw">let </span>new_fd_entry = Fd {
         <span class="comment">// TODO: verify this is correct
@@ -107,8 +106,7 @@
         inode: fd_entry.inode.clone(),
         ..<span class="kw-2">*</span>fd_entry
     };
-    fd_map.insert(to, new_fd_entry);
-    state.fs.make_max_fd(to + <span class="number">1</span>);
+    fd_map.insert(<span class="bool-val">false</span>, to, new_fd_entry);
 
     Errno::Success
 }

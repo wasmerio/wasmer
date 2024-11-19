@@ -2163,110 +2163,29 @@
 <a href="#2163" id="2163">2163</a>
 <a href="#2164" id="2164">2164</a>
 <a href="#2165" id="2165">2165</a>
-<a href="#2166" id="2166">2166</a>
-<a href="#2167" id="2167">2167</a>
-<a href="#2168" id="2168">2168</a>
-<a href="#2169" id="2169">2169</a>
-<a href="#2170" id="2170">2170</a>
-<a href="#2171" id="2171">2171</a>
-<a href="#2172" id="2172">2172</a>
-<a href="#2173" id="2173">2173</a>
-<a href="#2174" id="2174">2174</a>
-<a href="#2175" id="2175">2175</a>
-<a href="#2176" id="2176">2176</a>
-<a href="#2177" id="2177">2177</a>
-<a href="#2178" id="2178">2178</a>
-<a href="#2179" id="2179">2179</a>
-<a href="#2180" id="2180">2180</a>
-<a href="#2181" id="2181">2181</a>
-<a href="#2182" id="2182">2182</a>
-<a href="#2183" id="2183">2183</a>
-<a href="#2184" id="2184">2184</a>
-<a href="#2185" id="2185">2185</a>
-<a href="#2186" id="2186">2186</a>
-<a href="#2187" id="2187">2187</a>
-<a href="#2188" id="2188">2188</a>
-<a href="#2189" id="2189">2189</a>
-<a href="#2190" id="2190">2190</a>
-<a href="#2191" id="2191">2191</a>
-<a href="#2192" id="2192">2192</a>
-<a href="#2193" id="2193">2193</a>
-<a href="#2194" id="2194">2194</a>
-<a href="#2195" id="2195">2195</a>
-<a href="#2196" id="2196">2196</a>
-<a href="#2197" id="2197">2197</a>
-<a href="#2198" id="2198">2198</a>
-<a href="#2199" id="2199">2199</a>
-<a href="#2200" id="2200">2200</a>
-<a href="#2201" id="2201">2201</a>
-<a href="#2202" id="2202">2202</a>
-<a href="#2203" id="2203">2203</a>
-<a href="#2204" id="2204">2204</a>
-<a href="#2205" id="2205">2205</a>
-<a href="#2206" id="2206">2206</a>
-<a href="#2207" id="2207">2207</a>
-<a href="#2208" id="2208">2208</a>
-<a href="#2209" id="2209">2209</a>
-<a href="#2210" id="2210">2210</a>
-<a href="#2211" id="2211">2211</a>
-<a href="#2212" id="2212">2212</a>
-<a href="#2213" id="2213">2213</a>
-<a href="#2214" id="2214">2214</a>
-<a href="#2215" id="2215">2215</a>
-<a href="#2216" id="2216">2216</a>
-<a href="#2217" id="2217">2217</a>
-<a href="#2218" id="2218">2218</a>
-<a href="#2219" id="2219">2219</a>
-<a href="#2220" id="2220">2220</a>
-<a href="#2221" id="2221">2221</a>
-<a href="#2222" id="2222">2222</a>
-<a href="#2223" id="2223">2223</a>
-<a href="#2224" id="2224">2224</a>
-<a href="#2225" id="2225">2225</a>
-<a href="#2226" id="2226">2226</a>
-<a href="#2227" id="2227">2227</a>
-<a href="#2228" id="2228">2228</a>
-<a href="#2229" id="2229">2229</a>
-<a href="#2230" id="2230">2230</a>
-<a href="#2231" id="2231">2231</a>
-<a href="#2232" id="2232">2232</a>
-<a href="#2233" id="2233">2233</a>
-<a href="#2234" id="2234">2234</a>
-<a href="#2235" id="2235">2235</a>
-<a href="#2236" id="2236">2236</a>
-<a href="#2237" id="2237">2237</a>
-<a href="#2238" id="2238">2238</a>
-<a href="#2239" id="2239">2239</a>
-<a href="#2240" id="2240">2240</a>
-<a href="#2241" id="2241">2241</a>
-<a href="#2242" id="2242">2242</a>
-<a href="#2243" id="2243">2243</a>
-<a href="#2244" id="2244">2244</a>
-<a href="#2245" id="2245">2245</a>
-<a href="#2246" id="2246">2246</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
+<span class="kw">mod </span>fd_list;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
 
 <span class="kw">use </span>std::{
     borrow::{Borrow, Cow},
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
     task::{Context, Poll},
 };
 
+<span class="kw">use </span><span class="self">self</span>::fd_list::FdList;
 <span class="kw">use crate</span>::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
-<span class="kw">use </span>ahash::AHashMap;
 <span class="kw">use </span>futures::{future::BoxFuture, Future, TryStreamExt};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
@@ -2441,53 +2360,38 @@
     }
 
     <span class="doccomment">/// Get the `VirtualFile` object at stdout
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdout(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdout(fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get(fd_map, __WASI_STDOUT_FILENO)
     }
     <span class="doccomment">/// Get the `VirtualFile` object at stdout mutably
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdout_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdout_mut(fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
     <span class="doccomment">/// Get the `VirtualFile` object at stderr
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stderr(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stderr(fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get(fd_map, __WASI_STDERR_FILENO)
     }
     <span class="doccomment">/// Get the `VirtualFile` object at stderr mutably
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stderr_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stderr_mut(fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get_mut(fd_map, __WASI_STDERR_FILENO)
     }
 
     <span class="doccomment">/// Get the `VirtualFile` object at stdin
     /// TODO: Review why this is dead
     </span><span class="attr">#[allow(dead_code)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdin(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdin(fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get(fd_map, __WASI_STDIN_FILENO)
     }
     <span class="doccomment">/// Get the `VirtualFile` object at stdin mutably
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdin_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdin_mut(fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get_mut(fd_map, __WASI_STDIN_FILENO)
     }
 
     <span class="doccomment">/// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    </span><span class="kw">fn </span>std_dev_get(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
-        fd: WasiFd,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.read().unwrap().get(<span class="kw-2">&amp;</span>fd) {
+    </span><span class="kw">fn </span>std_dev_get(fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.read().unwrap().get(fd) {
             <span class="kw">let </span>guard = fd.inode.read();
             <span class="kw">if let </span>Kind::File {
                 handle: <span class="prelude-val">Some</span>(handle),
@@ -2507,10 +2411,10 @@
     <span class="doccomment">/// Internal helper function to mutably get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     </span><span class="kw">fn </span>std_dev_get_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;FdList&gt;,
         fd: WasiFd,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.read().unwrap().get(<span class="kw-2">&amp;</span>fd) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.read().unwrap().get(fd) {
             <span class="kw">let </span>guard = fd.inode.read();
             <span class="kw">if let </span>Kind::File {
                 handle: <span class="prelude-val">Some</span>(handle),
@@ -2696,76 +2600,13 @@
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// This needs to be exposed so that the multiple use-cases are able
-/// to generated unique file descriptors and update the seed during
-/// journal restoration
-</span><span class="attr">#[derive(Debug, Clone)]
-#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
-</span><span class="kw">pub struct </span>WasiFdSeed {
-    next_fd: Arc&lt;AtomicU32&gt;,
-}
-
-<span class="kw">impl </span>Default <span class="kw">for </span>WasiFdSeed {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new(<span class="number">3</span>)
-    }
-}
-
-<span class="kw">impl </span>WasiFdSeed {
-    <span class="kw">pub fn </span>new(initial_val: u32) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            next_fd: Arc::new(AtomicU32::new(initial_val)),
-        }
-    }
-
-    <span class="kw">pub fn </span>fork(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            next_fd: Arc::new(AtomicU32::new(<span class="self">self</span>.next_fd.load(Ordering::SeqCst))),
-        }
-    }
-
-    <span class="kw">pub fn </span>next_val(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiFd {
-        <span class="self">self</span>.next_fd.fetch_add(<span class="number">1</span>, Ordering::SeqCst)
-    }
-
-    <span class="kw">pub fn </span>set_val(<span class="kw-2">&amp;</span><span class="self">self</span>, val: WasiFd) {
-        <span class="self">self</span>.next_fd.store(val, std::sync::atomic::Ordering::SeqCst)
-    }
-
-    <span class="kw">pub fn </span>cur_val(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiFd {
-        <span class="self">self</span>.next_fd.load(Ordering::SeqCst)
-    }
-
-    <span class="kw">pub fn </span>clip_val(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) {
-        <span class="kw">loop </span>{
-            <span class="kw">let </span>existing = <span class="self">self</span>.next_fd.load(Ordering::SeqCst);
-            <span class="kw">if </span>existing &gt;= fd {
-                <span class="kw">return</span>;
-            }
-            <span class="kw">if </span><span class="self">self
-                </span>.next_fd
-                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
-                .is_ok()
-            {
-                <span class="kw">break</span>;
-            }
-        }
-    }
-}
-
 <span class="doccomment">/// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
 </span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>WasiFs {
     <span class="comment">//pub repo: Repo,
     </span><span class="kw">pub </span>preopen_fds: RwLock&lt;Vec&lt;u32&gt;&gt;,
-    <span class="kw">pub </span>fd_map: Arc&lt;RwLock&lt;AHashMap&lt;WasiFd, Fd&gt;&gt;&gt;,
-    <span class="kw">pub </span>next_fd: WasiFdSeed,
-    <span class="comment">// The Unix spec requires newly allocated FDs to always be the lowest-numbered
-    // FD available. We keep track of freed (i.e. closed) FDs in a min-heap to
-    // reuse them and fulfill this requirement.
-    // Note: BinaryHeap is a max-heap, we need Reverse to make it a min-heap.
-    </span><span class="kw">pub </span>freed_fds: Arc&lt;RwLock&lt;BinaryHeap&lt;Reverse&lt;WasiFd&gt;&gt;&gt;&gt;,
+    <span class="kw">pub </span>fd_map: Arc&lt;RwLock&lt;FdList&gt;&gt;,
     <span class="kw">pub </span>current_dir: Mutex&lt;String&gt;,
     <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip, default))]
     </span><span class="kw">pub </span>root_fs: WasiFsRoot,
@@ -2798,12 +2639,9 @@
     <span class="doccomment">/// Forking the WasiState is used when either fork or vfork is called
     </span><span class="kw">pub fn </span>fork(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>fd_map = <span class="self">self</span>.fd_map.read().unwrap().clone();
-        <span class="kw">let </span>freed_fds = <span class="self">self</span>.freed_fds.read().unwrap().clone();
         <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="self">self</span>.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
-            next_fd: <span class="self">self</span>.next_fd.fork(),
-            freed_fds: Arc::new(RwLock::new(freed_fds)),
             current_dir: Mutex::new(<span class="self">self</span>.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(<span class="self">self</span>.is_wasix.load(Ordering::Acquire)),
             root_fs: <span class="self">self</span>.root_fs.clone(),
@@ -2814,32 +2652,12 @@
         }
     }
 
-    <span class="kw">fn </span>get_first_free_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiFd {
-        <span class="kw">let </span><span class="kw-2">mut </span>freed_fds = <span class="self">self</span>.freed_fds.write().unwrap();
-
-        <span class="kw">match </span>freed_fds.pop() {
-            <span class="prelude-val">Some</span>(Reverse(fd)) =&gt; fd,
-            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.next_fd.next_val(),
-        }
-    }
-
-    <span class="doccomment">/// We need to clear the freed FD list when the journal is replayed as it
-    /// will close lots of file descriptors which will fill the list. We clear
-    /// the list and allocate new FD's instead.
-    ///
-    /// This should only be used when the file descriptors are being managed
-    /// externally (e.g. journals)
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_freed_fd_list(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">let </span><span class="kw-2">mut </span>freed_fds = <span class="self">self</span>.freed_fds.write().unwrap();
-        freed_fds.clear();
-    }
-
     <span class="doccomment">/// Closes all the file handles.
     </span><span class="attr">#[allow(clippy::await_holding_lock)]
     </span><span class="kw">pub async fn </span>close_all(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>to_close = {
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(map) = <span class="self">self</span>.fd_map.read() {
-                map.keys().copied().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;()
+                map.keys().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;()
             } <span class="kw">else </span>{
                 HashSet::new()
             }
@@ -2928,9 +2746,7 @@
 
         <span class="kw">let </span>wasi_fs = <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="macro">vec!</span>[]),
-            fd_map: Arc::new(RwLock::new(AHashMap::new())),
-            next_fd: WasiFdSeed::default(),
-            freed_fds: Arc::new(RwLock::new(BinaryHeap::new())),
+            fd_map: Arc::new(RwLock::new(FdList::new())),
             current_dir: Mutex::new(<span class="string">"/"</span>.to_string()),
             is_wasix: AtomicBool::new(<span class="bool-val">false</span>),
             root_fs: fs_backing,
@@ -3029,6 +2845,7 @@
     <span class="doccomment">/// Opens a user-supplied file in the directory specified with the
     /// name and flags given
     </span><span class="comment">// dead code because this is an API for external use
+    // TODO: is this used anywhere?
     </span><span class="attr">#[allow(dead_code, clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>open_file_at(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -3056,7 +2873,7 @@
                 <span class="kw">let </span>kind = Kind::File {
                     handle: <span class="prelude-val">Some</span>(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(<span class="string">""</span>),
-                    fd: <span class="prelude-val">Some</span>(<span class="self">self</span>.get_first_free_fd()),
+                    fd: <span class="prelude-val">None</span>,
                 };
 
                 drop(guard);
@@ -3077,8 +2894,21 @@
                     }
                 }
 
-                <span class="self">self</span>.create_fd(rights, rights_inheriting, flags, open_flags, inode)
-                    .map_err(fs_error_from_wasi_err)
+                <span class="comment">// Here, we clone the inode so we can use it to overwrite the fd field below.
+                </span><span class="kw">let </span>real_fd = <span class="self">self
+                    </span>.create_fd(rights, rights_inheriting, flags, open_flags, inode.clone())
+                    .map_err(fs_error_from_wasi_err)<span class="question-mark">?</span>;
+
+                {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.kind.write().unwrap();
+                    <span class="kw">if let </span>Kind::File { <span class="kw-2">ref mut </span>fd, .. } = <span class="kw-2">*</span>guard {
+                        <span class="kw-2">*</span>fd = <span class="prelude-val">Some</span>(real_fd);
+                    } <span class="kw">else </span>{
+                        <span class="macro">unreachable!</span>(<span class="string">"We just created a Kind::File"</span>);
+                    }
+                }
+
+                <span class="prelude-val">Ok</span>(real_fd)
             }
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
         }
@@ -3514,7 +3344,14 @@
         <span class="comment">// for each preopened directory
         </span><span class="kw">let </span>preopen_fds = <span class="self">self</span>.preopen_fds.read().unwrap();
         <span class="kw">for </span>po_fd <span class="kw">in </span>preopen_fds.deref() {
-            <span class="kw">let </span>po_inode = <span class="self">self</span>.fd_map.read().unwrap()[po_fd].inode.clone();
+            <span class="kw">let </span>po_inode = <span class="self">self
+                </span>.fd_map
+                .read()
+                .unwrap()
+                .get(<span class="kw-2">*</span>po_fd)
+                .unwrap()
+                .inode
+                .clone();
             <span class="kw">let </span>guard = po_inode.read();
             <span class="kw">let </span>po_path = <span class="kw">match </span>guard.deref() {
                 Kind::Dir { path, .. } =&gt; <span class="kw-2">&amp;**</span>path,
@@ -3622,7 +3459,7 @@
             </span>.fd_map
             .read()
             .unwrap()
-            .get(<span class="kw-2">&amp;</span>fd)
+            .get(fd)
             .ok_or(Errno::Badf)
             .cloned();
 
@@ -3649,7 +3486,7 @@
         <span class="self">self</span>.fd_map
             .read()
             .unwrap()
-            .get(<span class="kw-2">&amp;</span>fd)
+            .get(fd)
             .ok_or(Errno::Badf)
             .map(|a| a.inode.clone())
     }
@@ -3868,17 +3705,15 @@
         open_flags: u16,
         inode: InodeGuard,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
-        <span class="kw">let </span>idx = <span class="self">self</span>.get_first_free_fd();
         <span class="self">self</span>.create_fd_ext(
             rights,
             rights_inheriting,
             flags,
             open_flags,
             inode,
-            idx,
+            <span class="prelude-val">None</span>,
             <span class="bool-val">false</span>,
-        )<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(idx)
+        )
     }
 
     <span class="kw">pub fn </span>with_fd(
@@ -3890,21 +3725,16 @@
         inode: InodeGuard,
         idx: WasiFd,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
-        <span class="self">self</span>.make_max_fd(idx + <span class="number">1</span>);
         <span class="self">self</span>.create_fd_ext(
             rights,
             rights_inheriting,
             flags,
             open_flags,
             inode,
-            idx,
+            <span class="prelude-val">Some</span>(idx),
             <span class="bool-val">true</span>,
         )<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">pub fn </span>make_max_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: u32) {
-        <span class="self">self</span>.next_fd.clip_val(fd);
     }
 
     <span class="attr">#[allow(clippy::too_many_arguments)]
@@ -3915,48 +3745,48 @@
         flags: Fdflags,
         open_flags: u16,
         inode: InodeGuard,
-        idx: WasiFd,
+        idx: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
         exclusive: bool,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
         <span class="kw">let </span>is_stdio = <span class="macro">matches!</span>(
             idx,
-            __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
+            <span class="prelude-val">Some</span>(__WASI_STDIN_FILENO) | <span class="prelude-val">Some</span>(__WASI_STDOUT_FILENO) | <span class="prelude-val">Some</span>(__WASI_STDERR_FILENO)
         );
+        <span class="kw">let </span>fd = Fd {
+            rights,
+            rights_inheriting,
+            flags,
+            offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+            open_flags,
+            inode,
+            is_stdio,
+        };
+
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.fd_map.write().unwrap();
-        <span class="kw">if </span>exclusive &amp;&amp; guard.contains_key(<span class="kw-2">&amp;</span>idx) {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
+
+        <span class="kw">match </span>idx {
+            <span class="prelude-val">Some</span>(idx) =&gt; {
+                <span class="kw">if </span>guard.insert(exclusive, idx, fd) {
+                    <span class="prelude-val">Ok</span>(idx)
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Err</span>(Errno::Exist)
+                }
+            }
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(guard.insert_first_free(fd)),
         }
-        guard.insert(
-            idx,
-            Fd {
-                rights,
-                rights_inheriting,
-                flags,
-                offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
-                open_flags,
-                inode,
-                is_stdio,
-            },
-        );
-        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">pub fn </span>clone_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
         <span class="kw">let </span>fd = <span class="self">self</span>.get_fd(fd)<span class="question-mark">?</span>;
-        <span class="kw">let </span>idx = <span class="self">self</span>.get_first_free_fd();
-        <span class="self">self</span>.fd_map.write().unwrap().insert(
-            idx,
-            Fd {
-                rights: fd.rights,
-                rights_inheriting: fd.rights_inheriting,
-                flags: fd.flags,
-                offset: fd.offset.clone(),
-                open_flags: fd.open_flags,
-                inode: fd.inode,
-                is_stdio: fd.is_stdio,
-            },
-        );
-        <span class="prelude-val">Ok</span>(idx)
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.fd_map.write().unwrap().insert_first_free(Fd {
+            rights: fd.rights,
+            rights_inheriting: fd.rights_inheriting,
+            flags: fd.flags,
+            offset: fd.offset.clone(),
+            open_flags: fd.open_flags,
+            inode: fd.inode,
+            is_stdio: fd.is_stdio,
+        }))
     }
 
     <span class="doccomment">/// Low level function to remove an inode, that is it deletes the WASI FS's
@@ -4246,6 +4076,7 @@
             })
         };
         <span class="self">self</span>.fd_map.write().unwrap().insert(
+            <span class="bool-val">false</span>,
             raw_fd,
             Fd {
                 rights,
@@ -4290,7 +4121,8 @@
                 path_to_symlink,
                 ..
             } =&gt; {
-                <span class="kw">let </span>base_po_inode = <span class="kw-2">&amp;</span><span class="self">self</span>.fd_map.read().unwrap()[base_po_dir].inode;
+                <span class="kw">let </span>guard = <span class="self">self</span>.fd_map.read().unwrap();
+                <span class="kw">let </span>base_po_inode = <span class="kw-2">&amp;</span>guard.get(<span class="kw-2">*</span>base_po_dir).unwrap().inode;
                 <span class="kw">let </span>guard = base_po_inode.read();
                 <span class="kw">match </span>guard.deref() {
                     Kind::Root { .. } =&gt; {
@@ -4327,12 +4159,9 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>close_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>fd_map = <span class="self">self</span>.fd_map.write().unwrap();
 
-        <span class="kw">let </span>pfd = fd_map.remove(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf);
+        <span class="kw">let </span>pfd = fd_map.remove(fd).ok_or(Errno::Badf);
         <span class="kw">match </span>pfd {
             <span class="prelude-val">Ok</span>(fd_ref) =&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>freed_fds = <span class="self">self</span>.freed_fds.write().unwrap();
-                freed_fds.push(Reverse(fd));
-
                 <span class="kw">let </span>inode = fd_ref.inode.ino().as_u64();
                 <span class="kw">let </span>ref_cnt = fd_ref.inode.ref_cnt();
                 <span class="kw">if </span>ref_cnt == <span class="number">1 </span>{
@@ -4356,7 +4185,16 @@
         } <span class="kw">else </span>{
             <span class="macro">write!</span>(f, <span class="string">"current_dir=(locked) "</span>)<span class="question-mark">?</span>;
         }
-        <span class="macro">write!</span>(f, <span class="string">"next_fd={} "</span>, <span class="self">self</span>.next_fd.cur_val())<span class="question-mark">?</span>;
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(guard) = <span class="self">self</span>.fd_map.read() {
+            <span class="macro">write!</span>(
+                f,
+                <span class="string">"next_fd={} max_fd={:?} "</span>,
+                guard.next_free_fd(),
+                guard.last_fd()
+            )<span class="question-mark">?</span>;
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">"next_fd=(locked) max_fd=(locked) "</span>)<span class="question-mark">?</span>;
+        }
         <span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.root_fs)
     }
 }

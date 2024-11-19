@@ -1138,7 +1138,7 @@
 <span class="kw">impl </span>WasiStateFileGuard {
     <span class="kw">pub fn </span>new(state: <span class="kw-2">&amp;</span>WasiState, fd: wasi::Fd) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, FsError&gt; {
         <span class="kw">let </span>fd_map = state.fs.fd_map.read().unwrap();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.get(<span class="kw-2">&amp;</span>fd) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.get(fd) {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self </span>{
                 inode: fd.inode.clone(),
             }))

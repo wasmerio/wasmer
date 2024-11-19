@@ -217,7 +217,7 @@
     </span><span class="kw">let </span>new_offset = <span class="kw">match </span>whence {
         Whence::Cur =&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
+            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
 
             <span class="attr">#[allow(clippy::comparison_chain)]
             </span><span class="kw">if </span>offset &gt; <span class="number">0 </span>{
@@ -257,7 +257,7 @@
                             <span class="comment">// TODO: handle case if fd_entry.offset uses 64 bits of a u64
                             </span>drop(handle);
                             <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-                            <span class="kw">let </span>fd_entry = fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)<span class="question-mark">?</span>;
                             fd_entry.offset.store(end, Ordering::Release);
                             <span class="prelude-val">Ok</span>(())
                         })<span class="question-mark">?</span>);
@@ -287,7 +287,7 @@
         }
         Whence::Set =&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
+            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
             <span class="kw">let </span>offset: u64 = <span class="macro">wasi_try_ok_ok!</span>(u64::try_from(offset).map_err(|<span class="kw">_</span>| Errno::Inval));
 
             fd_entry.offset.store(offset, Ordering::Release);
