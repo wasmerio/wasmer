@@ -496,7 +496,7 @@ pub fn emit_compilation(
                             name: libcall_fn_name.to_vec(),
                             value: 0,
                             size: 0,
-                            kind: SymbolKind::Unknown,
+                            kind: SymbolKind::Text,
                             scope: SymbolScope::Unknown,
                             weak: false,
                             section: SymbolSection::Undefined,
@@ -517,7 +517,6 @@ pub fn emit_compilation(
                     .map_err(ObjectError::Write)?;
                 }
                 RelocationTarget::CustomSection(section_index) => {
-                    let (_, target_symbol) = custom_section_ids.get(section_index).unwrap();
                     obj.add_relocation(
                         section_id,
                         Relocation {
@@ -525,7 +524,9 @@ pub fn emit_compilation(
                             size: relocation_size,
                             kind: relocation_kind,
                             encoding: relocation_encoding,
-                            symbol: mr.1.unwrap_or(*target_symbol),
+                            symbol: mr.1.unwrap_or_else(|| {
+                                custom_section_ids.get(section_index).unwrap().1
+                            }),
                             addend: r.addend,
                         },
                     )
