@@ -1,24 +1,33 @@
-use wasmer_vm::StoreObjects;
-
-use crate::{
-    vm::VMFunctionEnvironment, AsStoreMut, AsStoreRef, StoreHandle, StoreHandleCreator, StoreMut,
-    StoreRef,
-};
+use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
-#[derive(Debug)]
-#[repr(transparent)]
+#[derive(Debug, derive_more::From)]
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
-pub struct FunctionEnv<T> {
-    pub(crate) handle: StoreHandle<VMFunctionEnvironment>,
-    marker: PhantomData<T>,
+pub enum FunctionEnv<T> {
+    #[cfg(feature = "sys")]
+    /// The function environment for the `sys` runtime.
+    Sys(crate::rt::sys::function::env::FunctionEnv<T>),
+    #[cfg(feature = "wamr")]
+    /// The function environment for the `wamr` runtime.
+    Wamr(crate::rt::wamr::function::env::FunctionEnv<T>),
+    #[cfg(feature = "v8")]
+    /// The function environment for the `v8` runtime.
+    V8(crate::rt::v8::function::env::FunctionEnv<T>),
 }
 
-/// The trait implemented by all those that can create new VM function environments.
-pub trait VMFunctionEnvCreator {
-    /// Crate a new instance of [`VMFunctionEnv`].
-    fn vm_env_from_value<T>(&mut self, value: T) -> VMFunctionEnvironment;
+impl<T> Clone for FunctionEnv<T> {
+    fn clone(&self) -> Self {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => Self::Sys(s.clone()),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => Self::Wamr(s.clone()),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => Self::V8(s.clone()),
+            _ => panic!("No runtime implemented!"),
+        }
+    }
 }
 
 impl<T> FunctionEnv<T> {
@@ -27,34 +36,42 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        Self {
-            handle: {
-                let mut store_mut = store.as_store_mut();
-                let value = store_mut.vm_env_from_value(value);
-                store_mut.store_handle_from_value(value)
-            },
-            marker: PhantomData,
+        match store.as_store_mut().inner.store {
+            #[cfg(feature = "sys")]
+            crate::RuntimeStore::Sys(_) => Self::Sys(
+                crate::rt::sys::function::env::FunctionEnv::new(store, value),
+            ),
+
+            #[cfg(feature = "wamr")]
+            crate::RuntimeStore::Wamr(_) => Self::Wamr(
+                crate::rt::wamr::function::env::FunctionEnv::new(store, value),
+            ),
+
+            #[cfg(feature = "v8")]
+            crate::RuntimeStore::V8(_) => {
+                Self::V8(crate::rt::v8::function::env::FunctionEnv::new(store, value))
+            }
         }
     }
+
+    //#[allow(dead_code)] // This function is only used in js
+    //pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
+    //    todo!()
+    //}
 
     /// Get the data as reference
     pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
     where
         T: Any + Send + 'static + Sized,
     {
-        self.handle
-            .get(store.as_store_ref().objects())
-            .as_ref()
-            .as_any()
-            .downcast_ref::<T>()
-            .unwrap()
-    }
-
-    #[allow(dead_code)] // This function is only used in js
-    pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
-        Self {
-            handle,
-            marker: PhantomData,
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.as_ref(store),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => s.as_ref(store),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => s.as_ref(store),
+            _ => panic!("No runtime enabled!"),
         }
     }
 
@@ -63,12 +80,15 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        self.handle
-            .get_mut(store.objects_mut())
-            .as_mut()
-            .as_any_mut()
-            .downcast_mut::<T>()
-            .unwrap()
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.as_mut(store),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => s.as_mut(store),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => s.as_mut(store),
+            _ => panic!("No runtime enabled!"),
+        }
     }
 
     /// Convert it into a `FunctionEnvMut`
@@ -76,42 +96,136 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        FunctionEnvMut {
-            store_mut: store.as_store_mut(),
-            func_env: self,
-        }
-    }
-}
-
-impl<T> PartialEq for FunctionEnv<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.handle.cmp(other.handle.as_ref()).is_eq()
-    }
-}
-
-impl<T> Eq for FunctionEnv<T> {}
-
-impl<T> std::hash::Hash for FunctionEnv<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let handle_hash = self.handle.hash();
-        handle_hash.hash(state);
-        self.marker.hash(state);
-    }
-}
-
-impl<T> Clone for FunctionEnv<T> {
-    fn clone(&self) -> Self {
-        Self {
-            handle: self.handle.clone_boxed(),
-            marker: self.marker,
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => FunctionEnvMut::Sys(s.into_mut(store)),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => FunctionEnvMut::Wamr(s.into_mut(store)),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => FunctionEnvMut::V8(s.into_mut(store)),
+            _ => panic!("No runtime enabled!"),
         }
     }
 }
 
 /// A temporary handle to a [`FunctionEnv`].
-pub struct FunctionEnvMut<'a, T: 'a> {
-    pub(crate) store_mut: StoreMut<'a>,
-    pub(crate) func_env: FunctionEnv<T>,
+pub enum FunctionEnvMut<'a, T: 'a> {
+    #[cfg(feature = "sys")]
+    /// The function environment for the `sys` runtime.
+    Sys(crate::rt::sys::function::env::FunctionEnvMut<'a, T>),
+    #[cfg(feature = "wamr")]
+    /// The function environment for the `wamr` runtime.
+    Wamr(crate::rt::wamr::function::env::FunctionEnvMut<'a, T>),
+    #[cfg(feature = "v8")]
+    /// The function environment for the `v8` runtime.
+    V8(crate::rt::v8::function::env::FunctionEnvMut<'a, T>),
+}
+
+impl<T: Send + 'static> FunctionEnvMut<'_, T> {
+    /// Returns a reference to the host state in this function environement.
+    pub fn data(&self) -> &T {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref f) => f.data(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref f) => f.data(),
+            #[cfg(feature = "v8")]
+            Self::V8(ref f) => f.data(),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
+
+    /// Returns a mutable- reference to the host state in this function environement.
+    pub fn data_mut(&mut self) -> &mut T {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref mut f) => f.data_mut(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref mut f) => f.data_mut(),
+            #[cfg(feature = "v8")]
+            Self::V8(ref mut f) => f.data_mut(),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
+
+    /// Borrows a new immmutable reference
+    pub fn as_ref(&self) -> FunctionEnv<T> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref f) => FunctionEnv::Sys(f.as_ref()),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref f) => FunctionEnv::Wamr(f.as_ref()),
+            #[cfg(feature = "v8")]
+            Self::V8(ref f) => FunctionEnv::V8(f.as_ref()),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
+
+    /// Borrows a new mutable reference
+    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref mut f) => FunctionEnvMut::Sys(f.as_mut()),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref mut f) => FunctionEnvMut::Wamr(f.as_mut()),
+            #[cfg(feature = "v8")]
+            Self::V8(ref mut f) => FunctionEnvMut::V8(f.as_mut()),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
+
+    /// Borrows a new mutable reference of both the attached Store and host state
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref mut f) => f.data_and_store_mut(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref mut f) => f.data_and_store_mut(),
+            #[cfg(feature = "v8")]
+            Self::V8(ref mut f) => f.data_and_store_mut(),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
+}
+
+impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref s) => s.as_store_ref(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref s) => s.as_store_ref(),
+            #[cfg(feature = "v8")]
+            Self::V8(ref s) => s.as_store_ref(),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
+}
+
+impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref mut s) => s.as_store_mut(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref mut s) => s.as_store_mut(),
+            #[cfg(feature = "v8")]
+            Self::V8(ref mut s) => s.as_store_mut(),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
+
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(ref mut s) => s.objects_mut(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(ref mut s) => s.objects_mut(),
+            #[cfg(feature = "v8")]
+            Self::V8(ref mut s) => s.objects_mut(),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
 }
 
 impl<'a, T> Debug for FunctionEnvMut<'a, T>
@@ -119,62 +233,13 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.func_env.as_ref(&self.store_mut).fmt(f)
-    }
-}
-
-impl<T: Send + 'static> FunctionEnvMut<'_, T> {
-    /// Returns a reference to the host state in this function environement.
-    pub fn data(&self) -> &T {
-        self.func_env.as_ref(&self.store_mut)
-    }
-
-    /// Returns a mutable- reference to the host state in this function environement.
-    pub fn data_mut(&mut self) -> &mut T {
-        self.func_env.as_mut(&mut self.store_mut)
-    }
-
-    /// Borrows a new immmutable reference
-    pub fn as_ref(&self) -> FunctionEnv<T> {
-        self.func_env.clone()
-    }
-
-    /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
-        FunctionEnvMut {
-            store_mut: self.store_mut.as_store_mut(),
-            func_env: self.func_env.clone(),
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => write!(f, "{s:?}"),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => write!(f, "{s:?}"),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => write!(f, "{s:?}"),
         }
-    }
-
-    /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
-        let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
-        // telling the borrow check to close his eyes here
-        // this is still relatively safe to do as func_env are
-        // stored in a specific vec of Store, separate from the other objects
-        // and not really directly accessible with the StoreMut
-        let data = unsafe { &mut *data };
-        (data, self.store_mut.as_store_mut())
-    }
-}
-
-impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        StoreRef {
-            inner: self.store_mut.inner,
-        }
-    }
-}
-
-impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut {
-            inner: self.store_mut.inner,
-        }
-    }
-    #[inline]
-    fn objects_mut(&mut self) -> &mut StoreObjects {
-        &mut self.store_mut.inner.objects
     }
 }

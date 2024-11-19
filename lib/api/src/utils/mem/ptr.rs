@@ -1,5 +1,4 @@
-use std::{marker::PhantomData, mem};
-
+use std::marker::PhantomData;
 use wasmer_types::{Memory32, Memory64, MemorySize, ValueType};
 
 use crate::{
@@ -108,7 +107,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
         let base = self.offset.into();
         let index = offset.into();
         let offset = index
-            .checked_mul(mem::size_of::<T>() as u64)
+            .checked_mul(std::mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         let address = base
             .checked_add(offset)
@@ -126,7 +125,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
         let base = self.offset.into();
         let index = offset.into();
         let offset = index
-            .checked_mul(mem::size_of::<T>() as u64)
+            .checked_mul(std::mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         let address = base
             .checked_sub(offset)
@@ -137,10 +136,10 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 }
 
 impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
-    /// Creates a [`WasmRef`] from this [`WasmPtr`] which allows reading and
+    /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref(&self, view: &MemoryView) -> WasmRef<T> {
+    pub fn deref<'a>(&self, view: &'a MemoryView) -> WasmRef<'a, T> {
         WasmRef::new(view, self.offset.into())
     }
 
@@ -156,17 +155,17 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
         self.deref(view).write(val)
     }
 
-    /// Creates a [`WasmSlice`] starting at this [`WasmPtr`] which allows reading
+    /// Creates a `WasmSlice` starting at this `WasmPtr` which allows reading
     /// and mutating of an array of value being pointed to.
     ///
-    /// Returns a [`MemoryAccessError`] if the slice length overflows a 64-bit
+    /// Returns a `MemoryAccessError` if the slice length overflows a 64-bit
     /// address.
     #[inline]
-    pub fn slice(
+    pub fn slice<'a>(
         &self,
-        view: &MemoryView,
+        view: &'a MemoryView,
         len: M::Offset,
-    ) -> Result<WasmSlice<T>, MemoryAccessError> {
+    ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
         WasmSlice::new(view, self.offset.into(), len.into())
     }
 
@@ -253,7 +252,7 @@ where
 }
 
 unsafe impl<T: ValueType, M: MemorySize> ValueType for WasmPtr<T, M> {
-    fn zero_padding_bytes(&self, _bytes: &mut [mem::MaybeUninit<u8>]) {}
+    fn zero_padding_bytes(&self, _bytes: &mut [std::mem::MaybeUninit<u8>]) {}
 }
 
 impl<T: ValueType, M: MemorySize> Clone for WasmPtr<T, M> {

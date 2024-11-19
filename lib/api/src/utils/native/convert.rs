@@ -1,8 +1,10 @@
 use wasmer_types::{NativeWasmType, RawValue, Type};
 
 use crate::store::AsStoreRef;
-//use crate::vm::{VMExternRef, VMFuncRef};
-//use crate::{ExternRef, Function, TypedFunction};
+use crate::{
+    vm::{VMExternRef, VMFuncRef},
+    ExternRef, Function, TypedFunction,
+};
 
 use std::error::Error;
 use std::{
@@ -185,72 +187,97 @@ impl NativeWasmTypeInto for u128 {
     }
 }
 
-//impl NativeWasmType for ExternRef {
-//    const WASM_TYPE: Type = Type::ExternRef;
-//    type Abi = usize;
-//}
-//
-//impl NativeWasmTypeInto for Option<ExternRef> {
-//    #[inline]
-//    unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
-//        VMExternRef::from_raw(RawValue { externref: abi })
-//            .map(|e| ExternRef::from_vm_externref(store, e))
-//    }
-//
-//    #[inline]
-//    fn into_abi(self, _store: &mut impl AsStoreMut) -> Self::Abi {
-//        self.map_or(0, |e| unsafe { e.vm_externref().into_raw().externref })
-//    }
-//
-//    #[inline]
-//    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
-//        self.map_or(RawValue { externref: 0 }, |e| e.vm_externref().into_raw())
-//    }
-//
-//    #[inline]
-//    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-//        VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e))
-//    }
-//}
-//
-//impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
-//where
-//    Args: WasmTypeList,
-//    Rets: WasmTypeList,
-//{
-//    fn from(other: TypedFunction<Args, Rets>) -> Self {
-//        other.into_function()
-//    }
-//}
-//
-//impl NativeWasmType for Function {
-//    const WASM_TYPE: Type = Type::FuncRef;
-//    type Abi = usize;
-//}
-//
-//impl NativeWasmTypeInto for Option<Function> {
-//    #[inline]
-//    unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
-//        VMFuncRef::from_raw(RawValue { funcref: abi }).map(|f| Function::from_vm_funcref(store, f))
-//    }
-//
-//    #[inline]
-//    fn into_abi(self, store: &mut impl AsStoreMut) -> Self::Abi {
-//        self.map_or(0, |f| unsafe { f.vm_funcref(store).into_raw().externref })
-//    }
-//
-//    #[inline]
-//    fn into_raw(self, store: &mut impl AsStoreMut) -> RawValue {
-//        self.map_or(RawValue { externref: 0 }, |e| {
-//            e.vm_funcref(store).into_raw()
-//        })
-//    }
-//
-//    #[inline]
-//    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-//        VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f))
-//    }
-//}
+impl NativeWasmType for ExternRef {
+    const WASM_TYPE: Type = Type::ExternRef;
+    type Abi = usize;
+}
+
+impl NativeWasmTypeInto for Option<ExternRef> {
+    #[inline]
+    unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        match store.as_store_ref().inner.store {
+            #[cfg(feature = "sys")]
+            crate::RuntimeStore::Sys(_) => {
+                wasmer_vm::VMExternRef::from_raw(RawValue { externref: abi }).map(VMExternRef::Sys)
+            }
+            _ => panic!("No runtime enabled!"),
+        }
+        .map(|e| ExternRef::from_vm_externref(store, e))
+    }
+
+    #[inline]
+    fn into_abi(self, _store: &mut impl AsStoreMut) -> Self::Abi {
+        self.map_or(0, |e| unsafe { e.vm_externref().into_raw().externref })
+    }
+
+    #[inline]
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        self.map_or(RawValue { externref: 0 }, |e| e.vm_externref().into_raw())
+    }
+
+    #[inline]
+    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        match store.as_store_ref().inner.store {
+            #[cfg(feature = "sys")]
+            crate::RuntimeStore::Sys(_) => {
+                wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
+            }
+            _ => panic!("No runtime enabled!"),
+        }
+        .map(|e| ExternRef::from_vm_externref(store, e))
+    }
+}
+
+impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: TypedFunction<Args, Rets>) -> Self {
+        other.into_function()
+    }
+}
+
+impl NativeWasmType for Function {
+    const WASM_TYPE: Type = Type::FuncRef;
+    type Abi = usize;
+}
+
+impl NativeWasmTypeInto for Option<Function> {
+    #[inline]
+    unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        match store.as_store_ref().inner.store {
+            #[cfg(feature = "sys")]
+            crate::RuntimeStore::Sys(_) => {
+                wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
+            }
+            _ => panic!("No runtime enabled!"),
+        }
+        .map(|f| Function::from_vm_funcref(store, f))
+    }
+
+    #[inline]
+    fn into_abi(self, store: &mut impl AsStoreMut) -> Self::Abi {
+        self.map_or(0, |f| unsafe { f.vm_funcref(store).into_raw().externref })
+    }
+
+    #[inline]
+    fn into_raw(self, store: &mut impl AsStoreMut) -> RawValue {
+        self.map_or(RawValue { externref: 0 }, |e| {
+            e.vm_funcref(store).into_raw()
+        })
+    }
+
+    #[inline]
+    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        match store.as_store_ref().inner.store {
+            #[cfg(feature = "sys")]
+            crate::RuntimeStore::Sys(_) => wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys),
+            _ => panic!("No runtime enabled!"),
+        }
+        .map(|f| Function::from_vm_funcref(store, f))
+    }
+}
 
 /// A trait to convert a Rust value to a `WasmNativeType` value,
 /// or to convert `WasmNativeType` value to a Rust value.
@@ -353,33 +380,33 @@ from_to_native_wasm_type_same_size!(
     f64 => f64
 );
 
-//unsafe impl FromToNativeWasmType for Option<ExternRef> {
-//    type Native = Self;
-//
-//    fn to_native(self) -> Self::Native {
-//        self
-//    }
-//    fn from_native(n: Self::Native) -> Self {
-//        n
-//    }
-//    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-//        self.as_ref().map_or(true, |e| e.is_from_store(store))
-//    }
-//}
-//
-//unsafe impl FromToNativeWasmType for Option<Function> {
-//    type Native = Self;
-//
-//    fn to_native(self) -> Self::Native {
-//        self
-//    }
-//    fn from_native(n: Self::Native) -> Self {
-//        n
-//    }
-//    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-//        self.as_ref().map_or(true, |f| f.is_from_store(store))
-//    }
-//}
+unsafe impl FromToNativeWasmType for Option<ExternRef> {
+    type Native = Self;
+
+    fn to_native(self) -> Self::Native {
+        self
+    }
+    fn from_native(n: Self::Native) -> Self {
+        n
+    }
+    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.as_ref().map_or(true, |e| e.is_from_store(store))
+    }
+}
+
+unsafe impl FromToNativeWasmType for Option<Function> {
+    type Native = Self;
+
+    fn to_native(self) -> Self::Native {
+        self
+    }
+    fn from_native(n: Self::Native) -> Self {
+        n
+    }
+    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.as_ref().map_or(true, |f| f.is_from_store(store))
+    }
+}
 
 #[cfg(test)]
 mod test_from_to_native_wasm_type {

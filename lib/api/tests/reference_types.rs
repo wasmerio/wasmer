@@ -30,7 +30,7 @@ pub mod reference_types {
         let env = FunctionEnv::new(&mut store, env);
         let imports = imports! {
             "env" => {
-                "func_ref_identity" => Function::new_with_env(&mut store, &env, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_env: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
+                "func_ref_identity" => Runtime::new_with_env(&mut store, &env, FunctionType::new([Type::FuncRef], [Type::FuncRef]), |_env: FunctionEnvMut<Env>, values: &[Value]| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 })
             },
@@ -38,7 +38,7 @@ pub mod reference_types {
 
         let instance = Instance::new(&mut store, &module, &imports)?;
 
-        let f: &Function = instance.exports.get_function("run")?;
+        let f: &Runtime = instance.exports.get_function("run")?;
         let results = f.call(&mut store, &[]).unwrap();
         if let Value::FuncRef(fr) = &results[0] {
             assert!(fr.is_none());
@@ -47,11 +47,11 @@ pub mod reference_types {
         }
 
         let func_to_call =
-            Function::new_typed_with_env(&mut store, &env, |env: FunctionEnvMut<Env>| -> i32 {
+            Runtime::new_typed_with_env(&mut store, &env, |env: FunctionEnvMut<Env>| -> i32 {
                 env.data().0.store(true, Ordering::SeqCst);
                 343
             });
-        let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
+        let call_set_value: &Runtime = instance.exports.get_function("call_set_value")?;
         let results: Box<[Value]> =
             call_set_value.call(&mut store, &[Value::FuncRef(Some(func_to_call))])?;
         assert!(env.as_ref(&store.as_store_ref()).0.load(Ordering::SeqCst));
@@ -94,7 +94,7 @@ pub mod reference_types {
 
         let imports = imports! {
             "env" => {
-                "func_ref_call" => Function::new_with_env(
+                "func_ref_call" => Runtime::new_with_env(
                     &mut store,
                     &env,
                     FunctionType::new([Type::FuncRef], [Type::I32]),
@@ -112,9 +112,9 @@ pub mod reference_types {
             fn sum(a: i32, b: i32) -> i32 {
                 a + b
             }
-            let sum_func = Function::new_typed(&mut store, sum);
+            let sum_func = Runtime::new_typed(&mut store, sum);
 
-            let call_func: &Function = instance.exports.get_function("call_func")?;
+            let call_func: &Runtime = instance.exports.get_function("call_func")?;
             let result = call_func.call(&mut store, &[Value::FuncRef(Some(sum_func))])?;
             assert_eq!(result[0].unwrap_i32(), 16);
         }
@@ -153,13 +153,13 @@ pub mod reference_types {
         let env = FunctionEnv::new(&mut store, ());
         let imports = imports! {
             "env" => {
-                "extern_ref_identity" => Function::new_with_env(&mut store, &env, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_env, values| -> Result<Vec<_>, _> {
+                "extern_ref_identity" => Runtime::new_with_env(&mut store, &env, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |_env, values| -> Result<Vec<_>, _> {
                     Ok(vec![values[0].clone()])
                 }),
-                "extern_ref_identity_native" => Function::new_typed(&mut store, |er: Option<ExternRef>| -> Option<ExternRef> {
+                "extern_ref_identity_native" => Runtime::new_typed(&mut store, |er: Option<ExternRef>| -> Option<ExternRef> {
                     er
                 }),
-                "get_new_extern_ref" => Function::new_with_env(&mut store, &env, FunctionType::new([], [Type::ExternRef]), |mut env, _| -> Result<Vec<_>, _> {
+                "get_new_extern_ref" => Runtime::new_with_env(&mut store, &env, FunctionType::new([], [Type::ExternRef]), |mut env, _| -> Result<Vec<_>, _> {
                     let inner =
                         [("hello".to_string(), "world".to_string()),
                          ("color".to_string(), "orange".to_string())]
@@ -169,7 +169,7 @@ pub mod reference_types {
                     let new_extern_ref = ExternRef::new(&mut env, inner);
                     Ok(vec![Value::ExternRef(Some(new_extern_ref))])
                 }),
-                "get_new_extern_ref_native" => Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<()>| -> Option<ExternRef> {
+                "get_new_extern_ref_native" => Runtime::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<()>| -> Option<ExternRef> {
                     let inner =
                         [("hello".to_string(), "world".to_string()),
                          ("color".to_string(), "orange".to_string())]
@@ -183,7 +183,7 @@ pub mod reference_types {
 
         let instance = Instance::new(&mut store, &module, &imports)?;
         for run in &["run", "run_native"] {
-            let f: &Function = instance.exports.get_function(run)?;
+            let f: &Runtime = instance.exports.get_function(run)?;
             let results = f.call(&mut store, &[]).unwrap();
             if let Value::ExternRef(er) = &results[0] {
                 assert!(er.is_none());
@@ -198,7 +198,7 @@ pub mod reference_types {
         }
 
         for get_hashmap in &["get_hashmap", "get_hashmap_native"] {
-            let f: &Function = instance.exports.get_function(get_hashmap)?;
+            let f: &Runtime = instance.exports.get_function(get_hashmap)?;
             let results = f.call(&mut store, &[]).unwrap();
             if let Value::ExternRef(er) = &results[0] {
                 let inner: &HashMap<String, String> =
@@ -292,7 +292,7 @@ pub mod reference_types {
                 panic!("Did not find a null func ref in the global");
             }
 
-            let f = Function::new_typed(&mut store, |arg1: i32, arg2: i32| -> i32 { arg1 + arg2 });
+            let f = Runtime::new_typed(&mut store, |arg1: i32, arg2: i32| -> i32 { arg1 + arg2 });
 
             fr_global.set(&mut store, Value::FuncRef(Some(f)))?;
 

@@ -1,15 +1,13 @@
 use crate::{
-    embedders::Embedder,
     entities::{
         engine::{AsEngineRef, Engine},
-        store::StoreMut,
+        store::{StoreMut, StoreObjects},
     },
-    view::MemoryViewCreator,
-    vm::{VMExternRefCreator, VMExternRefResolver, VMFuncRefCreator, VMFuncRefResolver},
-    AsStoreMut, ExternRefCreator, ExternRefLike, ExternRefResolver, GlobalCreator, MemoryCreator,
-    TableCreator,
+    AsStoreMut,
 };
-use wasmer_vm::{StoreObjects, TrapHandlerFn};
+
+#[cfg(feature = "sys")]
+use wasmer_vm::TrapHandlerFn;
 
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
@@ -19,7 +17,7 @@ use wasmer_vm::{StoreObjects, TrapHandlerFn};
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     #[derivative(Debug = "ignore")]
-    pub(crate) store: Box<dyn StoreLike>,
+    pub(crate) store: RuntimeStore,
     #[derivative(Debug = "ignore")]
     pub(crate) on_called: Option<OnCalledHandler>,
 }
@@ -33,66 +31,52 @@ pub type OnCalledHandler = Box<
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;
 
-/// The trait that every concrete store must implement.
-pub(crate) trait StoreLike:
-    std::fmt::Debug
-    + AsEngineRef
-    + MemoryViewCreator
-    + MemoryCreator
-    + GlobalCreator
-    + TableCreator
-    + VMExternRefCreator
-    + VMFuncRefCreator
-    + ExternRefResolver
-    + VMFuncRefResolver
-    + VMExternRefResolver
-{
-    /// Create a new [`StoreLike`] from an [`Engine`].
-    fn new(engine: impl Into<Engine>) -> Self
-    where
-        Self: Sized;
-
-    /// Set the [`TrapHandlerFn`] for this store.
-    ///
-    /// # Note
-    ///
-    /// Not every implementor allows changing the trap handler. In those store that
-    /// don't allow it, this function has no effect.
-    // [todo] xdoardo: list the implementers in the docs above.
-    fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
-        _ = handler;
-    }
-
-    /// Retrieve the current [`TrapHandlerFn`] for this store.
-    ///
-    /// # Note
-    ///
-    /// Not every implementor allows changing the trap handler. In those store that
-    /// don't allow it, this function returns [`None`]. Of course, the same happens even if the
-    /// store supports setting a trap handler, but none was set.
-    // [todo] xdoardo: list the implementers in the docs above.
-    fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
-        None
-    }
-
-    /// Retrieve a reference to the [`Engine`] underlying this store.
-    fn engine(&self) -> &Engine;
-
-    /// Retrieve a mutable reference to the [`Engine`] underlying this store.
-    fn engine_mut(&mut self) -> &mut Engine;
-
+#[derive(derive_more::From)]
+pub(crate) enum RuntimeStore {
     #[cfg(feature = "sys")]
-    /// Try to downcast this store as a concrete store from the "sys" embedder.
-    fn as_sys(&self) -> Option<&crate::embedders::sys::entitites::store::Store> {
-        None
+    Sys(crate::rt::sys::entities::store::Store),
+    #[cfg(feature = "wamr")]
+    Wamr(crate::rt::wamr::entities::store::Store),
+    #[cfg(feature = "v8")]
+    V8(crate::rt::v8::entities::store::Store),
+}
+
+impl RuntimeStore {
+    pub(crate) fn engine(&self) -> &Engine {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.engine(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => s.engine(),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => s.engine(),
+            _ => panic!("No runtime enabled!"),
+        }
     }
 
-    #[cfg(feature = "sys")]
-    /// Try to downcast this store as a concrete store from the "sys" embedder.
-    fn as_sys_mut(&mut self) -> Option<&mut crate::embedders::sys::entitites::store::Store> {
-        None
+    pub(crate) fn engine_mut(&mut self) -> &mut Engine {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.engine_mut(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => s.engine_mut(),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => s.engine_mut(),
+            _ => panic!("No runtime enabled!"),
+        }
     }
+}
 
-    /// Get the embedder for this store.
-    fn get_embedder(&self) -> Embedder;
+impl AsEngineRef for RuntimeStore {
+    fn as_engine_ref(&self) -> crate::EngineRef<'_> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.as_engine_ref(),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(s) => s.as_engine_ref(),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => s.as_engine_ref(),
+            _ => panic!("No runtime enabled!"),
+        }
+    }
 }

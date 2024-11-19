@@ -8,14 +8,15 @@ mod inner;
 mod store_ref;
 pub use store_ref::*;
 
-mod handle;
-pub use handle::*;
+mod obj;
+pub use obj::*;
 
-use inner::StoreInner;
-pub(crate) use inner::StoreLike;
-use wasmer_vm::{StoreId, StoreObjects, TrapHandlerFn};
+use crate::{AsEngineRef, Engine, EngineRef, RuntimeEngine};
+pub(crate) use inner::*;
+use wasmer_types::StoreId;
 
-use crate::{AsEngineRef, Engine, EngineRef};
+#[cfg(feature = "sys")]
+use wasmer_vm::TrapHandlerFn;
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -34,24 +35,46 @@ pub struct Store {
 impl Store {
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
+        let engine: Engine = engine.into();
+
+        let store = match engine.0 {
+            #[cfg(feature = "sys")]
+            RuntimeEngine::Sys(_) => {
+                RuntimeStore::Sys(crate::rt::sys::entities::store::Store::new(engine))
+            }
+            #[cfg(feature = "wamr")]
+            RuntimeEngine::Wamr(_) => {
+                RuntimeStore::Wamr(crate::rt::wamr::entities::store::Store::new(engine))
+            }
+            #[cfg(feature = "v8")]
+            RuntimeEngine::V8(_) => {
+                RuntimeStore::V8(crate::rt::v8::entities::store::Store::new(engine))
+            }
+            _ => panic!("No runtime enabled!"),
+        };
+
         Self {
             inner: Box::new(StoreInner {
-                objects: Default::default(),
-                store: Into::<Engine>::into(engine).default_store(),
+                objects: StoreObjects::from_store_ref(&store),
                 on_called: None,
+                store,
             }),
         }
     }
 
+    #[cfg(feature = "sys")]
     /// Set the [`TrapHandlerFn`] for this store.
     ///
     /// # Note
     ///
     /// Not every implementor allows changing the trap handler. In those store that
     /// don't allow it, this function has no effect.
-    // [todo] xdoardo: list the implementers in the docs above.
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
-        self.inner.store.set_trap_handler(handler)
+        use crate::rt::sys::entities::store::NativeStoreExt;
+        #[allow(irrefutable_let_patterns)]
+        if let RuntimeStore::Sys(ref mut s) = self.inner.store {
+            s.set_trap_handler(handler)
+        }
     }
 
     /// Returns the [`Engine`].
@@ -120,6 +143,7 @@ impl AsStoreMut for Store {
             inner: &mut self.inner,
         }
     }
+
     fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.inner.objects
     }

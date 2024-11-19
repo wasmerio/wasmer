@@ -1,6 +1,6 @@
 //! This module defines data types, functions and traits used to describe and interact with
 //! various WebAssembly entities such as [`Value`], [`Module`] and [`Store`]. It also describes
-//! entities related to the embedder, such as [`Engine`].
+//! entities related to the runtime, such as [`Engine`].
 //!
 //! For more informations, refer to the [WebAssembly specification] and the [Wasmer Runtime
 //! documentation].
@@ -17,17 +17,20 @@ pub use store::*;
 pub(crate) mod module;
 pub use module::*;
 
+pub(crate) mod instance;
+pub use instance::*;
+
 pub(crate) mod trap;
 pub use trap::*;
 
 pub(crate) mod value;
 pub use value::*;
 
-pub(crate) mod ext_ref;
-pub use ext_ref::*;
+pub(crate) mod extref;
+pub use extref::*;
 
-pub(crate) mod ext;
-pub use ext::*;
+pub(crate) mod external;
+pub use external::*;
 
 pub(crate) mod table;
 pub use table::*;
@@ -40,9 +43,6 @@ pub use function::*;
 
 pub(crate) mod memory;
 pub use memory::*;
-
-//pub(crate) mod ext;
-//pub use ext::*;
 
 pub(crate) mod exports;
 pub use exports::*;

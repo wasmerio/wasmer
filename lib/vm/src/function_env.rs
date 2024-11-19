@@ -5,8 +5,9 @@ use std::any::Any;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct VMFunctionEnvironment {
+    /// The contents of the environment.
     #[derivative(Debug = "ignore")]
-    contents: Box<dyn Any + Send + 'static>,
+    pub contents: Box<dyn Any + Send + 'static>,
 }
 
 impl VMFunctionEnvironment {

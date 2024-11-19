@@ -2,7 +2,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_types::{FrameInfo, ImportError, TrapCode};
 
-use crate::TrapLike;
+use crate::RuntimeTrap as Trap;
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).
@@ -93,7 +93,7 @@ impl std::error::Error for RuntimeStringError {
 
 pub(crate) struct RuntimeErrorInner {
     /// The source error
-    pub(crate) source: Box<dyn TrapLike>,
+    pub(crate) source: Trap,
     /// The trap code (if any)
     trap_code: Option<TrapCode>,
     /// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).
@@ -129,7 +129,7 @@ impl RuntimeError {
     /// assert_eq!("unexpected error", trap.message());
     /// ```
     pub fn new_from_source(
-        source: Box<dyn TrapLike>,
+        source: Trap,
         wasm_trace: Vec<FrameInfo>,
         trap_code: Option<TrapCode>,
     ) -> Self {
@@ -181,7 +181,7 @@ impl RuntimeError {
     /// Attempts to downcast the `RuntimeError` to a concrete type.
     pub fn downcast<T: std::error::Error + 'static>(self) -> Result<T, Self> {
         match Arc::try_unwrap(self.inner) {
-            Ok(inner) if inner.source.as_any().is::<T>() => Ok(todo!()),
+            Ok(inner) if inner.source.is::<T>() => Ok(inner.source.downcast::<T>().unwrap()),
             Ok(inner) => Err(Self {
                 inner: Arc::new(inner),
             }),
@@ -191,12 +191,12 @@ impl RuntimeError {
 
     /// Attempts to downcast the `RuntimeError` to a concrete type.
     pub fn downcast_ref<T: std::error::Error + 'static>(&self) -> Option<&T> {
-        self.inner.as_ref().source.as_any().downcast_ref::<T>()
+        self.inner.as_ref().source.downcast_ref::<T>()
     }
 
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: std::error::Error + 'static>(&self) -> bool {
-        self.inner.source.as_any().is::<T>()
+        self.inner.source.is::<T>()
     }
 }
 
@@ -251,7 +251,7 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for RuntimeError {
         match error.downcast::<Self>() {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,
-            Err(error) => Self::user(error),
+            Err(error) => Trap::user(error),
         }
     }
 }

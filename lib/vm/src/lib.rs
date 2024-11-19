@@ -57,6 +57,7 @@ pub use crate::vmcontext::{
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
+pub use store::StoreObject;
 pub use wasmer_types::LibCall;
 pub use wasmer_types::MemoryError;
 pub use wasmer_types::MemoryStyle;

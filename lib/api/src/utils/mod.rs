@@ -12,3 +12,8 @@ pub use native::*;
 /// Useful data types, functions and traits for interacting with the memory of a [`crate::Instance`].
 pub(crate) mod mem;
 pub use mem::*;
+
+/// Useful macros to generate enums to represent `Runtime`-types.
+pub(crate) mod rt_macros;
+
+pub(crate) mod polyfill;

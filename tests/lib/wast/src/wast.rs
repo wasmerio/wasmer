@@ -539,7 +539,7 @@ impl Wast {
 
             (Value::ExternRef(Some(_)), WastRetCore::RefNull(_)) => false,
             (Value::ExternRef(Some(extern_ref)), WastRetCore::RefExtern(num)) => {
-                let x = extern_ref.downcast_extern_ref::<u32>(&self.store).cloned();
+                let x = extern_ref.downcast::<u32>(&self.store).cloned();
                 x == *num
             }
             _ => bail!(

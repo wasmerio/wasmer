@@ -1,5 +1,6 @@
 pub(crate) mod access;
 pub(crate) mod ptr;
+pub use ptr::*;
 
 use std::{
     marker::PhantomData,
@@ -9,12 +10,10 @@ use std::{
     string::FromUtf8Error,
 };
 
-use access::{WasmRefAccess, WasmSliceAccess};
-use ptr::WasmPtr;
-use thiserror::Error;
-use wasmer_types::{Memory32, Memory64, MemorySize, ValueType};
-
 use crate::{buffer::MemoryBuffer, error::RuntimeError, view::MemoryView};
+use access::{WasmRefAccess, WasmSliceAccess};
+use thiserror::Error;
+pub use wasmer_types::{Memory32, Memory64, MemorySize, ValueType};
 
 /// Error for invalid [`Memory`][super::Memory] access.
 #[derive(Clone, Copy, Debug, Error)]
@@ -52,18 +51,18 @@ impl From<FromUtf8Error> for MemoryAccessError {
 ///
 /// This wrapper safely handles concurrent modifications of the data by another
 /// thread.
-#[derive(Clone)]
-pub struct WasmRef<T: ValueType> {
+#[derive(Clone, Copy)]
+pub struct WasmRef<'a, T: ValueType> {
     #[allow(unused)]
-    pub(crate) buffer: MemoryBuffer,
+    pub(crate) buffer: MemoryBuffer<'a>,
     pub(crate) offset: u64,
     marker: PhantomData<*mut T>,
 }
 
-impl<T: ValueType> WasmRef<T> {
+impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Creates a new `WasmRef` at the given offset in a memory.
     #[inline]
-    pub fn new(view: &MemoryView, offset: u64) -> Self {
+    pub fn new(view: &'a MemoryView, offset: u64) -> Self {
         Self {
             buffer: view.buffer(),
             offset,
@@ -73,25 +72,25 @@ impl<T: ValueType> WasmRef<T> {
 
     /// Get the offset into Wasm linear memory for this `WasmRef`.
     #[inline]
-    pub fn offset(&self) -> u64 {
+    pub fn offset(self) -> u64 {
         self.offset
     }
 
     /// Get a `WasmPtr` for this `WasmRef`.
     #[inline]
-    pub fn as_ptr32(&self) -> WasmPtr<T, Memory32> {
+    pub fn as_ptr32(self) -> WasmPtr<T, Memory32> {
         WasmPtr::new(self.offset as u32)
     }
 
     /// Get a 64-bit `WasmPtr` for this `WasmRef`.
     #[inline]
-    pub fn as_ptr64(&self) -> WasmPtr<T, Memory64> {
+    pub fn as_ptr64(self) -> WasmPtr<T, Memory64> {
         WasmPtr::new(self.offset)
     }
 
     /// Get a `WasmPtr` for this `WasmRef`.
     #[inline]
-    pub fn as_ptr<M: MemorySize>(&self) -> WasmPtr<T, M> {
+    pub fn as_ptr<M: MemorySize>(self) -> WasmPtr<T, M> {
         let offset: M::Offset = self
             .offset
             .try_into()
@@ -102,7 +101,7 @@ impl<T: ValueType> WasmRef<T> {
 
     /// Reads the location pointed to by this `WasmRef`.
     #[inline]
-    pub fn read(&self) -> Result<T, MemoryAccessError> {
+    pub fn read(self) -> Result<T, MemoryAccessError> {
         let mut out = MaybeUninit::uninit();
         let buf =
             unsafe { slice::from_raw_parts_mut(out.as_mut_ptr() as *mut u8, mem::size_of::<T>()) };
@@ -113,19 +112,19 @@ impl<T: ValueType> WasmRef<T> {
 
     /// Writes to the location pointed to by this `WasmRef`.
     #[inline]
-    pub fn write(&self, val: T) -> Result<(), MemoryAccessError> {
+    pub fn write(self, val: T) -> Result<(), MemoryAccessError> {
         self.access()?.write(val);
         Ok(())
     }
 
     /// Gains direct access to the memory of this slice
     #[inline]
-    pub fn access<'a>(&self) -> Result<WasmRefAccess<'a, T>, MemoryAccessError> {
-        WasmRefAccess::new(self.clone())
+    pub fn access(self) -> Result<WasmRefAccess<'a, T>, MemoryAccessError> {
+        WasmRefAccess::new(self)
     }
 }
 
-impl<'a, T: ValueType> std::fmt::Debug for WasmRef<T> {
+impl<'a, T: ValueType> std::fmt::Debug for WasmRef<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -146,21 +145,21 @@ impl<'a, T: ValueType> std::fmt::Debug for WasmRef<T> {
 ///
 /// This wrapper safely handles concurrent modifications of the data by another
 /// thread.
-#[derive(Clone)]
-pub struct WasmSlice<T: ValueType> {
-    pub(crate) buffer: MemoryBuffer,
+#[derive(Clone, Copy)]
+pub struct WasmSlice<'a, T: ValueType> {
+    pub(crate) buffer: MemoryBuffer<'a>,
     pub(crate) offset: u64,
     pub(crate) len: u64,
     marker: PhantomData<*mut T>,
 }
 
-impl<T: ValueType> WasmSlice<T> {
+impl<'a, T: ValueType> WasmSlice<'a, T> {
     /// Creates a new `WasmSlice` starting at the given offset in memory and
     /// with the given number of elements.
     ///
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
-    pub fn new(view: &MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
+    pub fn new(view: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
@@ -177,7 +176,7 @@ impl<T: ValueType> WasmSlice<T> {
 
     /// Get the offset into Wasm linear memory for this `WasmSlice`.
     #[inline]
-    pub fn offset(&self) -> u64 {
+    pub fn offset(self) -> u64 {
         self.offset
     }
 
@@ -195,25 +194,25 @@ impl<T: ValueType> WasmSlice<T> {
 
     /// Get the number of elements in this slice.
     #[inline]
-    pub fn len(&self) -> u64 {
+    pub fn len(self) -> u64 {
         self.len
     }
 
     /// Returns `true` if the number of elements is 0.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub fn is_empty(self) -> bool {
         self.len == 0
     }
 
     /// Get a `WasmRef` to an element in the slice.
     #[inline]
-    pub fn index(&self, idx: u64) -> WasmRef<T> {
+    pub fn index(self, idx: u64) -> WasmRef<'a, T> {
         if idx >= self.len {
             panic!("WasmSlice out of bounds");
         }
         let offset = self.offset + idx * mem::size_of::<T>() as u64;
         WasmRef {
-            buffer: self.buffer.clone(),
+            buffer: self.buffer,
             offset,
             marker: PhantomData,
         }
@@ -221,13 +220,13 @@ impl<T: ValueType> WasmSlice<T> {
 
     /// Get a `WasmSlice` for a subslice of this slice.
     #[inline]
-    pub fn subslice(&self, range: Range<u64>) -> Self {
+    pub fn subslice(self, range: Range<u64>) -> Self {
         if range.start > range.end || range.end > self.len {
             panic!("WasmSlice out of bounds");
         }
         let offset = self.offset + range.start * mem::size_of::<T>() as u64;
         Self {
-            buffer: self.buffer.clone(),
+            buffer: self.buffer,
             offset,
             len: range.end - range.start,
             marker: PhantomData,
@@ -236,14 +235,14 @@ impl<T: ValueType> WasmSlice<T> {
 
     /// Get an iterator over the elements in this slice.
     #[inline]
-    pub fn iter(self) -> WasmSliceIter<T> {
+    pub fn iter(self) -> WasmSliceIter<'a, T> {
         WasmSliceIter { slice: self }
     }
 
     /// Gains direct access to the memory of this slice
     #[inline]
-    pub fn access<'a>(&self) -> Result<WasmSliceAccess<'a, T>, MemoryAccessError> {
-        WasmSliceAccess::new(self.clone())
+    pub fn access(self) -> Result<WasmSliceAccess<'a, T>, MemoryAccessError> {
+        WasmSliceAccess::new(self)
     }
 
     /// Reads an element of this slice.
@@ -268,7 +267,7 @@ impl<T: ValueType> WasmSlice<T> {
             self.len,
             "slice length doesn't match WasmSlice length"
         );
-        let size = mem::size_of_val(buf);
+        let size = std::mem::size_of_val(buf);
         let bytes =
             unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut MaybeUninit<u8>, size) };
         self.buffer.read_uninit(self.offset, bytes)?;
@@ -304,13 +303,13 @@ impl<T: ValueType> WasmSlice<T> {
     ///
     /// The length of the slice must match the length of the `WasmSlice`.
     #[inline]
-    pub fn write_slice(&self, data: &[T]) -> Result<(), MemoryAccessError> {
+    pub fn write_slice(self, data: &[T]) -> Result<(), MemoryAccessError> {
         assert_eq!(
             data.len() as u64,
             self.len,
             "slice length doesn't match WasmSlice length"
         );
-        let size = mem::size_of_val(data);
+        let size = std::mem::size_of_val(data);
         let bytes = unsafe { slice::from_raw_parts(data.as_ptr() as *const u8, size) };
         self.buffer.write(self.offset, bytes)
     }
@@ -360,7 +359,7 @@ impl<T: ValueType> WasmSlice<T> {
     }
 }
 
-impl<T: ValueType> std::fmt::Debug for WasmSlice<T> {
+impl<'a, T: ValueType> std::fmt::Debug for WasmSlice<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -371,12 +370,12 @@ impl<T: ValueType> std::fmt::Debug for WasmSlice<T> {
 }
 
 /// Iterator over the elements of a `WasmSlice`.
-pub struct WasmSliceIter<T: ValueType> {
-    slice: WasmSlice<T>,
+pub struct WasmSliceIter<'a, T: ValueType> {
+    slice: WasmSlice<'a, T>,
 }
 
-impl<T: ValueType> Iterator for WasmSliceIter<T> {
-    type Item = WasmRef<T>;
+impl<'a, T: ValueType> Iterator for WasmSliceIter<'a, T> {
+    type Item = WasmRef<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if !self.slice.is_empty() {
@@ -393,7 +392,7 @@ impl<T: ValueType> Iterator for WasmSliceIter<T> {
     }
 }
 
-impl<T: ValueType> DoubleEndedIterator for WasmSliceIter<T> {
+impl<'a, T: ValueType> DoubleEndedIterator for WasmSliceIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if !self.slice.is_empty() {
             let elem = self.slice.index(self.slice.len() - 1);
@@ -405,4 +404,4 @@ impl<T: ValueType> DoubleEndedIterator for WasmSliceIter<T> {
     }
 }
 
-impl<T: ValueType> ExactSizeIterator for WasmSliceIter<T> {}
+impl<'a, T: ValueType> ExactSizeIterator for WasmSliceIter<'a, T> {}

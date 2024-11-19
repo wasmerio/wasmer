@@ -398,7 +398,7 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
     let mut create_exe_flags = Vec::new();
 
     for a in atoms.iter() {
-        let object_path = operating_dir.as_path().join(&format!("{a}.o"));
+        let object_path = operating_dir.as_path().join(format!("{a}.o"));
         let _output: Vec<u8> = WasmerCreateObj {
             current_dir: operating_dir.clone(),
             wasm_path: wasm_path.clone(),

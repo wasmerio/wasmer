@@ -2,7 +2,7 @@ use wasmer_types::{RawValue, Type};
 
 use crate::{
     entities::{ExternRef, Function},
-    vm::{VMExternRef, VMExternRefCreator, VMExternRefResolver, VMFuncRef, VMFuncRefCreator, VMFuncRefResolver},
+    vm::{VMExternRef, VMFuncRef},
     AsStoreRef,
 };
 
@@ -91,15 +91,9 @@ impl Value {
             Self::F32(f32) => RawValue { f32 },
             Self::F64(f64) => RawValue { f64 },
             Self::V128(u128) => RawValue { u128 },
-            Self::FuncRef(Some(ref f)) => {
-                let store_ref = store.as_store_ref();
-                store_ref.func_ref_into_raw(f.vm_funcref(store))
-            }
-
+            Self::FuncRef(Some(ref f)) => f.vm_funcref(store).into_raw(),
             Self::FuncRef(None) => RawValue { funcref: 0 },
-            Self::ExternRef(Some(ref e)) => {
-                store.as_store_ref().extern_ref_into_raw(e.vm_externref())
-            }
+            Self::ExternRef(Some(ref e)) => e.vm_externref().into_raw(),
             Self::ExternRef(None) => RawValue { externref: 0 },
         }
     }
@@ -119,14 +113,46 @@ impl Value {
             Type::F32 => Self::F32(raw.f32),
             Type::F64 => Self::F64(raw.f64),
             Type::V128 => Self::V128(raw.u128),
-            Type::FuncRef => {
-                let vm_funcref = store.as_store_mut().func_ref_from_raw(raw);
-                Self::FuncRef(vm_funcref.map(|f| Function::from_vm_funcref(store, f)))
-            }
-            Type::ExternRef => {
-                let vm_externref = store.as_store_mut().extern_ref_from_raw(raw);
-                Self::ExternRef(vm_externref.map(|e| ExternRef::from_vm_externref(store, e)))
-            }
+            Type::FuncRef => match store.as_store_ref().inner.store {
+                #[cfg(feature = "sys")]
+                crate::RuntimeStore::Sys(_) => Self::FuncRef(
+                    crate::rt::sys::vm::VMFuncRef::from_raw(raw)
+                        .map(VMFuncRef::Sys)
+                        .map(|f| Function::from_vm_funcref(store, f)),
+                ),
+                #[cfg(feature = "wamr")]
+                crate::RuntimeStore::Wamr(_) => Self::FuncRef(
+                    crate::rt::wamr::vm::VMFuncRef::from_raw(raw)
+                        .map(VMFuncRef::Wamr)
+                        .map(|f| Function::from_vm_funcref(store, f)),
+                ),
+                #[cfg(feature = "v8")]
+                crate::RuntimeStore::V8(_) => Self::FuncRef(
+                    crate::rt::v8::vm::VMFuncRef::from_raw(raw)
+                        .map(VMFuncRef::V8)
+                        .map(|f| Function::from_vm_funcref(store, f)),
+                ),
+            },
+            Type::ExternRef => match store.as_store_ref().inner.store {
+                #[cfg(feature = "sys")]
+                crate::RuntimeStore::Sys(_) => Self::ExternRef(
+                    crate::rt::sys::vm::VMExternRef::from_raw(raw)
+                        .map(VMExternRef::Sys)
+                        .map(|f| ExternRef::from_vm_externref(store, f)),
+                ),
+                #[cfg(feature = "wamr")]
+                crate::RuntimeStore::Wamr(_) => Self::ExternRef(
+                    crate::rt::wamr::vm::VMExternRef::from_raw(raw)
+                        .map(VMExternRef::Wamr)
+                        .map(|f| ExternRef::from_vm_externref(store, f)),
+                ),
+                #[cfg(feature = "v8")]
+                crate::RuntimeStore::V8(_) => Self::ExternRef(
+                    crate::rt::v8::vm::VMExternRef::from_raw(raw)
+                        .map(VMExternRef::V8)
+                        .map(|f| ExternRef::from_vm_externref(store, f)),
+                ),
+            },
         }
     }
 

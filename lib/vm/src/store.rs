@@ -8,7 +8,10 @@ use wasmer_types::StoreId;
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
 pub trait StoreObject: Sized {
+    /// List the objects in the store.
     fn list(ctx: &StoreObjects) -> &Vec<Self>;
+
+    /// List the objects in the store, mutably.
     fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
 }
 macro_rules! impl_context_object {
@@ -49,6 +52,30 @@ pub struct StoreObjects {
 }
 
 impl StoreObjects {
+    /// Create a new instance of [`Self`]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: StoreId,
+        memories: Vec<VMMemory>,
+        tables: Vec<VMTable>,
+        globals: Vec<VMGlobal>,
+        functions: Vec<VMFunction>,
+        instances: Vec<VMInstance>,
+        extern_objs: Vec<VMExternObj>,
+        function_environments: Vec<VMFunctionEnvironment>,
+    ) -> Self {
+        Self {
+            id,
+            memories,
+            tables,
+            globals,
+            functions,
+            instances,
+            extern_objs,
+            function_environments,
+        }
+    }
+
     /// Returns the ID of this context.
     pub fn id(&self) -> StoreId {
         self.id
