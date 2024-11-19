@@ -113,7 +113,7 @@ impl FdList {
     pub fn remove(&mut self, idx: WasiFd) -> Option<Fd> {
         let idx = idx as usize;
 
-        let result = self.fds[idx].take();
+        let result = self.fds.get_mut(idx).and_then(|fd| fd.take());
 
         if result.is_some() {
             match self.first_free {
@@ -399,6 +399,19 @@ mod tests {
         assert_eq!(l.last_fd(), Some(5));
         assert_eq!(l.next_free_fd(), 2);
         assert_eq!(l.first_free, Some(2));
+    }
+
+    #[test]
+    fn remove_works() {
+        let mut l = FdList::new();
+
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+
+        assert!(is_useless_fd(&l.remove(1).unwrap(), 1));
+        assert!(l.remove(1).is_none());
+        assert!(l.remove(100000).is_none());
     }
 
     #[test]
