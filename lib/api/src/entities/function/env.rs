@@ -14,6 +14,9 @@ pub enum FunctionEnv<T> {
     #[cfg(feature = "v8")]
     /// The function environment for the `v8` runtime.
     V8(crate::rt::v8::function::env::FunctionEnv<T>),
+    #[cfg(feature = "js")]
+    /// The function environment for the `js` runtime.
+    Js(crate::rt::js::function::env::FunctionEnv<T>),
 }
 
 impl<T> Clone for FunctionEnv<T> {
@@ -25,7 +28,8 @@ impl<T> Clone for FunctionEnv<T> {
             Self::Wamr(s) => Self::Wamr(s.clone()),
             #[cfg(feature = "v8")]
             Self::V8(s) => Self::V8(s.clone()),
-            _ => panic!("No runtime implemented!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => Self::Js(s.clone()),
         }
     }
 }
@@ -51,6 +55,11 @@ impl<T> FunctionEnv<T> {
             crate::RuntimeStore::V8(_) => {
                 Self::V8(crate::rt::v8::function::env::FunctionEnv::new(store, value))
             }
+
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                Self::Js(crate::rt::js::function::env::FunctionEnv::new(store, value))
+            }
         }
     }
 
@@ -71,7 +80,8 @@ impl<T> FunctionEnv<T> {
             Self::Wamr(s) => s.as_ref(store),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_ref(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.as_ref(store),
         }
     }
 
@@ -87,7 +97,8 @@ impl<T> FunctionEnv<T> {
             Self::Wamr(s) => s.as_mut(store),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_mut(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.as_mut(store),
         }
     }
 
@@ -103,7 +114,8 @@ impl<T> FunctionEnv<T> {
             Self::Wamr(s) => FunctionEnvMut::Wamr(s.into_mut(store)),
             #[cfg(feature = "v8")]
             Self::V8(s) => FunctionEnvMut::V8(s.into_mut(store)),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => FunctionEnvMut::Js(s.into_mut(store)),
         }
     }
 }
@@ -119,6 +131,10 @@ pub enum FunctionEnvMut<'a, T: 'a> {
     #[cfg(feature = "v8")]
     /// The function environment for the `v8` runtime.
     V8(crate::rt::v8::function::env::FunctionEnvMut<'a, T>),
+
+    #[cfg(feature = "js")]
+    /// The function environment for the `js` runtime.
+    Js(crate::rt::js::function::env::FunctionEnvMut<'a, T>),
 }
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
@@ -131,7 +147,8 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             Self::Wamr(ref f) => f.data(),
             #[cfg(feature = "v8")]
             Self::V8(ref f) => f.data(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref f) => f.data(),
         }
     }
 
@@ -144,7 +161,8 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             Self::Wamr(ref mut f) => f.data_mut(),
             #[cfg(feature = "v8")]
             Self::V8(ref mut f) => f.data_mut(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref mut f) => f.data_mut(),
         }
     }
 
@@ -157,7 +175,8 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             Self::Wamr(ref f) => FunctionEnv::Wamr(f.as_ref()),
             #[cfg(feature = "v8")]
             Self::V8(ref f) => FunctionEnv::V8(f.as_ref()),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref f) => FunctionEnv::Js(f.as_ref()),
         }
     }
 
@@ -170,7 +189,8 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             Self::Wamr(ref mut f) => FunctionEnvMut::Wamr(f.as_mut()),
             #[cfg(feature = "v8")]
             Self::V8(ref mut f) => FunctionEnvMut::V8(f.as_mut()),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref mut f) => FunctionEnvMut::Js(f.as_mut()),
         }
     }
 
@@ -183,7 +203,8 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             Self::Wamr(ref mut f) => f.data_and_store_mut(),
             #[cfg(feature = "v8")]
             Self::V8(ref mut f) => f.data_and_store_mut(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref mut f) => f.data_and_store_mut(),
         }
     }
 }
@@ -197,7 +218,8 @@ impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
             Self::Wamr(ref s) => s.as_store_ref(),
             #[cfg(feature = "v8")]
             Self::V8(ref s) => s.as_store_ref(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref s) => s.as_store_ref(),
         }
     }
 }
@@ -211,7 +233,8 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
             Self::Wamr(ref mut s) => s.as_store_mut(),
             #[cfg(feature = "v8")]
             Self::V8(ref mut s) => s.as_store_mut(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref mut s) => s.as_store_mut(),
         }
     }
 
@@ -223,7 +246,8 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
             Self::Wamr(ref mut s) => s.objects_mut(),
             #[cfg(feature = "v8")]
             Self::V8(ref mut s) => s.objects_mut(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(ref mut s) => s.objects_mut(),
         }
     }
 }
@@ -240,6 +264,8 @@ where
             Self::Wamr(s) => write!(f, "{s:?}"),
             #[cfg(feature = "v8")]
             Self::V8(s) => write!(f, "{s:?}"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => write!(f, "{s:?}"),
         }
     }
 }

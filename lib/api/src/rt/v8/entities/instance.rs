@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Function` implementation.
 use std::sync::Arc;
 
 use crate::{
@@ -69,6 +70,7 @@ impl Drop for InstanceHandle {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// A WebAssembly `instance` in the `v8` runtime.
 pub struct Instance {
     pub(crate) handle: Arc<InstanceHandle>,
 }

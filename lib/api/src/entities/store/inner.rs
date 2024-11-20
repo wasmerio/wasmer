@@ -39,6 +39,8 @@ pub(crate) enum RuntimeStore {
     Wamr(crate::rt::wamr::entities::store::Store),
     #[cfg(feature = "v8")]
     V8(crate::rt::v8::entities::store::Store),
+    #[cfg(feature = "js")]
+    Js(crate::rt::js::entities::store::Store),
 }
 
 impl RuntimeStore {
@@ -50,7 +52,8 @@ impl RuntimeStore {
             Self::Wamr(s) => s.engine(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.engine(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.engine(),
         }
     }
 
@@ -62,7 +65,8 @@ impl RuntimeStore {
             Self::Wamr(s) => s.engine_mut(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.engine_mut(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.engine_mut(),
         }
     }
 }
@@ -76,7 +80,8 @@ impl AsEngineRef for RuntimeStore {
             Self::Wamr(s) => s.as_engine_ref(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_engine_ref(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.as_engine_ref(),
         }
     }
 }

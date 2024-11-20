@@ -1,5 +1,11 @@
+use crate::js::utils::js_handle::JsHandle;
+use js_sys::WebAssembly::Memory as JsMemory;
+use tracing::trace;
+use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::{MemoryError, MemoryType, Pages, WASM_PAGE_SIZE};
+
 /// Represents linear memory that is managed by the javascript runtime
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VMMemory {
     pub(crate) memory: JsHandle<JsMemory>,
     pub(crate) ty: MemoryType,
@@ -8,7 +14,7 @@ pub struct VMMemory {
 unsafe impl Send for VMMemory {}
 unsafe impl Sync for VMMemory {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 struct DummyBuffer {
     #[serde(rename = "byteLength")]
     byte_length: u32,
@@ -42,21 +48,21 @@ impl VMMemory {
 
     /// Copies this memory to a new memory
     pub fn copy(&mut self) -> Result<VMMemory, wasmer_types::MemoryError> {
-        let new_memory = crate::js::externals::memory::Memory::js_memory_from_type(&self.ty)?;
+        let new_memory = crate::js::memory::Memory::js_memory_from_type(&self.ty)?;
 
-        let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);
+        let src = crate::js::memory::MemoryView::new_raw(&self.memory);
         let amount = src.data_size() as usize;
 
         trace!(%amount, "memory copy started");
 
-        let mut dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
+        let mut dst = crate::js::memory::MemoryView::new_raw(&new_memory);
         let dst_size = dst.data_size() as usize;
 
         if amount > dst_size {
             let delta = amount - dst_size;
             let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
 
-            let our_js_memory: &crate::js::externals::memory::JSMemory =
+            let our_js_memory: &crate::js::memory::JSMemory =
                 JsCast::unchecked_from_js_ref(&new_memory);
             our_js_memory.grow(pages as u32).map_err(|err| {
                 if err.is_instance_of::<js_sys::RangeError>() {
@@ -70,7 +76,7 @@ impl VMMemory {
                 }
             })?;
 
-            dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
+            dst = crate::js::memory::MemoryView::new_raw(&new_memory);
         }
 
         src.copy_to_memory(amount as u64, &dst).map_err(|err| {

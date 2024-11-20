@@ -27,6 +27,9 @@ pub enum RuntimeTable {
     #[cfg(feature = "v8")]
     /// The extern ref from the `v8` runtime.
     V8(crate::rt::v8::entities::table::Table),
+    #[cfg(feature = "js")]
+    /// The extern ref from the `js` runtime.
+    Js(crate::rt::js::entities::table::Table),
 }
 
 impl RuntimeTable {
@@ -53,8 +56,10 @@ impl RuntimeTable {
             RuntimeStore::V8(_) => Ok(Self::V8(crate::rt::v8::entities::table::Table::new(
                 store, ty, init,
             )?)),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            RuntimeStore::Js(_) => Ok(Self::Js(crate::rt::js::entities::table::Table::new(
+                store, ty, init,
+            )?)),
         }
     }
 
@@ -63,13 +68,12 @@ impl RuntimeTable {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(t) => t.ty(store),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(t) => t.ty(store),
-
             #[cfg(feature = "v8")]
             Self::V8(t) => t.ty(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.ty(store),
         }
     }
 
@@ -78,13 +82,12 @@ impl RuntimeTable {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(t) => t.get(store, index),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(t) => t.get(store, index),
             #[cfg(feature = "v8")]
             Self::V8(t) => t.get(store, index),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.get(store, index),
         }
     }
 
@@ -98,13 +101,12 @@ impl RuntimeTable {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(t) => t.set(store, index, val),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(t) => t.set(store, index, val),
-
             #[cfg(feature = "v8")]
             Self::V8(t) => t.set(store, index, val),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.set(store, index, val),
         }
     }
 
@@ -113,13 +115,12 @@ impl RuntimeTable {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(t) => t.size(store),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(t) => t.size(store),
-
             #[cfg(feature = "v8")]
             Self::V8(t) => t.size(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.size(store),
         }
     }
 
@@ -145,7 +146,8 @@ impl RuntimeTable {
             Self::Wamr(t) => t.grow(store, delta, init),
             #[cfg(feature = "v8")]
             Self::V8(t) => t.grow(store, delta, init),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.grow(store, delta, init),
         }
     }
 
@@ -192,8 +194,15 @@ impl RuntimeTable {
                 src_index,
                 len,
             ),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            RuntimeStore::Js(_) => crate::rt::js::entities::table::Table::copy(
+                store,
+                dst_table.as_js(),
+                dst_index,
+                src_table.as_js(),
+                src_index,
+                len,
+            ),
         }
     }
 
@@ -203,7 +212,6 @@ impl RuntimeTable {
             RuntimeStore::Sys(_) => Self::Sys(
                 crate::rt::sys::entities::table::Table::from_vm_extern(store, ext),
             ),
-
             #[cfg(feature = "wamr")]
             RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::entities::table::Table::from_vm_extern(store, ext),
@@ -212,8 +220,10 @@ impl RuntimeTable {
             RuntimeStore::V8(_) => Self::V8(crate::rt::v8::entities::table::Table::from_vm_extern(
                 store, ext,
             )),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            RuntimeStore::Js(_) => Self::Js(crate::rt::js::entities::table::Table::from_vm_extern(
+                store, ext,
+            )),
         }
     }
 
@@ -222,13 +232,12 @@ impl RuntimeTable {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(t) => t.is_from_store(store),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(t) => t.is_from_store(store),
-
             #[cfg(feature = "v8")]
             Self::V8(t) => t.is_from_store(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.is_from_store(store),
         }
     }
 
@@ -236,13 +245,12 @@ impl RuntimeTable {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(t) => t.to_vm_extern(),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(t) => t.to_vm_extern(),
-
             #[cfg(feature = "v8")]
             Self::V8(t) => t.to_vm_extern(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.to_vm_extern(),
         }
     }
 }

@@ -6,17 +6,19 @@ use crate::StoreRef;
 
 #[derive(Debug, Clone, derive_more::From)]
 /// An opaque reference to some data. This reference can be passed through Wasm.
-pub enum RuntimeExternRef {
+pub(crate) enum RuntimeExternRef {
     #[cfg(feature = "sys")]
     /// The extern ref from the `sys` runtime.
     Sys(crate::rt::sys::entities::external::ExternRef),
     #[cfg(feature = "wamr")]
     /// The extern ref from the `wamr` runtime.
     Wamr(crate::rt::wamr::entities::external::ExternRef),
-
     #[cfg(feature = "v8")]
     /// The extern ref from the `v8` runtime.
     V8(crate::rt::v8::entities::external::ExternRef),
+    #[cfg(feature = "js")]
+    /// The extern ref from the `js` runtime.
+    Js(crate::rt::js::entities::external::ExternRef),
 }
 
 impl RuntimeExternRef {
@@ -38,8 +40,10 @@ impl RuntimeExternRef {
             crate::RuntimeStore::V8(s) => Self::V8(
                 crate::rt::v8::entities::external::ExternRef::new(store, value),
             ),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(s) => Self::Js(
+                crate::rt::js::entities::external::ExternRef::new(store, value),
+            ),
         }
     }
 
@@ -55,7 +59,8 @@ impl RuntimeExternRef {
             Self::Wamr(r) => r.downcast::<T>(store),
             #[cfg(feature = "v8")]
             Self::V8(r) => r.downcast::<T>(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(r) => r.downcast::<T>(store),
         }
     }
 
@@ -68,7 +73,8 @@ impl RuntimeExternRef {
             Self::Wamr(r) => VMExternRef::Wamr(r.vm_externref()),
             #[cfg(feature = "v8")]
             Self::V8(r) => VMExternRef::V8(r.vm_externref()),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(r) => VMExternRef::Js(r.vm_externref()),
         }
     }
 
@@ -99,7 +105,13 @@ impl RuntimeExternRef {
                     vm_externref.into_v8(),
                 ),
             ),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => Self::Js(
+                crate::rt::js::entities::external::ExternRef::from_vm_externref(
+                    store,
+                    vm_externref.into_js(),
+                ),
+            ),
         }
     }
 
@@ -118,7 +130,8 @@ impl RuntimeExternRef {
             Self::Wamr(r) => r.is_from_store(store),
             #[cfg(feature = "v8")]
             Self::V8(r) => r.is_from_store(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(r) => r.is_from_store(store),
         }
     }
 }

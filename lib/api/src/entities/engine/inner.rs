@@ -20,6 +20,10 @@ pub(crate) enum RuntimeEngine {
     #[cfg(feature = "v8")]
     /// The engine from the `v8` runtime.
     V8(crate::rt::v8::entities::engine::V8),
+
+    #[cfg(feature = "js")]
+    /// The engine from the `js` runtime.
+    Js(crate::rt::js::entities::engine::Engine),
 }
 
 impl RuntimeEngine {
@@ -32,7 +36,8 @@ impl RuntimeEngine {
             Self::Wamr(s) => s.deterministic_id(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.deterministic_id(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.deterministic_id(),
         }
     }
 
@@ -57,7 +62,9 @@ impl RuntimeEngine {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.deserialize_unchecked(bytes.into_bytes().to_owned().into()),
-            _ => panic!("No runtime enabled!"),
+            _ => Err(DeserializeError::Generic(
+                "The selected runtime does not support `deserialize_unchecked`".into(),
+            )),
         }
     }
 
@@ -76,7 +83,9 @@ impl RuntimeEngine {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.deserialize(bytes.into_bytes().to_owned().into()),
-            _ => panic!("No runtime enabled!"),
+            _ => Err(DeserializeError::Generic(
+                "The selected runtime does not support `deserialize`".into(),
+            )),
         }
     }
 
@@ -100,7 +109,9 @@ impl RuntimeEngine {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.deserialize_from_file_unchecked(file_ref),
-            _ => panic!("No runtime enabled!"),
+            _ => Err(DeserializeError::Generic(
+                "The selected runtime does not support `deserialize_from_file_unchecked`".into(),
+            )),
         }
     }
 
@@ -121,7 +132,9 @@ impl RuntimeEngine {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.deserialize_from_file(file_ref),
-            _ => panic!("No runtime enabled!"),
+            _ => Err(DeserializeError::Generic(
+                "The selected runtime does not support `deserialize_from_file`".into(),
+            )),
         }
     }
 }
@@ -141,6 +154,11 @@ impl Default for RuntimeEngine {
         #[cfg(feature = "v8")]
         {
             return Self::V8(crate::rt::v8::entities::engine::default_engine());
+        }
+
+        #[cfg(feature = "js")]
+        {
+            return Self::Js(crate::rt::js::entities::engine::default_engine());
         }
 
         panic!("No runtime enabled!")

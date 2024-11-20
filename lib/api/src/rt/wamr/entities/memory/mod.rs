@@ -1,3 +1,5 @@
+//! Data types, functions and traits for `wamr`'s `Memory` implementation.
+//!
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use tracing::warn;
@@ -22,6 +24,7 @@ pub(crate) mod view;
 pub use view::*;
 
 #[derive(Debug, Clone)]
+/// A WebAssembly `memory` in `wamr`.
 pub struct Memory {
     pub(crate) handle: VMMemory,
 }
@@ -316,7 +319,7 @@ unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: u
 }
 
 impl crate::Memory {
-    /// Consume [`self`] into a [`crate::rt::wamr::mem::Memory`].
+    /// Consume [`self`] into a [`crate::rt::wamr::memory::Memory`].
     pub fn into_wamr(self) -> crate::rt::wamr::memory::Memory {
         match self.0 {
             RuntimeMemory::Wamr(s) => s,
@@ -324,7 +327,7 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a reference to [`self`] into a reference to [`crate::rt::wamr::mem::Memory`].
+    /// Convert a reference to [`self`] into a reference to [`crate::rt::wamr::memory::Memory`].
     pub fn as_wamr(&self) -> &crate::rt::wamr::memory::Memory {
         match self.0 {
             RuntimeMemory::Wamr(ref s) => s,
@@ -332,7 +335,7 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::wamr::mem::Memory`].
+    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::wamr::memory::Memory`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::memory::Memory {
         match self.0 {
             RuntimeMemory::Wamr(ref mut s) => s,

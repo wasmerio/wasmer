@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `wamr`'s `ExternRef` implementation.
 use crate::{
     store::{AsStoreMut, AsStoreRef},
     wamr::vm::VMExternRef,
@@ -6,6 +7,7 @@ use std::any::Any;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
+/// A WebAssembly `extern ref` in `wamr`.
 pub struct ExternRef;
 
 impl ExternRef {

@@ -10,6 +10,9 @@ pub mod wamr;
 #[cfg(feature = "v8")]
 pub mod v8;
 
+#[cfg(feature = "js")]
+pub mod js;
+
 #[derive(Debug, Clone, Copy)]
 /// An enumeration over all the supported runtimes.
 pub enum Runtime {
@@ -24,4 +27,8 @@ pub enum Runtime {
     #[cfg(feature = "v8")]
     /// The `v8` runtime.
     V8,
+
+    #[cfg(feature = "js")]
+    /// The `js` runtime.
+    Js,
 }

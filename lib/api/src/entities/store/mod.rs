@@ -50,7 +50,10 @@ impl Store {
             RuntimeEngine::V8(_) => {
                 RuntimeStore::V8(crate::rt::v8::entities::store::Store::new(engine))
             }
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            RuntimeEngine::Js(_) => {
+                RuntimeStore::Js(crate::rt::js::entities::store::Store::new(engine))
+            }
         };
 
         Self {

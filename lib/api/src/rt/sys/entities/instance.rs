@@ -1,3 +1,5 @@
+//! Data types, functions and traits for `sys` runtime's `Instance` implementation.
+
 use crate::{
     error::InstantiationError, exports::Exports, imports::Imports, module::Module,
     store::AsStoreMut, Extern,
@@ -7,6 +9,7 @@ use wasmer_vm::{StoreHandle, VMInstance};
 use super::store::Store;
 
 #[derive(Clone, PartialEq, Eq)]
+/// A WebAssembly `instance` in the `sys` runtime.
 pub struct Instance {
     _handle: StoreHandle<VMInstance>,
 }

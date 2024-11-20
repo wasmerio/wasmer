@@ -15,6 +15,10 @@ pub enum RuntimeTrap {
     #[cfg(feature = "v8")]
     /// The trap from the `v8` runtime.
     V8(crate::rt::v8::vm::Trap),
+
+    #[cfg(feature = "js")]
+    /// The trap from the `js` runtime.
+    Js(crate::rt::js::vm::Trap),
 }
 
 impl RuntimeTrap {
@@ -34,6 +38,10 @@ impl RuntimeTrap {
         {
             return crate::rt::v8::vm::Trap::user(err).into();
         }
+        #[cfg(feature = "js")]
+        {
+            return crate::rt::js::vm::Trap::user(err).into();
+        }
 
         panic!("No runtime enabled!")
     }
@@ -46,7 +54,8 @@ impl RuntimeTrap {
             Self::Wamr(s) => s.downcast::<T>().map_err(Into::into),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.downcast::<T>().map_err(Into::into),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.downcast::<T>().map_err(Into::into),
         }
     }
 
@@ -59,7 +68,8 @@ impl RuntimeTrap {
             Self::Wamr(s) => s.downcast_ref::<T>(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.downcast_ref::<T>(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.downcast_ref::<T>(),
         }
     }
 
@@ -72,7 +82,8 @@ impl RuntimeTrap {
             Self::Wamr(s) => s.is::<T>(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.is::<T>(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.is::<T>(),
         }
     }
 }
@@ -86,7 +97,8 @@ impl std::fmt::Display for RuntimeTrap {
             Self::Wamr(t) => write!(f, "{t}"),
             #[cfg(feature = "v8")]
             Self::V8(t) => write!(f, "{t}"),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => write!(f, "{t}"),
         }
     }
 }
@@ -100,7 +112,8 @@ impl std::error::Error for RuntimeTrap {
             Self::Wamr(t) => t.source(),
             #[cfg(feature = "v8")]
             Self::V8(t) => t.source(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(t) => t.source(),
         }
     }
 }

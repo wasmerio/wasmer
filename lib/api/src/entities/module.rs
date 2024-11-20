@@ -47,6 +47,10 @@ pub enum Module {
     #[cfg(feature = "v8")]
     /// The module from the `v8` runtime.
     V8(crate::rt::v8::module::Module),
+
+    #[cfg(feature = "js")]
+    /// The module from the `js` runtime.
+    Js(crate::rt::js::module::Module),
 }
 impl Module {
     /// Creates a new WebAssembly Module given the configuration
@@ -165,7 +169,11 @@ impl Module {
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::from_binary(engine, binary)?,
             )),
-            _ => panic!("No runtime enabled!"),
+
+            #[cfg(feature = "js")]
+            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
+                crate::rt::js::entities::module::Module::from_binary(engine, binary)?,
+            )),
         }
     }
 
@@ -196,7 +204,10 @@ impl Module {
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::from_binary_unchecked(engine, binary)?,
             )),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
+                crate::rt::js::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            )),
         }
     }
 
@@ -212,17 +223,18 @@ impl Module {
             crate::RuntimeEngine::Sys(_) => {
                 crate::rt::sys::entities::module::Module::validate(engine, binary)?
             }
-
             #[cfg(feature = "wamr")]
             crate::RuntimeEngine::Wamr(_) => {
                 crate::rt::wamr::entities::module::Module::validate(engine, binary)?
             }
-
             #[cfg(feature = "v8")]
             crate::RuntimeEngine::V8(_) => {
                 crate::rt::v8::entities::module::Module::validate(engine, binary)?
             }
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeEngine::Js(_) => {
+                crate::rt::js::entities::module::Module::validate(engine, binary)?
+            }
         }
         Ok(())
     }
@@ -254,7 +266,8 @@ impl Module {
             Self::Wamr(s) => s.serialize(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.serialize(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.serialize(),
         }
     }
 
@@ -318,7 +331,6 @@ impl Module {
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::deserialize_unchecked(engine, bytes)?,
             )),
-
             #[cfg(feature = "wamr")]
             crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::module::Module::deserialize_unchecked(engine, bytes)?,
@@ -327,7 +339,10 @@ impl Module {
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::deserialize_unchecked(engine, bytes)?,
             )),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
+                crate::rt::js::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            )),
         }
     }
 
@@ -373,7 +388,10 @@ impl Module {
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::deserialize(engine, bytes)?,
             )),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
+                crate::rt::js::entities::module::Module::deserialize(engine, bytes)?,
+            )),
         }
     }
 
@@ -403,7 +421,6 @@ impl Module {
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
-
             #[cfg(feature = "wamr")]
             crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::module::Module::deserialize_from_file(engine, path)?,
@@ -412,7 +429,10 @@ impl Module {
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
+                crate::rt::js::entities::module::Module::deserialize_from_file(engine, path)?,
+            )),
         }
     }
 
@@ -446,7 +466,6 @@ impl Module {
                     engine, path,
                 )?,
             )),
-
             #[cfg(feature = "wamr")]
             crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::module::Module::deserialize_from_file_unchecked(
@@ -459,7 +478,12 @@ impl Module {
                     engine, path,
                 )?,
             )),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
+                crate::rt::js::entities::module::Module::deserialize_from_file_unchecked(
+                    engine, path,
+                )?,
+            )),
         }
     }
 
@@ -488,7 +512,8 @@ impl Module {
             Self::Wamr(s) => s.name(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.name(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.name(),
         }
     }
 
@@ -521,7 +546,8 @@ impl Module {
             Self::Wamr(s) => s.set_name(name),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.set_name(name),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.set_name(name),
         }
     }
 
@@ -557,7 +583,8 @@ impl Module {
             Self::Wamr(s) => s.imports(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.imports(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.imports(),
         }
     }
 
@@ -592,8 +619,8 @@ impl Module {
             Self::Wamr(s) => s.exports(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.exports(),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.exports(),
         }
     }
 
@@ -612,7 +639,8 @@ impl Module {
             Self::Wamr(s) => s.custom_sections(name),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.custom_sections(name),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.custom_sections(name),
         }
     }
 
@@ -630,7 +658,8 @@ impl Module {
             Self::Wamr(s) => s.info(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.info(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.info(),
         }
     }
 }

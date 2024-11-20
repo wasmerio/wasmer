@@ -5,7 +5,7 @@ use crate::{
     MemoryAccessError,
 };
 
-pub(super) enum SliceCow<'a, T> {
+pub(crate) enum SliceCow<'a, T> {
     #[allow(dead_code)]
     Borrowed(&'a mut [T]),
     #[allow(dead_code)]
@@ -42,8 +42,8 @@ pub struct WasmSliceAccess<'a, T>
 where
     T: wasmer_types::ValueType,
 {
-    pub(super) slice: WasmSlice<'a, T>,
-    pub(super) buf: SliceCow<'a, T>,
+    pub(crate) slice: WasmSlice<'a, T>,
+    pub(crate) buf: SliceCow<'a, T>,
 }
 
 impl<'a, T> AsRef<[T]> for WasmSliceAccess<'a, T>
@@ -125,7 +125,7 @@ where
     }
 }
 
-pub(super) enum RefCow<'a, T> {
+pub(crate) enum RefCow<'a, T> {
     #[allow(dead_code)]
     Borrowed(&'a mut T),
     #[allow(dead_code)]
@@ -162,8 +162,8 @@ pub struct WasmRefAccess<'a, T>
 where
     T: wasmer_types::ValueType,
 {
-    pub(super) ptr: WasmRef<'a, T>,
-    pub(super) buf: RefCow<'a, T>,
+    pub(crate) ptr: WasmRef<'a, T>,
+    pub(crate) buf: RefCow<'a, T>,
 }
 
 impl<'a, T> AsRef<T> for WasmRefAccess<'a, T>

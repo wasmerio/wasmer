@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Store` implementation.
 use crate::{
     engine::{AsEngineRef, Engine, EngineRef},
     rt::v8::bindings::{wasm_store_delete, wasm_store_new, wasm_store_t},
@@ -7,6 +8,7 @@ use crate::{
 mod obj;
 pub use obj::*;
 
+/// A WebAssembly `store` in the `v8` runtime.
 pub(crate) struct Store {
     pub(crate) engine: Engine,
     pub(crate) inner: *mut wasm_store_t,

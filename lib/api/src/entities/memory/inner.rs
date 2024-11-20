@@ -1,6 +1,5 @@
 use super::{shared::SharedMemory, view::*};
-use wasmer_types::{MemoryType, Pages};
-use wasmer_vm::{LinearMemory, MemoryError};
+use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{
     vm::{VMExtern, VMExternMemory, VMMemory},
@@ -21,6 +20,10 @@ pub enum RuntimeMemory {
     #[cfg(feature = "v8")]
     /// The memory from the `v8` runtime.
     V8(crate::rt::v8::entities::memory::Memory),
+
+    #[cfg(feature = "js")]
+    /// The memory from the `js` runtime.
+    Js(crate::rt::js::entities::memory::Memory),
 }
 
 impl RuntimeMemory {
@@ -51,7 +54,10 @@ impl RuntimeMemory {
             crate::RuntimeStore::V8(s) => Ok(Self::V8(
                 crate::rt::v8::entities::memory::Memory::new(store, ty)?,
             )),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(s) => Ok(Self::Js(
+                crate::rt::js::entities::memory::Memory::new(store, ty)?,
+            )),
         }
     }
 
@@ -79,8 +85,13 @@ impl RuntimeMemory {
                     memory.into_v8(),
                 ))
             }
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                Self::Js(crate::rt::js::entities::memory::Memory::new_from_existing(
+                    new_store,
+                    memory.into_js(),
+                ))
+            }
         }
     }
 
@@ -105,7 +116,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.ty(store),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.ty(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.ty(store),
         }
     }
 
@@ -156,7 +168,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.grow(store, delta),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.grow(store, delta),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.grow(store, delta),
         }
     }
 
@@ -177,7 +190,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.grow_at_least(store, min_size),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.grow_at_least(store, min_size),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.grow_at_least(store, min_size),
         }
     }
 
@@ -190,7 +204,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.reset(store),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.reset(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.reset(store),
         }
     }
 
@@ -224,7 +239,10 @@ impl RuntimeMemory {
             Self::V8(s) => s
                 .try_copy(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::V8(new_memory))),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s
+                .try_copy(store)
+                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
         }
     }
 
@@ -242,7 +260,10 @@ impl RuntimeMemory {
             crate::RuntimeStore::V8(s) => Self::V8(
                 crate::rt::v8::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(s) => Self::Js(
+                crate::rt::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            ),
         }
     }
 
@@ -255,7 +276,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.is_from_store(store),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.is_from_store(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.is_from_store(store),
         }
     }
 
@@ -273,7 +295,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.try_clone(store).map(VMMemory::Wamr),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.try_clone(store).map(VMMemory::V8),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.try_clone(store).map(VMMemory::Js),
         }
     }
 
@@ -304,8 +327,10 @@ impl RuntimeMemory {
             Self::V8(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::V8(new_memory))),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s
+                .try_clone(store)
+                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
         }
     }
 
@@ -326,7 +351,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.as_shared(store),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_shared(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.as_shared(store),
         }
     }
 
@@ -339,7 +365,8 @@ impl RuntimeMemory {
             Self::Wamr(s) => s.to_vm_extern(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.to_vm_extern(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.to_vm_extern(),
         }
     }
 }

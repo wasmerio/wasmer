@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `sys` runtime's `Table` implementation.
 use crate::{
     entities::store::{AsStoreMut, AsStoreRef},
     error::RuntimeError,
@@ -10,6 +11,7 @@ use wasmer_vm::{StoreHandle, TableElement, Trap, VMTable};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+/// A WebAssembly `table` in the `sys` runtime.
 pub struct Table {
     handle: StoreHandle<VMTable>,
 }
@@ -57,7 +59,7 @@ fn value_from_table_element(store: &mut impl AsStoreMut, item: wasmer_vm::TableE
 }
 
 impl Table {
-    pub fn new(
+    pub(crate) fn new(
         mut store: &mut impl AsStoreMut,
         ty: TableType,
         init: Value,
@@ -80,14 +82,14 @@ impl Table {
         })
     }
 
-    pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
+    pub(crate) fn ty(&self, store: &impl AsStoreRef) -> TableType {
         *self
             .handle
             .get(store.as_store_ref().objects().as_sys())
             .ty()
     }
 
-    pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
+    pub(crate) fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         let item = self
             .handle
             .get(store.as_store_ref().objects().as_sys())
@@ -95,7 +97,7 @@ impl Table {
         Some(value_from_table_element(store, item))
     }
 
-    pub fn set(
+    pub(crate) fn set(
         &self,
         store: &mut impl AsStoreMut,
         index: u32,
@@ -109,13 +111,13 @@ impl Table {
         )
     }
 
-    pub fn size(&self, store: &impl AsStoreRef) -> u32 {
+    pub(crate) fn size(&self, store: &impl AsStoreRef) -> u32 {
         self.handle
             .get(store.as_store_ref().objects().as_sys())
             .size()
     }
 
-    pub fn grow(
+    pub(crate) fn grow(
         &self,
         store: &mut impl AsStoreMut,
         delta: u32,
@@ -130,7 +132,7 @@ impl Table {
             .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
 
-    pub fn copy(
+    pub(crate) fn copy(
         store: &mut impl AsStoreMut,
         dst_table: &Self,
         dst_index: u32,
@@ -169,7 +171,7 @@ impl Table {
     }
 
     /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 

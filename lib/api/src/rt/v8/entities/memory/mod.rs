@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Memory` implementation.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use tracing::warn;
@@ -15,6 +16,7 @@ pub(crate) mod view;
 pub use view::*;
 
 #[derive(Debug, Clone)]
+/// A WebAssembly `memory` in the `v8` runtime.
 pub struct Memory {
     pub(crate) handle: VMMemory,
 }
@@ -309,7 +311,7 @@ unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: u
 }
 
 impl crate::Memory {
-    /// Consume [`self`] into a [`crate::rt::v8::mem::Memory`].
+    /// Consume [`self`] into a [`crate::rt::v8::memory::Memory`].
     pub fn into_v8(self) -> crate::rt::v8::memory::Memory {
         match self.0 {
             RuntimeMemory::V8(s) => s,
@@ -317,7 +319,7 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a reference to [`self`] into a reference to [`crate::rt::v8::mem::Memory`].
+    /// Convert a reference to [`self`] into a reference to [`crate::rt::v8::memory::Memory`].
     pub fn as_v8(&self) -> &crate::rt::v8::memory::Memory {
         match self.0 {
             RuntimeMemory::V8(ref s) => s,
@@ -325,7 +327,7 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::v8::mem::Memory`].
+    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::v8::memory::Memory`].
     pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::memory::Memory {
         match self.0 {
             RuntimeMemory::V8(ref mut s) => s,

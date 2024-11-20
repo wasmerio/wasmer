@@ -16,7 +16,9 @@ macro_rules! define_vm_like {
             #[cfg(feature = "wamr")]
             Wamr(crate::rt::wamr::vm::[<VM $name>]),
             #[cfg(feature = "v8")]
-            V8(crate::rt::v8::vm::[<VM $name>])
+            V8(crate::rt::v8::vm::[<VM $name>]),
+            #[cfg(feature = "js")]
+            Js(crate::rt::js::vm::[<VM $name>]),
 
         }
 
@@ -101,6 +103,33 @@ macro_rules! define_vm_like {
                     _ => panic!("Not a `v8` value!")
                 }
             }
+
+            #[cfg(feature = "js")]
+            /// Consume `self` into a `js` VM kind.
+            pub fn into_js(self) -> crate::rt::js::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Js(s) => s,
+                    _ => panic!("Not a `js` value!")
+                }
+            }
+
+            #[cfg(feature = "js")]
+            /// Convert a reference to [`self`] into a reference to the same `js` VM kind.
+            pub fn as_js(&self) -> &crate::rt::js::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Js(s) => s,
+                    _ => panic!("Not a `js` value!")
+                }
+            }
+
+            #[cfg(feature = "js")]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the same `js` VM kind.
+            pub fn as_js_mut(&mut self) -> &mut crate::rt::js::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Js(s) => s,
+                    _ => panic!("Not a `js` value!")
+                }
+            }
         }
         }
     };
@@ -116,7 +145,9 @@ macro_rules! define_vm_like {
             #[cfg(feature = "wamr")]
             Wamr(crate::rt::wamr::vm::[<VM $name>]),
             #[cfg(feature = "v8")]
-            V8(crate::rt::v8::vm::[<VM $name>])
+            V8(crate::rt::v8::vm::[<VM $name>]),
+            #[cfg(feature = "js")]
+            Js(crate::rt::js::vm::[<VM $name>]),
         }
 
         impl [<VM $name>] {
@@ -173,6 +204,34 @@ macro_rules! define_vm_like {
                     _ => panic!("Not a `wamr` value!")
                 }
             }
+
+            #[cfg(feature = "js")]
+            /// Consume `self` into a `js` VM kind.
+            pub fn into_js(self) -> crate::rt::js::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Js(s) => s,
+                    _ => panic!("Not a `js` value!")
+                }
+            }
+
+            #[cfg(feature = "js")]
+            /// Convert a reference to [`self`] into a reference to the same `js` VM kind.
+            pub fn as_js(&self) -> &crate::rt::js::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Js(s) => s,
+                    _ => panic!("Not a `js` value!")
+                }
+            }
+
+            #[cfg(feature = "js")]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the same `js` VM kind.
+            pub fn as_js_mut(&mut self) -> &mut crate::rt::js::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Js(s) => s,
+                    _ => panic!("Not a `js` value!")
+                }
+            }
+
 
             #[cfg(feature = "v8")]
             /// Consume `self` into a `v8` VM kind.
@@ -210,14 +269,14 @@ define_vm_like!(ExternFunction);
 define_vm_like!(ExternGlobal);
 define_vm_like!(ExternMemory);
 define_vm_like!(ExternTable);
-define_vm_like!(ExternObj, Debug);
+//define_vm_like!(ExternObj, Debug);
 define_vm_like!(FunctionCallback);
 define_vm_like!(FunctionBody);
 define_vm_like!(FunctionEnvironment, Debug);
 define_vm_like!(Instance, Debug);
 define_vm_like!(Trampoline);
 
-define_vm_like!(Config);
+//define_vm_like!(Config);
 define_vm_like!(Function, Debug);
 define_vm_like!(Global, Debug);
 define_vm_like!(Memory, Debug);

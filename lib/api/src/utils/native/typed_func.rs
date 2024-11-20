@@ -55,7 +55,7 @@ macro_rules! impl_native_traits {
             /// Call the typed func and return results.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
+            pub fn call(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where $( $x: FromToNativeWasmType, )*
 
             {
                 $(
@@ -66,9 +66,10 @@ macro_rules! impl_native_traits {
                     RuntimeStore::Sys(_) => self.call_sys(store, $([<p_ $x>]),*),
                     #[cfg(feature = "wamr")]
                     RuntimeStore::Wamr(_) => self.call_wamr(store, $([<p_ $x>]),*),
-
-                    _ => panic!("No runtime enabled!")
-
+                    #[cfg(feature = "sys")]
+                    RuntimeStore::V8(_) => self.call_v8(store, $([<p_ $x>]),*),
+                    #[cfg(feature = "js")]
+                    RuntimeStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),
                 }
             }
 
@@ -82,8 +83,10 @@ macro_rules! impl_native_traits {
                     RuntimeStore::Sys(_) => self.call_raw_sys(store, params_list),
                     #[cfg(feature = "wamr")]
                     RuntimeStore::Wamr(_) => self.call_raw_wamr(store, params_list),
-                    _ => panic!("No runtime enabled!")
-
+                    #[cfg(feature = "v8")]
+                    RuntimeStore::V8(_) => self.call_raw_v8(store, params_list),
+                    #[cfg(feature = "js")]
+                    RuntimeStore::Js(_) => self.call_raw_js(store, params_list),
                 }
             }
         }

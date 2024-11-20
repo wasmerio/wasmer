@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `sys` runtime's `Engine` implementation.
 use crate::{
     rt::v8::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     RuntimeEngine,
@@ -38,7 +39,7 @@ impl Drop for CApiEngine {
     }
 }
 
-/// A WebAssembly `Universal` Engine.
+/// The V8 engine.
 #[derive(Clone, Debug, Default)]
 pub struct V8 {
     pub(crate) inner: Arc<CApiEngine>,

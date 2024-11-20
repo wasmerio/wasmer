@@ -1,5 +1,7 @@
-pub mod env;
-pub mod typed;
+//! Data types, functions and traits for `sys` runtime's `Function` implementation.
+
+pub(crate) mod env;
+pub(crate) mod typed;
 
 use crate::{
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
@@ -20,6 +22,7 @@ use wasmer_vm::{
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// A WebAssembly `function` instance, in the `sys` runtime.
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }
@@ -31,7 +34,7 @@ impl From<StoreHandle<VMFunction>> for Function {
 }
 
 impl Function {
-    pub fn new_with_env<FT, F, T: Send + 'static>(
+    pub(crate) fn new_with_env<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -122,7 +125,7 @@ impl Function {
     }
 
     /// Creates a new host `Function` from a native function.
-    pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    pub(crate) fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
@@ -165,7 +168,7 @@ impl Function {
         }
     }
 
-    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
+    pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
@@ -211,7 +214,7 @@ impl Function {
         }
     }
 
-    pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
+    pub(crate) fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
         self.handle
             .get(store.as_store_ref().objects().as_sys())
             .signature
@@ -331,11 +334,11 @@ impl Function {
         Ok(())
     }
 
-    pub fn result_arity(&self, store: &impl AsStoreRef) -> usize {
+    pub(crate) fn result_arity(&self, store: &impl AsStoreRef) -> usize {
         self.ty(store).results().len()
     }
 
-    pub fn call(
+    pub(crate) fn call(
         &self,
         store: &mut impl AsStoreMut,
         params: &[Value],
@@ -355,7 +358,7 @@ impl Function {
 
     #[doc(hidden)]
     #[allow(missing_docs)]
-    pub fn call_raw(
+    pub(crate) fn call_raw(
         &self,
         store: &mut impl AsStoreMut,
         params: Vec<RawValue>,
@@ -413,7 +416,7 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given store.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 

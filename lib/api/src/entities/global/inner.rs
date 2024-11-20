@@ -25,6 +25,9 @@ pub enum RuntimeGlobal {
     #[cfg(feature = "v8")]
     /// The global from the `v8` runtime.
     V8(crate::rt::v8::global::Global),
+    #[cfg(feature = "js")]
+    /// The global from the `js` runtime.
+    Js(crate::rt::js::global::Global),
 }
 
 impl RuntimeGlobal {
@@ -77,13 +80,14 @@ impl RuntimeGlobal {
             crate::RuntimeStore::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::global::Global::from_value(store, val, mutability)?,
             )),
-
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Ok(Self::V8(crate::rt::v8::global::Global::from_value(
                 store, val, mutability,
             )?)),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => Ok(Self::Js(
+                crate::rt::js::global::Global::from_value(store, val, mutability)?,
+            )),
         }
     }
 
@@ -109,7 +113,8 @@ impl RuntimeGlobal {
             Self::Wamr(g) => g.ty(store),
             #[cfg(feature = "v8")]
             Self::V8(g) => g.ty(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(g) => g.ty(store),
         }
     }
 
@@ -133,8 +138,8 @@ impl RuntimeGlobal {
             Self::Wamr(g) => g.get(store),
             #[cfg(feature = "v8")]
             Self::V8(g) => g.get(store),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(g) => g.get(store),
         }
     }
 
@@ -187,7 +192,8 @@ impl RuntimeGlobal {
             Self::Wamr(g) => g.set(store, val),
             #[cfg(feature = "v8")]
             Self::V8(g) => g.set(store, val),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(g) => g.set(store, val),
         }
     }
 
@@ -197,17 +203,18 @@ impl RuntimeGlobal {
             crate::RuntimeStore::Sys(_) => Self::Sys(
                 crate::rt::sys::global::Global::from_vm_extern(store, vm_extern),
             ),
-
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::global::Global::from_vm_extern(store, vm_extern),
             ),
-
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Self::V8(crate::rt::v8::global::Global::from_vm_extern(
                 store, vm_extern,
             )),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => Self::Js(
+                crate::rt::js::global::Global::from_vm_extern(store, vm_extern),
+            ),
         }
     }
 
@@ -220,7 +227,8 @@ impl RuntimeGlobal {
             Self::Wamr(g) => g.is_from_store(store),
             #[cfg(feature = "v8")]
             Self::V8(g) => g.is_from_store(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(g) => g.is_from_store(store),
         }
     }
 
@@ -233,7 +241,8 @@ impl RuntimeGlobal {
             Self::Wamr(g) => g.to_vm_extern(),
             #[cfg(feature = "v8")]
             Self::V8(g) => g.to_vm_extern(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(g) => g.to_vm_extern(),
         }
     }
 }

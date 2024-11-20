@@ -13,7 +13,10 @@ pub(crate) enum RuntimeMemoryBuffer<'a> {
 
     #[cfg(feature = "v8")]
     V8(crate::rt::v8::entities::memory::MemoryBuffer<'a>),
-    Phantom(PhantomData<&'a ()>),
+
+    #[cfg(feature = "js")]
+    Js(crate::rt::js::entities::memory::MemoryBuffer<'a>),
+    // Phantom(PhantomData<&'a ()>),
 }
 
 impl<'a> RuntimeMemoryBuffer<'a> {
@@ -28,7 +31,9 @@ impl<'a> RuntimeMemoryBuffer<'a> {
 
             #[cfg(feature = "v8")]
             Self::V8(s) => s.read(offset, buf),
-            _ => panic!("No runtime enabled!"),
+
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.read(offset, buf),
         }
     }
 
@@ -47,7 +52,9 @@ impl<'a> RuntimeMemoryBuffer<'a> {
 
             #[cfg(feature = "v8")]
             Self::V8(s) => s.read_uninit(offset, buf),
-            _ => panic!("No runtime enabled!"),
+
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.read_uninit(offset, buf),
         }
     }
 
@@ -56,13 +63,12 @@ impl<'a> RuntimeMemoryBuffer<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.write(offset, data),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.write(offset, data),
-
             #[cfg(feature = "v8")]
             Self::V8(s) => s.write(offset, data),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.write(offset, data),
         }
     }
 
@@ -76,7 +82,9 @@ impl<'a> RuntimeMemoryBuffer<'a> {
 
             #[cfg(feature = "v8")]
             Self::V8(s) => s.len,
-            _ => panic!("No runtime enabled!"),
+
+            #[cfg(feature = "js")]
+            Self::Js(s) => panic!("js memory buffers do not support the `len` function!"),
         }
     }
 
@@ -84,13 +92,12 @@ impl<'a> RuntimeMemoryBuffer<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.base,
-
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.base,
-
             #[cfg(feature = "v8")]
             Self::V8(s) => s.base,
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => panic!("js memory buffers do not support the `base` function!"),
         }
     }
 }

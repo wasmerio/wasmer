@@ -1,4 +1,4 @@
-use wasmer_vm::MemoryError;
+use wasmer_types::MemoryError;
 
 use crate::{
     error::AtomicsError,

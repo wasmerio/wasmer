@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Function` implementation.
 #![allow(non_snake_case)]
 use std::{
     ffi::c_void,
@@ -28,6 +29,7 @@ type CCallback =
     unsafe extern "C" fn(*mut c_void, *const wasm_val_t, *mut wasm_val_t) -> *mut wasm_trap_t;
 
 #[derive(Clone, PartialEq, Eq)]
+/// A WebAssembly `function` in the `v8` runtime.
 pub struct Function {
     pub(crate) handle: VMFunction,
 }

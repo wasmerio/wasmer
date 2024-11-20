@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `sys` runtime's `Memory` implementation.
 use std::{
     convert::TryInto,
     marker::PhantomData,
@@ -24,12 +25,13 @@ use super::store::Store;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+/// A WebAssembly `memory` in the `sys` runtime.
 pub struct Memory {
     pub(crate) handle: StoreHandle<VMMemory>,
 }
 
 impl Memory {
-    pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub(crate) fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let mut store = store.as_store_mut();
         let tunables = store.engine().tunables();
         let style = tunables.memory_style(&ty);
@@ -40,18 +42,18 @@ impl Memory {
         })
     }
 
-    pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+    pub(crate) fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         let handle = StoreHandle::new(new_store.objects_mut().as_sys_mut(), memory);
         Self::from_vm_extern(new_store, VMExternMemory::Sys(handle.internal_handle()))
     }
 
-    pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
+    pub(crate) fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
         self.handle
             .get(store.as_store_ref().objects().as_sys())
             .ty()
     }
 
-    pub fn grow<IntoPages>(
+    pub(crate) fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
         delta: IntoPages,
@@ -64,7 +66,7 @@ impl Memory {
             .grow(delta.into())
     }
 
-    pub fn grow_at_least(
+    pub(crate) fn grow_at_least(
         &self,
         store: &mut impl AsStoreMut,
         min_size: u64,
@@ -74,7 +76,7 @@ impl Memory {
             .grow_at_least(min_size)
     }
 
-    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+    pub(crate) fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
         self.handle
             .get_mut(store.as_store_mut().objects_mut().as_sys_mut())
             .reset()?;
@@ -93,13 +95,13 @@ impl Memory {
     }
 
     /// Checks whether this `Memory` can be used with the given context.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     /// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+    pub(crate) fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects().as_sys());
         let cloned = mem.try_clone()?;
         Ok(cloned.into())
@@ -107,7 +109,7 @@ impl Memory {
 
     /// Copying the memory will actually copy all the bytes in the memory to
     /// a identical byte copy of the original that can be put into a new store
-    pub fn try_copy(
+    pub(crate) fn try_copy(
         &self,
         store: &impl AsStoreRef,
     ) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
@@ -115,7 +117,7 @@ impl Memory {
         mem.copy()
     }
 
-    pub fn as_shared(
+    pub(crate) fn as_shared(
         &self,
         store: &impl AsStoreRef,
     ) -> Option<crate::memory::shared::SharedMemory> {

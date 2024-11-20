@@ -9,6 +9,8 @@ impl VMExternToExtern for VMExtern {
             Self::Wamr(v) => v.to_extern(store),
             #[cfg(feature = "v8")]
             Self::V8(v) => v.to_extern(store),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.to_extern(store),
         }
     }
 }
@@ -24,7 +26,9 @@ impl VMFunctionEnvironment {
             Self::Wamr(r) => r.as_ref(),
             #[cfg(feature = "v8")]
             Self::V8(r) => r.as_ref(),
-            _ => panic!("No runtime enabled!"),
+
+            #[cfg(feature = "js")]
+            Self::Js(r) => r.as_ref(),
         }
     }
 
@@ -38,7 +42,8 @@ impl VMFunctionEnvironment {
             Self::Wamr(r) => r.as_mut(),
             #[cfg(feature = "v8")]
             Self::V8(r) => r.as_mut(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(r) => r.as_mut(),
         }
     }
 
@@ -50,7 +55,8 @@ impl VMFunctionEnvironment {
             Self::Wamr(r) => r.contents,
             #[cfg(feature = "v8")]
             Self::V8(r) => r.contents,
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(r) => r.contents,
         }
     }
 }
@@ -65,7 +71,8 @@ impl VMFuncRef {
             Self::Wamr(r) => r.into_raw(),
             #[cfg(feature = "v8")]
             Self::V8(r) => r.into_raw(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(r) => r.into_raw(),
         }
     }
 }
@@ -80,7 +87,8 @@ impl VMExternRef {
             Self::Wamr(r) => r.into_raw(),
             #[cfg(feature = "v8")]
             Self::V8(r) => r.into_raw(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(r) => r.into_raw(),
         }
     }
 }

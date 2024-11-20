@@ -172,7 +172,7 @@ pub struct ImportsIterator<'a> {
 }
 
 impl<'a> ImportsIterator<'a> {
-    fn new(imports: &'a Imports) -> Self {
+    pub(crate) fn new(imports: &'a Imports) -> Self {
         let iter = imports.map.iter();
         Self { iter }
     }
@@ -334,7 +334,7 @@ mod test {
 
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
-        use crate::Runtime;
+        use crate::Function;
 
         let mut store: Store = Default::default();
 
@@ -344,42 +344,42 @@ mod test {
 
         let _ = imports! {
             "env" => {
-                "func" => Runtime::new_typed(&mut store, func),
+                "func" => Function::new_typed(&mut store, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Runtime::new_typed(&mut store, func),
+                "func" => Function::new_typed(&mut store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Runtime::new_typed(&mut store, func),
+                "func" => Function::new_typed(&mut store, func),
             },
             "abc" => {
-                "def" => Runtime::new_typed(&mut store, func),
+                "def" => Function::new_typed(&mut store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Runtime::new_typed(&mut store, func)
+                "func" => Function::new_typed(&mut store, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Runtime::new_typed(&mut store, func)
+                "func" => Function::new_typed(&mut store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Runtime::new_typed(&mut store, func),
-                "func2" => Runtime::new_typed(&mut store, func)
+                "func1" => Function::new_typed(&mut store, func),
+                "func2" => Function::new_typed(&mut store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Runtime::new_typed(&mut store, func),
-                "func2" => Runtime::new_typed(&mut store, func),
+                "func1" => Function::new_typed(&mut store, func),
+                "func2" => Function::new_typed(&mut store, func),
             }
         };
     }

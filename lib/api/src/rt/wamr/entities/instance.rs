@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `wamr`'s `Instance` implementation.
 use std::sync::Arc;
 
 use crate::{
@@ -92,6 +93,7 @@ impl Drop for InstanceHandle {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// A WebAssembly `instance` in `wamr`.
 pub struct Instance {
     pub(crate) handle: Arc<InstanceHandle>,
 }

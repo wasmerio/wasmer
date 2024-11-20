@@ -73,7 +73,11 @@ impl Instance {
                 let (i, e) = crate::rt::v8::instance::Instance::new(store, module, imports)?;
                 (crate::RuntimeInstance::V8(i), e)
             }
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                let (i, e) = crate::rt::js::instance::Instance::new(store, module, imports)?;
+                (crate::RuntimeInstance::Js(i), e)
+            }
         };
 
         Ok(Self {
@@ -119,8 +123,12 @@ impl Instance {
                     crate::rt::v8::instance::Instance::new_by_index(store, module, externs)?;
                 (crate::RuntimeInstance::V8(i), e)
             }
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                let (i, e) =
+                    crate::rt::js::instance::Instance::new_by_index(store, module, externs)?;
+                (crate::RuntimeInstance::Js(i), e)
+            }
         };
 
         Ok(Self {
@@ -158,4 +166,8 @@ pub enum RuntimeInstance {
     #[cfg(feature = "v8")]
     /// The instance from the `v8` runtime.
     V8(crate::rt::v8::instance::Instance),
+
+    #[cfg(feature = "js")]
+    /// The instance from the `js` runtime.
+    Js(crate::rt::js::instance::Instance),
 }

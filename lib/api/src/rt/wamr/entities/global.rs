@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `wamr`'s `Global` implementation.
 use wasmer_types::{GlobalType, Mutability};
 
 use crate::{
@@ -15,6 +16,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// A WebAssembly `global` in `wamr`.
 pub struct Global {
     pub(crate) handle: VMGlobal,
 }

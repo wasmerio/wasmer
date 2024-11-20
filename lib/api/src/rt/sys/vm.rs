@@ -1,18 +1,21 @@
 //! The `vm` module re-exports wasmer-vm types.
 use crate::entities::{Function, Global, Memory, Table};
 use crate::store::AsStoreMut;
-use wasmer_vm::InternalStoreHandle;
-pub(crate) use wasmer_vm::{
-    Trap, TrapHandlerFn, VMConfig, VMContext, VMExtern, VMExternObj, VMExternRef, VMFuncRef,
-    VMFunction, VMFunctionBody, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
-    VMSharedMemory, VMTable, VMTrampoline,
-};
+pub use wasmer_vm::*;
 
-pub(crate) type VMExternTable = InternalStoreHandle<VMTable>;
-pub(crate) type VMExternMemory = InternalStoreHandle<VMMemory>;
-pub(crate) type VMExternGlobal = InternalStoreHandle<VMGlobal>;
-pub(crate) type VMExternFunction = InternalStoreHandle<VMFunction>;
+/// The type of extern tables in the `sys` VM.
+pub type VMExternTable = InternalStoreHandle<VMTable>;
+///
+/// The type of extern memories in the `sys` VM.
+pub type VMExternMemory = InternalStoreHandle<VMMemory>;
 
+/// The type of extern globals in the `sys` VM.
+pub type VMExternGlobal = InternalStoreHandle<VMGlobal>;
+
+/// The type of extern functioons in the `sys` VM.
+pub type VMExternFunction = InternalStoreHandle<VMFunction>;
+
+/// The type of function callbacks in the `sys` VM.
 pub type VMFunctionCallback = *const VMFunctionBody;
 
 impl crate::VMExternToExtern for VMExtern {

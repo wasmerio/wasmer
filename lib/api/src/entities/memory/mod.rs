@@ -1,6 +1,5 @@
 use shared::SharedMemory;
-use wasmer_types::{MemoryType, Pages};
-use wasmer_vm::{LinearMemory, MemoryError};
+use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{
     vm::{VMExtern, VMExternMemory, VMMemory},

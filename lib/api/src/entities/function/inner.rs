@@ -36,6 +36,9 @@ pub enum RuntimeFunction {
     #[cfg(feature = "v8")]
     /// The global from the `v8` runtime.
     V8(crate::rt::v8::entities::function::Function),
+    #[cfg(feature = "js")]
+    /// The global from the `js` runtime.
+    Js(crate::rt::js::entities::function::Function),
 }
 
 impl RuntimeFunction {
@@ -118,8 +121,10 @@ impl RuntimeFunction {
             crate::RuntimeStore::V8(_) => Self::V8(
                 crate::rt::v8::entities::function::Function::new_with_env(store, env, ty, func),
             ),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => Self::Js(
+                crate::rt::js::entities::function::Function::new_with_env(store, env, ty, func),
+            ),
         }
     }
 
@@ -135,18 +140,19 @@ impl RuntimeFunction {
             crate::RuntimeStore::Sys(_) => Self::Sys(
                 crate::rt::sys::entities::function::Function::new_typed(store, func),
             ),
-
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::entities::function::Function::new_typed(store, func),
             ),
-
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Self::V8(
                 crate::rt::v8::entities::function::Function::new_typed(store, func),
             ),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => Self::Js(
+                crate::rt::js::entities::function::Function::new_typed(store, func),
+            ),
 
-            _ => panic!("No runtime enabled!"),
         }
     }
 
@@ -187,13 +193,14 @@ impl RuntimeFunction {
             crate::RuntimeStore::Wamr(s) => Self::Wamr(
                 crate::rt::wamr::entities::function::Function::new_typed_with_env(store, env, func),
             ),
-
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(s) => Self::V8(
                 crate::rt::v8::entities::function::Function::new_typed_with_env(store, env, func),
             ),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(s) => Self::Js(
+                crate::rt::js::entities::function::Function::new_typed_with_env(store, env, func),
+            ),
         }
     }
 
@@ -223,7 +230,8 @@ impl RuntimeFunction {
             Self::Wamr(f) => f.ty(store),
             #[cfg(feature = "v8")]
             Self::V8(f) => f.ty(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.ty(store),
         }
     }
 
@@ -312,7 +320,8 @@ impl RuntimeFunction {
             Self::Wamr(f) => f.call(store, params),
             #[cfg(feature = "v8")]
             Self::V8(f) => f.call(store, params),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.call(store, params),
         }
     }
 
@@ -330,7 +339,8 @@ impl RuntimeFunction {
             Self::Wamr(f) => f.call_raw(store, params),
             #[cfg(feature = "v8")]
             Self::V8(f) => f.call_raw(store, params),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.call_raw(store, params),
         }
     }
 
@@ -342,7 +352,8 @@ impl RuntimeFunction {
             Self::Wamr(f) => VMFuncRef::Wamr(f.vm_funcref(store)),
             #[cfg(feature = "v8")]
             Self::V8(f) => VMFuncRef::V8(f.vm_funcref(store)),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(f) => VMFuncRef::Js(f.vm_funcref(store)),
         }
     }
 
@@ -369,8 +380,13 @@ impl RuntimeFunction {
                     funcref.into_v8(),
                 ),
             ),
-
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(s) => Self::Js(
+                crate::rt::js::entities::function::Function::from_vm_funcref(
+                    store,
+                    funcref.into_js(),
+                ),
+            ),
         }
     }
 
@@ -499,19 +515,22 @@ impl RuntimeFunction {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => Self::Sys(
+            crate::RuntimeStore::Sys(_) => Self::Sys(
                 crate::rt::sys::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => Self::Wamr(
+            crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => Self::V8(
+            crate::RuntimeStore::V8(_) => Self::V8(
                 crate::rt::v8::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => Self::Js(
+                crate::rt::js::entities::function::Function::from_vm_extern(store, vm_extern),
+            ),
 
-            _ => panic!("No runtime enabled!"),
         }
     }
 
@@ -524,7 +543,8 @@ impl RuntimeFunction {
             Self::Wamr(f) => f.is_from_store(store),
             #[cfg(feature = "v8")]
             Self::V8(f) => f.is_from_store(store),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.is_from_store(store),
         }
     }
 
@@ -536,7 +556,8 @@ impl RuntimeFunction {
             Self::Wamr(f) => f.to_vm_extern(),
             #[cfg(feature = "v8")]
             Self::V8(f) => f.to_vm_extern(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(f) => f.to_vm_extern(),
         }
     }
 }

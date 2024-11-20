@@ -1,3 +1,5 @@
+//! Data types, functions and traits for `sys` runtime's `Engine` implementation.
+
 use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
@@ -220,6 +222,12 @@ impl From<Engine> for crate::Engine {
 impl From<&Engine> for crate::Engine {
     fn from(value: &Engine) -> Self {
         Self(RuntimeEngine::Sys(value.cloned()))
+    }
+}
+
+impl From<EngineBuilder> for crate::Engine {
+    fn from(value: EngineBuilder) -> Self {
+        Self(RuntimeEngine::Sys(value.engine()))
     }
 }
 

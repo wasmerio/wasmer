@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `sys` runtime's `Module` implementation.
 use std::path::Path;
 use std::sync::Arc;
 
@@ -15,6 +16,7 @@ use crate::{
 
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+/// A WebAssembly `module` in the `sys` runtime.
 pub struct Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.
@@ -73,7 +75,7 @@ impl Module {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    pub unsafe fn deserialize_unchecked(
+    pub(crate) unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
@@ -87,7 +89,7 @@ impl Module {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    pub unsafe fn deserialize(
+    pub(crate) unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
@@ -100,7 +102,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
-    pub unsafe fn deserialize_from_file_unchecked(
+    pub(crate) unsafe fn deserialize_from_file_unchecked(
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
@@ -112,7 +114,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
-    pub unsafe fn deserialize_from_file(
+    pub(crate) unsafe fn deserialize_from_file(
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {

@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Engine` implementation.
 use crate::{
     rt::wamr::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     RuntimeEngine,
@@ -22,7 +23,7 @@ impl Drop for CApiEngine {
     }
 }
 
-/// A WebAssembly `Universal` Engine.
+/// The Web Assembly Micro Runtime.
 #[derive(Clone, Debug, Default)]
 pub struct Wamr {
     pub(crate) inner: Arc<CApiEngine>,

@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `wamr`'s `Module` implementation.
 use std::{path::Path, sync::Arc};
 
 use crate::{
@@ -55,6 +56,7 @@ impl Drop for ModuleHandle {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// A WebAssembly `module` in `wamr`.
 pub struct Module {
     pub(crate) handle: Arc<ModuleHandle>,
     name: Option<String>,

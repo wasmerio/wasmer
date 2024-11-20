@@ -436,41 +436,14 @@ mod vm;
 
 pub use wasmer_types::{
     is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
-    FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryType,
-    MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
-    TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
+    MemoryType, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
+    TableStyle, TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
     WASM_PAGE_SIZE,
 };
-
-#[cfg(feature = "wat")]
-pub use wat::parse_bytes as wat2wasm;
-
-#[cfg(feature = "sys")]
-pub use {
-    rt::sys::engine::NativeEngineExt,
-    target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST},
-    wasmer_compiler::types::target::{CpuFeature, Target},
-};
-
-#[cfg(feature = "wamr")]
-pub use rt::wamr::engine::Wamr;
-
-#[cfg(feature = "v8")]
-pub use rt::v8::engine::V8;
-
-#[cfg(feature = "singlepass")]
-pub use rt::sys::Singlepass;
-
-#[cfg(feature = "llvm")]
-pub use rt::sys::{LLVMOptLevel, LLVM};
-
-#[cfg(feature = "cranelift")]
-pub use rt::sys::{Cranelift, CraneliftOptLevel};
 
 #[cfg(feature = "wasmparser")]
 pub use wasmparser;
 
-#[cfg(feature = "compiler")]
-pub use wasmer_compiler::{
-    CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
-};
+#[cfg(feature = "wat")]
+pub use wat::parse_bytes as wat2wasm;

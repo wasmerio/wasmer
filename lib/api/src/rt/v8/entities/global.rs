@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Global` implementation.
 use wasmer_types::{GlobalType, Mutability};
 
 use crate::{
@@ -15,6 +16,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// A WebAssembly `global` in the `v8` runtime.
 pub struct Global {
     pub(crate) handle: VMGlobal,
 }

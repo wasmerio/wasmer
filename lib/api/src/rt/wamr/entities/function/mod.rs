@@ -1,3 +1,5 @@
+//! Data types, functions and traits for `wamr`'s `Function` implementation.
+
 #![allow(non_snake_case)]
 use std::{
     ffi::c_void,
@@ -31,6 +33,7 @@ type CCallback = unsafe extern "C" fn(
 ) -> *mut wasm_trap_t;
 
 #[derive(Clone, PartialEq, Eq)]
+/// A WebAssembly `function` in `wamr`.
 pub struct Function {
     pub(crate) handle: VMFunction,
 }

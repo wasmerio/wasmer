@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Table` implementation.
 use wasmer_types::TableType;
 
 use crate::{
@@ -11,6 +12,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// A WebAssembly `table` in the `v8` runtime.
 pub struct Table {
     pub(crate) handle: VMTable,
 }

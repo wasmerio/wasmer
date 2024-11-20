@@ -48,39 +48,40 @@ impl crate::VMExternToExtern for VMExtern {
                 if func.is_null() {
                     panic!("The wasm-c-api reported extern as function, but is not");
                 }
-                Extern::Function(crate::Function(RuntimeFunction::V8(
-                    Function::from_vm_extern(store, crate::vm::VMExternFunction::V8(func)),
-                )))
+                Extern::Function(crate::Function::from_vm_extern(
+                    store,
+                    crate::vm::VMExternFunction::V8(func),
+                ))
             }
             1 => {
                 let global = unsafe { wasm_extern_as_global(&mut *self) };
                 if global.is_null() {
                     panic!("The wasm-c-api reported extern as a global, but is not");
                 }
-                Extern::Global(crate::Global(RuntimeGlobal::V8(Global::from_vm_extern(
+                Extern::Global(crate::Global::from_vm_extern(
                     store,
                     crate::vm::VMExternGlobal::V8(global),
-                ))))
+                ))
             }
             2 => {
                 let table = unsafe { wasm_extern_as_table(&mut *self) };
                 if table.is_null() {
                     panic!("The wasm-c-api reported extern as a table, but is not");
                 }
-                Extern::Table(crate::Table(RuntimeTable::V8(Table::from_vm_extern(
+                Extern::Table(crate::Table::from_vm_extern(
                     store,
                     crate::vm::VMExternTable::V8(table),
-                ))))
+                ))
             }
             3 => {
                 let memory = unsafe { wasm_extern_as_memory(&mut *self) };
                 if memory.is_null() {
                     panic!("The wasm-c-api reported extern as a table, but is not");
                 }
-                Extern::Memory(crate::Memory(RuntimeMemory::V8(Memory::from_vm_extern(
+                Extern::Memory(crate::Memory::from_vm_extern(
                     store,
                     crate::vm::VMExternMemory::V8(memory),
-                ))))
+                ))
             }
             _ => {
                 unimplemented!()

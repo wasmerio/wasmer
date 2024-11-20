@@ -1,4 +1,5 @@
-use wasmer_types::{NativeWasmType, RawValue, Type};
+pub use wasmer_types::NativeWasmType;
+use wasmer_types::{RawValue, Type};
 
 use crate::store::AsStoreRef;
 use crate::{
@@ -200,7 +201,21 @@ impl NativeWasmTypeInto for Option<ExternRef> {
             crate::RuntimeStore::Sys(_) => {
                 wasmer_vm::VMExternRef::from_raw(RawValue { externref: abi }).map(VMExternRef::Sys)
             }
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "wamr")]
+            crate::RuntimeStore::Wamr(_) => {
+                crate::rt::wamr::vm::VMExternRef::from_raw(RawValue { externref: abi })
+                    .map(VMExternRef::Wamr)
+            }
+            #[cfg(feature = "v8")]
+            crate::RuntimeStore::V8(_) => {
+                crate::rt::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
+                    .map(VMExternRef::V8)
+            }
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                crate::rt::js::vm::VMExternRef::from_raw(RawValue { externref: abi })
+                    .map(VMExternRef::Js)
+            }
         }
         .map(|e| ExternRef::from_vm_externref(store, e))
     }
@@ -222,7 +237,18 @@ impl NativeWasmTypeInto for Option<ExternRef> {
             crate::RuntimeStore::Sys(_) => {
                 wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
             }
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "wamr")]
+            crate::RuntimeStore::Wamr(_) => {
+                crate::rt::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
+            }
+            #[cfg(feature = "v8")]
+            crate::RuntimeStore::V8(_) => {
+                crate::rt::v8::vm::VMExternRef::from_raw(raw).map(VMExternRef::V8)
+            }
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                crate::rt::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
+            }
         }
         .map(|e| ExternRef::from_vm_externref(store, e))
     }
@@ -251,7 +277,19 @@ impl NativeWasmTypeInto for Option<Function> {
             crate::RuntimeStore::Sys(_) => {
                 wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
             }
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "wamr")]
+            crate::RuntimeStore::Wamr(_) => {
+                crate::rt::wamr::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+                    .map(VMFuncRef::Wamr)
+            }
+            #[cfg(feature = "v8")]
+            crate::RuntimeStore::V8(_) => {
+                crate::rt::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::V8)
+            }
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                crate::rt::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Js)
+            }
         }
         .map(|f| Function::from_vm_funcref(store, f))
     }
@@ -273,7 +311,18 @@ impl NativeWasmTypeInto for Option<Function> {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
             crate::RuntimeStore::Sys(_) => wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "wamr")]
+            crate::RuntimeStore::Wamr(_) => {
+                crate::rt::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
+            }
+            #[cfg(feature = "v8")]
+            crate::RuntimeStore::V8(_) => {
+                crate::rt::v8::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::V8)
+            }
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(_) => {
+                crate::rt::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js)
+            }
         }
         .map(|f| Function::from_vm_funcref(store, f))
     }

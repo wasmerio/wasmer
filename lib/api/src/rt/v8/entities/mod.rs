@@ -1,4 +1,4 @@
-pub(crate) mod engine;
+pub mod engine;
 pub(crate) mod external;
 pub(crate) mod function;
 pub(crate) mod global;

@@ -16,6 +16,10 @@ pub enum StoreObjects {
     #[cfg(feature = "v8")]
     /// Store objects for the `v8` runtime.
     V8(crate::rt::v8::store::StoreObjects),
+
+    #[cfg(feature = "js")]
+    /// Store objects for the `js` runtime.
+    Js(crate::rt::js::store::StoreObjects),
 }
 
 impl StoreObjects {
@@ -27,10 +31,15 @@ impl StoreObjects {
             (Self::Sys(ref a), Self::Sys(ref b)) => a.id() == b.id(),
             #[cfg(feature = "wamr")]
             (Self::Wamr(ref a), Self::Wamr(ref b)) => a.id() == b.id(),
-
             #[cfg(feature = "v8")]
             (Self::V8(ref a), Self::V8(ref b)) => a.id() == b.id(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            (Self::Js(ref a), Self::Js(ref b)) => a.id() == b.id(),
+            _ => panic!(
+                "Incompatible `StoreObjects` instance: {}, {}!",
+                a.id(),
+                b.id()
+            ),
         }
     }
 
@@ -43,7 +52,8 @@ impl StoreObjects {
             Self::Wamr(s) => s.id(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.id(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.id(),
         }
     }
 
@@ -53,10 +63,10 @@ impl StoreObjects {
             RuntimeStore::Sys(_) => Self::Sys(Default::default()),
             #[cfg(feature = "wamr")]
             RuntimeStore::Wamr(_) => Self::Wamr(Default::default()),
-
             #[cfg(feature = "v8")]
             RuntimeStore::V8(_) => Self::V8(Default::default()),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            RuntimeStore::Js(_) => Self::Js(Default::default()),
         }
     }
 
@@ -69,7 +79,8 @@ impl StoreObjects {
             Self::Wamr(s) => s.as_u128_globals(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_u128_globals(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.as_u128_globals(),
         }
     }
 
@@ -84,7 +95,8 @@ impl StoreObjects {
             Self::Wamr(s) => s.set_global_unchecked(idx, val),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.set_global_unchecked(idx, val),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.set_global_unchecked(idx, val),
         }
     }
 }

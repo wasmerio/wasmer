@@ -1,3 +1,5 @@
+//! Data types, functions and traits for `sys` runtime's `Global` implementation.
+
 use crate::{
     error::RuntimeError,
     store::{AsStoreMut, AsStoreRef},
@@ -9,6 +11,7 @@ use wasmer_vm::{StoreHandle, VMGlobal};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+/// A WebAssembly `global` in the `sys` runtime.
 pub struct Global {
     handle: StoreHandle<VMGlobal>,
 }
@@ -36,14 +39,14 @@ impl Global {
         })
     }
 
-    pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
+    pub(crate) fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
         *self
             .handle
             .get(store.as_store_ref().objects().as_sys())
             .ty()
     }
 
-    pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
+    pub(crate) fn get(&self, store: &mut impl AsStoreMut) -> Value {
         unsafe {
             let raw = self
                 .handle
@@ -60,7 +63,7 @@ impl Global {
         }
     }
 
-    pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
+    pub(crate) fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
         if !val.is_from_store(store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
@@ -95,7 +98,7 @@ impl Global {
         }
     }
 
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 

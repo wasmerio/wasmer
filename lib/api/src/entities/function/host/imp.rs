@@ -19,6 +19,49 @@ impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* 
     Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
 {
 
+  #[cfg(feature = "js")]
+  #[allow(non_snake_case)]
+  fn js_function_callback(&self) -> crate::rt::js::vm::VMFunctionCallback {
+      /// This is a function that wraps the real host
+      /// function. Its address will be used inside the
+      /// runtime.
+      unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+      where
+          $( $x: FromToNativeWasmType, )*
+          Rets: WasmTypeList,
+          RetsAsResult: IntoResult<Rets>,
+          T: Send + 'static,
+          Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+      {
+          let mut store = StoreMut::from_raw(store_ptr as *mut _);
+          let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
+
+          let result = {
+              // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+              let func: &Func = &*(&() as *const () as *const Func);
+              panic::catch_unwind(AssertUnwindSafe(|| {
+                  let handle: crate::rt::js::store::StoreHandle<crate::rt::js::vm::VMFunctionEnvironment> =
+                    crate::rt::js::store::StoreHandle::from_internal(store2.objects_mut().id(), crate::rt::js::store::InternalStoreHandle::from_index(handle_index).unwrap());
+                  let env: crate::rt::js::function::env::FunctionEnvMut<T> = crate::rt::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                  func(FunctionEnvMut::Js(env), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+              }))
+          };
+
+          match result {
+              Ok(Ok(result)) => return result.into_c_struct(&mut store),
+              #[allow(deprecated)]
+              #[cfg(feature = "std")]
+              Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
+              #[cfg(feature = "core")]
+              #[allow(deprecated)]
+              Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
+              Err(_panic) => unimplemented!(),
+          }
+      }
+
+      func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as _
+  }
+
   #[cfg(feature = "wamr")]
   #[allow(non_snake_case)]
   fn wamr_function_callback(&self) -> crate::rt::wamr::vm::VMFunctionCallback {
@@ -229,6 +272,42 @@ where
     RetsAsResult: IntoResult<Rets>,
     Func: Fn($( $x , )*) -> RetsAsResult + 'static
 {
+
+
+  #[allow(non_snake_case)]
+  fn js_function_callback(&self) -> crate::rt::js::vm::VMFunctionCallback {
+      /// This is a function that wraps the real host
+      /// function. Its address will be used inside the
+      /// runtime.
+      unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+      where
+          $( $x: FromToNativeWasmType, )*
+          Rets: WasmTypeList,
+          RetsAsResult: IntoResult<Rets>,
+          Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+      {
+          // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+          let func: &Func = &*(&() as *const () as *const Func);
+          let mut store = StoreMut::from_raw(store_ptr as *mut _);
+
+          let result = panic::catch_unwind(AssertUnwindSafe(|| {
+              func($( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+          }));
+
+          match result {
+              Ok(Ok(result)) => return result.into_c_struct(&mut store),
+              #[cfg(feature = "std")]
+              #[allow(deprecated)]
+              Ok(Err(trap)) => crate::rt::js::error::raise(Box::new(trap)),
+              #[cfg(feature = "core")]
+              #[allow(deprecated)]
+              Ok(Err(trap)) => crate::rt::js::error::raise(Box::new(trap)),
+              Err(_panic) => unimplemented!(),
+          }
+      }
+
+      func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as _
+  }
 
   #[cfg(feature = "wamr")]
   #[allow(non_snake_case)]

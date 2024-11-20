@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `Module` implementation.
 use std::{path::Path, sync::Arc};
 
 use crate::{
@@ -51,6 +52,7 @@ impl Drop for ModuleHandle {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+/// A WebAssembly `module` in the `v8` runtime.
 pub struct Module {
     pub(crate) handle: Arc<ModuleHandle>,
     name: Option<String>,

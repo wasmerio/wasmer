@@ -12,7 +12,7 @@ use wasmer_types::{
     MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, Type,
 };
 
-use wasmer_compiler::wasmparser::{
+use wasmparser::{
     self, BinaryReaderError, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
     GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, MemorySectionReader,
     MemoryType as WPMemoryType, NameSectionReader, Parser, Payload, TableSectionReader, TypeRef,

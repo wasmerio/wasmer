@@ -26,8 +26,11 @@ pub enum RuntimeMemoryView<'a> {
     /// The memory view for the `v8` runtime.
     V8(crate::rt::v8::entities::memory::view::MemoryView<'a>),
 
-    #[doc(hidden)]
-    Phantom(&'a ()),
+    #[cfg(feature = "js")]
+    /// The memory view for the `js` runtime.
+    Js(crate::rt::js::entities::memory::view::MemoryView<'a>),
+    //    #[doc(hidden)]
+    //    Phantom(&'a ()),
 }
 
 impl<'a> RuntimeMemoryView<'a> {
@@ -54,7 +57,13 @@ impl<'a> RuntimeMemoryView<'a> {
                     store,
                 ))
             }
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            crate::RuntimeStore::Js(s) => {
+                return Self::Js(crate::rt::js::entities::memory::view::MemoryView::new(
+                    memory.as_js(),
+                    store,
+                ))
+            }
         }
     }
 
@@ -71,7 +80,8 @@ impl<'a> RuntimeMemoryView<'a> {
             Self::Wamr(s) => s.data_ptr(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.data_ptr(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.data_ptr(),
         }
     }
 
@@ -86,7 +96,8 @@ impl<'a> RuntimeMemoryView<'a> {
 
             #[cfg(feature = "v8")]
             Self::V8(s) => s.data_size(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.data_size(),
         }
     }
 
@@ -106,7 +117,8 @@ impl<'a> RuntimeMemoryView<'a> {
             Self::Wamr(s) => s.data_unchecked(),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.data_unchecked(),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.data_unchecked(),
         }
     }
 
@@ -131,7 +143,9 @@ impl<'a> RuntimeMemoryView<'a> {
 
             #[cfg(feature = "v8")]
             Self::V8(s) => s.data_unchecked_mut(),
-            _ => panic!("No runtime enabled!"),
+
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.data_unchecked_mut(),
         }
     }
 
@@ -157,7 +171,9 @@ impl<'a> RuntimeMemoryView<'a> {
 
             #[cfg(feature = "v8")]
             Self::V8(s) => s.size(),
-            _ => panic!("No runtime enabled!"),
+
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.size(),
         }
     }
 
@@ -170,7 +186,8 @@ impl<'a> RuntimeMemoryView<'a> {
             Self::Wamr(s) => MemoryBuffer(RuntimeMemoryBuffer::Wamr(s.buffer())),
             #[cfg(feature = "v8")]
             Self::V8(s) => MemoryBuffer(RuntimeMemoryBuffer::V8(s.buffer())),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => MemoryBuffer(RuntimeMemoryBuffer::Js(s.buffer())),
         }
     }
 
@@ -185,13 +202,12 @@ impl<'a> RuntimeMemoryView<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.read(offset, buf),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.read(offset, buf),
-
             #[cfg(feature = "v8")]
             Self::V8(s) => s.read(offset, buf),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.read(offset, buf),
         }
     }
 
@@ -203,13 +219,12 @@ impl<'a> RuntimeMemoryView<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.read_u8(offset),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.read_u8(offset),
-
             #[cfg(feature = "v8")]
             Self::V8(s) => s.read_u8(offset),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.read_u8(offset),
         }
     }
 
@@ -231,13 +246,12 @@ impl<'a> RuntimeMemoryView<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.read_uninit(offset, buf),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.read_uninit(offset, buf),
-
             #[cfg(feature = "v8")]
             Self::V8(s) => s.read_uninit(offset, buf),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.read_uninit(offset, buf),
         }
     }
 
@@ -252,13 +266,12 @@ impl<'a> RuntimeMemoryView<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.write(offset, data),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.write(offset, data),
-
             #[cfg(feature = "v8")]
             Self::V8(s) => s.write(offset, data),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.write(offset, data),
         }
     }
 
@@ -270,13 +283,12 @@ impl<'a> RuntimeMemoryView<'a> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.write_u8(offset, val),
-
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.write_u8(offset, val),
-
             #[cfg(feature = "v8")]
             Self::V8(s) => s.write_u8(offset, val),
-            _ => panic!("No runtime enabled!"),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.write_u8(offset, val),
         }
     }
 

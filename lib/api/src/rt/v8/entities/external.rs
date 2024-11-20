@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `v8` runtime's `ExternRef` implementation.
 use crate::{
     store::{AsStoreMut, AsStoreRef},
     v8::vm::VMExternRef,
@@ -6,6 +7,7 @@ use std::any::Any;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
+/// A WebAssembly `extern ref` in the `v8` runtime.
 pub struct ExternRef;
 
 impl ExternRef {

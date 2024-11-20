@@ -1,3 +1,4 @@
+//! Data types, functions and traits for `sys` runtime's `Store` implementation.
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 use crate::RuntimeStore;
 use wasmer_vm::init_traps;
@@ -7,6 +8,7 @@ pub use wasmer_vm::{StoreHandle, StoreObjects};
 mod obj;
 pub use obj::*;
 
+/// A WebAssembly `store` in the `sys` runtime.
 pub struct Store {
     pub(crate) engine: Engine,
 
