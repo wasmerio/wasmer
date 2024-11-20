@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use derivative::Derivative;
 use virtual_fs::Pipe;
 use wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
@@ -20,8 +19,7 @@ struct State {
 
 /// This factory will store and reuse instances between invocations thus
 /// allowing for the instances to be stateful.
-#[derive(Derivative, Clone, Default)]
-#[derivative(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct DcgiInstanceFactory {
     state: Arc<Mutex<State>>,
 }

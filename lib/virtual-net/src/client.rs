@@ -17,7 +17,6 @@ use std::time::Duration;
 
 use bytes::Buf;
 use bytes::BytesMut;
-use derivative::Derivative;
 use futures_util::future::BoxFuture;
 use futures_util::stream::FuturesOrdered;
 use futures_util::Sink;
@@ -530,12 +529,11 @@ struct SocketWithAddr {
 }
 type SocketMap<T> = HashMap<SocketId, T>;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(derive_more::Debug)]
 struct RemoteCommon {
-    #[derivative(Debug = "ignore")]
+    #[debug(ignore)]
     tx: RemoteTx<MessageRequest>,
-    #[derivative(Debug = "ignore")]
+    #[debug(ignore)]
     rx: Mutex<RemoteRx<MessageResponse>>,
     request_seed: AtomicU64,
     requests: Mutex<HashMap<u64, RequestTx>>,
@@ -544,7 +542,7 @@ struct RemoteCommon {
     recv_with_addr_tx: Mutex<SocketMap<mpsc::Sender<DataWithAddr>>>,
     accept_tx: Mutex<SocketMap<mpsc::Sender<SocketWithAddr>>>,
     sent_tx: Mutex<SocketMap<mpsc::Sender<u64>>>,
-    #[derivative(Debug = "ignore")]
+    #[debug(ignore)]
     handlers: Mutex<SocketMap<Box<dyn virtual_mio::InterestHandler + Send + Sync>>>,
 
     // The stall guard will prevent reads while its held and there are background tasks running

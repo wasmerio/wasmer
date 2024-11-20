@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use derivative::Derivative;
 use futures::future::BoxFuture;
 use tokio::runtime::Handle;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
@@ -29,8 +28,7 @@ pub struct MappedCommand {
     pub target: String,
 }
 
-#[derive(Derivative, Default, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct CommonWasiOptions {
     pub(crate) entry_function: Option<String>,
     pub(crate) args: Vec<String>,
@@ -42,7 +40,6 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) is_tmp_mapped: bool,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
-    #[derivative(Debug = "ignore")]
     pub(crate) journals: Vec<Arc<DynJournal>>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
     pub(crate) snapshot_interval: Option<std::time::Duration>,
@@ -73,7 +70,8 @@ impl CommonWasiOptions {
 
         if self.mounts.iter().all(|m| m.guest != ".") {
             // The user hasn't mounted "." to anything, so let's map it to "/"
-            builder.add_map_dir(".", "/")?;
+            let path = builder.get_current_dir().unwrap_or(PathBuf::from("/"));
+            builder.add_map_dir(".", path)?;
         }
 
         builder.set_fs(Box::new(fs));

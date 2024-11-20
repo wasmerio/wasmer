@@ -6,7 +6,6 @@ use std::{
     time::Duration,
 };
 
-use derivative::Derivative;
 use futures::future::BoxFuture;
 use rand::Rng;
 use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
@@ -49,8 +48,7 @@ use super::{conv_env_vars, WasiState};
 ///
 /// Used to access and modify runtime state.
 // TODO: make fields private
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct WasiInstanceHandles {
     // TODO: the two fields below are instance specific, while all others are module specific.
     // Should be split up.
@@ -71,11 +69,9 @@ pub struct WasiInstanceHandles {
     pub(crate) stack_high: Option<Global>,
 
     /// Main function that will be invoked (name = "_start")
-    #[derivative(Debug = "ignore")]
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
     /// Function thats invoked to initialize the WASM module (name = "_initialize")
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) initialize: Option<TypedFunction<(), ()>>,
@@ -83,12 +79,10 @@ pub struct WasiInstanceHandles {
     /// Represents the callback for spawning a thread (name = "wasi_thread_start")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
-    #[derivative(Debug = "ignore")]
     pub(crate) thread_spawn: Option<TypedFunction<(i32, i32), ()>>,
 
     /// Represents the callback for signals (name = "__wasm_signal")
     /// Signals are triggered asynchronously at idle times of the process
-    #[derivative(Debug = "ignore")]
     pub(crate) signal: Option<TypedFunction<i32, ()>>,
 
     /// Flag that indicates if the signal callback has been set by the WASM
@@ -103,7 +97,6 @@ pub struct WasiInstanceHandles {
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_unwind: Option<TypedFunction<i32, ()>>,
@@ -115,7 +108,6 @@ pub struct WasiInstanceHandles {
     /// "sleep", then you must call this at the proper time. Otherwise,
     /// the code will think it is still unwinding when it should not be,
     /// which means it will keep unwinding in a meaningless way.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
@@ -124,14 +116,12 @@ pub struct WasiInstanceHandles {
     /// stack vack up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
     /// call stack to be unwound.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_rewind: Option<TypedFunction<i32, ()>>,
 
     /// asyncify_stop_rewind(): call this to note that rewinding has
     /// concluded, and normal execution can resume.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_rewind: Option<TypedFunction<(), ()>>,
@@ -142,7 +132,6 @@ pub struct WasiInstanceHandles {
     /// calls, so that you know when to start an asynchronous operation and
     /// when to propagate results back.
     #[allow(dead_code)]
-    #[derivative(Debug = "ignore")]
     pub(crate) asyncify_get_state: Option<TypedFunction<(), i32>>,
 }
 
@@ -451,7 +440,6 @@ impl WasiEnv {
                 map.clear();
             }
             self.state.fs.preopen_fds.write().unwrap().clear();
-            self.state.fs.next_fd.set_val(3);
             *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
             // We need to rebuild the basic file descriptors

@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use wasmer::{sys::*, *};
 
-static BENCHMARKS_ARTIFACTS_BASE_URL: &str = "https://pub-53a226d993e144159d6f8b993fe0cbf3.r2.dev";
+static BENCHMARKS_ARTIFACTS_BASE_URL: &str = "https://pub-083d1a0568d446d1aa5b2e07bd16983b.r2.dev";
 
 #[allow(unreachable_code)]
 fn get_engine() -> Engine {
@@ -53,20 +53,24 @@ pub fn download_and_run(c: &mut Criterion) {
         panic!("Unrecognized backend!")
     };
 
-    let bytes = include_bytes!("./mods/counter.wasm");
-    run_fn(c, bytes, &format!("exec/{name}/counter"), 5_000_000);
-    let bytes = include_bytes!("./mods/primes.wasm");
-    run_fn(c, bytes, &format!("exec/{name}/primes"), 1_000);
-    let bytes = include_bytes!("./mods/fib_rec.wasm");
-    run_fn(c, bytes, &format!("exec/{name}/fib_rec"), 40);
-    let bytes = include_bytes!("./mods/fib_iter.wasm");
-    run_fn(c, bytes, &format!("exec/{name}/fib_iter"), 2_000_000);
-    let bytes = include_bytes!("./mods/bulk_ops.wasm");
-    run_fn(c, bytes, &format!("exec/{name}/bulk_ops"), 5_000);
-    let bytes = include_bytes!("./mods/matmul.wasm");
-    run_fn(c, bytes, &format!("exec/{name}/matmul"), 200);
-    let bytes = include_bytes!("./mods/argon2.wasm");
-    run_fn(c, bytes, &format!("exec/{name}/argon2"), 1);
+    let modules = [
+        ("counter", 5_000_000),
+        ("primes", 1_000),
+        ("fib_rec", 40),
+        ("fib_iter", 2_000_000),
+        ("bulk_ops", 5_000),
+        ("matmul", 200),
+        ("argon2", 1),
+    ];
+
+    for (module, arg) in modules {
+        let bytes =
+            reqwest::blocking::get(format!("{BENCHMARKS_ARTIFACTS_BASE_URL}/{module}.wasm"))
+                .unwrap()
+                .bytes()
+                .unwrap();
+        run_fn(c, bytes.as_ref(), &format!("exec/{name}/{module}"), arg);
+    }
 }
 
 criterion_group!(

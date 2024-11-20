@@ -122,6 +122,7 @@ base64 = "0.22.0"
 time = "0.3.36"
 target-lexicon = { version = "0.12.2", default-features = false }
 object = "0.32.0"
+derive_more = { version = "1", features = ["debug"] }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -154,7 +155,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
-reqwest.workspace = true
+reqwest = {workspace = true, features = ["blocking", "rustls-tls"]}
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
@@ -220,7 +221,11 @@ opt-level = 3
 opt-level = 3
 
 [[bench]]
-name = "compiler_run"
+name = "run"
+harness = false
+
+[[bench]]
+name = "compile"
 harness = false
 
 [[bench]]

@@ -9,9 +9,17 @@ mod obj;
 pub use obj::*;
 
 /// A WebAssembly `store` in the `v8` runtime.
-pub(crate) struct Store {
+pub struct Store {
     pub(crate) engine: Engine,
     pub(crate) inner: *mut wasm_store_t,
+}
+
+impl std::fmt::Debug for Store {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Store")
+            .field("engine", &self.engine)
+            .finish()
+    }
 }
 
 impl Store {

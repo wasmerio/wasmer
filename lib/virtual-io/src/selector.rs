@@ -4,22 +4,18 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use derivative::Derivative;
 use mio::{Registry, Token};
 
 use crate::{InterestHandler, InterestType};
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub(crate) struct EngineInner {
     seed: usize,
     registry: Registry,
-    #[derivative(Debug = "ignore")]
     lookup: HashMap<Token, Box<dyn InterestHandler + Send + Sync>>,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct Selector {
     token_close: Token,
     inner: Mutex<EngineInner>,

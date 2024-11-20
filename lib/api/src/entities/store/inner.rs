@@ -12,14 +12,20 @@ use wasmer_vm::TrapHandlerFn;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    #[derivative(Debug = "ignore")]
     pub(crate) store: RuntimeStore,
-    #[derivative(Debug = "ignore")]
     pub(crate) on_called: Option<OnCalledHandler>,
+}
+
+impl std::fmt::Debug for StoreInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("StoreInner")
+            .field("objects", &self.objects)
+            .field("store", &self.store)
+            .field("on_called", &"<...>")
+            .finish()
+    }
 }
 
 /// Call handler for a store.
@@ -31,7 +37,7 @@ pub type OnCalledHandler = Box<
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;
 
-#[derive(derive_more::From)]
+#[derive(derive_more::From, derive_more::Debug)]
 pub(crate) enum RuntimeStore {
     #[cfg(feature = "sys")]
     Sys(crate::rt::sys::entities::store::Store),

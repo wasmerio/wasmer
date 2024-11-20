@@ -1,14 +1,11 @@
 use crate::{store::MaybeInstanceOwned, vmcontext::VMGlobalDefinition};
-use derivative::Derivative;
 use std::{cell::UnsafeCell, ptr::NonNull};
 use wasmer_types::GlobalType;
 
 /// A Global instance
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct VMGlobal {
     ty: GlobalType,
-    #[derivative(Debug = "ignore")]
     vm_global_definition: MaybeInstanceOwned<VMGlobalDefinition>,
 }
 

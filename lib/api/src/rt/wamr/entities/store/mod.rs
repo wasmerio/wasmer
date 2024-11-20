@@ -14,6 +14,14 @@ pub(crate) struct Store {
     pub(crate) inner: *mut wasm_store_t,
 }
 
+impl std::fmt::Debug for Store {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Store")
+            .field("engine", &self.engine)
+            .finish()
+    }
+}
+
 impl Store {
     pub(crate) fn new(engine: crate::engine::Engine) -> Self {
         let inner: *mut wasm_store_t = unsafe { wasm_store_new(engine.as_wamr().inner.engine) };

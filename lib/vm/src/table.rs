@@ -10,7 +10,6 @@ use crate::vmcontext::VMTableDefinition;
 use crate::Trap;
 use crate::VMExternRef;
 use crate::VMFuncRef;
-use derivative::Derivative;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
@@ -70,17 +69,14 @@ impl Default for TableElement {
 }
 
 /// A table instance.
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct VMTable {
-    #[derivative(Debug = "ignore")]
     vec: Vec<RawTableElement>,
     maximum: Option<u32>,
     /// The WebAssembly table description.
     table: TableType,
     /// Our chosen implementation style.
     style: TableStyle,
-    #[derivative(Debug = "ignore")]
     vm_table_definition: MaybeInstanceOwned<VMTableDefinition>,
 }
 

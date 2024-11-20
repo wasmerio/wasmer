@@ -6,6 +6,7 @@ pub(crate) mod obj;
 pub(crate) use handle::*;
 pub(crate) use obj::*;
 
+#[derive(Debug)]
 pub(crate) struct Store {
     pub(crate) engine: Engine,
 }

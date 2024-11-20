@@ -1,13 +1,17 @@
-use derivative::Derivative;
 use std::any::Any;
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
-#[derive(Derivative)]
-#[derivative(Debug)]
 pub struct VMFunctionEnvironment {
     /// The contents of the environment.
-    #[derivative(Debug = "ignore")]
     pub contents: Box<dyn Any + Send + 'static>,
+}
+
+impl std::fmt::Debug for VMFunctionEnvironment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VMFunctionEnvironment")
+            .field("contents", &(&*self.contents as *const _))
+            .finish()
+    }
 }
 
 impl VMFunctionEnvironment {

@@ -36,7 +36,7 @@ pub fn stack_checkpoint<M: MemorySize>(
 
     // We clear the target memory location before we grab the stack so that
     // it correctly hashes
-    if let Err(err) = snapshot_ptr.write(&memory, StackSnapshot { hash: 0, user: 0 }) {
+    if let Err(err) = snapshot_ptr.write(&memory, StackSnapshot::new(0, 0)) {
         warn!(
             %err
         );
@@ -67,10 +67,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         };
 
         // Build a stack snapshot
-        let snapshot = StackSnapshot {
-            hash,
-            user: ret_offset.into(),
-        };
+        let snapshot = StackSnapshot::new(ret_offset.into(), hash);
 
         // Get a reference directly to the bytes of snapshot
         let val_bytes = unsafe {
@@ -115,7 +112,7 @@ pub fn stack_checkpoint<M: MemorySize>(
             &rewind_stack[..],
             &store_data[..],
         );
-        trace!(hash = snapshot.hash, user = snapshot.user);
+        trace!(hash = snapshot.hash(), user = snapshot.user);
 
         // Save the stack snapshot
         let env = ctx.data();

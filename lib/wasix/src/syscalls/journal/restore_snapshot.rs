@@ -62,10 +62,6 @@ pub unsafe fn restore_snapshot(
             .map_err(anyhow_err_to_runtime_err)?;
     }
 
-    // Reset the freed FD's so that none of them will be reused after
-    // the journal resumes
-    runner.ctx.data().state().fs.clear_freed_fd_list();
-
     // Once we get to this point we are no longer replaying the journal
     // and need to clear this flag, the reason is that restoring the
     // background threads may immediately process requests while this

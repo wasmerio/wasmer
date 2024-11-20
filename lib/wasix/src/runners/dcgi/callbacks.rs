@@ -1,16 +1,12 @@
 use std::sync::Arc;
 
-use derivative::Derivative;
-
 use super::*;
 use crate::runners::wcgi::{self, CreateEnvConfig, CreateEnvResult, RecycleEnvConfig};
 use virtual_fs::NullFile;
 use wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct DcgiCallbacks {
-    #[derivative(Debug = "ignore")]
     inner: Arc<dyn wcgi::Callbacks>,
     factory: DcgiInstanceFactory,
 }
