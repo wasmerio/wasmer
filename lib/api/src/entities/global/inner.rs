@@ -85,9 +85,9 @@ impl RuntimeGlobal {
                 store, val, mutability,
             )?)),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Ok(Self::Js(
-                crate::rt::js::global::Global::from_value(store, val, mutability)?,
-            )),
+            crate::RuntimeStore::Js(_) => Ok(Self::Js(crate::rt::js::global::Global::from_value(
+                store, val, mutability,
+            )?)),
         }
     }
 
@@ -212,9 +212,9 @@ impl RuntimeGlobal {
                 store, vm_extern,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(
-                crate::rt::js::global::Global::from_vm_extern(store, vm_extern),
-            ),
+            crate::RuntimeStore::Js(_) => Self::Js(crate::rt::js::global::Global::from_vm_extern(
+                store, vm_extern,
+            )),
         }
     }
 

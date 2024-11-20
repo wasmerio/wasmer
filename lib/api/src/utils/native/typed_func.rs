@@ -66,7 +66,7 @@ macro_rules! impl_native_traits {
                     RuntimeStore::Sys(_) => self.call_sys(store, $([<p_ $x>]),*),
                     #[cfg(feature = "wamr")]
                     RuntimeStore::Wamr(_) => self.call_wamr(store, $([<p_ $x>]),*),
-                    #[cfg(feature = "sys")]
+                    #[cfg(feature = "v8")]
                     RuntimeStore::V8(_) => self.call_v8(store, $([<p_ $x>]),*),
                     #[cfg(feature = "js")]
                     RuntimeStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),

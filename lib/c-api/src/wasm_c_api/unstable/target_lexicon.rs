@@ -57,7 +57,7 @@ use super::super::types::wasm_name_t;
 use enumset::EnumSet;
 use std::slice;
 use std::str::{self, FromStr};
-use wasmer_api::{CpuFeature, Target, Triple};
+use wasmer_api::sys::{CpuFeature, Target, Triple};
 
 /// Unstable non-standard Wasmer-specific API to represent a triple +
 /// CPU features pair.

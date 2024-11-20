@@ -152,7 +152,6 @@ impl RuntimeFunction {
             crate::RuntimeStore::Js(_) => Self::Js(
                 crate::rt::js::entities::function::Function::new_typed(store, func),
             ),
-
         }
     }
 
@@ -530,7 +529,6 @@ impl RuntimeFunction {
             crate::RuntimeStore::Js(_) => Self::Js(
                 crate::rt::js::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
-
         }
     }
 

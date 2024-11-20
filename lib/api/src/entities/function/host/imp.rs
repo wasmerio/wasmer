@@ -274,6 +274,7 @@ where
 {
 
 
+  #[cfg(feature = "js")]
   #[allow(non_snake_case)]
   fn js_function_callback(&self) -> crate::rt::js::vm::VMFunctionCallback {
       /// This is a function that wraps the real host

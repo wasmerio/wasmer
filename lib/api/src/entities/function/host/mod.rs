@@ -15,7 +15,6 @@ where
     Rets: WasmTypeList,
     Kind: HostFunctionKind,
 {
-
     #[cfg(feature = "js")]
     /// Get the pointer to the function body for a given runtime.
     fn js_function_callback(&self) -> crate::rt::js::vm::VMFunctionCallback;

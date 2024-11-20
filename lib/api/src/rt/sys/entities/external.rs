@@ -3,9 +3,7 @@
 use std::any::Any;
 use wasmer_vm::{StoreHandle, VMExternRef};
 
-use crate::{
-    store::{AsStoreMut, AsStoreRef},
-};
+use crate::store::{AsStoreMut, AsStoreRef};
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
