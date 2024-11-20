@@ -1,8 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use wasmer::*;
+use wasmer::{sys::*, *};
 
 static BENCHMARKS_ARTIFACTS_BASE_URL: &str = "https://pub-53a226d993e144159d6f8b993fe0cbf3.r2.dev";
 
+#[allow(unreachable_code)]
 fn get_engine() -> Engine {
     #[cfg(feature = "llvm")]
     return LLVM::new().into();
@@ -30,7 +31,7 @@ pub fn run_fn(c: &mut Criterion, module: &[u8], name: &str, input: i64) {
             .unwrap();
 
         b.iter(|| {
-            func.call(&mut store, input);
+            _ = func.call(&mut store, input);
         })
     });
 }
