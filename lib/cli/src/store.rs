@@ -355,7 +355,7 @@ impl RuntimeOptions {
                 Box::new(config)
             }
             RuntimeType::V8 | RuntimeType::Wamr => unreachable!(),
-            #[cfg(not(any(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
+            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!(
                     "The `{}` compiler is not included in this binary.",
