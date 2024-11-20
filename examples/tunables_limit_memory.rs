@@ -5,9 +5,8 @@ use wasmer_compiler_cranelift::Cranelift;
 use wasmer::{
     imports,
     sys::{
-        engine::NativeEngineExt,
         vm::{VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition},
-        BaseTunables, Target, Tunables,
+        BaseTunables, NativeEngineExt, Target, Tunables,
     },
     wat2wasm, Engine, Instance, Memory, MemoryError, MemoryStyle, MemoryType, Module, Pages, Store,
     TableStyle, TableType,
