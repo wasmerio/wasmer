@@ -13,7 +13,7 @@ fn typed_host_function_closure_panics() -> Result<(), String> {
     let mut store = Store::default();
     let state = 3;
 
-    Runtime::new_typed(&mut store, move |_: i32| {
+    Function::new_typed(&mut store, move |_: i32| {
         println!("{}", state);
     });
 
@@ -30,7 +30,7 @@ fn typed_with_env_host_function_closure_panics() -> Result<(), String> {
     let env: i32 = 4;
     let env = FunctionEnv::new(&mut store, env);
     let state = 3;
-    Runtime::new_typed_with_env(
+    Function::new_typed_with_env(
         &mut store,
         &env,
         move |_env: FunctionEnvMut<i32>, _: i32| {
@@ -72,23 +72,23 @@ fn non_typed_functions_and_closures_with_no_env_work() -> anyhow::Result<()> {
     let captured_by_closure = 20;
     let import_object = imports! {
         "env" => {
-            "multiply1" => Runtime::new_with_env(&mut store, &env, &ty, move |_env, args| {
+            "multiply1" => Function::new_with_env(&mut store, &env, &ty, move |_env, args| {
                 if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
                     Ok(vec![Value::I32(v1 * v2 * captured_by_closure)])
                 } else {
                     panic!("Invalid arguments");
                 }
             }),
-            "multiply2" => Runtime::new_with_env(&mut store, &env, &ty, move |env, args| {
+            "multiply2" => Function::new_with_env(&mut store, &env, &ty, move |env, args| {
                 if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
                     Ok(vec![Value::I32(v1 * v2 * captured_by_closure * env.data())])
                 } else {
                     panic!("Invalid arguments");
                 }
             }),
-            "multiply3" => Runtime::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<_>, arg1: i32, arg2: i32| -> i32
+            "multiply3" => Function::new_typed_with_env(&mut store, &env, |_env: FunctionEnvMut<_>, arg1: i32, arg2: i32| -> i32
                                                 {arg1 * arg2 }),
-            "multiply4" => Runtime::new_typed_with_env(&mut store, &env, |env: FunctionEnvMut<i32>, arg1: i32, arg2: i32| -> i32
+            "multiply4" => Function::new_typed_with_env(&mut store, &env, |env: FunctionEnvMut<i32>, arg1: i32, arg2: i32| -> i32
                                                          {arg1 * arg2 * env.data() }),
         },
     };
@@ -155,7 +155,7 @@ fn holochain_typed_function() -> anyhow::Result<()> {
     };
 
     // Define the host function and WASM instance
-    let multiply_typed = Runtime::new_typed_with_env(&mut store, &env, multiply_by_3);
+    let multiply_typed = Function::new_typed_with_env(&mut store, &env, multiply_by_3);
     let import_object = imports! {
         "env" => {
             "multiply_typed" => multiply_typed,

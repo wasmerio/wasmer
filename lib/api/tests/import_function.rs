@@ -24,7 +24,7 @@ fn pass_i64_between_host_and_plugin() -> Result<(), String> {
     let imports = {
         imports! {
             "host" => {
-                "add_one_i64" => Runtime::new_typed(&mut store, |value: i64| value.wrapping_add(1)),
+                "add_one_i64" => Function::new_typed(&mut store, |value: i64| value.wrapping_add(1)),
             },
         }
     };
@@ -70,7 +70,7 @@ fn pass_u64_between_host_and_plugin() -> Result<(), String> {
     let imports = {
         imports! {
             "host" => {
-                "add_one_u64" => Runtime::new_typed(&mut store, |value: u64| value.wrapping_add(1)),
+                "add_one_u64" => Function::new_typed(&mut store, |value: u64| value.wrapping_add(1)),
             },
         }
     };
@@ -146,7 +146,7 @@ fn back_and_forth_with_imports() -> Result<()> {
 
     let import_object = imports! {
         "env" => {
-            "sum" => Runtime::new_typed(&mut store, sum),
+            "sum" => Function::new_typed(&mut store, sum),
         }
     };
     let instance = Instance::new(&mut store, &module, &import_object)?;
