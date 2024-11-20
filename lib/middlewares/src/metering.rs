@@ -13,8 +13,9 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use wasmer::wasmparser::{BlockType as WpTypeOrFuncType, Operator};
 use wasmer::{
-    AsStoreMut, ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance,
-    LocalFunctionIndex, MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
+    sys::{FunctionMiddleware, MiddlewareError, MiddlewareReaderState, ModuleMiddleware},
+    AsStoreMut, ExportIndex, GlobalInit, GlobalType, Instance, LocalFunctionIndex, Mutability,
+    Type,
 };
 use wasmer_types::{GlobalIndex, ModuleInfo};
 
