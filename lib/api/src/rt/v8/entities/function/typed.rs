@@ -12,8 +12,8 @@ use std::iter::FromIterator;
 
 use crate::{
     rt::v8::{bindings::*, error::Trap, function::Function, utils::convert::*},
-    AsStoreMut, FromToNativeWasmType, NativeWasmTypeInto, RuntimeError, TypedFunction, Value,
-    WasmTypeList,
+    AsStoreMut, FromToNativeWasmType, NativeWasmType, NativeWasmTypeInto, RuntimeError,
+    TypedFunction, Value, WasmTypeList,
 };
 use wasmer_types::RawValue;
 
@@ -28,14 +28,14 @@ macro_rules! impl_native_traits {
              /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
             pub fn call_v8(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
-            $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
+            $( $x: FromToNativeWasmType, )*
             {
 
                 #[allow(unused_unsafe)]
                 let params_list: Vec<_> = unsafe {
                     vec![ $( {
-                        let raw = $x.into_raw(store);
-                        let value = Value::from_raw(&mut store, $x::WASM_TYPE, raw);
+                        let raw = $x.to_native().into_raw(store);
+                        let value = Value::from_raw(&mut store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
                         value.into_cv()
                     } ),* ]
                 };
