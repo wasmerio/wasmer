@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use anyhow::{bail, Result};
 #[cfg(feature = "sys")]
-use wasmer::sys::Features;
+use wasmer::sys::*;
 use wasmer::*;
 
 #[cfg(feature = "compiler")]
@@ -123,7 +123,7 @@ impl RuntimeOptions {
         #[cfg(feature = "singlepass")]
         {
             if self.singlepass {
-                return Ok(RuntimeType::LLVM);
+                return Ok(RuntimeType::Singlepass);
             }
         }
 
@@ -194,7 +194,7 @@ impl RuntimeOptions {
         match rt {
             RuntimeType::V8 => {
                 #[cfg(feature = "v8")]
-                return Ok(wasmer::V8::new().into());
+                return Ok(wasmer::v8::V8::new().into());
                 #[allow(unreachable_code)]
                 {
                     anyhow::bail!("The `v8` engine is not enabled in this build.")
@@ -202,7 +202,7 @@ impl RuntimeOptions {
             }
             RuntimeType::Wamr => {
                 #[cfg(feature = "wamr")]
-                return Ok(wasmer::Wamr::new().into());
+                return Ok(wasmer::wamr::Wamr::new().into());
                 #[allow(unreachable_code)]
                 {
                     anyhow::bail!("The `wamr` engine is not enabled in this build.")

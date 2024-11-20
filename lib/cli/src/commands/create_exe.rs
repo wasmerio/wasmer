@@ -17,7 +17,10 @@ use std::{
     process::{Command, Stdio},
 };
 use tar::Archive;
-use wasmer::{sys::Artifact, *};
+use wasmer::{
+    sys::{engine::NativeEngineExt, *},
+    *,
+};
 use wasmer_compiler::{
     object::{emit_serialized, get_object_for_target},
     types::symbols::ModuleMetadataSymbolRegistry,
@@ -2185,7 +2188,7 @@ mod http_fetch {
     pub(super) fn download_release(
         env: &WasmerEnv,
         mut release: serde_json::Value,
-        target_triple: wasmer::Triple,
+        target_triple: wasmer::sys::Triple,
     ) -> Result<std::path::PathBuf> {
         // Test if file has been already downloaded
         if let Ok(mut cache_path) = super::utils::get_libwasmer_cache_path(env) {

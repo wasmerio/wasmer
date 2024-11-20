@@ -5,7 +5,7 @@ use std::{env, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use wasmer::*;
+use wasmer::sys::*;
 use wasmer_package::utils::from_disk;
 
 use crate::store::RuntimeOptions;

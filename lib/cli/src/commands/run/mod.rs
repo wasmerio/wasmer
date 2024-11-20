@@ -23,7 +23,7 @@ use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
+use wasmer::sys::NativeEngineExt;
 use wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
