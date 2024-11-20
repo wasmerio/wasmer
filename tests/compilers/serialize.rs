@@ -1,5 +1,5 @@
 use anyhow::Result;
-use wasmer::*;
+use wasmer::{sys::engine::NativeEngineExt, *};
 
 #[test]
 fn sanity_test_artifact_deserialize() {
