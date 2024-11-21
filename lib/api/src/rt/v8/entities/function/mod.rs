@@ -432,7 +432,10 @@ macro_rules! gen_v8_callback {
             }
 
             let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-                func(FunctionEnvMut(crate::RuntimeFunctionEnvMut::V8(fn_env)), wasmer_args.as_slice())
+                func(
+                    FunctionEnvMut(crate::RuntimeFunctionEnvMut::V8(fn_env)),
+                    wasmer_args.as_slice(),
+                )
             }));
 
             match result {

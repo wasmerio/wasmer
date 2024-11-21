@@ -204,6 +204,6 @@ impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
 
 impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
     fn from(value: FunctionEnv<T>) -> Self {
-        crate::FunctionEnv(crate::RuntimeFunctionEnv::Sys(value))
+        Self(crate::RuntimeFunctionEnv::Sys(value))
     }
 }

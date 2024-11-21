@@ -504,5 +504,3 @@ impl crate::Function {
         }
     }
 }
-
-

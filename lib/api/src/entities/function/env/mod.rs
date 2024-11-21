@@ -71,12 +71,12 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
 
     /// Borrows a new immmutable reference
     pub fn as_ref(&self) -> FunctionEnv<T> {
-        self.0.as_ref().into()
+        self.0.as_ref()
     }
 
     /// Borrows a new mutable reference
     pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
-        self.0.as_mut().into()
+        self.0.as_mut()
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
