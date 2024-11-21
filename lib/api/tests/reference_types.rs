@@ -85,7 +85,7 @@ pub mod reference_types {
         fn func_ref_call(
             mut env: FunctionEnvMut<()>,
             values: &[Value],
-        ) -> Result<Vec<Value>, FunctionError> {
+        ) -> Result<Vec<Value>, RuntimeError> {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
             let f: TypedFunction<(i32, i32), i32> = f.typed(&env)?;
@@ -100,7 +100,7 @@ pub mod reference_types {
                     FunctionType::new([Type::FuncRef], [Type::I32]),
                     func_ref_call
                 ),
-                // "func_ref_call_native" => Function::new_native(&mut store, |f: Function| -> Result<i32, FunctionError> {
+                // "func_ref_call_native" => Function::new_native(&mut store, |f: Function| -> Result<i32, RuntimeError> {
                 //     let f: TypedFunction::<(i32, i32), i32> = f.typed(&mut store)?;
                 //     f.call(&mut store, 7, 9)
                 // })
