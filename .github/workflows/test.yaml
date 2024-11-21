@@ -289,11 +289,11 @@ jobs:
         run: |
           sudo apt-get update -y && sudo apt-get install ninja-build clang mold -y
 
-      - name: Install `ninja` on macOS
+      - name: Install `ninja` and (brew's) `clang` on macOS
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
         run: |
-          brew install ninja
+          brew install ninja clang
 
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')
