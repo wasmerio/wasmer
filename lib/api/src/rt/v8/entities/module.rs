@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     rt::v8::bindings::{wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t},
-    AsEngineRef, IntoBytes,
+    AsEngineRef, IntoBytes, RuntimeModule,
 };
 
 use bytes::Bytes;
@@ -164,24 +164,24 @@ impl Module {
 impl crate::Module {
     /// Consume [`self`] into a reference [`crate::rt::v8::module::Module`].
     pub fn into_v8(self) -> crate::rt::v8::module::Module {
-        match self {
-            Self::V8(s) => s,
+        match self.0 {
+            RuntimeModule::V8(s) => s,
             _ => panic!("Not a `v8` module!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::v8::module::Module`].
     pub fn as_v8(&self) -> &crate::rt::v8::module::Module {
-        match self {
-            Self::V8(s) => s,
+        match self.0 {
+            RuntimeModule::V8(ref s) => s,
             _ => panic!("Not a `v8` module!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::v8::module::Module`].
     pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::module::Module {
-        match self {
-            Self::V8(s) => s,
+        match self.0 {
+            RuntimeModule::V8(ref mut s) => s,
             _ => panic!("Not a `v8` module!"),
         }
     }

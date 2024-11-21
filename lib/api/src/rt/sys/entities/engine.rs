@@ -10,7 +10,7 @@ pub use wasmer_compiler::{
 use wasmer_types::Features;
 use wasmer_types::{DeserializeError, HashAlgorithm};
 
-use crate::RuntimeEngine;
+use crate::{RuntimeEngine, RuntimeModule};
 
 /// Get the default config for the sys Engine
 #[allow(unreachable_code)]
@@ -154,8 +154,8 @@ impl NativeEngineExt for crate::engine::Engine {
             OwnedBuffer::from_file(&file)
                 .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
         )?);
-        Ok(crate::Module::Sys(super::module::Module::from_artifact(
-            artifact,
+        Ok(crate::Module(RuntimeModule::Sys(
+            super::module::Module::from_artifact(artifact),
         )))
     }
 
@@ -169,8 +169,8 @@ impl NativeEngineExt for crate::engine::Engine {
             OwnedBuffer::from_file(&file)
                 .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
         )?);
-        Ok(crate::Module::Sys(super::module::Module::from_artifact(
-            artifact,
+        Ok(crate::Module(RuntimeModule::Sys(
+            super::module::Module::from_artifact(artifact),
         )))
     }
 

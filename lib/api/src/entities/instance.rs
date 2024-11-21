@@ -78,6 +78,11 @@ impl Instance {
                 let (i, e) = crate::rt::js::instance::Instance::new(store, module, imports)?;
                 (crate::RuntimeInstance::Js(i), e)
             }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => {
+                let (i, e) = crate::rt::jsc::instance::Instance::new(store, module, imports)?;
+                (crate::RuntimeInstance::Jsc(i), e)
+            }
         };
 
         Ok(Self {
@@ -129,6 +134,12 @@ impl Instance {
                     crate::rt::js::instance::Instance::new_by_index(store, module, externs)?;
                 (crate::RuntimeInstance::Js(i), e)
             }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => {
+                let (i, e) =
+                    crate::rt::jsc::instance::Instance::new_by_index(store, module, externs)?;
+                (crate::RuntimeInstance::Jsc(i), e)
+            }
         };
 
         Ok(Self {
@@ -170,4 +181,8 @@ pub enum RuntimeInstance {
     #[cfg(feature = "js")]
     /// The instance from the `js` runtime.
     Js(crate::rt::js::instance::Instance),
+
+    #[cfg(feature = "jsc")]
+    /// The instance from the `jsc` runtime.
+    Jsc(crate::rt::jsc::instance::Instance),
 }

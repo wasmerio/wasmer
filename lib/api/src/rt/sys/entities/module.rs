@@ -11,7 +11,7 @@ use wasmer_types::{
 
 use crate::{
     engine::AsEngineRef, error::InstantiationError, rt::sys::entities::engine::NativeEngineExt,
-    vm::VMInstance, AsStoreMut, AsStoreRef, IntoBytes,
+    vm::VMInstance, AsStoreMut, AsStoreRef, IntoBytes, RuntimeModule,
 };
 
 #[derive(Clone, PartialEq, Eq)]
@@ -206,24 +206,24 @@ impl Module {
 impl crate::Module {
     /// Consume [`self`] into a reference [`crate::rt::sys::module::Module`].
     pub fn into_sys(self) -> crate::rt::sys::module::Module {
-        match self {
-            Self::Sys(s) => s,
+        match self.0 {
+            RuntimeModule::Sys(s) => s,
             _ => panic!("Not a `sys` module!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::sys::module::Module`].
     pub fn as_sys(&self) -> &crate::rt::sys::module::Module {
-        match self {
-            Self::Sys(s) => s,
+        match self.0 {
+            RuntimeModule::Sys(ref s) => s,
             _ => panic!("Not a `sys` module!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::sys::module::Module`].
     pub fn as_sys_mut(&mut self) -> &mut crate::rt::sys::module::Module {
-        match self {
-            Self::Sys(s) => s,
+        match self.0 {
+            RuntimeModule::Sys(ref mut s) => s,
             _ => panic!("Not a `sys` module!"),
         }
     }

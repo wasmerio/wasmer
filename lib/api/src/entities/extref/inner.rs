@@ -1,25 +1,11 @@
 use std::any::Any;
 
 use crate::entities::store::{AsStoreMut, AsStoreRef};
+use crate::macros::rt::{gen_rt_ty, match_rt};
 use crate::vm::VMExternRef;
 use crate::StoreRef;
 
-#[derive(Debug, Clone, derive_more::From)]
-/// An opaque reference to some data. This reference can be passed through Wasm.
-pub(crate) enum RuntimeExternRef {
-    #[cfg(feature = "sys")]
-    /// The extern ref from the `sys` runtime.
-    Sys(crate::rt::sys::entities::external::ExternRef),
-    #[cfg(feature = "wamr")]
-    /// The extern ref from the `wamr` runtime.
-    Wamr(crate::rt::wamr::entities::external::ExternRef),
-    #[cfg(feature = "v8")]
-    /// The extern ref from the `v8` runtime.
-    V8(crate::rt::v8::entities::external::ExternRef),
-    #[cfg(feature = "js")]
-    /// The extern ref from the `js` runtime.
-    Js(crate::rt::js::entities::external::ExternRef),
-}
+gen_rt_ty!(ExternRef @derives derive_more::From, Debug, Clone ; @path external);
 
 impl RuntimeExternRef {
     /// Make a new extern reference
@@ -44,6 +30,10 @@ impl RuntimeExternRef {
             crate::RuntimeStore::Js(s) => Self::Js(
                 crate::rt::js::entities::external::ExternRef::new(store, value),
             ),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(s) => Self::Jsc(
+                crate::rt::jsc::entities::external::ExternRef::new(store, value),
+            ),
         }
     }
 
@@ -52,16 +42,9 @@ impl RuntimeExternRef {
     where
         T: Any + Send + Sync + 'static + Sized,
     {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(r) => r.downcast::<T>(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(r) => r.downcast::<T>(store),
-            #[cfg(feature = "v8")]
-            Self::V8(r) => r.downcast::<T>(store),
-            #[cfg(feature = "js")]
-            Self::Js(r) => r.downcast::<T>(store),
-        }
+        match_rt!(on self => r {
+            r.downcast::<T>(store)
+        })
     }
 
     /// Create a [`VMExternRef`] from [`Self`].
@@ -75,6 +58,8 @@ impl RuntimeExternRef {
             Self::V8(r) => VMExternRef::V8(r.vm_externref()),
             #[cfg(feature = "js")]
             Self::Js(r) => VMExternRef::Js(r.vm_externref()),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(r) => VMExternRef::Jsc(r.vm_externref()),
         }
     }
 
@@ -112,6 +97,13 @@ impl RuntimeExternRef {
                     vm_externref.into_js(),
                 ),
             ),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => Self::Jsc(
+                crate::rt::jsc::entities::external::ExternRef::from_vm_externref(
+                    store,
+                    vm_externref.into_jsc(),
+                ),
+            ),
         }
     }
 
@@ -123,15 +115,8 @@ impl RuntimeExternRef {
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(r) => r.is_from_store(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(r) => r.is_from_store(store),
-            #[cfg(feature = "v8")]
-            Self::V8(r) => r.is_from_store(store),
-            #[cfg(feature = "js")]
-            Self::Js(r) => r.is_from_store(store),
-        }
+        match_rt!(on self => r {
+            r.is_from_store(store)
+        })
     }
 }

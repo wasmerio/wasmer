@@ -13,12 +13,18 @@ macro_rules! define_vm_like {
         pub enum [<VM $name>] {
             #[cfg(feature = "sys")]
             Sys(crate::rt::sys::vm::[<VM $name>]),
+
             #[cfg(feature = "wamr")]
             Wamr(crate::rt::wamr::vm::[<VM $name>]),
+
             #[cfg(feature = "v8")]
             V8(crate::rt::v8::vm::[<VM $name>]),
+
             #[cfg(feature = "js")]
             Js(crate::rt::js::vm::[<VM $name>]),
+
+            #[cfg(feature = "jsc")]
+            Jsc(crate::rt::jsc::vm::[<VM $name>]),
 
         }
 
@@ -130,6 +136,33 @@ macro_rules! define_vm_like {
                     _ => panic!("Not a `js` value!")
                 }
             }
+
+            #[cfg(feature = "jsc")]
+            /// Consume `self` into a `jsc` VM kind.
+            pub fn into_jsc(self) -> crate::rt::jsc::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Jsc(s) => s,
+                    _ => panic!("Not a `jsc` value!")
+                }
+            }
+
+            #[cfg(feature = "jsc")]
+            /// Convert a reference to [`self`] into a reference to the same `jsc` VM kind.
+            pub fn as_jsc(&self) -> &crate::rt::jsc::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Jsc(s) => s,
+                    _ => panic!("Not a `jsc` value!")
+                }
+            }
+
+            #[cfg(feature = "jsc")]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the same `jsc` VM kind.
+            pub fn as_jsc_mut(&mut self) -> &mut crate::rt::jsc::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Jsc(s) => s,
+                    _ => panic!("Not a `jsc` value!")
+                }
+            }
         }
         }
     };
@@ -148,6 +181,8 @@ macro_rules! define_vm_like {
             V8(crate::rt::v8::vm::[<VM $name>]),
             #[cfg(feature = "js")]
             Js(crate::rt::js::vm::[<VM $name>]),
+            #[cfg(feature = "jsc")]
+            Jsc(crate::rt::jsc::vm::[<VM $name>]),
         }
 
         impl [<VM $name>] {
@@ -229,6 +264,33 @@ macro_rules! define_vm_like {
                 match self {
                     [<VM $name>]::Js(s) => s,
                     _ => panic!("Not a `js` value!")
+                }
+            }
+
+            #[cfg(feature = "jsc")]
+            /// Consume `self` into a `jsc` VM kind.
+            pub fn into_jsc(self) -> crate::rt::jsc::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Jsc(s) => s,
+                    _ => panic!("Not a `jsc` value!")
+                }
+            }
+
+            #[cfg(feature = "jsc")]
+            /// Convert a reference to [`self`] into a reference to the same `jsc` VM kind.
+            pub fn as_jsc(&self) -> &crate::rt::jsc::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Jsc(s) => s,
+                    _ => panic!("Not a `jsc` value!")
+                }
+            }
+
+            #[cfg(feature = "jsc")]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the same `jsc` VM kind.
+            pub fn as_jsc_mut(&mut self) -> &mut crate::rt::jsc::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Jsc(s) => s,
+                    _ => panic!("Not a `jsc` value!")
                 }
             }
 

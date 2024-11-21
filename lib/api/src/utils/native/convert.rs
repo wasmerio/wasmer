@@ -216,6 +216,11 @@ impl NativeWasmTypeInto for Option<ExternRef> {
                 crate::rt::js::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Js)
             }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => {
+                crate::rt::jsc::vm::VMExternRef::from_raw(RawValue { externref: abi })
+                    .map(VMExternRef::Jsc)
+            }
         }
         .map(|e| ExternRef::from_vm_externref(store, e))
     }
@@ -248,6 +253,10 @@ impl NativeWasmTypeInto for Option<ExternRef> {
             #[cfg(feature = "js")]
             crate::RuntimeStore::Js(_) => {
                 crate::rt::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
+            }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => {
+                crate::rt::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
             }
         }
         .map(|e| ExternRef::from_vm_externref(store, e))
@@ -290,6 +299,11 @@ impl NativeWasmTypeInto for Option<Function> {
             crate::RuntimeStore::Js(_) => {
                 crate::rt::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Js)
             }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => {
+                crate::rt::jsc::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+                    .map(VMFuncRef::Jsc)
+            }
         }
         .map(|f| Function::from_vm_funcref(store, f))
     }
@@ -322,6 +336,10 @@ impl NativeWasmTypeInto for Option<Function> {
             #[cfg(feature = "js")]
             crate::RuntimeStore::Js(_) => {
                 crate::rt::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js)
+            }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => {
+                crate::rt::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc)
             }
         }
         .map(|f| Function::from_vm_funcref(store, f))

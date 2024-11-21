@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     rt::wamr::bindings::{wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t},
-    AsEngineRef, IntoBytes,
+    AsEngineRef, IntoBytes, RuntimeModule,
 };
 
 use bytes::Bytes;
@@ -168,24 +168,24 @@ impl Module {
 impl crate::Module {
     /// Consume [`self`] into a reference [`crate::rt::wamr::module::Module`].
     pub fn into_wamr(self) -> crate::rt::wamr::module::Module {
-        match self {
-            Self::Wamr(s) => s,
+        match self.0 {
+            RuntimeModule::Wamr(s) => s,
             _ => panic!("Not a `wamr` module!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::wamr::module::Module`].
     pub fn as_wamr(&self) -> &crate::rt::wamr::module::Module {
-        match self {
-            Self::Wamr(s) => s,
+        match self.0 {
+            RuntimeModule::Wamr(ref s) => s,
             _ => panic!("Not a `wamr` module!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::wamr::module::Module`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::module::Module {
-        match self {
-            Self::Wamr(s) => s,
+        match self.0 {
+            RuntimeModule::Wamr(ref mut s) => s,
             _ => panic!("Not a `wamr` module!"),
         }
     }

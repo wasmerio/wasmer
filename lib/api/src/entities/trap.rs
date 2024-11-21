@@ -1,6 +1,6 @@
-use std::{any::Any, error::Error};
+use std::{any::Any, error::Error, fmt::Debug};
 
-use crate::RuntimeError;
+use crate::{macros::rt::match_rt, RuntimeError};
 
 /// An enumeration of all the trap kinds supported by the runtimes.
 #[derive(Debug, derive_more::From)]
@@ -19,6 +19,10 @@ pub enum RuntimeTrap {
     #[cfg(feature = "js")]
     /// The trap from the `js` runtime.
     Js(crate::rt::js::vm::Trap),
+
+    #[cfg(feature = "jsc")]
+    /// The trap from the `jsc` runtime.
+    Jsc(crate::rt::jsc::vm::Trap),
 }
 
 impl RuntimeTrap {
@@ -42,78 +46,47 @@ impl RuntimeTrap {
         {
             return crate::rt::js::vm::Trap::user(err).into();
         }
+        #[cfg(feature = "jsc")]
+        {
+            return crate::rt::jsc::vm::Trap::user(err).into();
+        }
 
         panic!("No runtime enabled!")
     }
     /// Attempts to downcast the `Trap` to a concrete type.
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.downcast::<T>().map_err(Into::into),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.downcast::<T>().map_err(Into::into),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.downcast::<T>().map_err(Into::into),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.downcast::<T>().map_err(Into::into),
-        }
+        match_rt!(on self => s {
+            s.downcast::<T>().map_err(Into::into)
+        })
     }
 
     /// Attempts to downcast the `Trap` to a concrete type.
     pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.downcast_ref::<T>(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.downcast_ref::<T>(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.downcast_ref::<T>(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.downcast_ref::<T>(),
-        }
+        match_rt!(on self => s {
+            s.downcast_ref::<T>()
+        })
     }
 
     /// Returns true if the `Trap` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.is::<T>(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.is::<T>(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.is::<T>(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.is::<T>(),
-        }
+        match_rt!(on self => s {
+            s.is::<T>()
+        })
     }
 }
 
 impl std::fmt::Display for RuntimeTrap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => write!(f, "{t}"),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => write!(f, "{t}"),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => write!(f, "{t}"),
-            #[cfg(feature = "js")]
-            Self::Js(t) => write!(f, "{t}"),
-        }
+        match_rt!(on self => s {
+            (s as &dyn std::fmt::Debug).fmt(f)
+        })
     }
 }
 
 impl std::error::Error for RuntimeTrap {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.source(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.source(),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.source(),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.source(),
-        }
+        match_rt!(on self => s {
+            s.source()
+        })
     }
 }

@@ -163,12 +163,31 @@ fn build_wamr() {
         .write_to_file(out_path.join("wamr_bindings.rs"))
         .expect("Couldn't write bindings");
 
+    let objcopy_names = ["objcopy", "gobjcopy", "llvm-objcopy"];
+
+    let mut objcopy = None;
+    for n in objcopy_names {
+        if let Ok(obj) = which::which(n) {
+            objcopy = Some(obj);
+            break;
+        }
+    }
+
+    if objcopy.is_none() {
+        panic!(
+            "No program akin to `objcopy` found\nI searched for these programs in your path: {}",
+            objcopy_names.join(", ")
+        );
+    }
+
+    let objcopy = objcopy.unwrap();
+
     unsafe {
         let syms: Vec<String> = WAMR_RENAMED
             .iter()
             .map(|(old, new)| format!("--redefine-sym=_{old}={new}"))
             .collect();
-        dbg!(std::process::Command::new("llvm-objcopy")
+        dbg!(std::process::Command::new(objcopy)
             .args(syms)
             .arg(dst.join("build").join("libvmlib.a").display().to_string())
             .arg(dst.join("build").join("libwamr.a").display().to_string()))
@@ -290,12 +309,31 @@ fn build_v8() {
         .write_to_file(out_path.join("v8_bindings.rs"))
         .expect("Couldn't write bindings");
 
+    let objcopy_names = ["objcopy", "gobjcopy", "llvm-objcopy"];
+
+    let mut objcopy = None;
+    for n in objcopy_names {
+        if let Ok(obj) = which::which(n) {
+            objcopy = Some(obj);
+            break;
+        }
+    }
+
+    if objcopy.is_none() {
+        panic!(
+            "No program akin to `objcopy` found\nI searched for these programs in your path: {}",
+            objcopy_names.join(", ")
+        );
+    }
+
+    let objcopy = objcopy.unwrap();
+
     unsafe {
         let syms: Vec<String> = WEE8_RENAMED
             .iter()
             .map(|(old, new)| format!("--redefine-sym=_{old}={new}"))
             .collect();
-        dbg!(std::process::Command::new("llvm-objcopy")
+        dbg!(std::process::Command::new(objcopy)
             .args(syms)
             .arg(out_path.join("libwee8.a").display().to_string())
             .arg(out_path.join("libwee8prefixed.a").display().to_string()))

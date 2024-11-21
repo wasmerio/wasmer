@@ -1,7 +1,4 @@
-use std::{
-    error::Error,
-    fmt::{self, Display},
-};
+use std::error::Error;
 
 use js_sys::Reflect;
 use wasm_bindgen::{prelude::*, JsValue};
@@ -169,8 +166,8 @@ impl From<JsValue> for JsTrap {
     }
 }
 
-impl Display for JsTrap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for JsTrap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             JsTrap::Message(m) => write!(f, "{m}"),
             JsTrap::Unknown => write!(f, "unknown"),

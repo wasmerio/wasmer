@@ -174,28 +174,40 @@ impl<'a, T> Into<crate::FunctionEnvMut<'a, T>> for FunctionEnvMut<'a, T> {
     }
 }
 
-impl<T> crate::FunctionEnv<T> {
+impl<T> crate::RuntimeFunctionEnv<T> {
     /// Consume [`self`] into [`crate::rt::js::function::env::FunctionEnv`].
     pub fn into_js(self) -> FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::Js(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Js(s) => s,
             _ => panic!("Not a `js` function env!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference to [`crate::rt::js::function::env::FunctionEnv`].
     pub fn as_js(&self) -> &FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::Js(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Js(ref s) => s,
             _ => panic!("Not a `js` function env!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::js::function::env::FunctionEnv`].
     pub fn as_js_mut(&mut self) -> &mut FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::Js(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Js(ref mut s) => s,
             _ => panic!("Not a `js` function env!"),
         }
+    }
+}
+
+impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
+    fn from(value: FunctionEnvMut<'a, T>) -> Self {
+        crate::FunctionEnvMut(crate::RuntimeFunctionEnvMut::Js(value))
+    }
+}
+
+impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
+    fn from(value: FunctionEnv<T>) -> Self {
+        crate::FunctionEnv(crate::RuntimeFunctionEnv::Js(value))
     }
 }

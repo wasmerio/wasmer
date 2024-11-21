@@ -87,3 +87,6 @@ impl VMFuncRef {
         unimplemented!();
     }
 }
+
+/// The type of function callbacks in the `js` VM.
+pub type VMFunctionCallback = *const VMFunctionBody;

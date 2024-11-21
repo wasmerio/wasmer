@@ -5,40 +5,19 @@ use wasmer_types::DeserializeError;
 #[cfg(feature = "sys")]
 use wasmer_compiler::Artifact;
 
-use crate::{IntoBytes, Store};
+use crate::{
+    macros::rt::{gen_rt_ty, match_rt},
+    IntoBytes, Store,
+};
 
-#[derive(Debug, Clone)]
-pub(crate) enum RuntimeEngine {
-    #[cfg(feature = "sys")]
-    /// The engine from the `sys` runtime.
-    Sys(crate::rt::sys::entities::engine::Engine),
-
-    #[cfg(feature = "wamr")]
-    /// The engine from the `wamr` runtime.
-    Wamr(crate::rt::wamr::entities::engine::Wamr),
-
-    #[cfg(feature = "v8")]
-    /// The engine from the `v8` runtime.
-    V8(crate::rt::v8::entities::engine::V8),
-
-    #[cfg(feature = "js")]
-    /// The engine from the `js` runtime.
-    Js(crate::rt::js::entities::engine::Engine),
-}
+gen_rt_ty!(Engine @derives Debug, Clone);
 
 impl RuntimeEngine {
     /// Returns the deterministic id of this engine.
     pub fn deterministic_id(&self) -> &str {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.deterministic_id(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.deterministic_id(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.deterministic_id(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.deterministic_id(),
-        }
+        match_rt!(on self  => s {
+            s.deterministic_id()
+        })
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -159,6 +138,11 @@ impl Default for RuntimeEngine {
         #[cfg(feature = "js")]
         {
             return Self::Js(crate::rt::js::entities::engine::default_engine());
+        }
+
+        #[cfg(feature = "jsc")]
+        {
+            return Self::Jsc(crate::rt::jsc::entities::engine::default_engine());
         }
 
         panic!("No runtime enabled!")

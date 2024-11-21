@@ -3,6 +3,7 @@ use crate::{
         engine::{AsEngineRef, Engine},
         store::{StoreMut, StoreObjects},
     },
+    macros::rt::{gen_rt_ty, match_rt},
     AsStoreMut,
 };
 
@@ -37,57 +38,26 @@ pub type OnCalledHandler = Box<
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;
 
-#[derive(derive_more::From, derive_more::Debug)]
-pub(crate) enum RuntimeStore {
-    #[cfg(feature = "sys")]
-    Sys(crate::rt::sys::entities::store::Store),
-    #[cfg(feature = "wamr")]
-    Wamr(crate::rt::wamr::entities::store::Store),
-    #[cfg(feature = "v8")]
-    V8(crate::rt::v8::entities::store::Store),
-    #[cfg(feature = "js")]
-    Js(crate::rt::js::entities::store::Store),
-}
+gen_rt_ty!(Store @derives derive_more::From, Debug; @path store);
 
 impl RuntimeStore {
     pub(crate) fn engine(&self) -> &Engine {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.engine(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.engine(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.engine(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.engine(),
-        }
+        match_rt!(on self => s {
+            s.engine()
+        })
     }
 
     pub(crate) fn engine_mut(&mut self) -> &mut Engine {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.engine_mut(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.engine_mut(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.engine_mut(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.engine_mut(),
-        }
+        match_rt!(on self => s {
+            s.engine_mut()
+        })
     }
 }
 
 impl AsEngineRef for RuntimeStore {
     fn as_engine_ref(&self) -> crate::EngineRef<'_> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.as_engine_ref(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.as_engine_ref(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.as_engine_ref(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.as_engine_ref(),
-        }
+        match_rt!(on self => s {
+            s.as_engine_ref()
+        })
     }
 }

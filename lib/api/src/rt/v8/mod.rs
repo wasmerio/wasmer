@@ -6,5 +6,4 @@ pub(crate) mod error;
 pub(crate) mod utils;
 pub(crate) mod vm;
 
-pub use engine::V8;
-pub use entities::*;
+pub use entities::{engine::Engine as V8, *};

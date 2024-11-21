@@ -2,6 +2,7 @@ use wasmer_types::TableType;
 
 use crate::{
     error::RuntimeError,
+    macros::rt::{gen_rt_ty, match_rt},
     store::RuntimeStore,
     vm::{VMExtern, VMExternTable},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, Value,
@@ -15,22 +16,10 @@ use crate::{
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-#[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub enum RuntimeTable {
-    #[cfg(feature = "sys")]
-    /// The extern ref from the `sys` runtime.
-    Sys(crate::rt::sys::entities::table::Table),
-    #[cfg(feature = "wamr")]
-    /// The extern ref from the `wamr` runtime.
-    Wamr(crate::rt::wamr::entities::table::Table),
-    #[cfg(feature = "v8")]
-    /// The extern ref from the `v8` runtime.
-    V8(crate::rt::v8::entities::table::Table),
-    #[cfg(feature = "js")]
-    /// The extern ref from the `js` runtime.
-    Js(crate::rt::js::entities::table::Table),
-}
+gen_rt_ty!(Table
+    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
+    @derives Debug, Clone, PartialEq, Eq, derive_more::From
+);
 
 impl RuntimeTable {
     /// Creates a new table with the provided [`TableType`] definition.
@@ -60,35 +49,25 @@ impl RuntimeTable {
             RuntimeStore::Js(_) => Ok(Self::Js(crate::rt::js::entities::table::Table::new(
                 store, ty, init,
             )?)),
+            #[cfg(feature = "jsc")]
+            RuntimeStore::Jsc(_) => Ok(Self::Jsc(crate::rt::jsc::entities::table::Table::new(
+                store, ty, init,
+            )?)),
         }
     }
 
     /// Returns the [`TableType`] of the table.
     pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.ty(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.ty(store),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.ty(store),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.ty(store),
-        }
+        match_rt!(on self => s {
+            s.ty(store)
+        })
     }
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.get(store, index),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.get(store, index),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.get(store, index),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.get(store, index),
-        }
+        match_rt!(on self => s {
+            s.get(store, index)
+        })
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
@@ -98,30 +77,16 @@ impl RuntimeTable {
         index: u32,
         val: Value,
     ) -> Result<(), RuntimeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.set(store, index, val),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.set(store, index, val),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.set(store, index, val),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.set(store, index, val),
-        }
+        match_rt!(on self => s {
+            s.set(store, index, val)
+        })
     }
 
     /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self, store: &impl AsStoreRef) -> u32 {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.size(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.size(store),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.size(store),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.size(store),
-        }
+        match_rt!(on self => s {
+            s.size(store)
+        })
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -139,16 +104,9 @@ impl RuntimeTable {
         delta: u32,
         init: Value,
     ) -> Result<u32, RuntimeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.grow(store, delta, init),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.grow(store, delta, init),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.grow(store, delta, init),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.grow(store, delta, init),
-        }
+        match_rt!(on self => s {
+            s.grow(store, delta, init)
+        })
     }
 
     /// Copies the `len` elements of `src_table` starting at `src_index`
@@ -203,6 +161,15 @@ impl RuntimeTable {
                 src_index,
                 len,
             ),
+            #[cfg(feature = "jsc")]
+            RuntimeStore::Jsc(_) => crate::rt::jsc::entities::table::Table::copy(
+                store,
+                dst_table.as_jsc(),
+                dst_index,
+                src_table.as_jsc(),
+                src_index,
+                len,
+            ),
         }
     }
 
@@ -224,34 +191,24 @@ impl RuntimeTable {
             RuntimeStore::Js(_) => Self::Js(crate::rt::js::entities::table::Table::from_vm_extern(
                 store, ext,
             )),
+            #[cfg(feature = "jsc")]
+            RuntimeStore::Jsc(_) => Self::Jsc(
+                crate::rt::jsc::entities::table::Table::from_vm_extern(store, ext),
+            ),
         }
     }
 
     /// Checks whether this `Table` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.is_from_store(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.is_from_store(store),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.is_from_store(store),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.is_from_store(store),
-        }
+        match_rt!(on self => s {
+            s.is_from_store(store)
+        })
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(t) => t.to_vm_extern(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(t) => t.to_vm_extern(),
-            #[cfg(feature = "v8")]
-            Self::V8(t) => t.to_vm_extern(),
-            #[cfg(feature = "js")]
-            Self::Js(t) => t.to_vm_extern(),
-        }
+        match_rt!(on self => s {
+            s.to_vm_extern()
+        })
     }
 }
 

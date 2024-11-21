@@ -159,6 +159,7 @@ impl RuntimeOptions {
         }
     }
 
+    #[cfg(feature = "compiler")]
     /// Get the enaled Wasm features.
     pub fn get_features(&self, mut features: Features) -> Result<Features> {
         if !self.features.disable_threads || self.features.all {
@@ -183,6 +184,7 @@ impl RuntimeOptions {
     }
 
     /// Gets the Store for a given target.
+    #[cfg(feature = "compiler")]
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, RuntimeType)> {
         let rt = self.get_rt()?;
         let engine = self.get_engine(target, &rt)?;
@@ -190,6 +192,7 @@ impl RuntimeOptions {
         Ok((store, rt))
     }
 
+    #[cfg(feature = "compiler")]
     fn get_engine(&self, target: Target, rt: &RuntimeType) -> Result<Engine> {
         match rt {
             RuntimeType::V8 => {

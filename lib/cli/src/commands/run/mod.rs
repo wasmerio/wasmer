@@ -129,12 +129,15 @@ impl Run {
         let _guard = handle.enter();
 
         let (mut store, _) = self.store.get_store()?;
+
+        #[cfg(feature = "sys")]
         if self.stack_size.is_some() {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
         let engine = store.engine_mut();
 
+        #[cfg(feature = "sys")]
         if engine.is_sys() {
             let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
             engine.set_hash_algorithm(Some(hash_algorithm));

@@ -23,13 +23,13 @@ impl Drop for CApiEngine {
     }
 }
 
-/// The Web Assembly Micro Runtime.
+/// The engine for the Web Assembly Micro Runtime.
 #[derive(Clone, Debug, Default)]
-pub struct Wamr {
+pub struct Engine {
     pub(crate) inner: Arc<CApiEngine>,
 }
 
-impl Wamr {
+impl Engine {
     /// Create a new instance of the `wamr` engine.
     pub fn new() -> Self {
         Self::default()
@@ -40,17 +40,17 @@ impl Wamr {
     }
 }
 
-unsafe impl Send for Wamr {}
-unsafe impl Sync for Wamr {}
+unsafe impl Send for Engine {}
+unsafe impl Sync for Engine {}
 
 /// Returns the default engine for the JS engine
-pub(crate) fn default_engine() -> Wamr {
-    Wamr::default()
+pub(crate) fn default_engine() -> Engine {
+    Engine::default()
 }
 
 impl crate::Engine {
     /// Consume [`self`] into a [`crate::rt::wamr::engine::Engine`].
-    pub fn into_wamr(self) -> crate::rt::wamr::engine::Wamr {
+    pub fn into_wamr(self) -> crate::rt::wamr::engine::Engine {
         match self.0 {
             RuntimeEngine::Wamr(s) => s,
             _ => panic!("Not a `wamr` engine!"),
@@ -58,7 +58,7 @@ impl crate::Engine {
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::wamr::engine::Engine`].
-    pub fn as_wamr(&self) -> &crate::rt::wamr::engine::Wamr {
+    pub fn as_wamr(&self) -> &crate::rt::wamr::engine::Engine {
         match &self.0 {
             RuntimeEngine::Wamr(s) => s,
             _ => panic!("Not a `wamr` engine!"),
@@ -66,7 +66,7 @@ impl crate::Engine {
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::wamr::engine::Engine`].
-    pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::engine::Wamr {
+    pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::engine::Engine {
         match self.0 {
             RuntimeEngine::Wamr(ref mut s) => s,
             _ => panic!("Not a `wamr` engine!"),
@@ -79,8 +79,8 @@ impl crate::Engine {
     }
 }
 
-impl From<Wamr> for crate::Engine {
-    fn from(value: Wamr) -> Self {
+impl From<Engine> for crate::Engine {
+    fn from(value: Engine) -> Self {
         Self(RuntimeEngine::Wamr(value))
     }
 }

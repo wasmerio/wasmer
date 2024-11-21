@@ -7,9 +7,6 @@ pub(crate) use view::*;
 pub(crate) mod buffer;
 pub(crate) use buffer::*;
 
-pub(crate) mod access;
-pub(crate) use access::*;
-
 use wasm_bindgen::JsCast;
 use wasmer_types::{MemoryError, MemoryType, Pages};
 

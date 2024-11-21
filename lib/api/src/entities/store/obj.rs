@@ -1,6 +1,6 @@
 use wasmer_types::StoreId;
 
-use crate::RuntimeStore;
+use crate::{macros::rt::match_rt, RuntimeStore};
 
 /// Set of objects managed by a context.
 #[derive(Debug)]
@@ -20,6 +20,10 @@ pub enum StoreObjects {
     #[cfg(feature = "js")]
     /// Store objects for the `js` runtime.
     Js(crate::rt::js::store::StoreObjects),
+
+    #[cfg(feature = "jsc")]
+    /// Store objects for the `jsc` runtime.
+    Jsc(crate::rt::jsc::store::StoreObjects),
 }
 
 impl StoreObjects {
@@ -35,6 +39,10 @@ impl StoreObjects {
             (Self::V8(ref a), Self::V8(ref b)) => a.id() == b.id(),
             #[cfg(feature = "js")]
             (Self::Js(ref a), Self::Js(ref b)) => a.id() == b.id(),
+
+            #[cfg(feature = "jsc")]
+            (Self::Jsc(ref a), Self::Jsc(ref b)) => a.id() == b.id(),
+
             _ => panic!(
                 "Incompatible `StoreObjects` instance: {}, {}!",
                 a.id(),
@@ -45,16 +53,9 @@ impl StoreObjects {
 
     /// Returns the ID of this store
     pub fn id(&self) -> StoreId {
-        match &self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.id(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.id(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.id(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.id(),
-        }
+        match_rt!(on self => s {
+            s.id()
+        })
     }
 
     pub(crate) fn from_store_ref(store: &RuntimeStore) -> Self {
@@ -67,36 +68,24 @@ impl StoreObjects {
             RuntimeStore::V8(_) => Self::V8(Default::default()),
             #[cfg(feature = "js")]
             RuntimeStore::Js(_) => Self::Js(Default::default()),
+            #[cfg(feature = "jsc")]
+            RuntimeStore::Jsc(_) => Self::Jsc(Default::default()),
         }
     }
 
     /// Return a vector of all globals and converted to u128
     pub fn as_u128_globals(&self) -> Vec<u128> {
-        match &self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.as_u128_globals(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.as_u128_globals(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.as_u128_globals(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.as_u128_globals(),
-        }
+        match_rt!(on self => s {
+            s.as_u128_globals()
+        })
     }
 
     /// Set a global, at index idx. Will panic if idx is out of range
     /// Safety: the caller should check taht the raw value is compatible
     /// with destination VMGlobal type
     pub fn set_global_unchecked(&self, idx: usize, val: u128) {
-        match &self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.set_global_unchecked(idx, val),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.set_global_unchecked(idx, val),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.set_global_unchecked(idx, val),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.set_global_unchecked(idx, val),
-        }
+        match_rt!(on self => s {
+            s.set_global_unchecked(idx, val)
+        })
     }
 }

@@ -78,24 +78,24 @@ impl<T> FunctionEnv<T> {
 impl<T> crate::FunctionEnv<T> {
     /// Consume [`self`] into [`crate::rt::sys::function::env::FunctionEnv`].
     pub fn into_sys(self) -> FunctionEnv<T> {
-        match self {
-            Self::Sys(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Sys(s) => s,
             _ => panic!("Not a `sys` function env!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference to [`crate::rt::sys::function::env::FunctionEnv`].
     pub fn as_sys(&self) -> &FunctionEnv<T> {
-        match self {
-            Self::Sys(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Sys(ref s) => s,
             _ => panic!("Not a `sys` function env!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::sys::function::env::FunctionEnv`].
     pub fn as_sys_mut(&mut self) -> &mut FunctionEnv<T> {
-        match self {
-            Self::Sys(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Sys(ref mut s) => s,
             _ => panic!("Not a `sys` function env!"),
         }
     }
@@ -198,6 +198,12 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
 
 impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
     fn from(value: FunctionEnvMut<'a, T>) -> Self {
-        Self::Sys(value)
+        crate::FunctionEnvMut(crate::RuntimeFunctionEnvMut::Sys(value))
+    }
+}
+
+impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
+    fn from(value: FunctionEnv<T>) -> Self {
+        crate::FunctionEnv(crate::RuntimeFunctionEnv::Sys(value))
     }
 }

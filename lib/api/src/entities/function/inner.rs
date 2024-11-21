@@ -2,6 +2,7 @@ use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
     error::RuntimeError,
+    macros::rt::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternFunction, VMFuncRef},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
     HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
@@ -24,22 +25,10 @@ use crate::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub enum RuntimeFunction {
-    #[cfg(feature = "sys")]
-    /// The global from the `sys` runtime.
-    Sys(crate::rt::sys::entities::function::Function),
-    #[cfg(feature = "wamr")]
-    /// The global from the `wamr` runtime.
-    Wamr(crate::rt::wamr::entities::function::Function),
-    #[cfg(feature = "v8")]
-    /// The global from the `v8` runtime.
-    V8(crate::rt::v8::entities::function::Function),
-    #[cfg(feature = "js")]
-    /// The global from the `js` runtime.
-    Js(crate::rt::js::entities::function::Function),
-}
+gen_rt_ty!(Function
+    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
+    @derives Debug, Clone, PartialEq, Eq
+);
 
 impl RuntimeFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -125,6 +114,10 @@ impl RuntimeFunction {
             crate::RuntimeStore::Js(_) => Self::Js(
                 crate::rt::js::entities::function::Function::new_with_env(store, env, ty, func),
             ),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => Self::Jsc(
+                crate::rt::jsc::entities::function::Function::new_with_env(store, env, ty, func),
+            ),
         }
     }
 
@@ -151,6 +144,11 @@ impl RuntimeFunction {
             #[cfg(feature = "js")]
             crate::RuntimeStore::Js(_) => Self::Js(
                 crate::rt::js::entities::function::Function::new_typed(store, func),
+            ),
+
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => Self::Jsc(
+                crate::rt::jsc::entities::function::Function::new_typed(store, func),
             ),
         }
     }
@@ -200,6 +198,10 @@ impl RuntimeFunction {
             crate::RuntimeStore::Js(s) => Self::Js(
                 crate::rt::js::entities::function::Function::new_typed_with_env(store, env, func),
             ),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(s) => Self::Jsc(
+                crate::rt::jsc::entities::function::Function::new_typed_with_env(store, env, func),
+            ),
         }
     }
 
@@ -222,16 +224,9 @@ impl RuntimeFunction {
     /// assert_eq!(f.ty(&mut store).results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.ty(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(f) => f.ty(store),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.ty(store),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.ty(store),
-        }
+        match_rt!(on self => f {
+            f.ty(store)
+        })
     }
 
     /// Returns the number of parameters that this function takes.
@@ -312,16 +307,10 @@ impl RuntimeFunction {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.call(store, params),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(f) => f.call(store, params),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.call(store, params),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.call(store, params),
-        }
+        match_rt!(on self => f {
+            f.call(store, params)
+
+        })
     }
 
     #[doc(hidden)]
@@ -331,16 +320,9 @@ impl RuntimeFunction {
         store: &mut impl AsStoreMut,
         params: Vec<RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.call_raw(store, params),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(f) => f.call_raw(store, params),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.call_raw(store, params),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.call_raw(store, params),
-        }
+        match_rt!(on self => f {
+            f.call_raw(store, params)
+        })
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
@@ -353,6 +335,8 @@ impl RuntimeFunction {
             Self::V8(f) => VMFuncRef::V8(f.vm_funcref(store)),
             #[cfg(feature = "js")]
             Self::Js(f) => VMFuncRef::Js(f.vm_funcref(store)),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(f) => VMFuncRef::Jsc(f.vm_funcref(store)),
         }
     }
 
@@ -384,6 +368,13 @@ impl RuntimeFunction {
                 crate::rt::js::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_js(),
+                ),
+            ),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(s) => Self::Jsc(
+                crate::rt::jsc::entities::function::Function::from_vm_funcref(
+                    store,
+                    funcref.into_jsc(),
                 ),
             ),
         }
@@ -529,34 +520,24 @@ impl RuntimeFunction {
             crate::RuntimeStore::Js(_) => Self::Js(
                 crate::rt::js::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => Self::Jsc(
+                crate::rt::jsc::entities::function::Function::from_vm_extern(store, vm_extern),
+            ),
         }
     }
 
     /// Checks whether this `Function` can be used with the given store.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.is_from_store(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(f) => f.is_from_store(store),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.is_from_store(store),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.is_from_store(store),
-        }
+        match_rt!(on self => f {
+            f.is_from_store(store)
+        })
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.to_vm_extern(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(f) => f.to_vm_extern(),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.to_vm_extern(),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.to_vm_extern(),
-        }
+        match_rt!(on self => f {
+            f.to_vm_extern()
+        })
     }
 }
 

@@ -103,3 +103,6 @@ impl From<VMMemory> for (JsValue, MemoryType) {
         (JsValue::from(value.memory), value.ty)
     }
 }
+
+/// Shared VM memory, in `js`, is the "normal" memory.
+pub type VMSharedMemory = VMMemory;

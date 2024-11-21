@@ -1,4 +1,4 @@
-/// A WebAssembly `Universal` Engine.
+/// The engine for the JavaScript runtime.
 #[derive(Clone, Debug)]
 pub struct Engine;
 

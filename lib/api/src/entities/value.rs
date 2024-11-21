@@ -138,6 +138,12 @@ impl Value {
                         .map(VMFuncRef::Js)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
+                #[cfg(feature = "jsc")]
+                crate::RuntimeStore::Jsc(_) => Self::FuncRef(
+                    crate::rt::jsc::vm::VMFuncRef::from_raw(raw)
+                        .map(VMFuncRef::Jsc)
+                        .map(|f| Function::from_vm_funcref(store, f)),
+                ),
             },
             Type::ExternRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
@@ -162,6 +168,12 @@ impl Value {
                 crate::RuntimeStore::Js(_) => Self::ExternRef(
                     crate::rt::js::vm::VMExternRef::from_raw(raw)
                         .map(VMExternRef::Js)
+                        .map(|f| ExternRef::from_vm_externref(store, f)),
+                ),
+                #[cfg(feature = "jsc")]
+                crate::RuntimeStore::Jsc(_) => Self::ExternRef(
+                    crate::rt::jsc::vm::VMExternRef::from_raw(raw)
+                        .map(VMExternRef::Jsc)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
             },

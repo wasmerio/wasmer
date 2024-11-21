@@ -1,4 +1,4 @@
-//! Data types, functions and traits for the `sys` runtime.
+//! Data types, functions and traits for `wamr`.
 
 pub(crate) mod bindings;
 pub(crate) mod entities;
@@ -6,5 +6,4 @@ pub(crate) mod error;
 pub(crate) mod utils;
 pub(crate) mod vm;
 
-pub use engine::Wamr;
-pub use entities::*;
+pub use entities::{engine::Engine as Wamr, *};

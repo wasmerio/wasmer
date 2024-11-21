@@ -13,6 +13,9 @@ pub mod v8;
 #[cfg(feature = "js")]
 pub mod js;
 
+#[cfg(feature = "jsc")]
+pub mod jsc;
+
 #[derive(Debug, Clone, Copy)]
 /// An enumeration over all the supported runtimes.
 pub enum Runtime {
@@ -31,4 +34,8 @@ pub enum Runtime {
     #[cfg(feature = "js")]
     /// The `js` runtime.
     Js,
+
+    #[cfg(feature = "jsc")]
+    /// The `jsc` runtime.
+    Jsc,
 }

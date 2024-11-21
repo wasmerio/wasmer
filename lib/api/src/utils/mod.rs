@@ -18,3 +18,5 @@ pub(crate) mod rt_macros;
 
 #[cfg(any(feature = "wasm-types-polyfill", feature = "jsc"))]
 pub(crate) mod polyfill;
+
+pub(crate) mod macros;

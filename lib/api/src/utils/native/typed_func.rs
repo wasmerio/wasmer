@@ -16,7 +16,7 @@ use wasmer_types::RawValue;
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TypedFunction<Args, Rets> {
     pub(crate) func: Function,
     _phantom: PhantomData<fn(Args) -> Rets>,
@@ -70,6 +70,9 @@ macro_rules! impl_native_traits {
                     RuntimeStore::V8(_) => self.call_v8(store, $([<p_ $x>]),*),
                     #[cfg(feature = "js")]
                     RuntimeStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),
+                    #[cfg(feature = "jsc")]
+                    RuntimeStore::Jsc(_) => self.call_jsc(store, $([<p_ $x>]),*),
+
                 }
             }
 
@@ -87,6 +90,8 @@ macro_rules! impl_native_traits {
                     RuntimeStore::V8(_) => self.call_raw_v8(store, params_list),
                     #[cfg(feature = "js")]
                     RuntimeStore::Js(_) => self.call_raw_js(store, params_list),
+                    #[cfg(feature = "jsc")]
+                    RuntimeStore::Jsc(_) => self.call_raw_jsc(store, params_list),
                 }
             }
         }

@@ -1,40 +1,22 @@
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use crate::MemoryAccessError;
+use crate::{
+    macros::rt::{gen_rt_ty, match_rt},
+    MemoryAccessError,
+};
 
 /// Underlying buffer for a memory.
-#[derive(Debug, Copy, Clone, derive_more::From)]
-pub(crate) enum RuntimeMemoryBuffer<'a> {
-    #[cfg(feature = "sys")]
-    Sys(crate::rt::sys::entities::memory::MemoryBuffer<'a>),
-
-    #[cfg(feature = "wamr")]
-    Wamr(crate::rt::wamr::entities::memory::MemoryBuffer<'a>),
-
-    #[cfg(feature = "v8")]
-    V8(crate::rt::v8::entities::memory::MemoryBuffer<'a>),
-
-    #[cfg(feature = "js")]
-    Js(crate::rt::js::entities::memory::MemoryBuffer<'a>),
-    // Phantom(PhantomData<&'a ()>),
-}
+gen_rt_ty!(MemoryBuffer<'a>
+    @derives Debug, Copy, Clone, derive_more::From;
+    @path memory
+);
 
 impl<'a> RuntimeMemoryBuffer<'a> {
     #[allow(unused)]
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.read(offset, buf),
-
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.read(offset, buf),
-
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.read(offset, buf),
-
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.read(offset, buf),
-        }
+        match_rt!(on self => s {
+            s.read(offset, buf)
+        })
     }
 
     #[allow(unused)]
@@ -43,33 +25,16 @@ impl<'a> RuntimeMemoryBuffer<'a> {
         offset: u64,
         buf: &'b mut [MaybeUninit<u8>],
     ) -> Result<&'b mut [u8], MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.read_uninit(offset, buf),
-
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.read_uninit(offset, buf),
-
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.read_uninit(offset, buf),
-
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.read_uninit(offset, buf),
-        }
+        match_rt!(on self => s {
+            s.read_uninit(offset, buf)
+        })
     }
 
     #[allow(unused)]
     pub(crate) fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.write(offset, data),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.write(offset, data),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.write(offset, data),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.write(offset, data),
-        }
+        match_rt!(on self => s {
+            s.write(offset, data)
+        })
     }
 
     pub(crate) fn len(&self) -> usize {
@@ -85,6 +50,9 @@ impl<'a> RuntimeMemoryBuffer<'a> {
 
             #[cfg(feature = "js")]
             Self::Js(s) => panic!("js memory buffers do not support the `len` function!"),
+
+            #[cfg(feature = "jsc")]
+            Self::Jsc(s) => s.len,
         }
     }
 
@@ -98,6 +66,8 @@ impl<'a> RuntimeMemoryBuffer<'a> {
             Self::V8(s) => s.base,
             #[cfg(feature = "js")]
             Self::Js(s) => panic!("js memory buffers do not support the `base` function!"),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(s) => s.base,
         }
     }
 }

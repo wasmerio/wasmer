@@ -174,34 +174,40 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
     }
 }
 
-impl<'a, T> Into<crate::FunctionEnvMut<'a, T>> for FunctionEnvMut<'a, T> {
-    fn into(self) -> crate::FunctionEnvMut<'a, T> {
-        crate::FunctionEnvMut::Wamr(self)
-    }
-}
-
 impl<T> crate::FunctionEnv<T> {
     /// Consume [`self`] into [`crate::rt::wamr::function::env::FunctionEnv`].
     pub fn into_wamr(self) -> FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::Wamr(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Wamr(s) => s,
             _ => panic!("Not a `wamr` function env!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference to [`crate::rt::wamr::function::env::FunctionEnv`].
     pub fn as_wamr(&self) -> &FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::Wamr(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Wamr(ref s) => s,
             _ => panic!("Not a `wamr` function env!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::wamr::function::env::FunctionEnv`].
     pub fn as_wamr_mut(&mut self) -> &mut FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::Wamr(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::Wamr(ref mut s) => s,
             _ => panic!("Not a `wamr` function env!"),
         }
+    }
+}
+
+impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
+    fn from(value: FunctionEnvMut<'a, T>) -> Self {
+        crate::FunctionEnvMut(crate::RuntimeFunctionEnvMut::Wamr(value))
+    }
+}
+
+impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
+    fn from(value: FunctionEnv<T>) -> Self {
+        crate::FunctionEnv(crate::RuntimeFunctionEnv::Wamr(value))
     }
 }

@@ -3,6 +3,7 @@ use wasmer_types::Pages;
 
 use crate::{
     buffer::{MemoryBuffer, RuntimeMemoryBuffer},
+    macros::rt::{gen_rt_ty, match_rt},
     AsStoreRef, Memory, MemoryAccessError,
 };
 
@@ -12,26 +13,7 @@ use crate::{
 ///
 /// After a memory is grown a view must not be used anymore. Views are
 /// created using the Memory.view() method.
-#[derive(Debug, derive_more::From)]
-pub enum RuntimeMemoryView<'a> {
-    #[cfg(feature = "sys")]
-    /// The memory view for the `sys` runtime.
-    Sys(crate::rt::sys::entities::memory::view::MemoryView<'a>),
-
-    #[cfg(feature = "wamr")]
-    /// The memory view for the `wamr` runtime.
-    Wamr(crate::rt::wamr::entities::memory::view::MemoryView<'a>),
-
-    #[cfg(feature = "v8")]
-    /// The memory view for the `v8` runtime.
-    V8(crate::rt::v8::entities::memory::view::MemoryView<'a>),
-
-    #[cfg(feature = "js")]
-    /// The memory view for the `js` runtime.
-    Js(crate::rt::js::entities::memory::view::MemoryView<'a>),
-    //    #[doc(hidden)]
-    //    Phantom(&'a ()),
-}
+gen_rt_ty!(MemoryView<'a> @derives Debug, derive_more::From ; @path memory::view);
 
 impl<'a> RuntimeMemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
@@ -64,6 +46,13 @@ impl<'a> RuntimeMemoryView<'a> {
                     store,
                 ))
             }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(s) => {
+                return Self::Jsc(crate::rt::jsc::entities::memory::view::MemoryView::new(
+                    memory.as_jsc(),
+                    store,
+                ))
+            }
         }
     }
 
@@ -73,32 +62,16 @@ impl<'a> RuntimeMemoryView<'a> {
     // as deprecated and not used in future code.
     #[doc(hidden)]
     pub fn data_ptr(&self) -> *mut u8 {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.data_ptr(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.data_ptr(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.data_ptr(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.data_ptr(),
-        }
+        match_rt!(on self => s {
+            s.data_ptr()
+        })
     }
 
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> u64 {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.data_size(),
-
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.data_size(),
-
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.data_size(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.data_size(),
-        }
+        match_rt!(on self => s {
+            s.data_size()
+        })
     }
 
     /// Retrieve a slice of the memory contents.
@@ -110,16 +83,9 @@ impl<'a> RuntimeMemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.data_unchecked(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.data_unchecked(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.data_unchecked(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.data_unchecked(),
-        }
+        match_rt!(on self => s {
+            s.data_unchecked()
+        })
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -134,19 +100,9 @@ impl<'a> RuntimeMemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.data_unchecked_mut(),
-
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.data_unchecked_mut(),
-
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.data_unchecked_mut(),
-
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.data_unchecked_mut(),
-        }
+        match_rt!(on self => s {
+            s.data_unchecked_mut()
+        })
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -162,19 +118,9 @@ impl<'a> RuntimeMemoryView<'a> {
     /// assert_eq!(m.view(&mut store).size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.size(),
-
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.size(),
-
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.size(),
-
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.size(),
-        }
+        match_rt!(on self => s {
+            s.size()
+        })
     }
 
     #[inline]
@@ -188,6 +134,8 @@ impl<'a> RuntimeMemoryView<'a> {
             Self::V8(s) => MemoryBuffer(RuntimeMemoryBuffer::V8(s.buffer())),
             #[cfg(feature = "js")]
             Self::Js(s) => MemoryBuffer(RuntimeMemoryBuffer::Js(s.buffer())),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(s) => MemoryBuffer(RuntimeMemoryBuffer::Jsc(s.buffer())),
         }
     }
 
@@ -199,16 +147,9 @@ impl<'a> RuntimeMemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.read(offset, buf),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.read(offset, buf),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.read(offset, buf),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.read(offset, buf),
-        }
+        match_rt!(on self => s {
+            s.read(offset, buf)
+        })
     }
 
     /// Safely reads a single byte from memory at the given offset
@@ -216,16 +157,9 @@ impl<'a> RuntimeMemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.read_u8(offset),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.read_u8(offset),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.read_u8(offset),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.read_u8(offset),
-        }
+        match_rt!(on self => s {
+            s.read_u8(offset)
+        })
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -243,16 +177,9 @@ impl<'a> RuntimeMemoryView<'a> {
         offset: u64,
         buf: &'b mut [MaybeUninit<u8>],
     ) -> Result<&'b mut [u8], MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.read_uninit(offset, buf),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.read_uninit(offset, buf),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.read_uninit(offset, buf),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.read_uninit(offset, buf),
-        }
+        match_rt!(on self => s {
+            s.read_uninit(offset, buf)
+        })
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -263,16 +190,9 @@ impl<'a> RuntimeMemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
     pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.write(offset, data),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.write(offset, data),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.write(offset, data),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.write(offset, data),
-        }
+        match_rt!(on self => s {
+            s.write(offset, data)
+        })
     }
 
     /// Safely writes a single byte from memory at the given offset
@@ -280,16 +200,9 @@ impl<'a> RuntimeMemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.write_u8(offset, val),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.write_u8(offset, val),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.write_u8(offset, val),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.write_u8(offset, val),
-        }
+        match_rt!(on self => s {
+            s.write_u8(offset, val)
+        })
     }
 
     /// Copies the memory and returns it as a vector of bytes

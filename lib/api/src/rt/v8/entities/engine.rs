@@ -41,11 +41,11 @@ impl Drop for CApiEngine {
 
 /// The V8 engine.
 #[derive(Clone, Debug, Default)]
-pub struct V8 {
+pub struct Engine {
     pub(crate) inner: Arc<CApiEngine>,
 }
 
-impl V8 {
+impl Engine {
     /// Create a new instance of the `V8` engine.
     pub fn new() -> Self {
         Self::default()
@@ -56,17 +56,17 @@ impl V8 {
     }
 }
 
-unsafe impl Send for V8 {}
-unsafe impl Sync for V8 {}
+unsafe impl Send for Engine {}
+unsafe impl Sync for Engine {}
 
 /// Returns the default engine for the JS engine
-pub(crate) fn default_engine() -> V8 {
-    V8::default()
+pub(crate) fn default_engine() -> Engine {
+    Engine::default()
 }
 
 impl crate::Engine {
     /// Consume [`self`] into a [`crate::rt::v8::engine::Engine`].
-    pub fn into_v8(self) -> crate::rt::v8::engine::V8 {
+    pub fn into_v8(self) -> crate::rt::v8::engine::Engine {
         match self.0 {
             RuntimeEngine::V8(s) => s,
             _ => panic!("Not a `v8` engine!"),
@@ -74,7 +74,7 @@ impl crate::Engine {
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::v8::engine::Engine`].
-    pub fn as_v8(&self) -> &crate::rt::v8::engine::V8 {
+    pub fn as_v8(&self) -> &crate::rt::v8::engine::Engine {
         match &self.0 {
             RuntimeEngine::V8(s) => s,
             _ => panic!("Not a `v8` engine!"),
@@ -82,7 +82,7 @@ impl crate::Engine {
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::v8::engine::Engine`].
-    pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::engine::V8 {
+    pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::engine::Engine {
         match self.0 {
             RuntimeEngine::V8(ref mut s) => s,
             _ => panic!("Not a `v8` engine!"),
@@ -95,8 +95,8 @@ impl crate::Engine {
     }
 }
 
-impl From<V8> for crate::Engine {
-    fn from(value: V8) -> Self {
+impl From<Engine> for crate::Engine {
+    fn from(value: Engine) -> Self {
         Self(RuntimeEngine::V8(value))
     }
 }

@@ -2,29 +2,15 @@ use super::{shared::SharedMemory, view::*};
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{
+    macros::rt::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternMemory, VMMemory},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub enum RuntimeMemory {
-    #[cfg(feature = "sys")]
-    /// The memory from the `sys` runtime.
-    Sys(crate::rt::sys::entities::memory::Memory),
-
-    #[cfg(feature = "wamr")]
-    /// The memory from the `wamr` runtime.
-    Wamr(crate::rt::wamr::entities::memory::Memory),
-
-    #[cfg(feature = "v8")]
-    /// The memory from the `v8` runtime.
-    V8(crate::rt::v8::entities::memory::Memory),
-
-    #[cfg(feature = "js")]
-    /// The memory from the `js` runtime.
-    Js(crate::rt::js::entities::memory::Memory),
-}
+gen_rt_ty!(Memory
+    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
+    @derives Debug, Clone, PartialEq, Eq, derive_more::From
+);
 
 impl RuntimeMemory {
     /// Creates a new host [`Memory`] from the provided [`MemoryType`].
@@ -57,6 +43,10 @@ impl RuntimeMemory {
             #[cfg(feature = "js")]
             crate::RuntimeStore::Js(s) => Ok(Self::Js(
                 crate::rt::js::entities::memory::Memory::new(store, ty)?,
+            )),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(s) => Ok(Self::Jsc(
+                crate::rt::jsc::entities::memory::Memory::new(store, ty)?,
             )),
         }
     }
@@ -92,6 +82,13 @@ impl RuntimeMemory {
                     memory.into_js(),
                 ))
             }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(_) => {
+                Self::Jsc(crate::rt::jsc::entities::memory::Memory::new_from_existing(
+                    new_store,
+                    memory.into_jsc(),
+                ))
+            }
         }
     }
 
@@ -109,16 +106,9 @@ impl RuntimeMemory {
     /// assert_eq!(m.ty(&mut store), mt);
     /// ```
     pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.ty(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.ty(store),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.ty(store),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.ty(store),
-        }
+        match_rt!(on self => s {
+            s.ty(store)
+        })
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -161,16 +151,9 @@ impl RuntimeMemory {
     where
         IntoPages: Into<Pages>,
     {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.grow(store, delta),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.grow(store, delta),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.grow(store, delta),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.grow(store, delta),
-        }
+        match_rt!(on self => s {
+            s.grow(store, delta)
+        })
     }
 
     /// Grows the memory to at least a minimum size.
@@ -183,30 +166,16 @@ impl RuntimeMemory {
         store: &mut impl AsStoreMut,
         min_size: u64,
     ) -> Result<(), MemoryError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.grow_at_least(store, min_size),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.grow_at_least(store, min_size),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.grow_at_least(store, min_size),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.grow_at_least(store, min_size),
-        }
+        match_rt!(on self => s {
+            s.grow_at_least(store, min_size)
+        })
     }
 
     /// Resets the memory back to zero length
     pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.reset(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.reset(store),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.reset(store),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.reset(store),
-        }
+        match_rt!(on self => s {
+            s.reset(store)
+        })
     }
 
     /// Attempts to duplicate this memory (if its clonable) in a new store
@@ -243,6 +212,10 @@ impl RuntimeMemory {
             Self::Js(s) => s
                 .try_copy(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(s) => s
+                .try_copy(store)
+                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
         }
     }
 
@@ -264,21 +237,18 @@ impl RuntimeMemory {
             crate::RuntimeStore::Js(s) => Self::Js(
                 crate::rt::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeStore::Jsc(s) => Self::Jsc(
+                crate::rt::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            ),
         }
     }
 
     /// Checks whether this `Memory` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.is_from_store(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.is_from_store(store),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.is_from_store(store),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.is_from_store(store),
-        }
+        match_rt!(on self => s {
+            s.is_from_store(store)
+        })
     }
 
     /// Attempt to create a new reference to the underlying memory; this new reference can then be
@@ -297,6 +267,8 @@ impl RuntimeMemory {
             Self::V8(s) => s.try_clone(store).map(VMMemory::V8),
             #[cfg(feature = "js")]
             Self::Js(s) => s.try_clone(store).map(VMMemory::Js),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(s) => s.try_clone(store).map(VMMemory::Jsc),
         }
     }
 
@@ -331,6 +303,10 @@ impl RuntimeMemory {
             Self::Js(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(s) => s
+                .try_clone(store)
+                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
         }
     }
 
@@ -344,29 +320,16 @@ impl RuntimeMemory {
         if !self.ty(store).shared {
             return None;
         }
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.as_shared(store),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.as_shared(store),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.as_shared(store),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.as_shared(store),
-        }
+
+        match_rt!(on self => s {
+            s.as_shared(store)
+        })
     }
 
     /// Create a [`VMExtern`] from self.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.to_vm_extern(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.to_vm_extern(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.to_vm_extern(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.to_vm_extern(),
-        }
+        match_rt!(on self => s {
+            s.to_vm_extern()
+        })
     }
 }

@@ -16,6 +16,7 @@ use crate::{
         vm::VMInstance,
     },
     AsEngineRef, AsStoreMut, Extern, Imports, InstantiationError, IntoBytes, RuntimeError,
+    RuntimeModule,
 };
 
 /// WebAssembly in the browser doesn't yet output the descriptor/types
@@ -484,23 +485,23 @@ impl crate::Module {
     /// Consume [`self`] into a reference [`crate::rt::js::module::Module`].
     pub fn into_js(self) -> crate::rt::js::module::Module {
         match self {
-            Self::Js(s) => s,
+            RuntimeModule::Js(s) => s,
             _ => panic!("Not a `js` module!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::js::module::Module`].
     pub fn as_js(&self) -> &crate::rt::js::module::Module {
-        match self {
-            Self::Js(s) => s,
+        match self.0 {
+            RuntimeModule::Js(ref s) => s,
             _ => panic!("Not a `js` module!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::js::module::Module`].
     pub fn as_js_mut(&mut self) -> &mut crate::rt::js::module::Module {
-        match self {
-            Self::Js(s) => s,
+        match self.0 {
+            RuntimeModule::Js(ref mut s) => s,
             _ => panic!("Not a `js` module!"),
         }
     }

@@ -412,12 +412,13 @@
 #[cfg(not(any(
     feature = "sys",
     feature = "js",
+    feature = "jsc",
     feature = "wamr",
     feature = "v8",
     feature = "wasmi"
 )))]
 compile_error!(
-    "One of: `sys`, `js`, `wamr`, `wasmi` or `v8` features must be enabled. Please, pick one."
+    "One of: `sys`, `js`, `jsc` `wamr`, `wasmi` or `v8` features must be enabled. Please, pick one."
 );
 
 mod utils;

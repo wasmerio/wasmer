@@ -15,6 +15,17 @@ where
     Rets: WasmTypeList,
     Kind: HostFunctionKind,
 {
+    #[cfg(feature = "jsc")]
+    /// Get the pointer to the function body for a given runtime.
+    fn jsc_function_callback(&self) -> crate::rt::jsc::vm::VMFunctionCallback;
+
+    #[cfg(feature = "jsc")]
+    /// Get the pointer to the function call trampoline for a given runtime.
+    fn jsc_call_trampoline_address() -> crate::rt::jsc::vm::VMTrampoline {
+        // This is not implemented in JSC
+        unimplemented!();
+    }
+
     #[cfg(feature = "js")]
     /// Get the pointer to the function body for a given runtime.
     fn js_function_callback(&self) -> crate::rt::js::vm::VMFunctionCallback;

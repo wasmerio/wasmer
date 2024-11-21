@@ -24,9 +24,3 @@ pub(crate) type VMExternMemory = VMMemory;
 pub(crate) type VMExternGlobal = VMGlobal;
 /// The type of extern functions in the `js` VM.
 pub(crate) type VMExternFunction = VMFunction;
-
-/// The type of function callbacks in the `js` VM.
-pub type VMFunctionCallback = *const VMFunctionBody;
-
-/// Shared VM memory, in `js`, is the "normal" memory.
-pub type VMSharedMemory = VMMemory;

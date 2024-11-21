@@ -54,6 +54,10 @@ impl Store {
             RuntimeEngine::Js(_) => {
                 RuntimeStore::Js(crate::rt::js::entities::store::Store::new(engine))
             }
+            #[cfg(feature = "jsc")]
+            RuntimeEngine::Jsc(_) => {
+                RuntimeStore::Jsc(crate::rt::jsc::entities::store::Store::new(engine))
+            }
         };
 
         Self {

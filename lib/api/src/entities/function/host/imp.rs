@@ -1,7 +1,8 @@
 use crate::{
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
-    AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
-    StoreInner, StoreMut, StoreRef, Value, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
+    RuntimeFunctionEnv, RuntimeFunctionEnvMut, StoreInner, StoreMut, StoreRef, Value, WithEnv,
+    WithoutEnv,
 };
 
 use std::panic::{self, AssertUnwindSafe};
@@ -18,6 +19,105 @@ impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* 
     T: Send + 'static,
     Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
 {
+  #[cfg(feature = "jsc")]
+  #[allow(non_snake_case)]
+  fn jsc_function_callback(&self) -> crate::rt::jsc::vm::VMFunctionCallback {
+    use crate::rt::jsc::{utils::convert::AsJsc, store::{StoreHandle,  InternalStoreHandle}, vm::VMFunctionEnvironment};
+    use rusty_jsc::{JSObject, JSValue, callback};
+
+
+     #[callback]
+     fn fn_callback<T, $( $x, )* Rets, RetsAsResult, Func>(
+         ctx: JSContext,
+         function: JSObject,
+         this_object: JSObject,
+         arguments: &[JSValue],
+     ) -> Result<JSValue, JSValue>
+     where
+         $( $x: FromToNativeWasmType, )*
+         Rets: WasmTypeList,
+         RetsAsResult: IntoResult<Rets>,
+         Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+         T: Send + 'static,
+     {
+         use std::convert::TryInto;
+
+         let func: &Func = &*(&() as *const () as *const Func);
+         let global = ctx.get_global_object();
+         let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
+         if store_ptr.is_nan() {
+             panic!("Store pointer is invalid. Received {}", store_ptr as usize)
+         }
+         let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+
+         let handle_index = arguments[0].to_number(&ctx).unwrap() as usize;
+         let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
+         let env = crate::rt::jsc::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store);
+
+         let result = panic::catch_unwind(AssertUnwindSafe(|| {
+             type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
+             let args_without_store: JSArray = arguments[1..].try_into().unwrap();
+             let [ $( $x ),* ] = args_without_store;
+             let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+             func(RuntimeFunctionEnvMut::Jsc(env).into(), $( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
+                 // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
+                 // so the only thing we can do is parse from the string repr
+                 if $x.is_number(&ctx) {
+                     $x.to_number(&ctx).unwrap() as _
+                 }
+                 else {
+                     $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
+                 }
+             } }) ) ),* ).into_result()
+         }));
+
+         match result {
+             Ok(Ok(result)) => {
+                 match Rets::size() {
+                     0 => {Ok(JSValue::undefined(&ctx))},
+                     1 => {
+                         // unimplemented!();
+
+                         let ty = Rets::wasm_types()[0];
+                         let mut arr = result.into_array(&mut store);
+                         // Value::from_raw(&store, ty, arr[0])
+                         let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
+                         let value: JSValue = val.as_jsc_value(&store);
+                         Ok(value)
+                         // *mut_rets = val.as_raw(&mut store);
+                     }
+                     _n => {
+                         // if !results.is_array(&context) {
+                         //     panic!("Expected results to be an array.")
+                         // }
+                         let mut arr = result.into_array(&mut store);
+                         let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
+                             let raw = arr.as_mut()[i];
+                             Value::from_raw(&mut store, *ret_type, raw).as_jsc_value(&mut store)
+                         }).collect::<Vec<_>>();
+                         Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
+                     }
+                 }
+             },
+             #[cfg(feature = "std")]
+             Ok(Err(err)) => {
+                 let trap = crate::jsc::vm::Trap::user(Box::new(err));
+                 Err(trap.into_jsc_value(&ctx))
+             },
+             #[cfg(feature = "core")]
+             Ok(Err(err)) => {
+                 let trap = crate::jsc::vm::Trap::user(Box::new(err));
+                 Err(trap.into_jsc_value(&ctx))
+             },
+             Err(panic) => {
+                 Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
+             },
+         }
+
+     }
+
+     Some(fn_callback::<T, $( $x, )* Rets, RetsAsResult, Self > as _)
+   }
 
   #[cfg(feature = "js")]
   #[allow(non_snake_case)]
@@ -43,7 +143,7 @@ impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* 
                   let handle: crate::rt::js::store::StoreHandle<crate::rt::js::vm::VMFunctionEnvironment> =
                     crate::rt::js::store::StoreHandle::from_internal(store2.objects_mut().id(), crate::rt::js::store::InternalStoreHandle::from_index(handle_index).unwrap());
                   let env: crate::rt::js::function::env::FunctionEnvMut<T> = crate::rt::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
-                  func(FunctionEnvMut::Js(env), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                  func(RuntimeFunctionEnvMut::Js(env).into(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
               }))
           };
 
@@ -96,7 +196,7 @@ impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* 
 	  let func: &Func = &(*r).func;
 
 	  let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-	      ((*r).func)(FunctionEnvMut::Wamr(fn_env), $( $x, )* ).into_result()
+	      ((*r).func)(RuntimeFunctionEnvMut::Wamr(fn_env).into(), $( $x, )* ).into_result()
 	  }));
 
 
@@ -164,7 +264,7 @@ impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* 
 	  let mut fn_env = crate::rt::v8::function::env::FunctionEnv::from_handle(env_handle).into_mut(store);
 	  let func: &Func = &(*r).func;
 	  let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-	      ((*r).func)(FunctionEnvMut::V8(fn_env), $( $x, )* ).into_result()
+	      ((*r).func)(RuntimeFunctionEnvMut::V8(fn_env).into(), $( $x, )* ).into_result()
 	  }));
 
 	  match result {
@@ -273,6 +373,98 @@ where
     Func: Fn($( $x , )*) -> RetsAsResult + 'static
 {
 
+
+  #[cfg(feature = "jsc")]
+  #[allow(non_snake_case)]
+  fn jsc_function_callback(&self) -> crate::rt::jsc::vm::VMFunctionCallback {
+    use crate::rt::jsc::utils::convert::AsJsc;
+    use rusty_jsc::{JSObject, JSValue, callback};
+
+
+      #[callback]
+      fn fn_callback<$( $x, )* Rets, RetsAsResult, Func>(
+          ctx: JSContext,
+          function: JSObject,
+          this_object: JSObject,
+          arguments: &[JSValue],
+      ) -> Result<JSValue, JSValue>
+      where
+          $( $x: FromToNativeWasmType, )*
+          Rets: WasmTypeList,
+          RetsAsResult: IntoResult<Rets>,
+          Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+          // $( $x: NativeWasmTypeInto, )*
+      {
+          use std::convert::TryInto;
+
+          let func: &Func = &*(&() as *const () as *const Func);
+          let global = ctx.get_global_object();
+          let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
+          if store_ptr.is_nan() {
+              panic!("Store pointer is invalid. Received {}", store_ptr as usize)
+          }
+
+          let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+          let result = panic::catch_unwind(AssertUnwindSafe(|| {
+              type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
+              let args_without_store: JSArray = arguments.try_into().unwrap();
+              let [ $( $x ),* ] = args_without_store;
+              func($( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
+                  // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
+                  // so the only thing we can do is parse from the string repr
+                  if $x.is_number(&ctx) {
+                      $x.to_number(&ctx).unwrap() as _
+                  }
+                  else {
+                      $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
+                  }
+              } }) ) ),* ).into_result()
+          }));
+
+          match result {
+              Ok(Ok(result)) => {
+                  match Rets::size() {
+                      0 => {Ok(JSValue::undefined(&ctx))},
+                      1 => {
+                          let ty = Rets::wasm_types()[0];
+                          let mut arr = result.into_array(&mut store);
+                          let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
+                          let value: JSValue = val.as_jsc_value(&store);
+                          Ok(value)
+                      }
+                      _n => {
+                          let mut arr = result.into_array(&mut store);
+                          let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
+                              let raw = arr.as_mut()[i];
+                              Value::from_raw(&mut store, *ret_type, raw).as_jsc_value(&mut store)
+                          }).collect::<Vec<_>>();
+                          Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
+                      }
+                  }
+              },
+              #[cfg(feature = "std")]
+              Ok(Err(err)) => {
+                  let trap = crate::rt::jsc::error::Trap::user(Box::new(err));
+                  Err(trap.into_jsc_value(&ctx))
+              },
+              #[cfg(feature = "core")]
+              Ok(Err(err)) => {
+                  let trap = crate::rt::jsc::error::Trap::user(Box::new(err));
+                  Err(trap.into_jsc_value(&ctx))
+              },
+              Err(panic) => {
+                  Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
+                  // We can't just resume the unwind, because it will put
+                  // JavacriptCore in a bad state, so we need to transform
+                  // the error
+
+                  // std::panic::resume_unwind(panic)
+              },
+          }
+
+      }
+      Some(fn_callback::< $( $x, )* Rets, RetsAsResult, Self > as _)
+  }
 
   #[cfg(feature = "js")]
   #[allow(non_snake_case)]

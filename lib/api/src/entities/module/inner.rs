@@ -12,7 +12,11 @@ use wasmer_types::{
     ModuleInfo, SerializeError,
 };
 
-use crate::{utils::IntoBytes, AsEngineRef};
+use crate::{
+    macros::rt::{gen_rt_ty, match_rt},
+    utils::IntoBytes,
+    AsEngineRef,
+};
 
 /// IO errors that can happen while compiling a [`Module`].
 #[derive(Error, Debug)]
@@ -33,94 +37,12 @@ pub enum IoCompileError {
 ///
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(Clone, PartialEq, Eq, derive_more::From)]
-pub enum Module {
-    #[cfg(feature = "sys")]
-    /// The module from the `sys` runtime.
-    Sys(crate::rt::sys::module::Module),
+gen_rt_ty!(Module
+    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
+    @derives Clone, PartialEq, Eq, derive_more::From
+);
 
-    #[cfg(feature = "wamr")]
-    /// The module from the `wamr` runtime.
-    Wamr(crate::rt::wamr::module::Module),
-
-    #[cfg(feature = "v8")]
-    /// The module from the `v8` runtime.
-    V8(crate::rt::v8::module::Module),
-
-    #[cfg(feature = "js")]
-    /// The module from the `js` runtime.
-    Js(crate::rt::js::module::Module),
-}
-impl Module {
-    /// Creates a new WebAssembly Module given the configuration
-    /// in the store.
-    ///
-    /// If the provided bytes are not WebAssembly-like (start with `b"\0asm"`),
-    /// and the "wat" feature is enabled for this crate, this function will try to
-    /// to convert the bytes assuming they correspond to the WebAssembly text
-    /// format.
-    ///
-    /// ## Security
-    ///
-    /// Before the code is compiled, it will be validated using the store
-    /// features.
-    ///
-    /// ## Errors
-    ///
-    /// Creating a WebAssembly module from bytecode can result in a
-    /// [`CompileError`] since this operation requires to transorm the Wasm
-    /// bytecode into code the machine can easily execute.
-    ///
-    /// ## Example
-    ///
-    /// Reading from a WAT file.
-    ///
-    /// ```
-    /// use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = "(module)";
-    /// let module = Module::new(&store, wat)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// Reading from bytes:
-    ///
-    /// ```
-    /// use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// // The following is the same as:
-    /// // (module
-    /// //   (type $t0 (func (param i32) (result i32)))
-    /// //   (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-    /// //     get_local $p0
-    /// //     i32.const 1
-    /// //     i32.add)
-    /// // )
-    /// let bytes: Vec<u8> = vec![
-    ///     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60,
-    ///     0x01, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0b, 0x01, 0x07,
-    ///     0x61, 0x64, 0x64, 0x5f, 0x6f, 0x6e, 0x65, 0x00, 0x00, 0x0a, 0x09, 0x01,
-    ///     0x07, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x0b, 0x00, 0x1a, 0x04, 0x6e,
-    ///     0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
-    ///     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
-    /// ];
-    /// let module = Module::new(&store, bytes)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    /// # Example of loading a module using just an `Engine` and no `Store`
-    ///
-    /// ```
-    /// # use wasmer::*;
-    /// #
-    /// # let engine: Engine = Cranelift::default().into();
-    ///
-    /// let module = Module::from_file(&engine, "path/to/foo.wasm");
-    /// ```
+impl RuntimeModule {
     pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
@@ -174,6 +96,11 @@ impl Module {
             crate::RuntimeEngine::Js(_) => Ok(Self::Js(
                 crate::rt::js::entities::module::Module::from_binary(engine, binary)?,
             )),
+
+            #[cfg(feature = "jsc")]
+            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::rt::jsc::entities::module::Module::from_binary(engine, binary)?,
+            )),
         }
     }
 
@@ -208,6 +135,10 @@ impl Module {
             crate::RuntimeEngine::Js(_) => Ok(Self::Js(
                 crate::rt::js::entities::module::Module::from_binary_unchecked(engine, binary)?,
             )),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::rt::jsc::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            )),
         }
     }
 
@@ -235,6 +166,10 @@ impl Module {
             crate::RuntimeEngine::Js(_) => {
                 crate::rt::js::entities::module::Module::validate(engine, binary)?
             }
+            #[cfg(feature = "jsc")]
+            crate::RuntimeEngine::Jsc(_) => {
+                crate::rt::jsc::entities::module::Module::validate(engine, binary)?
+            }
         }
         Ok(())
     }
@@ -259,16 +194,9 @@ impl Module {
     /// # }
     /// ```
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.serialize(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.serialize(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.serialize(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.serialize(),
-        }
+        match_rt!(on self => s {
+            s.serialize()
+        })
     }
 
     /// Serializes a module into a file that the `Engine`
@@ -343,6 +271,10 @@ impl Module {
             crate::RuntimeEngine::Js(_) => Ok(Self::Js(
                 crate::rt::js::entities::module::Module::deserialize_unchecked(engine, bytes)?,
             )),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::rt::jsc::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            )),
         }
     }
 
@@ -392,6 +324,10 @@ impl Module {
             crate::RuntimeEngine::Js(_) => Ok(Self::Js(
                 crate::rt::js::entities::module::Module::deserialize(engine, bytes)?,
             )),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::rt::jsc::entities::module::Module::deserialize(engine, bytes)?,
+            )),
         }
     }
 
@@ -432,6 +368,10 @@ impl Module {
             #[cfg(feature = "js")]
             crate::RuntimeEngine::Js(_) => Ok(Self::Js(
                 crate::rt::js::entities::module::Module::deserialize_from_file(engine, path)?,
+            )),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::rt::jsc::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
         }
     }
@@ -484,6 +424,12 @@ impl Module {
                     engine, path,
                 )?,
             )),
+            #[cfg(feature = "jsc")]
+            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::rt::jsc::entities::module::Module::deserialize_from_file_unchecked(
+                    engine, path,
+                )?,
+            )),
         }
     }
 
@@ -505,16 +451,9 @@ impl Module {
     /// # }
     /// ```
     pub fn name(&self) -> Option<&str> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.name(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.name(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.name(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.name(),
-        }
+        match_rt!(on self => s {
+            s.name()
+        })
     }
 
     /// Sets the name of the current module.
@@ -539,16 +478,9 @@ impl Module {
     /// # }
     /// ```
     pub fn set_name(&mut self, name: &str) -> bool {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.set_name(name),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.set_name(name),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.set_name(name),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.set_name(name),
-        }
+        match_rt!(on self => s {
+            s.set_name(name)
+        })
     }
 
     /// Returns an iterator over the imported types in the Module.
@@ -576,16 +508,9 @@ impl Module {
     /// # }
     /// ```
     pub fn imports(&self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + '_>> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.imports(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.imports(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.imports(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.imports(),
-        }
+        match_rt!(on self => s {
+            s.imports()
+        })
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -612,16 +537,9 @@ impl Module {
     /// # }
     /// ```
     pub fn exports(&self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + '_>> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.exports(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.exports(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.exports(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.exports(),
-        }
+        match_rt!(on self => s {
+            s.exports()
+        })
     }
 
     /// Get the custom sections of the module given a `name`.
@@ -632,16 +550,9 @@ impl Module {
     /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.custom_sections(name),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.custom_sections(name),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.custom_sections(name),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.custom_sections(name),
-        }
+        match_rt!(on self => s {
+            s.custom_sections(name)
+        })
     }
 
     /// The ABI of the [`ModuleInfo`] is very unstable, we refactor it very often.
@@ -651,30 +562,16 @@ impl Module {
     /// However, the usage is highly discouraged.
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.info(),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.info(),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s.info(),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s.info(),
-        }
+        match_rt!(on self => s {
+            s.info()
+        })
     }
 }
 
-impl std::fmt::Debug for Module {
+impl std::fmt::Debug for RuntimeModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Module")
+        f.debug_struct("RuntimeModule")
             .field("name", &self.name())
             .finish()
-    }
-}
-
-#[cfg(feature = "js")]
-impl From<Module> for wasm_bindgen::JsValue {
-    fn from(value: Module) -> Self {
-        todo!()
     }
 }

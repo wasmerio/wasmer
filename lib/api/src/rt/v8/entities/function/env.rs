@@ -174,34 +174,40 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
     }
 }
 
-impl<'a, T> Into<crate::FunctionEnvMut<'a, T>> for FunctionEnvMut<'a, T> {
-    fn into(self) -> crate::FunctionEnvMut<'a, T> {
-        crate::FunctionEnvMut::V8(self)
-    }
-}
-
 impl<T> crate::FunctionEnv<T> {
     /// Consume [`self`] into [`crate::rt::v8::function::env::FunctionEnv`].
     pub fn into_v8(self) -> FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::V8(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::V8(s) => s,
             _ => panic!("Not a `v8` function env!"),
         }
     }
 
     /// Convert a reference to [`self`] into a reference to [`crate::rt::v8::function::env::FunctionEnv`].
     pub fn as_v8(&self) -> &FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::V8(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::V8(ref s) => s,
             _ => panic!("Not a `v8` function env!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::v8::function::env::FunctionEnv`].
     pub fn as_v8_mut(&mut self) -> &mut FunctionEnv<T> {
-        match self {
-            crate::FunctionEnv::V8(s) => s,
+        match self.0 {
+            crate::RuntimeFunctionEnv::V8(ref mut s) => s,
             _ => panic!("Not a `v8` function env!"),
         }
+    }
+}
+
+impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
+    fn from(value: FunctionEnvMut<'a, T>) -> Self {
+        crate::FunctionEnvMut(crate::RuntimeFunctionEnvMut::V8(value))
+    }
+}
+
+impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
+    fn from(value: FunctionEnv<T>) -> Self {
+        crate::FunctionEnv(crate::RuntimeFunctionEnv::V8(value))
     }
 }
