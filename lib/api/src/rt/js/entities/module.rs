@@ -466,13 +466,18 @@ impl From<WebAssembly::Module> for Module {
 
 impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
     fn from((module, binary): (WebAssembly::Module, T)) -> crate::module::Module {
-        unsafe { crate::module::Module::Js(Module::from_js_module(module, binary.into_bytes())) }
+        unsafe {
+            crate::module::Module(RuntimeModule::Js(Module::from_js_module(
+                module,
+                binary.into_bytes(),
+            )))
+        }
     }
 }
 
 impl From<WebAssembly::Module> for crate::module::Module {
     fn from(module: WebAssembly::Module) -> crate::module::Module {
-        crate::module::Module::Js(module.into())
+        crate::module::Module(RuntimeModule::Js(module.into()))
     }
 }
 impl From<crate::module::Module> for WebAssembly::Module {
@@ -484,7 +489,7 @@ impl From<crate::module::Module> for WebAssembly::Module {
 impl crate::Module {
     /// Consume [`self`] into a reference [`crate::rt::js::module::Module`].
     pub fn into_js(self) -> crate::rt::js::module::Module {
-        match self {
+        match self.0 {
             RuntimeModule::Js(s) => s,
             _ => panic!("Not a `js` module!"),
         }

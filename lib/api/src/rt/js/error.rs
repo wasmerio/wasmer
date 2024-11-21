@@ -68,8 +68,8 @@ impl std::error::Error for Trap {
     }
 }
 
-impl fmt::Display for Trap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Trap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
             InnerTrap::User(e) => write!(f, "user: {e}"),
             InnerTrap::Js(value) => write!(f, "js: {value}"),

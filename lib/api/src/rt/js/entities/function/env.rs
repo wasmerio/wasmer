@@ -168,13 +168,7 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
     }
 }
 
-impl<'a, T> Into<crate::FunctionEnvMut<'a, T>> for FunctionEnvMut<'a, T> {
-    fn into(self) -> crate::FunctionEnvMut<'a, T> {
-        crate::FunctionEnvMut::Js(self)
-    }
-}
-
-impl<T> crate::RuntimeFunctionEnv<T> {
+impl<T> crate::FunctionEnv<T> {
     /// Consume [`self`] into [`crate::rt::js::function::env::FunctionEnv`].
     pub fn into_js(self) -> FunctionEnv<T> {
         match self.0 {
