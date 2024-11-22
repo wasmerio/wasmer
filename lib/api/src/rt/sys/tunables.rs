@@ -256,7 +256,9 @@ mod tests {
 
     #[test]
     fn check_custom_tunables() -> Result<(), Box<dyn std::error::Error>> {
-        use crate::{imports, wat2wasm, Engine, Instance, Memory, Module, Store};
+        #[cfg(feature = "wat")]
+        use crate::wat2wasm;
+        use crate::{imports, Engine, Instance, Memory, Module, Store};
 
         let wasm_bytes = wat2wasm(
             br#"(module
