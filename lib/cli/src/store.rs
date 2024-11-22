@@ -152,7 +152,7 @@ impl RuntimeOptions {
             } else if #[cfg(feature = "v8")] {
                 Ok(RuntimeType::V8)
             } else if #[cfg(feature = "wamr")] {
-                Ok(RuntimeType::WAMR)
+                Ok(RuntimeType::Wamr)
             } else {
                 bail!("There are no available compilers for your architecture");
             }
