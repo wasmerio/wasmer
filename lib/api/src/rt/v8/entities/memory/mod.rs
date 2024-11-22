@@ -58,7 +58,7 @@ impl Memory {
         MemoryType {
             // [TODO]: Find a way to extract this from the inner memory type instead
             // of hardcoding.
-            shared: true,
+            shared: false,
             minimum: unsafe { wasmer_types::Pages((*limits).min) },
             maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
         }
@@ -77,9 +77,20 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
-        unimplemented!(
-            "calling grow from host is not supported! Use the memory.grow opcode instead."
-        );
+        unsafe {
+            let delta: Pages = delta.into();
+            let current = Pages(wasm_memory_size(self.handle));
+
+            eprintln!("current: {current:?}, delta: {delta:?}");
+            if !wasm_memory_grow(self.handle, delta.0) {
+                Err(MemoryError::CouldNotGrow {
+                    current,
+                    attempted_delta: delta,
+                })
+            } else {
+                Ok(current)
+            }
+        }
     }
 
     pub fn grow_at_least(
@@ -87,9 +98,15 @@ impl Memory {
         store: &mut impl AsStoreMut,
         min_size: u64,
     ) -> Result<(), MemoryError> {
-        unimplemented!(
-            "calling grow from host is not supported! Use the memory.grow opcode instead."
-        );
+        unsafe {
+            let current = wasm_memory_size(self.handle);
+            let delta = (min_size as u32) - current;
+            if delta > 0 {
+                self.grow(store, delta)?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
