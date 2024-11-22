@@ -163,12 +163,12 @@ fn build_wamr() {
         .write_to_file(out_path.join("wamr_bindings.rs"))
         .expect("Couldn't write bindings");
 
-    let objcopy_names = ["objcopy", "gobjcopy", "llvm-objcopy"];
+    let objcopy_names = ["llvm-objcopy", "objcopy", "gobjcopy"];
 
     let mut objcopy = None;
     for n in objcopy_names {
-        if let Ok(obj) = which::which(n) {
-            objcopy = Some(obj);
+        if which::which(n).is_ok() {
+            objcopy = Some(n);
             break;
         }
     }
@@ -309,12 +309,12 @@ fn build_v8() {
         .write_to_file(out_path.join("v8_bindings.rs"))
         .expect("Couldn't write bindings");
 
-    let objcopy_names = ["objcopy", "gobjcopy", "llvm-objcopy"];
+    let objcopy_names = ["llvm-objcopy", "objcopy", "gobjcopy"];
 
     let mut objcopy = None;
     for n in objcopy_names {
-        if let Ok(obj) = which::which(n) {
-            objcopy = Some(obj);
+        if which::which(n).is_ok() {
+            objcopy = Some(n);
             break;
         }
     }
@@ -340,6 +340,7 @@ fn build_v8() {
         .output()
         .unwrap();
     }
+
 
     println!("cargo:rustc-link-lib=static=wee8prefixed");
 }
