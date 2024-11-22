@@ -187,12 +187,20 @@ fn build_wamr() {
             .iter()
             .map(|(old, new)| format!("--redefine-sym=_{old}={new}"))
             .collect();
-        dbg!(std::process::Command::new(objcopy)
+        let output = std::process::Command::new(objcopy)
             .args(syms)
             .arg(dst.join("build").join("libvmlib.a").display().to_string())
-            .arg(dst.join("build").join("libwamr.a").display().to_string()))
-        .output()
-        .unwrap();
+            .arg(dst.join("build").join("libwamr.a").display().to_string())
+            .output()
+            .unwrap();
+
+        if !output.status.success() {
+            panic!(
+                "{objcopy} failed with error code {}: {}",
+                output.status,
+                String::from_utf8(output.stderr).unwrap()
+            );
+        }
     }
 
     println!(
@@ -333,14 +341,21 @@ fn build_v8() {
             .iter()
             .map(|(old, new)| format!("--redefine-sym=_{old}={new}"))
             .collect();
-        dbg!(std::process::Command::new(objcopy)
+        let output = std::process::Command::new(objcopy)
             .args(syms)
             .arg(out_path.join("libwee8.a").display().to_string())
-            .arg(out_path.join("libwee8prefixed.a").display().to_string()))
-        .output()
-        .unwrap();
-    }
+            .arg(out_path.join("libwee8prefixed.a").display().to_string())
+            .output()
+            .unwrap();
 
+        if !output.status.success() {
+            panic!(
+                "{objcopy} failed with error code {}: {}",
+                output.status,
+                String::from_utf8(output.stderr).unwrap()
+            );
+        }
+    }
 
     println!("cargo:rustc-link-lib=static=wee8prefixed");
 }
