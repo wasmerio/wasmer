@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 5.0.2 - 22/11/2024
 
+This release mostly consists of bug fixes and clean ups.
+
 ## Added
 
   - [#5259](https://github.com/wasmerio/wasmer/pull/5259) Fix alignment and padding of the WASIX snapshot type to align with wasix-libc
