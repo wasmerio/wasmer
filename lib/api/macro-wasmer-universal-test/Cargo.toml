@@ -1,6 +1,6 @@
 [package]
 name = "macro-wasmer-universal-test"
-version = "5.0.1"
+version = "5.1.0"
 edition = "2021"
 license = "MIT"
 description = "Universal test macro for wasmer-test"
