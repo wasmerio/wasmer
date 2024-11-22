@@ -448,3 +448,5 @@ pub use wasmparser;
 
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
+
+pub use wasmer_derive::ValueType;
