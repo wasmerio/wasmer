@@ -293,8 +293,8 @@ jobs:
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
         run: |
-          brew install ninja llvm
-
+          brew install ninja llvm@18
+          echo "/opt/homebrew/opt/llvm@18/bin" >> GITHUB_PATH
 
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')
