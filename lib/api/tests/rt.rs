@@ -19,7 +19,7 @@ fn can_create_multiple_engines() {
 #[cfg(feature = "v8")]
 fn multiple_engines_can_run_together() {
     use std::u8;
-    use wasmer::{sys::Cranelift, v8::V8, wamr::Wamr, *};
+    use wasmer::{sys::Cranelift, v8::V8, *};
 
     let clift: Engine = Cranelift::new().into();
     let mut clift_store = Store::new(clift);
