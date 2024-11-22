@@ -203,7 +203,7 @@ jobs:
             container: alpine:latest
             use_sccache: false
             use_llvm: false
-          #   build_wasm: true
+            build_wasm: true
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
