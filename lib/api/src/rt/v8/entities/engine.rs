@@ -1,5 +1,6 @@
 //! Data types, functions and traits for `sys` runtime's `Engine` implementation.
 use crate::{
+    atomic_next_engine_id,
     rt::v8::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     RuntimeEngine,
 };
@@ -67,7 +68,7 @@ pub(crate) fn default_engine() -> Engine {
 impl crate::Engine {
     /// Consume [`self`] into a [`crate::rt::v8::engine::Engine`].
     pub fn into_v8(self) -> crate::rt::v8::engine::Engine {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::V8(s) => s,
             _ => panic!("Not a `v8` engine!"),
         }
@@ -75,7 +76,7 @@ impl crate::Engine {
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::v8::engine::Engine`].
     pub fn as_v8(&self) -> &crate::rt::v8::engine::Engine {
-        match &self.0 {
+        match &self.rt {
             RuntimeEngine::V8(s) => s,
             _ => panic!("Not a `v8` engine!"),
         }
@@ -83,7 +84,7 @@ impl crate::Engine {
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::v8::engine::Engine`].
     pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::engine::Engine {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::V8(ref mut s) => s,
             _ => panic!("Not a `v8` engine!"),
         }
@@ -91,12 +92,15 @@ impl crate::Engine {
 
     /// Return true if [`self`] is an engine from the `v8` runtime.
     pub fn is_v8(&self) -> bool {
-        matches!(self.0, RuntimeEngine::V8(_))
+        matches!(self.rt, RuntimeEngine::V8(_))
     }
 }
 
 impl From<Engine> for crate::Engine {
     fn from(value: Engine) -> Self {
-        Self(RuntimeEngine::V8(value))
+        crate::Engine {
+            rt: RuntimeEngine::V8(value),
+            id: atomic_next_engine_id(),
+        }
     }
 }

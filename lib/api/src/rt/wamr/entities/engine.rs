@@ -1,5 +1,6 @@
 //! Data types, functions and traits for `v8` runtime's `Engine` implementation.
 use crate::{
+    atomic_next_engine_id,
     rt::wamr::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     RuntimeEngine,
 };
@@ -51,7 +52,7 @@ pub(crate) fn default_engine() -> Engine {
 impl crate::Engine {
     /// Consume [`self`] into a [`crate::rt::wamr::engine::Engine`].
     pub fn into_wamr(self) -> crate::rt::wamr::engine::Engine {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Wamr(s) => s,
             _ => panic!("Not a `wamr` engine!"),
         }
@@ -59,7 +60,7 @@ impl crate::Engine {
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::wamr::engine::Engine`].
     pub fn as_wamr(&self) -> &crate::rt::wamr::engine::Engine {
-        match &self.0 {
+        match &self.rt {
             RuntimeEngine::Wamr(s) => s,
             _ => panic!("Not a `wamr` engine!"),
         }
@@ -67,7 +68,7 @@ impl crate::Engine {
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::wamr::engine::Engine`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::engine::Engine {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Wamr(ref mut s) => s,
             _ => panic!("Not a `wamr` engine!"),
         }
@@ -75,12 +76,15 @@ impl crate::Engine {
 
     /// Return true if [`self`] is an engine from the `wamr` runtime.
     pub fn is_wamr(&self) -> bool {
-        matches!(self.0, RuntimeEngine::Wamr(_))
+        matches!(self.rt, RuntimeEngine::Wamr(_))
     }
 }
 
 impl From<Engine> for crate::Engine {
     fn from(value: Engine) -> Self {
-        Self(RuntimeEngine::Wamr(value))
+        crate::Engine {
+            rt: RuntimeEngine::Wamr(value),
+            id: atomic_next_engine_id(),
+        }
     }
 }

@@ -1,7 +1,7 @@
 #[test]
 #[cfg(all(feature = "sys", any(feature = "wamr", feature = "v8")))]
 fn can_create_multiple_engines() {
-    use wasmer::{sys::Cranelift, v8::engine::V8, wamr::engine::Wamr, *};
+    use wasmer::{sys::Cranelift, v8::V8, wamr::Wamr, *};
     let _: Engine = Cranelift::new().into();
 
     #[cfg(feature = "v8")]
@@ -19,7 +19,7 @@ fn can_create_multiple_engines() {
 #[cfg(feature = "v8")]
 fn multiple_engines_can_run_together() {
     use std::u8;
-    use wasmer::{sys::Cranelift, v8::engine::V8, wamr::engine::Wamr, *};
+    use wasmer::{sys::Cranelift, v8::V8, wamr::Wamr, *};
 
     let clift: Engine = Cranelift::new().into();
     let mut clift_store = Store::new(clift);
@@ -36,5 +36,39 @@ fn multiple_engines_can_run_together() {
         });
         c_hello.call(&mut clift_store, &[]).unwrap();
         v8_hello.call(&mut v8_store, &[]).unwrap();
+    }
+}
+
+#[test]
+#[cfg(all(feature = "sys", feature = "wamr", feature = "v8"))]
+fn engine_unique_id() {
+    use std::collections::HashSet;
+
+    use wasmer::{sys::Cranelift, v8::V8, wamr::Wamr, *};
+
+    let mut table = HashSet::new();
+
+    for i in 0..100_000 {
+        let e: Engine = Cranelift::new().into();
+
+        let id = e.id();
+
+        assert!(!table.contains(&id));
+        table.insert(e.id());
+        assert!(table.contains(&id));
+
+        let e: Engine = V8::new().into();
+        let id = e.id();
+
+        assert!(!table.contains(&id));
+        table.insert(e.id());
+        assert!(table.contains(&id));
+
+        let e: Engine = Wamr::new().into();
+        let id = e.id();
+
+        assert!(!table.contains(&id));
+        table.insert(e.id());
+        assert!(table.contains(&id));
     }
 }

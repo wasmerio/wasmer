@@ -37,7 +37,7 @@ impl Store {
     pub fn new(engine: impl Into<Engine>) -> Self {
         let engine: Engine = engine.into();
 
-        let store = match engine.0 {
+        let store = match engine.rt {
             #[cfg(feature = "sys")]
             RuntimeEngine::Sys(_) => {
                 RuntimeStore::Sys(crate::rt::sys::entities::store::Store::new(engine))

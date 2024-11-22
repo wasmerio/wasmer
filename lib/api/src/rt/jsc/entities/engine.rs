@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rusty_jsc::{JSContext, JSObject};
 
-use crate::{AsEngineRef, AsStoreRef};
+use crate::{atomic_next_engine_id, AsEngineRef, AsStoreRef};
 
 #[derive(Debug)]
 pub(crate) struct JSCEngine {
@@ -219,7 +219,7 @@ pub(crate) fn default_engine() -> Engine {
 impl crate::Engine {
     /// Consume [`self`] into a [`crate::rt::jsc::engine::Engine`].
     pub fn into_jsc(self) -> crate::rt::jsc::engine::Engine {
-        match self.0 {
+        match self.rt {
             crate::RuntimeEngine::Jsc(s) => s,
             _ => panic!("Not a `jsc` engine!"),
         }
@@ -227,7 +227,7 @@ impl crate::Engine {
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::jsc::engine::Engine`].
     pub fn as_jsc(&self) -> &crate::rt::jsc::engine::Engine {
-        match self.0 {
+        match self.rt {
             crate::RuntimeEngine::Jsc(ref s) => s,
             _ => panic!("Not a `jsc` engine!"),
         }
@@ -235,7 +235,7 @@ impl crate::Engine {
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::jsc::engine::Engine`].
     pub fn as_jsc_mut(&mut self) -> &mut crate::rt::jsc::engine::Engine {
-        match self.0 {
+        match self.rt {
             crate::RuntimeEngine::Jsc(ref mut s) => s,
             _ => panic!("Not a `jsc` engine!"),
         }
@@ -244,6 +244,9 @@ impl crate::Engine {
 
 impl Into<crate::Engine> for Engine {
     fn into(self) -> crate::Engine {
-        crate::Engine(crate::RuntimeEngine::Jsc(self))
+        crate::Engine {
+            rt: crate::RuntimeEngine::Jsc(self),
+            id: atomic_next_engine_id(),
+        }
     }
 }

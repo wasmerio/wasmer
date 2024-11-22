@@ -76,7 +76,7 @@ impl RuntimeModule {
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        match engine.as_engine_ref().inner.0 {
+        match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::from_binary(engine, binary)?,
@@ -116,7 +116,7 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        match engine.as_engine_ref().inner.0 {
+        match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::from_binary_unchecked(engine, binary)?,
@@ -149,7 +149,7 @@ impl RuntimeModule {
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        match engine.as_engine_ref().inner.0 {
+        match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
             crate::RuntimeEngine::Sys(_) => {
                 crate::rt::sys::entities::module::Module::validate(engine, binary)?
@@ -254,7 +254,7 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.0 {
+        match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::deserialize_unchecked(engine, bytes)?,
@@ -307,7 +307,7 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.0 {
+        match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::deserialize(engine, bytes)?,
@@ -352,7 +352,7 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.0 {
+        match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::deserialize_from_file(engine, path)?,
@@ -399,7 +399,7 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.0 {
+        match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
             crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
                 crate::rt::sys::entities::module::Module::deserialize_from_file_unchecked(

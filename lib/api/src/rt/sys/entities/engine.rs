@@ -10,7 +10,7 @@ pub use wasmer_compiler::{
 use wasmer_types::Features;
 use wasmer_types::{DeserializeError, HashAlgorithm};
 
-use crate::{RuntimeEngine, RuntimeModule};
+use crate::{atomic_next_engine_id, RuntimeEngine, RuntimeModule};
 
 /// Get the default config for the sys Engine
 #[allow(unreachable_code)]
@@ -112,33 +112,35 @@ pub trait NativeEngineExt {
 impl NativeEngineExt for crate::engine::Engine {
     #[cfg(feature = "compiler")]
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
-        Self(RuntimeEngine::Sys(Engine::new(
-            compiler_config,
-            target,
-            features,
-        )))
+        crate::engine::Engine {
+            rt: RuntimeEngine::Sys(Engine::new(compiler_config, target, features)),
+            id: atomic_next_engine_id(),
+        }
     }
 
     fn headless() -> Self {
-        Self(RuntimeEngine::Sys(Engine::headless()))
+        crate::engine::Engine {
+            rt: RuntimeEngine::Sys(Engine::headless()),
+            id: atomic_next_engine_id(),
+        }
     }
 
     fn target(&self) -> &Target {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Sys(ref s) => s.target(),
             _ => panic!("Not a `sys` engine!"),
         }
     }
 
     fn set_tunables(&mut self, tunables: impl Tunables + Send + Sync + 'static) {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Sys(ref mut s) => s.set_tunables(tunables),
             _ => panic!("Not a `sys` engine!"),
         }
     }
 
     fn tunables(&self) -> &dyn Tunables {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Sys(ref s) => s.tunables(),
             _ => panic!("Not a `sys` engine!"),
         }
@@ -175,7 +177,7 @@ impl NativeEngineExt for crate::engine::Engine {
     }
 
     fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Sys(ref mut s) => s.set_hash_algorithm(hash_algorithm),
             _ => panic!("Not a `sys` engine!"),
         }
@@ -185,7 +187,7 @@ impl NativeEngineExt for crate::engine::Engine {
 impl crate::Engine {
     /// Consume [`self`] into a [`crate::rt::sys::engine::Engine`].
     pub fn into_sys(self) -> crate::rt::sys::engine::Engine {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Sys(s) => s,
             _ => panic!("Not a `sys` engine!"),
         }
@@ -193,7 +195,7 @@ impl crate::Engine {
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::sys::engine::Engine`].
     pub fn as_sys(&self) -> &crate::rt::sys::engine::Engine {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Sys(ref s) => s,
             _ => panic!("Not a `sys` engine!"),
         }
@@ -201,7 +203,7 @@ impl crate::Engine {
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::sys::engine::Engine`].
     pub fn as_sys_mut(&mut self) -> &mut crate::rt::sys::engine::Engine {
-        match self.0 {
+        match self.rt {
             RuntimeEngine::Sys(ref mut s) => s,
             _ => panic!("Not a `sys` engine!"),
         }
@@ -209,45 +211,63 @@ impl crate::Engine {
 
     /// Return true if [`self`] is an engine from the `sys` runtime.
     pub fn is_sys(&self) -> bool {
-        matches!(self.0, RuntimeEngine::Sys(_))
+        matches!(self.rt, RuntimeEngine::Sys(_))
     }
 }
 
 impl From<Engine> for crate::Engine {
     fn from(value: Engine) -> Self {
-        Self(RuntimeEngine::Sys(value))
+        crate::Engine {
+            rt: RuntimeEngine::Sys(value),
+            id: atomic_next_engine_id(),
+        }
     }
 }
 
 impl From<&Engine> for crate::Engine {
     fn from(value: &Engine) -> Self {
-        Self(RuntimeEngine::Sys(value.cloned()))
+        crate::Engine {
+            rt: RuntimeEngine::Sys(value.cloned()),
+            id: atomic_next_engine_id(),
+        }
     }
 }
 
 impl From<EngineBuilder> for crate::Engine {
     fn from(value: EngineBuilder) -> Self {
-        Self(RuntimeEngine::Sys(value.engine()))
+        crate::Engine {
+            rt: RuntimeEngine::Sys(value.engine()),
+            id: atomic_next_engine_id(),
+        }
     }
 }
 
 #[cfg(feature = "cranelift")]
 impl From<wasmer_compiler_cranelift::Cranelift> for crate::Engine {
     fn from(value: wasmer_compiler_cranelift::Cranelift) -> Self {
-        Self(RuntimeEngine::Sys(value.into()))
+        crate::Engine {
+            rt: RuntimeEngine::Sys(value.into()),
+            id: atomic_next_engine_id(),
+        }
     }
 }
 
 #[cfg(feature = "singlepass")]
 impl From<wasmer_compiler_singlepass::Singlepass> for crate::Engine {
     fn from(value: wasmer_compiler_singlepass::Singlepass) -> Self {
-        Self(RuntimeEngine::Sys(value.into()))
+        crate::Engine {
+            rt: RuntimeEngine::Sys(value.into()),
+            id: atomic_next_engine_id(),
+        }
     }
 }
 
 #[cfg(feature = "llvm")]
 impl From<wasmer_compiler_llvm::LLVM> for crate::Engine {
     fn from(value: wasmer_compiler_llvm::LLVM) -> Self {
-        Self(RuntimeEngine::Sys(value.into()))
+        crate::Engine {
+            rt: RuntimeEngine::Sys(value.into()),
+            id: atomic_next_engine_id(),
+        }
     }
 }
