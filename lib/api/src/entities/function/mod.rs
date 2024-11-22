@@ -208,7 +208,7 @@ impl Function {
     /// assert_eq!(f.result_arity(&mut store), 1);
     /// ```
     pub fn result_arity(&self, store: &impl AsStoreRef) -> usize {
-        self.ty(store).params().len()
+        self.ty(store).results().len()
     }
 
     /// Call the `Function` function.
