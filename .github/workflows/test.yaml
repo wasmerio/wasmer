@@ -295,6 +295,7 @@ jobs:
         run: |
           brew install ninja llvm@18
           echo "/opt/homebrew/opt/llvm@18/bin" >> GITHUB_PATH
+          ls -laR /opt/homebrew/opt/llvm@18/bin/
 
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')
