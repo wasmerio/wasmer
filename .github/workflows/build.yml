@@ -190,20 +190,20 @@ jobs:
             use_sccache: false
             use_llvm: false
             build_wasm: true
-          - build: linux-musl-x64-v8
-            os: ubuntu-latest
-            artifact_name: 'wasmer-v8-linux-musl-amd64'
-            container: alpine:latest
-            use_sccache: false
-            use_llvm: false
-            build_wasm: true
-          - build: linux-musl-x64-wasmi
-            os: ubuntu-latest
-            artifact_name: 'wasmer-wasmi-linux-musl-amd64'
-            container: alpine:latest
-            use_sccache: false
-            use_llvm: false
-            build_wasm: true
+          # - build: linux-musl-x64-v8
+          #   os: ubuntu-latest
+          #   artifact_name: 'wasmer-v8-linux-musl-amd64'
+          #   container: alpine:latest
+          #   use_sccache: false
+          #   use_llvm: false
+          #   build_wasm: true
+          # - build: linux-musl-x64-wasmi
+          #   os: ubuntu-latest
+          #   artifact_name: 'wasmer-wasmi-linux-musl-amd64'
+          #   container: alpine:latest
+          #   use_sccache: false
+          #   use_llvm: false
+          #   build_wasm: true
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -407,7 +407,7 @@ jobs:
         if: matrix.use_llvm != true && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
         shell: bash
         run: |
-          make build-wasmer
+          ENABLE_LLVM=0 make build-wasmer
      #- name: Build Wasmer binary on Wasm32-WASI without LLVM
      #  if: matrix.build_wasm
      #  shell: bash
