@@ -48,7 +48,7 @@ fn engine_unique_id() {
 
     let mut table = HashSet::new();
 
-    for i in 0..100_000 {
+    for _ in 0..100_000 {
         let e: Engine = Cranelift::new().into();
 
         let id = e.id();

@@ -35,9 +35,7 @@ impl Default for CApiEngine {
 }
 
 impl Drop for CApiEngine {
-    fn drop(&mut self) {
-        unsafe { wasm_engine_delete(self.engine) }
-    }
+    fn drop(&mut self) {}
 }
 
 /// The V8 engine.
