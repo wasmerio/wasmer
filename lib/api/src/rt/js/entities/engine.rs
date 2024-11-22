@@ -25,7 +25,7 @@ pub(crate) fn default_engine() -> Engine {
 impl crate::Engine {
     /// Consume [`self`] into a [`crate::rt::js::engine::Engine`].
     pub fn into_js(self) -> crate::rt::js::engine::Engine {
-        match self.0 {
+        match self.rt {
             crate::RuntimeEngine::Js(s) => s,
             _ => panic!("Not a `js` engine!"),
         }
@@ -33,7 +33,7 @@ impl crate::Engine {
 
     /// Convert a reference to [`self`] into a reference [`crate::rt::js::engine::Engine`].
     pub fn as_js(&self) -> &crate::rt::js::engine::Engine {
-        match self.0 {
+        match self.rt {
             crate::RuntimeEngine::Js(ref s) => s,
             _ => panic!("Not a `js` engine!"),
         }
@@ -41,7 +41,7 @@ impl crate::Engine {
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::js::engine::Engine`].
     pub fn as_js_mut(&mut self) -> &mut crate::rt::js::engine::Engine {
-        match self.0 {
+        match self.rt {
             crate::RuntimeEngine::Js(ref mut s) => s,
             _ => panic!("Not a `js` engine!"),
         }
