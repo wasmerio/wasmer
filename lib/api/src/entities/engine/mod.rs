@@ -21,6 +21,10 @@ pub use engine_ref::*;
 
 static ENGINE_ID_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+/// An engine identifier.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub struct EngineId(u64);
+
 pub(crate) fn atomic_next_engine_id() -> u64 {
     ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
 }
@@ -50,8 +54,8 @@ impl Engine {
     }
 
     /// Returns the unique id of this engine.
-    pub fn id(&self) -> u64 {
-        self.id
+    pub fn id(&self) -> EngineId {
+        EngineId(self.id)
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
