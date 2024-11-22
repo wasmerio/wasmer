@@ -185,7 +185,16 @@ fn build_wamr() {
     unsafe {
         let syms: Vec<String> = WAMR_RENAMED
             .iter()
-            .map(|(old, new)| format!("--redefine-sym=_{old}={new}"))
+            .map(|(old, new)|
+                // A bit hacky: we need a way to figure out if we're going to target a Mach-O
+                // library or an ELF one to take care of the "_" in front of symbols.
+            {
+                if cfg!(any(target_os = "macos", target_os = "ios")) {
+                    format!("--redefine-sym=_{old}={new}")
+                } else {
+                    format!("--redefine-sym={old}={new}")
+                }
+            })
             .collect();
         let output = std::process::Command::new(objcopy)
             .args(syms)
@@ -339,14 +348,23 @@ fn build_v8() {
     unsafe {
         let syms: Vec<String> = WEE8_RENAMED
             .iter()
-            .map(|(old, new)| format!("--redefine-sym=_{old}={new}"))
+            .map(|(old, new)|
+                // A bit hacky: we need a way to figure out if we're going to target a Mach-O
+                // library or an ELF one to take care of the "_" in front of symbols.
+            {
+                if cfg!(any(target_os = "macos", target_os = "ios")) {
+                    format!("--redefine-sym=_{old}={new}")
+                } else {
+                    format!("--redefine-sym={old}={new}")
+                }
+            })
             .collect();
-        let output = std::process::Command::new(objcopy)
+        let output = dbg!(std::process::Command::new(objcopy)
             .args(syms)
             .arg(out_path.join("libwee8.a").display().to_string())
-            .arg(out_path.join("libwee8prefixed.a").display().to_string())
-            .output()
-            .unwrap();
+            .arg(out_path.join("libwee8prefixed.a").display().to_string()))
+        .output()
+        .unwrap();
 
         if !output.status.success() {
             panic!(
