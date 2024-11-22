@@ -1,5 +1,5 @@
 #[test]
-#[cfg(all(feature = "sys", any(feature = "wamr", feature = "v8")))]
+#[cfg(all(feature = "sys", feature = "wamr", feature = "v8"))]
 fn can_create_multiple_engines() {
     use wasmer::{sys::Cranelift, v8::V8, wamr::Wamr, *};
     let _: Engine = Cranelift::new().into();
