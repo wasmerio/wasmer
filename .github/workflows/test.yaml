@@ -255,14 +255,14 @@ jobs:
 
         ]
         metadata: [
-          #{
-          #  build: linux-x64,
-          #  os: ubuntu-22.04,
-          #},
           {
-            build: macos-arm,
-            os: macos-14,
+            build: linux-x64,
+            os: ubuntu-22.04,
           },
+          #{
+          #  build: macos-arm,
+          #  os: macos-14,
+          #},
           #{
           #  build: windows-x64,
           #  os: windows-2022,
