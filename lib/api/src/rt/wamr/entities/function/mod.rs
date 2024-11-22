@@ -309,7 +309,7 @@ impl Function {
 
         let params: Vec<wasmer_types::Type> = unsafe {
             let mut res = vec![];
-            for i in 0..(*params).size {
+            for i in 0..(*params).num_elems {
                 res.push((*(*params).data.wrapping_add(i)).into_wt());
             }
             res
@@ -317,7 +317,7 @@ impl Function {
 
         let returns: Vec<wasmer_types::Type> = unsafe {
             let mut res = vec![];
-            for i in 0..(*returns).size {
+            for i in 0..(*returns).num_elems {
                 res.push((*(*returns).data.wrapping_add(i)).into_wt());
             }
             res
