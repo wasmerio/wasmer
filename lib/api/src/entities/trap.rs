@@ -78,7 +78,7 @@ impl RuntimeTrap {
 impl std::fmt::Display for RuntimeTrap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match_rt!(on self => s {
-            (s as &dyn std::fmt::Debug).fmt(f)
+            (s as &dyn std::fmt::Display).fmt(f)
         })
     }
 }
