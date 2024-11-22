@@ -295,6 +295,7 @@ jobs:
         run: |
           brew install ninja llvm
 
+
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')
         shell: bash
@@ -827,6 +828,7 @@ jobs:
         if: matrix.metadata.os == 'macos-12' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
+          echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
