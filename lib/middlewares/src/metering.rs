@@ -60,7 +60,7 @@ impl fmt::Debug for MeteringGlobalIndexes {
 ///
 /// ```rust
 /// use std::sync::Arc;
-/// use wasmer::{wasmparser::Operator, CompilerConfig};
+/// use wasmer::{wasmparser::Operator, sys::CompilerConfig};
 /// use wasmer_middlewares::Metering;
 ///
 /// fn create_metering_middleware(compiler_config: &mut dyn CompilerConfig) {
