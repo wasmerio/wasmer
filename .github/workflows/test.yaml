@@ -294,7 +294,7 @@ jobs:
         shell: bash
         run: |
           brew install ninja llvm@18
-          echo "/opt/homebrew/opt/llvm@18/bin" >> GITHUB_PATH
+          echo "/opt/homebrew/opt/llvm@18/bin" >> $GITHUB_PATH
           ls -laR /opt/homebrew/opt/llvm@18/bin/
 
       - name: Install `ninja` on Windows
@@ -310,7 +310,7 @@ jobs:
 
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
-        run:  echo "/opt/homebrew/opt/llvm@18/bin" >> GITHUB_PATH && echo $GITHUB_PATH && ${{ matrix.build-what.build-cmd }}
+        run: echo $GITHUB_PATH && ${{ matrix.build-what.build-cmd }}
 
       - name: Test wasmi API 
         if: ${{ matrix.build-what.key == 'wasmi' }}
