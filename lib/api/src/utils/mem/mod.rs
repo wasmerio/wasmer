@@ -15,7 +15,7 @@ use access::{WasmRefAccess, WasmSliceAccess};
 use thiserror::Error;
 pub use wasmer_types::{Memory32, Memory64, MemorySize, ValueType};
 
-/// Error for invalid [`Memory`][super::Memory] access.
+/// Error for invalid [`Memory`][crate::Memory] access.
 #[derive(Clone, Copy, Debug, Error)]
 #[non_exhaustive]
 pub enum MemoryAccessError {

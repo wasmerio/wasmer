@@ -76,7 +76,7 @@ impl<T> FunctionEnv<T> {
 }
 
 impl<T> crate::FunctionEnv<T> {
-    /// Consume [`self`] into [`crate::rt::sys::function::env::FunctionEnv`].
+    /// Consume self into [`crate::rt::sys::function::FunctionEnv`].
     pub fn into_sys(self) -> FunctionEnv<T> {
         match self.0 {
             crate::RuntimeFunctionEnv::Sys(s) => s,
@@ -84,7 +84,7 @@ impl<T> crate::FunctionEnv<T> {
         }
     }
 
-    /// Convert a reference to [`self`] into a reference to [`crate::rt::sys::function::env::FunctionEnv`].
+    /// Convert a reference to self into a reference to [`crate::rt::sys::function::FunctionEnv`].
     pub fn as_sys(&self) -> &FunctionEnv<T> {
         match self.0 {
             crate::RuntimeFunctionEnv::Sys(ref s) => s,
@@ -92,7 +92,7 @@ impl<T> crate::FunctionEnv<T> {
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::sys::function::env::FunctionEnv`].
+    /// Convert a mutable reference to self into a mutable reference [`crate::rt::sys::function::FunctionEnv`].
     pub fn as_sys_mut(&mut self) -> &mut FunctionEnv<T> {
         match self.0 {
             crate::RuntimeFunctionEnv::Sys(ref mut s) => s,

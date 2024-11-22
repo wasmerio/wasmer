@@ -384,5 +384,6 @@ fn main() {
     build_wamr();
 
     #[cfg(feature = "v8")]
-    build_v8()
+    build_v8();
+
 }

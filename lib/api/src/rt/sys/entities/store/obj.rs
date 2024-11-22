@@ -3,7 +3,7 @@ use wasmer_vm::StoreId;
 use crate::AsStoreMut;
 
 impl crate::StoreObjects {
-    /// Consume [`self`] into [`crate::rt::sys::store::StoreObjects`].
+    /// Consume store objects into [`crate::rt::sys::store::StoreObjects`].
     pub fn into_sys(self) -> crate::rt::sys::store::StoreObjects {
         match self {
             Self::Sys(s) => s,
@@ -11,7 +11,7 @@ impl crate::StoreObjects {
         }
     }
 
-    /// Convert a reference to [`self`] into a reference [`crate::rt::sys::store::StoreObjects`].
+    /// Convert a reference to store objects into a reference [`crate::rt::sys::store::StoreObjects`].
     pub fn as_sys(&self) -> &crate::rt::sys::store::StoreObjects {
         match self {
             Self::Sys(s) => s,
@@ -19,7 +19,7 @@ impl crate::StoreObjects {
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::sys::store::StoreObjects`].
+    /// Convert a mutable reference to store objects into a mutable reference [`crate::rt::sys::store::StoreObjects`].
     pub fn as_sys_mut(&mut self) -> &mut crate::rt::sys::store::StoreObjects {
         match self {
             Self::Sys(s) => s,

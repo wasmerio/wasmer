@@ -408,6 +408,9 @@
 //! [`wasmer-wasix`]: https://docs.rs/wasmer-wasix/
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
+//! [`v8`]: https://v8.dev/
+//! [`wamr`]: https://github.com/bytecodealliance/wasm-micro-runtime
+//! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
 #[cfg(not(any(
     feature = "sys",

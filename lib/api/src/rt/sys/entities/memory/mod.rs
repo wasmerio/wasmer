@@ -328,7 +328,7 @@ unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: u
 }
 
 impl crate::Memory {
-    /// Consume [`self`] into a [`crate::rt::sys::mem::Memory`].
+    /// Consume [`self`] into a [`crate::rt::sys::memory::Memory`].
     pub fn into_sys(self) -> crate::rt::sys::memory::Memory {
         match self.0 {
             RuntimeMemory::Sys(s) => s,
@@ -336,7 +336,7 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a reference to [`self`] into a reference to [`crate::rt::sys::mem::Memory`].
+    /// Convert a reference to [`self`] into a reference to [`crate::rt::sys::memory::Memory`].
     pub fn as_sys(&self) -> &crate::rt::sys::memory::Memory {
         match self.0 {
             RuntimeMemory::Sys(ref s) => s,
@@ -344,7 +344,7 @@ impl crate::Memory {
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::sys::mem::Memory`].
+    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::sys::memory::Memory`].
     pub fn as_sys_mut(&mut self) -> &mut crate::rt::sys::memory::Memory {
         match self.0 {
             RuntimeMemory::Sys(ref mut s) => s,

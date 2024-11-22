@@ -8,7 +8,7 @@ use wasmer_types::{ExternType, OnCalledAction};
 #[cfg(feature = "sys")]
 use wasmer_vm::TrapHandlerFn;
 
-/// A temporary handle to a [`Store`].
+/// A temporary handle to a [`crate::Store`].
 #[derive(Debug)]
 pub struct StoreRef<'a> {
     pub(crate) inner: &'a StoreInner,
@@ -39,7 +39,7 @@ impl<'a> StoreRef<'a> {
     }
 }
 
-/// A temporary handle to a [`Store`].
+/// A temporary handle to a [`crate::Store`].
 pub struct StoreMut<'a> {
     pub(crate) inner: &'a mut StoreInner,
 }
