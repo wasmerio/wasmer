@@ -406,7 +406,7 @@ jobs:
         if: matrix.use_llvm != true && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
         shell: bash
         run: |
-          make build-wasmer
+          ENABLE_LLVM=0 make build-wasmer
      #- name: Build Wasmer binary on Wasm32-WASI without LLVM
      #  if: matrix.build_wasm
      #  shell: bash
