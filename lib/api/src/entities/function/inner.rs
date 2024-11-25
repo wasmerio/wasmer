@@ -106,6 +106,10 @@ impl RuntimeFunction {
             crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::entities::function::Function::new_with_env(store, env, ty, func),
             ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::entities::function::Function::new_with_env(store, env, ty, func),
+            ),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Self::V8(
                 crate::rt::v8::entities::function::Function::new_with_env(store, env, ty, func),
@@ -136,6 +140,11 @@ impl RuntimeFunction {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::entities::function::Function::new_typed(store, func),
+            ),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::entities::function::Function::new_typed(store, func),
             ),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Self::V8(
@@ -189,6 +198,13 @@ impl RuntimeFunction {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(s) => Self::Wamr(
                 crate::rt::wamr::entities::function::Function::new_typed_with_env(store, env, func),
+            ),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
+                crate::rt::wasmi::entities::function::Function::new_typed_with_env(
+                    store, env, func,
+                ),
             ),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(s) => Self::V8(
@@ -309,7 +325,6 @@ impl RuntimeFunction {
     ) -> Result<Box<[Value]>, RuntimeError> {
         match_rt!(on self => f {
             f.call(store, params)
-
         })
     }
 
@@ -331,6 +346,8 @@ impl RuntimeFunction {
             Self::Sys(f) => VMFuncRef::Sys(f.vm_funcref(store)),
             #[cfg(feature = "wamr")]
             Self::Wamr(f) => VMFuncRef::Wamr(f.vm_funcref(store)),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(f) => VMFuncRef::Wasmi(f.vm_funcref(store)),
             #[cfg(feature = "v8")]
             Self::V8(f) => VMFuncRef::V8(f.vm_funcref(store)),
             #[cfg(feature = "js")]
@@ -354,6 +371,13 @@ impl RuntimeFunction {
                 crate::rt::wamr::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_wamr(),
+                ),
+            ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
+                crate::rt::wasmi::entities::function::Function::from_vm_funcref(
+                    store,
+                    funcref.into_wasmi(),
                 ),
             ),
             #[cfg(feature = "v8")]
@@ -511,6 +535,10 @@ impl RuntimeFunction {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::entities::function::Function::from_vm_extern(store, vm_extern),
+            ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Self::V8(

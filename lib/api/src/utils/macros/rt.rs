@@ -18,10 +18,13 @@ macro_rules! gen_rt_ty {
                 /// The implementation from the `wamr` runtime.
                 Wamr(crate::rt::wamr::entities::[<$id:lower>]::$id),
 
+                #[cfg(feature = "wasmi")]
+                /// The implementation from the `wasmi` runtime.
+                Wasmi(crate::rt::wasmi::entities::[<$id:lower>]::$id),
+
                 #[cfg(feature = "js")]
                 /// The implementation from the `js` runtime.
                 Js(crate::rt::js::entities::[<$id:lower>]::$id),
-
 
                 #[cfg(feature = "jsc")]
                 /// The implementation from the `jsc` runtime.
@@ -46,6 +49,10 @@ macro_rules! gen_rt_ty {
                 #[cfg(feature = "wamr")]
                 /// The implementation from the `wamr` runtime.
                 Wamr(crate::rt::wamr::entities::[<$id:lower>]::$id$(<$lt>)?),
+
+                #[cfg(feature = "wasmi")]
+                /// The implementation from the `wasmi` runtime.
+                Wasmi(crate::rt::wasmi::entities::[<$id:lower>]::$id$(<$lt>)?),
 
                 #[cfg(feature = "js")]
                 /// The implementation from the `js` runtime.
@@ -76,6 +83,10 @@ macro_rules! gen_rt_ty {
                 /// The implementation from the `wamr` runtime.
                 Wamr(crate::rt::wamr::entities::$path::$id$(<$lt>)?),
 
+                #[cfg(feature = "wasmi")]
+                /// The implementation from the `wasmi` runtime.
+                Wasmi(crate::rt::wasmi::entities::$path::$id$(<$lt>)?),
+
                 #[cfg(feature = "js")]
                 /// The implementation from the `js` runtime.
                 Js(crate::rt::js::entities::$path::$id$(<$lt>)?),
@@ -105,6 +116,10 @@ macro_rules! gen_rt_ty {
                 /// The implementation from the `wamr` runtime.
                 Wamr(crate::rt::wamr::entities::$path::$id),
 
+                #[cfg(feature = "wasmi")]
+                /// The implementation from the `wasmi` runtime.
+                Wasmi(crate::rt::wasmi::entities::$path::$id),
+
                 #[cfg(feature = "js")]
                 /// The implementation from the `js` runtime.
                 Js(crate::rt::js::entities::$path::$id),
@@ -127,6 +142,8 @@ macro_rules! match_rt {
             Self::Sys($var) => $stmt,
             #[cfg(feature = "wamr")]
             Self::Wamr($var) => $stmt,
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi($var) => $stmt,
             #[cfg(feature = "v8")]
             Self::V8($var) => $stmt,
             #[cfg(feature = "js")]
@@ -142,6 +159,8 @@ macro_rules! match_rt {
             Self::Sys($var) => $stmt,
             #[cfg(feature = "wamr")]
             Self::Wamr($var) => $stmt,
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi($var) => $stmt,
             #[cfg(feature = "v8")]
             Self::V8($var) => $stmt,
             #[cfg(feature = "js")]

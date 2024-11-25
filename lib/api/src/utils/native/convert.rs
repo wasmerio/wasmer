@@ -206,6 +206,11 @@ impl NativeWasmTypeInto for Option<ExternRef> {
                 crate::rt::wamr::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Wamr)
             }
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => {
+                crate::rt::wasmi::vm::VMExternRef::from_raw(RawValue { externref: abi })
+                    .map(VMExternRef::Wasmi)
+            }
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => {
                 crate::rt::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
@@ -245,6 +250,10 @@ impl NativeWasmTypeInto for Option<ExternRef> {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => {
                 crate::rt::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
+            }
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => {
+                crate::rt::wasmi::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wasmi)
             }
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => {
@@ -291,6 +300,11 @@ impl NativeWasmTypeInto for Option<Function> {
                 crate::rt::wamr::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Wamr)
             }
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => {
+                crate::rt::wasmi::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+                    .map(VMFuncRef::Wasmi)
+            }
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => {
                 crate::rt::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::V8)
@@ -328,6 +342,10 @@ impl NativeWasmTypeInto for Option<Function> {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => {
                 crate::rt::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
+            }
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => {
+                crate::rt::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
             }
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => {

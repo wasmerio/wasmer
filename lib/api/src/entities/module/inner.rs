@@ -87,6 +87,11 @@ impl RuntimeModule {
                 crate::rt::wamr::entities::module::Module::from_binary(engine, binary)?,
             )),
 
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::module::Module::from_binary(engine, binary)?,
+            )),
+
             #[cfg(feature = "v8")]
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::from_binary(engine, binary)?,
@@ -127,6 +132,11 @@ impl RuntimeModule {
                 crate::rt::wamr::entities::module::Module::from_binary_unchecked(engine, binary)?,
             )),
 
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            )),
+
             #[cfg(feature = "v8")]
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::from_binary_unchecked(engine, binary)?,
@@ -157,6 +167,11 @@ impl RuntimeModule {
             #[cfg(feature = "wamr")]
             crate::RuntimeEngine::Wamr(_) => {
                 crate::rt::wamr::entities::module::Module::validate(engine, binary)?
+            }
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeEngine::Wasmi(_) => {
+                crate::rt::wasmi::entities::module::Module::validate(engine, binary)?
             }
             #[cfg(feature = "v8")]
             crate::RuntimeEngine::V8(_) => {
@@ -263,6 +278,11 @@ impl RuntimeModule {
             crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::module::Module::deserialize_unchecked(engine, bytes)?,
             )),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            )),
             #[cfg(feature = "v8")]
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::deserialize_unchecked(engine, bytes)?,
@@ -316,6 +336,11 @@ impl RuntimeModule {
             crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::module::Module::deserialize(engine, bytes)?,
             )),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::module::Module::deserialize(engine, bytes)?,
+            )),
             #[cfg(feature = "v8")]
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
                 crate::rt::v8::entities::module::Module::deserialize(engine, bytes)?,
@@ -360,6 +385,11 @@ impl RuntimeModule {
             #[cfg(feature = "wamr")]
             crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::module::Module::deserialize_from_file(engine, path)?,
+            )),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
             #[cfg(feature = "v8")]
             crate::RuntimeEngine::V8(_) => Ok(Self::V8(
@@ -409,6 +439,13 @@ impl RuntimeModule {
             #[cfg(feature = "wamr")]
             crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::module::Module::deserialize_from_file_unchecked(
+                    engine, path,
+                )?,
+            )),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::module::Module::deserialize_from_file_unchecked(
                     engine, path,
                 )?,
             )),

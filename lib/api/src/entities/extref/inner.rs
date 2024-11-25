@@ -22,6 +22,10 @@ impl RuntimeExternRef {
             crate::RuntimeStore::Wamr(s) => Self::Wamr(
                 crate::rt::wamr::entities::external::ExternRef::new(store, value),
             ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
+                crate::rt::wasmi::entities::external::ExternRef::new(store, value),
+            ),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(s) => Self::V8(
                 crate::rt::v8::entities::external::ExternRef::new(store, value),
@@ -54,6 +58,8 @@ impl RuntimeExternRef {
             Self::Sys(r) => VMExternRef::Sys(r.vm_externref()),
             #[cfg(feature = "wamr")]
             Self::Wamr(r) => VMExternRef::Wamr(r.vm_externref()),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(r) => VMExternRef::Wasmi(r.vm_externref()),
             #[cfg(feature = "v8")]
             Self::V8(r) => VMExternRef::V8(r.vm_externref()),
             #[cfg(feature = "js")]
@@ -81,6 +87,13 @@ impl RuntimeExternRef {
                 crate::rt::wamr::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.into_wamr(),
+                ),
+            ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::entities::external::ExternRef::from_vm_externref(
+                    store,
+                    vm_externref.into_wasmi(),
                 ),
             ),
             #[cfg(feature = "v8")]

@@ -4976,16 +4976,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "string-interner"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c6a0d765f5807e98a091107bae0a56ea3799f66a5de47b2c84c94a39c09974e"
-dependencies = [
- "cfg-if",
- "hashbrown 0.14.5",
-]
-
-[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7303,9 +7293,8 @@ dependencies = [
 
 [[package]]
 name = "wasmi"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07e84e3bcdab2f4301827623260ada2557596ca462f7470b60f5182a25270b1"
+version = "0.39.1"
+source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
 dependencies = [
  "arrayvec 0.7.6",
  "multi-stash",
@@ -7319,9 +7308,8 @@ dependencies = [
 
 [[package]]
 name = "wasmi_c_api_impl"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cf549ed7d6488b41acb6950afb07bd84be1cf655ae50b4bc2f24f1b30aba554"
+version = "0.39.1"
+source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
 dependencies = [
  "wasmi",
  "wasmi_c_api_macros",
@@ -7329,9 +7317,8 @@ dependencies = [
 
 [[package]]
 name = "wasmi_c_api_macros"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f96d000c5be4f27470f7d89550aef550ffd971273469a35fa01216f165528c57"
+version = "0.39.1"
+source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7339,32 +7326,22 @@ dependencies = [
 
 [[package]]
 name = "wasmi_collections"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d0fd5f4f2c4fe0c98554bb7293108ed2b1d0c124dce0974f999de7d517d37bc"
-dependencies = [
- "ahash 0.8.11",
- "hashbrown 0.14.5",
- "string-interner",
-]
+version = "0.39.1"
+source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
 
 [[package]]
 name = "wasmi_core"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a5f7bbd933a0fb3bac6c541f8bd90c0c8adcd91bb3ac088a2088995325b3d9"
+version = "0.39.1"
+source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
 dependencies = [
  "downcast-rs",
  "libm",
- "num-traits",
- "paste",
 ]
 
 [[package]]
 name = "wasmi_ir"
-version = "0.38.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a3345445247388df2b5b35250a30c9209c27c8d2c6db1bf4c89b65636264bf9"
+version = "0.39.1"
+source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
 dependencies = [
  "wasmi_core",
 ]

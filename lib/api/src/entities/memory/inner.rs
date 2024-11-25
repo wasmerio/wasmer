@@ -36,6 +36,10 @@ impl RuntimeMemory {
             crate::RuntimeStore::Wamr(s) => Ok(Self::Wamr(
                 crate::rt::wamr::entities::memory::Memory::new(store, ty)?,
             )),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(s) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::memory::Memory::new(store, ty)?,
+            )),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(s) => Ok(Self::V8(
                 crate::rt::v8::entities::memory::Memory::new(store, ty)?,
@@ -66,6 +70,13 @@ impl RuntimeMemory {
                 crate::rt::wamr::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.into_wamr(),
+                ),
+            ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::entities::memory::Memory::new_from_existing(
+                    new_store,
+                    memory.into_wasmi(),
                 ),
             ),
             #[cfg(feature = "v8")]
@@ -204,6 +215,11 @@ impl RuntimeMemory {
             Self::Wamr(s) => s
                 .try_copy(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wamr(new_memory))),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(s) => s
+                .try_copy(store)
+                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wasmi(new_memory))),
+
             #[cfg(feature = "v8")]
             Self::V8(s) => s
                 .try_copy(store)
@@ -228,6 +244,10 @@ impl RuntimeMemory {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(s) => Self::Wamr(
                 crate::rt::wamr::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
+                crate::rt::wasmi::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(s) => Self::V8(
@@ -263,6 +283,8 @@ impl RuntimeMemory {
             Self::Sys(s) => s.try_clone(store).map(VMMemory::Sys),
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.try_clone(store).map(VMMemory::Wamr),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(s) => s.try_clone(store).map(VMMemory::Wasmi),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.try_clone(store).map(VMMemory::V8),
             #[cfg(feature = "js")]
@@ -295,6 +317,10 @@ impl RuntimeMemory {
             Self::Wamr(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wamr(new_memory))),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(s) => s
+                .try_clone(store)
+                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wasmi(new_memory))),
             #[cfg(feature = "v8")]
             Self::V8(s) => s
                 .try_clone(store)

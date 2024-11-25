@@ -45,6 +45,9 @@ impl<'a> RuntimeMemoryBuffer<'a> {
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.len,
 
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(s) => s.len,
+
             #[cfg(feature = "v8")]
             Self::V8(s) => s.len,
 
@@ -62,6 +65,8 @@ impl<'a> RuntimeMemoryBuffer<'a> {
             Self::Sys(s) => s.base,
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => s.base,
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(s) => s.base,
             #[cfg(feature = "v8")]
             Self::V8(s) => s.base,
             #[cfg(feature = "js")]

@@ -69,6 +69,11 @@ impl RuntimeGlobal {
             crate::RuntimeStore::Wamr(_) => Ok(Self::Wamr(
                 crate::rt::wamr::global::Global::from_value(store, val, mutability)?,
             )),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::global::Global::from_value(store, val, mutability)?,
+            )),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Ok(Self::V8(crate::rt::v8::global::Global::from_value(
                 store, val, mutability,
@@ -178,6 +183,10 @@ impl RuntimeGlobal {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::global::Global::from_vm_extern(store, vm_extern),
+            ),
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::global::Global::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => Self::V8(crate::rt::v8::global::Global::from_vm_extern(

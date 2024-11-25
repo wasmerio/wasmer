@@ -1,6 +1,6 @@
 use crate::{
-    error::InstantiationError, exports::Exports, imports::Imports, module::Module,
-    store::AsStoreMut, Extern,
+    error::InstantiationError, exports::Exports, imports::Imports, macros::rt::gen_rt_ty,
+    module::Module, store::AsStoreMut, Extern,
 };
 
 /// A WebAssembly Instance is a stateful, executable
@@ -68,6 +68,12 @@ impl Instance {
 
                 (crate::RuntimeInstance::Wamr(i), e)
             }
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => {
+                let (i, e) = crate::rt::wasmi::instance::Instance::new(store, module, imports)?;
+
+                (crate::RuntimeInstance::Wasmi(i), e)
+            }
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => {
                 let (i, e) = crate::rt::v8::instance::Instance::new(store, module, imports)?;
@@ -122,6 +128,13 @@ impl Instance {
 
                 (crate::RuntimeInstance::Wamr(i), e)
             }
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => {
+                let (i, e) =
+                    crate::rt::wasmi::instance::Instance::new_by_index(store, module, externs)?;
+
+                (crate::RuntimeInstance::Wasmi(i), e)
+            }
             #[cfg(feature = "v8")]
             crate::RuntimeStore::V8(_) => {
                 let (i, e) =
@@ -164,25 +177,4 @@ impl std::fmt::Debug for Instance {
 }
 
 /// An enumeration of all the possible instances kind supported by the runtimes.
-#[derive(Clone, PartialEq, Eq)]
-pub enum RuntimeInstance {
-    #[cfg(feature = "sys")]
-    /// The instance from the `sys` runtime.
-    Sys(crate::rt::sys::instance::Instance),
-
-    #[cfg(feature = "wamr")]
-    /// The instance from the `wamr` runtime.
-    Wamr(crate::rt::wamr::instance::Instance),
-
-    #[cfg(feature = "v8")]
-    /// The instance from the `v8` runtime.
-    V8(crate::rt::v8::instance::Instance),
-
-    #[cfg(feature = "js")]
-    /// The instance from the `js` runtime.
-    Js(crate::rt::js::instance::Instance),
-
-    #[cfg(feature = "jsc")]
-    /// The instance from the `jsc` runtime.
-    Jsc(crate::rt::jsc::instance::Instance),
-}
+gen_rt_ty!(Instance @derives Clone, PartialEq, Eq);

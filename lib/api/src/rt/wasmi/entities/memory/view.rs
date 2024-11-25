@@ -1,10 +1,12 @@
-use std::{mem::MaybeUninit, ops::Range};
+use std::{marker::PhantomData, mem::MaybeUninit, ops::Range};
+
 use wasmer_types::Pages;
 
+use super::{Memory, MemoryBuffer};
 use crate::{
-    buffer::{MemoryBuffer, RuntimeMemoryBuffer},
-    macros::rt::{gen_rt_ty, match_rt},
-    AsStoreRef, Memory, MemoryAccessError,
+    rt::wasmi::bindings::{wasm_memory_data, wasm_memory_data_size, wasm_memory_size},
+    wasmi::bindings::wasm_memory_t,
+    AsStoreRef, MemoryAccessError,
 };
 
 /// A WebAssembly `memory` view.
@@ -12,54 +14,28 @@ use crate::{
 /// A memory view is used to read and write to the linear memory.
 ///
 /// After a memory is grown a view must not be used anymore. Views are
-/// created using the Memory.view() method.
-gen_rt_ty!(MemoryView<'a> @derives Debug, derive_more::From ; @path memory::view);
+/// created using the Memory.grow() method.
+#[derive(Debug)]
+pub struct MemoryView<'a> {
+    pub(crate) buffer: MemoryBuffer<'a>,
+    pub(crate) size: u32,
+}
 
-impl<'a> RuntimeMemoryView<'a> {
+impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        match &store.as_store_ref().inner.store {
-            #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => {
-                return Self::Sys(crate::rt::sys::entities::memory::view::MemoryView::new(
-                    memory.as_sys(),
-                    store,
-                ))
-            }
-            #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => {
-                return Self::Wamr(crate::rt::wamr::entities::memory::view::MemoryView::new(
-                    memory.as_wamr(),
-                    store,
-                ))
-            }
-            #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(s) => {
-                return Self::Wasmi(crate::rt::wasmi::entities::memory::view::MemoryView::new(
-                    memory.as_wasmi(),
-                    store,
-                ))
-            }
-            #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => {
-                return Self::V8(crate::rt::v8::entities::memory::view::MemoryView::new(
-                    memory.as_v8(),
-                    store,
-                ))
-            }
-            #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(s) => {
-                return Self::Js(crate::rt::js::entities::memory::view::MemoryView::new(
-                    memory.as_js(),
-                    store,
-                ))
-            }
-            #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(s) => {
-                return Self::Jsc(crate::rt::jsc::entities::memory::view::MemoryView::new(
-                    memory.as_jsc(),
-                    store,
-                ))
-            }
+        let c_memory: *mut wasm_memory_t = memory.handle;
+
+        let len = unsafe { wasm_memory_data_size(c_memory as _).try_into().unwrap() };
+        let base: *mut u8 = unsafe { wasm_memory_data(c_memory as _) as _ };
+        let size = unsafe { wasm_memory_size(c_memory as _) };
+
+        Self {
+            buffer: MemoryBuffer {
+                base,
+                len,
+                marker: PhantomData,
+            },
+            size,
         }
     }
 
@@ -69,16 +45,12 @@ impl<'a> RuntimeMemoryView<'a> {
     // as deprecated and not used in future code.
     #[doc(hidden)]
     pub fn data_ptr(&self) -> *mut u8 {
-        match_rt!(on self => s {
-            s.data_ptr()
-        })
+        self.buffer.base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> u64 {
-        match_rt!(on self => s {
-            s.data_size()
-        })
+        self.buffer.len.try_into().unwrap()
     }
 
     /// Retrieve a slice of the memory contents.
@@ -90,9 +62,7 @@ impl<'a> RuntimeMemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        match_rt!(on self => s {
-            s.data_unchecked()
-        })
+        self.data_unchecked_mut()
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -107,9 +77,7 @@ impl<'a> RuntimeMemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        match_rt!(on self => s {
-            s.data_unchecked_mut()
-        })
+        std::slice::from_raw_parts_mut(self.buffer.base, self.buffer.len)
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -125,27 +93,12 @@ impl<'a> RuntimeMemoryView<'a> {
     /// assert_eq!(m.view(&mut store).size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        match_rt!(on self => s {
-            s.size()
-        })
+        Pages(self.size)
     }
 
     #[inline]
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => MemoryBuffer(RuntimeMemoryBuffer::Sys(s.buffer())),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => MemoryBuffer(RuntimeMemoryBuffer::Wamr(s.buffer())),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => MemoryBuffer(RuntimeMemoryBuffer::Wasmi(s.buffer())),
-            #[cfg(feature = "v8")]
-            Self::V8(s) => MemoryBuffer(RuntimeMemoryBuffer::V8(s.buffer())),
-            #[cfg(feature = "js")]
-            Self::Js(s) => MemoryBuffer(RuntimeMemoryBuffer::Js(s.buffer())),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => MemoryBuffer(RuntimeMemoryBuffer::Jsc(s.buffer())),
-        }
+        self.buffer
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -156,9 +109,7 @@ impl<'a> RuntimeMemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
-        match_rt!(on self => s {
-            s.read(offset, buf)
-        })
+        self.buffer.read(offset, buf)
     }
 
     /// Safely reads a single byte from memory at the given offset
@@ -166,9 +117,9 @@ impl<'a> RuntimeMemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError> {
-        match_rt!(on self => s {
-            s.read_u8(offset)
-        })
+        let mut buf = [0u8; 1];
+        self.read(offset, &mut buf)?;
+        Ok(buf[0])
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -186,9 +137,7 @@ impl<'a> RuntimeMemoryView<'a> {
         offset: u64,
         buf: &'b mut [MaybeUninit<u8>],
     ) -> Result<&'b mut [u8], MemoryAccessError> {
-        match_rt!(on self => s {
-            s.read_uninit(offset, buf)
-        })
+        self.buffer.read_uninit(offset, buf)
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -199,26 +148,26 @@ impl<'a> RuntimeMemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
     pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        match_rt!(on self => s {
-            s.write(offset, data)
-        })
+        self.buffer.write(offset, data)
     }
 
-    /// Safely writes a single byte from memory at the given offset
+    /// Safely reads a single byte from memory at the given offset
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError> {
-        match_rt!(on self => s {
-            s.write_u8(offset, val)
-        })
+        let buf = [val];
+        self.write(offset, &buf)?;
+        Ok(())
     }
 
+    #[allow(unused)]
     /// Copies the memory and returns it as a vector of bytes
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
         self.copy_range_to_vec(0..self.data_size())
     }
 
+    #[allow(unused)]
     /// Copies a range of the memory and returns it as a vector of bytes
     pub fn copy_range_to_vec(&self, range: Range<u64>) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
@@ -235,6 +184,7 @@ impl<'a> RuntimeMemoryView<'a> {
         Ok(new_memory)
     }
 
+    #[allow(unused)]
     /// Copies the memory to another new memory object
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
         let mut offset = 0;

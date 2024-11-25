@@ -1,4 +1,5 @@
-//! Data types, functions and traits for `v8` runtime's `Memory` implementation.
+//! Data types, functions and traits for `wasmi`'s `Memory` implementation.
+//!
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use tracing::warn;
@@ -7,8 +8,8 @@ use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
     shared::SharedMemory,
-    v8::{bindings::*, vm::VMMemory},
     vm::{VMExtern, VMExternMemory},
+    wasmi::{bindings::*, vm::VMMemory},
     AsStoreMut, AsStoreRef, MemoryAccessError, RuntimeMemory,
 };
 
@@ -16,7 +17,7 @@ pub(crate) mod view;
 pub use view::*;
 
 #[derive(Debug, Clone)]
-/// A WebAssembly `memory` in the `v8` runtime.
+/// A WebAssembly `memory` in `wasmi`.
 pub struct Memory {
     pub(crate) handle: VMMemory,
 }
@@ -37,7 +38,7 @@ impl Memory {
         let memorytype = unsafe { wasm_memorytype_new(limits) };
 
         let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_v8().inner;
+        let inner = store.inner.store.as_wasmi().inner;
         let c_memory = unsafe { wasm_memory_new(inner, memorytype) };
 
         Ok(Self { handle: c_memory })
@@ -48,7 +49,7 @@ impl Memory {
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle) })
+        VMExtern::Wasmi(unsafe { wasm_memory_as_extern(self.handle) })
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
@@ -141,7 +142,7 @@ impl Memory {
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
         Self {
-            handle: internal.into_v8(),
+            handle: internal.into_wasmi(),
         }
     }
 
@@ -327,27 +328,27 @@ unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: u
 }
 
 impl crate::Memory {
-    /// Consume [`self`] into a [`crate::rt::v8::memory::Memory`].
-    pub fn into_v8(self) -> crate::rt::v8::memory::Memory {
+    /// Consume [`self`] into a [`crate::rt::wasmi::memory::Memory`].
+    pub fn into_wasmi(self) -> crate::rt::wasmi::memory::Memory {
         match self.0 {
-            RuntimeMemory::V8(s) => s,
-            _ => panic!("Not a `v8` memory!"),
+            RuntimeMemory::Wasmi(s) => s,
+            _ => panic!("Not a `wasmi` memory!"),
         }
     }
 
-    /// Convert a reference to [`self`] into a reference to [`crate::rt::v8::memory::Memory`].
-    pub fn as_v8(&self) -> &crate::rt::v8::memory::Memory {
+    /// Convert a reference to [`self`] into a reference to [`crate::rt::wasmi::memory::Memory`].
+    pub fn as_wasmi(&self) -> &crate::rt::wasmi::memory::Memory {
         match self.0 {
-            RuntimeMemory::V8(ref s) => s,
-            _ => panic!("Not a `v8` memory!"),
+            RuntimeMemory::Wasmi(ref s) => s,
+            _ => panic!("Not a `wasmi` memory!"),
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::v8::memory::Memory`].
-    pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::memory::Memory {
+    /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::rt::wasmi::memory::Memory`].
+    pub fn as_wasmi_mut(&mut self) -> &mut crate::rt::wasmi::memory::Memory {
         match self.0 {
-            RuntimeMemory::V8(ref mut s) => s,
-            _ => panic!("Not a `v8` memory!"),
+            RuntimeMemory::Wasmi(ref mut s) => s,
+            _ => panic!("Not a `wasmi` memory!"),
         }
     }
 }

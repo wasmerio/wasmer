@@ -378,6 +378,50 @@ fn build_v8() {
     println!("cargo:rustc-link-lib=static=wee8prefixed");
 }
 
+fn build_wasmi() {
+    use bindgen::callbacks::ParseCallbacks;
+    use std::{env, path::PathBuf};
+
+    #[derive(Debug)]
+    struct WasmiRenamer {}
+
+    impl ParseCallbacks for WasmiRenamer {
+        /// This function will run for every extern variable and function. The returned value determines
+        /// the link name in the bindings.
+        fn generated_link_name_override(
+            &self,
+            item_info: bindgen::callbacks::ItemInfo<'_>,
+        ) -> Option<String> {
+            if item_info.name.starts_with("wasm") {
+                let new_name = if cfg!(any(target_os = "macos", target_os = "ios")) {
+                    format!("_wasmi_{}", item_info.name)
+                } else {
+                    format!("wasmi_{}", item_info.name)
+                };
+
+                Some(new_name)
+            } else {
+                None
+            }
+        }
+    }
+
+    let bindings = bindgen::Builder::default()
+        .header(
+            PathBuf::from(std::env::var("DEP_WASMI_C_API_INCLUDE").unwrap())
+                .join("wasm.h")
+                .to_string_lossy(),
+        )
+        .derive_default(true)
+        .derive_debug(true)
+        .parse_callbacks(Box::new(WasmiRenamer {}))
+        .generate()
+        .expect("Unable to generate bindings for `wasmi`!");
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("wasmi_bindings.rs"))
+        .expect("Couldn't write bindings");
+}
 #[allow(unused)]
 fn main() {
     #[cfg(feature = "wamr")]
@@ -386,4 +430,6 @@ fn main() {
     #[cfg(feature = "v8")]
     build_v8();
 
+    #[cfg(feature = "wasmi")]
+    build_wasmi();
 }

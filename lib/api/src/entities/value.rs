@@ -126,6 +126,13 @@ impl Value {
                         .map(VMFuncRef::Wamr)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
+                #[cfg(feature = "wasmi")]
+                crate::RuntimeStore::Wasmi(_) => Self::FuncRef(
+                    crate::rt::wasmi::vm::VMFuncRef::from_raw(raw)
+                        .map(VMFuncRef::Wasmi)
+                        .map(|f| Function::from_vm_funcref(store, f)),
+                ),
+
                 #[cfg(feature = "v8")]
                 crate::RuntimeStore::V8(_) => Self::FuncRef(
                     crate::rt::v8::vm::VMFuncRef::from_raw(raw)
@@ -158,6 +165,13 @@ impl Value {
                         .map(VMExternRef::Wamr)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
+                #[cfg(feature = "wasmi")]
+                crate::RuntimeStore::Wasmi(_) => Self::ExternRef(
+                    crate::rt::wasmi::vm::VMExternRef::from_raw(raw)
+                        .map(VMExternRef::Wasmi)
+                        .map(|f| ExternRef::from_vm_externref(store, f)),
+                ),
+
                 #[cfg(feature = "v8")]
                 crate::RuntimeStore::V8(_) => Self::ExternRef(
                     crate::rt::v8::vm::VMExternRef::from_raw(raw)

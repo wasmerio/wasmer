@@ -7,6 +7,9 @@ pub mod sys;
 #[cfg(feature = "wamr")]
 pub mod wamr;
 
+#[cfg(feature = "wasmi")]
+pub mod wasmi;
+
 #[cfg(feature = "v8")]
 pub mod v8;
 
@@ -26,6 +29,10 @@ pub enum Runtime {
     #[cfg(feature = "wamr")]
     /// The `wamr` runtime.
     Wamr,
+
+    #[cfg(feature = "wasmi")]
+    /// The `wasmi` runtime.
+    Wasmi,
 
     #[cfg(feature = "v8")]
     /// The `v8` runtime.

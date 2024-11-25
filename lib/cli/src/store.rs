@@ -65,28 +65,33 @@ pub struct WasmFeatures {
 pub struct RuntimeOptions {
     /// Use Singlepass compiler.
     #[cfg(feature = "singlepass")]
-    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "v8", "wamr"])]
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "v8", "wamr", "wasmi"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
     #[cfg(feature = "cranelift")]
-    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "v8", "wamr"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "v8", "wamr", "wasmi"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
     #[cfg(feature = "llvm")]
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "v8", "wamr"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "v8", "wamr", "wasmi"])]
     llvm: bool,
 
     /// Use the V8 runtime.
     #[cfg(feature = "v8")]
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "wamr"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "wamr", "wasmi"])]
     v8: bool,
 
     /// Use WAMR.
     #[cfg(feature = "wamr")]
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "v8"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "v8", "wasmi"])]
     wamr: bool,
+
+    /// Use the wasmi runtime.
+    #[cfg(feature = "wasmi")]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "v8", "wamr"])]
+    wasmi: bool,
 
     /// Enable compiler internal verification.
     ///
@@ -141,6 +146,13 @@ impl RuntimeOptions {
             }
         }
 
+        #[cfg(feature = "wasmi")]
+        {
+            if self.wamr {
+                return Ok(RuntimeType::Wasmi);
+            }
+        }
+
         // Auto mode, we choose the best compiler for that platform
         cfg_if::cfg_if! {
             if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
@@ -153,6 +165,8 @@ impl RuntimeOptions {
                 Ok(RuntimeType::V8)
             } else if #[cfg(feature = "wamr")] {
                 Ok(RuntimeType::Wamr)
+            } else if #[cfg(feature = "wasmi")] {
+                Ok(RuntimeType::Wasmi)
             } else {
                 bail!("There are no available compilers for your architecture");
             }
@@ -209,6 +223,14 @@ impl RuntimeOptions {
                 #[allow(unreachable_code)]
                 {
                     anyhow::bail!("The `wamr` engine is not enabled in this build.")
+                }
+            }
+            RuntimeType::Wasmi => {
+                #[cfg(feature = "wamr")]
+                return Ok(wasmer::wasmi::Wasmi::new().into());
+                #[allow(unreachable_code)]
+                {
+                    anyhow::bail!("The `wasmi` engine is not enabled in this build.")
                 }
             }
             #[cfg(feature = "compiler")]
@@ -357,7 +379,7 @@ impl RuntimeOptions {
                 }
                 Box::new(config)
             }
-            RuntimeType::V8 | RuntimeType::Wamr => unreachable!(),
+            RuntimeType::V8 | RuntimeType::Wamr | RuntimeType::Wasmi => unreachable!(),
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!(
@@ -390,6 +412,9 @@ pub enum RuntimeType {
 
     /// Wamr runtime
     Wamr,
+
+    /// Wasmi runtime
+    Wasmi,
 
     /// Headless compiler
     #[allow(dead_code)]
@@ -426,6 +451,7 @@ impl std::fmt::Display for RuntimeType {
                 Self::LLVM => "llvm",
                 Self::V8 => "v8",
                 Self::Wamr => "wamr",
+                Self::Wasmi => "wasmi",
                 Self::Headless => "headless",
             }
         )

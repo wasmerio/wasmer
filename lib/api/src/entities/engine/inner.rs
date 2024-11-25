@@ -130,6 +130,11 @@ impl Default for RuntimeEngine {
             return Self::Wamr(crate::rt::wamr::entities::engine::default_engine());
         }
 
+        #[cfg(feature = "wasmi")]
+        {
+            return Self::Wasmi(crate::rt::wasmi::entities::engine::default_engine());
+        }
+
         #[cfg(feature = "v8")]
         {
             return Self::V8(crate::rt::v8::entities::engine::default_engine());

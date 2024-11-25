@@ -59,6 +59,17 @@ where
         unimplemented!();
     }
 
+    #[cfg(feature = "wasmi")]
+    /// Get the pointer to the function body for a given runtime.
+    fn wasmi_function_callback(&self) -> crate::rt::wasmi::vm::VMFunctionCallback;
+
+    #[cfg(feature = "wasmi")]
+    /// Get the pointer to the function call trampoline for a given runtime.
+    fn wasmi_call_trampoline_address() -> crate::rt::wasmi::vm::VMTrampoline {
+        // This is not implemented in JS
+        unimplemented!();
+    }
+
     #[cfg(feature = "v8")]
     /// Get the pointer to the function body for a given runtime.
     fn v8_function_callback(&self) -> crate::rt::v8::vm::VMFunctionCallback;

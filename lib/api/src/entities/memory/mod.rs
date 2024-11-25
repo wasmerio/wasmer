@@ -1,4 +1,4 @@
-use shared::SharedMemory;
+pub use shared::SharedMemory;
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{

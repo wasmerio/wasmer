@@ -13,6 +13,9 @@ pub enum RuntimeFunctionEnv<T> {
     #[cfg(feature = "wamr")]
     /// The function environment for the `wamr` runtime.
     Wamr(crate::rt::wamr::function::env::FunctionEnv<T>),
+    #[cfg(feature = "wasmi")]
+    /// The function environment for the `wasmi` runtime.
+    Wasmi(crate::rt::wasmi::function::env::FunctionEnv<T>),
     #[cfg(feature = "v8")]
     /// The function environment for the `v8` runtime.
     V8(crate::rt::v8::function::env::FunctionEnv<T>),
@@ -31,6 +34,9 @@ impl<T> Clone for RuntimeFunctionEnv<T> {
             Self::Sys(s) => Self::Sys(s.clone()),
             #[cfg(feature = "wamr")]
             Self::Wamr(s) => Self::Wamr(s.clone()),
+
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(s) => Self::Wasmi(s.clone()),
             #[cfg(feature = "v8")]
             Self::V8(s) => Self::V8(s.clone()),
             #[cfg(feature = "js")]
@@ -55,6 +61,11 @@ impl<T> RuntimeFunctionEnv<T> {
             #[cfg(feature = "wamr")]
             crate::RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::function::env::FunctionEnv::new(store, value),
+            ),
+
+            #[cfg(feature = "wasmi")]
+            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::function::env::FunctionEnv::new(store, value),
             ),
 
             #[cfg(feature = "v8")]
@@ -118,6 +129,10 @@ pub enum RuntimeFunctionEnvMut<'a, T: 'a> {
     #[cfg(feature = "wamr")]
     /// The function environment for the `wamr` runtime.
     Wamr(crate::rt::wamr::function::env::FunctionEnvMut<'a, T>),
+
+    #[cfg(feature = "wasmi")]
+    /// The function environment for the `wasmi` runtime.
+    Wasmi(crate::rt::wasmi::function::env::FunctionEnvMut<'a, T>),
     #[cfg(feature = "v8")]
     /// The function environment for the `v8` runtime.
     V8(crate::rt::v8::function::env::FunctionEnvMut<'a, T>),
@@ -153,6 +168,8 @@ impl<T: Send + 'static> RuntimeFunctionEnvMut<'_, T> {
             Self::Sys(ref f) => RuntimeFunctionEnv::Sys(f.as_ref()).into(),
             #[cfg(feature = "wamr")]
             Self::Wamr(ref f) => RuntimeFunctionEnv::Wamr(f.as_ref()).into(),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(ref f) => RuntimeFunctionEnv::Wasmi(f.as_ref()).into(),
             #[cfg(feature = "v8")]
             Self::V8(ref f) => RuntimeFunctionEnv::V8(f.as_ref()).into(),
             #[cfg(feature = "js")]
@@ -169,6 +186,8 @@ impl<T: Send + 'static> RuntimeFunctionEnvMut<'_, T> {
             Self::Sys(ref mut f) => RuntimeFunctionEnvMut::Sys(f.as_mut()).into(),
             #[cfg(feature = "wamr")]
             Self::Wamr(ref mut f) => RuntimeFunctionEnvMut::Wamr(f.as_mut()).into(),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(ref mut f) => RuntimeFunctionEnvMut::Wasmi(f.as_mut()).into(),
             #[cfg(feature = "v8")]
             Self::V8(ref mut f) => RuntimeFunctionEnvMut::V8(f.as_mut()).into(),
             #[cfg(feature = "js")]

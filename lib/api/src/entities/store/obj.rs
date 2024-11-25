@@ -13,6 +13,10 @@ pub enum StoreObjects {
     /// Store objects for the `wamr` runtime.
     Wamr(crate::rt::wamr::store::StoreObjects),
 
+    #[cfg(feature = "wasmi")]
+    /// Store objects for the `wasmi` runtime.
+    Wasmi(crate::rt::wasmi::store::StoreObjects),
+
     #[cfg(feature = "v8")]
     /// Store objects for the `v8` runtime.
     V8(crate::rt::v8::store::StoreObjects),
@@ -64,6 +68,8 @@ impl StoreObjects {
             RuntimeStore::Sys(_) => Self::Sys(Default::default()),
             #[cfg(feature = "wamr")]
             RuntimeStore::Wamr(_) => Self::Wamr(Default::default()),
+            #[cfg(feature = "wasmi")]
+            RuntimeStore::Wasmi(_) => Self::Wasmi(Default::default()),
             #[cfg(feature = "v8")]
             RuntimeStore::V8(_) => Self::V8(Default::default()),
             #[cfg(feature = "js")]

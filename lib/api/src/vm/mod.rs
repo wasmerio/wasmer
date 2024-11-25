@@ -17,6 +17,11 @@ macro_rules! define_vm_like {
             #[cfg(feature = "wamr")]
             Wamr(crate::rt::wamr::vm::[<VM $name>]),
 
+
+            #[cfg(feature = "wasmi")]
+            Wasmi(crate::rt::wasmi::vm::[<VM $name>]),
+
+
             #[cfg(feature = "v8")]
             V8(crate::rt::v8::vm::[<VM $name>]),
 
@@ -80,6 +85,33 @@ macro_rules! define_vm_like {
                 match self {
                     [<VM $name>]::Wamr(s) => s,
                     _ => panic!("Not a `wamr` value!")
+                }
+            }
+
+            #[cfg(feature = "wasmi")]
+            /// Consume `self` into a `wasmi` VM kind.
+            pub fn into_wasmi(self) -> crate::rt::wasmi::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Wasmi(s) => s,
+                    _ => panic!("Not a `wasmi` value!")
+                }
+            }
+
+            #[cfg(feature = "wasmi")]
+            /// Convert a reference to [`self`] into a reference to the same `wasmi` VM kind.
+            pub fn as_wasmi(&self) -> &crate::rt::wasmi::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Wasmi(s) => s,
+                    _ => panic!("Not a `wasmi` value!")
+                }
+            }
+
+            #[cfg(feature = "wasmi")]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the same `wasmi` VM kind.
+            pub fn as_wasmi_mut(&mut self) -> &mut crate::rt::wasmi::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Wasmi(s) => s,
+                    _ => panic!("Not a `wasmi` value!")
                 }
             }
 
@@ -177,6 +209,8 @@ macro_rules! define_vm_like {
             Sys(crate::rt::sys::vm::[<VM $name>]),
             #[cfg(feature = "wamr")]
             Wamr(crate::rt::wamr::vm::[<VM $name>]),
+            #[cfg(feature = "wasmi")]
+            Wasmi(crate::rt::wasmi::vm::[<VM $name>]),
             #[cfg(feature = "v8")]
             V8(crate::rt::v8::vm::[<VM $name>]),
             #[cfg(feature = "js")]
@@ -239,6 +273,34 @@ macro_rules! define_vm_like {
                     _ => panic!("Not a `wamr` value!")
                 }
             }
+
+            #[cfg(feature = "wasmi")]
+            /// Consume `self` into a `wasmi` VM kind.
+            pub fn into_wasmi(self) -> crate::rt::wasmi::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Wasmi(s) => s,
+                    _ => panic!("Not a `wasmi` value!")
+                }
+            }
+
+            #[cfg(feature = "wasmi")]
+            /// Convert a reference to [`self`] into a reference to the same `wasmi` VM kind.
+            pub fn as_wasmi(&self) -> &crate::rt::wasmi::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Wasmi(s) => s,
+                    _ => panic!("Not a `wasmi` value!")
+                }
+            }
+
+            #[cfg(feature = "wasmi")]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the same `wasmi` VM kind.
+            pub fn as_wasmi_mut(&mut self) -> &mut crate::rt::wasmi::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Wasmi(s) => s,
+                    _ => panic!("Not a `wasmi` value!")
+                }
+            }
+
 
             #[cfg(feature = "js")]
             /// Consume `self` into a `js` VM kind.

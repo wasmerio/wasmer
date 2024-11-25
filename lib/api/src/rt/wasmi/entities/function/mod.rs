@@ -1,4 +1,4 @@
-//! Data types, functions and traits for `wamr`'s `Function` implementation.
+//! Data types, functions and traits for `wasmi`'s `Function` implementation.
 
 #![allow(non_snake_case)]
 use std::{
@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     vm::{VMExtern, VMExternFunction},
-    wamr::{
+    wasmi::{
         bindings::*,
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
         vm::{VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment},
@@ -33,7 +33,7 @@ type CCallback = unsafe extern "C" fn(
 ) -> *mut wasm_trap_t;
 
 #[derive(Clone, PartialEq, Eq)]
-/// A WebAssembly `function` in `wamr`.
+/// A WebAssembly `function` in `wasmi`.
 pub struct Function {
     pub(crate) handle: VMFunction,
 }
@@ -69,7 +69,7 @@ impl Function {
             !extern_.is_null(),
             "Returned null Function extern from wasm-c-api"
         );
-        VMExtern::Wamr(extern_)
+        VMExtern::Wasmi(extern_)
     }
 
     #[allow(clippy::cast_ptr_alignment)]
@@ -126,7 +126,7 @@ impl Function {
         };
 
         let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_wamr().inner;
+        let inner = store.inner.store.as_wasmi().inner;
 
         let callback: CCallback = make_fn_callback(&func, param_types.len());
 
@@ -134,7 +134,7 @@ impl Function {
             Box::leak(Box::new(FunctionCallbackEnv {
                 store,
                 func,
-                env_handle: Some(env.as_wamr().handle.clone()),
+                env_handle: Some(env.as_wasmi().handle.clone()),
             }));
 
         let wasm_function = unsafe {
@@ -195,9 +195,9 @@ impl Function {
             unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
 
         let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_wamr().inner;
+        let inner = store.inner.store.as_wasmi().inner;
 
-        let callback: CCallback = unsafe { std::mem::transmute(func.wamr_function_callback()) };
+        let callback: CCallback = unsafe { std::mem::transmute(func.wasmi_function_callback()) };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
@@ -272,15 +272,15 @@ impl Function {
         };
 
         let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_wamr().inner;
+        let inner = store.inner.store.as_wasmi().inner;
 
-        let callback: CCallback = unsafe { std::mem::transmute(func.wamr_function_callback()) };
+        let callback: CCallback = unsafe { std::mem::transmute(func.wasmi_function_callback()) };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
                 store,
                 func,
-                env_handle: Some(env.as_wamr().handle.clone()),
+                env_handle: Some(env.as_wasmi().handle.clone()),
             }));
 
         let wasm_function = unsafe {
@@ -387,7 +387,7 @@ impl Function {
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
         Self {
-            handle: internal.into_wamr(),
+            handle: internal.into_wasmi(),
         }
     }
 
@@ -484,27 +484,27 @@ impl std::fmt::Debug for Function {
 }
 
 impl crate::Function {
-    /// Consume [`self`] into [`crate::rt::wamr::function::Function`].
-    pub fn into_wamr(self) -> crate::rt::wamr::function::Function {
+    /// Consume [`self`] into [`crate::rt::wasmi::function::Function`].
+    pub fn into_wasmi(self) -> crate::rt::wasmi::function::Function {
         match self.0 {
-            RuntimeFunction::Wamr(s) => s,
-            _ => panic!("Not a `wamr` function!"),
+            RuntimeFunction::Wasmi(s) => s,
+            _ => panic!("Not a `wasmi` function!"),
         }
     }
 
-    /// Convert a reference to [`self`] into a reference to [`crate::rt::wamr::function::Function`].
-    pub fn as_wamr(&self) -> &crate::rt::wamr::function::Function {
+    /// Convert a reference to [`self`] into a reference to [`crate::rt::wasmi::function::Function`].
+    pub fn as_wasmi(&self) -> &crate::rt::wasmi::function::Function {
         match self.0 {
-            RuntimeFunction::Wamr(ref s) => s,
-            _ => panic!("Not a `wamr` function!"),
+            RuntimeFunction::Wasmi(ref s) => s,
+            _ => panic!("Not a `wasmi` function!"),
         }
     }
 
-    /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::wamr::function::Function`].
-    pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::function::Function {
+    /// Convert a mutable reference to [`self`] into a mutable reference [`crate::rt::wasmi::function::Function`].
+    pub fn as_wasmi_mut(&mut self) -> &mut crate::rt::wasmi::function::Function {
         match self.0 {
-            RuntimeFunction::Wamr(ref mut s) => s,
-            _ => panic!("Not a `wamr` function!"),
+            RuntimeFunction::Wasmi(ref mut s) => s,
+            _ => panic!("Not a `wasmi` function!"),
         }
     }
 }

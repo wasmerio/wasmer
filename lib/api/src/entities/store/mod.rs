@@ -46,6 +46,10 @@ impl Store {
             RuntimeEngine::Wamr(_) => {
                 RuntimeStore::Wamr(crate::rt::wamr::entities::store::Store::new(engine))
             }
+            #[cfg(feature = "wasmi")]
+            RuntimeEngine::Wasmi(_) => {
+                RuntimeStore::Wasmi(crate::rt::wasmi::entities::store::Store::new(engine))
+            }
             #[cfg(feature = "v8")]
             RuntimeEngine::V8(_) => {
                 RuntimeStore::V8(crate::rt::v8::entities::store::Store::new(engine))

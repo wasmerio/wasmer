@@ -8,9 +8,14 @@ pub enum RuntimeTrap {
     #[cfg(feature = "sys")]
     /// The trap from the `sys` runtime.
     Sys(crate::rt::sys::vm::Trap),
+
     #[cfg(feature = "wamr")]
     /// The trap from the `wamr` runtime.
     Wamr(crate::rt::wamr::vm::Trap),
+
+    #[cfg(feature = "wasmi")]
+    /// The trap from the `wasmi` runtime.
+    Wasmi(crate::rt::wasmi::vm::Trap),
 
     #[cfg(feature = "v8")]
     /// The trap from the `v8` runtime.
@@ -38,6 +43,12 @@ impl RuntimeTrap {
         {
             return crate::rt::wamr::vm::Trap::user(err).into();
         }
+
+        #[cfg(feature = "wasmi")]
+        {
+            return crate::rt::wasmi::vm::Trap::user(err).into();
+        }
+
         #[cfg(feature = "v8")]
         {
             return crate::rt::v8::vm::Trap::user(err).into();

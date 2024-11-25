@@ -495,14 +495,10 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
 
     if cfg!(feature = "wasmi") {
-        // Can't use two different c_api backends together as of now, but maybe we'll support more
-        // interepreters.
         runtimes.push("wasmi");
     }
 
     if cfg!(feature = "v8") {
-        // Can't use c_api backends together as of now, but maybe we'll support more
-        // interepreters.
         runtimes.push("v8");
     }
 

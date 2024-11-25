@@ -41,6 +41,10 @@ impl RuntimeTable {
             RuntimeStore::Wamr(_) => Ok(Self::Wamr(crate::rt::wamr::entities::table::Table::new(
                 store, ty, init,
             )?)),
+            #[cfg(feature = "wasmi")]
+            RuntimeStore::Wasmi(_) => Ok(Self::Wasmi(
+                crate::rt::wasmi::entities::table::Table::new(store, ty, init)?,
+            )),
             #[cfg(feature = "v8")]
             RuntimeStore::V8(_) => Ok(Self::V8(crate::rt::v8::entities::table::Table::new(
                 store, ty, init,
@@ -143,6 +147,16 @@ impl RuntimeTable {
                 src_index,
                 len,
             ),
+            #[cfg(feature = "wasmi")]
+            RuntimeStore::Wasmi(_) => crate::rt::wasmi::entities::table::Table::copy(
+                store,
+                dst_table.as_wasmi(),
+                dst_index,
+                src_table.as_wasmi(),
+                src_index,
+                len,
+            ),
+
             #[cfg(feature = "v8")]
             RuntimeStore::V8(_) => crate::rt::v8::entities::table::Table::copy(
                 store,
@@ -182,6 +196,10 @@ impl RuntimeTable {
             #[cfg(feature = "wamr")]
             RuntimeStore::Wamr(_) => Self::Wamr(
                 crate::rt::wamr::entities::table::Table::from_vm_extern(store, ext),
+            ),
+            #[cfg(feature = "wasmi")]
+            RuntimeStore::Wasmi(_) => Self::Wasmi(
+                crate::rt::wasmi::entities::table::Table::from_vm_extern(store, ext),
             ),
             #[cfg(feature = "v8")]
             RuntimeStore::V8(_) => Self::V8(crate::rt::v8::entities::table::Table::from_vm_extern(
