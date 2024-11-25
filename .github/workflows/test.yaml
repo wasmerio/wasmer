@@ -502,7 +502,7 @@ jobs:
           },
           {
             build: macos-x64,
-            os: macos-12,
+            os: macos-13,
             target: x86_64-apple-darwin,
             exe: '',
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
@@ -562,7 +562,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-12'
+        if: matrix.metadata.os == 'macos-13'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -610,7 +610,7 @@ jobs:
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-12' && !matrix.metadata.llvm_url
+        if: matrix.metadata.os == 'macos-13' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -756,7 +756,7 @@ jobs:
           },
           {
             build: macos-x64,
-            os: macos-12,
+            os: macos-13,
             target: x86_64-apple-darwin,
             exe: '',
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
@@ -817,7 +817,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-12'
+        if: matrix.metadata.os == 'macos-13'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -826,7 +826,7 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-12' && !matrix.metadata.llvm_url
+        if: matrix.metadata.os == 'macos-13' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
           echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
@@ -894,11 +894,11 @@ jobs:
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           - build: macos-x64
-            os: macos-12
+            os: macos-13
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
-            os: macos-12
+            os: macos-14
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl
