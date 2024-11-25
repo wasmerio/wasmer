@@ -19,15 +19,9 @@ pub(crate) use inner::RuntimeEngine;
 
 pub use engine_ref::*;
 
-static ENGINE_ID_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-
 /// An engine identifier.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct EngineId(u64);
-
-pub(crate) fn atomic_next_engine_id() -> u64 {
-    ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-}
 
 /// The [`Engine`] is the entrypoint type for the runtime. It defines the kind of steps the runtime must take to execute
 /// the WebAssembly module (compile, interpret..) and the place of execution (in-browser, host,
@@ -42,12 +36,18 @@ impl Default for Engine {
     fn default() -> Self {
         Self {
             rt: Default::default(),
-            id: atomic_next_engine_id(),
+            id: Engine::atomic_next_engine_id(),
         }
     }
 }
 
 impl Engine {
+    pub(crate) fn atomic_next_engine_id() -> u64 {
+        static ENGINE_ID_COUNTER: std::sync::atomic::AtomicU64 =
+            std::sync::atomic::AtomicU64::new(0);
+        ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    }
+
     /// Returns the deterministic id of this engine.
     pub fn deterministic_id(&self) -> &str {
         self.rt.deterministic_id()

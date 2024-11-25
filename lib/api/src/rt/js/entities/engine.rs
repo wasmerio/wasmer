@@ -1,5 +1,3 @@
-use crate::atomic_next_engine_id;
-
 /// The engine for the JavaScript runtime.
 #[derive(Clone, Debug)]
 pub struct Engine;
@@ -52,7 +50,7 @@ impl Into<crate::Engine> for Engine {
     fn into(self) -> crate::Engine {
         crate::Engine {
             rt: crate::RuntimeEngine::Js(self),
-            id: atomic_next_engine_id(),
+            id: Engine::atomic_next_engine_id(),
         }
     }
 }

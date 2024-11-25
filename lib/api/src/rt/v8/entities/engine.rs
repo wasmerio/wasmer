@@ -1,6 +1,5 @@
 //! Data types, functions and traits for `sys` runtime's `Engine` implementation.
 use crate::{
-    atomic_next_engine_id,
     rt::v8::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     RuntimeEngine,
 };
@@ -98,7 +97,7 @@ impl From<Engine> for crate::Engine {
     fn from(value: Engine) -> Self {
         crate::Engine {
             rt: RuntimeEngine::V8(value),
-            id: atomic_next_engine_id(),
+            id: crate::Engine::atomic_next_engine_id(),
         }
     }
 }

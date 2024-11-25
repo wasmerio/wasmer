@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rusty_jsc::{JSContext, JSObject};
 
-use crate::{atomic_next_engine_id, AsEngineRef, AsStoreRef};
+use crate::{AsEngineRef, AsStoreRef};
 
 #[derive(Debug)]
 pub(crate) struct JSCEngine {
@@ -246,7 +246,7 @@ impl Into<crate::Engine> for Engine {
     fn into(self) -> crate::Engine {
         crate::Engine {
             rt: crate::RuntimeEngine::Jsc(self),
-            id: atomic_next_engine_id(),
+            id: crate::Engine::atomic_next_engine_id(),
         }
     }
 }
