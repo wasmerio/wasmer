@@ -378,6 +378,7 @@ fn build_v8() {
     println!("cargo:rustc-link-lib=static=wee8prefixed");
 }
 
+#[cfg(feature = "wasmi")]
 fn build_wasmi() {
     use bindgen::callbacks::ParseCallbacks;
     use std::{env, path::PathBuf};
