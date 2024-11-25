@@ -246,7 +246,7 @@ impl Into<crate::Engine> for Engine {
     fn into(self) -> crate::Engine {
         crate::Engine {
             rt: crate::RuntimeEngine::Jsc(self),
-            id: Self::atomic_next_engine_id(),
+            id: crate::Engine::atomic_next_engine_id(),
         }
     }
 }
