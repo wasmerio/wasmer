@@ -119,6 +119,7 @@ impl RuntimeEngine {
 }
 
 impl Default for RuntimeEngine {
+    #[allow(unreachable_code)]
     fn default() -> Self {
         #[cfg(feature = "sys")]
         {

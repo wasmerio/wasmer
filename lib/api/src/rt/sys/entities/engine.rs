@@ -112,16 +112,16 @@ pub trait NativeEngineExt {
 impl NativeEngineExt for crate::engine::Engine {
     #[cfg(feature = "compiler")]
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
-        crate::engine::Engine {
+        Self {
             rt: RuntimeEngine::Sys(Engine::new(compiler_config, target, features)),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 
     fn headless() -> Self {
-        crate::engine::Engine {
+        Self {
             rt: RuntimeEngine::Sys(Engine::headless()),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 
@@ -217,27 +217,27 @@ impl crate::Engine {
 
 impl From<Engine> for crate::Engine {
     fn from(value: Engine) -> Self {
-        crate::Engine {
+        Self {
             rt: RuntimeEngine::Sys(value),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }
 
 impl From<&Engine> for crate::Engine {
     fn from(value: &Engine) -> Self {
-        crate::Engine {
+        Self {
             rt: RuntimeEngine::Sys(value.cloned()),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }
 
 impl From<EngineBuilder> for crate::Engine {
     fn from(value: EngineBuilder) -> Self {
-        crate::Engine {
+        Self {
             rt: RuntimeEngine::Sys(value.engine()),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }
@@ -245,9 +245,9 @@ impl From<EngineBuilder> for crate::Engine {
 #[cfg(feature = "cranelift")]
 impl From<wasmer_compiler_cranelift::Cranelift> for crate::Engine {
     fn from(value: wasmer_compiler_cranelift::Cranelift) -> Self {
-        crate::Engine {
+        Self {
             rt: RuntimeEngine::Sys(value.into()),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }
@@ -255,9 +255,9 @@ impl From<wasmer_compiler_cranelift::Cranelift> for crate::Engine {
 #[cfg(feature = "singlepass")]
 impl From<wasmer_compiler_singlepass::Singlepass> for crate::Engine {
     fn from(value: wasmer_compiler_singlepass::Singlepass) -> Self {
-        crate::Engine {
+        Self {
             rt: RuntimeEngine::Sys(value.into()),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }
@@ -265,9 +265,9 @@ impl From<wasmer_compiler_singlepass::Singlepass> for crate::Engine {
 #[cfg(feature = "llvm")]
 impl From<wasmer_compiler_llvm::LLVM> for crate::Engine {
     fn from(value: wasmer_compiler_llvm::LLVM) -> Self {
-        crate::Engine {
+        Self {
             rt: RuntimeEngine::Sys(value.into()),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }

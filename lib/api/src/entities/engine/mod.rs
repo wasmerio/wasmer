@@ -36,7 +36,7 @@ impl Default for Engine {
     fn default() -> Self {
         Self {
             rt: Default::default(),
-            id: Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }

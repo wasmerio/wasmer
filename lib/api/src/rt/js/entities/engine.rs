@@ -50,7 +50,7 @@ impl Into<crate::Engine> for Engine {
     fn into(self) -> crate::Engine {
         crate::Engine {
             rt: crate::RuntimeEngine::Js(self),
-            id: Engine::atomic_next_engine_id(),
+            id: crate::Engine::atomic_next_engine_id(),
         }
     }
 }
