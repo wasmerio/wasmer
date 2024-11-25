@@ -224,8 +224,6 @@ fn build_v8() {
     use bindgen::callbacks::ParseCallbacks;
     use std::{env, path::PathBuf};
 
-    let header_url = "https://raw.githubusercontent.com/laper32/v8-cmake/refs/heads/master/v8/third_party/wasm-api/wasm.h";
-
     let url = match (
             env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
             env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
@@ -306,14 +304,10 @@ fn build_v8() {
         }
     }
 
-    let header = ureq::get(header_url)
-        .call()
-        .expect("failed to download v8")
-        .into_string()
-        .unwrap();
-
+    let header_path =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("third-party/wee8/wasm.h");
     let bindings = bindgen::Builder::default()
-        .header_contents("wee8.h", &header)
+        .header(header_path.display().to_string())
         .derive_default(true)
         .derive_debug(true)
         .parse_callbacks(Box::new(Wee8Renamer {}))
