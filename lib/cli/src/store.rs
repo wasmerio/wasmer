@@ -148,7 +148,7 @@ impl RuntimeOptions {
 
         #[cfg(feature = "wasmi")]
         {
-            if self.wasmi{
+            if self.wasmi {
                 return Ok(RuntimeType::Wasmi);
             }
         }
