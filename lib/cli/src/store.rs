@@ -148,7 +148,7 @@ impl RuntimeOptions {
 
         #[cfg(feature = "wasmi")]
         {
-            if self.wamr {
+            if self.wasmi{
                 return Ok(RuntimeType::Wasmi);
             }
         }
@@ -226,7 +226,7 @@ impl RuntimeOptions {
                 }
             }
             RuntimeType::Wasmi => {
-                #[cfg(feature = "wamr")]
+                #[cfg(feature = "wasmi")]
                 return Ok(wasmer::wasmi::Wasmi::new().into());
                 #[allow(unreachable_code)]
                 {
