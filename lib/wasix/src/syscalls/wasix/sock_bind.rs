@@ -9,7 +9,7 @@ use crate::syscalls::*;
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `addr` - Address to bind the socket to
-#[instrument(level = "debug", skip_all, fields(%sock, addr = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, addr = field::Empty), ret)]
 pub fn sock_bind<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -20,7 +20,7 @@ pub fn sock_bind<M: MemorySize>(
 
     let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
-    Span::current().record("addr", &format!("{:?}", addr));
+    Span::current().record("addr", format!("{:?}", addr));
 
     wasi_try_ok!(sock_bind_internal(&mut ctx, sock, addr)?);
 
@@ -28,7 +28,7 @@ pub fn sock_bind<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_bind(&mut ctx, sock, addr).map_err(|err| {
             tracing::error!("failed to save sock_bind event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

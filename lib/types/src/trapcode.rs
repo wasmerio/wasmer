@@ -14,21 +14,12 @@ use thiserror::Error;
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Debug,
-    Hash,
-    Error,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
-    rkyv::CheckBytes,
+    Clone, Copy, PartialEq, Eq, Debug, Hash, Error, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u32)]
-#[archive(as = "Self")]
 pub enum TrapCode {
     /// The current stack space was exhausted.
     ///

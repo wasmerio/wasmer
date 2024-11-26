@@ -15,7 +15,7 @@ use crate::{net::socket::TimeType, syscalls::*, WasiInodes};
 /// ## Return
 ///
 /// Number of bytes transmitted.
-#[instrument(level = "debug", skip_all, fields(%sock, %in_fd, %offset, %count, nsent = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, %in_fd, %offset, %count, nsent = field::Empty), ret)]
 pub fn sock_send_file<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -35,7 +35,7 @@ pub fn sock_send_file<M: MemorySize>(
         JournalEffector::save_sock_send_file::<M>(&mut ctx, sock, in_fd, offset, total_written)
             .map_err(|err| {
                 tracing::error!("failed to save sock_send_file event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             })?;
     }
 
@@ -64,7 +64,7 @@ pub(crate) fn sock_send_file_internal(
     // Set the offset of the file
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
-        let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
+        let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
         fd_entry.offset.store(offset, Ordering::Release);
     }
 
@@ -200,7 +200,7 @@ pub(crate) fn sock_send_file_internal(
 
                     // reborrow
                     let mut fd_map = state.fs.fd_map.write().unwrap();
-                    let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
+                    let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
                     fd_entry
                         .offset
                         .fetch_add(data.len() as u64, Ordering::AcqRel);

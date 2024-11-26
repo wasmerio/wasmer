@@ -72,6 +72,7 @@ type User implements Node & PackageOwner & Owner {
   loginMethods: [LoginMethod!]!
   githubUser: SocialAuth
   githubScopes: [String]!
+  githubRepositories: [GithubRepository]!
 }
 
 """Setup for backwards compatibility with existing frontends."""
@@ -923,6 +924,7 @@ type DeployAppVersion implements Node {
   sourcePackage: Package!
   aggregateMetrics: AggregateMetrics!
   volumes: [AppVersionVolume]
+  gitSource: AutobuildRepository
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
 }
@@ -934,7 +936,7 @@ type DeployApp implements Node & Owner {
   createdBy: User!
   createdAt: DateTime!
   updatedAt: DateTime!
-  activeVersion: DeployAppVersion!
+  activeVersion: DeployAppVersion
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
@@ -949,12 +951,14 @@ type DeployApp implements Node & Owner {
   aggregateMetrics: AggregateMetrics!
   aliases(offset: Int, before: String, after: String, first: Int, last: Int): AppAliasConnection!
   secrets(offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection!
+  databases(offset: Int, before: String, after: String, first: Int, last: Int): AppDatabaseConnection!
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
   s3Url: URL
   s3Credentials: S3Credentials
   deleted: Boolean!
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
+  deployments(before: String, after: String, first: Int, last: Int): DeploymentConnection
 }
 
 enum DeployAppVersionsSortBy {
@@ -1042,6 +1046,39 @@ type Secret implements Node {
   id: ID!
 }
 
+type AppDatabaseConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AppDatabaseEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `AppDatabase` and its cursor."""
+type AppDatabaseEdge {
+  """The item at the end of the edge"""
+  node: AppDatabase
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type AppDatabase implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  name: String!
+  username: String!
+  app: DeployApp!
+
+  """The ID of the object"""
+  id: ID!
+  host: String!
+}
+
 type UsageMetric {
   variant: MetricType!
   value: Float!
@@ -1108,6 +1145,72 @@ enum AppScreenshotAppearance {
   DARK
 }
 
+type DeploymentConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [DeploymentEdge]!
+}
+
+"""A Relay edge containing a `Deployment` and its cursor."""
+type DeploymentEdge {
+  """The item at the end of the edge"""
+  node: Deployment
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+union Deployment = NakedDeployment | AutobuildRepository
+
+type NakedDeployment implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  appVersion: DeployAppVersion
+}
+
+type AutobuildRepository implements Node {
+  """The ID of the object"""
+  id: ID!
+  user: User!
+  name: String!
+  namespace: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  appName: String
+  appVersion: DeployAppVersion
+  buildId: UUID!
+  buildCmd: String!
+  installCmd: String!
+  repoUrl: String!
+  prevCommitHash: String!
+  commitHash: String!
+  commitMessage: String!
+  commitAuthorUsername: String!
+  status: StatusEnum!
+  logUrl: String
+}
+
+"""
+Leverages the internal Python implementation of UUID (uuid.UUID) to provide native UUID objects
+in fields, resolvers and input.
+"""
+scalar UUID
+
+enum StatusEnum {
+  SUCCESS
+  WORKING
+  RUNNING
+  FAILURE
+  QUEUED
+  TIMEOUT
+  INTERNAL_ERROR
+  CANCELLED
+}
+
 type LogConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
@@ -1136,7 +1239,7 @@ type AppVersionVolume {
   name: String!
   s3Url: String!
   mountPaths: [AppVersionVolumeMountPath]!
-  size: Int
+  size: BigInt
   usedSize: BigInt
 }
 
@@ -2066,6 +2169,12 @@ type SocialAuth implements Node {
   username: String!
 }
 
+type GithubRepository {
+  url: String!
+  name: String!
+  namespace: String!
+}
+
 type Signature {
   id: ID!
   publicKey: PublicKey!
@@ -2360,6 +2469,13 @@ type Query {
   getSecretValue(id: ID!): String
   getAppTemplate(slug: String!): AppTemplate
   getAppTemplateCategories(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateCategoryConnection
+  getBuildKinds(offset: Int, before: String, after: String, first: Int, last: Int): BuildKindConnection!
+
+  """Specify if the database name is valid or not."""
+  canDeployDbWithName(
+    """Name of the database"""
+    name: String!
+  ): Boolean!
   viewer: User
   getUser(username: String!): User
   getPasswordResetToken(token: String!): GetPasswordResetToken
@@ -2407,7 +2523,7 @@ type Query {
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
   getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
-  getPackageRelease(hash: String!): PackageWebc
+  getPackageRelease(hash: String): PackageWebc
   getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   viewerCan(action: OwnerAction!, ownerName: String!): Boolean!
@@ -2594,6 +2710,36 @@ type AppTemplateCategoryEdge {
 
   """A cursor for use in pagination"""
   cursor: String!
+}
+
+type BuildKindConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [BuildKindEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `BuildKind` and its cursor."""
+type BuildKindEdge {
+  """The item at the end of the edge"""
+  node: BuildKind
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type BuildKind implements Node {
+  name: String!
+  setupDb: Boolean!
+  buildCmd: String!
+  installCmd: String!
+
+  """The ID of the object"""
+  id: ID!
 }
 
 type GetPasswordResetToken {
@@ -2955,6 +3101,9 @@ type RegistryInfo {
   """URL to the graphql endpoint"""
   graphqlUrl: String!
 
+  """URL for app domains"""
+  appDomain: String!
+
   """URL to the graphql endpoint"""
   createBlogpostUrl: String
 
@@ -3043,6 +3192,30 @@ type Mutation {
 
   """Toggle HTTP redirect for the active version of app"""
   toggleForceHttps(input: ToggleForceHTTPSInput!): ToggleForceHTTPSPayload
+
+  """Redeploy the active version of an app."""
+  rotateS3SecretsForApp(input: RotateS3SecretsForAppInput!): RotateS3SecretsForAppPayload
+
+  """Delete a database for an app."""
+  rotateCredentialsForAppDb(input: RotateCredentialsForAppDBInput!): RotateCredentialsForAppDBPayload
+
+  """Create a new database for an app."""
+  createAppDb(input: CreateAppDBInput!): CreateAppDBPayload
+
+  """Delete a database for an app."""
+  deleteAppDb(input: DeleteAppDBInput!): DeleteAppDBPayload
+
+  """Get the autobuild config for a given repo"""
+  autobuildConfigForRepo(input: AutobuildConfigForRepoInput!): AutobuildConfigForRepoPayload
+
+  """Add a new github app installation"""
+  installGithubApp(input: InstallGithubAppInput!): InstallGithubAppPayload
+
+  """Detach autobuild from app."""
+  detachAppFromAutobuild(input: DetachAppFromAutobuildInput!): DetachAppFromAutobuildPayload
+
+  """Update autobuild config for an app."""
+  updateAutobuildConfigForApp(input: UpdateAutobuildConfigForAppInput!): UpdateAutobuildConfigForAppPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3511,6 +3684,127 @@ type ToggleForceHTTPSPayload {
 input ToggleForceHTTPSInput {
   """App ID"""
   id: ID!
+  clientMutationId: String
+}
+
+"""Redeploy the active version of an app."""
+type RotateS3SecretsForAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input RotateS3SecretsForAppInput {
+  """ID of the app."""
+  id: ID!
+  clientMutationId: String
+}
+
+"""Delete a database for an app."""
+type RotateCredentialsForAppDBPayload {
+  database: AppDatabase!
+  password: String!
+  clientMutationId: String
+}
+
+input RotateCredentialsForAppDBInput {
+  """App Database ID"""
+  id: ID!
+  clientMutationId: String
+}
+
+"""Create a new database for an app."""
+type CreateAppDBPayload {
+  database: AppDatabase!
+  password: String!
+  clientMutationId: String
+}
+
+input CreateAppDBInput {
+  """App ID"""
+  id: ID!
+
+  """Database name"""
+  name: String!
+  clientMutationId: String
+}
+
+"""Delete a database for an app."""
+type DeleteAppDBPayload {
+  success: Boolean!
+  clientMutationId: String
+}
+
+input DeleteAppDBInput {
+  """App Database ID"""
+  id: ID!
+  clientMutationId: String
+}
+
+"""Get the autobuild config for a given repo"""
+type AutobuildConfigForRepoPayload {
+  """The build configuration"""
+  buildConfig: BuildConfig
+
+  """List of apps deployed with this repo."""
+  deployedApps: [DeployApp]
+  clientMutationId: String
+}
+
+"""The Build Configuration for a given repo"""
+type BuildConfig {
+  buildCmd: String!
+  installCmd: String!
+  setupDb: Boolean!
+  presetName: String!
+  appName: String!
+}
+
+input AutobuildConfigForRepoInput {
+  """The repo URL"""
+  repoUrl: String!
+  clientMutationId: String
+}
+
+"""Add a new github app installation"""
+type InstallGithubAppPayload {
+  success: Boolean!
+  user: User!
+  clientMutationId: String
+}
+
+input InstallGithubAppInput {
+  """Github app Installation ID"""
+  installationId: ID!
+  clientMutationId: String
+}
+
+"""Detach autobuild from app."""
+type DetachAppFromAutobuildPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input DetachAppFromAutobuildInput {
+  """The ID of the App"""
+  appId: ID!
+  clientMutationId: String
+}
+
+"""Update autobuild config for an app."""
+type UpdateAutobuildConfigForAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input UpdateAutobuildConfigForAppInput {
+  """The ID of the App"""
+  appId: ID!
+
+  """Build command for the app"""
+  buildCmd: String
+
+  """Install command for the app"""
+  installCmd: String
   clientMutationId: String
 }
 
@@ -4364,11 +4658,31 @@ type Subscription {
   ): Log!
   waitOnRepoCreation(repoId: ID!): Boolean!
   appIsPublishedFromRepo(repoId: ID!): DeployAppVersion!
+  publishAppFromRepoAutobuild(repoUrl: String!, appName: String!, owner: String, buildCmd: String, installCmd: String, databaseName: String, secrets: [SecretInput]): AutobuildLog
+  fetchBuildLogs(buildId: String!): String
   packageVersionCreated(publishedBy: ID, ownerId: ID): PackageVersion!
 
   """Subscribe to package version ready"""
   packageVersionReady(packageVersionId: ID!): PackageVersionReadyResponse!
   userNotificationCreated(userId: ID!): UserNotificationCreated!
+}
+
+"""Log entry for Deploying app from github repo"""
+type AutobuildLog {
+  """Kind of log message."""
+  kind: AutoBuildDeployAppLogKind!
+
+  """Log message"""
+  message: String
+  appVersion: DeployAppVersion
+
+  """The database password, if DB was setup."""
+  dbPassword: String
+}
+
+enum AutoBuildDeployAppLogKind {
+  LOG
+  COMPLETE
 }
 
 type PackageVersionReadyResponse {

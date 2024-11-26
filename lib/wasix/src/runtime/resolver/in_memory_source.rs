@@ -68,9 +68,20 @@ impl InMemorySource {
     }
 
     /// Add a new [`PackageSummary`] to the [`InMemorySource`].
+    ///
+    /// Named packages are also made accessible by their hash.
     pub fn add(&mut self, summary: PackageSummary) {
         match summary.pkg.id.clone() {
             PackageId::Named(ident) => {
+                // Also add the package as a hashed package.
+                let pkg_hash = PackageHash::Sha256(wasmer_config::hash::Sha256Hash(
+                    summary.dist.webc_sha256.as_bytes(),
+                ));
+                self.hash_packages
+                    .entry(pkg_hash)
+                    .or_insert_with(|| summary.clone());
+
+                // Add the named package.
                 let summaries = self
                     .named_packages
                     .entry(ident.full_name.clone())
@@ -107,6 +118,17 @@ impl InMemorySource {
             PackageId::Hash(hash) => self.hash_packages.get(hash),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.named_packages.is_empty() && self.hash_packages.is_empty()
+    }
+
+    /// Returns the number of packages in the source.
+    pub fn len(&self) -> usize {
+        // Only need to count the hash packages,
+        // as the named packages are also always added as hashed.
+        self.hash_packages.len()
+    }
 }
 
 #[async_trait::async_trait]
@@ -135,13 +157,16 @@ impl Source for InMemorySource {
 
                         if matches.is_empty() {
                             return Err(QueryError::NoMatches {
+                                query: package.clone(),
                                 archived_versions: Vec::new(),
                             });
                         }
 
                         Ok(matches)
                     }
-                    None => Err(QueryError::NotFound),
+                    None => Err(QueryError::NotFound {
+                        query: package.clone(),
+                    }),
                 }
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) => self
@@ -149,9 +174,12 @@ impl Source for InMemorySource {
                 .get(hash)
                 .map(|x| vec![x.clone()])
                 .ok_or_else(|| QueryError::NoMatches {
+                    query: package.clone(),
                     archived_versions: Vec::new(),
                 }),
-            PackageSource::Url(_) | PackageSource::Path(_) => Err(QueryError::Unsupported),
+            PackageSource::Url(_) | PackageSource::Path(_) => Err(QueryError::Unsupported {
+                query: package.clone(),
+            }),
         }
     }
 }

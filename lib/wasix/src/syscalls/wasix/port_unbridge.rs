@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_unbridge()`
 /// Disconnects from a remote network
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn port_unbridge(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
     wasi_try_ok!(port_unbridge_internal(&mut ctx)?);
 
@@ -11,7 +11,7 @@ pub fn port_unbridge(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, Wasi
     if ctx.data().enable_journal {
         JournalEffector::save_port_unbridge(&mut ctx).map_err(|err| {
             tracing::error!("failed to save port_unbridge event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

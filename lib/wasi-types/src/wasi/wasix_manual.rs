@@ -108,7 +108,31 @@ pub union EventUnion {
 #[repr(C)]
 pub struct StackSnapshot {
     pub user: u64,
-    pub hash: u128,
+    // The hash is defined as two u64s in wasix-libc, so we must do the same
+    // here to make sure the alignment and padding are the same.
+    pub hash_lower: u64,
+    pub hash_upper: u64,
+}
+
+impl StackSnapshot {
+    pub fn new(user: u64, hash: u128) -> Self {
+        Self {
+            user,
+            hash_lower: (hash & 0xffff_ffff_ffff_ffff) as u64,
+            hash_upper: (hash >> 64) as u64,
+        }
+    }
+
+    pub fn hash(&self) -> u128 {
+        ((self.hash_upper as u128) << 64) | (self.hash_lower as u128)
+    }
+}
+
+#[test]
+fn snapshot_hash_roundtrip() {
+    let hash = 0x1234_5678_90ab_cdef_0987_6543_fedc_ba12;
+    let snapshot = StackSnapshot::new(0, hash);
+    assert_eq!(snapshot.hash(), hash);
 }
 
 /// An event that occurred.
@@ -250,16 +274,11 @@ unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub enum ExitCode {
-    Errno(Errno),
-    Other(i32),
-}
+pub struct ExitCode(u16);
+
 impl ExitCode {
     pub fn raw(&self) -> i32 {
-        match self {
-            ExitCode::Errno(err) => err.to_native(),
-            ExitCode::Other(code) => *code,
-        }
+        self.0 as i32
     }
 
     pub fn is_success(&self) -> bool {
@@ -268,10 +287,7 @@ impl ExitCode {
 }
 impl core::fmt::Debug for ExitCode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ExitCode::Errno(a) => write!(f, "ExitCode::{}", a),
-            ExitCode::Other(a) => write!(f, "ExitCode::{}", a),
-        }
+        write!(f, "ExitCode::{}", self.0)
     }
 }
 impl core::fmt::Display for ExitCode {
@@ -298,35 +314,31 @@ unsafe impl wasmer::FromToNativeWasmType for ExitCode {
 
 impl From<Errno> for ExitCode {
     fn from(val: Errno) -> Self {
-        Self::Errno(val)
+        Self((val.to_native() % 256) as u16)
     }
 }
 
 impl From<i32> for ExitCode {
     fn from(val: i32) -> Self {
-        let err = Errno::from_native(val);
-        match err {
-            Errno::Unknown => Self::Other(val),
-            err => Self::Errno(err),
-        }
+        Self((val % 256) as u16)
+    }
+}
+
+impl From<u16> for ExitCode {
+    fn from(value: u16) -> Self {
+        Self(value)
     }
 }
 
 impl From<ExitCode> for Errno {
     fn from(code: ExitCode) -> Self {
-        match code {
-            ExitCode::Errno(err) => err,
-            ExitCode::Other(code) => Errno::from_native(code),
-        }
+        Errno::from_native(code.0 as i32)
     }
 }
 
 impl From<ExitCode> for i32 {
     fn from(val: ExitCode) -> Self {
-        match val {
-            ExitCode::Errno(err) => err.to_native(),
-            ExitCode::Other(code) => code,
-        }
+        val.0 as i32
     }
 }
 

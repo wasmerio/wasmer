@@ -15,18 +15,18 @@
 #![allow(clippy::bool_comparison, clippy::match_like_matches_macro)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[cfg(all(target_os = "linux", feature = "tun-tap"))]
-mod net;
+//#[cfg(all(target_os = "linux", feature = "tun-tap"))]
+//mod net;
 
 mod commands;
 mod common;
 mod config;
 #[macro_use]
 mod error;
+#[cfg(feature = "static-artifact-create")]
 mod c_gen;
 mod logging;
 mod opts;
-mod package_source;
 mod store;
 mod types;
 mod utils;

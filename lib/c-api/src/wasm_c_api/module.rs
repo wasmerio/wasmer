@@ -253,7 +253,7 @@ pub unsafe extern "C" fn wasm_module_exports(
 ///         "(module\n"
 ///         "  (import \"ns\" \"function\" (func))\n"
 ///         "  (import \"ns\" \"global\" (global f32))\n"
-///         "  (import \"ns\" \"table\" (table 1 2 anyfunc))\n"
+///         "  (import \"ns\" \"table\" (table 1 2 funcref))\n"
 ///         "  (import \"ns\" \"memory\" (memory 3 4)))"
 ///     );
 ///     wasm_byte_vec_t wasm;
@@ -668,7 +668,7 @@ mod tests {
                     "(module\n"
                     "  (import \"ns\" \"function\" (func))\n"
                     "  (import \"ns\" \"global\" (global f32))\n"
-                    "  (import \"ns\" \"table\" (table 1 2 anyfunc))\n"
+                    "  (import \"ns\" \"table\" (table 1 2 funcref))\n"
                     "  (import \"ns\" \"memory\" (memory 3 4)))"
                 );
                 wasm_byte_vec_t wasm;

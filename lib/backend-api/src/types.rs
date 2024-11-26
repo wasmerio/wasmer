@@ -711,6 +711,26 @@ mod queries {
         pub endpoint: String,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct RotateS3SecretsForAppVariables {
+        pub id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = "Mutation",
+        variables = "RotateS3SecretsForAppVariables"
+    )]
+    pub struct RotateS3SecretsForApp {
+        #[arguments(input: { id: $id })]
+        pub rotate_s3_secrets_for_app: Option<RotateS3SecretsForAppPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RotateS3SecretsForAppPayload {
+        pub client_mutation_id: Option<String>,
+    }
+
     #[derive(cynic::QueryVariables, Debug, Clone)]
     pub struct PaginationVars {
         pub offset: Option<i32>,
@@ -812,7 +832,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "DeployApp")]
     pub(crate) struct AppVolumes {
-        pub active_version: AppVersionVolumes,
+        pub active_version: Option<AppVersionVolumes>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -824,7 +844,7 @@ mod queries {
     #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
     pub struct AppVersionVolume {
         pub name: String,
-        pub size: Option<i32>,
+        pub size: Option<BigInt>,
         pub used_size: Option<BigInt>,
     }
 
@@ -918,7 +938,7 @@ mod queries {
         pub created_at: DateTime,
         pub updated_at: DateTime,
         pub description: Option<String>,
-        pub active_version: DeployAppVersion,
+        pub active_version: Option<DeployAppVersion>,
         pub admin_url: String,
         pub owner: Owner,
         pub url: String,
@@ -1163,6 +1183,100 @@ mod queries {
     pub struct RedeployActiveVersionPayload {
         pub app: DeployApp,
     }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetAppDeploymentsVariables {
+        pub after: Option<String>,
+        pub first: Option<i32>,
+        pub name: String,
+        pub offset: Option<i32>,
+        pub owner: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppDeploymentsVariables")]
+    pub struct GetAppDeployments {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<DeployAppDeployments>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetAppDeploymentsVariables")]
+    pub struct DeployAppDeployments {
+        // FIXME: add $offset, $after, currently causes an error from the backend
+        // #[arguments(first: $first, after: $after, offset: $offset)]
+        pub deployments: Option<DeploymentConnection>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct DeploymentConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<DeploymentEdge>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct DeploymentEdge {
+        pub node: Option<Deployment>,
+    }
+
+    #[allow(clippy::large_enum_variant)]
+    #[derive(cynic::InlineFragments, Debug, Clone, Serialize)]
+    pub enum Deployment {
+        AutobuildRepository(AutobuildRepository),
+        NakedDeployment(NakedDeployment),
+        #[cynic(fallback)]
+        Other,
+    }
+
+    #[derive(cynic::QueryFragment, serde::Serialize, Debug, Clone)]
+    pub struct NakedDeployment {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub app_version: Option<DeployAppVersion>,
+    }
+
+    #[derive(cynic::QueryFragment, serde::Serialize, Debug, Clone)]
+    pub struct AutobuildRepository {
+        pub id: cynic::Id,
+        pub build_id: Uuid,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub status: StatusEnum,
+        pub log_url: Option<String>,
+        pub repo_url: String,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum StatusEnum {
+        Success,
+        Working,
+        Failure,
+        Queued,
+        Timeout,
+        InternalError,
+        Cancelled,
+        Running,
+    }
+
+    impl StatusEnum {
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::Success => "success",
+                Self::Working => "working",
+                Self::Failure => "failure",
+                Self::Queued => "queued",
+                Self::Timeout => "timeout",
+                Self::InternalError => "internal_error",
+                Self::Cancelled => "cancelled",
+                Self::Running => "running",
+            }
+        }
+    }
+
+    #[derive(cynic::Scalar, Debug, Clone)]
+    #[cynic(graphql_type = "UUID")]
+    pub struct Uuid(pub String);
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct PublishDeployAppVars {
@@ -2057,6 +2171,89 @@ mod queries {
     #[derive(cynic::Scalar, Debug, Clone)]
     pub struct BigInt(pub i64);
 
+    #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ProgrammingLanguage {
+        Python,
+        Javascript,
+    }
+
+    /// A library that exposes bindings to a Wasmer package.
+    #[derive(Debug, Clone)]
+    pub struct Bindings {
+        /// A unique ID specifying this set of bindings.
+        pub id: String,
+        /// The URL which can be used to download the files that were generated
+        /// (typically as a `*.tar.gz` file).
+        pub url: String,
+        /// The programming language these bindings are written in.
+        pub language: ProgrammingLanguage,
+        /// The generator used to generate these bindings.
+        pub generator: BindingsGenerator,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetBindingsQueryVariables<'a> {
+        pub name: &'a str,
+        pub version: Option<&'a str>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "Query", variables = "GetBindingsQueryVariables")]
+    pub struct GetBindingsQuery {
+        #[arguments(name: $name, version: $version)]
+        #[cynic(rename = "getPackageVersion")]
+        pub package_version: Option<PackageBindingsVersion>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageBindingsVersion {
+        pub bindings: Vec<Option<PackageVersionLanguageBinding>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    pub struct BindingsGenerator {
+        pub package_version: PackageVersion,
+        pub command_name: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    pub struct PackageVersionLanguageBinding {
+        pub id: cynic::Id,
+        pub language: ProgrammingLanguage,
+        pub url: String,
+        pub generator: BindingsGenerator,
+        pub __typename: String,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct PackageVersionReadySubscriptionVariables {
+        pub package_version_id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = "Subscription",
+        variables = "PackageVersionReadySubscriptionVariables"
+    )]
+    pub struct PackageVersionReadySubscription {
+        #[arguments(packageVersionId: $package_version_id)]
+        pub package_version_ready: PackageVersionReadyResponse,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct PackageVersionReadyResponse {
+        pub state: PackageVersionState,
+        pub success: bool,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum PackageVersionState {
+        WebcGenerated,
+        BindingsGenerated,
+        NativeExesGenerated,
+    }
+
     #[derive(cynic::InlineFragments, Debug, Clone)]
     #[cynic(graphql_type = "Node", variables = "GetDeployAppVersionsByIdVars")]
     pub enum NodeDeployAppVersions {
@@ -2078,6 +2275,7 @@ mod queries {
     pub enum Node {
         DeployApp(Box<DeployApp>),
         DeployAppVersion(Box<DeployAppVersion>),
+        AutobuildRepository(Box<AutobuildRepository>),
         #[cynic(fallback)]
         Unknown,
     }

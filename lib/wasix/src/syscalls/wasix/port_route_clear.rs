@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_route_clear()`
 /// Clears all the routes in the local port
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn port_route_clear(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
     wasi_try_ok!(port_route_clear_internal(&mut ctx)?);
 
@@ -11,7 +11,7 @@ pub fn port_route_clear(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, W
     if ctx.data().enable_journal {
         JournalEffector::save_port_route_clear(&mut ctx).map_err(|err| {
             tracing::error!("failed to save port_route_clear event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

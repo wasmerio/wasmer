@@ -5,7 +5,7 @@ use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
-use wasmer_wasix::http::reqwest::get_proxy;
+use wasmer_package::utils::from_disk;
 
 use crate::config::WasmerEnv;
 
@@ -27,10 +27,6 @@ pub struct PackageDownload {
     /// Run the download command without any output
     #[clap(long)]
     pub quiet: bool,
-
-    /// proxy to use for downloading
-    #[clap(long)]
-    pub proxy: Option<String>,
 
     /// The package to download.
     package: PackageSource,
@@ -101,13 +97,7 @@ impl PackageDownload {
                 // caveat: client_unauthennticated will use a token if provided, it
                 // just won't fail if none is present. So, _unauthenticated() can actually
                 // produce an authenticated client.
-                let client = if let Some(proxy) = &self.proxy {
-                    let proxy = reqwest::Proxy::all(proxy)?;
-
-                    self.env.client_unauthennticated_with_proxy(proxy)?
-                } else {
-                    self.env.client_unauthennticated()?
-                };
+                let client = self.env.client_unauthennticated()?;
 
                 let version = id.version_or_default().to_string();
                 let version = if version == "*" {
@@ -119,7 +109,7 @@ impl PackageDownload {
 
                 let rt = tokio::runtime::Runtime::new()?;
                 let package = rt
-                    .block_on(wasmer_api::query::get_package_version(
+                    .block_on(wasmer_backend_api::query::get_package_version(
                         &client,
                         full_name.clone(),
                         version.clone(),
@@ -157,7 +147,7 @@ impl PackageDownload {
                 let client = self.env.client_unauthennticated()?;
 
                 let rt = tokio::runtime::Runtime::new()?;
-                let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash.to_string()))?
+                let pkg = rt.block_on(wasmer_backend_api::query::get_package_release(&client, &hash.to_string()))?
                     .with_context(|| format!("Package with {hash} does not exist in the registry, or is not accessible"))?;
 
                 let ident = hash.to_string();
@@ -171,7 +161,7 @@ impl PackageDownload {
 
         let builder = {
             let mut builder = reqwest::blocking::ClientBuilder::new();
-            if let Some(proxy) = get_proxy()? {
+            if let Some(proxy) = self.env.proxy()? {
                 builder = builder.proxy(proxy);
             }
             builder
@@ -254,7 +244,7 @@ impl PackageDownload {
 
             step_num += 1;
 
-            webc::compat::Container::from_disk(tmpfile.path())
+            from_disk(tmpfile.path())
                 .context("could not parse downloaded file as a package - invalid download?")?;
         }
 
@@ -309,11 +299,10 @@ mod tests {
             out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
             quiet: true,
-            proxy: None,
         };
 
         cmd.execute().unwrap();
 
-        webc::compat::Container::from_disk(out_path).unwrap();
+        from_disk(out_path).unwrap();
     }
 }

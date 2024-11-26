@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `addr` - Address to be added
-#[instrument(level = "debug", skip_all, fields(ip = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(ip = field::Empty), ret)]
 pub fn port_addr_add<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_cidr_t, M>,
@@ -18,7 +18,7 @@ pub fn port_addr_add<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, ip));
-    Span::current().record("ip", &format!("{:?}", cidr));
+    Span::current().record("ip", format!("{:?}", cidr));
 
     wasi_try_ok!(port_addr_add_internal(&mut ctx, cidr)?);
 
@@ -26,7 +26,7 @@ pub fn port_addr_add<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_port_addr_add(&mut ctx, cidr).map_err(|err| {
             tracing::error!("failed to save port_addr_add event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

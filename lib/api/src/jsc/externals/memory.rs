@@ -208,7 +208,7 @@ impl Memory {
 
     #[allow(unused)]
     pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.handle.duplicate(store)
+        self.handle.copy(store)
     }
 
     pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemory> {

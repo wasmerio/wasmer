@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `addr` - Address of the default gateway
-#[instrument(level = "debug", skip_all, fields(ip = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(ip = field::Empty), ret)]
 pub fn port_gateway_set<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
@@ -16,7 +16,7 @@ pub fn port_gateway_set<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
-    Span::current().record("ip", &format!("{:?}", ip));
+    Span::current().record("ip", format!("{:?}", ip));
 
     wasi_try_ok!(port_gateway_set_internal(&mut ctx, ip)?);
 
@@ -24,7 +24,7 @@ pub fn port_gateway_set<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_port_gateway_set(&mut ctx, ip).map_err(|err| {
             tracing::error!("failed to save port_gateway_set event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

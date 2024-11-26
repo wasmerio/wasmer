@@ -13,19 +13,24 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-serde = { version = "1.0", features = ["derive", "rc"], optional = true, default-features = false }
+serde = { version = "1.0", features = [
+	"derive",
+	"rc",
+], optional = true, default-features = false }
 serde_bytes = { version = "0.11", optional = true }
 thiserror = "1.0"
 more-asserts = "0.2"
-indexmap = { version = "1.6" }
+indexmap = { workspace = true }
 rkyv = { workspace = true }
 enum-iterator = "0.7.0"
-target-lexicon = { version = "0.12.2", default-features = false }
+target-lexicon = { workspace = true}
 enumset.workspace = true
 bytecheck = "0.6.8"
 xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
 sha2 = { version = "0.10" }
 hex = { version = "^0.4" }
+loupe = { version = "0.1.3", optional = true }
+
 
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature
@@ -40,7 +45,8 @@ memoffset.workspace = true
 default = ["std"]
 std = []
 core = []
-enable-serde = ["serde", "serde/std", "serde_bytes", "indexmap/serde-1"]
+enable-serde = ["serde", "serde/std", "serde_bytes", "indexmap/serde"]
+artifact-size = ["dep:loupe"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

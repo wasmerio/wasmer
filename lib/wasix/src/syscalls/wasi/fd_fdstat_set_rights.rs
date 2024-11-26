@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///     The rights to apply to `fd`
 /// - `Rights fs_rights_inheriting`
 ///     The inheriting rights to apply to `fd`
-#[instrument(level = "debug", skip_all, fields(%fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_fdstat_set_rights(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -30,7 +30,7 @@ pub fn fd_fdstat_set_rights(
         JournalEffector::save_fd_set_rights(&mut ctx, fd, fs_rights_base, fs_rights_inheriting)
             .map_err(|err| {
                 tracing::error!("failed to save file set rights event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             })?;
     }
 
@@ -46,7 +46,7 @@ pub(crate) fn fd_fdstat_set_rights_internal(
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let mut fd_map = state.fs.fd_map.write().unwrap();
-    let fd_entry = fd_map.get_mut(&fd).ok_or(Errno::Badf)?;
+    let fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)?;
 
     // ensure new rights are a subset of current rights
     if fd_entry.rights | fs_rights_base != fd_entry.rights

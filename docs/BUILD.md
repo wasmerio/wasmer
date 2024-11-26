@@ -17,7 +17,7 @@ curl https://sh.rustup.rs -sSf | sh
 
 ### Windows
 
-Windows is fully supported by Wasmer. WASI is also fully supported, but Emscripten support is still experimental.
+Windows is fully supported by Wasmer. WASI is also fully supported.
 
 1. Install [Visual Studio](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=15)
 2. Install [Rust for Windows](https://win.rustup.rs/)

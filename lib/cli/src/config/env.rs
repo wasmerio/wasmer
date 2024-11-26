@@ -3,7 +3,7 @@ use anyhow::{Context, Error};
 use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
 use url::Url;
-use wasmer_api::WasmerClient;
+use wasmer_backend_api::WasmerClient;
 
 lazy_static! {
     pub static ref DEFAULT_WASMER_CLI_USER_AGENT: String =
@@ -91,6 +91,17 @@ impl WasmerEnv {
             })
     }
 
+    /// Returns the proxy specified in wasmer config if present
+    pub fn proxy(&self) -> Result<Option<reqwest::Proxy>, Error> {
+        self.config()?
+            .proxy
+            .url
+            .as_ref()
+            .map(reqwest::Proxy::all)
+            .transpose()
+            .map_err(Into::into)
+    }
+
     /// The directory all Wasmer artifacts are stored in.
     pub fn dir(&self) -> &Path {
         &self.wasmer_dir
@@ -127,23 +138,10 @@ impl WasmerEnv {
 
     pub fn client_unauthennticated(&self) -> Result<WasmerClient, anyhow::Error> {
         let registry_url = self.registry_endpoint()?;
-        let client = wasmer_api::WasmerClient::new(registry_url, &DEFAULT_WASMER_CLI_USER_AGENT)?;
 
-        let client = if let Some(token) = self.token() {
-            client.with_auth_token(token)
-        } else {
-            client
-        };
+        let proxy = self.proxy()?;
 
-        Ok(client)
-    }
-
-    pub fn client_unauthennticated_with_proxy(
-        &self,
-        proxy: reqwest::Proxy,
-    ) -> Result<WasmerClient, anyhow::Error> {
-        let registry_url = self.registry_endpoint()?;
-        let client = wasmer_api::WasmerClient::new_with_proxy(
+        let client = wasmer_backend_api::WasmerClient::new_with_proxy(
             registry_url,
             &DEFAULT_WASMER_CLI_USER_AGENT,
             proxy,

@@ -3,11 +3,16 @@ use std::path::PathBuf;
 use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
-use wasmer_compiler::Artifact;
-use wasmer_types::{
-    compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
+use wasmer_compiler::{
+    types::{
+        symbols::ModuleMetadataSymbolRegistry,
+        target::{CpuFeature, Triple},
+    },
+    Artifact,
 };
-use webc::{compat::SharedBytes, Container, DetectError};
+use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
+use wasmer_types::MetadataHeader;
+use webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
 use crate::store::CompilerOptions;
 
@@ -60,9 +65,11 @@ impl GenCHeader {
             None => crate::commands::PrefixMapCompilation::hash_for_bytes(&file),
         };
 
-        let atom = match Container::from_bytes(file.clone()) {
+        let atom = match from_bytes(file.clone()) {
             Ok(webc) => self.get_atom(&webc)?,
-            Err(webc::compat::ContainerError::Detect(DetectError::InvalidMagic { .. })) => {
+            Err(WasmerPackageError::ContainerError(ContainerError::Detect(
+                DetectError::InvalidMagic { .. },
+            ))) => {
                 // we've probably got a WebAssembly file
                 file.into()
             }

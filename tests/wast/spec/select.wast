@@ -36,31 +36,6 @@
     (select (result externref) (local.get 0) (local.get 1) (local.get 2))
   )
 
-  ;; Check that both sides of the select are evaluated
-  (func (export "select-trap-left") (param $cond i32) (result i32)
-    (select (unreachable) (i32.const 0) (local.get $cond))
-  )
-  (func (export "select-trap-right") (param $cond i32) (result i32)
-    (select (i32.const 0) (unreachable) (local.get $cond))
-  )
-
-  (func (export "select-unreached")
-    (unreachable) (select)
-    (unreachable) (i32.const 0) (select)
-    (unreachable) (i32.const 0) (i32.const 0) (select)
-    (unreachable) (i32.const 0) (i32.const 0) (i32.const 0) (select)
-    (unreachable) (f32.const 0) (i32.const 0) (select)
-    (unreachable)
-  )
-
-  (func (export "select_unreached_result_1") (result i32)
-    (unreachable) (i32.add (select))
-  )
-
-  (func (export "select_unreached_result_2") (result i64)
-    (unreachable) (i64.add (select (i64.const 0) (i32.const 0)))
-  )
-
   ;; As the argument of control constructs and instructions
 
   (func (export "as-select-first") (param i32) (result i32)
@@ -203,19 +178,6 @@
       (i32.wrap_i64 (select (i64.const 1) (i64.const 0) (local.get 0)))
     )
   )
-
-  (func (export "unreachable-num")
-    (unreachable)
-    (select)
-    (i32.eqz)
-    (drop)
-  )
-  (func (export "unreachable-ref")
-    (unreachable)
-    (select)
-    (ref.is_null)
-    (drop)
-  )
 )
 
 (assert_return (invoke "select-i32" (i32.const 1) (i32.const 2) (i32.const 1)) (i32.const 1))
@@ -278,11 +240,6 @@
 (assert_return (invoke "select-f64-t" (f64.const 2) (f64.const nan) (i32.const 0)) (f64.const nan))
 (assert_return (invoke "select-f64-t" (f64.const 2) (f64.const nan:0x20304) (i32.const 0)) (f64.const nan:0x20304))
 
-(assert_trap (invoke "select-trap-left" (i32.const 1)) "unreachable")
-(assert_trap (invoke "select-trap-left" (i32.const 0)) "unreachable")
-(assert_trap (invoke "select-trap-right" (i32.const 1)) "unreachable")
-(assert_trap (invoke "select-trap-right" (i32.const 0)) "unreachable")
-
 (assert_return (invoke "as-select-first" (i32.const 0)) (i32.const 1))
 (assert_return (invoke "as-select-first" (i32.const 1)) (i32.const 0))
 (assert_return (invoke "as-select-mid" (i32.const 0)) (i32.const 2))
@@ -315,7 +272,7 @@
 (assert_return (invoke "as-br_table-last" (i32.const 1)) (i32.const 2))
 
 (assert_return (invoke "as-call_indirect-first" (i32.const 0)) (i32.const 3))
-;;(assert_return (invoke "as-call_indirect-first" (i32.const 1)) (i32.const 2))
+(assert_return (invoke "as-call_indirect-first" (i32.const 1)) (i32.const 2))
 (assert_return (invoke "as-call_indirect-mid" (i32.const 0)) (i32.const 1))
 (assert_return (invoke "as-call_indirect-mid" (i32.const 1)) (i32.const 1))
 (assert_trap (invoke "as-call_indirect-last" (i32.const 0)) "undefined element")
@@ -555,44 +512,20 @@
   "type mismatch"
 )
 
-;; Validation after unreachable
 
-;; The first two operands should have the same type as each other
-(assert_invalid
-  (module (func (unreachable) (select (i32.const 1) (i64.const 1) (i32.const 1)) (drop)))
-  "type mismatch"
+;; Flat syntax
+
+(module
+  (table 1 funcref)
+  (func (result i32) unreachable select)
+  (func (result i32) unreachable select nop)
+  (func (result i32) unreachable select (select))
+  (func (result i32) unreachable select select)
+  (func (result i32) unreachable select select select)
+  (func (result i32) unreachable select (result i32))
+  (func (result i32) unreachable select (result i32) (result))
+  (func (result i32) unreachable select (result i32) (result) select)
+  (func (result i32) unreachable select (result) (result i32) select (result i32))
+  (func (result i32) unreachable select call_indirect)
+  (func (result i32) unreachable select call_indirect select)
 )
-
-(assert_invalid
-  (module (func (unreachable) (select (i64.const 1) (i32.const 1) (i32.const 1)) (drop)))
-  "type mismatch"
-)
-
-;; Third operand must be i32
-(assert_invalid
-  (module (func (unreachable) (select (i32.const 1) (i32.const 1) (i64.const 1)) (drop)))
-  "type mismatch"
-)
-
-(assert_invalid
-  (module (func (unreachable) (select (i32.const 1) (i64.const 1)) (drop)))
-  "type mismatch"
-)
-
-(assert_invalid
-  (module (func (unreachable) (select (i64.const 1)) (drop)))
-  "type mismatch"
-)
-
-;; Result of select has type of first two operands (type of second operand when first one is omitted)
-(assert_invalid
-  (module (func (result i32) (unreachable) (select (i64.const 1) (i32.const 1))))
-  "type mismatch"
-)
-
-;; select always has non-empty result
-(assert_invalid
-  (module (func (unreachable) (select)))
-  "type mismatch"
-)
-

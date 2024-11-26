@@ -5,7 +5,7 @@ use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
 use sha2::Digest;
 use wasmer_config::package::PackageHash;
-use webc::wasmer_package::Package;
+use wasmer_package::package::Package;
 
 use crate::utils::load_package_manifest;
 
@@ -54,12 +54,10 @@ impl PackageBuild {
                 manifest_path.display()
             )
         };
-        let pkg = webc::wasmer_package::Package::from_manifest(manifest_path.clone()).context(
-            format!(
-                "While parsing the manifest (loaded from {})",
-                manifest_path.canonicalize()?.display()
-            ),
-        )?;
+        let pkg = Package::from_manifest(manifest_path.clone()).context(format!(
+            "While parsing the manifest (loaded from {})",
+            manifest_path.canonicalize()?.display()
+        ))?;
         let data = pkg.serialize().context("While validating the package")?;
         let hash = sha2::Sha256::digest(&data).into();
         let pkg_hash = PackageHash::from_sha256_bytes(hash);
@@ -181,6 +179,8 @@ impl PackageBuild {
 
 #[cfg(test)]
 mod tests {
+    use wasmer_package::utils::from_disk;
+
     use super::*;
 
     /// Download a package from the dev registry.
@@ -215,6 +215,6 @@ description = "hello"
 
         cmd.execute().unwrap();
 
-        webc::Container::from_disk(path.join("wasmer-hello-0.1.0.webc")).unwrap();
+        from_disk(path.join("wasmer-hello-0.1.0.webc")).unwrap();
     }
 }

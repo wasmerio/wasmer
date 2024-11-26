@@ -3,7 +3,7 @@ use std::{path::Path, str::FromStr};
 use anyhow::{bail, Context};
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm};
-use wasmer_api::{
+use wasmer_backend_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
     WasmerClient,
@@ -32,12 +32,14 @@ impl AppIdent {
     /// Resolve an app identifier through the API.
     pub async fn resolve(&self, client: &WasmerClient) -> Result<DeployApp, anyhow::Error> {
         match self {
-            AppIdent::AppId(app_id) => wasmer_api::query::get_app_by_id(client, app_id.clone())
-                .await
-                .with_context(|| format!("Could not find app with id '{}'", app_id)),
+            AppIdent::AppId(app_id) => {
+                wasmer_backend_api::query::get_app_by_id(client, app_id.clone())
+                    .await
+                    .with_context(|| format!("Could not find app with id '{}'", app_id))
+            }
             AppIdent::AppVersionId(id) => {
                 let (app, _version) =
-                    wasmer_api::query::get_app_version_by_id_with_app(client, id.clone())
+                    wasmer_backend_api::query::get_app_version_by_id_with_app(client, id.clone())
                         .await
                         .with_context(|| format!("Could not query for app version id '{}'", id))?;
                 Ok(app)
@@ -46,16 +48,16 @@ impl AppIdent {
                 // The API only allows to query by owner + name,
                 // so default to the current user as the owner.
                 // To to so the username must first be retrieved.
-                let user = wasmer_api::query::current_user(client)
+                let user = wasmer_backend_api::query::current_user(client)
                     .await?
                     .context("not logged in")?;
 
-                wasmer_api::query::get_app(client, user.username, name.clone())
+                wasmer_backend_api::query::get_app(client, user.username, name.clone())
                     .await?
                     .with_context(|| format!("Could not find app with name '{name}'"))
             }
             AppIdent::NamespacedName(owner, name) => {
-                wasmer_api::query::get_app(client, owner.clone(), name.clone())
+                wasmer_backend_api::query::get_app(client, owner.clone(), name.clone())
                     .await?
                     .with_context(|| format!("Could not find app '{owner}/{name}'"))
             }
@@ -121,6 +123,7 @@ pub struct AppIdentOpts {
 #[allow(clippy::large_enum_variant)]
 pub enum ResolvedAppIdent {
     Ident(AppIdent),
+    #[allow(dead_code)]
     Config {
         ident: AppIdent,
         config: AppConfigV1,

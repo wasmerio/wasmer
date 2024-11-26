@@ -13,7 +13,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::{Module, RuntimeError};
@@ -205,8 +204,7 @@ impl TtyBridge for DefaultTty {
     }
 }
 
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
@@ -215,10 +213,8 @@ pub struct PluggableRuntime {
     pub source: Arc<dyn Source + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
-    #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
-    #[derivative(Debug = "ignore")]
     pub journals: Vec<Arc<DynJournal>>,
 }
 
@@ -237,7 +233,7 @@ impl PluggableRuntime {
 
         let loader = UnsupportedPackageLoader;
 
-        let mut source = MultiSource::new();
+        let mut source = MultiSource::default();
         if let Some(client) = &http_client {
             source.add_source(BackendSource::new(
                 BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap(),
@@ -285,14 +281,14 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_source(&mut self, source: impl Source + Send + Sync + 'static) -> &mut Self {
+    pub fn set_source(&mut self, source: impl Source + Send + 'static) -> &mut Self {
         self.source = Arc::new(source);
         self
     }
 
     pub fn set_package_loader(
         &mut self,
-        package_loader: impl PackageLoader + Send + Sync + 'static,
+        package_loader: impl PackageLoader + 'static,
     ) -> &mut Self {
         self.package_loader = Arc::new(package_loader);
         self
@@ -331,11 +327,7 @@ impl Runtime for PluggableRuntime {
     }
 
     fn engine(&self) -> wasmer::Engine {
-        if let Some(engine) = self.engine.clone() {
-            engine
-        } else {
-            wasmer::Engine::default()
-        }
+        self.engine.clone().unwrap_or_default()
     }
 
     fn new_store(&self) -> wasmer::Store {
@@ -370,8 +362,7 @@ impl Runtime for PluggableRuntime {
 
 /// Runtime that allows for certain things to be overridden
 /// such as the active journals
-#[derive(Clone, Derivative)]
-#[derivative(Debug)]
+#[derive(Clone, Debug)]
 pub struct OverriddenRuntime {
     inner: Arc<DynRuntime>,
     task_manager: Option<Arc<dyn VirtualTaskManager>>,
@@ -381,10 +372,8 @@ pub struct OverriddenRuntime {
     source: Option<Arc<dyn Source + Send + Sync>>,
     engine: Option<wasmer::Engine>,
     module_cache: Option<Arc<dyn ModuleCache + Send + Sync>>,
-    #[derivative(Debug = "ignore")]
     tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
-    #[derivative(Debug = "ignore")]
     journals: Option<Vec<Arc<DynJournal>>>,
 }
 

@@ -13,7 +13,7 @@ use crate::syscalls::*;
 ///
 /// * `fd` - Socket descriptor
 /// * `addr` - Address of the socket to connect to
-#[instrument(level = "debug", skip_all, fields(%sock, addr = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, addr = field::Empty), ret)]
 pub fn sock_connect<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -23,7 +23,7 @@ pub fn sock_connect<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
     let peer_addr = SocketAddr::new(addr.0, addr.1);
-    Span::current().record("addr", &format!("{:?}", peer_addr));
+    Span::current().record("addr", format!("{:?}", peer_addr));
 
     wasi_try_ok!(sock_connect_internal(&mut ctx, sock, peer_addr)?);
 
@@ -38,7 +38,7 @@ pub fn sock_connect<M: MemorySize>(
         JournalEffector::save_sock_connect(&mut ctx, sock, local_addr, peer_addr).map_err(
             |err| {
                 tracing::error!("failed to save sock_connected event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             },
         )?;
     }

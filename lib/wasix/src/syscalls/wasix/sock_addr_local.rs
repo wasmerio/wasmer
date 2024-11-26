@@ -12,7 +12,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `fd` - Socket that the address is bound to
-#[instrument(level = "debug", skip_all, fields(%sock, addr = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, addr = field::Empty), ret)]
 pub fn sock_addr_local<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -25,7 +25,7 @@ pub fn sock_addr_local<M: MemorySize>(
         |socket, _| socket.addr_local()
     ));
 
-    Span::current().record("addr", &format!("{:?}", addr));
+    Span::current().record("addr", format!("{:?}", addr));
 
     let memory = unsafe { ctx.data().memory_view(&ctx) };
     wasi_try!(crate::net::write_ip_port(

@@ -1,10 +1,12 @@
-use std::str::ParseBoolError;
-
+use crate::{
+    config::{UpdateRegistry, WasmerConfig, WasmerEnv},
+    VERSION,
+};
 use anyhow::{Context, Result};
 use clap::Parser;
-use wasmer_registry::{wasmer_env::WasmerEnv, WasmerConfig};
+use std::str::ParseBoolError;
 
-use crate::VERSION;
+use super::AsyncCliCommand;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`
@@ -162,16 +164,22 @@ pub struct SetProxyUrl {
     pub url: String,
 }
 
-impl Config {
+#[async_trait::async_trait]
+impl AsyncCliCommand for Config {
+    type Output = ();
+
     /// Runs logic for the `config` subcommand
-    pub fn execute(&self) -> Result<()> {
+    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         self.inner_execute()
+            .await
             .context("failed to retrieve the wasmer config".to_string())
     }
+}
 
-    fn inner_execute(&self) -> Result<()> {
+impl Config {
+    async fn inner_execute(&self) -> Result<()> {
         if let Some(s) = self.set.as_ref() {
-            return s.execute(&self.env);
+            return s.execute(&self.env).await;
         }
 
         let flags = &self.flags;
@@ -228,7 +236,7 @@ impl Config {
 }
 
 impl GetOrSet {
-    fn execute(&self, env: &WasmerEnv) -> Result<()> {
+    async fn execute(&self, env: &WasmerEnv) -> Result<()> {
         let config_file = WasmerConfig::get_file_location(env.dir());
         let mut config = env.config()?;
 
@@ -262,22 +270,23 @@ impl GetOrSet {
             GetOrSet::Set(s) => {
                 match s {
                     StorableConfigField::RegistryUrl(s) => {
-                        config.registry.set_current_registry(&s.url);
+                        config.registry.set_current_registry(&s.url).await;
                         let current_registry = config.registry.get_current_registry();
-                        if let Some(u) = wasmer_registry::utils::get_username(&current_registry)
-                            .ok()
-                            .and_then(|o| o)
-                        {
-                            println!(
+                        if let Ok(client) = env.client() {
+                            if let Some(u) =
+                                wasmer_backend_api::query::current_user(&client).await?
+                            {
+                                println!(
                                 "Successfully logged into registry {current_registry:?} as user {u:?}"
                             );
+                            }
                         }
                     }
                     StorableConfigField::RegistryToken(t) => {
                         config.registry.set_login_token_for_registry(
                             &config.registry.get_current_registry(),
                             &t.token,
-                            wasmer_registry::config::UpdateRegistry::LeaveAsIs,
+                            UpdateRegistry::LeaveAsIs,
                         );
                     }
                     StorableConfigField::TelemetryEnabled(t) => {

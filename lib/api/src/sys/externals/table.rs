@@ -6,6 +6,7 @@ use crate::{vm::VMExternTable, ExternRef, Function, RuntimeError};
 use wasmer_vm::{StoreHandle, TableElement, Trap, VMExtern, VMTable};
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Table {
     handle: StoreHandle<VMTable>,
 }

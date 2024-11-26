@@ -113,10 +113,10 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
         OptionTag::Some => Some(Duration::from_nanos(timeout.u)),
         _ => None,
     };
-    Span::current().record("timeout", &format!("{:?}", timeout));
+    Span::current().record("timeout", format!("{:?}", timeout));
 
     let state = env.state.clone();
-    let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
+    let futex_idx: u64 = futex_ptr.offset().into();
     Span::current().record("futex_idx", futex_idx);
 
     // We generate a new poller which also registers in the

@@ -1,16 +1,41 @@
-use std::path::Path;
+use std::{fs::OpenOptions, io::Write, path::Path};
 
 use assert_cmd::Command;
 use predicates::str::contains;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
-use wasmer_registry::WasmerConfig;
 
 fn setup_wasmer_dir() -> TempDir {
     let temp = TempDir::new().unwrap();
 
-    let config_path = WasmerConfig::get_file_location(temp.path());
-    WasmerConfig::default().save(&config_path).unwrap();
+    // The config path and the config contents themselves are manually crafted so that we don't
+    // depend on the cli crate.
+    //
+    // Eventually, this part of the config shall live on a freestanding crate - perhaps added to
+    // `wasmer-config`.
+    let config_path = temp.path().join("wasmer.toml");
+
+    let contents = r#"
+telemetry_enabled = true
+update_notifications_enabled = true
+
+[registry]
+active_registry = "https://registry.wasmer.io/graphql"
+
+[[registry.tokens]]
+registry = "https://registry.wasmer.io/graphql"
+
+[proxy]
+        "#;
+
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&config_path)
+        .unwrap();
+
+    file.write_all(contents.as_bytes()).unwrap();
 
     temp
 }

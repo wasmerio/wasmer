@@ -64,7 +64,7 @@ rustPlatform.buildRustPackage rec {
     description = "The Universal WebAssembly Runtime";
     longDescription = ''
       Wasmer is a standalone WebAssembly runtime for running WebAssembly outside
-      of the browser, supporting WASI and Emscripten. Wasmer can be used
+      of the browser, supporting WASI. Wasmer can be used
       standalone (via the CLI) and embedded in different languages, running in
       x86 and ARM devices.
     '';

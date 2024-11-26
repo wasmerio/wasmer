@@ -4,8 +4,6 @@ mod runner;
 pub mod dcgi;
 #[cfg(feature = "webc_runner_rt_dproxy")]
 pub mod dproxy;
-#[cfg(feature = "webc_runner_rt_emscripten")]
-pub mod emscripten;
 pub mod wasi;
 mod wasi_common;
 #[cfg(feature = "webc_runner_rt_wcgi")]
@@ -59,7 +57,7 @@ mod response_tracing {
             _latency: std::time::Duration,
             span: &tracing::Span,
         ) {
-            span.record("status_code", &tracing::field::display(response.status()));
+            span.record("status_code", tracing::field::display(response.status()));
             tracing::info!("response generated")
         }
     }

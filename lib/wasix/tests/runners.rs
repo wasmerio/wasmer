@@ -2,17 +2,20 @@
 // there.
 #![cfg(not(target_family = "wasm"))]
 
+use std::sync::Once;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
 
+static INIT: Once = Once::new();
+
 use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer::Engine;
 use wasmer_wasix::{
-    http::{reqwest::get_proxy, HttpClient},
+    http::HttpClient,
     runners::Runner,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
@@ -21,18 +24,25 @@ use wasmer_wasix::{
     },
     PluggableRuntime, Runtime,
 };
-use webc::Container;
 
 mod wasi {
     use virtual_fs::{AsyncReadExt, AsyncSeekExt};
+    use wasmer_package::utils::from_bytes;
     use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
 
     use super::*;
 
+    fn setup() {
+        INIT.call_once(|| {
+            env_logger::builder()
+                .filter_level(log::LevelFilter::Debug)
+                .init();
+        });
+    }
     #[tokio::test]
     async fn can_run_wat2wasm() {
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let command = &container.manifest().commands["wat2wasm"];
 
         assert!(WasiRunner::can_run_command(command).unwrap());
@@ -40,20 +50,23 @@ mod wasi {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn wat2wasm() {
+        setup();
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let (rt, tasks) = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
         let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+        let mut stderr = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
 
         let stdout_2 = stdout.clone();
+        let stderr_2 = stderr.clone();
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["--version"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
-                .with_stderr(Box::<virtual_fs::NullFile>::default())
+                .with_stderr(Box::new(stderr_2) as Box<_>)
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
 
@@ -63,27 +76,55 @@ mod wasi {
             .expect("The runner encountered an error");
 
         stdout.rewind().await.unwrap();
-        let mut output = Vec::new();
-        stdout.read_to_end(&mut output).await.unwrap();
-        assert_eq!(String::from_utf8(output).unwrap(), "1.0.37 (git~v1.0.37)\n");
+        stderr.rewind().await.unwrap();
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        stdout.read_to_end(&mut stdout_buf).await.unwrap();
+        stderr.read_to_end(&mut stderr_buf).await.unwrap();
+        let stdout = String::from_utf8(stdout_buf).unwrap();
+        let stderr = String::from_utf8(stderr_buf).unwrap();
+
+        eprintln!("{stdout}");
+        eprintln!("{stderr}");
+
+        assert_eq!(stdout, "1.0.37 (git~v1.0.37)\n");
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn python() {
+        setup();
+
         let webc = download_cached("https://wasmer.io/python/python@0.1.0").await;
         let (rt, tasks) = runtime();
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
+        let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+        let mut stderr = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+
+        let stdout_2 = stdout.clone();
+        let stderr_2 = stderr.clone();
 
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
-                .with_stdout(Box::<virtual_fs::NullFile>::default())
-                .with_stderr(Box::<virtual_fs::NullFile>::default())
+                .with_stdout(Box::new(stdout_2) as Box<_>)
+                .with_stderr(Box::new(stderr_2) as Box<_>)
                 .run_command("python", &pkg, Arc::new(rt))
         });
+
+        stdout.rewind().await.unwrap();
+        stderr.rewind().await.unwrap();
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        stdout.read_to_end(&mut stdout_buf).await.unwrap();
+        stderr.read_to_end(&mut stderr_buf).await.unwrap();
+        let stdout = String::from_utf8(stdout_buf).unwrap();
+        let stderr = String::from_utf8(stderr_buf).unwrap();
+
+        eprintln!("{stdout}");
+        eprintln!("{stderr}");
 
         let err = handle.join().unwrap().unwrap_err();
         let runtime_error = err.chain().find_map(|e| e.downcast_ref::<WasiError>());
@@ -113,7 +154,7 @@ mod wcgi {
     #[tokio::test]
     async fn can_run_staticserver() {
         let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
 
         let entrypoint = container.manifest().entrypoint.as_ref().unwrap();
         assert!(WcgiRunner::can_run_command(&container.manifest().commands[entrypoint]).unwrap());
@@ -123,7 +164,7 @@ mod wcgi {
     async fn staticserver() {
         let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
         let (rt, tasks) = runtime();
-        let container = Container::from_bytes(webc).unwrap();
+        let container = from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new(NoOpWcgiCallbacks);
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
         let (cb, started) = callbacks(Handle::current());
@@ -202,9 +243,9 @@ async fn download_cached(url: &str) -> bytes::Bytes {
     let cache_dir = tmp_dir().join("downloads");
     let cached_path = cache_dir.join(file_name);
 
-    if cached_path.exists() {
-        return std::fs::read(&cached_path).unwrap().into();
-    }
+    //if cached_path.exists() {
+    //    return std::fs::read(&cached_path).unwrap().into();
+    //}
 
     let response = client()
         .get(url)
@@ -228,6 +269,15 @@ async fn download_cached(url: &str) -> bytes::Bytes {
     body
 }
 
+pub fn get_proxy() -> Result<Option<reqwest::Proxy>, anyhow::Error> {
+    if let Ok(scheme) = std::env::var("http_proxy").or_else(|_| std::env::var("HTTP_PROXY")) {
+        let proxy = reqwest::Proxy::all(scheme)?;
+        Ok(Some(proxy))
+    } else {
+        Ok(None)
+    }
+}
+
 fn client() -> Client {
     let builder = {
         let mut builder = reqwest::ClientBuilder::new().connect_timeout(Duration::from_secs(30));
@@ -236,9 +286,8 @@ fn client() -> Client {
         }
         builder
     };
-    let client = builder.build().unwrap();
 
-    client
+    builder.build().unwrap()
 }
 
 #[cfg(not(target_os = "windows"))]

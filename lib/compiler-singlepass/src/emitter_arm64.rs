@@ -1,19 +1,21 @@
-pub use crate::arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON};
-use crate::codegen_error;
-use crate::common_decl::Size;
-use crate::location::Location as AbstractLocation;
-pub use crate::location::{Multiplier, Reg};
-pub use crate::machine::{Label, Offset};
+pub use crate::{
+    arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON},
+    location::{Multiplier, Reg},
+    machine::{Label, Offset},
+};
+use crate::{codegen_error, common_decl::Size, location::Location as AbstractLocation};
 use dynasm::dynasm;
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
     aarch64::Aarch64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
     VecAssembler,
 };
-use wasmer_types::{
-    CallingConvention, CompileError, CustomSection, CustomSectionProtection, FunctionBody,
-    FunctionIndex, FunctionType, SectionBody, Type, VMOffsets,
+use wasmer_compiler::types::{
+    function::FunctionBody,
+    section::{CustomSection, CustomSectionProtection, SectionBody},
+    target::CallingConvention,
 };
+use wasmer_types::{CompileError, FunctionIndex, FunctionType, Type, VMOffsets};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 
@@ -84,6 +86,7 @@ pub enum GPROrMemory {
     Memory(GPR, i32),
 }
 
+#[allow(unused)]
 pub trait EmitterARM64 {
     fn get_label(&mut self) -> Label;
     fn get_offset(&self) -> Offset;

@@ -12,7 +12,7 @@ use crate::syscalls::*;
 ///     Last modified time
 /// - `Fstflags fst_flags`
 ///     Bit-vector for controlling which times get set
-#[instrument(level = "debug", skip_all, fields(%fd, %st_atim, %st_mtim), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, %st_atim, %st_mtim), ret)]
 pub fn fd_filestat_set_times(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -30,7 +30,7 @@ pub fn fd_filestat_set_times(
         JournalEffector::save_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags).map_err(
             |err| {
                 tracing::error!("failed to save file set times event - {}", err);
-                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                WasiError::Exit(ExitCode::from(Errno::Fault))
             },
         )?;
     }

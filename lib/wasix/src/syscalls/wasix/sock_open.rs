@@ -20,7 +20,7 @@ use crate::{net::socket::SocketProperties, syscalls::*};
 /// ## Return
 ///
 /// The file descriptor of the socket that has been opened.
-#[instrument(level = "debug", skip_all, fields(?af, ?ty, ?pt, sock = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(?af, ?ty, ?pt, sock = field::Empty), ret)]
 pub fn sock_open<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     af: Addressfamily,
@@ -49,7 +49,7 @@ pub fn sock_open<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_open(&mut ctx, af, ty, pt, fd).map_err(|err| {
             tracing::error!("failed to save sock_open event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

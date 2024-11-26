@@ -2,7 +2,7 @@ use super::*;
 use crate::syscalls::*;
 
 /// Returns Errno::Notemtpy if directory is not empty
-#[instrument(level = "debug", skip_all, fields(%fd, path = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, path = field::Empty), ret)]
 pub fn path_remove_directory<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

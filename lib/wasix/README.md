@@ -60,27 +60,37 @@ Hello, Some("Gordon")
 … and programatically with the `wasmer` and the `wasmer-wasi` libraries:
 
 ```rust
-use wasmer::{Store, Module, Instance};
-use wasmer_wasix::WasiState;
+use std::io::Read;
+use wasmer::{Module, Store};
+use wasmer_wasix::{Pipe, WasiEnv};
 
+let wasm_path = "hello.wasm";
+
+// Let's declare the Wasm module with the text representation.
+let wasm_bytes = std::fs::read(wasm_path)?;
+
+// Create a Store.
 let mut store = Store::default();
-let module = Module::from_file(&store, "hello.wasm")?;
 
-// Create the `WasiEnv`.
-let wasi_env = WasiState::builder("command-name")
-    .args(&["Gordon"])
-    .finalize()?;
+println!("Compiling module...");
+// Let's compile the Wasm module.
+let module = Module::new(&store, wasm_bytes)?;
 
-// Generate an `ImportObject`.
-let mut wasi_thread = wasi_env.new_thread();
-let import_object = wasi_thread.import_object(&module)?;
+let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
-// Let's instantiate the module with the imports.
-let instance = Instance::new(&module, &import_object)?;
+// Run the module.
+WasiEnv::builder("hello")
+     .args(&["Gordon"])
+    // .env("KEY", "Value")
+    .stdout(Box::new(stdout_tx))
+    .run_with_store(module, &mut store)?;
 
-// Let's call the `_start` function, which is our `main` function in Rust.
-let start = instance.exports.get_function("_start")?;
-start.call(&[])?;
+eprintln!("Run complete - reading output");
+
+let mut buf = String::new();
+stdout_rx.read_to_string(&mut buf).unwrap();
+
+eprintln!("Output: {buf}");
 ```
 
 Check the [fully working example using

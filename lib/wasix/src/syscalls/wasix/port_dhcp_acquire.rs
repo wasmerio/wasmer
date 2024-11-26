@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_dhcp_acquire()`
 /// Acquires a set of IP addresses using DHCP
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn port_dhcp_acquire(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
     wasi_try_ok!(port_dhcp_acquire_internal(&mut ctx)?);
 
@@ -11,7 +11,7 @@ pub fn port_dhcp_acquire(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, 
     if ctx.data().enable_journal {
         JournalEffector::save_port_dhcp_acquire(&mut ctx).map_err(|err| {
             tracing::error!("failed to save port_dhcp_acquire event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

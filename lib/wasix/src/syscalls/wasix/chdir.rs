@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `chdir()`
 /// Sets the current working directory
-#[instrument(level = "debug", skip_all, fields(name = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(name = field::Empty), ret)]
 pub fn chdir<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     path: WasmPtr<u8, M>,
@@ -21,7 +21,7 @@ pub fn chdir<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_chdir(&mut ctx, path).map_err(|err| {
             tracing::error!("failed to chdir event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

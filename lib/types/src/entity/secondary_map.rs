@@ -28,7 +28,6 @@ use serde::{
 /// The map does not track if an entry for a key has been inserted or not. Instead it behaves as if
 /// all keys have a default entry from the beginning.
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct SecondaryMap<K, V>
 where
     K: EntityRef,
@@ -37,6 +36,22 @@ where
     pub(crate) elems: Vec<V>,
     pub(crate) default: V,
     pub(crate) unused: PhantomData<K>,
+}
+
+#[cfg(feature = "artifact-size")]
+impl<K, V> loupe::MemoryUsage for SecondaryMap<K, V>
+where
+    K: EntityRef,
+    V: Clone + loupe::MemoryUsage,
+{
+    fn size_of_val(&self, tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of_val(self)
+            + self
+                .elems
+                .iter()
+                .map(|value| value.size_of_val(tracker) - std::mem::size_of_val(value))
+                .sum::<usize>()
+    }
 }
 
 /// Shared `SecondaryMap` implementation for all value types.

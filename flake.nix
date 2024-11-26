@@ -2,7 +2,7 @@
   description = "Wasmer Webassembly runtime";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     flakeutils.url = "github:numtide/flake-utils";
   };
 
@@ -35,8 +35,8 @@
             openssl
 
             # LLVM and related dependencies
-            llvmPackages_15.libllvm
-            llvmPackages_15.llvm
+            llvmPackages_18.libllvm
+            llvmPackages_18.llvm
             libxml2
             libffi
 
@@ -67,11 +67,12 @@
             wasm-tools
           ];
 
-          env.LLVM_SYS_150_PREFIX = pkgs.llvmPackages_15.llvm.dev;
-          env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-            pkgs.stdenv.cc.cc
-            pkgs.openssl.out
-          ];
+          env.LLVM_SYS_180_PREFIX = pkgs.llvmPackages_18.llvm.dev;
+
+          # shellHook = ''
+          #   LD_LIBRARY_PATH = "${ env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.openssl.out ] }:$LD_LIBRARY_PATH"
+          # '';
+
         };
       }
     );

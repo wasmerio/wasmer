@@ -1,31 +1,43 @@
-use crate::address_map::get_function_address_map;
-use crate::codegen_error;
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::location::{Location, Reg};
-use crate::machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
-use crate::unwind::UnwindFrame;
-use crate::{common_decl::*, config::Singlepass};
+
+use crate::{
+    address_map::get_function_address_map,
+    codegen_error,
+    common_decl::*,
+    config::Singlepass,
+    location::{Location, Reg},
+    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE},
+    unwind::UnwindFrame,
+};
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
-use std::cmp;
-use std::iter;
-use wasmer_compiler::wasmparser::{
-    BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
-    ValType as WpType,
+use std::{cmp, iter};
+
+use wasmer_compiler::{
+    types::{
+        function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
+        relocation::{Relocation, RelocationTarget},
+        section::SectionIndex,
+        target::CallingConvention,
+    },
+    wasmparser::{
+        BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
+        ValType as WpType,
+    },
+    FunctionBodyData,
 };
-use wasmer_compiler::FunctionBodyData;
+
 #[cfg(feature = "unwind")]
-use wasmer_types::CompiledFunctionUnwindInfo;
+use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
+
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
-    CallingConvention, CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex,
-    LocalMemoryIndex, MemoryIndex, MemoryStyle, ModuleInfo, Relocation, RelocationTarget,
-    SectionIndex, SignatureIndex, TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex,
-    VMOffsets,
+    CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
+    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
+    VMBuiltinFunctionIndex, VMOffsets,
 };
-use wasmer_types::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
@@ -238,8 +250,8 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
         Type::V128 => WpType::V128,
-        Type::ExternRef => WpType::Ref(WpRefType::new(true, WpHeapType::Extern).unwrap()),
-        Type::FuncRef => WpType::Ref(WpRefType::new(true, WpHeapType::Func).unwrap()),
+        Type::ExternRef => WpType::Ref(WpRefType::new(true, WpHeapType::EXTERN).unwrap()),
+        Type::FuncRef => WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
     }
 }
 
@@ -1048,7 +1060,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     pub fn get_state_diff(&mut self) -> usize {
         if !self.track_state {
-            return std::usize::MAX;
+            return usize::MAX;
         }
         let last_frame = self.control_stack.last_mut().unwrap();
         let mut diff = self.state.diff(&last_frame.state);
@@ -1104,9 +1116,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
 
-        if self.state.wasm_inst_offset != std::usize::MAX {
+        if self.state.wasm_inst_offset != usize::MAX {
             return Err(CompileError::Codegen(
-                "emit_head: wasm_inst_offset not std::usize::MAX".to_owned(),
+                "emit_head: wasm_inst_offset not usize::MAX".to_owned(),
             ));
         }
         Ok(())
@@ -2719,7 +2731,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::CallIndirect {
                 type_index,
                 table_index,
-                table_byte: _,
             } => {
                 // TODO: removed restriction on always being table idx 0;
                 // does any code depend on this?
@@ -3123,7 +3134,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 // TODO: Re-enable interrupt signal check without branching
             }
             Operator::Nop => {}
-            Operator::MemorySize { mem, mem_byte: _ } => {
+            Operator::MemorySize { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 self.machine.move_location(
                     Size::S64,
@@ -3329,7 +3340,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
                 self.release_locations_only_stack(&[dst, val, len])?;
             }
-            Operator::MemoryGrow { mem, mem_byte: _ } => {
+            Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 let param_pages = self.value_stack.pop().unwrap();
 
@@ -6072,7 +6083,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let ret = self.acquire_locations(
                     &[(
-                        WpType::Ref(WpRefType::new(true, WpHeapType::Func).unwrap()),
+                        WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
                         MachineValue::WasmStack(self.value_stack.len()),
                     )],
                     false,
@@ -6097,6 +6108,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(index as _);
                 let value = self.value_stack.pop().unwrap();
                 let index = self.value_stack.pop().unwrap();
+
                 // double check this does what I think it does
                 self.release_locations_only_regs(&[value, index])?;
 
@@ -6134,6 +6146,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let index = self.value_stack.pop().unwrap();
+
                 self.release_locations_only_regs(&[index])?;
 
                 self.machine.move_location(
@@ -6168,7 +6181,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let ret = self.acquire_locations(
                     &[(
-                        WpType::Ref(WpRefType::new(true, WpHeapType::Func).unwrap()),
+                        WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
                         MachineValue::WasmStack(self.value_stack.len()),
                     )],
                     false,
@@ -6233,7 +6246,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             if self.module.local_table_index(table_index).is_some() {
                                 VMBuiltinFunctionIndex::get_table_grow_index()
                             } else {
-                                VMBuiltinFunctionIndex::get_imported_table_get_index()
+                                VMBuiltinFunctionIndex::get_imported_table_grow_index()
                             },
                         ) as i32,
                     ),

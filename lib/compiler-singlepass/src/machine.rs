@@ -1,19 +1,25 @@
-use crate::common_decl::*;
-use crate::location::{Location, Reg};
-use crate::machine_arm64::MachineARM64;
-use crate::machine_x64::MachineX86_64;
-use crate::unwind::UnwindInstructions;
-use dynasmrt::{AssemblyOffset, DynamicLabel};
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-pub use wasmer_compiler::wasmparser::MemArg;
-use wasmer_compiler::wasmparser::ValType as WpType;
-use wasmer_types::{
-    Architecture, CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex,
-    FunctionType, InstructionAddressMap, Relocation, RelocationTarget, Target, TrapCode,
-    TrapInformation, VMOffsets,
+use crate::{
+    common_decl::*,
+    location::{Location, Reg},
+    machine_arm64::MachineARM64,
+    machine_x64::MachineX86_64,
+    unwind::UnwindInstructions,
 };
-
+use dynasmrt::{AssemblyOffset, DynamicLabel};
+use std::{collections::BTreeMap, fmt::Debug};
+use wasmer_compiler::{
+    types::{
+        address_map::InstructionAddressMap,
+        function::FunctionBody,
+        relocation::{Relocation, RelocationTarget},
+        section::CustomSection,
+        target::{Architecture, CallingConvention, Target},
+    },
+    wasmparser::{MemArg, ValType as WpType},
+};
+use wasmer_types::{
+    CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
+};
 pub type Label = DynamicLabel;
 pub type Offset = AssemblyOffset;
 
@@ -32,6 +38,7 @@ macro_rules! codegen_error {
     ($($arg:tt)*) => {return Err(CompileError::Codegen(format!($($arg)*)))}
 }
 
+#[allow(unused)]
 pub trait MaybeImmediate {
     fn imm_value(&self) -> Option<Value>;
     fn is_imm(&self) -> bool {
@@ -51,6 +58,7 @@ pub const NATIVE_PAGE_SIZE: usize = 4096;
 
 pub struct MachineStackOffset(pub usize);
 
+#[allow(unused)]
 pub trait Machine {
     type GPR: Copy + Eq + Debug + Reg;
     type SIMD: Copy + Eq + Debug + Reg;

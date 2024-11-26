@@ -34,6 +34,20 @@ impl WasiRunner {
         WasiRunner::default()
     }
 
+    /// Returns the current entry function for this `WasiRunner`
+    pub fn entry_function(&self) -> Option<String> {
+        self.wasi.entry_function.clone()
+    }
+
+    /// Builder method to set the name of the entry function for this `WasiRunner`
+    pub fn with_entry_function<S>(&mut self, entry_function: S) -> &mut Self
+    where
+        S: Into<String>,
+    {
+        self.wasi.entry_function = Some(entry_function.into());
+        self
+    }
+
     /// Returns the current arguments for this `WasiRunner`
     pub fn get_args(&self) -> Vec<String> {
         self.wasi.args.clone()
@@ -248,6 +262,18 @@ impl WasiRunner {
             None
         };
 
+        if self.wasi.is_home_mapped {
+            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
+        }
+
+        if let Some(current_dir) = &self.wasi.current_dir {
+            builder.set_current_dir(current_dir.clone());
+        }
+
+        if let Some(cwd) = &wasi.cwd {
+            builder.set_current_dir(cwd);
+        }
+
         self.wasi
             .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
 
@@ -259,10 +285,6 @@ impl WasiRunner {
         }
         if let Some(stderr) = &self.stderr {
             builder.set_stderr(Box::new(stderr.clone()));
-        }
-
-        if self.wasi.is_home_mapped {
-            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
         }
 
         Ok(builder)
@@ -338,9 +360,15 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
+        let exec_name = if let Some(exec_name) = wasi.exec_name.as_ref() {
+            exec_name
+        } else {
+            command_name
+        };
+
         #[allow(unused_mut)]
         let mut env = self
-            .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
+            .prepare_webc_env(exec_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
         #[cfg(feature = "journal")]
@@ -352,10 +380,6 @@ impl crate::runners::Runner for WasiRunner {
             for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
                 env.add_snapshot_trigger(snapshot_trigger);
             }
-        }
-
-        if let Some(cwd) = &wasi.cwd {
-            env.set_current_dir(cwd);
         }
 
         let env = env.build()?;
@@ -394,6 +418,9 @@ impl crate::runners::Runner for WasiRunner {
                                     }
                                     WasiRuntimeError::Wasi(WasiError::Exit(a)) => {
                                         WasiRuntimeError::Wasi(WasiError::Exit(*a))
+                                    }
+                                    WasiRuntimeError::Wasi(WasiError::ThreadExit) => {
+                                        WasiRuntimeError::Wasi(WasiError::ThreadExit)
                                     }
                                     WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) => {
                                         WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
@@ -447,5 +474,97 @@ mod tests {
 
         assert_send::<WasiRunner>();
         assert_sync::<WasiRunner>();
+    }
+
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
+    #[tokio::test]
+    async fn test_volume_mount_without_webcs() {
+        use std::sync::Arc;
+
+        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
+
+        let tokrt = tokio::runtime::Handle::current();
+
+        let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
+        let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
+
+        root_fs
+            .mount("/host".into(), &hostdir_dyn, "/".into())
+            .unwrap();
+
+        let envb = crate::runners::wasi::WasiRunner::new();
+
+        let annotations = webc::metadata::annotations::Wasi::new("test");
+
+        let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokrt.clone(),
+        ));
+        let rt = crate::PluggableRuntime::new(tm);
+
+        let envb = envb
+            .prepare_webc_env("test", &annotations, None, Arc::new(rt), Some(root_fs))
+            .unwrap();
+
+        let init = envb.build_init().unwrap();
+
+        let fs = &init.state.fs.root_fs;
+
+        fs.read_dir(std::path::Path::new("/host")).unwrap();
+    }
+
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
+    #[tokio::test]
+    async fn test_volume_mount_with_webcs() {
+        use std::sync::Arc;
+
+        use wasmer_package::utils::from_bytes;
+
+        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
+
+        let tokrt = tokio::runtime::Handle::current();
+
+        let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
+        let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
+
+        root_fs
+            .mount("/host".into(), &hostdir_dyn, "/".into())
+            .unwrap();
+
+        let envb = crate::runners::wasi::WasiRunner::new();
+
+        let annotations = webc::metadata::annotations::Wasi::new("test");
+
+        let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokrt.clone(),
+        ));
+        let mut rt = crate::PluggableRuntime::new(tm);
+        rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new());
+
+        let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
+        let webc_data = std::fs::read(webc_path).unwrap();
+        let container = from_bytes(webc_data).unwrap();
+
+        let binpkg = crate::bin_factory::BinaryPackage::from_webc(&container, &rt)
+            .await
+            .unwrap();
+
+        let mut envb = envb
+            .prepare_webc_env(
+                "test",
+                &annotations,
+                Some(&binpkg),
+                Arc::new(rt),
+                Some(root_fs),
+            )
+            .unwrap();
+
+        envb = envb.preopen_dir("/host").unwrap();
+
+        let init = envb.build_init().unwrap();
+
+        let fs = &init.state.fs.root_fs;
+
+        fs.read_dir(std::path::Path::new("/host")).unwrap();
+        fs.read_dir(std::path::Path::new("/settings")).unwrap();
     }
 }

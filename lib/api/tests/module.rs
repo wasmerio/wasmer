@@ -8,9 +8,7 @@ use wasmer::*;
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module)"#;
-    let module = Module::new(&store, wat)
-        .map_err(|e| format!("{e:?}"))
-        .map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(module.name(), None);
 
     Ok(())
@@ -35,7 +33,7 @@ fn imports() -> Result<(), String> {
     let wat = r#"(module
 (import "host" "func" (func))
 (import "host" "memory" (memory 1))
-(import "host" "table" (table 1 anyfunc))
+(import "host" "table" (table 1 funcref))
 (import "host" "global" (global i32))
 )"#;
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
@@ -277,6 +275,9 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(feature = "wamr", ignore = "wamr does not support custom sections")]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi does not support custom sections")]
+#[cfg_attr(feature = "v8", ignore = "v8 does not support custom sections")]
 fn module_custom_sections() -> Result<(), String> {
     let store = Store::default();
     let custom_section_wasm_bytes = include_bytes!("simple-name-section.wasm");

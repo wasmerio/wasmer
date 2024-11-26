@@ -6,6 +6,7 @@ use std::{env, path::PathBuf};
 use anyhow::{Context, Result};
 use clap::Parser;
 use wasmer::*;
+use wasmer_package::utils::from_disk;
 
 use crate::store::CompilerOptions;
 
@@ -80,10 +81,10 @@ impl CreateObj {
             &self.cpu_features,
         );
         let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
-        println!("Compiler: {}", compiler_type.to_string());
+        println!("Compiler: {}", compiler_type);
         println!("Target: {}", target.triple());
 
-        let atoms = if let Ok(webc) = webc::compat::Container::from_disk(&input_path) {
+        let atoms = if let Ok(webc) = from_disk(&input_path) {
             crate::commands::create_exe::compile_pirita_into_directory(
                 &webc,
                 &output_directory_path,

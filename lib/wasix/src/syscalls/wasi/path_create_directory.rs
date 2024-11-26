@@ -44,7 +44,7 @@ pub fn path_create_directory<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_path_create_directory(&mut ctx, fd, path_string).map_err(|err| {
             tracing::error!("failed to save create directory event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
@@ -82,7 +82,7 @@ pub(crate) fn path_create_directory_internal(
 
     let mut cur_dir_inode = working_dir.inode;
     let mut created_directory = false;
-    for comp in &path_vec {
+    for (comp_idx, comp) in path_vec.iter().enumerate() {
         let processing_cur_dir_inode = cur_dir_inode.clone();
         let mut guard = processing_cur_dir_inode.write();
         match guard.deref_mut() {
@@ -122,6 +122,10 @@ pub(crate) fn path_create_directory_internal(
                             return Err(Errno::Notdir);
                         }
                     } else {
+                        if comp_idx != path_vec.len() - 1 {
+                            return Err(Errno::Noent);
+                        }
+
                         created_directory = true;
                         state.fs_create_dir(&adjusted_path)?;
                     }

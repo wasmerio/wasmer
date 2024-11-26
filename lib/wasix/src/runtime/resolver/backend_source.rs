@@ -217,7 +217,7 @@ impl BackendSource {
     async fn query_by_hash(
         &self,
         hash: &PackageHash,
-    ) -> Result<Option<PackageSummary>, QueryError> {
+    ) -> Result<Option<PackageSummary>, anyhow::Error> {
         // FIXME: implementing caching!
 
         let Some(data) = self.query_graphql_by_hash(hash).await? else {
@@ -241,22 +241,31 @@ impl Source for BackendSource {
             ),
             PackageSource::Ident(PackageIdent::Hash(hash)) => {
                 // TODO: implement caching!
-                match self.query_by_hash(hash).await? {
-                    Some(summary) => return Ok(vec![summary]),
-                    None => {
+                match self.query_by_hash(hash).await {
+                    Ok(Some(summary)) => return Ok(vec![summary]),
+                    Ok(None) => {
                         return Err(QueryError::NoMatches {
+                            query: package.clone(),
                             archived_versions: Vec::new(),
                         });
                     }
+                    Err(error) => {
+                        return Err(QueryError::new_other(error, package));
+                    }
                 }
             }
-            _ => return Err(QueryError::Unsupported),
+            _ => {
+                return Err(QueryError::Unsupported {
+                    query: package.clone(),
+                })
+            }
         };
 
         if let Some(cache) = &self.cache {
             match cache.lookup_cached_query(&package_name) {
                 Ok(Some(cached)) => {
                     if let Ok(cached) = matching_package_summaries(
+                        package,
                         cached,
                         &version_constraint,
                         self.preferred_webc_version,
@@ -276,7 +285,10 @@ impl Source for BackendSource {
             }
         }
 
-        let response = self.query_graphql_named(&package_name).await?;
+        let response = self
+            .query_graphql_named(&package_name)
+            .await
+            .map_err(|error| QueryError::new_other(error, package))?;
 
         if let Some(cache) = &self.cache {
             if let Err(e) = cache.update(&package_name, &response) {
@@ -288,11 +300,18 @@ impl Source for BackendSource {
             }
         }
 
-        matching_package_summaries(response, &version_constraint, self.preferred_webc_version)
+        matching_package_summaries(
+            package,
+            response,
+            &version_constraint,
+            self.preferred_webc_version,
+        )
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn matching_package_summaries(
+    query: &PackageSource,
     response: WebQuery,
     version_constraint: &VersionReq,
     preferred_webc_version: webc::Version,
@@ -304,7 +323,12 @@ fn matching_package_summaries(
         package_name,
         versions,
         ..
-    } = response.data.get_package.ok_or(QueryError::NotFound)?;
+    } = response
+        .data
+        .get_package
+        .ok_or_else(|| QueryError::NotFound {
+            query: query.clone(),
+        })?;
     let mut archived_versions = Vec::new();
 
     for pkg_version in versions {
@@ -349,7 +373,10 @@ fn matching_package_summaries(
     }
 
     if summaries.is_empty() {
-        Err(QueryError::NoMatches { archived_versions })
+        Err(QueryError::NoMatches {
+            query: query.clone(),
+            archived_versions,
+        })
     } else {
         Ok(summaries)
     }

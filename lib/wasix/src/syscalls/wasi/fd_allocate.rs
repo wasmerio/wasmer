@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///     The offset from the start marking the beginning of the allocation
 /// - `Filesize len`
 ///     The length from the offset marking the end of the allocation
-#[instrument(level = "debug", skip_all, fields(%fd, %offset, %len), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, %offset, %len), ret)]
 pub fn fd_allocate(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -24,7 +24,7 @@ pub fn fd_allocate(
     if env.enable_journal {
         JournalEffector::save_fd_allocate(&mut ctx, fd, offset, len).map_err(|err| {
             tracing::error!("failed to save file descriptor allocate event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

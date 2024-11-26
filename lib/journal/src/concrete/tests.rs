@@ -5,8 +5,14 @@ use std::{
 
 use super::*;
 use lz4_flex::compress_prepend_size;
-use rkyv::ser::serializers::{
-    AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer,
+use rkyv::{
+    api::high::HighSerializer,
+    rancor::Strategy,
+    ser::{
+        allocator::{Arena, ArenaHandle},
+        sharing::Share,
+        Serializer,
+    },
 };
 use wasmer_wasix_types::wasi;
 
@@ -18,14 +24,13 @@ pub fn run_test(record: JournalEntry<'_>) {
     tracing::info!("record_type: {:?}", record_type);
 
     // Serialize it
+    let mut arena = Arena::new();
     let mut buffer = Vec::new();
-    let mut serializer = CompositeSerializer::new(
-        WriteSerializer::new(&mut buffer),
-        AllocScratch::default(),
-        SharedSerializeMap::default(),
-    );
+    let mut serializer = Serializer::new(&mut buffer, arena.acquire(), Share::new());
+    let serializer: &mut HighSerializer<&mut Vec<u8>, ArenaHandle, rkyv::rancor::Error> =
+        Strategy::wrap(&mut serializer);
 
-    record.clone().serialize_archive(&mut serializer).unwrap();
+    record.clone().serialize_archive(serializer).unwrap();
     let buffer = &buffer[..];
     if buffer.len() < 20 {
         tracing::info!("buffer: {:x?}", buffer);
@@ -58,7 +63,7 @@ pub fn test_record_init_module() {
 #[test]
 pub fn test_record_process_exit() {
     run_test(JournalEntry::ProcessExitV1 {
-        exit_code: Some(wasi::ExitCode::Errno(wasi::Errno::Fault)),
+        exit_code: Some(wasi::ExitCode::from(wasi::Errno::Fault)),
     });
 }
 
@@ -86,7 +91,7 @@ pub fn test_record_set_thread() {
 pub fn test_record_close_thread() {
     run_test(JournalEntry::CloseThreadV1 {
         id: 987u32,
-        exit_code: Some(wasi::ExitCode::Errno(wasi::Errno::Fault)),
+        exit_code: Some(wasi::ExitCode::from(wasi::Errno::Fault)),
     });
 }
 

@@ -5,7 +5,6 @@ use std::{
     time::Instant,
 };
 
-use derivative::Derivative;
 use hyper_util::rt::TokioExecutor;
 use wasmer_journal::{DynJournal, RecombinedJournal};
 
@@ -26,8 +25,7 @@ struct State {
 
 /// This factory will store and reuse instances between invocations thus
 /// allowing for the instances to be stateful.
-#[derive(Derivative, Clone, Default)]
-#[derivative(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct DProxyInstanceFactory {
     state: Arc<Mutex<State>>,
 }

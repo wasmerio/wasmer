@@ -1,11 +1,11 @@
 //! Show logs for an Edge app.
 
+use crate::utils::timestamp::parse_timestamp_or_relative_time_negative_offset;
 use colored::Colorize;
 use comfy_table::{Cell, Table};
-use edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 use futures::StreamExt;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use wasmer_api::types::{Log, LogStream};
+use wasmer_backend_api::types::{Log, LogStream};
 
 use crate::{config::WasmerEnv, opts::ListFormatOpts, utils::render::CliRender};
 
@@ -37,7 +37,7 @@ pub struct CmdAppLogs {
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `-1h`, `1d1h30s`)
     // TODO: should default to trailing logs once trailing is implemented.
-    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time_negative_offset, conflicts_with = "request_id")]
     from: Option<OffsetDateTime>,
 
     /// The date of the latest log entry.
@@ -48,7 +48,7 @@ pub struct CmdAppLogs {
     /// * Simple date (`2022-11-11`)
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `1h`, `1d1h30s`)
-    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time_negative_offset, conflicts_with = "request_id")]
     until: Option<OffsetDateTime>,
 
     /// Maximum log lines to fetch.
@@ -90,10 +90,12 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             .from
             .unwrap_or_else(|| OffsetDateTime::now_utc() - time::Duration::minutes(10));
 
+        let version = app.active_version.as_ref().map_or("n/a", |v| &v.version);
+
         tracing::info!(
             app.name=%app.name,
             app.owner=%app.owner.global_name,
-            app.version=app.active_version.version,
+            app.version=version,
             range.start=%from,
             range.end=self.until.map(|ts| ts.to_string()),
             "Fetching logs",
@@ -125,7 +127,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
 
         // Code duplication to avoid a dependency to `OR` streams.
         if let Some(instance_id) = &self.instance_id {
-            let logs_stream = wasmer_api::query::get_app_logs_paginated_filter_instance(
+            let logs_stream = wasmer_backend_api::query::get_app_logs_paginated_filter_instance(
                 &client,
                 app.name.clone(),
                 app.owner.global_name.to_string(),
@@ -160,7 +162,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
                 }
             }
         } else if let Some(request_id) = &self.request_id {
-            let logs_stream = wasmer_api::query::get_app_logs_paginated_filter_request(
+            let logs_stream = wasmer_backend_api::query::get_app_logs_paginated_filter_request(
                 &client,
                 app.name.clone(),
                 app.owner.global_name.to_string(),
@@ -195,7 +197,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
                 }
             }
         } else {
-            let logs_stream = wasmer_api::query::get_app_logs_paginated(
+            let logs_stream = wasmer_backend_api::query::get_app_logs_paginated(
                 &client,
                 app.name.clone(),
                 app.owner.global_name.to_string(),

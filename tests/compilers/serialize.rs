@@ -62,7 +62,7 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
     );
     let f0 = Function::new(&mut store, &func_type, |params| {
         let param_0: i64 = params[0].unwrap_i32() as i64;
-        let param_1: i64 = params[1].unwrap_i64() as i64;
+        let param_1: i64 = params[1].unwrap_i64();
         let param_2: i64 = params[2].unwrap_i32() as i64;
         let param_3: i64 = params[3].unwrap_f32() as i64;
         let param_4: i64 = params[4].unwrap_f64() as i64;

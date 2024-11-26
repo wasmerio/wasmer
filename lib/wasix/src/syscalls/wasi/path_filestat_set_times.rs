@@ -18,7 +18,7 @@ use crate::syscalls::*;
 ///     The timestamp that the last modified time attribute is set to
 /// - `Fstflags fst_flags`
 ///     A bitmask controlling which attributes are set
-#[instrument(level = "debug", skip_all, fields(%fd, path = field::Empty, %st_atim, %st_mtim), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, path = field::Empty, %st_atim, %st_mtim), ret)]
 pub fn path_filestat_set_times<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -67,7 +67,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save file set times event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

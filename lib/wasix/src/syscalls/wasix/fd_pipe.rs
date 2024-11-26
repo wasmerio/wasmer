@@ -23,7 +23,7 @@ pub fn fd_pipe<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_fd_pipe(&mut ctx, fd1, fd2).map_err(|err| {
             tracing::error!("failed to save create pipe event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
@@ -66,7 +66,8 @@ pub fn fd_pipe_internal(
         | Rights::FD_DATASYNC
         | Rights::POLL_FD_READWRITE
         | Rights::SOCK_SEND
-        | Rights::FD_FDSTAT_SET_FLAGS;
+        | Rights::FD_FDSTAT_SET_FLAGS
+        | Rights::FD_FILESTAT_GET;
 
     let fd1 = if let Some(fd) = with_fd1 {
         state

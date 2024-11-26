@@ -1,5 +1,5 @@
 use anyhow::Error;
-use webc::compat::Container;
+use webc::Container;
 
 use crate::{
     bin_factory::BinaryPackage,

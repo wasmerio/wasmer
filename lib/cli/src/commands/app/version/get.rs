@@ -4,6 +4,7 @@ use crate::{
     commands::{app::util::AppIdentOpts, AsyncCliCommand},
     config::WasmerEnv,
     opts::ItemFormatOpts,
+    utils::render::ItemFormat,
 };
 
 /// Show information for a specific app version.
@@ -32,7 +33,7 @@ impl AsyncCliCommand for CmdAppVersionGet {
         let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
-        let version = wasmer_api::query::get_app_version(
+        let version = wasmer_backend_api::query::get_app_version(
             &client,
             app.owner.global_name,
             app.name,
@@ -41,7 +42,10 @@ impl AsyncCliCommand for CmdAppVersionGet {
         .await?
         .with_context(|| format!("Could not find app version '{}'", self.name))?;
 
-        println!("{}", self.fmt.format.render(&version));
+        println!(
+            "{}",
+            self.fmt.get_with_default(ItemFormat::Yaml).render(&version)
+        );
 
         Ok(())
     }

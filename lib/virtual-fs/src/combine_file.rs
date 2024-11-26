@@ -1,11 +1,8 @@
-use derivative::Derivative;
-
 use super::*;
 
 use crate::VirtualFile;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct CombineFile {
     tx: Box<dyn VirtualFile + Send + Sync + 'static>,
     rx: Box<dyn VirtualFile + Send + Sync + 'static>,

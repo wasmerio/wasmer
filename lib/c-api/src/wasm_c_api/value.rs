@@ -9,7 +9,7 @@ use wasmer_api::Value;
 /// * `WASM_I64`, a 64-bit integer,
 /// * `WASM_F32`, a 32-bit float,
 /// * `WASM_F64`, a 64-bit float,
-/// * `WASM_ANYREF`, a WebAssembly reference,
+/// * `WASM_EXTERNREF`, a WebAssembly reference,
 /// * `WASM_FUNCREF`, a WebAssembly reference.
 #[allow(non_camel_case_types)]
 pub type wasm_valkind_t = u8;
@@ -94,7 +94,7 @@ impl std::fmt::Debug for wasm_val_t {
             Ok(wasm_valkind_enum::WASM_F64) => {
                 ds.field("f64", &unsafe { self.of.float64_t });
             }
-            Ok(wasm_valkind_enum::WASM_ANYREF) => {
+            Ok(wasm_valkind_enum::WASM_EXTERNREF) => {
                 ds.field("anyref", &unsafe { self.of.wref });
             }
 
@@ -150,17 +150,30 @@ pub unsafe extern "C" fn wasm_val_copy(
             wasm_valkind_enum::WASM_F64 => wasm_val_inner {
                 float64_t: val.of.float64_t,
             },
-            wasm_valkind_enum::WASM_ANYREF => wasm_val_inner { wref: val.of.wref },
+            wasm_valkind_enum::WASM_EXTERNREF => wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
         }
     }); otherwise ());
 }
 
+impl Drop for wasm_val_t {
+    fn drop(&mut self) {
+        let kind: Result<wasm_valkind_enum, _> = self.kind.try_into();
+        match kind {
+            Ok(wasm_valkind_enum::WASM_EXTERNREF) | Ok(wasm_valkind_enum::WASM_FUNCREF) => unsafe {
+                if !self.of.wref.is_null() {
+                    drop(Box::from_raw(self.of.wref));
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn wasm_val_delete(val: Option<Box<wasm_val_t>>) {
-    if let Some(val) = val {
-        // TODO: figure out where wasm_val is allocated first...
-        let _ = val;
+pub unsafe extern "C" fn wasm_val_delete(val: *mut wasm_val_t) {
+    if !val.is_null() {
+        std::ptr::drop_in_place(val);
     }
 }
 
@@ -173,7 +186,7 @@ impl TryFrom<wasm_valkind_t> for wasm_valkind_enum {
             1 => wasm_valkind_enum::WASM_I64,
             2 => wasm_valkind_enum::WASM_F32,
             3 => wasm_valkind_enum::WASM_F64,
-            128 => wasm_valkind_enum::WASM_ANYREF,
+            128 => wasm_valkind_enum::WASM_EXTERNREF,
             129 => wasm_valkind_enum::WASM_FUNCREF,
             _ => return Err("valkind value out of bounds"),
         })
@@ -197,7 +210,9 @@ impl TryFrom<&wasm_val_t> for Value {
             wasm_valkind_enum::WASM_I64 => Value::I64(unsafe { item.of.int64_t }),
             wasm_valkind_enum::WASM_F32 => Value::F32(unsafe { item.of.float32_t }),
             wasm_valkind_enum::WASM_F64 => Value::F64(unsafe { item.of.float64_t }),
-            wasm_valkind_enum::WASM_ANYREF => return Err("ANYREF not supported at this time"),
+            wasm_valkind_enum::WASM_EXTERNREF => {
+                return Err("EXTERNREF not supported at this time")
+            }
             wasm_valkind_enum::WASM_FUNCREF => return Err("FUNCREF not supported at this time"),
         })
     }

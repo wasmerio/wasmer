@@ -7,9 +7,11 @@ use clap::Parser;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use wasmer_compiler::EngineBuilder;
-use wasmer_compiler::{CompilerConfig, Features};
-use wasmer_types::{MemoryStyle, MemoryType, Pages, PointerWidth, TableStyle, TableType, Target};
+use wasmer_compiler::{
+    types::target::{PointerWidth, Target},
+    CompilerConfig, EngineBuilder, Features,
+};
+use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
 
 /// Minimul Subset of Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
@@ -348,14 +350,18 @@ impl CompilerType {
     }
 }
 
-impl ToString for CompilerType {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Singlepass => "singlepass".to_string(),
-            Self::Cranelift => "cranelift".to_string(),
-            Self::LLVM => "llvm".to_string(),
-            Self::Headless => "headless".to_string(),
-        }
+impl std::fmt::Display for CompilerType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Singlepass => "singlepass",
+                Self::Cranelift => "cranelift",
+                Self::LLVM => "llvm",
+                Self::Headless => "headless",
+            }
+        )
     }
 }
 

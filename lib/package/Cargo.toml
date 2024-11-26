@@ -1,0 +1,40 @@
+[package]
+name = "wasmer-package"
+version = "0.3.0"
+description = "Packaging related types and functions for Wasmer"
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+webc.workspace = true
+wasmer-config  = { version = "0.10.0", path = "../config" }
+toml = "0.8.0"
+bytes = "1.8.0"
+sha2 = "0.10.8"
+shared-buffer.workspace = true
+serde_json = "1.0.132"
+anyhow = "1.0.90"
+thiserror = "1.0.64"
+cfg-if = "1.0.0"
+ciborium = "0.2.2"
+semver = "1.0.23"
+url = "2.5.2"
+serde = "1.0.211"
+insta = { version = "1", features = ["filters", "yaml"] }
+flate2 = "1.0.34"
+tar = "0.4.42"
+tempfile = "3.12.0"
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tempfile = "3.12.0"
+regex = "1.11.0"
+ureq = "2.10.1"
+hexdump = "0.1.2"

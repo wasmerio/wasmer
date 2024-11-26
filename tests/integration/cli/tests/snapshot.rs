@@ -7,20 +7,23 @@ use std::{
 };
 
 use anyhow::Error;
-use derivative::Derivative;
 use futures::TryFutureExt;
 use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
-#[derive(Derivative, serde::Serialize, serde::Deserialize, Clone)]
-#[derivative(Debug, PartialEq)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct TestIncludeWeb {
     pub name: String,
-    #[derivative(Debug = "ignore", PartialEq = "ignore")]
     #[serde(skip, default = "default_include_webc")]
     pub webc: Arc<NamedTempFile>,
+}
+
+impl PartialEq for TestIncludeWeb {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 fn default_include_webc() -> Arc<NamedTempFile> {
@@ -762,7 +765,7 @@ fn test_snapshot_web_server_epoll() {
         .arg("--log-level")
         .arg("warn")
         .arg("--port")
-        .arg(&format!("{}", port));
+        .arg(format!("{}", port));
 
     let snapshot = builder.run_wasm_with(
         include_bytes!("./wasm/web-server-epoll.wasm"),
@@ -1279,5 +1282,83 @@ fn test_snapshot_fs_rename() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/fs-rename.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_exit_0_from_main() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/exit-0-from-main.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 0, .. })
+    ));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_exit_1_from_main() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/exit-1-from-main.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 1, .. })
+    ));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_exit_0_from_worker() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/exit-0-from-worker.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 0, .. })
+    ));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_exit_1_from_worker() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/exit-1-from-worker.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 1, .. })
+    ));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_worker_terminating_normally() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/worker-terminating-normally.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 0, .. })
+    ));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_worker_panicking() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/worker-panicking.wasm"));
+    assert!(matches!(
+        snapshot.result,
+        TestResult::Success(TestOutput { exit_code: 173, .. })
+    ));
     assert_json_snapshot!(snapshot);
 }

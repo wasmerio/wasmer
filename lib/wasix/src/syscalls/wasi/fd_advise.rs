@@ -12,7 +12,7 @@ use crate::syscalls::*;
 ///     The length from the offset to which the advice applies
 /// - `__wasi_advice_t advice`
 ///     The advice to give
-#[instrument(level = "debug", skip_all, fields(%fd, %offset, %len, ?advice), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, %offset, %len, ?advice), ret)]
 pub fn fd_advise(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -27,7 +27,7 @@ pub fn fd_advise(
     if env.enable_journal {
         JournalEffector::save_fd_advise(&mut ctx, fd, offset, len, advice).map_err(|err| {
             tracing::error!("failed to save file descriptor advise event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

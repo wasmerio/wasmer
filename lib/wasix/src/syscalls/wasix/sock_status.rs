@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `sock_status()`
 /// Returns the current status of a socket
-#[instrument(level = "debug", skip_all, fields(%sock, status = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, status = field::Empty), ret)]
 pub fn sock_status<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -23,7 +23,7 @@ pub fn sock_status<M: MemorySize>(
         WasiSocketStatus::Closed => Sockstatus::Closed,
         WasiSocketStatus::Failed => Sockstatus::Failed,
     };
-    Span::current().record("status", &format!("{:?}", status));
+    Span::current().record("status", format!("{:?}", status));
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

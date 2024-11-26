@@ -16,7 +16,7 @@ use tokio::{
 };
 use tracing::*;
 use url::Url;
-use wasmer_api::{types::PackageVersionWithPackage, WasmerClient};
+use wasmer_backend_api::{types::PackageVersionWithPackage, WasmerClient};
 
 #[derive(Debug, Clone)]
 pub struct Argus {

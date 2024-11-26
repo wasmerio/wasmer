@@ -24,13 +24,13 @@ impl AsyncCliCommand for CmdNamespaceCreate {
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
 
-        let vars = wasmer_api::types::CreateNamespaceVars {
+        let vars = wasmer_backend_api::types::CreateNamespaceVars {
             name: self.name.clone(),
             description: self.description.clone(),
         };
-        let namespace = wasmer_api::query::create_namespace(&client, vars).await?;
+        let namespace = wasmer_backend_api::query::create_namespace(&client, vars).await?;
 
-        println!("{}", self.fmt.format.render(&namespace));
+        println!("{}", self.fmt.get().render(&namespace));
 
         Ok(())
     }

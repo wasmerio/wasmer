@@ -24,17 +24,16 @@ crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
 # library name (see `[lib]`).
-wasmer-api = { version = "=4.3.6", path = "../api", default-features = false, package = "wasmer" }
-wasmer-compiler = { version = "=4.3.6", path = "../compiler", optional = true }
-wasmer-compiler-cranelift = { version = "=4.3.6", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=4.3.6", path = "../compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=4.3.6", path = "../compiler-singlepass", optional = true }
-wasmer-emscripten = { version = "=4.3.6", path = "../emscripten", optional = true }
-wasmer-middlewares = { version = "=4.3.6", path = "../middlewares", optional = true }
-wasmer-types = { version = "=4.3.6", path = "../types" }
-wasmer-wasix = { path = "../wasix", version="=0.26.0", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-api = { version = "=5.0.2", path = "../api", default-features = false, package = "wasmer" }
+wasmer-compiler = { version = "=5.0.2", path = "../compiler", optional = true }
+wasmer-compiler-cranelift = { version = "=5.0.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=5.0.2", path = "../compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=5.0.2", path = "../compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=5.0.2", path = "../middlewares", optional = true }
+wasmer-types = { version = "=5.0.2", path = "../types" }
+wasmer-wasix = { path = "../wasix", version="=0.32.0", features = ["host-fs", "host-vnet"], optional = true }
 webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.16.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
+virtual-fs = { version = "0.20.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
 cfg-if = "1.0"
 lazy_static = "1.4"
@@ -42,7 +41,7 @@ libc.workspace = true
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
-tokio = { version = "1", features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default-features = false }
+tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default-features = false }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [
 	"env-filter",
@@ -107,8 +106,5 @@ webc_runner = ["virtual-fs", "webc"]
 # Deprecated features.
 jit = ["compiler"]
 
-# TODO: Port this feature.
-#emscripten = ["wasmer-emscripten"]
-
 [build-dependencies]
-cbindgen = { version = "0.24", default-features = false }
+cbindgen = { version = "0.27", default-features = false }

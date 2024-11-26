@@ -2,7 +2,7 @@ use std::{
     fmt::{self, Display, Formatter},
     fs::File,
     io::{BufRead, BufReader, Read},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use anyhow::Error;
@@ -10,10 +10,8 @@ use semver::VersionReq;
 use sha2::{Digest, Sha256};
 use url::Url;
 use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageSource};
-use webc::{
-    metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest},
-    Container,
-};
+use wasmer_package::utils::from_disk;
+use webc::metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest};
 
 /// A dependency constraint.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,7 +51,7 @@ impl PackageSummary {
 
     pub fn from_webc_file(path: impl AsRef<Path>) -> Result<PackageSummary, Error> {
         let path = path.as_ref().canonicalize()?;
-        let container = Container::from_disk(&path)?;
+        let container = from_disk(&path)?;
         let webc_sha256 = WebcHash::for_file(&path)?;
         let url = crate::runtime::resolver::utils::url_from_file_path(&path).ok_or_else(|| {
             anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
@@ -290,9 +288,9 @@ impl WebcHash {
         Ok(Self(hash))
     }
 
-    pub fn for_file(path: &PathBuf) -> Result<Self, std::io::Error> {
+    pub fn for_file(path: &Path) -> Result<Self, std::io::Error> {
         // check for a hash at the file location
-        let mut path_hash = path.clone();
+        let mut path_hash = path.to_owned();
         path_hash.set_extension("webc.sha256");
         if let Ok(mut file) = File::open(&path_hash) {
             let mut hash = Vec::new();

@@ -10,7 +10,6 @@ use crate::vmcontext::VMTableDefinition;
 use crate::Trap;
 use crate::VMExternRef;
 use crate::VMFuncRef;
-use derivative::Derivative;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
@@ -21,7 +20,7 @@ use wasmer_types::{TableType, TrapCode, Type as ValType};
 /// A reference stored in a table. Can be either an externref or a funcref.
 #[derive(Debug, Clone)]
 pub enum TableElement {
-    /// Opaque pointer to arbitrary host data.
+    /// Opaque pointer to arbitrary hostdata.
     ExternRef(Option<VMExternRef>),
     /// Pointer to function: contains enough information to call it.
     FuncRef(Option<VMFuncRef>),
@@ -70,17 +69,14 @@ impl Default for TableElement {
 }
 
 /// A table instance.
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct VMTable {
-    #[derivative(Debug = "ignore")]
     vec: Vec<RawTableElement>,
     maximum: Option<u32>,
     /// The WebAssembly table description.
     table: TableType,
     /// Our chosen implementation style.
     style: TableStyle,
-    #[derivative(Debug = "ignore")]
     vm_table_definition: MaybeInstanceOwned<VMTableDefinition>,
 }
 

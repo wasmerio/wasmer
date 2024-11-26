@@ -19,16 +19,16 @@ cynic = "3.4.3"
 url = "2.5.0"
 futures = "0.3.30"
 tracing = "0.1.40"
-tokio = { version = "1.36.0", features = ["rt-multi-thread", "sync", "time", "fs"] }
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "sync", "time", "fs"] }
 clap = {version = "4.4.11", features = ["derive", "string"]}
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
-wasmer = { version = "4.3.6", path = "../../lib/api", features = ["engine", "core", "singlepass", "cranelift", "llvm"], optional = true }
+wasmer = { version = "5.0.2", path = "../../lib/api", features = ["engine", "core", "singlepass", "cranelift", "llvm"], optional = true }
 derive_more = "0.99.17"
 webc.workspace = true
 async-trait = "0.1.77"
-wasmer-api = { path = "../../lib/backend-api" }
+wasmer-backend-api = { path = "../../lib/backend-api" }
 shared-buffer.workspace = true
 
 

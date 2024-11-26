@@ -2,13 +2,10 @@ use std::net::SocketAddr;
 use std::task::{Context, Poll};
 
 use crate::{Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource, VirtualTcpListener};
-use derivative::Derivative;
 use virtual_mio::ArcInterestHandler;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct CompositeTcpListener {
-    #[derivative(Debug = "ignore")]
     ports: Vec<Box<dyn VirtualTcpListener + Sync>>,
 }
 

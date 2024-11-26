@@ -12,7 +12,7 @@ use crate::syscalls::*;
 ///     If `fd` is a directory
 /// - `Errno::Badf`
 ///     If `fd` is invalid or not open
-#[instrument(level = "debug", skip_all, fields(pid = ctx.data().process.pid().raw(), %fd), ret)]
+#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw(), %fd), ret)]
 pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
@@ -36,7 +36,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     if env.enable_journal {
         JournalEffector::save_fd_close(&mut ctx, fd).map_err(|err| {
             tracing::error!("failed to save close descriptor event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

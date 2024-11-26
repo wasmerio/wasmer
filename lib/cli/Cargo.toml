@@ -32,26 +32,28 @@ default = [
 	"sys",
 	"wat",
 	"wast",
-	"compiler",
 	"journal",
 	"wasmer-artifact-create",
 	"static-artifact-create",
 ]
 
-# Tun-tap client for connecting to Wasmer Edge VPNs
-tun-tap = [
-	"dep:tun-tap",
-	"virtual-net/tokio-tungstenite",
-	"tokio-tungstenite",
-	"mio",
-	"mac_address",
-	"dep:interfaces",
-]
+# # Tun-tap client for connecting to Wasmer Edge VPNs
+# tun-tap = [
+# 	"dep:tun-tap",
+# 	"virtual-net/tokio-tungstenite",
+# 	"tokio-tungstenite",
+# 	"mio",
+# 	"mac_address",
+# 	"dep:interfaces",
+# ]
 journal = ["wasmer-wasix/journal"]
-fuse = ["dep:fuse", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
+fuse = ["dep:fuser", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]
+v8 = ["backend", "wasmer/v8"]
+wamr = ["backend", "wasmer/wamr"]
+wasmi = ["backend", "wasmer/wasmi"]
 jsc = ["backend", "wasmer/jsc", "wasmer/std"]
 wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]
@@ -68,7 +70,6 @@ wasmer-artifact-create = [
 	"wasmer/wasmer-artifact-create",
 	"wasmer-compiler/wasmer-artifact-load",
 	"wasmer-compiler/wasmer-artifact-create",
-	"wasmer-object",
 ]
 static-artifact-create = [
 	"compiler",
@@ -76,7 +77,6 @@ static-artifact-create = [
 	"wasmer/static-artifact-create",
 	"wasmer-compiler/static-artifact-load",
 	"wasmer-compiler/static-artifact-create",
-	"wasmer-object",
 ]
 wasmer-artifact-load = [
 	"compiler",
@@ -97,6 +97,7 @@ disable-all-logging = [
 ]
 headless = []
 headless-minimal = ["headless", "disable-all-logging"]
+telemetry = []
 
 # Optional
 enable-serde = [
@@ -109,52 +110,45 @@ enable-serde = [
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=4.3.6", path = "../api", default-features = false }
-wasmer-compiler = { version = "=4.3.6", path = "../compiler", features = [
+wasmer = { version = "=5.0.2", path = "../api", default-features = false }
+wasmer-compiler = { version = "=5.0.2", path = "../compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=4.3.6", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=4.3.6", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=4.3.6", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=4.3.6", path = "../emscripten" }
-wasmer-vm = { version = "=4.3.6", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.26.0", features = [
+wasmer-compiler-cranelift = { version = "=5.0.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=5.0.2", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=5.0.2", path = "../compiler-llvm", optional = true }
+wasmer-package.workspace = true
+
+wasmer-vm = { version = "=5.0.2", path = "../vm", optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.32.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
 	"webc_runner_rt_dproxy",
-	"webc_runner_rt_emscripten",
 	"host-fs",
 	"ctrlc",
 ] }
-wasmer-wast = { version = "=4.3.6", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=4.3.6", path = "../types", features = [
+wasmer-wast = { version = "=5.0.2", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=5.0.2", path = "../types", features = [
 	"enable-serde",
 ] }
-wasmer-registry = { version = "=5.18.0", path = "../registry", features = [
-	"build-package",
-	"clap",
-] }
-wasmer-object = { version = "=4.3.6", path = "../object", optional = true }
-virtual-fs = { version = "0.16.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.20.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.8.0", path = "../virtual-net" }
-virtual-mio = { version = "0.3.1", path = "../virtual-io" }
+virtual-net = { version = "0.12.0", path = "../virtual-net" }
+virtual-mio = { version = "0.6.0", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
 webc = { workspace = true }
-wasmer-api = { version = "=0.0.33", path = "../backend-api" }
-edge-schema.workspace = true
-edge-util = { version = "=0.1.0" }
+wasmer-backend-api = { version = "=0.2.0", path = "../backend-api" }
 lazy_static = "1.4.0"
 
 # Used by the mount command
 
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
-fuse = { version = "0.3", optional = true }
+fuser = { version = "0.14.0", optional = true }
 time01 = { package = "time", version = "0.1.45", optional = true }
 
 
@@ -171,7 +165,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 dirs = "4.0"
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
-wasmer-config = { version = "0.7.0", path = "../config" }
+wasmer-config = { version = "0.10.0", path = "../config" }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
 regex = "1.6.0"
@@ -191,7 +185,7 @@ log = "0.4.17"
 semver = "1.0.14"
 pathdiff = "0.2.1"
 sha2 = "0.10.6"
-object = "0.32.0"
+object = { workspace = true }
 wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [
@@ -200,7 +194,7 @@ tracing-subscriber = { version = "0.3", features = [
 	"json",
 ] }
 async-trait = "0.1.68"
-tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 once_cell = "1.17.1"
 indicatif = "0.17.5"
 opener = "0.6.1"
@@ -213,33 +207,34 @@ humantime = "2.1.0"
 interfaces = { version = "0.0.9", optional = true }
 
 uuid = { version = "1.3.0", features = ["v4"] }
-time = { version = "0.3.17", features = ["macros"] }
+time = { workspace = true, features = ["macros"] }
 serde_yaml = { workspace = true }
 comfy-table = "7.0.1"
 
 
 # Used by tuntap and connect
-futures-util = "0.3"
-mio = { version = "0.8", optional = true }
+futures-util = { workspace = true }
+mio = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.21.0", features = [
 	"rustls-tls-webpki-roots",
 	"stream",
 ], optional = true }
 mac_address = { version = "1.1.5", optional = true }
-tun-tap = { version = "0.1.4", features = ["tokio"], optional = true }
+#tun-tap = { version = "0.1.4", features = ["tokio"], optional = true }
 
 clap_complete = "4.5.2"
 clap_mangen = "0.2.20"
 zip = { version = "2.1.3", default-features = false, features = ["deflate"] }
 console = "0.15.8"
 dotenvy = "0.15.7"
+lzma-rs = "0.3.0"
 
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-clap = { version = "4.3.6", features = ["derive", "env"] }
+clap = { version = "4.4.0", features = ["derive", "env"] }
 [target.'cfg(target_family = "wasm")'.dependencies]
-clap = { version = "4.3.6", default-features = false, features = [
+clap = { version = "4.4.0", default-features = false, features = [
 	"std",
 	"help",
 	"usage",
@@ -249,7 +244,7 @@ clap = { version = "4.3.6", default-features = false, features = [
 	"env",
 ] }
 
-[target.'cfg(not(target_arch = "riscv64"))'.dependencies]
+[target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
 	"rustls-tls",
 	"json",
@@ -257,15 +252,16 @@ reqwest = { workspace = true, default-features = false, features = [
 	"gzip",
 ] }
 
-[target.'cfg(target_arch = "riscv64")'.dependencies]
+[target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
 	"native-tls",
 	"json",
 	"multipart",
 ] }
 
+
 [build-dependencies]
-chrono = { version = "^0.4", default-features = false, features = [
+chrono = { version = "0.4.38", default-features = false, features = [
 	"std",
 	"clock",
 ] }
@@ -277,7 +273,7 @@ unix_mode = "0.1.3"
 [dev-dependencies]
 assert_cmd = "2.0.11"
 predicates = "3.0.3"
-pretty_assertions = "1.3.0"
+pretty_assertions.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 colored = "2.0.0"

@@ -1,3 +1,5 @@
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::externals::memory as memory_impl;
 #[cfg(feature = "js")]
 use crate::js::externals::memory as memory_impl;
 #[cfg(feature = "jsc")]
@@ -30,6 +32,7 @@ use wasmer_types::{MemoryError, Pages};
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Memory(pub(crate) memory_impl::Memory);
 
 impl Memory {

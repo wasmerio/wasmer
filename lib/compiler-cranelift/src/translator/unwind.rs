@@ -3,10 +3,9 @@
 
 #[cfg(feature = "unwind")]
 use cranelift_codegen::isa::unwind::{systemv::UnwindInfo as DwarfFDE, UnwindInfo};
-use cranelift_codegen::print_errors::pretty_error;
-use cranelift_codegen::{isa, Context};
+use cranelift_codegen::{isa, print_errors::pretty_error, Context};
+use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_types::CompileError;
-use wasmer_types::CompiledFunctionUnwindInfo;
 
 /// Cranelift specific unwind info
 pub(crate) enum CraneliftUnwindInfo {

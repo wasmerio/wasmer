@@ -21,10 +21,11 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     serde(transparent)
 )]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::CheckBytes)]
-#[archive(as = "Self")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[rkyv(derive(Debug))]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {

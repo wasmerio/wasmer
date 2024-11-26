@@ -1,9 +1,8 @@
 //! Runtime library support for Wasmer.
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
-#![deny(trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![allow(clippy::new_without_default, ambiguous_wide_pointer_comparisons)]
 #![warn(
     clippy::float_arithmetic,
     clippy::mut_mut,
@@ -90,6 +89,7 @@ pub struct VMFunctionBody(u8);
 
 /// A safe wrapper around `VMFunctionBody`.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[repr(transparent)]
 pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 

@@ -33,7 +33,7 @@ impl AsyncCliCommand for CmdAppDelete {
         if interactive {
             let theme = dialoguer::theme::ColorfulTheme::default();
             let should_use = Confirm::with_theme(&theme)
-                .with_prompt(&format!(
+                .with_prompt(format!(
                     "Really delete the app '{}/{}'? (id: {})",
                     app.owner.global_name,
                     app.name,
@@ -53,7 +53,7 @@ impl AsyncCliCommand for CmdAppDelete {
             app.name,
             app.id.inner(),
         );
-        wasmer_api::query::delete_app(&client, app.id.into_inner()).await?;
+        wasmer_backend_api::query::delete_app(&client, app.id.into_inner()).await?;
 
         eprintln!("App '{}/{}' was deleted!", app.owner.global_name, app.name);
 

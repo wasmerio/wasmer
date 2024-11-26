@@ -9,7 +9,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be set
 /// * `time` - Value to set the time to
-#[instrument(level = "debug", skip_all, fields(%sock, %opt, time = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, %opt, time = field::Empty), ret)]
 pub fn sock_set_opt_time<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -24,7 +24,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
         OptionTag::Some => Some(Duration::from_nanos(time.u)),
         _ => return Ok(Errno::Inval),
     };
-    Span::current().record("time", &format!("{:?}", time));
+    Span::current().record("time", format!("{:?}", time));
 
     let ty = match opt {
         Sockoption::RecvTimeout => TimeType::ReadTimeout,
@@ -41,7 +41,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_sock_set_opt_time(&mut ctx, sock, ty, time).map_err(|err| {
             tracing::error!("failed to save sock_set_opt_time event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

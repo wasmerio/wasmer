@@ -5,7 +5,7 @@
 
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
-use wasmer_types::CompiledFunctionUnwindInfoReference;
+use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {

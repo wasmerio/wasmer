@@ -14,7 +14,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// The number of addresses returned.
-#[instrument(level = "debug", skip_all, fields(naddrs = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(naddrs = field::Empty), ret)]
 pub fn port_addr_list<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     addrs_ptr: WasmPtr<__wasi_cidr_t, M>,
@@ -23,7 +23,7 @@ pub fn port_addr_list<M: MemorySize>(
     let mut env = ctx.data();
     let mut memory = unsafe { env.memory_view(&ctx) };
     let max_addrs = wasi_try_mem_ok!(naddrs_ptr.read(&memory));
-    let max_addrs: u64 = wasi_try_ok!(max_addrs.try_into().map_err(|_| Errno::Overflow));
+    let max_addrs: u64 = max_addrs.into();
 
     let net = env.net().clone();
     let addrs = wasi_try_ok!(__asyncify(&mut ctx, None, async {

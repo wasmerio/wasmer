@@ -127,6 +127,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     should_update_cursor: bool,
     should_snapshot: bool,
 ) -> Result<Result<usize, Errno>, WasiError> {
+    let mut offset = offset;
     let mut env = ctx.data();
     let state = env.state.clone();
 
@@ -160,6 +161,12 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             async {
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
+                                    if fd_entry.flags.contains(Fdflags::APPEND) {
+                                        // `fdflags::append` means we need to seek to the end before writing.
+                                        offset = fd_entry.inode.stat.read().unwrap().st_size;
+                                        fd_entry.offset.store(offset, Ordering::Release);
+                                    }
+
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset))
                                         .await
@@ -404,7 +411,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                 JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
                     .map_err(|err| {
                         tracing::error!("failed to save terminal data - {}", err);
-                        WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                        WasiError::Exit(ExitCode::from(Errno::Fault))
                     })?;
             }
         }
@@ -417,7 +424,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             let curr_offset = if is_file && should_update_cursor {
                 let bytes_written = bytes_written as u64;
                 let mut fd_map = state.fs.fd_map.write().unwrap();
-                let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+                let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
                 fd_entry
                     .offset
                     .fetch_add(bytes_written, Ordering::AcqRel)

@@ -23,15 +23,19 @@ impl AsyncCliCommand for CmdAppVersionActivate {
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
 
-        let app = wasmer_api::query::app_version_activate(&client, self.version).await?;
+        let app = wasmer_backend_api::query::app_version_activate(&client, self.version).await?;
+
+        let Some(version) = &app.active_version else {
+            anyhow::bail!("Failed to activate version: backend did not update version!");
+        };
 
         eprintln!(
             "Changed active version of app '{}/{}' from '{}' to '{}' (id: {})",
             app.owner.global_name,
             app.name,
-            app.active_version.version,
-            app.active_version.version,
-            app.active_version.id.inner()
+            version.version,
+            version.version,
+            version.id.inner(),
         );
 
         Ok(())

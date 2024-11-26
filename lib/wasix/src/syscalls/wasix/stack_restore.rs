@@ -19,7 +19,7 @@ pub fn stack_restore<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let snapshot = match snapshot_ptr.read(&memory) {
         Ok(a) => {
-            trace!("with_ret={}, hash={}, user={}", val, a.hash, a.user);
+            trace!("with_ret={}, hash={}, user={}", val, a.hash(), a.user);
             a
         }
         Err(err) => {
@@ -33,7 +33,7 @@ pub fn stack_restore<M: MemorySize>(
         // Let the stack (or fail trying!)
         let env = ctx.data();
         if let Some((mut memory_stack, rewind_stack, store_data)) =
-            env.thread.get_snapshot(snapshot.hash)
+            env.thread.get_snapshot(snapshot.hash())
         {
             let env = ctx.data();
             let memory = unsafe { env.memory_view(&ctx) };
@@ -61,7 +61,7 @@ pub fn stack_restore<M: MemorySize>(
         } else {
             warn!(
                 "snapshot stack restore failed - the snapshot can not be found and hence restored (hash={})",
-                snapshot.hash
+                snapshot.hash()
             );
             OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Unknown.into())))
         }

@@ -413,7 +413,7 @@ where
                         Poll::Pending
                     }
                 }
-                Ok(Err(err)) => Poll::Ready(Err(WasiError::Exit(ExitCode::Errno(err)))),
+                Ok(Err(err)) => Poll::Ready(Err(WasiError::Exit(ExitCode::from(err)))),
                 Err(err) => Poll::Ready(Err(err)),
             };
         }
@@ -1054,7 +1054,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                 .unwrap();
             let store_data = Bytes::from(store_data);
 
-            tracing::debug!(
+            tracing::trace!(
                 "stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})",
                 memory_stack.len(),
                 rewind_stack.len(),
@@ -1122,7 +1122,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     // If there is an error then exit the process, otherwise we are done
     match res {
         Errno::Success => Ok(()),
-        err => Err(WasiError::Exit(ExitCode::Errno(err))),
+        err => Err(WasiError::Exit(ExitCode::from(err))),
     }
 }
 
@@ -1255,7 +1255,7 @@ where
     Ok(Errno::Success)
 }
 
-#[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+// NOTE: not tracing-instrumented because [`rewind_ext`] already is.
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
     mut ctx: FunctionEnvMut<WasiEnv>,
@@ -1277,7 +1277,7 @@ where
     )
 }
 
-#[instrument(level = "debug", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+#[instrument(level = "trace", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
     ctx: &mut FunctionEnvMut<WasiEnv>,
@@ -1466,22 +1466,22 @@ where
 
         match result.rewind_result {
             RewindResultType::RewindRestart => {
-                debug!(%pid, %tid, "rewind for syscall restart");
+                tracing::trace!(%pid, %tid, "rewind for syscall restart");
                 None
             }
             RewindResultType::RewindWithoutResult => {
-                debug!(%pid, %tid, "rewind with no result");
+                tracing::trace!(%pid, %tid, "rewind with no result");
                 Some(None)
             }
             RewindResultType::RewindWithResult(rewind_result) => {
-                debug!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
+                tracing::trace!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
                 let ret = bincode::deserialize(&rewind_result)
                     .expect("failed to deserialize the rewind result");
                 Some(Some(ret))
             }
         }
     } else {
-        debug!(%pid, %tid, "rewind miss");
+        tracing::trace!(%pid, %tid, "rewind miss");
         Some(None)
     }
 }
@@ -1495,7 +1495,7 @@ pub(crate) fn _prepare_wasi(
     // Swap out the arguments with the new ones
     if let Some(args) = args {
         let mut wasi_state = wasi_env.state.fork();
-        wasi_state.args = args;
+        *wasi_state.args.lock().unwrap() = args;
         wasi_env.state = Arc::new(wasi_state);
     }
 
@@ -1540,7 +1540,7 @@ pub(crate) fn _prepare_wasi(
         let mut fd_map = wasi_env.state.fs.fd_map.read().unwrap();
         fd_map
             .keys()
-            .filter_map(|a| match *a {
+            .filter_map(|a| match a {
                 a if a <= __WASI_STDERR_FILENO => None,
                 a if preopen_fds.contains(&a) => None,
                 a => Some(a),

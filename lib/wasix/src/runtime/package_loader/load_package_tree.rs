@@ -11,10 +11,8 @@ use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::PackageId;
-use webc::{
-    compat::{Container, Volume},
-    metadata::annotations::Atom as AtomAnnotation,
-};
+use webc::metadata::annotations::Atom as AtomAnnotation;
+use webc::{Container, Volume};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
@@ -191,7 +189,7 @@ fn atom_name_for_command(
     command_name: &str,
     cmd: &webc::metadata::Command,
 ) -> Result<Option<AtomAnnotation>, anyhow::Error> {
-    use webc::metadata::annotations::{EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI};
+    use webc::metadata::annotations::{WASI_RUNNER_URI, WCGI_RUNNER_URI};
 
     if let Some(atom) = cmd
         .atom()
@@ -200,7 +198,7 @@ fn atom_name_for_command(
         return Ok(Some(atom));
     }
 
-    if [WASI_RUNNER_URI, WCGI_RUNNER_URI, EMSCRIPTEN_RUNNER_URI]
+    if [WASI_RUNNER_URI, WCGI_RUNNER_URI]
         .iter()
         .any(|uri| cmd.runner.starts_with(uri))
     {

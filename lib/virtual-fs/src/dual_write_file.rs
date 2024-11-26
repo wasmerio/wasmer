@@ -1,5 +1,3 @@
-use derivative::Derivative;
-
 use super::*;
 
 use crate::VirtualFile;
@@ -7,12 +5,11 @@ use crate::VirtualFile;
 /// Wraps a [`VirtualFile`], and also invokes a provided function for each write.
 ///
 /// Useful for debugging.
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(derive_more::Debug)]
 pub struct DualWriteFile {
     inner: Box<dyn VirtualFile + Send + Sync + 'static>,
-    #[derivative(Debug = "ignore")]
     #[allow(clippy::type_complexity)]
+    #[debug(ignore)]
     extra_write: Box<dyn FnMut(&[u8]) + Send + Sync + 'static>,
 }
 

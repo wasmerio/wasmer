@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// Outputs:
 /// - `Fd fd`
 ///   The new file handle that is a duplicate of the original
-#[instrument(level = "debug", skip_all, fields(%fd, ret_fd = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, ret_fd = field::Empty), ret)]
 pub fn fd_dup<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -22,7 +22,7 @@ pub fn fd_dup<M: MemorySize>(
     if env.enable_journal {
         JournalEffector::save_fd_duplicate(&mut ctx, fd, copied_fd).map_err(|err| {
             tracing::error!("failed to save file descriptor duplicate event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

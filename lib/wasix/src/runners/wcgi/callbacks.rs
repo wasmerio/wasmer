@@ -36,7 +36,7 @@ pub struct RecycleEnvConfig {
 /// Callbacks that are triggered at various points in the lifecycle of a runner
 /// and any WebAssembly instances it may start.
 #[async_trait::async_trait]
-pub trait Callbacks: Send + Sync + 'static {
+pub trait Callbacks: std::fmt::Debug + Send + Sync + 'static {
     /// A callback that is called whenever the server starts.
     fn started(&self, _abort: AbortHandle) {}
 
@@ -57,6 +57,7 @@ pub trait Callbacks: Send + Sync + 'static {
     }
 }
 
+#[derive(Debug)]
 pub struct NoOpWcgiCallbacks;
 
 impl Callbacks for NoOpWcgiCallbacks {}

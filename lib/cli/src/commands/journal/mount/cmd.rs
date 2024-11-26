@@ -36,7 +36,7 @@ impl CliCommand for CmdJournalMount {
             .build()?;
 
         // Mounts the journal file system at a path
-        fuse::mount(fs, &self.mount_path, &[])?;
+        fuser::mount(fs, &self.mount_path, &[])?;
         Ok(())
     }
 }

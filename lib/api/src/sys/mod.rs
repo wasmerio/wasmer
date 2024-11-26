@@ -5,10 +5,13 @@ pub(crate) mod externals;
 pub(crate) mod instance;
 pub(crate) mod mem_access;
 pub(crate) mod module;
+pub(crate) mod store;
 pub(super) mod tunables;
 pub(crate) mod typed_function;
+pub(crate) mod vm;
 
 pub use crate::sys::engine::{get_default_compiler_config, NativeEngineExt};
+pub use crate::sys::store::NativeStoreExt;
 pub use crate::sys::tunables::BaseTunables;
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
@@ -23,19 +26,3 @@ pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 pub use wasmer_compiler_singlepass::Singlepass;
 
 pub use wasmer_vm::VMConfig;
-
-pub(crate) mod vm {
-    //! The `vm` module re-exports wasmer-vm types.
-    use wasmer_vm::InternalStoreHandle;
-    pub(crate) use wasmer_vm::{
-        VMExtern, VMExternRef, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment,
-        VMGlobal, VMInstance, VMMemory, VMTable, VMTrampoline,
-    };
-
-    pub(crate) type VMExternTable = InternalStoreHandle<VMTable>;
-    pub(crate) type VMExternMemory = InternalStoreHandle<VMMemory>;
-    pub(crate) type VMExternGlobal = InternalStoreHandle<VMGlobal>;
-    pub(crate) type VMExternFunction = InternalStoreHandle<VMFunction>;
-
-    pub type VMFunctionCallback = *const VMFunctionBody;
-}

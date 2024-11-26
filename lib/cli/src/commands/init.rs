@@ -1,13 +1,14 @@
+use crate::config::WasmerEnv;
+use anyhow::Context;
+use cargo_metadata::{CargoOpt, MetadataCommand};
+use clap::Parser;
+use semver::VersionReq;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
 
-use anyhow::Context;
-use cargo_metadata::{CargoOpt, MetadataCommand};
-use clap::Parser;
-use semver::VersionReq;
-use wasmer_registry::wasmer_env::WasmerEnv;
+use super::AsyncCliCommand;
 
 static NOTE: &str = "# See more keys and definitions at https://docs.wasmer.io/registry/manifest";
 
@@ -94,9 +95,11 @@ struct MiniCargoTomlPackage {
 
 static WASMER_TOML_NAME: &str = "wasmer.toml";
 
-impl Init {
-    /// `wasmer init` execution
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for Init {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let bin_or_lib = self.get_bin_or_lib()?;
 
         // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
@@ -130,6 +133,7 @@ impl Init {
         }
 
         let constructed_manifest = construct_manifest(
+            &self.env,
             cargo_toml.as_ref(),
             &fallback_package_name,
             self.package_name.as_deref(),
@@ -141,8 +145,8 @@ impl Init {
             self.template.as_ref(),
             self.include.as_slice(),
             self.quiet,
-            self.env.dir(),
-        )?;
+        )
+        .await?;
 
         if let Some(parent) = target_file.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -151,7 +155,9 @@ impl Init {
         // generate the wasmer.toml and exit
         Self::write_wasmer_toml(&target_file, &constructed_manifest)
     }
+}
 
+impl Init {
     /// Writes the metadata to a wasmer.toml file, making sure we include the
     /// [`NOTE`] so people get a link to the registry docs.
     fn write_wasmer_toml(
@@ -349,13 +355,14 @@ impl GetBindingsResult {
     fn first_binding(&self) -> Option<wasmer_config::package::Bindings> {
         match self {
             Self::OneBinding(s) => Some(s.clone()),
-            Self::MultiBindings(s) => s.get(0).cloned(),
+            Self::MultiBindings(s) => s.first().cloned(),
         }
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-fn construct_manifest(
+async fn construct_manifest(
+    env: &WasmerEnv,
     cargo_toml: Option<&MiniCargoTomlPackage>,
     fallback_package_name: &String,
     package_name: Option<&str>,
@@ -367,7 +374,6 @@ fn construct_manifest(
     template: Option<&Template>,
     include_fs: &[String],
     quiet: bool,
-    wasmer_dir: &Path,
 ) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
     if let Some(ct) = cargo_toml.as_ref() {
         let msg = format!(
@@ -386,11 +392,20 @@ fn construct_manifest(
             .map(|p| &p.name)
             .unwrap_or(fallback_package_name)
     });
-    let namespace = namespace.or_else(|| {
-        wasmer_registry::whoami(wasmer_dir, None, None)
-            .ok()
-            .map(|o| o.1)
-    });
+    let namespace = match namespace {
+        Some(n) => Some(n),
+        None => {
+            if let Ok(client) = env.client() {
+                if let Ok(Some(u)) = wasmer_backend_api::query::current_user(&client).await {
+                    Some(u.username)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    };
     let version = version.unwrap_or_else(|| {
         cargo_toml
             .as_ref()
@@ -424,7 +439,7 @@ fn construct_manifest(
             .collect::<Vec<_>>()
             .join("\r\n");
 
-        let msg = vec![
+        let msg = [
             String::new(),
             "    It looks like your project contains multiple *.wai files.".to_string(),
             "    Make sure you update the [[module.bindings]] appropriately".to_string(),

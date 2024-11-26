@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// * `network` - Fully qualified identifier for the network
 /// * `token` - Access token used to authenticate with the network
 /// * `security` - Level of encryption to encapsulate the network connection with
-#[instrument(level = "debug", skip_all, fields(network = field::Empty, ?security), ret)]
+#[instrument(level = "trace", skip_all, fields(network = field::Empty, ?security), ret)]
 pub fn port_bridge<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     network: WasmPtr<u8, M>,
@@ -44,7 +44,7 @@ pub fn port_bridge<M: MemorySize>(
     if ctx.data().enable_journal {
         JournalEffector::save_port_bridge(&mut ctx, network, token, security).map_err(|err| {
             tracing::error!("failed to save port_bridge event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 

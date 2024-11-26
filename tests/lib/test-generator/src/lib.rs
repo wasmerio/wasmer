@@ -7,7 +7,7 @@
 //! > https://github.com/bytecodealliance/wasmtime/blob/master/build.rs
 mod processors;
 
-pub use crate::processors::{emscripten_processor, wasi_processor, wast_processor};
+pub use crate::processors::{wasi_processor, wast_processor};
 use anyhow::Context;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};

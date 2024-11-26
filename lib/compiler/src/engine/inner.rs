@@ -1,33 +1,32 @@
 //! Universal compilation.
 
-use crate::engine::builder::EngineBuilder;
+use crate::{engine::builder::EngineBuilder, types::target::Target};
 #[cfg(not(target_arch = "wasm32"))]
-use crate::Artifact;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::BaseTunables;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::CodeMemory;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::GlobalFrameInfoRegistration;
+use crate::{
+    types::{
+        function::FunctionBodyLike,
+        section::{CustomSectionLike, CustomSectionProtection, SectionIndex},
+    },
+    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
+};
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{FunctionExtent, Tunables};
+
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
+
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
-use wasmer_types::HashAlgorithm;
+
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionBodyLike, FunctionIndex, FunctionType,
-    LocalFunctionIndex, SignatureIndex,
+    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
+    SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, ModuleInfo, Target};
-#[cfg(not(target_arch = "wasm32"))]
-use wasmer_types::{CustomSectionLike, CustomSectionProtection, SectionIndex};
+use wasmer_types::{CompileError, Features, HashAlgorithm, ModuleInfo};
+
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -378,7 +377,7 @@ impl EngineInner {
             .collect::<Vec<_>>();
         let (executable_sections, data_sections): (Vec<_>, _) = custom_sections
             .clone()
-            .partition(|section| *section.protection() == CustomSectionProtection::ReadExecute);
+            .partition(|section| section.protection() == CustomSectionProtection::ReadExecute);
         self.code_memory.push(CodeMemory::new());
 
         let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
@@ -426,7 +425,7 @@ impl EngineInner {
         let allocated_custom_sections = custom_sections
             .map(|section| {
                 SectionBodyPtr(
-                    if *section.protection() == CustomSectionProtection::ReadExecute {
+                    if section.protection() == CustomSectionProtection::ReadExecute {
                         exec_iter.next()
                     } else {
                         data_iter.next()

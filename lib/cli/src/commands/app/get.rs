@@ -1,10 +1,12 @@
 //! Get information about an edge app.
 
-use wasmer_api::types::DeployApp;
+use wasmer_backend_api::types::DeployApp;
 
 use super::util::AppIdentOpts;
 
-use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
+use crate::{
+    commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts, utils::render::ItemFormat,
+};
 
 /// Retrieve detailed informations about an app
 #[derive(clap::Parser, Debug)]
@@ -27,7 +29,10 @@ impl AsyncCliCommand for CmdAppGet {
         let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
-        println!("{}", self.fmt.format.render(&app));
+        println!(
+            "{}",
+            self.fmt.get_with_default(ItemFormat::Yaml).render(&app)
+        );
 
         Ok(app)
     }

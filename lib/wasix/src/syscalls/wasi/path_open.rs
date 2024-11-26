@@ -25,7 +25,7 @@ use crate::syscalls::*;
 ///     The new file descriptor
 /// Possible Errors:
 /// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`
-#[instrument(level = "debug", skip_all, fields(%dirfd, path = field::Empty, follow_symlinks = field::Empty, ret_fd = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%dirfd, path = field::Empty, follow_symlinks = field::Empty, ret_fd = field::Empty), ret)]
 pub fn path_open<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     dirfd: WasiFd,
@@ -99,7 +99,7 @@ pub fn path_open<M: MemorySize>(
         )
         .map_err(|err| {
             tracing::error!("failed to save unlink event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
     }
 
@@ -237,7 +237,7 @@ pub(crate) fn path_open_internal(
                 let open_options = open_options
                     .write(minimum_rights.write)
                     .create(minimum_rights.create)
-                    .append(minimum_rights.append)
+                    .append(false)
                     .truncate(minimum_rights.truncate);
 
                 if minimum_rights.read {

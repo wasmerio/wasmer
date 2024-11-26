@@ -2,18 +2,33 @@ use std::{collections::HashSet, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
-use edge_schema::schema::NetworkTokenV1;
 use futures::StreamExt;
 use merge_streams::MergeStreams;
 use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
 use wasmer_config::package::PackageIdent;
+use wasmer_package::utils::from_bytes;
+use webc::Container;
 
 use crate::{
     types::{self, *},
     GraphQLApiFailure, WasmerClient,
 };
+
+/// Rotate the s3 secrets tied to an app given its id.
+pub async fn rotate_s3_secrets(
+    client: &WasmerClient,
+    app_id: types::Id,
+) -> Result<(), anyhow::Error> {
+    client
+        .run_graphql_strict(types::RotateS3SecretsForApp::build(
+            RotateS3SecretsForAppVariables { id: app_id },
+        ))
+        .await?;
+
+    Ok(())
+}
 
 pub async fn viewer_can_deploy_to_namespace(
     client: &WasmerClient,
@@ -40,6 +55,42 @@ pub async fn redeploy_app_by_id(
         ))
         .await
         .map(|v| v.redeploy_active_version.map(|v| v.app))
+}
+
+/// List all bindings associated with a particular package.
+///
+/// If a version number isn't provided, this will default to the most recently
+/// published version.
+pub async fn list_bindings(
+    client: &WasmerClient,
+    name: &str,
+    version: Option<&str>,
+) -> Result<Vec<Bindings>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetBindingsQuery::build(GetBindingsQueryVariables {
+            name,
+            version,
+        }))
+        .await
+        .and_then(|b| {
+            b.package_version
+                .ok_or(anyhow::anyhow!("No bindings found!"))
+        })
+        .map(|v| {
+            let mut bindings_packages = Vec::new();
+
+            for b in v.bindings.into_iter().flatten() {
+                let pkg = Bindings {
+                    id: b.id.into_inner(),
+                    url: b.url,
+                    language: b.language,
+                    generator: b.generator,
+                };
+                bindings_packages.push(pkg);
+            }
+
+            bindings_packages
+        })
 }
 
 /// Revoke an existing token
@@ -201,7 +252,7 @@ pub async fn get_app_volumes(
         .get_deploy_app
         .context("app not found")?
         .active_version
-        .volumes
+        .and_then(|v| v.volumes)
         .unwrap_or_default()
         .into_iter()
         .flatten()
@@ -361,7 +412,7 @@ pub async fn fetch_webc_package(
     client: &WasmerClient,
     ident: &PackageIdent,
     default_registry: &Url,
-) -> Result<webc::compat::Container, anyhow::Error> {
+) -> Result<Container, anyhow::Error> {
     let url = match ident {
         PackageIdent::Named(n) => Url::parse(&format!(
             "{default_registry}/{}:{}",
@@ -385,7 +436,7 @@ pub async fn fetch_webc_package(
         .bytes()
         .await?;
 
-    webc::compat::Container::from_bytes(data).context("failed to parse webc package")
+    from_bytes(data).context("failed to parse webc package")
 }
 
 /// Fetch app templates.
@@ -996,6 +1047,41 @@ pub async fn get_deploy_app_versions(
     Ok(versions)
 }
 
+/// Get app deployments for an app.
+pub async fn app_deployments(
+    client: &WasmerClient,
+    vars: types::GetAppDeploymentsVariables,
+) -> Result<Vec<types::Deployment>, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::GetAppDeployments::build(vars))
+        .await?;
+    let builds = res
+        .get_deploy_app
+        .and_then(|x| x.deployments)
+        .context("no data returned")?
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect();
+
+    Ok(builds)
+}
+
+/// Get an app deployment by ID.
+pub async fn app_deployment(
+    client: &WasmerClient,
+    id: String,
+) -> Result<types::AutobuildRepository, anyhow::Error> {
+    let node = get_node(client, id.clone())
+        .await?
+        .with_context(|| format!("app deployment with id '{}' not found", id))?;
+    match node {
+        types::Node::AutobuildRepository(x) => Ok(*x),
+        _ => anyhow::bail!("invalid node type returned"),
+    }
+}
+
 /// Load all versions of an app.
 ///
 /// Will paginate through all versions and return them in a single list.
@@ -1582,31 +1668,9 @@ pub fn get_package_releases_stream(
     )
 }
 
-/// Generate a new Edge token.
-pub async fn generate_deploy_token_raw(
-    client: &WasmerClient,
-    app_version_id: String,
-) -> Result<String, anyhow::Error> {
-    let res = client
-        .run_graphql(types::GenerateDeployToken::build(
-            types::GenerateDeployTokenVars { app_version_id },
-        ))
-        .await?;
-
-    res.generate_deploy_token
-        .map(|x| x.token)
-        .context("no token returned")
-}
-
-#[derive(Debug, PartialEq)]
-pub enum GenerateTokenBy {
-    Id(NetworkTokenV1),
-}
-
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     SSH,
-    Network(GenerateTokenBy),
 }
 
 pub async fn generate_deploy_config_token_raw(
@@ -1618,9 +1682,6 @@ pub async fn generate_deploy_config_token_raw(
             types::GenerateDeployConfigTokenVars {
                 input: match token_kind {
                     TokenKind::SSH => "{}".to_string(),
-                    TokenKind::Network(by) => match by {
-                        GenerateTokenBy::Id(token) => serde_json::to_string(&token)?,
-                    },
                 },
             },
         ))

@@ -1,5 +1,7 @@
 use comfy_table::Table;
-use wasmer_api::types::{DeployApp, DeployAppVersion, DnsDomain, DnsDomainWithRecords, Namespace};
+use wasmer_backend_api::types::{
+    DeployApp, DeployAppVersion, Deployment, DnsDomain, DnsDomainWithRecords, Namespace,
+};
 
 use crate::utils::render::CliRender;
 
@@ -98,11 +100,13 @@ impl CliRender for DeployApp {
                 "App".to_string(),
                 format!("{}/{}", self.owner.global_name, self.name),
             ],
-            vec!["Version".to_string(), self.active_version.version.clone()],
             vec![
-                "Created".to_string(),
-                self.active_version.created_at.0.clone(),
+                "Version".to_string(),
+                self.active_version
+                    .as_ref()
+                    .map_or_else(|| "n/a".to_string(), |v| v.version.clone()),
             ],
+            vec!["Created".to_string(), self.created_at.0.clone()],
             vec!["Id".to_string(), self.id.inner().to_string()],
         ]);
         table.to_string()
@@ -119,8 +123,10 @@ impl CliRender for DeployApp {
         table.add_rows(items.iter().map(|app| {
             vec![
                 format!("{}/{}", app.owner.global_name, app.name),
-                app.active_version.version.clone(),
-                app.active_version.created_at.0.clone(),
+                app.active_version
+                    .as_ref()
+                    .map_or_else(|| "n/a".to_string(), |v| v.version.clone()),
+                app.created_at.0.clone(),
                 app.id.inner().to_string(),
             ]
         }));
@@ -157,7 +163,7 @@ impl CliRender for DeployAppVersion {
     }
 }
 
-impl CliRender for wasmer_api::types::AppVersionVolume {
+impl CliRender for wasmer_backend_api::types::AppVersionVolume {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
         table.add_rows([
@@ -183,7 +189,7 @@ impl CliRender for wasmer_api::types::AppVersionVolume {
     }
 }
 
-fn format_disk_size_opt(value: Option<wasmer_api::types::BigInt>) -> String {
+fn format_disk_size_opt(value: Option<wasmer_backend_api::types::BigInt>) -> String {
     let value = value.and_then(|x| {
         let y: Option<u64> = x.0.try_into().ok();
         y
@@ -194,5 +200,126 @@ fn format_disk_size_opt(value: Option<wasmer_api::types::BigInt>) -> String {
         s.to_string()
     } else {
         "n/a".to_string()
+    }
+}
+
+impl CliRender for Deployment {
+    fn render_item_table(&self) -> String {
+        match self {
+            Deployment::NakedDeployment(naked) => naked.render_item_table(),
+            Deployment::AutobuildRepository(build) => build.render_item_table(),
+            Deployment::Other => "unknown deployment type".to_string(),
+        }
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Id".to_string(),
+            "Type".to_string(),
+            "Created at".to_string(),
+            "Status".to_string(),
+            "App version".to_string(),
+        ]);
+
+        let rows = items
+            .iter()
+            .map(|item| match item {
+                Deployment::NakedDeployment(naked) => {
+                    vec![
+                        naked.id.inner().to_string(),
+                        "Manual".to_string(),
+                        naked.created_at.0.clone(),
+                        String::new(),
+                        naked
+                            .app_version
+                            .as_ref()
+                            .map_or_else(|| "n/a".to_string(), |x| x.version.clone()),
+                    ]
+                }
+                Deployment::AutobuildRepository(build) => {
+                    vec![
+                        build.id.inner().to_string(),
+                        "Autobuild".to_string(),
+                        build.status.as_str().to_string(),
+                        build.created_at.0.clone(),
+                    ]
+                }
+                Deployment::Other => vec![
+                    String::new(),
+                    "Unknown".to_string(),
+                    String::new(),
+                    String::new(),
+                ],
+            })
+            .collect::<Vec<_>>();
+        table.add_rows(rows);
+
+        table.to_string()
+    }
+}
+
+impl CliRender for wasmer_backend_api::types::NakedDeployment {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Id".to_string(), self.id.clone().into_inner()],
+            vec!["Created at".to_string(), self.created_at.0.clone()],
+            vec![
+                "App version".to_string(),
+                self.app_version
+                    .as_ref()
+                    .map_or_else(|| "n/a".to_string(), |x| x.version.clone()),
+            ],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Id".to_string(),
+            "Created at".to_string(),
+            "App version".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|item| {
+            vec![
+                item.id.clone().into_inner(),
+                item.created_at.0.clone(),
+                item.app_version
+                    .as_ref()
+                    .map_or_else(|| "n/a".to_string(), |x| x.version.clone()),
+            ]
+        }));
+        table.to_string()
+    }
+}
+
+impl CliRender for wasmer_backend_api::types::AutobuildRepository {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Id".to_string(), self.id.clone().into_inner()],
+            vec!["Status".to_string(), self.status.as_str().to_string()],
+            vec!["Created at".to_string(), self.created_at.0.clone()],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Id".to_string(),
+            "Status".to_string(),
+            "Created at".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|item| {
+            vec![
+                item.id.clone().into_inner(),
+                item.status.as_str().to_string(),
+                item.created_at.0.clone(),
+            ]
+        }));
+        table.to_string()
     }
 }

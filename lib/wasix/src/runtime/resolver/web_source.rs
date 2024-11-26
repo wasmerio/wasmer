@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
-use webc::compat::Container;
+use wasmer_package::utils::from_disk;
 
 use crate::{
     http::{HttpClient, HttpRequest},
@@ -224,17 +224,8 @@ impl WebSource {
 
         Ok((body, etag))
     }
-}
 
-#[async_trait::async_trait]
-impl Source for WebSource {
-    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
-        let url = match package {
-            PackageSource::Url(url) => url,
-            _ => return Err(QueryError::Unsupported),
-        };
-
+    async fn load_url(&self, url: &Url) -> Result<Vec<PackageSummary>, anyhow::Error> {
         let local_path = self
             .get_locally_cached_file(url)
             .await
@@ -245,7 +236,7 @@ impl Source for WebSource {
 
         // Note: We want to use Container::from_disk() rather than the bytes
         // our HTTP client gave us because then we can use memory-mapped files
-        let container = crate::block_in_place(|| Container::from_disk(&local_path))
+        let container = crate::block_in_place(|| from_disk(&local_path))
             .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
 
         let id = PackageInfo::package_id_from_manifest(container.manifest())?
@@ -260,6 +251,25 @@ impl Source for WebSource {
         };
 
         Ok(vec![PackageSummary { pkg, dist }])
+    }
+}
+
+#[async_trait::async_trait]
+impl Source for WebSource {
+    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
+    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
+        let url = match package {
+            PackageSource::Url(url) => url,
+            _ => {
+                return Err(QueryError::Unsupported {
+                    query: package.clone(),
+                })
+            }
+        };
+
+        self.load_url(url)
+            .await
+            .map_err(|error| QueryError::new_other(error, package))
     }
 }
 

@@ -14,7 +14,6 @@ use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_config::package::PackageSource as PackageSpecifier;
-use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
@@ -45,7 +44,10 @@ use wasmer_wasix::{
     WasiVersion,
 };
 
-use crate::utils::{parse_envvar, parse_mapdir};
+use crate::{
+    config::{UserRegistry, WasmerEnv},
+    utils::{parse_envvar, parse_mapdir},
+};
 
 use super::{
     capabilities::{self, PkgCapabilityCache},
@@ -635,7 +637,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl PackageLoader + Send + Sync> {
+    ) -> Result<impl PackageLoader> {
         let checkout_dir = env.cache_dir().join("checkouts");
         let tokens = tokens_by_authority(env)?;
 
@@ -652,8 +654,8 @@ impl Wasi {
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
         preferred_webc_version: webc::Version,
-    ) -> Result<impl Source + Send + Sync> {
-        let mut source = MultiSource::new();
+    ) -> Result<impl Source + Send> {
+        let mut source = MultiSource::default();
 
         // Note: This should be first so our "preloaded" sources get a chance to
         // override the main registry.
@@ -703,8 +705,7 @@ impl Wasi {
 }
 
 fn parse_registry(r: &str) -> Result<Url> {
-    let url = wasmer_registry::format_graphql(r).parse()?;
-    Ok(url)
+    UserRegistry::from(r).graphql_endpoint()
 }
 
 fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {

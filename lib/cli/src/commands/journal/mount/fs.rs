@@ -11,7 +11,7 @@ use std::{
     time::Duration,
 };
 
-use fuse::{
+use fuser::{
     FileAttr, Filesystem, ReplyAttr, ReplyBmap, ReplyCreate, ReplyData, ReplyDirectory, ReplyEmpty,
     ReplyEntry, ReplyLock, ReplyOpen, ReplyStatfs, ReplyWrite, ReplyXattr, Request,
 };
@@ -460,7 +460,7 @@ impl Filesystem for JournalFileSystem {
                         mtime: time01::Timespec::new(file.last_modified() as i64, 0),
                         ctime: time01::Timespec::new(file.created_time() as i64, 0),
                         crtime: time01::Timespec::new(file.created_time() as i64, 0),
-                        kind: fuse::FileType::RegularFile,
+                        kind: fuser::FileType::RegularFile,
                         perm: 0o644,
                         nlink: 1,
                         uid: 0,
@@ -534,7 +534,7 @@ impl Filesystem for JournalFileSystem {
                             mtime: time01::Timespec::new(file.last_modified() as i64, 0),
                             ctime: time01::Timespec::new(file.created_time() as i64, 0),
                             crtime: time01::Timespec::new(file.created_time() as i64, 0),
-                            kind: fuse::FileType::RegularFile,
+                            kind: fuser::FileType::RegularFile,
                             perm: 0o644,
                             nlink: 1,
                             uid: 0,
@@ -746,7 +746,7 @@ impl Filesystem for JournalFileSystem {
                 mtime: now,
                 ctime: now,
                 crtime: now,
-                kind: fuse::FileType::RegularFile,
+                kind: fuser::FileType::RegularFile,
                 perm: 0o644,
                 nlink: 1,
                 uid: 0,
@@ -956,7 +956,7 @@ impl Filesystem for JournalFileSystem {
             // Compute the directory kind
             let kind = match entry.file_type() {
                 Ok(ft) => file_type_to_kind(ft),
-                _ => fuse::FileType::RegularFile,
+                _ => fuser::FileType::RegularFile,
             };
 
             // i + 1 means the index of the next entry
@@ -1203,18 +1203,18 @@ impl Filesystem for JournalFileSystem {
     }
 }
 
-fn file_type_to_kind(ft: virtual_fs::FileType) -> fuse::FileType {
+fn file_type_to_kind(ft: virtual_fs::FileType) -> fuser::FileType {
     if ft.dir {
-        fuse::FileType::Directory
+        fuser::FileType::Directory
     } else if ft.symlink {
-        fuse::FileType::Symlink
+        fuser::FileType::Symlink
     } else if ft.block_device {
-        fuse::FileType::BlockDevice
+        fuser::FileType::BlockDevice
     } else if ft.char_device {
-        fuse::FileType::CharDevice
+        fuser::FileType::CharDevice
     } else if ft.socket {
-        fuse::FileType::Socket
+        fuser::FileType::Socket
     } else {
-        fuse::FileType::RegularFile
+        fuser::FileType::RegularFile
     }
 }

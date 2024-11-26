@@ -1,30 +1,30 @@
 //! Create a standalone native executable for a given Wasm file.
 
+use self::utils::normalize_atom_name;
+use super::CliCommand;
+use crate::{
+    common::{normalize_path, HashAlgorithm},
+    config::WasmerEnv,
+    store::CompilerOptions,
+};
+use anyhow::{anyhow, bail, Context, Result};
+use clap::Parser;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     env,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-
-use anyhow::{anyhow, bail, Context, Result};
-use clap::Parser;
-use serde::{Deserialize, Serialize};
 use tar::Archive;
-use wasmer::sys::Artifact;
-use wasmer::*;
-use wasmer_object::{emit_serialized, get_object_for_target};
-use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-use webc::{
-    compat::{Container, Volume as WebcVolume},
-    PathSegments,
+use wasmer::{sys::Artifact, *};
+use wasmer_compiler::{
+    object::{emit_serialized, get_object_for_target},
+    types::symbols::ModuleMetadataSymbolRegistry,
 };
-
-use self::utils::normalize_atom_name;
-use crate::{
-    common::{normalize_path, HashAlgorithm},
-    store::CompilerOptions,
-};
+use wasmer_package::utils::from_disk;
+use wasmer_types::ModuleInfo;
+use webc::{Container, Metadata, PathSegments, Volume as WebcVolume};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -33,6 +33,9 @@ const LINK_SYSTEM_LIBRARIES_UNIX: &[&str] = &["dl", "m", "pthread"];
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
+    #[clap(flatten)]
+    env: WasmerEnv,
+
     /// Input file
     #[clap(name = "FILE")]
     path: PathBuf,
@@ -192,9 +195,11 @@ pub struct Volume {
     pub obj_file: PathBuf,
 }
 
-impl CreateExe {
+impl CliCommand for CreateExe {
+    type Output = ();
+
     /// Runs logic for the `compile` subcommand
-    pub fn execute(&self) -> Result<()> {
+    fn run(self) -> Result<Self::Output, anyhow::Error> {
         let path = normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let mut cc = self.cross_compile.clone();
@@ -214,8 +219,13 @@ impl CreateExe {
             None => None,
         };
 
-        let cross_compilation =
-            utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd, url_or_version)?;
+        let cross_compilation = utils::get_cross_compile_setup(
+            &self.env,
+            &mut cc,
+            &target_triple,
+            &starting_cd,
+            url_or_version,
+        )?;
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
@@ -227,7 +237,7 @@ impl CreateExe {
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
-        println!("Compiler: {}", compiler_type.to_string());
+        println!("Compiler: {}", compiler_type);
         println!("Target: {}", target.triple());
         println!(
             "Using path `{}` as libwasmer path.",
@@ -245,7 +255,7 @@ impl CreateExe {
         };
         std::fs::create_dir_all(&tempdir)?;
 
-        let atoms = if let Ok(pirita) = Container::from_disk(&input_path) {
+        let atoms = if let Ok(pirita) = from_disk(&input_path) {
             // pirita file
             compile_pirita_into_directory(
                 &pirita,
@@ -274,6 +284,7 @@ impl CreateExe {
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
         link_exe_from_dir(
+            &self.env,
             &tempdir,
             output_path,
             &cross_compilation,
@@ -516,14 +527,14 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
             path.push(segment);
 
             match meta {
-                webc::compat::Metadata::Dir { .. } => {
+                Metadata::Dir { .. } => {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
                     );
                     read_dir(volume, path, files);
                 }
-                webc::compat::Metadata::File { .. } => {
+                Metadata::File { .. } => {
                     if let Some((contents, _)) = volume.read_file(&*path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
@@ -548,7 +559,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
 impl AllowMultiWasm {
     fn validate(
         &self,
-        all_atoms: &Vec<(String, webc::compat::SharedBytes)>,
+        all_atoms: &[(String, webc::compat::SharedBytes)],
     ) -> Result<(), anyhow::Error> {
         if matches!(self, AllowMultiWasm::Reject(None)) && all_atoms.len() > 1 {
             let keys = all_atoms
@@ -844,6 +855,7 @@ fn compile_atoms(
 
 /// Compile the C code.
 fn run_c_compile(
+    env: &WasmerEnv,
     path_to_c_src: &Path,
     output_name: &Path,
     target: &Triple,
@@ -864,7 +876,7 @@ fn run_c_compile(
         .arg("-c")
         .arg(path_to_c_src)
         .arg("-I")
-        .arg(utils::get_wasmer_include_directory()?);
+        .arg(utils::get_wasmer_include_directory(env)?);
 
     for i in include_dirs {
         command = command.arg("-I");
@@ -1111,7 +1123,9 @@ pub(crate) fn create_header_files_in_dir(
 }
 
 /// Given a directory, links all the objects from the directory appropriately
+#[allow(clippy::too_many_arguments)]
 fn link_exe_from_dir(
+    env: &WasmerEnv,
     directory: &Path,
     output_path: PathBuf,
     cross_compilation: &CrossCompileSetup,
@@ -1182,6 +1196,7 @@ fn link_exe_from_dir(
         && cross_compilation.target.operating_system == OperatingSystem::Windows
     {
         run_c_compile(
+            env,
             &directory.join("wasmer_main.c"),
             &directory.join("wasmer_main.o"),
             &cross_compilation.target,
@@ -1284,14 +1299,15 @@ fn link_exe_from_dir(
     let out_path = directory.join("wasmer_main.exe");
     #[cfg(not(target_os = "windows"))]
     let out_path = directory.join("wasmer_main");
-    cmd.arg(&format!("-femit-bin={}", out_path.display()));
+    cmd.arg(format!("-femit-bin={}", out_path.display()));
+
     cmd.args(
-        &object_paths
+        object_paths
             .iter()
             .map(|o| normalize_path(&format!("{}", o.display())))
             .collect::<Vec<_>>(),
     );
-    cmd.arg(&normalize_path(&format!("{}", library_path.display())));
+    cmd.arg(normalize_path(&format!("{}", library_path.display())));
     cmd.arg(normalize_path(&format!(
         "{}",
         directory
@@ -1577,7 +1593,9 @@ pub(super) mod utils {
 
     use anyhow::{anyhow, Context};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
-    use wasmer_types::{CpuFeature, Target};
+    use wasmer_compiler::types::target::{self as wasmer_types, CpuFeature, Target};
+
+    use crate::config::WasmerEnv;
 
     use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
 
@@ -1595,6 +1613,7 @@ pub(super) mod utils {
     }
 
     pub(in crate::commands) fn get_cross_compile_setup(
+        env: &WasmerEnv,
         cross_subc: &mut CrossCompile,
         target_triple: &Triple,
         starting_cd: &Path,
@@ -1640,13 +1659,10 @@ pub(super) mod utils {
         } else {
             let wasmer_cache_dir =
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
-                    wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| anyhow!("{e}"))
-                        .map(|o| o.join("cache"))
+                    Some(env.cache_dir().to_path_buf())
                 } else {
-                    get_libwasmer_cache_path()
-                }
-                .ok();
+                    get_libwasmer_cache_path(env).ok()
+                };
 
             // check if the tarball for the target already exists locally
             let local_tarball = wasmer_cache_dir.as_ref().and_then(|wc| {
@@ -1665,12 +1681,12 @@ pub(super) mod utils {
             });
 
             if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
-                let tarball = super::http_fetch::download_url(wasmer_release.as_ref())?;
+                let tarball = super::http_fetch::download_url(env, wasmer_release.as_ref())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(filename))
             } else if let Some(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
                 let release = super::http_fetch::get_release(Some(wasmer_release.clone()))?;
-                let tarball = super::http_fetch::download_release(release, target.clone())?;
+                let tarball = super::http_fetch::download_release(env, release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(filename))
             } else if let Some(local_tarball) = local_tarball.as_ref() {
@@ -1678,7 +1694,7 @@ pub(super) mod utils {
                 Some(tarball_dir.join(filename))
             } else {
                 let release = super::http_fetch::get_release(None)?;
-                let tarball = super::http_fetch::download_release(release, target.clone())?;
+                let tarball = super::http_fetch::download_release(env, release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(filename))
             }
@@ -1819,33 +1835,27 @@ pub(super) mod utils {
 
     pub(super) fn triple_to_zig_triple(target_triple: &Triple) -> String {
         let arch = match target_triple.architecture {
-            wasmer_types::Architecture::X86_64 => "x86_64".into(),
-            wasmer_types::Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => {
-                "aarch64".into()
-            }
+            Architecture::X86_64 => "x86_64".into(),
+            Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => "aarch64".into(),
             v => v.to_string(),
         };
         let os = match target_triple.operating_system {
-            wasmer_types::OperatingSystem::Linux => "linux".into(),
-            wasmer_types::OperatingSystem::Darwin => "macos".into(),
-            wasmer_types::OperatingSystem::Windows => "windows".into(),
+            OperatingSystem::Linux => "linux".into(),
+            OperatingSystem::Darwin => "macos".into(),
+            OperatingSystem::Windows => "windows".into(),
             v => v.to_string(),
         };
         let env = match target_triple.environment {
-            wasmer_types::Environment::Musl => "musl",
-            wasmer_types::Environment::Gnu => "gnu",
-            wasmer_types::Environment::Msvc => "msvc",
+            Environment::Musl => "musl",
+            Environment::Gnu => "gnu",
+            Environment::Msvc => "msvc",
             _ => "none",
         };
         format!("{}-{}-{}", arch, os, env)
     }
 
-    pub(super) fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow!("{e}"))
-    }
-
-    pub(super) fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
-        let mut path = get_wasmer_dir()?;
+    pub(super) fn get_wasmer_include_directory(env: &WasmerEnv) -> anyhow::Result<PathBuf> {
+        let mut path = env.dir().to_path_buf();
         if path.clone().join("wasmer.h").exists() {
             return Ok(path);
         }
@@ -1863,8 +1873,8 @@ pub(super) mod utils {
     }
 
     /// path to the static libwasmer
-    pub(super) fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
-        let path = get_wasmer_dir()?;
+    pub(super) fn get_libwasmer_path(env: &WasmerEnv) -> anyhow::Result<PathBuf> {
+        let path = env.dir().to_path_buf();
 
         // TODO: prefer headless Wasmer if/when it's a separate library.
         #[cfg(not(windows))]
@@ -1880,8 +1890,8 @@ pub(super) mod utils {
     }
 
     /// path to library tarball cache dir
-    pub(super) fn get_libwasmer_cache_path() -> anyhow::Result<PathBuf> {
-        let mut path = get_wasmer_dir()?;
+    pub(super) fn get_libwasmer_cache_path(env: &WasmerEnv) -> anyhow::Result<PathBuf> {
+        let mut path = env.dir().to_path_buf();
         path.push("cache");
         std::fs::create_dir_all(&path)?;
         Ok(path)
@@ -2173,11 +2183,12 @@ mod http_fetch {
     }
 
     pub(super) fn download_release(
+        env: &WasmerEnv,
         mut release: serde_json::Value,
         target_triple: wasmer::Triple,
     ) -> Result<std::path::PathBuf> {
         // Test if file has been already downloaded
-        if let Ok(mut cache_path) = super::utils::get_libwasmer_cache_path() {
+        if let Ok(mut cache_path) = super::utils::get_libwasmer_cache_path(env) {
             let paths = std::fs::read_dir(&cache_path).and_then(|r| {
                 r.map(|res| res.map(|e| e.path()))
                     .collect::<Result<Vec<_>, std::io::Error>>()
@@ -2230,10 +2241,11 @@ mod http_fetch {
             ));
         };
 
-        download_url(&browser_download_url)
+        download_url(env, &browser_download_url)
     }
 
     pub(crate) fn download_url(
+        env: &WasmerEnv,
         browser_download_url: &str,
     ) -> Result<std::path::PathBuf, anyhow::Error> {
         let filename = browser_download_url
@@ -2267,7 +2279,7 @@ mod http_fetch {
             .copy_to(&mut file)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        match super::utils::get_libwasmer_cache_path() {
+        match super::utils::get_libwasmer_cache_path(env) {
             Ok(mut cache_path) => {
                 cache_path.push(&filename);
                 if let Err(err) = std::fs::copy(&download_path, &cache_path) {
@@ -2298,6 +2310,8 @@ mod http_fetch {
 
     use std::path::PathBuf;
 
+    use crate::{config::WasmerEnv, utils::unpack::try_unpack_targz};
+
     pub(crate) fn list_dir(target: &Path) -> Vec<PathBuf> {
         use walkdir::WalkDir;
         WalkDir::new(target)
@@ -2309,7 +2323,7 @@ mod http_fetch {
 
     pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<PathBuf>> {
         let _ = std::fs::remove_dir(target);
-        wasmer_registry::try_unpack_targz(tarball, target, false)?;
+        try_unpack_targz(tarball, target, false)?;
         Ok(list_dir(target))
     }
 }

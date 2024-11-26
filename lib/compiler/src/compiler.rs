@@ -1,19 +1,15 @@
 //! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
-use crate::lib::std::boxed::Box;
-use crate::lib::std::sync::Arc;
-use crate::translator::ModuleMiddleware;
-use crate::FunctionBodyData;
-use crate::ModuleTranslationState;
+use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry, target::Target};
+use crate::{
+    lib::std::{boxed::Box, sync::Arc},
+    translator::ModuleMiddleware,
+    types::{function::Compilation, target::CpuFeature},
+    FunctionBodyData, ModuleTranslationState,
+};
 use enumset::EnumSet;
-use wasmer_types::compilation::function::Compilation;
-use wasmer_types::compilation::module::CompileModuleInfo;
-use wasmer_types::compilation::symbols::SymbolRegistry;
-use wasmer_types::compilation::target::Target;
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::error::CompileError;
-use wasmer_types::{CpuFeature, Features, LocalFunctionIndex};
+use wasmer_types::{entity::PrimaryMap, error::CompileError, Features, LocalFunctionIndex};
 use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.
@@ -78,31 +74,32 @@ pub trait Compiler: Send {
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
-        let wasm_features = WasmFeatures {
-            bulk_memory: features.bulk_memory,
-            threads: features.threads,
-            reference_types: features.reference_types,
-            multi_value: features.multi_value,
-            simd: features.simd,
-            tail_call: features.tail_call,
-            multi_memory: features.multi_memory,
-            memory64: features.memory64,
-            exceptions: features.exceptions,
-            extended_const: features.extended_const,
-            relaxed_simd: features.relaxed_simd,
-            mutable_global: true,
-            saturating_float_to_int: true,
-            floats: true,
-            sign_extension: true,
+        let mut wasm_features = WasmFeatures::default();
+        wasm_features.set(WasmFeatures::BULK_MEMORY, features.bulk_memory);
+        wasm_features.set(WasmFeatures::THREADS, features.threads);
+        wasm_features.set(WasmFeatures::REFERENCE_TYPES, features.reference_types);
+        wasm_features.set(WasmFeatures::MULTI_VALUE, features.multi_value);
+        wasm_features.set(WasmFeatures::SIMD, features.simd);
+        wasm_features.set(WasmFeatures::TAIL_CALL, features.tail_call);
+        wasm_features.set(WasmFeatures::MULTI_MEMORY, features.multi_memory);
+        wasm_features.set(WasmFeatures::MEMORY64, features.memory64);
+        wasm_features.set(WasmFeatures::EXCEPTIONS, features.exceptions);
+        wasm_features.set(WasmFeatures::EXTENDED_CONST, features.extended_const);
+        wasm_features.set(WasmFeatures::RELAXED_SIMD, features.relaxed_simd);
+        wasm_features.set(WasmFeatures::MUTABLE_GLOBAL, true);
+        wasm_features.set(WasmFeatures::SATURATING_FLOAT_TO_INT, true);
+        wasm_features.set(WasmFeatures::FLOATS, true);
+        wasm_features.set(WasmFeatures::SIGN_EXTENSION, true);
+        wasm_features.set(WasmFeatures::GC_TYPES, true);
 
-            // Not supported
-            component_model: false,
-            function_references: false,
-            memory_control: false,
-            gc: false,
-            component_model_values: false,
-            component_model_nested_names: false,
-        };
+        // Not supported
+        wasm_features.set(WasmFeatures::COMPONENT_MODEL, false);
+        wasm_features.set(WasmFeatures::FUNCTION_REFERENCES, false);
+        wasm_features.set(WasmFeatures::MEMORY_CONTROL, false);
+        wasm_features.set(WasmFeatures::GC, false);
+        wasm_features.set(WasmFeatures::COMPONENT_MODEL_VALUES, false);
+        wasm_features.set(WasmFeatures::COMPONENT_MODEL_NESTED_NAMES, false);
+
         let mut validator = Validator::new_with_features(wasm_features);
         validator
             .validate_all(data)

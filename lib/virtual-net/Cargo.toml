@@ -1,6 +1,6 @@
 [package]
 name = "virtual-net"
-version = "0.8.0"
+version = "0.12.0"
 description = "Wasmer Virtual Networking"
 authors.workspace = true
 edition.workspace = true
@@ -10,28 +10,29 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+base64.workspace = true
+hyper = { workspace = true, optional = true }
+rkyv = { workspace = true, optional = true }
+
 thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-tokio = { version = "1", default-features = false, features = ["io-util"] }
+tokio = { workspace = true, default-features = false, features = ["io-util"] }
 libc = { workspace = true, optional = true }
-mio = { version = "0.8", optional = true, features = ["net"] }
-socket2 = { version = "0.4", optional = true }
-derivative = { version = "^2" }
-virtual-mio  = { path = "../virtual-io", version = "0.3.0", default-features = false }
-base64 = "0.21"
+mio = { workspace = true, optional = true }
+socket2 = { workspace = true, optional = true }
+derive_more.workspace = true
+virtual-mio = { path = "../virtual-io", version = "0.6.0", default-features = false }
 bincode = { version = "1.3" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 pin-project-lite = "0.2.9"
-futures-util = { version = "0.3" }
+futures-util = { workspace = true }
 anyhow = "1.0"
-tokio-serde = { version = "0.8", features = [ "bincode" ], optional = true }
+tokio-serde = { version = "0.9", features = ["bincode"], optional = true }
 tokio-util = { version = "0.7.8", features = ["codec"], optional = true }
 hyper-tungstenite = { version = "0.13", optional = true }
-hyper = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.21", optional = true }
-rkyv = { workspace = true, optional = true }
 bytecheck = { version = "0.6.8", optional = true }
 hyper-util = { version = "0.1.5", features = ["tokio"], optional = true }
 
@@ -41,20 +42,40 @@ default-features = false
 features = ["proto-ipv4", "std", "alloc"]
 
 [dev-dependencies]
-tokio = { version = "1", default-features = false, features = [ "macros", "rt-multi-thread" ] }
+tokio = { workspace = true, default-features = false, features = [
+	"macros",
+	"rt-multi-thread",
+] }
 tracing-test = { version = "0.2" }
 serial_test = "2.0.0"
 
 [features]
-default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper", "tokio-tungstenite" ]
-host-net = [ "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
-remote = [ "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
-json = [ "tokio-serde/json" ]
-messagepack = [ "tokio-serde/messagepack" ]
-cbor = [ "tokio-serde/cbor" ]
-hyper = [ "hyper-tungstenite", "hyper-util", "dep:hyper" ]
-tokio-tungstenite = [ "dep:tokio-tungstenite" ]
-rkyv = [ "dep:rkyv", "dep:bytecheck" ]
+default = [
+	"host-net",
+	"remote",
+	"json",
+	"messagepack",
+	"cbor",
+	"hyper",
+	"tokio-tungstenite",
+]
+host-net = [
+	"libc",
+	"tokio/io-util",
+	"virtual-mio/sys",
+	"tokio/net",
+	"tokio/rt",
+	"socket2",
+	"mio",
+]
+remote = ["libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util"]
+json = ["tokio-serde/json"]
+messagepack = ["tokio-serde/messagepack"]
+cbor = ["tokio-serde/cbor"]
+hyper = ["hyper-tungstenite", "hyper-util", "dep:hyper"]
+tokio-tungstenite = ["dep:tokio-tungstenite"]
+tokio = []
+rkyv = ["dep:rkyv", "dep:bytecheck"]
 
 [package.metadata.docs.rs]
 features = ["host-net", "remote"]

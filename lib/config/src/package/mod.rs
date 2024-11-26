@@ -40,8 +40,6 @@ use thiserror::Error;
 #[derive(Clone, Copy, Default, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Abi {
-    #[serde(rename = "emscripten")]
-    Emscripten,
     #[default]
     #[serde(rename = "none")]
     None,
@@ -55,7 +53,6 @@ impl Abi {
     /// Get the ABI's human-friendly name.
     pub fn to_str(&self) -> &str {
         match self {
-            Abi::Emscripten => "emscripten",
             Abi::Wasi => "wasi",
             Abi::WASM4 => "wasm4",
             Abi::None => "generic",
@@ -84,7 +81,6 @@ impl FromStr for Abi {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "emscripten" => Ok(Abi::Emscripten),
             "wasi" => Ok(Abi::Wasi),
             "wasm4" => Ok(Abi::WASM4),
             "generic" => Ok(Abi::None),
@@ -185,6 +181,10 @@ pub struct Package {
 }
 
 impl Package {
+    pub fn new_empty() -> Self {
+        PackageBuilder::default().build().unwrap()
+    }
+
     /// Create a [`PackageBuilder`] populated with all mandatory fields.
     pub fn builder(
         name: impl Into<String>,
@@ -254,8 +254,7 @@ pub struct CommandV2 {
     pub module: ModuleReference,
     /// The runner to use when running this command.
     ///
-    /// This may be a URL, or the well-known runners `wasi`, `wcgi`, or
-    /// `emscripten`.
+    /// This may be a URL, or the well-known runners `wasi` or `wcgi`
     pub runner: String,
     /// Extra annotations that will be consumed by the runner.
     pub annotations: Option<CommandAnnotations>,
@@ -737,6 +736,16 @@ pub struct Manifest {
 }
 
 impl Manifest {
+    pub fn new_empty() -> Self {
+        Self {
+            package: None,
+            dependencies: HashMap::new(),
+            fs: IndexMap::new(),
+            modules: Vec::new(),
+            commands: Vec::new(),
+        }
+    }
+
     /// Create a [`ManifestBuilder`] populated with all mandatory fields.
     pub fn builder(package: Package) -> ManifestBuilder {
         ManifestBuilder::new(package)
@@ -943,7 +952,7 @@ pub enum ManifestError {
 #[non_exhaustive]
 pub enum ValidationError {
     #[error(
-        "missing ABI field on module, \"{module}\", used by command, \"{command}\"; an ABI of `wasi` or `emscripten` is required",
+        "missing ABI field on module, \"{module}\", used by command, \"{command}\"; an ABI of `wasi` is required",
     )]
     MissingABI { command: String, module: String },
     #[error("missing module, \"{module}\", in manifest used by command, \"{command}\"")]

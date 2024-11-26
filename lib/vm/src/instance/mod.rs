@@ -357,7 +357,7 @@ impl Instance {
 
         // Make the call.
         unsafe {
-            catch_traps(trap_handler, config, || {
+            catch_traps(trap_handler, config, move || {
                 mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
                     callee_address,
                 )(callee_vmctx)
@@ -1399,14 +1399,25 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
-        for (i, func_idx) in init.elements.iter().enumerate() {
-            let anyfunc = instance.func_ref(*func_idx);
-            table
-                .set(
-                    u32::try_from(start + i).unwrap(),
-                    TableElement::FuncRef(anyfunc),
-                )
-                .unwrap();
+        if let wasmer_types::Type::FuncRef = table.ty().ty {
+            for (i, func_idx) in init.elements.iter().enumerate() {
+                let anyfunc = instance.func_ref(*func_idx);
+                table
+                    .set(
+                        u32::try_from(start + i).unwrap(),
+                        TableElement::FuncRef(anyfunc),
+                    )
+                    .unwrap();
+            }
+        } else {
+            for i in 0..init.elements.len() {
+                table
+                    .set(
+                        u32::try_from(start + i).unwrap(),
+                        TableElement::ExternRef(None),
+                    )
+                    .unwrap();
+            }
         }
     }
 

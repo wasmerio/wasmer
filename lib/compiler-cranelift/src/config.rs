@@ -1,10 +1,14 @@
 use crate::compiler::CraneliftCompiler;
-use cranelift_codegen::isa::{lookup, TargetIsa};
-use cranelift_codegen::settings::{self, Configurable};
-use cranelift_codegen::CodegenResult;
+use cranelift_codegen::{
+    isa::{lookup, TargetIsa},
+    settings::{self, Configurable},
+    CodegenResult,
+};
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
-use wasmer_types::{Architecture, CpuFeature, Target};
+use wasmer_compiler::{
+    types::target::{Architecture, CpuFeature, Target},
+    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+};
 
 // Runtime Environment
 
@@ -66,7 +70,7 @@ impl Cranelift {
     }
 
     /// Generates the ISA for the provided target
-    pub fn isa(&self, target: &Target) -> CodegenResult<Box<dyn TargetIsa>> {
+    pub fn isa(&self, target: &Target) -> CodegenResult<Arc<dyn TargetIsa>> {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features
@@ -122,7 +126,6 @@ impl Cranelift {
 
     /// Generates the flags for the compiler
     pub fn flags(&self, target: &Target) -> settings::Flags {
-        let is_riscv = matches!(target.triple().architecture, Architecture::Riscv64(_));
         let mut flags = settings::builder();
 
         // Enable probestack
@@ -136,12 +139,6 @@ impl Cranelift {
                 .set("probestack_strategy", "inline")
                 .expect("should be valid flag");
         }
-
-        // There are two possible traps for division, and this way
-        // we get the proper one if code traps.
-        flags
-            .enable("avoid_div_traps")
-            .expect("should be valid flag");
 
         if self.enable_pic {
             flags.enable("is_pic").expect("should be a valid flag");
@@ -176,16 +173,6 @@ impl Cranelift {
                 },
             )
             .expect("should be valid flag");
-
-        if is_riscv {
-            flags
-                .set("enable_simd", "false")
-                .expect("should be valid flag");
-        } else {
-            flags
-                .set("enable_simd", "true")
-                .expect("should be valid flag");
-        }
 
         let enable_nan_canonicalization = if self.enable_nan_canonicalization {
             "true"

@@ -12,69 +12,68 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=4.3.6", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=4.3.6", path = "lib/compiler", features = [
-    "compiler",
+wasmer = { version = "=5.0.2", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "=5.0.2", path = "lib/compiler", features = [
+	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=4.3.6", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=4.3.6", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=4.3.6", path = "lib/compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=4.3.6", path = "lib/emscripten", optional = true }
+wasmer-compiler-cranelift = { version = "=5.0.2", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=5.0.2", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=5.0.2", path = "lib/compiler-llvm", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
-wasmer-wast = { version = "=4.3.6", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=4.3.6", path = "tests/wasi-wast", optional = true }
-wasmer-cache = { version = "=4.3.6", path = "lib/cache", optional = true }
-wasmer-types = { version = "=4.3.6", path = "lib/types" }
-wasmer-middlewares = { version = "=4.3.6", path = "lib/middlewares", optional = true }
+wasmer-wast = { version = "=5.0.2", path = "tests/lib/wast", optional = true }
+wasi-test-generator = { version = "=5.0.2", path = "tests/wasi-wast", optional = true }
+wasmer-cache = { version = "=5.0.2", path = "lib/cache", optional = true }
+wasmer-types = { version = "=5.0.2", path = "lib/types" }
+wasmer-middlewares = { version = "=5.0.2", path = "lib/middlewares", optional = true }
 
 # Third party dependencies
 cfg-if = "1.0"
-tokio = { version = "1", features = [
-    "rt",
-    "rt-multi-thread",
-    "macros",
+
+tokio = { version = "1.39", features = [
+	"rt",
+	"rt-multi-thread",
+	"macros",
 ], optional = true }
 crossbeam-queue = "0.3.8"
 
 [workspace]
 members = [
-    "fuzz",
-    "lib/api",
-    "lib/api/macro-wasmer-universal-test",
-    "lib/backend-api",
-    "lib/c-api",
-    "lib/c-api/examples/wasmer-capi-examples-runner",
-    "lib/c-api/tests/wasmer-c-api-test-runner",
-    "lib/cache",
-    "lib/cli-compiler",
-    "lib/cli",
-    "lib/compiler-cranelift",
-    "lib/compiler-llvm",
-    "lib/compiler-singlepass",
-    "lib/compiler",
-    "lib/config",
-    "lib/derive",
-    "lib/emscripten",
-    "lib/object",
-    "lib/registry",
-    "lib/sys-utils",
-    "lib/types",
-    "lib/virtual-io",
-    "lib/virtual-fs",
-    "lib/virtual-net",
-    "lib/vm",
-    "lib/wai-bindgen-wasmer",
-    "lib/wasi-types",
-    "lib/wasix",
-    "lib/wasm-interface",
-    "lib/journal",
-    "tests/integration/cli",
-    "tests/integration/ios",
-    "tests/lib/compiler-test-derive",
-    "tests/lib/wast",
-    "tests/wasi-wast",
-    "tests/wasmer-argus",
+	"fuzz",
+	"lib/api",
+	"lib/api/macro-wasmer-universal-test",
+	"lib/backend-api",
+	"lib/c-api",
+	"lib/c-api/examples/wasmer-capi-examples-runner",
+	"lib/c-api/tests/wasmer-c-api-test-runner",
+	"lib/cache",
+	"lib/cli-compiler",
+	"lib/cli",
+	"lib/compiler-cranelift",
+	"lib/compiler-llvm",
+	"lib/compiler-singlepass",
+	"lib/compiler",
+	"lib/config",
+	"lib/derive",
+	"lib/sys-utils",
+	"lib/types",
+	"lib/virtual-io",
+	"lib/virtual-fs",
+	"lib/virtual-net",
+	"lib/vm",
+	"lib/wai-bindgen-wasmer",
+	"lib/wasi-types",
+	"lib/wasix",
+	"lib/journal",
+	"lib/swift",
+	"lib/package",
+	"tests/integration/cli",
+	"tests/integration/ios",
+	"tests/lib/compiler-test-derive",
+	"tests/lib/wast",
+	"tests/wasi-wast",
+	"tests/wasmer-argus",
 ]
+exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
 
 [workspace.package]
@@ -83,17 +82,17 @@ edition = "2021"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.74"
-version = "4.3.6"
+rust-version = "1.81"
+version = "5.0.2"
 
 [workspace.dependencies]
 # Repo-local crates
+wasmer-package = { version = "0.3.0", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "6.0.0-rc3", default-features = false, features = ["package"] }
-edge-schema = { version = "=0.1.0" }
+webc = { version = "7.0.0-rc.2" }
 shared-buffer = "0.1.4"
 
 # Third-party crates
@@ -103,13 +102,27 @@ hyper = "1"
 reqwest = { version = "0.12.0", default-features = false }
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmparser = { version = "0.121.0", default-features = false }
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+wasmparser = { version = "0.216.0", default-features = false, features = [
+	"validate",
+] }
+rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
-toml = {version = "0.5.9", features = ["preserve_order"]}
+toml = { version = "0.5.9", features = ["preserve_order"] }
 indexmap = "2"
-serde_yaml = "0.9.34"
+serde_yaml = { package = "serde_yml", version = "0.0.12" }
 libc = { version = "^0.2", default-features = false }
+gimli = { version = "0.28.1" }
+futures-util = { version = "0.3.31" }
+mio = "1"
+# MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
+tokio = { version = "1.39.0", default-features = false }
+socket2 = "0.5.7"
+pretty_assertions = "1.4.0"
+base64 = "0.22.0"
+time = "0.3.36"
+target-lexicon = { version = "0.12.2", default-features = false }
+object = "0.32.0"
+derive_more = { version = "1", features = ["debug"] }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -119,13 +132,13 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=4.3.6", path = "lib/api", features = [
-    "compiler",
-    "singlepass",
-    "sys",
+wasmer = { version = "=5.0.2", path = "lib/api", features = [
+	"compiler",
+	"singlepass",
+	"sys",
 ] }
 anyhow = "1.0"
-criterion = { version = "0.5", default-features = false }
+criterion = { version = "0.5", features = ["csv_output"] }
 clap = { version = "=4.4.11" }
 clap_builder = { version = "=4.4.11" }
 clap_derive = { version = "=4.4.7" }
@@ -139,24 +152,27 @@ ureq = "2.6"
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "env-filter",
-    "fmt",
+	"env-filter",
+	"fmt",
 ] }
+reqwest = {workspace = true, features = ["blocking", "rustls-tls"]}
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "cache", "wasi", "engine", "emscripten", "middlewares"]
+default = ["wat", "wast", "cache", "wasi", "engine", "middlewares"]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
+wamr = ["wasmer/wamr"]
+v8 = ["wasmer/v8"]
+wasmi = ["wasmer/wasmi"]
 engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasix"]
-emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = ["wasmer/compiler", "backend", "wasmer-compiler/translator"]
 singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]
@@ -203,6 +219,18 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.digest]
 opt-level = 3
+
+[[bench]]
+name = "run"
+harness = false
+
+[[bench]]
+name = "compile"
+harness = false
+
+[[bench]]
+name = "deserialize_modules"
+harness = false
 
 [[bench]]
 name = "static_and_dynamic_functions"
@@ -285,7 +313,7 @@ required-features = ["cranelift"]
 [[example]]
 name = "wasi"
 path = "examples/wasi.rs"
-required-features = ["backend", "wasi"]
+required-features = ["wasi"]
 
 [[example]]
 name = "wasi-manual-setup"

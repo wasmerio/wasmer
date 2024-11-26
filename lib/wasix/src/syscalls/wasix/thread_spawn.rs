@@ -30,7 +30,7 @@ use wasmer_wasix_types::wasi::ThreadStart;
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from the same value as `pid` and increments in steps)
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn thread_spawn_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
@@ -66,10 +66,10 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
     // Read the properties about the stack which we will use for asyncify
     let layout = {
         let start: ThreadStart<M> = start_ptr.read(&memory).map_err(mem_error_to_wasi)?;
-        let stack_upper: u64 = start.stack_upper.try_into().map_err(|_| Errno::Overflow)?;
-        let stack_size: u64 = start.stack_size.try_into().map_err(|_| Errno::Overflow)?;
-        let guard_size: u64 = start.guard_size.try_into().map_err(|_| Errno::Overflow)?;
-        let tls_base: u64 = start.tls_base.try_into().map_err(|_| Errno::Overflow)?;
+        let stack_upper: u64 = start.stack_upper.into();
+        let stack_size: u64 = start.stack_size.into();
+        let guard_size: u64 = start.guard_size.into();
+        let tls_base: u64 = start.tls_base.into();
         let stack_lower = stack_upper - stack_size;
 
         WasiMemoryLayout {
@@ -203,10 +203,19 @@ fn call_module<M: MemorySize>(
                 .map_err(|_| Errno::Overflow)
                 .unwrap(),
         );
+        trace!("callback finished (ret={:?})", call_ret);
+
         let mut ret = Errno::Success;
+        let mut exit_code = None;
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
+                Ok(WasiError::ThreadExit) => {
+                    trace!("thread exited cleanly");
+                    ret = Errno::Success;
+                }
                 Ok(WasiError::Exit(code)) => {
+                    trace!(exit_code = ?code, "thread requested exit");
+                    exit_code = Some(code);
                     ret = if code.is_success() {
                         Errno::Success
                     } else {
@@ -226,6 +235,7 @@ fn call_module<M: MemorySize>(
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);
                     ret = Errno::Noexec;
+                    exit_code = Some(ExitCode::from(128 + ret as i32));
                 }
                 Err(err) => {
                     debug!("failed with runtime error: {}", err);
@@ -233,13 +243,15 @@ fn call_module<M: MemorySize>(
                         .runtime
                         .on_taint(TaintReason::RuntimeError(err));
                     ret = Errno::Noexec;
+                    exit_code = Some(ExitCode::from(128 + ret as i32));
                 }
             }
+        } else {
+            debug!("thread exited cleanly without calling thread_exit");
         }
-        trace!("callback finished (ret={})", ret);
 
         // Clean up the environment
-        env.on_exit(store, Some(ret.into()));
+        env.on_exit(store, exit_code);
 
         // Return the result
         Ok(ret as u32)

@@ -13,6 +13,7 @@ use wasmer_vm::{
     VMFunction, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
@@ -46,8 +47,13 @@ impl Function {
             unsafe {
                 let mut store = StoreMut::from_raw(raw_store as *mut StoreInner);
                 let mut args = Vec::with_capacity(func_ty.params().len());
+
                 for (i, ty) in func_ty.params().iter().enumerate() {
-                    args.push(Value::from_raw(&mut store, *ty, *values_vec.add(i)));
+                    args.push(Value::from_raw(
+                        &mut store,
+                        *ty,
+                        values_vec.add(i).read_unaligned(),
+                    ));
                 }
                 let store_mut = StoreMut::from_raw(raw_store as *mut StoreInner);
                 let env = FunctionEnvMut {
@@ -67,7 +73,7 @@ impl Function {
                     )));
                 }
                 for (i, ret) in returns.iter().enumerate() {
-                    *values_vec.add(i) = ret.as_raw(&store);
+                    values_vec.add(i).write_unaligned(ret.as_raw(&store));
                 }
             }
             Ok(())

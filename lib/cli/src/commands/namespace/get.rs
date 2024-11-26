@@ -22,11 +22,11 @@ impl AsyncCliCommand for CmdNamespaceGet {
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
 
-        let namespace = wasmer_api::query::get_namespace(&client, self.name)
+        let namespace = wasmer_backend_api::query::get_namespace(&client, self.name)
             .await?
             .context("namespace not found")?;
 
-        println!("{}", self.fmt.format.render(&namespace));
+        println!("{}", self.fmt.get().render(&namespace));
 
         Ok(())
     }

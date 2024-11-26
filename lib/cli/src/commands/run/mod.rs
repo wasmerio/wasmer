@@ -32,8 +32,9 @@ use wasmer::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
-use wasmer_registry::{wasmer_env::WasmerEnv, Package};
+use wasmer_package::utils::from_disk;
 use wasmer_types::ModuleHash;
+
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
@@ -42,7 +43,6 @@ use wasmer_wasix::{
     runners::{
         dcgi::{DcgiInstanceFactory, DcgiRunner},
         dproxy::DProxyRunner,
-        emscripten::EmscriptenRunner,
         wasi::WasiRunner,
         wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
@@ -53,11 +53,12 @@ use wasmer_wasix::{
     },
     Runtime, WasiError,
 };
-use webc::{metadata::Manifest, Container};
+use webc::metadata::Manifest;
+use webc::Container;
 
 use crate::{
-    commands::run::wasi::Wasi, common::HashAlgorithm, error::PrettyError, logging::Output,
-    store::StoreOptions,
+    commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
+    logging::Output, store::StoreOptions,
 };
 
 const TICK: Duration = Duration::from_millis(250);
@@ -76,9 +77,12 @@ pub struct Run {
     /// Set the default stack size (default is 1048576)
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
-    /// The function or command to invoke.
-    #[clap(short, long, aliases = &["command", "invoke", "command-name"])]
+    /// The entrypoint module for webc packages.
+    #[clap(short, long, aliases = &["command", "command-name"])]
     entrypoint: Option<String>,
+    /// The function to invoke.
+    #[clap(short, long)]
+    invoke: Option<String>,
     /// Generate a coredump at this path if a WebAssembly trap occurs
     #[clap(name = "COREDUMP_PATH", long)]
     coredump_on_trap: Option<PathBuf>,
@@ -202,9 +206,7 @@ impl Run {
         mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        if wasmer_emscripten::is_emscripten_module(module) {
-            self.execute_emscripten_module()
-        } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
+        if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
             self.execute_wasi_module(path, module, module_hash, runtime, store)
         } else {
             self.execute_pure_wasm_module(module, &mut store)
@@ -219,7 +221,7 @@ impl Run {
     ) -> Result<(), Error> {
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
-            None => infer_webc_entrypoint(pkg)?,
+            None => pkg.infer_entrypoint()?,
         };
         let cmd = pkg
             .get_command(id)
@@ -235,8 +237,6 @@ impl Run {
             self.run_wcgi(id, pkg, uses, runtime)
         } else if WasiRunner::can_run_command(cmd.metadata())? {
             self.run_wasi(id, pkg, uses, runtime)
-        } else if EmscriptenRunner::can_run_command(cmd.metadata())? {
-            self.run_emscripten(id, pkg, runtime)
         } else {
             bail!(
                 "Unable to find a runner that supports \"{}\"",
@@ -359,37 +359,25 @@ impl Run {
         runner.run_command(command_name, pkg, runtime)
     }
 
-    fn run_emscripten(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
-        runner.set_args(self.args.clone());
-
-        runner.run_command(command_name, pkg, runtime)
-    }
-
     #[tracing::instrument(skip_all)]
     fn execute_pure_wasm_module(&self, module: &Module, store: &mut Store) -> Result<(), Error> {
         let imports = Imports::default();
         let instance = Instance::new(store, module, &imports)
             .context("Unable to instantiate the WebAssembly module")?;
 
-        let entrypoint  = match &self.entrypoint {
+        let entry_function  = match &self.invoke {
             Some(entry) => {
                 instance.exports
                     .get_function(entry)
-                    .with_context(|| format!("The module doesn't contain a \"{entry}\" function"))?
+                    .with_context(|| format!("The module doesn't export a function named \"{entry}\""))?
             },
             None => {
                 instance.exports.get_function("_start")
-                    .context("The module doesn't contain a \"_start\" function. Either implement it or specify an entrypoint function.")?
+                    .context("The module doesn't export a \"_start\" function. Either implement it or specify an entry function with --invoke")?
             }
         };
 
-        let return_values = invoke_function(&instance, store, entrypoint, &self.args)?;
+        let return_values = invoke_function(&instance, store, entry_function, &self.args)?;
 
         println!(
             "{}",
@@ -424,6 +412,10 @@ impl Run {
             .with_tmp_mapped(is_tmp_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
+
+        if let Some(ref entry_function) = self.invoke {
+            runner.with_entry_function(entry_function);
+        }
 
         #[cfg(feature = "journal")]
         {
@@ -470,11 +462,6 @@ impl Run {
         )
     }
 
-    #[tracing::instrument(skip_all)]
-    fn execute_emscripten_module(&self) -> Result<(), Error> {
-        bail!("Emscripten packages are not currently supported")
-    }
-
     #[allow(unused_variables)]
     fn maybe_save_coredump(&self, e: &Error) {
         #[cfg(feature = "coredump")]
@@ -500,7 +487,7 @@ impl Run {
     }
 
     fn from_binfmt_args_fallible() -> Result<Self, Error> {
-        if !cfg!(linux) {
+        if cfg!(not(target_os = "linux")) {
             bail!("binfmt_misc is only available on linux.");
         }
 
@@ -519,6 +506,7 @@ impl Run {
             wcgi: WcgiOptions::default(),
             stack_size: None,
             entrypoint: Some(original_executable.to_string()),
+            invoke: None,
             coredump_on_trap: None,
             input: PackageSource::infer(executable)?,
             args: args.to_vec(),
@@ -568,25 +556,6 @@ fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {
         _ => bail!("There is no known conversion from {s:?} to {ty:?}"),
     };
     Ok(value)
-}
-
-fn infer_webc_entrypoint(pkg: &BinaryPackage) -> Result<&str, Error> {
-    if let Some(entrypoint) = pkg.entrypoint_cmd.as_deref() {
-        return Ok(entrypoint);
-    }
-
-    match pkg.commands.as_slice() {
-        [] => bail!("The WEBC file doesn't contain any executable commands"),
-        [one] => Ok(one.name()),
-        [..] => {
-            let mut commands: Vec<_> = pkg.commands.iter().map(|cmd| cmd.name()).collect();
-            commands.sort();
-            bail!(
-                "Unable to determine the WEBC file's entrypoint. Please choose one of {:?}",
-                commands,
-            );
-        }
-    }
 }
 
 /// The input that was passed in via the command-line.
@@ -772,7 +741,7 @@ impl ExecutableTarget {
                 })
             }
             TargetOnDisk::LocalWebc => {
-                let container = Container::from_disk(path)?;
+                let container = from_disk(path)?;
                 pb.set_message("Resolving dependencies");
 
                 let inner_runtime = runtime.clone();

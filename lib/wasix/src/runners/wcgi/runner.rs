@@ -193,19 +193,17 @@ impl crate::runners::Runner for WcgiRunner {
             command_name,
             pkg,
             false,
-            CgiDialect::Wcgi,
+            CgiDialect::Rfc3875,
             Arc::clone(&runtime),
         )?;
         self.run_command_with_handler(handler, runtime)
     }
 }
 
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct Config {
     pub(crate) wasi: CommonWasiOptions,
     pub(crate) addr: SocketAddr,
-    #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
 }
 
@@ -273,7 +271,7 @@ impl Config {
 
     /// Set callbacks that will be triggered at various points in the runner's
     /// lifecycle.
-    pub fn callbacks(&mut self, callbacks: impl Callbacks + Send + Sync + 'static) -> &mut Self {
+    pub fn callbacks(&mut self, callbacks: impl Callbacks + 'static) -> &mut Self {
         self.callbacks = Arc::new(callbacks);
         self
     }

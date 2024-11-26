@@ -213,7 +213,7 @@ fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
         .instance
         .exports
         .get_function("_start")
-        .map(|a| a.clone())
+        .cloned()
         .ok()
 }
 
@@ -279,6 +279,7 @@ fn call_module(
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
                 Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
+                Ok(WasiError::ThreadExit) => Ok(Errno::Success),
                 Ok(WasiError::Exit(code)) => {
                     runtime.on_taint(TaintReason::NonZeroExitCode(code));
                     Err(WasiError::Exit(code).into())

@@ -6,7 +6,6 @@ use std::{
     time::Duration,
 };
 
-use derivative::Derivative;
 use futures::future::BoxFuture;
 use rand::Rng;
 use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
@@ -21,11 +20,12 @@ use wasmer_wasix_types::{
     wasi::{Errno, ExitCode, Snapshot0Clockid},
     wasix::ThreadStartType,
 };
+use webc::metadata::annotations::Wasi;
 
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
-    bin_factory::{BinFactory, BinaryPackage},
+    bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
@@ -42,14 +42,13 @@ use crate::{
 use wasmer_types::ModuleHash;
 
 pub(crate) use super::handles::*;
-use super::WasiState;
+use super::{conv_env_vars, WasiState};
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
 ///
 /// Used to access and modify runtime state.
 // TODO: make fields private
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct WasiInstanceHandles {
     // TODO: the two fields below are instance specific, while all others are module specific.
     // Should be split up.
@@ -70,11 +69,9 @@ pub struct WasiInstanceHandles {
     pub(crate) stack_high: Option<Global>,
 
     /// Main function that will be invoked (name = "_start")
-    #[derivative(Debug = "ignore")]
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
     /// Function thats invoked to initialize the WASM module (name = "_initialize")
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) initialize: Option<TypedFunction<(), ()>>,
@@ -82,12 +79,10 @@ pub struct WasiInstanceHandles {
     /// Represents the callback for spawning a thread (name = "wasi_thread_start")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
-    #[derivative(Debug = "ignore")]
     pub(crate) thread_spawn: Option<TypedFunction<(i32, i32), ()>>,
 
     /// Represents the callback for signals (name = "__wasm_signal")
     /// Signals are triggered asynchronously at idle times of the process
-    #[derivative(Debug = "ignore")]
     pub(crate) signal: Option<TypedFunction<i32, ()>>,
 
     /// Flag that indicates if the signal callback has been set by the WASM
@@ -102,7 +97,6 @@ pub struct WasiInstanceHandles {
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_unwind: Option<TypedFunction<i32, ()>>,
@@ -114,7 +108,6 @@ pub struct WasiInstanceHandles {
     /// "sleep", then you must call this at the proper time. Otherwise,
     /// the code will think it is still unwinding when it should not be,
     /// which means it will keep unwinding in a meaningless way.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
@@ -123,14 +116,12 @@ pub struct WasiInstanceHandles {
     /// stack vack up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
     /// call stack to be unwound.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_rewind: Option<TypedFunction<i32, ()>>,
 
     /// asyncify_stop_rewind(): call this to note that rewinding has
     /// concluded, and normal execution can resume.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_rewind: Option<TypedFunction<(), ()>>,
@@ -141,7 +132,6 @@ pub struct WasiInstanceHandles {
     /// calls, so that you know when to start an asynchronous operation and
     /// when to propagate results back.
     #[allow(dead_code)]
-    #[derivative(Debug = "ignore")]
     pub(crate) asyncify_get_state: Option<TypedFunction<(), i32>>,
 }
 
@@ -153,26 +143,10 @@ impl WasiInstanceHandles {
             .any(|f| f.name() == "stack_checkpoint");
         WasiInstanceHandles {
             memory,
-            stack_pointer: instance
-                .exports
-                .get_global("__stack_pointer")
-                .map(|a| a.clone())
-                .ok(),
-            data_end: instance
-                .exports
-                .get_global("__data_end")
-                .map(|a| a.clone())
-                .ok(),
-            stack_low: instance
-                .exports
-                .get_global("__stack_low")
-                .map(|a| a.clone())
-                .ok(),
-            stack_high: instance
-                .exports
-                .get_global("__stack_high")
-                .map(|a| a.clone())
-                .ok(),
+            stack_pointer: instance.exports.get_global("__stack_pointer").cloned().ok(),
+            data_end: instance.exports.get_global("__data_end").cloned().ok(),
+            stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
+            stack_high: instance.exports.get_global("__stack_high").cloned().ok(),
             start: instance.exports.get_typed_function(store, "_start").ok(),
             initialize: instance
                 .exports
@@ -295,7 +269,7 @@ impl WasiEnvInit {
                 clock_offset: std::sync::Mutex::new(
                     self.state.clock_offset.lock().unwrap().clone(),
                 ),
-                args: self.state.args.clone(),
+                args: std::sync::Mutex::new(self.state.args.lock().unwrap().clone()),
                 envs: std::sync::Mutex::new(self.state.envs.lock().unwrap().deref().clone()),
                 preopen: self.state.preopen.clone(),
             },
@@ -466,7 +440,6 @@ impl WasiEnv {
                 map.clear();
             }
             self.state.fs.preopen_fds.write().unwrap().clear();
-            self.state.fs.next_fd.set_val(3);
             *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
             // We need to rebuild the basic file descriptors
@@ -1079,6 +1052,10 @@ impl WasiEnv {
         (state, inodes)
     }
 
+    pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
+        InlineWaker::block_on(self.use_package_async(pkg))
+    }
+
     /// Make all the commands in a [`BinaryPackage`] available to the WASI
     /// instance.
     ///
@@ -1090,13 +1067,16 @@ impl WasiEnv {
     ///
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
     /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
-    pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
+    pub async fn use_package_async(
+        &self,
+        pkg: &BinaryPackage,
+    ) -> Result<(), WasiStateCreationError> {
         tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
         // We first need to merge the filesystem in the package into the
         // main file system, if it has not been merged already.
-        if let Err(e) = InlineWaker::block_on(self.state.fs.conditional_union(pkg)) {
+        if let Err(e) = self.state.fs.conditional_union(pkg).await {
             tracing::warn!(
                 error = &e as &dyn std::error::Error,
                 "Unable to merge the package's filesystem into the main one",
@@ -1146,9 +1126,7 @@ impl WasiEnv {
                     }
                     WasiFsRoot::Backing(fs) => {
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        if let Err(e) =
-                            InlineWaker::block_on(f.copy_reference(Box::new(StaticFile::new(atom))))
-                        {
+                        if let Err(e) = f.copy_reference(Box::new(StaticFile::new(atom))).await {
                             tracing::warn!(
                                 error = &e as &dyn std::error::Error,
                                 "Unable to copy file reference",
@@ -1246,32 +1224,33 @@ impl WasiEnv {
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn blocking_on_exit(&self, exit_code: Option<ExitCode>) {
-        let cleanup = self.on_exit(exit_code);
+    pub fn blocking_on_exit(&self, process_exit_code: Option<ExitCode>) {
+        let cleanup = self.on_exit(process_exit_code);
         InlineWaker::block_on(cleanup);
     }
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn on_exit(&self, exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
+    pub fn on_exit(&self, process_exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
 
         // If snap-shooting is enabled then we should record an event that the thread has exited.
         #[cfg(feature = "journal")]
         if self.should_journal() && self.has_active_journal() {
-            if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), exit_code) {
+            if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), process_exit_code)
+            {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }
 
             if self.thread.is_main() {
-                if let Err(err) = JournalEffector::save_process_exit(self, exit_code) {
+                if let Err(err) = JournalEffector::save_process_exit(self, process_exit_code) {
                     tracing::warn!("failed to save snapshot event for process exit - {}", err);
                 }
             }
         }
 
-        // If this is the main thread then also close all the files
-        if self.thread.is_main() {
+        // If the process wants to exit, also close all files and terminate it
+        if let Some(process_exit_code) = process_exit_code {
             let process = self.process.clone();
             let disable_fs_cleanup = self.disable_fs_cleanup;
             let pid = self.pid();
@@ -1297,11 +1276,51 @@ impl WasiEnv {
                 }
 
                 // Terminate the process
-                let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
-                process.terminate(exit_code);
+                process.terminate(process_exit_code);
             })
         } else {
             Box::pin(async {})
+        }
+    }
+
+    pub fn prepare_spawn(&self, cmd: &BinaryPackageCommand) {
+        if let Ok(Some(Wasi {
+            main_args,
+            env: env_vars,
+            exec_name,
+            ..
+        })) = cmd.metadata().wasi()
+        {
+            if let Some(env_vars) = env_vars {
+                let env_vars = env_vars
+                    .into_iter()
+                    .map(|env_var| {
+                        let (k, v) = env_var.split_once('=').unwrap();
+
+                        (k.to_string(), v.as_bytes().to_vec())
+                    })
+                    .collect::<Vec<_>>();
+
+                let env_vars = conv_env_vars(env_vars);
+
+                self.state
+                    .envs
+                    .lock()
+                    .unwrap()
+                    .extend_from_slice(env_vars.as_slice());
+            }
+
+            if let Some(args) = main_args {
+                self.state
+                    .args
+                    .lock()
+                    .unwrap()
+                    .extend_from_slice(args.as_slice());
+            }
+
+            if let Some(exec_name) = exec_name {
+                self.state.args.lock().unwrap()[0] = exec_name;
+            }
         }
     }
 }

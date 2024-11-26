@@ -1,3 +1,5 @@
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::externals::function as function_impl;
 #[cfg(feature = "js")]
 use crate::js::externals::function as function_impl;
 #[cfg(feature = "jsc")]
@@ -84,6 +86,7 @@ mod private {
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Function(pub(crate) function_impl::Function);
 
 impl Function {
