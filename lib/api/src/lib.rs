@@ -453,3 +453,67 @@ pub use wasmparser;
 pub use wat::parse_bytes as wat2wasm;
 
 pub use wasmer_derive::ValueType;
+
+#[cfg(any(
+    all(
+        feature = "sys-default",
+        any(
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "wamr-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "js-default",
+        any(
+            feature = "sys-default",
+            feature = "jsc-default",
+            feature = "wamr-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "jsc-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "wamr-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "wamr-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "v8-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "wasmi-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "v8-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "wasmi-default",
+            feature = "wamr-default"
+        )
+    )
+))]
+compile_error!("Multiple *-default features selected. Please, pick one only!");

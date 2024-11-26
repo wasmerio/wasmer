@@ -121,6 +121,36 @@ impl RuntimeEngine {
 impl Default for RuntimeEngine {
     #[allow(unreachable_code)]
     fn default() -> Self {
+        #[cfg(feature = "sys-default")]
+        {
+            return Self::Sys(crate::rt::sys::entities::engine::default_engine());
+        }
+
+        #[cfg(feature = "wamr-default")]
+        {
+            return Self::Wamr(crate::rt::wamr::entities::engine::default_engine());
+        }
+
+        #[cfg(feature = "wasmi-default")]
+        {
+            return Self::Wasmi(crate::rt::wasmi::entities::engine::default_engine());
+        }
+
+        #[cfg(feature = "v8-default")]
+        {
+            return Self::V8(crate::rt::v8::entities::engine::default_engine());
+        }
+
+        #[cfg(feature = "js-default")]
+        {
+            return Self::Js(crate::rt::js::entities::engine::default_engine());
+        }
+
+        #[cfg(feature = "jsc-default")]
+        {
+            return Self::Jsc(crate::rt::jsc::entities::engine::default_engine());
+        }
+
         #[cfg(feature = "sys")]
         {
             return Self::Sys(crate::rt::sys::entities::engine::default_engine());

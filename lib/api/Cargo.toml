@@ -137,8 +137,11 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 # - Engines.
 engine = ["sys"]
 wamr = ["wasm-c-api", "std", "wat", "dep:which"]
+wamr-default = ["wamr", "wat"]
 wasmi = ["wasm-c-api", "std", "wat", "dep:wasmi_c_api"]
+wasmi-default = ["wamr", "wat"]
 v8 = ["wasm-c-api", "std", "wat", "dep:seq-macro", "dep:which"]
+v8-default = ["wamr", "wat"]
 wasm-c-api = ["wasm-types-polyfill"]
 
 # - Deprecated features.
@@ -151,7 +154,7 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 wasm-types-polyfill = ["wasmparser"]
 
 jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
-
+jsc-default = ["jsc"]
 js-serializable-module = []
 
 # Optional
