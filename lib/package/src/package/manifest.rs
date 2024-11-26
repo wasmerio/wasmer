@@ -615,6 +615,7 @@ fn transform_in_memory_command_v2(
                     Err(ManifestError::FileNotSupported)
                 }
                 wasmer_config::package::CommandAnnotations::Raw(v) => Ok(toml_to_cbor_value(v)),
+                wasmer_config::package::CommandAnnotations::CBOR(cbor) => Ok(cbor.clone()),
             })
             .transpose()
     })
