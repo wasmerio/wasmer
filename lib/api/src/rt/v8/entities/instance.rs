@@ -31,6 +31,7 @@ impl InstanceHandle {
 
         if instance.is_null() {
             let trap = Trap::from(trap);
+            return Err(InstantiationError::Start(trap.into()));
         }
 
         Ok(InstanceHandle(instance))
