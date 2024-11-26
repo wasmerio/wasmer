@@ -132,7 +132,7 @@ impl Function {
         Rets: WasmTypeList,
     {
         let env = FunctionEnv::new(store, ());
-        let func_ptr = func.sys_function_callback();
+        let func_ptr = func.function_callback(crate::Runtime::Sys).into_sys();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env,
@@ -149,7 +149,10 @@ impl Function {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline =
-            <F as HostFunction<(), Args, Rets, WithoutEnv>>::sys_call_trampoline_address();
+            <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address(
+                crate::Runtime::Sys,
+            )
+            .into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -178,7 +181,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let func_ptr = func.sys_function_callback();
+        let func_ptr = func.function_callback(crate::Runtime::Sys).into_sys();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env: env.as_sys().clone().into(),
@@ -194,8 +197,10 @@ impl Function {
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
-        let call_trampoline =
-            <F as HostFunction<T, Args, Rets, WithEnv>>::sys_call_trampoline_address();
+        let call_trampoline = <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address(
+            crate::Runtime::Sys,
+        )
+        .into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -504,3 +509,165 @@ impl crate::Function {
         }
     }
 }
+
+macro_rules! impl_host_function {
+    ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
+        paste::paste! {
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower _no_env>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, Func: Fn($( $x , )*) -> RetsAsResult + 'static>
+            (this: &Func) -> crate::rt::sys::vm::VMFunctionCallback {
+            /// This is a function that wraps the real host
+            /// function. Its address will be used inside the
+            /// runtime.
+            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+            {
+                // println!("func wrapper");
+                let mut store = StoreMut::from_raw(env.raw_store as *mut _);
+                let result = on_host_stack(|| {
+                    // println!("func wrapper1");
+                    panic::catch_unwind(AssertUnwindSafe(|| {
+                        $(
+                            let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
+                        )*
+                        (env.func)($($x),* ).into_result()
+                    }))
+                });
+
+                match result {
+                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                    Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
+                    Err(panic) => resume_panic(panic) ,
+                }
+            }
+
+            func_wrapper::< $( $x, )* Rets, RetsAsResult, Func > as _
+
+        }
+
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_call_trampoline_address_ $c_struct_name:lower _no_env>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList>
+            () -> crate::rt::sys::vm::VMTrampoline {
+
+            unsafe extern "C" fn call_trampoline<$( $x: FromToNativeWasmType, )* Rets: WasmTypeList>
+  	        (
+                  vmctx: *mut crate::rt::sys::vm::VMContext,
+                  body: crate::rt::sys::vm::VMFunctionCallback,
+                  args: *mut RawValue,
+              ) {
+	         let body: unsafe extern "C" fn(vmctx: *mut crate::rt::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+  	         let mut _n = 0;
+  	         $(
+  	             let $x = *args.add(_n).cast();
+  	             _n += 1;
+  	         )*
+
+  	         let results = body(vmctx, $( $x ),*);
+  	         Rets::write_c_struct_to_ptr(results, args);
+            }
+	        
+            call_trampoline::<$( $x, )* Rets> as _
+
+        }
+
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static,  Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static>
+            (this: &Func) -> crate::rt::sys::vm::VMFunctionCallback {
+            /// This is a function that wraps the real host
+            /// function. Its address will be used inside the
+            /// runtime.
+            unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+                where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
+            {
+
+                let mut store = StoreMut::from_raw(env.raw_store as *mut _);
+  	            let result = wasmer_vm::on_host_stack(|| {
+  	                panic::catch_unwind(AssertUnwindSafe(|| {
+  	                    $(
+  	                        let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
+  	                    )*
+  	                    let store_mut = StoreMut::from_raw(env.raw_store as *mut _);
+  	                    let f_env = crate::rt::sys::function::env::FunctionEnvMut {
+  	                        store_mut,
+  	                        func_env: env.env.as_sys().clone(),
+  	                    }.into();
+  	                    (env.func)(f_env, $($x),* ).into_result()
+  	                }))
+  	            });
+
+  	            match result {
+  	                Ok(Ok(result)) => return result.into_c_struct(&mut store),
+  	                Ok(Err(trap)) => wasmer_vm::raise_user_trap(Box::new(trap)),
+  	                Err(panic) => wasmer_vm::resume_panic(panic),
+  	            }
+            }
+            func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _
+        }
+
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_call_trampoline_address_ $c_struct_name:lower>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList>
+            () -> crate::rt::sys::vm::VMTrampoline {
+
+            unsafe extern "C" fn call_trampoline<$( $x: FromToNativeWasmType, )* Rets: WasmTypeList>(
+                  vmctx: *mut crate::rt::sys::vm::VMContext,
+                  body: crate::rt::sys::vm::VMFunctionCallback,
+                  args: *mut RawValue,
+            ) {
+	          let body: unsafe extern "C" fn(vmctx: *mut crate::rt::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+	          let mut _n = 0;
+	          $(
+	          let $x = *args.add(_n).cast();
+	          _n += 1;
+	          )*
+
+	          let results = body(vmctx, $( $x ),*);
+	          Rets::write_c_struct_to_ptr(results, args);
+            }
+
+	        call_trampoline::<$( $x, )* Rets> as _
+        }
+        }
+    };
+}
+
+// Here we go! Let's generate all the C struct, `WasmTypeList`
+// implementations and `HostFunction` implementations.
+impl_host_function!([C] S0,);
+impl_host_function!([transparent] S1, A1);
+impl_host_function!([C] S2, A1, A2);
+impl_host_function!([C] S3, A1, A2, A3);
+impl_host_function!([C] S4, A1, A2, A3, A4);
+impl_host_function!([C] S5, A1, A2, A3, A4, A5);
+impl_host_function!([C] S6, A1, A2, A3, A4, A5, A6);
+impl_host_function!([C] S7, A1, A2, A3, A4, A5, A6, A7);
+impl_host_function!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+impl_host_function!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+impl_host_function!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+impl_host_function!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+impl_host_function!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+impl_host_function!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+impl_host_function!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+impl_host_function!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+impl_host_function!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+impl_host_function!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_host_function!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+impl_host_function!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+impl_host_function!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+impl_host_function!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+impl_host_function!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+impl_host_function!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+impl_host_function!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+impl_host_function!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+impl_host_function!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);

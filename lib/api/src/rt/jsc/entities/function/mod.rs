@@ -1,24 +1,29 @@
 pub(crate) mod env;
 pub(crate) mod typed;
 
-use rusty_jsc::{callback_closure, JSContext, JSObject, JSObjectCallAsFunctionCallback, JSValue};
+use rusty_jsc::{
+    callback, callback_closure, JSContext, JSObject, JSObjectCallAsFunctionCallback, JSValue,
+};
 use std::marker::PhantomData;
+use std::panic::{self, AssertUnwindSafe};
 use wasmer_types::{FunctionType, RawValue};
-
-pub(crate) use env::*;
-pub(crate) use typed::*;
 
 use crate::{
     jsc::{
+        store::{InternalStoreHandle, StoreHandle},
         utils::convert::{jsc_value_to_wasmer, AsJsc},
-        vm::{VMFuncRef, VMFunction},
+        vm::{VMFuncRef, VMFunction, VMFunctionEnvironment},
     },
     vm::VMExtern,
-    AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind,
-    RuntimeError, RuntimeFunction, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction,
+    HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError,
+    RuntimeFunction, RuntimeFunctionEnvMut, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
 };
 
 use super::engine::IntoJSC;
+
+pub(crate) use env::*;
+pub(crate) use typed::*;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Function {
@@ -308,7 +313,7 @@ where
         T: Sized,
     {
         Self {
-            callback: function.jsc_function_callback(),
+            callback: function.function_callback(crate::Runtime::Jsc).into_jsc(),
             _phantom: PhantomData,
         }
     }
@@ -351,3 +356,241 @@ impl crate::Function {
         }
     }
 }
+
+// Black-magic to count the number of identifiers at compile-time.
+macro_rules! count_idents {
+    ( $($idents:ident),* ) => {
+        {
+            #[allow(dead_code, non_camel_case_types)]
+            enum Idents { $( $idents, )* __CountIdentsLast }
+            const COUNT: usize = Idents::__CountIdentsLast as usize;
+            COUNT
+        }
+    };
+}
+
+macro_rules! impl_host_function {
+    ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
+        paste::paste! {
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower _no_env>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, Func: Fn($( $x , )*) -> RetsAsResult + 'static>
+            (this: &Func) -> crate::rt::jsc::vm::VMFunctionCallback {
+
+            #[callback]
+            fn fn_callback<$( $x, )* Rets, RetsAsResult, Func>(
+                ctx: JSContext,
+                function: JSObject,
+                this_object: JSObject,
+                arguments: &[JSValue],
+            ) -> Result<JSValue, JSValue>
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+                // $( $x: NativeWasmTypeInto, )*
+            {
+                use std::convert::TryInto;
+
+                let func: &Func = &*(&() as *const () as *const Func);
+                let global = ctx.get_global_object();
+                let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
+                if store_ptr.is_nan() {
+                    panic!("Store pointer is invalid. Received {}", store_ptr as usize)
+                }
+
+                let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+                let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                    type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
+                    let args_without_store: JSArray = arguments.try_into().unwrap();
+                    let [ $( $x ),* ] = args_without_store;
+                    func($( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
+                        // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
+                        // so the only thing we can do is parse from the string repr
+                        if $x.is_number(&ctx) {
+                            $x.to_number(&ctx).unwrap() as _
+                        }
+                        else {
+                            $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
+                        }
+                    } }) ) ),* ).into_result()
+                }));
+
+                match result {
+                    Ok(Ok(result)) => {
+                        match Rets::size() {
+                            0 => {Ok(JSValue::undefined(&ctx))},
+                            1 => {
+                                let ty = Rets::wasm_types()[0];
+                                let mut arr = result.into_array(&mut store);
+                                let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
+                                let value: JSValue = val.as_jsc_value(&store);
+                                Ok(value)
+                            }
+                            _n => {
+                                let mut arr = result.into_array(&mut store);
+                                let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
+                                    let raw = arr.as_mut()[i];
+                                    Value::from_raw(&mut store, *ret_type, raw).as_jsc_value(&mut store)
+                                }).collect::<Vec<_>>();
+                                Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
+                            }
+                        }
+                    },
+                    #[cfg(feature = "std")]
+                    Ok(Err(err)) => {
+                        let trap = crate::rt::jsc::error::Trap::user(Box::new(err));
+                        Err(trap.into_jsc_value(&ctx))
+                    },
+                    #[cfg(feature = "core")]
+                    Ok(Err(err)) => {
+                        let trap = crate::rt::jsc::error::Trap::user(Box::new(err));
+                        Err(trap.into_jsc_value(&ctx))
+                    },
+                    Err(panic) => {
+                        Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
+                        // We can't just resume the unwind, because it will put
+                        // JavacriptCore in a bad state, so we need to transform
+                        // the error
+
+                        // std::panic::resume_unwind(panic)
+                    },
+                }
+
+            }
+            Some(fn_callback::< $( $x, )* Rets, RetsAsResult, Func> as _)
+        }
+
+
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static,  Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static>
+            (this: &Func) -> crate::rt::jsc::vm::VMFunctionCallback {
+
+            #[callback]
+            fn fn_callback<T, $( $x, )* Rets, RetsAsResult, Func>(
+                ctx: JSContext,
+                function: JSObject,
+                this_object: JSObject,
+                arguments: &[JSValue],
+            ) -> Result<JSValue, JSValue>
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                T: Send + 'static,
+            {
+                use std::convert::TryInto;
+
+                let func: &Func = &*(&() as *const () as *const Func);
+                let global = ctx.get_global_object();
+                let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
+                if store_ptr.is_nan() {
+                    panic!("Store pointer is invalid. Received {}", store_ptr as usize)
+                }
+                let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+
+                let handle_index = arguments[0].to_number(&ctx).unwrap() as usize;
+                let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
+                let env = crate::rt::jsc::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store);
+
+                let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                    type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
+                    let args_without_store: JSArray = arguments[1..].try_into().unwrap();
+                    let [ $( $x ),* ] = args_without_store;
+                    let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+                    func(RuntimeFunctionEnvMut::Jsc(env).into(), $( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
+                        // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
+                        // so the only thing we can do is parse from the string repr
+                        if $x.is_number(&ctx) {
+                            $x.to_number(&ctx).unwrap() as _
+                        }
+                        else {
+                            $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
+                        }
+                    } }) ) ),* ).into_result()
+                }));
+
+                match result {
+                    Ok(Ok(result)) => {
+                        match Rets::size() {
+                            0 => {Ok(JSValue::undefined(&ctx))},
+                            1 => {
+                                // unimplemented!();
+
+                                let ty = Rets::wasm_types()[0];
+                                let mut arr = result.into_array(&mut store);
+                                // Value::from_raw(&store, ty, arr[0])
+                                let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
+                                let value: JSValue = val.as_jsc_value(&store);
+                                Ok(value)
+                                // *mut_rets = val.as_raw(&mut store);
+                            }
+                            _n => {
+                                // if !results.is_array(&context) {
+                                //     panic!("Expected results to be an array.")
+                                // }
+                                let mut arr = result.into_array(&mut store);
+                                let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
+                                    let raw = arr.as_mut()[i];
+                                    Value::from_raw(&mut store, *ret_type, raw).as_jsc_value(&mut store)
+                                }).collect::<Vec<_>>();
+                                Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
+                            }
+                        }
+                    },
+                    #[cfg(feature = "std")]
+                    Ok(Err(err)) => {
+                        let trap = crate::jsc::vm::Trap::user(Box::new(err));
+                        Err(trap.into_jsc_value(&ctx))
+                    },
+                    #[cfg(feature = "core")]
+                    Ok(Err(err)) => {
+                        let trap = crate::jsc::vm::Trap::user(Box::new(err));
+                        Err(trap.into_jsc_value(&ctx))
+                    },
+                    Err(panic) => {
+                        Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
+                    },
+                }
+
+            }
+
+            Some(fn_callback::<T, $( $x, )* Rets, RetsAsResult, Func> as _)
+        }
+
+        }
+    };
+}
+
+// Here we go! Let's generate all the C struct, `WasmTypeList`
+// implementations and `HostFunction` implementations.
+impl_host_function!([C] S0,);
+impl_host_function!([transparent] S1, A1);
+impl_host_function!([C] S2, A1, A2);
+impl_host_function!([C] S3, A1, A2, A3);
+impl_host_function!([C] S4, A1, A2, A3, A4);
+impl_host_function!([C] S5, A1, A2, A3, A4, A5);
+impl_host_function!([C] S6, A1, A2, A3, A4, A5, A6);
+impl_host_function!([C] S7, A1, A2, A3, A4, A5, A6, A7);
+impl_host_function!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+impl_host_function!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+impl_host_function!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+impl_host_function!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+impl_host_function!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+impl_host_function!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+impl_host_function!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+impl_host_function!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+impl_host_function!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+impl_host_function!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_host_function!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+impl_host_function!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+impl_host_function!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+impl_host_function!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+impl_host_function!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+impl_host_function!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+impl_host_function!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+impl_host_function!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+impl_host_function!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);

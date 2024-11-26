@@ -2,7 +2,7 @@ mod imp;
 
 use crate::{
     vm::{VMFunctionCallback, VMTrampoline},
-    WasmTypeList,
+    Runtime, WasmTypeList,
 };
 
 /// The `HostFunction` trait represents the set of functions that
@@ -15,71 +15,11 @@ where
     Rets: WasmTypeList,
     Kind: HostFunctionKind,
 {
-    #[cfg(feature = "jsc")]
     /// Get the pointer to the function body for a given runtime.
-    fn jsc_function_callback(&self) -> crate::rt::jsc::vm::VMFunctionCallback;
+    fn function_callback(&self, rt: Runtime) -> crate::vm::VMFunctionCallback;
 
-    #[cfg(feature = "jsc")]
     /// Get the pointer to the function call trampoline for a given runtime.
-    fn jsc_call_trampoline_address() -> crate::rt::jsc::vm::VMTrampoline {
-        // This is not implemented in JSC
-        unimplemented!();
-    }
-
-    #[cfg(feature = "js")]
-    /// Get the pointer to the function body for a given runtime.
-    fn js_function_callback(&self) -> crate::rt::js::vm::VMFunctionCallback;
-
-    #[cfg(feature = "js")]
-    /// Get the pointer to the function call trampoline for a given runtime.
-    fn js_call_trampoline_address() -> crate::rt::js::vm::VMTrampoline {
-        // This is not implemented in JS
-        unimplemented!();
-    }
-
-    #[cfg(feature = "sys")]
-    /// Get the pointer to the function body for a given runtime.
-    fn sys_function_callback(&self) -> crate::rt::sys::vm::VMFunctionCallback;
-
-    #[cfg(feature = "sys")]
-    /// Get the pointer to the function call trampoline for a given runtime.
-    fn sys_call_trampoline_address() -> crate::rt::sys::vm::VMTrampoline {
-        // This is not implemented in JS
-        unimplemented!();
-    }
-
-    #[cfg(feature = "wamr")]
-    /// Get the pointer to the function body for a given runtime.
-    fn wamr_function_callback(&self) -> crate::rt::wamr::vm::VMFunctionCallback;
-
-    #[cfg(feature = "wamr")]
-    /// Get the pointer to the function call trampoline for a given runtime.
-    fn wamr_call_trampoline_address() -> crate::rt::wamr::vm::VMTrampoline {
-        // This is not implemented in JS
-        unimplemented!();
-    }
-
-    #[cfg(feature = "wasmi")]
-    /// Get the pointer to the function body for a given runtime.
-    fn wasmi_function_callback(&self) -> crate::rt::wasmi::vm::VMFunctionCallback;
-
-    #[cfg(feature = "wasmi")]
-    /// Get the pointer to the function call trampoline for a given runtime.
-    fn wasmi_call_trampoline_address() -> crate::rt::wasmi::vm::VMTrampoline {
-        // This is not implemented in JS
-        unimplemented!();
-    }
-
-    #[cfg(feature = "v8")]
-    /// Get the pointer to the function body for a given runtime.
-    fn v8_function_callback(&self) -> crate::rt::v8::vm::VMFunctionCallback;
-
-    #[cfg(feature = "v8")]
-    /// Get the pointer to the function call trampoline for a given runtime.
-    fn v8_call_trampoline_address() -> crate::rt::v8::vm::VMTrampoline {
-        // This is not implemented in JS
-        unimplemented!();
-    }
+    fn call_trampoline_address(rt: Runtime) -> crate::vm::VMTrampoline;
 }
 
 /// Empty trait to specify the kind of `HostFunction`: With or

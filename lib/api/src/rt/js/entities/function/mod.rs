@@ -14,9 +14,13 @@ use crate::{
         vm::{function::VMFunction, VMFuncRef, VMFunctionCallback},
     },
     vm::{VMExtern, VMExternFunction},
-    AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind,
-    RuntimeError, RuntimeFunction, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction,
+    HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError,
+    RuntimeFunction, RuntimeFunctionEnv, RuntimeFunctionEnvMut, StoreMut, Value, WasmTypeList,
+    WithEnv, WithoutEnv,
 };
+
+use std::panic::{self, AssertUnwindSafe};
 
 #[inline]
 fn wasmer_array_to_js_array(values: &[Value]) -> Array {
@@ -316,7 +320,7 @@ where
         T: Sized,
     {
         Self {
-            address: function.js_function_callback(),
+            address: function.function_callback(crate::Runtime::Js).into_js(),
             _phantom: PhantomData,
         }
     }
@@ -359,3 +363,125 @@ impl crate::Function {
         }
     }
 }
+
+macro_rules! impl_host_function {
+    ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
+        paste::paste! {
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower _no_env>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, Func: Fn($( $x , )*) -> RetsAsResult + 'static>
+            (this: &Func) -> crate::rt::js::vm::VMFunctionCallback {
+
+            /// This is a function that wraps the real host
+            /// function. Its address will be used inside the
+            /// runtime.
+            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+            {
+                // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+                let func: &Func = &*(&() as *const () as *const Func);
+                let mut store = StoreMut::from_raw(store_ptr as *mut _);
+
+                let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                    func($( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                }));
+
+                match result {
+                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                    #[cfg(feature = "std")]
+                    #[allow(deprecated)]
+                    Ok(Err(trap)) => crate::rt::js::error::raise(Box::new(trap)),
+                    #[cfg(feature = "core")]
+                    #[allow(deprecated)]
+                    Ok(Err(trap)) => crate::rt::js::error::raise(Box::new(trap)),
+                    Err(_panic) => unimplemented!(),
+                }
+            }
+
+            func_wrapper::< $( $x, )* Rets, RetsAsResult, Func> as _
+
+        }
+
+
+        #[allow(non_snake_case)]
+        pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower>]
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static,  Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static>
+            (this: &Func) -> crate::rt::js::vm::VMFunctionCallback {
+
+            /// This is a function that wraps the real host
+            /// function. Its address will be used inside the
+            /// runtime.
+            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                T: Send + 'static,
+                Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+            {
+                let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
+
+                let result = {
+                    // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
+                    let func: &Func = &*(&() as *const () as *const Func);
+                    panic::catch_unwind(AssertUnwindSafe(|| {
+                        let handle: crate::rt::js::store::StoreHandle<crate::rt::js::vm::VMFunctionEnvironment> =
+                          crate::rt::js::store::StoreHandle::from_internal(store2.objects_mut().id(), crate::rt::js::store::InternalStoreHandle::from_index(handle_index).unwrap());
+                        let env: crate::rt::js::function::env::FunctionEnvMut<T> = crate::rt::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                        func(RuntimeFunctionEnvMut::Js(env).into(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                    }))
+                };
+
+                match result {
+                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                    #[allow(deprecated)]
+                    #[cfg(feature = "std")]
+                    Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
+                    #[cfg(feature = "core")]
+                    #[allow(deprecated)]
+                    Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
+                    Err(_panic) => unimplemented!(),
+                }
+            }
+
+            func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _
+        }
+
+        }
+    };
+}
+
+// Here we go! Let's generate all the C struct, `WasmTypeList`
+// implementations and `HostFunction` implementations.
+impl_host_function!([C] S0,);
+impl_host_function!([transparent] S1, A1);
+impl_host_function!([C] S2, A1, A2);
+impl_host_function!([C] S3, A1, A2, A3);
+impl_host_function!([C] S4, A1, A2, A3, A4);
+impl_host_function!([C] S5, A1, A2, A3, A4, A5);
+impl_host_function!([C] S6, A1, A2, A3, A4, A5, A6);
+impl_host_function!([C] S7, A1, A2, A3, A4, A5, A6, A7);
+impl_host_function!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+impl_host_function!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+impl_host_function!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+impl_host_function!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+impl_host_function!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+impl_host_function!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+impl_host_function!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+impl_host_function!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+impl_host_function!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+impl_host_function!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_host_function!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+impl_host_function!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+impl_host_function!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+impl_host_function!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+impl_host_function!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+impl_host_function!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+impl_host_function!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+impl_host_function!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+impl_host_function!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
