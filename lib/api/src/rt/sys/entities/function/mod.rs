@@ -571,7 +571,7 @@ macro_rules! impl_host_function {
   	         let results = body(vmctx, $( $x ),*);
   	         Rets::write_c_struct_to_ptr(results, args);
             }
-	        
+
             call_trampoline::<$( $x, )* Rets> as _
 
         }

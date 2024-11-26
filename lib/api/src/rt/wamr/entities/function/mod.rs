@@ -197,7 +197,9 @@ impl Function {
         let mut store = store.as_store_mut();
         let inner = store.inner.store.as_wamr().inner;
 
-        let callback: CCallback = unsafe { std::mem::transmute(func.function_callback(crate::Runtime::Wamr).into_wamr()) };
+        let callback: CCallback = unsafe {
+            std::mem::transmute(func.function_callback(crate::Runtime::Wamr).into_wamr())
+        };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
@@ -274,7 +276,9 @@ impl Function {
         let mut store = store.as_store_mut();
         let inner = store.inner.store.as_wamr().inner;
 
-        let callback: CCallback = unsafe { std::mem::transmute(func.function_callback(crate::Runtime::Wamr).into_wamr()) };
+        let callback: CCallback = unsafe {
+            std::mem::transmute(func.function_callback(crate::Runtime::Wamr).into_wamr())
+        };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
