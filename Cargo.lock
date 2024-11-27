@@ -2372,7 +2372,7 @@ dependencies = [
  "http",
  "hyper",
  "hyper-util",
- "rustls 0.23.17",
+ "rustls 0.23.19",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls 0.26.0",
@@ -2901,7 +2901,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3978,7 +3978,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash 2.0.0",
- "rustls 0.23.17",
+ "rustls 0.23.19",
  "socket2",
  "thiserror 2.0.3",
  "tokio",
@@ -3996,8 +3996,7 @@ dependencies = [
  "rand",
  "ring",
  "rustc-hash 2.0.0",
- "rustls 0.23.17",
- "rustls-pki-types",
+ "rustls 0.23.19",
  "slab",
  "thiserror 2.0.3",
  "tinyvec",
@@ -4246,7 +4245,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn",
- "rustls 0.23.17",
+ "rustls 0.23.19",
  "rustls-pemfile",
  "rustls-pki-types",
  "serde",
@@ -4418,9 +4417,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.17"
+version = "0.23.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f1a745511c54ba6d4465e8d5dfbd81b45791756de28d4981af70d6dca128f1e"
+checksum = "934b404430bb06b3fae2cba809eb45a1ab1aecd64491213d7c3301b88393f8d1"
 dependencies = [
  "log",
  "once_cell",
@@ -5388,7 +5387,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls 0.23.17",
+ "rustls 0.23.19",
  "rustls-pki-types",
  "tokio",
 ]
@@ -5459,7 +5458,7 @@ checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
 dependencies = [
  "futures-util",
  "log",
- "rustls 0.23.17",
+ "rustls 0.23.19",
  "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
@@ -5744,7 +5743,7 @@ dependencies = [
  "httparse",
  "log",
  "rand",
- "rustls 0.23.17",
+ "rustls 0.23.19",
  "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
@@ -5998,7 +5997,7 @@ dependencies = [
  "flate2",
  "log",
  "once_cell",
- "rustls 0.23.17",
+ "rustls 0.23.19",
  "rustls-pki-types",
  "url",
  "webpki-roots",
