@@ -48,6 +48,11 @@ impl Engine {
         ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
+    /// Returns the [`crate::Runtime`] kind this engine belongs to.
+    pub fn get_rt_kind(&self) -> crate::Runtime {
+        self.rt.get_rt_kind()
+    }
+
     /// Returns the deterministic id of this engine.
     pub fn deterministic_id(&self) -> &str {
         self.rt.deterministic_id()

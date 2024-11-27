@@ -25,8 +25,8 @@ use url::Url;
 #[cfg(feature = "sys")]
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
-    Value,
+    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type,
+    TypedFunction, Value,
 };
 
 #[cfg(feature = "compiler")]
@@ -136,6 +136,8 @@ impl Run {
         }
 
         let engine = store.engine_mut();
+        let rt_kind = engine.get_rt_kind();
+        tracing::info!("Executing on runtime {rt_kind:?}");
 
         #[cfg(feature = "sys")]
         if engine.is_sys() {

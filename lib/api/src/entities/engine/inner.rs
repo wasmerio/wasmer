@@ -13,6 +13,24 @@ use crate::{
 gen_rt_ty!(Engine @derives Debug, Clone);
 
 impl RuntimeEngine {
+    /// Returns the [`crate::Runtime`] kind this engine belongs to.
+    pub fn get_rt_kind(&self) -> crate::Runtime {
+        match self {
+            #[cfg(feature = "sys")]
+            RuntimeEngine::Sys(_) => crate::Runtime::Sys,
+            #[cfg(feature = "v8")]
+            RuntimeEngine::V8(_) => crate::Runtime::V8,
+            #[cfg(feature = "wamr")]
+            RuntimeEngine::Wamr(_) => crate::Runtime::Wamr,
+            #[cfg(feature = "wasmi")]
+            RuntimeEngine::Wasmi(_) => crate::Runtime::Wasmi,
+            #[cfg(feature = "js")]
+            RuntimeEngine::Js(_) => crate::Runtime::Js,
+            #[cfg(feature = "jsc")]
+            RuntimeEngine::Jsc(_) => crate::Runtime::Jsc,
+        }
+    }
+
     /// Returns the deterministic id of this engine.
     pub fn deterministic_id(&self) -> &str {
         match_rt!(on self  => s {

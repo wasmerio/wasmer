@@ -44,6 +44,11 @@ impl crate::Engine {
             _ => panic!("Not a `js` engine!"),
         }
     }
+
+    /// Return true if [`self`] is an engine from the `js` runtime.
+    pub fn is_js(&self) -> bool {
+        matches!(self.rt, RuntimeEngine::Js(_))
+    }
 }
 
 impl Into<crate::Engine> for Engine {
