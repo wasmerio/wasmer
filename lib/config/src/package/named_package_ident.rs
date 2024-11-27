@@ -172,6 +172,24 @@ impl NamedPackageIdent {
 
         out
     }
+
+    /// Returns true if this ident matches the given package id.
+    ///
+    /// Semver constraints are matched against the package id's version.
+    pub fn matches_id(&self, id: &NamedPackageId) -> bool {
+        if self.full_name() == id.full_name {
+            if let Some(tag) = &self.tag {
+                match tag {
+                    Tag::Named(n) => n == &id.version.to_string(),
+                    Tag::VersionReq(v) => v.matches(&id.version),
+                }
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
 }
 
 impl From<NamedPackageId> for NamedPackageIdent {
@@ -442,5 +460,24 @@ mod tests {
 
         let ident2 = serde_json::from_str::<NamedPackageIdent>(&raw).unwrap();
         assert_eq!(ident, ident2);
+    }
+
+    #[test]
+    fn test_named_package_ident_matches_id() {
+        assert!(NamedPackageIdent::from_str("ns/name")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "0.1.0").unwrap()));
+
+        assert!(NamedPackageIdent::from_str("ns/name")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
+
+        assert!(NamedPackageIdent::from_str("ns/name@1")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
+
+        assert!(!NamedPackageIdent::from_str("ns/name@2")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
     }
 }
