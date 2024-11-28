@@ -17,8 +17,11 @@
 use anyhow::bail;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
-use wasmer::CompilerConfig;
-use wasmer::{imports, sys::EngineBuilder, wat2wasm, Instance, Module, Store, TypedFunction};
+use wasmer::{
+    imports,
+    sys::{CompilerConfig, EngineBuilder},
+    wat2wasm, Instance, Module, Store, TypedFunction,
+};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::{
     metering::{get_remaining_points, set_remaining_points, MeteringPoints},

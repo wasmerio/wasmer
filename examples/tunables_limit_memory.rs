@@ -1,14 +1,16 @@
 use std::ptr::NonNull;
+use wasmer_compiler_cranelift::Cranelift;
 
+// This is to be able to set the tunables
 use wasmer::{
     imports,
-    vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
-    wat2wasm, BaseTunables, Engine, Instance, Memory, MemoryType, Module, Pages, Store, TableType,
-    Target, Tunables,
+    sys::{
+        vm::{VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition},
+        BaseTunables, NativeEngineExt, Target, Tunables,
+    },
+    wat2wasm, Engine, Instance, Memory, MemoryError, MemoryStyle, MemoryType, Module, Pages, Store,
+    TableStyle, TableType,
 };
-use wasmer_compiler_cranelift::Cranelift;
-// This is to be able to set the tunables
-use wasmer::NativeEngineExt;
 
 /// A custom tunables that allows you to set a memory limit.
 ///
@@ -86,7 +88,7 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-    ) -> Result<vm::VMMemory, MemoryError> {
+    ) -> Result<VMMemory, MemoryError> {
         let adjusted = self.adjust_memory(ty);
         self.validate_memory(&adjusted)?;
         self.base.create_host_memory(&adjusted, style)
@@ -100,7 +102,7 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         ty: &MemoryType,
         style: &MemoryStyle,
         vm_definition_location: NonNull<VMMemoryDefinition>,
-    ) -> Result<vm::VMMemory, MemoryError> {
+    ) -> Result<VMMemory, MemoryError> {
         let adjusted = self.adjust_memory(ty);
         self.validate_memory(&adjusted)?;
         self.base
@@ -110,7 +112,7 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
     ///
     /// Delegated to base.
-    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<vm::VMTable, String> {
+    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
         self.base.create_host_table(ty, style)
     }
 
@@ -122,7 +124,7 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         ty: &TableType,
         style: &TableStyle,
         vm_definition_location: NonNull<VMTableDefinition>,
-    ) -> Result<vm::VMTable, String> {
+    ) -> Result<VMTable, String> {
         self.base.create_vm_table(ty, style, vm_definition_location)
     }
 }

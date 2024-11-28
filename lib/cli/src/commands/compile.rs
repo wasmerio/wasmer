@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use wasmer::*;
+use wasmer::{
+    sys::{engine::NativeEngineExt, *},
+    *,
+};
 
 use crate::{common::HashAlgorithm, store::StoreOptions, warning};
 

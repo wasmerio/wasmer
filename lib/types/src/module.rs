@@ -363,7 +363,7 @@ impl ModuleInfo {
     }
 
     /// Get the export types of the module
-    pub fn exports(&'_ self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
+    pub fn exports(&'_ self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + '_>> {
         let iter = self.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
@@ -386,11 +386,11 @@ impl ModuleInfo {
             };
             ExportType::new(name, extern_type)
         });
-        ExportsIterator::new(iter, self.exports.len())
+        ExportsIterator::new(Box::new(iter), self.exports.len())
     }
 
     /// Get the import types of the module
-    pub fn imports(&'_ self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
+    pub fn imports(&'_ self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + '_>> {
         let iter =
             self.imports
                 .iter()
@@ -416,19 +416,24 @@ impl ModuleInfo {
                     };
                     ImportType::new(module, field, extern_type)
                 });
-        ImportsIterator::new(iter, self.imports.len())
+        ImportsIterator::new(Box::new(iter), self.imports.len())
     }
 
     /// Get the custom sections of the module given a `name`.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        self.custom_sections
-            .iter()
-            .filter_map(move |(section_name, section_index)| {
-                if name != section_name {
-                    return None;
-                }
-                Some(self.custom_sections_data[*section_index].clone())
-            })
+    pub fn custom_sections<'a>(
+        &'a self,
+        name: &'a str,
+    ) -> Box<impl Iterator<Item = Box<[u8]>> + 'a> {
+        Box::new(
+            self.custom_sections
+                .iter()
+                .filter_map(move |(section_name, section_index)| {
+                    if name != section_name {
+                        return None;
+                    }
+                    Some(self.custom_sections_data[*section_index].clone())
+                }),
+        )
     }
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
