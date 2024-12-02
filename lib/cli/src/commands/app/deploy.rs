@@ -65,7 +65,7 @@ pub struct CmdAppDeploy {
     #[clap(long)]
     pub no_default: bool,
 
-    /// Do not persist the app version ID in the app.yaml.
+    /// Do not persist the app ID under `app_id` field in app.yaml.
     #[clap(long)]
     pub no_persist_id: bool,
 
