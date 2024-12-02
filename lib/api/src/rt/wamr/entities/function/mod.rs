@@ -373,7 +373,27 @@ impl Function {
             }
         };
 
-        let trap = unsafe { wasm_func_call(self.handle, &mut args as _, &mut results as *mut _) };
+        let mut trap;
+
+        loop {
+            trap = unsafe { wasm_func_call(self.handle, &mut args as _, &mut results as *mut _) };
+            let store_mut = store.as_store_mut();
+            if let Some(callback) = store_mut.inner.on_called.take() {
+                match callback(store_mut) {
+                    Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
+                        continue;
+                    }
+                    Ok(wasmer_types::OnCalledAction::Finish) => {
+                        break;
+                    }
+                    Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
+                        return Err(RuntimeError::user(trap))
+                    }
+                    Err(trap) => return Err(RuntimeError::user(trap)),
+                }
+            }
+            break;
+        }
 
         if !trap.is_null() {
             return Err(Into::<Trap>::into(trap).into());
