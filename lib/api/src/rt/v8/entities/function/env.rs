@@ -160,6 +160,10 @@ impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
             inner: self.store_mut.inner,
         }
     }
+
+    fn get_rt_kind(&self) -> crate::Runtime {
+        crate::Runtime::V8
+    }
 }
 
 impl<T> AsStoreMut for FunctionEnvMut<'_, T> {

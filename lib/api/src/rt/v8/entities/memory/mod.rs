@@ -26,6 +26,13 @@ unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+        let mut store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot create memory: current thread is different from the thread the store was created in!");
+        }
+
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum.0,
             max: match ty.maximum {
@@ -35,15 +42,18 @@ impl Memory {
         }));
 
         let memorytype = unsafe { wasm_memorytype_new(limits) };
-
-        let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_v8().inner;
-        let c_memory = unsafe { wasm_memory_new(inner, memorytype) };
+        let c_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
 
         Ok(Self { handle: c_memory })
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+        let store_mut = new_store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot create memory from existing: current thread is different from the thread the store was created in!");
+        }
         Self { handle: memory }
     }
 
@@ -51,20 +61,33 @@ impl Memory {
         VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle) })
     }
 
-    pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
+    pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
+        let store = store.as_store_ref();
+        let v8_store = store.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot get the memory's size: current thread is different from the thread the store was created in!");
+        }
+
         let memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle) };
         let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(memory_type) };
 
         MemoryType {
             // [TODO]: Find a way to extract this from the inner memory type instead
             // of hardcoding.
-            shared: false,
+            shared: true,
             minimum: unsafe { wasmer_types::Pages((*limits).min) },
             maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
         }
     }
 
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        let store_ref = store.as_store_ref();
+        let v8_store = store_ref.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot create memory view: current thread is different from the thread the store was created in!");
+        }
         MemoryView::new(self, store)
     }
 
@@ -77,6 +100,13 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
+        let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot grow memory: current thread is different from the thread the store was created in!");
+        }
+
         unsafe {
             let delta: Pages = delta.into();
             let current = Pages(wasm_memory_size(self.handle));
@@ -97,6 +127,13 @@ impl Memory {
         store: &mut impl AsStoreMut,
         min_size: u64,
     ) -> Result<(), MemoryError> {
+        let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot grow memory: current thread is different from the thread the store was created in!");
+        }
+
         unsafe {
             let current = wasm_memory_size(self.handle);
             let delta = (min_size as u32) - current;
@@ -108,7 +145,13 @@ impl Memory {
         Ok(())
     }
 
-    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot reset memory: current thread is different from the thread the store was created in!");
+        }
         Ok(())
     }
 
@@ -140,6 +183,12 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
+        let store_ref = store.as_store_ref();
+        let v8_store = store_ref.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot create memory from vm extern: current thread is different from the thread the store was created in!");
+        }
         Self {
             handle: internal.into_v8(),
         }
@@ -147,13 +196,25 @@ impl Memory {
 
     /// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
-    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        let store_ref = store.as_store_ref();
+        let v8_store = store_ref.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot clone memory: current thread is different from the thread the store was created in!");
+        }
         Ok(self.handle.clone())
     }
 
     /// Copying the memory will actually copy all the bytes in the memory to
     /// a identical byte copy of the original that can be put into a new store
     pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        let store_ref = store.as_store_ref();
+        let v8_store = store_ref.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot copy memory: current thread is different from the thread the store was created in!");
+        }
         let res = unsafe { wasm_memory_copy(self.handle) };
         if res.is_null() {
             Err(MemoryError::Generic("memory copy failed".to_owned()))
@@ -162,7 +223,13 @@ impl Memory {
         }
     }
 
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        let store_ref = store.as_store_ref();
+        let v8_store = store_ref.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot check if memory is from store: current thread is different from the thread the store was created in!");
+        }
         true
     }
 

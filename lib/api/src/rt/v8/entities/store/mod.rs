@@ -1,4 +1,6 @@
 //! Data types, functions and traits for `v8` runtime's `Store` implementation.
+use std::thread::ThreadId;
+
 use crate::{
     engine::{AsEngineRef, Engine, EngineRef},
     rt::v8::bindings::{wasm_store_delete, wasm_store_new, wasm_store_t},
@@ -12,6 +14,7 @@ pub use obj::*;
 pub struct Store {
     pub(crate) engine: Engine,
     pub(crate) inner: *mut wasm_store_t,
+    pub(crate) thread_id: ThreadId,
 }
 
 impl std::fmt::Debug for Store {
@@ -25,7 +28,12 @@ impl std::fmt::Debug for Store {
 impl Store {
     pub(crate) fn new(engine: crate::engine::Engine) -> Self {
         let inner: *mut wasm_store_t = unsafe { wasm_store_new(engine.as_v8().inner.engine) };
-        Store { inner, engine }
+        let thread_id = std::thread::current().id();
+        Store {
+            inner,
+            engine,
+            thread_id,
+        }
     }
 
     pub(crate) fn engine(&self) -> &Engine {
@@ -39,7 +47,7 @@ impl Store {
 
 impl Drop for Store {
     fn drop(&mut self) {
-        unsafe { wasm_store_delete(self.inner) }
+       // unsafe { wasm_store_delete(self.inner) }
     }
 }
 

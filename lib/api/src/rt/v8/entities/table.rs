@@ -41,19 +41,19 @@ impl Table {
         init: Value,
     ) -> Result<Self, RuntimeError> {
         let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot create new table: current thread is different from the thread the store was created in!");
+        }
+
         let engine = store_mut.engine();
 
         let wasm_tablety = Self::type_to_v8(ty);
         let init: wasm_val_t = init.into_cv();
 
         Ok(Self {
-            handle: unsafe {
-                wasm_table_new(
-                    store_mut.inner.store.as_v8().inner,
-                    wasm_tablety,
-                    init.of.ref_,
-                )
-            },
+            handle: unsafe { wasm_table_new(v8_store.inner, wasm_tablety, init.of.ref_) },
         })
     }
 
@@ -61,7 +61,14 @@ impl Table {
         VMExtern::V8(unsafe { wasm_table_as_extern(self.handle) })
     }
 
-    pub fn ty(&self, _store: &impl AsStoreRef) -> TableType {
+    pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
+        let store = store.as_store_ref();
+        let v8_store = store.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot get the table's type: current thread is different from the thread the store was created in!");
+        }
+
         let table_type: *mut wasm_tabletype_t = unsafe { wasm_table_type(self.handle) };
         let table_limits = unsafe { wasm_tabletype_limits(table_type) };
         let table_type = unsafe { wasm_tabletype_element(table_type) };
@@ -80,6 +87,13 @@ impl Table {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
+        let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot get table's element: current thread is different from the thread the store was created in!");
+        }
+
         unsafe {
             let ref_ = wasm_table_get(self.handle, index);
 
@@ -108,6 +122,13 @@ impl Table {
         index: u32,
         val: Value,
     ) -> Result<(), RuntimeError> {
+        let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot create new table: current thread is different from the thread the store was created in!");
+        }
+
         unsafe {
             let init = match val {
                 Value::ExternRef(None) | Value::FuncRef(None) => std::ptr::null_mut(),
@@ -130,6 +151,12 @@ impl Table {
     }
 
     pub fn size(&self, store: &impl AsStoreRef) -> u32 {
+        let store = store.as_store_ref();
+        let v8_store = store.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot get the table's size: current thread is different from the thread the store was created in!");
+        }
         unsafe { wasm_table_size(self.handle) }
     }
 
@@ -139,6 +166,13 @@ impl Table {
         delta: u32,
         init: Value,
     ) -> Result<u32, RuntimeError> {
+        let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot grow table: current thread is different from the thread the store was created in!");
+        }
+
         unsafe {
             let size = wasm_table_size(self.handle);
             let init = match init {
@@ -169,13 +203,25 @@ impl Table {
         unimplemented!("Copying tables is currently not implemented!")
     }
 
-    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {
+    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {
+        let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot create table from vm extern: current thread is different from the thread the store was created in!");
+        }
         Self {
             handle: vm_extern.into_v8(),
         }
     }
 
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        let store = store.as_store_ref();
+        let v8_store = store.inner.store.as_v8();
+
+        if v8_store.thread_id != std::thread::current().id() {
+            panic!("Cannot check if table is from store: current thread is different from the thread the store was created in!");
+        }
         true
     }
 }
