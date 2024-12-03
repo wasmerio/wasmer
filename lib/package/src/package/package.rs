@@ -558,7 +558,7 @@ fn tempdir() -> Result<TempDir, std::io::Error> {
         return TempDir::new();
     }
 
-    // Note: When compiling to wasm32-wasi, we can't use TempDir::new()
+    // Note: When compiling to wasm32-wasip1, we can't use TempDir::new()
     // because std::env::temp_dir() will unconditionally panic.
     let temp_dir: PathBuf = std::env::var("TMPDIR")
         .unwrap_or_else(|_| "/tmp".to_string())
@@ -589,7 +589,7 @@ fn tempdir() -> Result<TempDir, std::io::Error> {
 /// A polyfill for [`Archive::unpack()`] that is WASI-compatible.
 ///
 /// This works around `canonicalize()` being [unsupported][github] on
-/// `wasm32-wasi`.
+/// `wasm32-wasip1`.
 ///
 /// [github]: https://github.com/rust-lang/rust/blob/5b1dc9de77106cb08ce9a1a8deaa14f52751d7e4/library/std/src/sys/wasi/fs.rs#L654-L658
 fn unpack_archive(

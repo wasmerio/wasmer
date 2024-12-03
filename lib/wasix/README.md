@@ -8,7 +8,7 @@ is being standardized in the WebAssembly subgroup.
 Very succinctly, from the user perspective, WASI is a set of
 WebAssembly module _imports_ under a specific _namespace_ (which
 varies based on the WASI version). A program compiled for the
-`wasm32-wasi` target will be able to support standard I/O, file I/O,
+`wasm32-wasip1` target will be able to support standard I/O, file I/O,
 filesystem manipulation, memory management, time, string, environment
 variables, program startup etc.
 
@@ -47,7 +47,7 @@ fn main() {
 Then, let's compile it to a WebAssembly module with WASI support:
 
 ```sh
-$ rustc --target wasm32-wasi hello.rs
+$ rustc --target wasm32-wasip1 hello.rs
 ```
 
 Finally, let's execute it with the `wasmer` CLI:
