@@ -12,6 +12,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## 5.0.2 - 22/11/2024
 
 This release mostly consists of bug fixes and clean ups.
+## 5.1.0 - 22/11/2024
 
 ## Added
 

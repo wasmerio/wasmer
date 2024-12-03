@@ -14,7 +14,7 @@ default = ["log-file", "wasmer/sys"]
 log-file = ["shared-buffer"]
 
 [dependencies]
-wasmer = { default-features = false, path = "../api", version = "=5.0.2" }
+wasmer = { default-features = false, path = "../api", version = "=5.1.0" }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.32.0", features = [
 	"enable-serde",
 ] }
