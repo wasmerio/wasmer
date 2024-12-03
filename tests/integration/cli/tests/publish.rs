@@ -116,7 +116,7 @@ fn wasmer_init_publish() {
         .arg("build")
         .arg("--release")
         .arg("--target")
-        .arg("wasm32-wasi")
+        .arg("wasm32-wasip1")
         .arg("--manifest-path")
         .arg(path.join("randomversion").join("Cargo.toml"))
         .assert()
