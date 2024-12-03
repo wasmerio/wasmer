@@ -131,7 +131,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
-          targets: "wasm32-wasi"
+          targets: "wasm32-wasip1"
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -207,8 +207,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - name: rustup target add wasm32-wasi
-        run: rustup target add wasm32-wasi
+      - name: rustup target add wasm32-wasip1
+        run: rustup target add wasm32-wasip1
       - name: make build-wasmer-wasm
         run: make build-wasmer-wasm
 
