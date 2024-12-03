@@ -258,7 +258,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-12' && !matrix.llvm_url
+        if: matrix.os == 'macos-13' && !matrix.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -406,7 +406,7 @@ jobs:
         if: matrix.use_llvm != true && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
         shell: bash
         run: |
-          make build-wasmer
+          ENABLE_LLVM=0 make build-wasmer
      #- name: Build Wasmer binary on Wasm32-WASI without LLVM
      #  if: matrix.build_wasm
      #  shell: bash
@@ -517,7 +517,7 @@ jobs:
 
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -550,7 +550,7 @@ jobs:
 
   darwin_x86_64_jsc:
     name: macOS x86_64 (JSC)
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable

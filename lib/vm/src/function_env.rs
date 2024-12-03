@@ -2,7 +2,8 @@ use std::any::Any;
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
 pub struct VMFunctionEnvironment {
-    contents: Box<dyn Any + Send + 'static>,
+    /// The contents of the environment.
+    pub contents: Box<dyn Any + Send + 'static>,
 }
 
 impl std::fmt::Debug for VMFunctionEnvironment {

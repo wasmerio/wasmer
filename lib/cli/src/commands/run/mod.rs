@@ -23,7 +23,7 @@ use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
+use wasmer::sys::NativeEngineExt;
 use wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
@@ -115,11 +115,6 @@ impl Run {
             .build()?;
         let handle = runtime.handle().clone();
 
-        #[cfg(feature = "sys")]
-        if self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
-        }
-
         // Check for the preferred webc version.
         // Default to v3.
         let webc_version_var = std::env::var("WASMER_WEBC_VERSION");
@@ -132,18 +127,23 @@ impl Run {
         };
 
         let _guard = handle.enter();
-        let (store, _) = self.store.get_store()?;
+
+        let (mut store, _) = self.store.get_store()?;
 
         #[cfg(feature = "sys")]
-        let engine = {
-            let mut engine = store.engine().clone();
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
+
+        let engine = store.engine_mut();
+
+        #[cfg(feature = "sys")]
+        if engine.is_sys() {
             let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
             engine.set_hash_algorithm(Some(hash_algorithm));
+        }
 
-            engine
-        };
-        #[cfg(not(feature = "sys"))]
-        let engine = store.engine().clone();
+        let engine = engine.clone();
 
         let runtime = self.wasi.prepare_runtime(
             engine,

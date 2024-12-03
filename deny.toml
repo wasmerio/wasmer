@@ -100,6 +100,7 @@ allow = [
     "OpenSSL",
     "BSD-3-Clause",
     "Unicode-DFS-2016",
+    "Unicode-3.0",
     # BOOST source license
     # NOTE: not to be confused with business source license!
     "BSL-1.0",

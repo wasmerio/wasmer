@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use wasmer::sys::Features;
-use wasmer::{CompilerConfig, ModuleMiddleware, Store};
+use wasmer::{
+    sys::{CompilerConfig, ModuleMiddleware},
+    Store,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Compiler {

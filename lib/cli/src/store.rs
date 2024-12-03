@@ -12,19 +12,19 @@ use std::sync::Arc;
 
 use anyhow::{bail, Result};
 #[cfg(feature = "sys")]
-use wasmer::sys::Features;
+use wasmer::sys::*;
 use wasmer::*;
+
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
-#[cfg(feature = "compiler")]
-use wasmer_compiler::Engine;
+
+use wasmer::Engine;
 
 #[derive(Debug, Clone, clap::Parser, Default)]
 /// The compiler options
 pub struct StoreOptions {
-    #[cfg(feature = "compiler")]
     #[clap(flatten)]
-    compiler: CompilerOptions,
+    rt: RuntimeOptions,
 }
 
 #[derive(Debug, clap::Parser, Clone, Default)]
@@ -60,21 +60,38 @@ pub struct WasmFeatures {
     pub all: bool,
 }
 
-#[cfg(feature = "compiler")]
 #[derive(Debug, Clone, clap::Parser, Default)]
 /// The compiler options
-pub struct CompilerOptions {
+pub struct RuntimeOptions {
     /// Use Singlepass compiler.
-    #[clap(long, conflicts_with_all = &["cranelift", "llvm"])]
+    #[cfg(feature = "singlepass")]
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "v8", "wamr", "wasmi"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "llvm"])]
+    #[cfg(feature = "cranelift")]
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "v8", "wamr", "wasmi"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
+    #[cfg(feature = "llvm")]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "v8", "wamr", "wasmi"])]
     llvm: bool,
+
+    /// Use the V8 runtime.
+    #[cfg(feature = "v8")]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "wamr", "wasmi"])]
+    v8: bool,
+
+    /// Use WAMR.
+    #[cfg(feature = "wamr")]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "v8", "wasmi"])]
+    wamr: bool,
+
+    /// Use the wasmi runtime.
+    #[cfg(feature = "wasmi")]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm", "v8", "wamr"])]
+    wasmi: bool,
 
     /// Enable compiler internal verification.
     ///
@@ -92,33 +109,71 @@ pub struct CompilerOptions {
     features: WasmFeatures,
 }
 
-#[cfg(feature = "compiler")]
-impl CompilerOptions {
-    fn get_compiler(&self) -> Result<CompilerType> {
-        if self.cranelift {
-            Ok(CompilerType::Cranelift)
-        } else if self.llvm {
-            Ok(CompilerType::LLVM)
-        } else if self.singlepass {
-            Ok(CompilerType::Singlepass)
-        } else {
-            // Auto mode, we choose the best compiler for that platform
-            cfg_if::cfg_if! {
-                if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
-                    Ok(CompilerType::Cranelift)
-                }
-                else if #[cfg(all(feature = "singlepass", any(target_arch = "x86_64", target_arch = "aarch64")))] {
-                    Ok(CompilerType::Singlepass)
-                }
-                else if #[cfg(feature = "llvm")] {
-                    Ok(CompilerType::LLVM)
-                } else {
-                    bail!("There are no available compilers for your architecture");
-                }
+impl RuntimeOptions {
+    fn get_rt(&self) -> Result<RuntimeType> {
+        #[cfg(feature = "cranelift")]
+        {
+            if self.cranelift {
+                return Ok(RuntimeType::Cranelift);
+            }
+        }
+
+        #[cfg(feature = "llvm")]
+        {
+            if self.llvm {
+                return Ok(RuntimeType::LLVM);
+            }
+        }
+
+        #[cfg(feature = "singlepass")]
+        {
+            if self.singlepass {
+                return Ok(RuntimeType::Singlepass);
+            }
+        }
+
+        #[cfg(feature = "wamr")]
+        {
+            if self.wamr {
+                return Ok(RuntimeType::Wamr);
+            }
+        }
+
+        #[cfg(feature = "v8")]
+        {
+            if self.v8 {
+                return Ok(RuntimeType::V8);
+            }
+        }
+
+        #[cfg(feature = "wasmi")]
+        {
+            if self.wasmi {
+                return Ok(RuntimeType::Wasmi);
+            }
+        }
+
+        // Auto mode, we choose the best compiler for that platform
+        cfg_if::cfg_if! {
+            if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
+                Ok(RuntimeType::Cranelift)
+            } else if #[cfg(all(feature = "singlepass", any(target_arch = "x86_64", target_arch = "aarch64")))] {
+                Ok(RuntimeType::Singlepass)
+            } else if #[cfg(feature = "llvm")] {
+                Ok(RuntimeType::LLVM)
+            } else if #[cfg(feature = "v8")] {
+                Ok(RuntimeType::V8)
+            } else if #[cfg(feature = "wamr")] {
+                Ok(RuntimeType::Wamr)
+            } else if #[cfg(feature = "wasmi")] {
+                Ok(RuntimeType::Wasmi)
+            } else {
+                bail!("There are no available compilers for your architecture");
             }
         }
     }
 
+    #[cfg(feature = "compiler")]
     /// Get the enaled Wasm features.
     pub fn get_features(&self, mut features: Features) -> Result<Features> {
         if !self.features.disable_threads || self.features.all {
@@ -143,43 +198,71 @@ impl CompilerOptions {
     }
 
     /// Gets the Store for a given target.
-    pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
-        let (compiler_config, compiler_type) = self.get_compiler_config()?;
-        let engine = self.get_engine(target, compiler_config)?;
+    #[cfg(feature = "compiler")]
+    pub fn get_store_for_target(&self, target: Target) -> Result<(Store, RuntimeType)> {
+        let rt = self.get_rt()?;
+        let engine = self.get_engine(target, &rt)?;
         let store = Store::new(engine);
-        Ok((store, compiler_type))
-    }
-
-    /// Gets the Engine for a given target.
-    pub fn get_engine_for_target(&self, target: Target) -> Result<(Engine, CompilerType)> {
-        let (compiler_config, compiler_type) = self.get_compiler_config()?;
-        let engine = self.get_engine(target, compiler_config)?;
-        Ok((engine, compiler_type))
+        Ok((store, rt))
     }
 
     #[cfg(feature = "compiler")]
-    fn get_engine(
-        &self,
-        target: Target,
-        compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<Engine> {
-        let features = self.get_features(compiler_config.default_features_for_target(&target))?;
-        let engine: Engine = wasmer_compiler::EngineBuilder::new(compiler_config)
-            .set_features(Some(features))
-            .set_target(Some(target))
-            .engine();
+    fn get_engine(&self, target: Target, rt: &RuntimeType) -> Result<Engine> {
+        match rt {
+            RuntimeType::V8 => {
+                #[cfg(feature = "v8")]
+                return Ok(wasmer::v8::V8::new().into());
+                #[allow(unreachable_code)]
+                {
+                    anyhow::bail!("The `v8` engine is not enabled in this build.")
+                }
+            }
+            RuntimeType::Wamr => {
+                #[cfg(feature = "wamr")]
+                return Ok(wasmer::wamr::Wamr::new().into());
+                #[allow(unreachable_code)]
+                {
+                    anyhow::bail!("The `wamr` engine is not enabled in this build.")
+                }
+            }
+            RuntimeType::Wasmi => {
+                #[cfg(feature = "wasmi")]
+                return Ok(wasmer::wasmi::Wasmi::new().into());
+                #[allow(unreachable_code)]
+                {
+                    anyhow::bail!("The `wasmi` engine is not enabled in this build.")
+                }
+            }
+            #[cfg(feature = "compiler")]
+            _ => self.get_compiler_engine_for_target(target),
 
-        Ok(engine)
+            #[cfg(not(feature = "compiler"))]
+            _ => anyhow::bail!("No engine selected!"),
+        }
     }
 
-    /// Get the Compiler Config for the current options
+    #[cfg(feature = "compiler")]
+    pub fn get_compiler_engine_for_target(
+        &self,
+        target: Target,
+    ) -> std::result::Result<Engine, anyhow::Error> {
+        let rt = self.get_rt()?;
+        let compiler_config = self.get_compiler_config(&rt)?;
+        let features = self.get_features(compiler_config.default_features_for_target(&target))?;
+        Ok(wasmer_compiler::EngineBuilder::new(compiler_config)
+            .set_features(Some(features))
+            .set_target(Some(target))
+            .engine()
+            .into())
+    }
+
     #[allow(unused_variables)]
-    pub(crate) fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
-        let compiler = self.get_compiler()?;
-        let compiler_config: Box<dyn CompilerConfig> = match compiler {
-            CompilerType::Headless => bail!("The headless engine can't be chosen"),
+    #[cfg(feature = "compiler")]
+    pub(crate) fn get_compiler_config(&self, rt: &RuntimeType) -> Result<Box<dyn CompilerConfig>> {
+        let compiler_config: Box<dyn CompilerConfig> = match rt {
+            RuntimeType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
-            CompilerType::Singlepass => {
+            RuntimeType::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -187,7 +270,7 @@ impl CompilerOptions {
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
-            CompilerType::Cranelift => {
+            RuntimeType::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -195,7 +278,7 @@ impl CompilerOptions {
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
-            CompilerType::LLVM => {
+            RuntimeType::LLVM => {
                 use std::{fmt, fs::File, io::Write};
 
                 use wasmer_compiler_llvm::{
@@ -296,7 +379,8 @@ impl CompilerOptions {
                 }
                 Box::new(config)
             }
-            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
+            RuntimeType::V8 | RuntimeType::Wamr | RuntimeType::Wasmi => unreachable!(),
+            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!(
                     "The `{}` compiler is not included in this binary.",
@@ -306,29 +390,41 @@ impl CompilerOptions {
         };
 
         #[allow(unreachable_code)]
-        Ok((compiler_config, compiler))
+        Ok(compiler_config)
     }
 }
 
 /// The compiler used for the store
 #[derive(Debug, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms, dead_code)]
-pub enum CompilerType {
+pub enum RuntimeType {
     /// Singlepass compiler
     Singlepass,
+
     /// Cranelift compiler
     Cranelift,
+
     /// LLVM compiler
     LLVM,
+
+    /// V8 runtime
+    V8,
+
+    /// Wamr runtime
+    Wamr,
+
+    /// Wasmi runtime
+    Wasmi,
+
     /// Headless compiler
     #[allow(dead_code)]
     Headless,
 }
 
-impl CompilerType {
+impl RuntimeType {
     /// Return all enabled compilers
     #[allow(dead_code)]
-    pub fn enabled() -> Vec<CompilerType> {
+    pub fn enabled() -> Vec<RuntimeType> {
         vec![
             #[cfg(feature = "singlepass")]
             Self::Singlepass,
@@ -336,11 +432,15 @@ impl CompilerType {
             Self::Cranelift,
             #[cfg(feature = "llvm")]
             Self::LLVM,
+            #[cfg(feature = "v8")]
+            Self::V8,
+            #[cfg(feature = "wamr")]
+            Self::Wamr,
         ]
     }
 }
 
-impl std::fmt::Display for CompilerType {
+impl std::fmt::Display for RuntimeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -349,6 +449,9 @@ impl std::fmt::Display for CompilerType {
                 Self::Singlepass => "singlepass",
                 Self::Cranelift => "cranelift",
                 Self::LLVM => "llvm",
+                Self::V8 => "v8",
+                Self::Wamr => "wamr",
+                Self::Wasmi => "wasmi",
                 Self::Headless => "headless",
             }
         )
@@ -358,27 +461,17 @@ impl std::fmt::Display for CompilerType {
 #[cfg(feature = "compiler")]
 impl StoreOptions {
     /// Gets the store for the host target, with the compiler name selected
-    pub fn get_store(&self) -> Result<(Store, CompilerType)> {
+    pub fn get_store(&self) -> Result<(Store, RuntimeType)> {
         let target = Target::default();
         self.get_store_for_target(target)
     }
 
     /// Gets the store for a given target, with the compiler name selected.
-    pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
-        let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
-        let engine = self.get_engine_with_compiler(target, compiler_config)?;
+    pub fn get_store_for_target(&self, target: Target) -> Result<(Store, RuntimeType)> {
+        let rt = self.rt.get_rt()?;
+        let engine = self.rt.get_engine(target, &rt)?;
         let store = Store::new(engine);
-        Ok((store, compiler_type))
-    }
-
-    #[cfg(feature = "compiler")]
-    fn get_engine_with_compiler(
-        &self,
-        target: Target,
-        compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<Engine> {
-        let engine = self.compiler.get_engine(target, compiler_config)?;
-        Ok(engine)
+        Ok((store, rt))
     }
 }
 
@@ -397,10 +490,10 @@ impl StoreOptions {
     }
 
     /// Get the store (headless engine)
-    pub fn get_store(&self) -> Result<(Store, CompilerType)> {
+    pub fn get_store(&self) -> Result<(Store, RuntimeType)> {
         let engine = self.get_engine_headless()?;
         let store = Store::new(engine);
-        Ok((store, CompilerType::Headless))
+        Ok((store, RuntimeType::Headless))
     }
 }
 
@@ -410,8 +503,8 @@ impl StoreOptions {
 ))]
 impl StoreOptions {
     /// Get the store (headless engine)
-    pub fn get_store(&self) -> Result<(Store, CompilerType)> {
+    pub fn get_store(&self) -> Result<(Store, RuntimeType)> {
         let store = Store::default();
-        Ok((store, CompilerType::Headless))
+        Ok((store, RuntimeType::Headless))
     }
 }
