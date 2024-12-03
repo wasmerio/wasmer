@@ -41,7 +41,7 @@ wat = { version = "1.216.0", optional = true }
 rustc-demangle = "0.1"
 shared-buffer = { workspace = true }
 
-wasmi_c_api = { git = "https://github.com/xdoardo/wasmi", package = "wasmi_c_api_impl", optional = true, features = [
+wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl", optional = true, features = [
 	"prefix-symbols",
 ] }
 
