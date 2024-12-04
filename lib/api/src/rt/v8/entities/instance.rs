@@ -99,7 +99,7 @@ impl Instance {
             .map(|import_ty| {
                 imports
                     .get_export(import_ty.module(), import_ty.name())
-                    .expect("Extern not found")
+                    .expect(format!("Export {import_ty:?} not found").as_str())
             })
             .collect::<Vec<_>>();
 
