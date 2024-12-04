@@ -21,7 +21,7 @@ pub mod jsc;
 
 #[derive(Debug, Clone, Copy)]
 /// An enumeration over all the supported runtimes.
-pub enum Runtime {
+pub enum RuntimeKind {
     #[cfg(feature = "sys")]
     /// The `sys` runtime.
     Sys,

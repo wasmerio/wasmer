@@ -14,20 +14,20 @@ gen_rt_ty!(Engine @derives Debug, Clone);
 
 impl RuntimeEngine {
     /// Returns the [`crate::Runtime`] kind this engine belongs to.
-    pub fn get_rt_kind(&self) -> crate::Runtime {
+    pub fn get_rt_kind(&self) -> crate::RuntimeKind {
         match self {
             #[cfg(feature = "sys")]
-            RuntimeEngine::Sys(_) => crate::Runtime::Sys,
+            RuntimeEngine::Sys(_) => crate::RuntimeKind::Sys,
             #[cfg(feature = "v8")]
-            RuntimeEngine::V8(_) => crate::Runtime::V8,
+            RuntimeEngine::V8(_) => crate::RuntimeKind::V8,
             #[cfg(feature = "wamr")]
-            RuntimeEngine::Wamr(_) => crate::Runtime::Wamr,
+            RuntimeEngine::Wamr(_) => crate::RuntimeKind::Wamr,
             #[cfg(feature = "wasmi")]
-            RuntimeEngine::Wasmi(_) => crate::Runtime::Wasmi,
+            RuntimeEngine::Wasmi(_) => crate::RuntimeKind::Wasmi,
             #[cfg(feature = "js")]
-            RuntimeEngine::Js(_) => crate::Runtime::Js,
+            RuntimeEngine::Js(_) => crate::RuntimeKind::Js,
             #[cfg(feature = "jsc")]
-            RuntimeEngine::Jsc(_) => crate::Runtime::Jsc,
+            RuntimeEngine::Jsc(_) => crate::RuntimeKind::Jsc,
         }
     }
 

@@ -198,7 +198,7 @@ impl Function {
         let inner = store.inner.store.as_wasmi().inner;
 
         let callback: CCallback = unsafe {
-            std::mem::transmute(func.function_callback(crate::Runtime::Wasmi).into_wasmi())
+            std::mem::transmute(func.function_callback(crate::RuntimeKind::Wasmi).into_wasmi())
         };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
@@ -277,7 +277,7 @@ impl Function {
         let inner = store.inner.store.as_wasmi().inner;
 
         let callback: CCallback = unsafe {
-            std::mem::transmute(func.function_callback(crate::Runtime::Wasmi).into_wasmi())
+            std::mem::transmute(func.function_callback(crate::RuntimeKind::Wasmi).into_wasmi())
         };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =

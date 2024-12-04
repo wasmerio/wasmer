@@ -206,7 +206,7 @@ impl Function {
         let inner = v8_store.inner;
 
         let callback: CCallback =
-            unsafe { std::mem::transmute(func.function_callback(crate::Runtime::V8).into_v8()) };
+            unsafe { std::mem::transmute(func.function_callback(crate::RuntimeKind::V8).into_v8()) };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
@@ -290,7 +290,7 @@ impl Function {
         let inner = v8_store.inner;
 
         let callback: CCallback =
-            unsafe { std::mem::transmute(func.function_callback(crate::Runtime::V8).into_v8()) };
+            unsafe { std::mem::transmute(func.function_callback(crate::RuntimeKind::V8).into_v8()) };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
