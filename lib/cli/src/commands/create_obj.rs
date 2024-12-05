@@ -80,7 +80,7 @@ impl CreateObj {
             &target_triple,
             &self.cpu_features,
         );
-        let (_, compiler_type) = self.rt.get_store_for_target(target.clone())?;
+        let compiler_type = self.rt.get_rt()?;
         match compiler_type {
             crate::rt::RuntimeType::V8 | crate::rt::RuntimeType::Wamr => {
                 anyhow::bail!("Cannot produce objects with {compiler_type}!")

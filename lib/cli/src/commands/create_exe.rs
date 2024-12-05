@@ -234,9 +234,9 @@ impl CliCommand for CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let compiler_type = self.compiler.get_rt()?;
+        let mut engine = self.compiler.get_engine()?;
 
-        let mut engine = store.engine().clone();
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
@@ -282,6 +282,8 @@ impl CliCommand for CreateExe {
                 self.debug_dir.is_some(),
             )
         }?;
+
+        let store = self.compiler.get_store()?;
 
         get_module_infos(&store, &tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
