@@ -69,18 +69,18 @@ pub struct TaskWasmRecycleProperties {
 pub type TaskWasmRecycle = dyn FnOnce(TaskWasmRecycleProperties) + Send + 'static;
 
 /// Represents a WASM task that will be executed on a dedicated thread
-pub struct TaskWasm<'a, 'b> {
+pub struct TaskWasm<'a> {
     pub run: Box<TaskWasmRun>,
     pub recycle: Option<Box<TaskWasmRecycle>>,
     pub env: WasiEnv,
     pub module: Module,
-    pub globals: Option<&'b StoreSnapshot>,
+    pub globals: Option<StoreSnapshot>,
     pub spawn_type: SpawnMemoryType<'a>,
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
 }
 
-impl<'a, 'b> TaskWasm<'a, 'b> {
+impl<'a> TaskWasm<'a> {
     pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
@@ -110,7 +110,7 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
         self
     }
 
-    pub fn with_globals(mut self, snapshot: &'b StoreSnapshot) -> Self {
+    pub fn with_globals(mut self, snapshot: StoreSnapshot) -> Self {
         self.globals.replace(snapshot);
         self
     }
@@ -372,7 +372,7 @@ impl dyn VirtualTaskManager {
                 false,
             )
             .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))
-            .with_globals(&snapshot)
+            .with_globals(snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {
                     let mut poller = AsyncifyPollerOwned {

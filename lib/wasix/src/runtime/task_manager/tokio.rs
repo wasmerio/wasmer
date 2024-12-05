@@ -1,10 +1,11 @@
 use std::sync::Mutex;
 use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
+use crate::runtime::SpawnMemoryType;
+use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 use futures::{future::BoxFuture, Future};
 use tokio::runtime::{Handle, Runtime};
-
-use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
+use wasmer::AsStoreMut;
 
 use super::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
@@ -119,6 +120,19 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
     fn drop(&mut self) {}
 }
 
+/// Describes whether a new memory should be created (and, in case, its type) or if it was already
+/// created and the store it belongs to.
+///
+/// # Note
+///
+/// This type is necessary for now because we can't pass a [`wasmer::StoreRef`] between threads, so this
+/// conceptually is a Send-able [`SpawnMemoryType`].
+pub enum SpawnMemoryTypeOrStore {
+    New,
+    Type(wasmer::MemoryType),
+    StoreAndMemory(wasmer::Store, Option<wasmer::Memory>),
+}
+
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
@@ -149,18 +163,59 @@ impl VirtualTaskManager for TokioTaskManager {
         // Create the context on a new store
         let run = task.run;
         let recycle = task.recycle;
-        let (ctx, mut store) = WasiFunctionEnv::new_with_store(
-            task.module,
-            task.env,
-            task.globals,
-            task.spawn_type,
-            task.update_layout,
-        )?;
+        //let module = task.module;
+        let env = task.env;
+        //let globals = task.globals;
+        //let update_layout = task.update_layout;
 
-        // If we have a trigger then we first need to run
-        // the poller to completion
+        let make_memory: SpawnMemoryTypeOrStore = match task.spawn_type {
+            SpawnMemoryType::CreateMemory => SpawnMemoryTypeOrStore::New,
+            SpawnMemoryType::CreateMemoryOfType(t) => SpawnMemoryTypeOrStore::Type(t),
+            SpawnMemoryType::ShareMemory(_, _) | SpawnMemoryType::CopyMemory(_, _) => {
+                let mut store = env.runtime().new_store();
+                let memory = self.build_memory(&mut store.as_store_mut(), task.spawn_type)?;
+                SpawnMemoryTypeOrStore::StoreAndMemory(store, memory)
+            }
+        };
+
         if let Some(trigger) = task.trigger {
             tracing::trace!("spawning task_wasm trigger in async pool");
+            // In principle, we'd need to create this in the `pool.execute` function below, that is
+            //
+            // ```
+            // 227: pool.execute(move || {
+            // ...:      let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+            // ...:      ...
+            // ```
+            //
+            // However, in the loop spawned below we need to have a `FunctionEnvMut<WasiEnv>`, which
+            // must be created with a mutable reference to the store. We can't, however since
+            // ```
+            // pool.execute(move || {
+            //      let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+            //      ...
+            //      tx.send(store.as_store_mut())
+            // ```
+            // or
+            // ```
+            // pool.execute(move || {
+            //      let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+            //      ...
+            //      tx.send(ctx.env.clone().into_mut(&mut store.as_store_mut()))
+            // ```
+            // Since the reference would outlive the owned value.
+            //
+            // So, we create the store (and memory, and instance) outside the execution thread (the
+            // pool's one), and let it fail for runtimes that don't support entities created in a
+            // thread that's not the one in which execution happens in; this until we can clone
+            // stores.
+            let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+                task.module,
+                env,
+                task.globals,
+                make_memory,
+                task.update_layout,
+            )?;
 
             let mut trigger = trigger();
             let pool = self.pool.clone();
@@ -211,7 +266,14 @@ impl VirtualTaskManager for TokioTaskManager {
             // Run the callback on a dedicated thread
             self.pool.execute(move || {
                 tracing::trace!("task_wasm started in blocking thread");
-
+                let (ctx, store) = WasiFunctionEnv::new_with_store(
+                    task.module,
+                    env,
+                    task.globals,
+                    make_memory,
+                    task.update_layout,
+                )
+                .unwrap();
                 // Invoke the callback
                 run(TaskWasmRunProperties {
                     ctx,
