@@ -103,9 +103,6 @@ pub fn proc_spawn_internal(
 ) -> WasiResult<(ProcessHandles, FunctionEnvMut<'_, WasiEnv>)> {
     let env = ctx.data();
 
-    // Build a new store that will be passed to the thread
-    let new_store = ctx.data().runtime.new_store();
-
     // Fork the current environment and set the new arguments
     let (mut child_env, handle) = match ctx.data().fork() {
         Ok(x) => x,
@@ -219,30 +216,27 @@ pub fn proc_spawn_internal(
     let bin_factory = Box::new(ctx.data().bin_factory.clone());
     let child_pid = child_env.pid();
 
-    let mut new_store = Some(new_store);
     let mut builder = Some(child_env);
 
     // First we try the built in commands
-    let mut process =
-        match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut builder) {
-            Ok(a) => a,
-            Err(err) => {
-                if !err.is_not_found() {
-                    error!("builtin failed - {}", err);
-                }
-                // Now we actually spawn the process
-                let child_work =
-                    bin_factory.spawn(name, new_store.take().unwrap(), builder.take().unwrap());
-
-                match __asyncify(&mut ctx, None, async move { Ok(child_work.await) })?
-                    .map_err(|err| Errno::Unknown)
-                {
-                    Ok(Ok(a)) => a,
-                    Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(&err))),
-                    Err(err) => return Ok(Err(err)),
-                }
+    let mut process = match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut builder) {
+        Ok(a) => a,
+        Err(err) => {
+            if !err.is_not_found() {
+                error!("builtin failed - {}", err);
             }
-        };
+            // Now we actually spawn the process
+            let child_work = bin_factory.spawn(name, builder.take().unwrap());
+
+            match __asyncify(&mut ctx, None, async move { Ok(child_work.await) })?
+                .map_err(|err| Errno::Unknown)
+            {
+                Ok(Ok(a)) => a,
+                Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(&err))),
+                Err(err) => return Ok(Err(err)),
+            }
+        }
+    };
 
     // Add the process to the environment state
     {
