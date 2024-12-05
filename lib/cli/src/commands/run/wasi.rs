@@ -12,6 +12,7 @@ use clap::Parser;
 use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
+use virtual_net::ruleset::RuleSet;
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_types::ModuleHash;
@@ -100,7 +101,7 @@ pub struct Wasi {
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
     #[clap(long = "net")]
-    pub networking: bool,
+    pub networking: Option<Option<String>>,
 
     /// Disables the TTY bridge
     #[clap(long = "no-tty")]
@@ -556,17 +557,30 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        let has_networking = self.networking
+        let has_networking = self.networking.is_some()
             || capabilities::get_cached_capability(pkg_cache_path)
                 .ok()
                 .is_some_and(|v| v.enable_networking);
 
+        let ruleset = self
+            .networking
+            .clone()
+            .flatten()
+            .map(|ruleset| RuleSet::from_str(&ruleset))
+            .transpose()?;
+
+        let network = if let Some(ruleset) = ruleset {
+            virtual_net::host::LocalNetworking::with_ruleset(ruleset)
+        } else {
+            virtual_net::host::LocalNetworking::default()
+        };
+
         if has_networking {
-            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
+            rt.set_networking_implementation(network);
         } else {
             let net = super::capabilities::net::AskingNetworking::new(
                 pkg_cache_path.to_path_buf(),
-                Arc::new(virtual_net::host::LocalNetworking::default()),
+                Arc::new(network),
             );
 
             rt.set_networking_implementation(net);
