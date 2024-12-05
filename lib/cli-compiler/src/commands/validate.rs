@@ -13,7 +13,7 @@ pub struct Validate {
     path: PathBuf,
 
     #[clap(flatten)]
-    rt: RuntimeOptions,
+    store: StoreOptions,
 }
 
 impl Validate {
