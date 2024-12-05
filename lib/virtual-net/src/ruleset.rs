@@ -1,6 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use ipnet::{Ipv4Net, Ipv6Net};
 use iprange::IpRange;
@@ -135,6 +136,11 @@ impl FromStr for DomainRule {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "*.*" {
+            // this will match every domain
+            return Ok(DomainRule::DomainGlob("".to_string()));
+        }
+
         let domain_rule = if let Some(domain) = s.strip_prefix('*') {
             DomainRule::DomainGlob(domain.to_string())
         } else {
@@ -147,34 +153,58 @@ impl FromStr for DomainRule {
 
 #[derive(Debug, Clone)]
 pub enum Rule {
-    All,
     IPAndPort {
         ip_rule: IPRule,
         port_rule: PortRule,
     },
-    Domain(DomainRule),
+    Domain {
+        domain_rule: DomainRule,
+
+        // this port is used during rule expansion
+        port_rule: PortRule,
+    },
+    Negative(Arc<Rule>),
 }
 
 impl Rule {
-    pub fn matches_ip(&self, ip: IpAddr) -> bool {
+    pub fn allows_ip(&self, ip: IpAddr) -> bool {
         match self {
             Rule::IPAndPort { ip_rule, .. } => ip_rule.matches(ip),
-            _ => true,
+            _ => false,
         }
     }
 
-    pub fn matches_port(&self, port: u16) -> bool {
+    pub fn allows_port(&self, port: u16) -> bool {
         match self {
-            Rule::All => true,
             Rule::IPAndPort { port_rule, .. } => port_rule.matches(port),
             _ => false,
         }
     }
 
-    pub fn matches_domain(&self, domain: impl AsRef<str>) -> bool {
+    pub fn allows_domain(&self, domain: impl AsRef<str>) -> bool {
         match self {
-            Rule::All => true,
-            Rule::Domain(domain_rule) => domain_rule.matches(domain),
+            Rule::Domain { domain_rule, .. } => domain_rule.matches(domain),
+            _ => false,
+        }
+    }
+
+    pub fn blocks_ip(&self, ip: IpAddr) -> bool {
+        match self {
+            Rule::Negative(rule) => rule.allows_ip(ip),
+            _ => false,
+        }
+    }
+
+    pub fn blocks_port(&self, port: u16) -> bool {
+        match self {
+            Rule::Negative(rule) => rule.allows_port(port),
+            _ => false,
+        }
+    }
+
+    pub fn blocks_domain(&self, domain: impl AsRef<str>) -> bool {
+        match self {
+            Rule::Negative(rule) => rule.allows_domain(domain),
             _ => false,
         }
     }
@@ -184,9 +214,15 @@ impl FromStr for Rule {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == ":" {
-            return Ok(Rule::All);
-        }
+        // !rule
+        // TODO(amin): handle negative rules
+        let mut negative = false;
+        let s = s
+            .strip_prefix('!')
+            .inspect(|_| {
+                negative = true;
+            })
+            .unwrap_or(s);
 
         let rule = if s.starts_with('[') {
             // ipv6 address and port
@@ -206,12 +242,17 @@ impl FromStr for Rule {
                 port_rule: PortRule::All,
             }
         } else if s.contains(':') {
-            // ipv4 and port
-            let (ip, port) = s.rsplit_once(':').unwrap();
+            // ipv4 or domain and port
+            let (ip_or_domain, port) = s.rsplit_once(':').unwrap();
 
-            Rule::IPAndPort {
-                ip_rule: IPRule::from_str(ip)?,
-                port_rule: PortRule::from_str(port)?,
+            let port_rule = PortRule::from_str(port)?;
+            if let Ok(ip_rule) = IPRule::from_str(ip_or_domain) {
+                Rule::IPAndPort { ip_rule, port_rule }
+            } else {
+                Rule::Domain {
+                    domain_rule: DomainRule::from_str(ip_or_domain)?,
+                    port_rule,
+                }
             }
         } else {
             // either an ipv4 or a domain
@@ -221,10 +262,19 @@ impl FromStr for Rule {
                     port_rule: PortRule::All,
                 }
             } else if let Ok(domain_rule) = DomainRule::from_str(s) {
-                Rule::Domain(domain_rule)
+                Rule::Domain {
+                    domain_rule,
+                    port_rule: PortRule::All,
+                }
             } else {
                 anyhow::bail!("failed to parse rule: {}", s);
             }
+        };
+
+        let rule = if negative {
+            Rule::Negative(Arc::new(rule))
+        } else {
+            rule
         };
 
         Ok(rule)
@@ -238,11 +288,11 @@ pub struct RuleSet {
 
 impl RuleSet {
     pub fn matches_ip(&self, ip: IpAddr) -> bool {
-        self.rules.iter().any(|rule| rule.matches_ip(ip))
+        self.rules.iter().any(|rule| rule.allows_ip(ip))
     }
 
     pub fn matches_port(&self, port: u16) -> bool {
-        self.rules.iter().any(|rule| rule.matches_port(port))
+        self.rules.iter().any(|rule| rule.allows_port(port))
     }
 
     pub fn matches_socket_addr(&self, socket_addr: SocketAddr) -> bool {
@@ -252,7 +302,7 @@ impl RuleSet {
     pub fn matches_domain(&self, domain: impl AsRef<str>) -> bool {
         let domain = domain.as_ref();
 
-        self.rules.iter().any(|rule| rule.matches_domain(domain))
+        self.rules.iter().any(|rule| rule.allows_domain(domain))
     }
 }
 
@@ -275,7 +325,7 @@ mod tests {
     use std::net::IpAddr;
 
     #[test]
-    fn ip_rule_all() {
+    fn all_ips() {
         let rule = IPRule::from_str("*").unwrap();
 
         assert!(rule.matches("192.168.1.0".parse().unwrap()));
@@ -283,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn ip_rule_ipv4() {
+    fn single_ipv4() {
         let rule = IPRule::from_str("192.168.1.0").unwrap();
 
         let ip_addr: IpAddr = "192.168.1.0".parse().unwrap();
@@ -294,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    fn ip_rule_ipv4_range() {
+    fn ipv4_range() {
         let rule = IPRule::from_str("192.168.1.0/24").unwrap();
 
         let matches = vec![
@@ -325,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn ip_rule_ipv6() {
+    fn single_ipv6() {
         let rule = IPRule::from_str("2001:db8::1").unwrap();
 
         assert!(rule.matches("2001:db8::1".parse().unwrap()));
@@ -333,7 +383,7 @@ mod tests {
     }
 
     #[test]
-    fn ip_rule_ipv6_range() {
+    fn ipv6_range() {
         let rule = IPRule::from_str("2001:db8::/32").unwrap();
 
         let matches = vec![
@@ -364,14 +414,14 @@ mod tests {
     }
 
     #[test]
-    fn port_rule_all() {
+    fn all_ports() {
         let rule = PortRule::from_str("*").unwrap();
 
         assert!(rule.matches(80));
     }
 
     #[test]
-    fn port_rule_single_port() {
+    fn single_port() {
         let rule = PortRule::from_str("80").unwrap();
 
         assert!(!rule.matches(79));
@@ -380,7 +430,7 @@ mod tests {
     }
 
     #[test]
-    fn port_rule_port_range() {
+    fn port_range() {
         let rule = PortRule::from_str("80-100").unwrap();
 
         assert!(!rule.matches(79));
@@ -391,7 +441,15 @@ mod tests {
     }
 
     #[test]
-    fn domain_rule_single_domain() {
+    fn all_domain() {
+        let rule = DomainRule::from_str("*.*").unwrap();
+
+        assert!(rule.matches("a.b.c"));
+        assert!(rule.matches("b.c"));
+    }
+
+    #[test]
+    fn single_domain() {
         let rule = DomainRule::from_str("a.b.c").unwrap();
 
         assert!(rule.matches("a.b.c"));
@@ -399,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    fn domain_rule_domain_glob() {
+    fn domain_glob() {
         let rule = DomainRule::from_str("*.b.c").unwrap();
 
         assert!(rule.matches("a.b.c"));
@@ -408,73 +466,194 @@ mod tests {
     }
 
     #[test]
-    fn rule_all_matches_everything() {
-        let rule = Rule::from_str(":").unwrap();
-        assert!(rule.matches_ip("192.168.1.1".parse().unwrap()));
-        assert!(rule.matches_ip("2001:db8::1".parse().unwrap()));
-        assert!(rule.matches_port(80));
-        assert!(rule.matches_domain("example.com"));
-    }
-
-    #[test]
     fn rule_ipv4_and_port() {
         let rule = Rule::from_str("192.168.1.1:80").unwrap();
-        assert!(rule.matches_ip("192.168.1.1".parse().unwrap()));
-        assert!(!rule.matches_ip("192.168.1.2".parse().unwrap()));
-        assert!(rule.matches_port(80));
-        assert!(!rule.matches_port(443));
-        assert!(!rule.matches_domain("example.com"));
+        assert!(rule.allows_ip("192.168.1.1".parse().unwrap()));
+        assert!(!rule.allows_ip("192.168.1.2".parse().unwrap()));
+        assert!(rule.allows_port(80));
+        assert!(!rule.allows_port(443));
+        assert!(!rule.allows_domain("example.com"));
     }
 
     #[test]
     fn rule_ipv6_and_port() {
         let rule = Rule::from_str("[2001:db8::1]:443").unwrap();
-        assert!(rule.matches_ip(IpAddr::V6("2001:db8::1".parse().unwrap())));
-        assert!(!rule.matches_ip(IpAddr::V6("2001:db8::2".parse().unwrap())));
-        assert!(rule.matches_port(443));
-        assert!(!rule.matches_port(80));
-        assert!(!rule.matches_domain("example.com"));
+        assert!(rule.allows_ip(IpAddr::V6("2001:db8::1".parse().unwrap())));
+        assert!(!rule.allows_ip(IpAddr::V6("2001:db8::2".parse().unwrap())));
+        assert!(rule.allows_port(443));
+        assert!(!rule.allows_port(80));
+        assert!(!rule.allows_domain("example.com"));
     }
 
     #[test]
     fn rule_ipv4_range() {
         let rule = Rule::from_str("192.168.1.0/24").unwrap();
-        assert!(rule.matches_ip("192.168.1.1".parse().unwrap()));
-        assert!(rule.matches_ip("192.168.1.255".parse().unwrap()));
-        assert!(!rule.matches_ip("192.168.2.1".parse().unwrap()));
-        assert!(rule.matches_port(80));
-        assert!(!rule.matches_domain("example.com"));
+        assert!(rule.allows_ip("192.168.1.1".parse().unwrap()));
+        assert!(rule.allows_ip("192.168.1.255".parse().unwrap()));
+        assert!(!rule.allows_ip("192.168.2.1".parse().unwrap()));
+        assert!(rule.allows_port(80));
+        assert!(!rule.allows_domain("example.com"));
     }
 
     #[test]
     fn rule_ipv6_range() {
         let rule = Rule::from_str("2001:db8::1/32").unwrap();
-        assert!(rule.matches_ip("2001:db8::1".parse().unwrap()));
-        assert!(rule.matches_ip("2001:db8:0:0:0:0:0:1234".parse().unwrap()));
-        assert!(!rule.matches_ip("2001:db7::1".parse().unwrap()));
-        assert!(rule.matches_port(80));
-        assert!(!rule.matches_domain("example.com"));
+        assert!(rule.allows_ip("2001:db8::1".parse().unwrap()));
+        assert!(rule.allows_ip("2001:db8:0:0:0:0:0:1234".parse().unwrap()));
+        assert!(!rule.allows_ip("2001:db7::1".parse().unwrap()));
+        assert!(rule.allows_port(80));
+        assert!(!rule.allows_domain("example.com"));
     }
 
     #[test]
     fn rule_domain_with_subdomains() {
         let rule = Rule::from_str("*.example.com").unwrap();
-        assert!(rule.matches_domain("sub.example.com"));
-        assert!(rule.matches_domain("another.sub.example.com"));
-        assert!(!rule.matches_domain("example.com"));
-        assert!(!rule.matches_domain("other.com"));
+        assert!(rule.allows_domain("sub.example.com"));
+        assert!(rule.allows_domain("another.sub.example.com"));
+        assert!(!rule.allows_domain("example.com"));
+        assert!(!rule.allows_domain("other.com"));
     }
 
     #[test]
-    fn rule_any_ip_specific_port() {
+    fn rule_all_domains_specific_port() {
+        let rule = Rule::from_str("*.*:80").unwrap();
+        assert!(rule.allows_domain("sub.example.com"));
+        assert!(rule.allows_domain("another.sub.example.com"));
+        assert!(rule.allows_domain("example.com"));
+        assert!(rule.allows_domain("other.com"));
+    }
+
+    #[test]
+    fn rule_all_ip_specific_port() {
         let rule = Rule::from_str("*:80-100").unwrap();
-        assert!(rule.matches_ip("192.168.1.1".parse().unwrap()));
-        assert!(rule.matches_ip("2001:db8::1".parse().unwrap()));
-        assert!(rule.matches_port(80));
-        assert!(!rule.matches_port(79));
+        assert!(rule.allows_ip("192.168.1.1".parse().unwrap()));
+        assert!(rule.allows_ip("2001:db8::1".parse().unwrap()));
+        assert!(rule.allows_port(80));
+        assert!(!rule.allows_port(79));
         for port in 80..=100 {
-            assert!(rule.matches_port(port));
+            assert!(rule.allows_port(port));
         }
-        assert!(!rule.matches_port(101));
+        assert!(!rule.allows_port(101));
+    }
+
+    #[test]
+    fn negative_rule_ipv4_and_port() {
+        let rule = Rule::from_str("!192.168.1.1:80").unwrap();
+
+        assert!(!rule.allows_ip("192.168.1.1".parse().unwrap()));
+        assert!(!rule.allows_ip("192.168.1.2".parse().unwrap()));
+        assert!(!rule.allows_port(80));
+        assert!(!rule.allows_port(443));
+        assert!(!rule.allows_domain("example.com"));
+
+        assert!(rule.blocks_ip("192.168.1.1".parse().unwrap()));
+        assert!(!rule.blocks_ip("192.168.1.2".parse().unwrap()));
+        assert!(rule.blocks_port(80));
+        assert!(!rule.blocks_port(443));
+        assert!(!rule.blocks_domain("example.com"));
+    }
+
+    #[test]
+    fn negative_rule_ipv6_and_port() {
+        let rule = Rule::from_str("![2001:db8::1]:443").unwrap();
+
+        assert!(!rule.allows_ip(IpAddr::V6("2001:db8::1".parse().unwrap())));
+        assert!(!rule.allows_ip(IpAddr::V6("2001:db8::2".parse().unwrap())));
+        assert!(!rule.allows_port(443));
+        assert!(!rule.allows_port(80));
+        assert!(!rule.allows_domain("example.com"));
+
+        assert!(rule.blocks_ip(IpAddr::V6("2001:db8::1".parse().unwrap())));
+        assert!(!rule.blocks_ip(IpAddr::V6("2001:db8::2".parse().unwrap())));
+        assert!(rule.blocks_port(443));
+        assert!(!rule.blocks_port(80));
+        assert!(!rule.blocks_domain("example.com"));
+    }
+
+    #[test]
+    fn negative_rule_ipv4_range() {
+        let rule = Rule::from_str("!192.168.1.0/24").unwrap();
+
+        assert!(!rule.allows_ip("192.168.1.1".parse().unwrap()));
+        assert!(!rule.allows_ip("192.168.1.255".parse().unwrap()));
+        assert!(!rule.allows_ip("192.168.2.1".parse().unwrap()));
+        assert!(!rule.allows_port(80));
+        assert!(!rule.allows_domain("example.com"));
+
+        assert!(rule.blocks_ip("192.168.1.1".parse().unwrap()));
+        assert!(rule.blocks_ip("192.168.1.255".parse().unwrap()));
+        assert!(!rule.blocks_ip("192.168.2.1".parse().unwrap()));
+        assert!(rule.blocks_port(80));
+        assert!(!rule.blocks_domain("example.com"));
+    }
+
+    #[test]
+    fn negative_rule_ipv6_range() {
+        let rule = Rule::from_str("!2001:db8::1/32").unwrap();
+
+        assert!(!rule.allows_ip("2001:db8::1".parse().unwrap()));
+        assert!(!rule.allows_ip("2001:db8:0:0:0:0:0:1234".parse().unwrap()));
+        assert!(!rule.allows_ip("2001:db7::1".parse().unwrap()));
+        assert!(!rule.allows_port(80));
+        assert!(!rule.allows_domain("example.com"));
+
+        assert!(rule.blocks_ip("2001:db8::1".parse().unwrap()));
+        assert!(rule.blocks_ip("2001:db8:0:0:0:0:0:1234".parse().unwrap()));
+        assert!(!rule.blocks_ip("2001:db7::1".parse().unwrap()));
+        assert!(rule.blocks_port(80));
+        assert!(!rule.blocks_domain("example.com"));
+    }
+
+    #[test]
+    fn negative_rule_domain_with_subdomains() {
+        let rule = Rule::from_str("!*.example.com").unwrap();
+
+        assert!(!rule.allows_domain("sub.example.com"));
+        assert!(!rule.allows_domain("another.sub.example.com"));
+        assert!(!rule.allows_domain("example.com"));
+        assert!(!rule.allows_domain("other.com"));
+
+        assert!(rule.blocks_domain("sub.example.com"));
+        assert!(rule.blocks_domain("another.sub.example.com"));
+        assert!(!rule.blocks_domain("example.com"));
+        assert!(!rule.blocks_domain("other.com"));
+    }
+
+    #[test]
+    fn negative_rule_all_domains_specific_port() {
+        let rule = Rule::from_str("!*.*:80").unwrap();
+
+        assert!(!rule.allows_domain("sub.example.com"));
+        assert!(!rule.allows_domain("another.sub.example.com"));
+        assert!(!rule.allows_domain("example.com"));
+        assert!(!rule.allows_domain("other.com"));
+
+        assert!(rule.blocks_domain("sub.example.com"));
+        assert!(rule.blocks_domain("another.sub.example.com"));
+        assert!(rule.blocks_domain("example.com"));
+        assert!(rule.blocks_domain("other.com"));
+    }
+
+    #[test]
+    fn negative_rule_all_ip_specific_port() {
+        let rule = Rule::from_str("!*:80-100").unwrap();
+
+        assert!(!rule.allows_ip("192.168.1.1".parse().unwrap()));
+        assert!(!rule.allows_ip("2001:db8::1".parse().unwrap()));
+        assert!(!rule.allows_port(80));
+        assert!(!rule.allows_port(79));
+        for port in 80..=100 {
+            assert!(!rule.allows_port(port));
+        }
+        assert!(!rule.allows_port(101));
+
+        assert!(rule.blocks_ip("192.168.1.1".parse().unwrap()));
+        assert!(rule.blocks_ip("2001:db8::1".parse().unwrap()));
+        assert!(rule.blocks_port(80));
+        assert!(!rule.blocks_port(79));
+        for port in 80..=100 {
+            assert!(rule.blocks_port(port));
+        }
+        assert!(!rule.blocks_port(101));
     }
 }
