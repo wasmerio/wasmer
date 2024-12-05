@@ -27,7 +27,7 @@ mod error;
 mod c_gen;
 mod logging;
 mod opts;
-mod store;
+mod rt;
 mod types;
 mod utils;
 

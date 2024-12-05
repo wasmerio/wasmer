@@ -58,7 +58,7 @@ use webc::Container;
 
 use crate::{
     commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
-    logging::Output, store::StoreOptions,
+    logging::Output, rt::RuntimeOptions,
 };
 
 const TICK: Duration = Duration::from_millis(250);
@@ -69,7 +69,7 @@ pub struct Run {
     #[clap(flatten)]
     env: WasmerEnv,
     #[clap(flatten)]
-    store: StoreOptions,
+    rt: RuntimeOptions,
     #[clap(flatten)]
     wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
@@ -128,19 +128,15 @@ impl Run {
 
         let _guard = handle.enter();
 
-        let (mut store, _) = self.store.get_store()?;
-
-        #[cfg(feature = "sys")]
-        if self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
-        }
-
-        let engine = store.engine_mut();
+        let mut engine = self.rt.get_engine()?;
         let rt_kind = engine.get_rt_kind();
         tracing::info!("Executing on runtime {rt_kind:?}");
 
         #[cfg(feature = "sys")]
         if engine.is_sys() {
+            if self.stack_size.is_some() {
+                wasmer_vm::set_stack_size(self.stack_size.unwrap());
+            }
             let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
             engine.set_hash_algorithm(Some(hash_algorithm));
         }
@@ -180,7 +176,7 @@ impl Run {
                     module,
                     module_hash,
                     path,
-                } => self.execute_wasm(&path, &module, module_hash, store, runtime.clone()),
+                } => self.execute_wasm(&path, &module, module_hash, runtime.clone()),
                 ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime.clone()),
             }
         };
@@ -205,13 +201,12 @@ impl Run {
         path: &Path,
         module: &Module,
         module_hash: ModuleHash,
-        mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            self.execute_wasi_module(path, module, module_hash, runtime, store)
+            self.execute_wasi_module(path, module, module_hash, runtime)
         } else {
-            self.execute_pure_wasm_module(module, &mut store)
+            self.execute_pure_wasm_module(module)
         }
     }
 
@@ -362,9 +357,12 @@ impl Run {
     }
 
     #[tracing::instrument(skip_all)]
-    fn execute_pure_wasm_module(&self, module: &Module, store: &mut Store) -> Result<(), Error> {
+    fn execute_pure_wasm_module(&self, module: &Module) -> Result<(), Error> {
+        /// The rest of the execution happens in the main thread, so we can create the
+        /// store here.
+        let mut store = self.rt.get_store()?;
         let imports = Imports::default();
-        let instance = Instance::new(store, module, &imports)
+        let instance = Instance::new(&mut store, module, &imports)
             .context("Unable to instantiate the WebAssembly module")?;
 
         let entry_function  = match &self.invoke {
@@ -379,7 +377,7 @@ impl Run {
             }
         };
 
-        let return_values = invoke_function(&instance, store, entry_function, &self.args)?;
+        let return_values = invoke_function(&instance, &mut store, entry_function, &self.args)?;
 
         println!(
             "{}",
@@ -450,7 +448,6 @@ impl Run {
         module: &Module,
         module_hash: ModuleHash,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        mut store: Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
@@ -500,10 +497,10 @@ impl Run {
                 bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
             }
         };
-        let store = StoreOptions::default();
+        let rt = RuntimeOptions::default();
         Ok(Run {
             env: WasmerEnv::default(),
-            store,
+            rt,
             wasi: Wasi::for_binfmt_interpreter()?,
             wcgi: WcgiOptions::default(),
             stack_size: None,

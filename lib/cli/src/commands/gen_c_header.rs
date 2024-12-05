@@ -14,7 +14,7 @@ use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
 use wasmer_types::MetadataHeader;
 use webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
-use crate::store::RuntimeOptions;
+use crate::rt::RuntimeOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer gen-c-header` subcommand
