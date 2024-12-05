@@ -17,17 +17,17 @@ impl RuntimeEngine {
     pub fn get_rt_kind(&self) -> crate::RuntimeKind {
         match self {
             #[cfg(feature = "sys")]
-            RuntimeEngine::Sys(_) => crate::RuntimeKind::Sys,
+            Self::Sys(_) => crate::RuntimeKind::Sys,
             #[cfg(feature = "v8")]
-            RuntimeEngine::V8(_) => crate::RuntimeKind::V8,
+            Self::V8(_) => crate::RuntimeKind::V8,
             #[cfg(feature = "wamr")]
-            RuntimeEngine::Wamr(_) => crate::RuntimeKind::Wamr,
+            Self::Wamr(_) => crate::RuntimeKind::Wamr,
             #[cfg(feature = "wasmi")]
-            RuntimeEngine::Wasmi(_) => crate::RuntimeKind::Wasmi,
+            Self::Wasmi(_) => crate::RuntimeKind::Wasmi,
             #[cfg(feature = "js")]
-            RuntimeEngine::Js(_) => crate::RuntimeKind::Js,
+            Self::Js(_) => crate::RuntimeKind::Js,
             #[cfg(feature = "jsc")]
-            RuntimeEngine::Jsc(_) => crate::RuntimeKind::Jsc,
+            Self::Jsc(_) => crate::RuntimeKind::Jsc,
         }
     }
 
