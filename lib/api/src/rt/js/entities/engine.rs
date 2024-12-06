@@ -47,7 +47,7 @@ impl crate::Engine {
 
     /// Return true if [`self`] is an engine from the `js` runtime.
     pub fn is_js(&self) -> bool {
-        matches!(self.rt, RuntimeEngine::Js(_))
+        matches!(self.rt, crate::RuntimeEngine::Js(_))
     }
 }
 
