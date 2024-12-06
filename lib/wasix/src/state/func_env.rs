@@ -12,7 +12,7 @@ use crate::os::task::thread::RewindResultType;
 use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
-    runtime::task_manager::tokio::SpawnMemoryTypeOrStore,
+    runtime::task_manager::SpawnMemoryTypeOrStore,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
     RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,

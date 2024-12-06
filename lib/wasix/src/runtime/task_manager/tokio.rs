@@ -7,7 +7,7 @@ use futures::{future::BoxFuture, Future};
 use tokio::runtime::{Handle, Runtime};
 use wasmer::AsStoreMut;
 
-use super::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
+use super::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
 #[derive(Debug, Clone)]
 pub enum RuntimeOrHandle {
@@ -120,19 +120,6 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
     fn drop(&mut self) {}
 }
 
-/// Describes whether a new memory should be created (and, in case, its type) or if it was already
-/// created and the store it belongs to.
-///
-/// # Note
-///
-/// This type is necessary for now because we can't pass a [`wasmer::StoreRef`] between threads, so this
-/// conceptually is a Send-able [`SpawnMemoryType`].
-pub enum SpawnMemoryTypeOrStore {
-    New,
-    Type(wasmer::MemoryType),
-    StoreAndMemory(wasmer::Store, Option<wasmer::Memory>),
-}
-
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
@@ -160,13 +147,9 @@ impl VirtualTaskManager for TokioTaskManager {
 
     /// See [`VirtualTaskManager::task_wasm`].
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
-        // Create the context on a new store
         let run = task.run;
         let recycle = task.recycle;
-        //let module = task.module;
         let env = task.env;
-        //let globals = task.globals;
-        //let update_layout = task.update_layout;
 
         let make_memory: SpawnMemoryTypeOrStore = match task.spawn_type {
             SpawnMemoryType::CreateMemory => SpawnMemoryTypeOrStore::New,

@@ -31,6 +31,19 @@ pub enum SpawnMemoryType<'a> {
     CopyMemory(Memory, StoreRef<'a>),
 }
 
+/// Describes whether a new memory should be created (and, in case, its type) or if it was already
+/// created and the store it belongs to.
+///
+/// # Note
+///
+/// This type is necessary for now because we can't pass a [`wasmer::StoreRef`] between threads, so this
+/// conceptually is a Send-able [`SpawnMemoryType`].
+pub enum SpawnMemoryTypeOrStore {
+    New,
+    Type(wasmer::MemoryType),
+    StoreAndMemory(wasmer::Store, Option<wasmer::Memory>),
+}
+
 pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Bytes) + Send + 'static;
 
 pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<Bytes, ExitCode>> + Send + 'static>>
