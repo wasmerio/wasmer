@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::ruleset::RuleSet;
+use crate::ruleset::{Direction, Ruleset};
 use crate::{io_err_into_net_error, VirtualIoSource};
 #[allow(unused_imports)]
 use crate::{
@@ -33,7 +33,7 @@ use virtual_mio::{
 pub struct LocalNetworking {
     selector: Arc<Selector>,
     handle: Handle,
-    ruleset: Option<Arc<RuleSet>>,
+    ruleset: Option<Ruleset>,
 }
 
 impl LocalNetworking {
@@ -45,11 +45,11 @@ impl LocalNetworking {
         }
     }
 
-    pub fn with_ruleset(ruleset: RuleSet) -> Self {
+    pub fn with_ruleset(ruleset: Ruleset) -> Self {
         Self {
             selector: Selector::new(),
             handle: Handle::current(),
-            ruleset: Some(Arc::new(ruleset)),
+            ruleset: Some(ruleset),
         }
     }
 }
@@ -77,7 +77,7 @@ impl VirtualNetworking for LocalNetworking {
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
         if let Some(ruleset) = self.ruleset.as_ref() {
-            if !ruleset.matches_socket_addr(addr) {
+            if !ruleset.is_socket_allowed(addr, Direction::Inbound) {
                 tracing::warn!(%addr, "ruleset matching failed");
                 return Err(NetworkError::PermissionDenied);
             }
@@ -107,7 +107,7 @@ impl VirtualNetworking for LocalNetworking {
         _reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
         if let Some(ruleset) = self.ruleset.as_ref() {
-            if !ruleset.matches_socket_addr(addr) {
+            if !ruleset.is_socket_allowed(addr, Direction::Inbound) {
                 tracing::warn!(%addr, "ruleset matching failed");
                 return Err(NetworkError::PermissionDenied);
             }
@@ -145,7 +145,7 @@ impl VirtualNetworking for LocalNetworking {
         mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         if let Some(ruleset) = self.ruleset.as_ref() {
-            if !ruleset.matches_socket_addr(peer) {
+            if !ruleset.is_socket_allowed(peer, Direction::Outbound) {
                 tracing::warn!(%peer, "ruleset matching failed");
                 return Err(NetworkError::PermissionDenied);
             }
@@ -167,7 +167,7 @@ impl VirtualNetworking for LocalNetworking {
         dns_server: Option<IpAddr>,
     ) -> Result<Vec<IpAddr>> {
         if let Some(ruleset) = self.ruleset.as_ref() {
-            if !ruleset.matches_domain(host) {
+            if !ruleset.is_domain_allowed(host) {
                 tracing::warn!(%host, "ruleset matching failed");
                 return Err(NetworkError::PermissionDenied);
             }
@@ -178,12 +178,23 @@ impl VirtualNetworking for LocalNetworking {
         } else {
             format!("{}:{}", host, port.unwrap_or(0))
         };
-        self.handle
+        let addrs = self
+            .handle
             .spawn(tokio::net::lookup_host(host_to_lookup))
             .await
             .map_err(|_| NetworkError::IOError)?
             .map(|a| a.map(|a| a.ip()).collect::<Vec<_>>())
-            .map_err(io_err_into_net_error)
+            .map_err(io_err_into_net_error)?;
+
+        if let Some(ruleset) = self.ruleset.as_ref() {
+            if let Err(e) = ruleset.expand_domain(host, &addrs) {
+                tracing::debug!(err=%e, "ruleset expansion failed");
+            } else {
+                tracing::debug!(addrs=?addrs, domain = host, "ruleset expansion")
+            }
+        }
+
+        Ok(addrs)
     }
 }
 
@@ -195,7 +206,7 @@ pub struct LocalTcpListener {
     no_delay: Option<bool>,
     keep_alive: Option<bool>,
     backlog: VecDeque<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>,
-    ruleset: Option<Arc<RuleSet>>,
+    ruleset: Option<Ruleset>,
 }
 
 impl LocalTcpListener {
@@ -203,7 +214,7 @@ impl LocalTcpListener {
         match self.stream.accept().map_err(io_err_into_net_error) {
             Ok((stream, addr)) => {
                 if let Some(ruleset) = self.ruleset.as_ref() {
-                    if !ruleset.matches_socket_addr(addr) {
+                    if !ruleset.is_socket_allowed(addr, Direction::Outbound) {
                         tracing::warn!(%addr, "ruleset matching failed");
                         return Err(NetworkError::PermissionDenied);
                     }
@@ -711,7 +722,7 @@ pub struct LocalUdpSocket {
     selector: Arc<Selector>,
     handler_guard: HandlerGuardState,
     backlog: VecDeque<(BytesMut, SocketAddr)>,
-    ruleset: Option<Arc<RuleSet>>,
+    ruleset: Option<Ruleset>,
 }
 
 impl LocalUdpSocket {
@@ -813,7 +824,7 @@ impl VirtualUdpSocket for LocalUdpSocket {
 impl VirtualConnectionlessSocket for LocalUdpSocket {
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
         if let Some(ruleset) = self.ruleset.as_ref() {
-            if !ruleset.matches_socket_addr(addr) {
+            if !ruleset.is_socket_allowed(addr, Direction::Outbound) {
                 tracing::warn!(%addr, "ruleset matching failed");
                 return Err(NetworkError::PermissionDenied);
             }

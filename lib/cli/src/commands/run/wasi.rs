@@ -12,7 +12,7 @@ use clap::Parser;
 use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
-use virtual_net::ruleset::RuleSet;
+use virtual_net::ruleset::Ruleset;
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_types::ModuleHash;
@@ -566,7 +566,7 @@ impl Wasi {
             .networking
             .clone()
             .flatten()
-            .map(|ruleset| RuleSet::from_str(&ruleset))
+            .map(|ruleset| Ruleset::from_str(&ruleset))
             .transpose()?;
 
         let network = if let Some(ruleset) = ruleset {
