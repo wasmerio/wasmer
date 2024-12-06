@@ -383,8 +383,6 @@ impl crate::runners::Runner for WasiRunner {
         }
 
         let env = env.build()?;
-        let store = runtime.new_store();
-
         let command_name = command_name.to_string();
         let tasks = runtime.task_manager().clone();
         let pkg = pkg.clone();
@@ -392,7 +390,7 @@ impl crate::runners::Runner for WasiRunner {
         let exit_code = tasks.spawn_and_block_on(
             async move {
                 let mut task_handle =
-                    crate::bin_factory::spawn_exec(pkg, &command_name, store, env, &runtime)
+                    crate::bin_factory::spawn_exec(pkg, &command_name, env, &runtime)
                         .await
                         .context("Spawn failed")?;
 

@@ -2,7 +2,7 @@ mod imp;
 
 use crate::{
     vm::{VMFunctionCallback, VMTrampoline},
-    Runtime, WasmTypeList,
+    RuntimeKind, WasmTypeList,
 };
 
 /// The `HostFunction` trait represents the set of functions that
@@ -16,10 +16,10 @@ where
     Kind: HostFunctionKind,
 {
     /// Get the pointer to the function body for a given runtime.
-    fn function_callback(&self, rt: Runtime) -> crate::vm::VMFunctionCallback;
+    fn function_callback(&self, rt: RuntimeKind) -> crate::vm::VMFunctionCallback;
 
     /// Get the pointer to the function call trampoline for a given runtime.
-    fn call_trampoline_address(rt: Runtime) -> crate::vm::VMTrampoline;
+    fn call_trampoline_address(rt: RuntimeKind) -> crate::vm::VMTrampoline;
 }
 
 /// Empty trait to specify the kind of `HostFunction`: With or

@@ -1,10 +1,7 @@
 //! Data types, functions and traits for `v8` runtime's `Module` implementation.
 use std::{path::Path, sync::Arc};
 
-use crate::{
-    rt::v8::bindings::{wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t},
-    AsEngineRef, IntoBytes, RuntimeModule,
-};
+use crate::{rt::v8::bindings::*, AsEngineRef, IntoBytes, RuntimeModule};
 
 use bytes::Bytes;
 use wasmer_types::{
@@ -12,8 +9,9 @@ use wasmer_types::{
     GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
     SerializeError, TableType, Type,
 };
+
 pub(crate) struct ModuleHandle {
-    pub(crate) inner: *mut wasm_module_t,
+    pub(crate) inner: *mut wasm_shared_module_t,
     pub(crate) store: std::sync::Mutex<crate::store::Store>,
 }
 
@@ -35,7 +33,12 @@ impl ModuleHandle {
 
         let store = crate::store::Store::new(engine.as_engine_ref().engine().clone());
 
-        let inner = unsafe { wasm_module_new(store.inner.store.as_v8().inner, &bytes as *const _) };
+        let inner = unsafe {
+            wasm_module_share(wasm_module_new(
+                store.inner.store.as_v8().inner,
+                &bytes as *const _,
+            ))
+        };
         let store = std::sync::Mutex::new(store);
 
         if inner.is_null() {
@@ -47,7 +50,7 @@ impl ModuleHandle {
 }
 impl Drop for ModuleHandle {
     fn drop(&mut self) {
-        unsafe { wasm_module_delete(self.inner) }
+        unsafe { wasm_shared_module_delete(self.inner) }
     }
 }
 

@@ -50,14 +50,26 @@ macro_rules! impl_native_traits {
                 };
 
 
-                 let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().into_wasmi()) };
+                let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().into_wasmi()) };
 
-                 let trap = {
-                    unsafe {
-                        let mut params = std::mem::zeroed();
-                        wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr());
-                        wasm_func_call(func, &params, &mut results)
+                let mut params = unsafe {std::mem::zeroed()};
+                unsafe {wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr())};
+
+                 let mut trap;
+
+                 loop {
+                    trap = unsafe { wasm_func_call(func, &params, &mut results) };
+
+                    let store_mut = store.as_store_mut();
+                    if let Some(callback) = store_mut.inner.on_called.take() {
+                        match callback(store_mut) {
+                            Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
+                            Ok(wasmer_types::OnCalledAction::Finish) => { break; }
+                            Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
+                            Err(trap) => { return Err(RuntimeError::user(trap)) },
+                        }
                     }
+                    break;
                 };
 
                  if !trap.is_null() {

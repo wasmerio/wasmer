@@ -240,6 +240,11 @@ impl crate::Engine {
             _ => panic!("Not a `jsc` engine!"),
         }
     }
+
+    /// Return true if [`self`] is an engine from the `jsc` runtime.
+    pub fn is_jsc(&self) -> bool {
+        matches!(self.rt, crate::RuntimeEngine::Jsc(_))
+    }
 }
 
 impl Into<crate::Engine> for Engine {

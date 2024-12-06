@@ -166,7 +166,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     tasks
         .task_wasm(
             TaskWasm::new(Box::new(run), thread_env, thread_module, false)
-                .with_globals(&globals)
+                .with_globals(globals)
                 .with_memory(spawn_type),
         )
         .map_err(Into::<Errno>::into)?;

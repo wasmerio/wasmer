@@ -132,7 +132,7 @@ impl Function {
         Rets: WasmTypeList,
     {
         let env = FunctionEnv::new(store, ());
-        let func_ptr = func.function_callback(crate::Runtime::Sys).into_sys();
+        let func_ptr = func.function_callback(crate::RuntimeKind::Sys).into_sys();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env,
@@ -150,7 +150,7 @@ impl Function {
         };
         let call_trampoline =
             <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address(
-                crate::Runtime::Sys,
+                crate::RuntimeKind::Sys,
             )
             .into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
@@ -181,7 +181,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let func_ptr = func.function_callback(crate::Runtime::Sys).into_sys();
+        let func_ptr = func.function_callback(crate::RuntimeKind::Sys).into_sys();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env: env.as_sys().clone().into(),
@@ -198,7 +198,7 @@ impl Function {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline = <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address(
-            crate::Runtime::Sys,
+            crate::RuntimeKind::Sys,
         )
         .into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {

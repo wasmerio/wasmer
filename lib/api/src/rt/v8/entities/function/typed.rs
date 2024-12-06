@@ -51,9 +51,21 @@ macro_rules! impl_native_traits {
 
                 let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().into_v8()) };
 
-                let trap = unsafe {
-                    wasm_func_call(func, params_list.as_ptr() as *const _, results)
-                };
+                let mut trap;
+
+                loop {
+                    trap = unsafe {wasm_func_call(func, params_list.as_ptr() as *const _, results)};
+                    let store_mut = store.as_store_mut();
+                    if let Some(callback) = store_mut.inner.on_called.take() {
+                        match callback(store_mut) {
+                            Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
+                            Ok(wasmer_types::OnCalledAction::Finish) => { break; }
+                            Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
+                            Err(trap) => { return Err(RuntimeError::user(trap)) },
+                        }
+                    }
+                    break;
+                }
 
                 if !trap.is_null() {
                     unsafe {
@@ -62,7 +74,7 @@ macro_rules! impl_native_traits {
                     }
                 }
 
-                 unsafe {
+                unsafe {
                     let rets_len = Rets::wasm_types().len();
                     let mut results: *const [crate::rt::v8::bindings::wasm_val_t] = std::ptr::slice_from_raw_parts(results, rets_len);
 

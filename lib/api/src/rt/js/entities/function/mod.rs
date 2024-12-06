@@ -320,7 +320,7 @@ where
         T: Sized,
     {
         Self {
-            address: function.function_callback(crate::Runtime::Js).into_js(),
+            address: function.function_callback(crate::RuntimeKind::Js).into_js(),
             _phantom: PhantomData,
         }
     }
