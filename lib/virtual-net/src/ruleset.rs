@@ -1,3 +1,59 @@
+/// A [`Ruleset`] can be used to specify a whitelist and a blacklist in order to
+/// control the inbound and outbound traffic of a network.
+///
+/// ## Rule Specification
+/// Each rule can be expressed like:
+/// ```
+/// <rule_kind>:<rule_action>=<rule_expr>
+///
+/// <rule_kind>: dns, ipv4, ipv6
+///
+/// <rule_action>: allow | deny
+///
+/// dns:
+/// <rule_expr>:
+/// {<domain_spec>}:{<port_spec>} (this will be expanded to an outbound IP rule)
+/// <domain_spec>: domain | domain glob | *
+///
+/// ipv4:
+/// <rule_expr>:
+/// <ipv4_specs>:<port_specs>/<in|out>
+/// <ipv4_specs>: <ipv4_spec> | {<ipv4_spec>,}
+/// <ipv4_spec>: ipv4 | ipv4_range | *
+///
+/// ipv6:
+/// <rule_expr>:
+/// <ipv6_specs>:<port_specs>/<in|out>
+/// <ipv6_specs>: <ipv6_spec> | {<ipv6_spec>,}
+/// <ipv6_spec>: ipv6 | ipv6_range | *
+///
+/// <port_specs>: <port_spec> | {<port_specs>,}
+/// <port_spec>: port | start_port-end_port | *
+/// ```
+///
+/// The current implementation supports:
+///
+/// ### Whitelisting and Blacklisting
+/// Each rule can be expressed as an `allow` (whitelist) or `deny` (blacklist). A socket or domain
+/// is only accessible if at least one rule whitelists it and no rule blacklists it.
+///
+/// ### Directional Filtering
+/// IP based rules can be either directional by specifying `/in` or `/out` postfixes to the rule,
+/// or bidirectional which is the default setting for these rules.
+///
+/// ### Rule Combination
+/// In order to prevent repetition, the parts before and after the `:` could hold multiple values.
+/// For example:
+/// ```
+/// ipv4:deny={127.0.0.1/24, 192.168.1.1/24}:{80, 443}
+/// ```
+/// This is equivalent to:
+/// ```
+/// ipv4:deny=127.0.0.1/24:80,
+/// ipv4:deny=127.0.0.1/24:443,
+/// ipv4:deny=192.168.1.1/24:80,
+/// ipv4:deny=192.168.1.1/24:443
+/// ```
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
@@ -6,43 +62,21 @@ use std::sync::{Arc, RwLock};
 use ipnet::{Ipv4Net, Ipv6Net};
 use iprange::IpRange;
 
-// <rule_kind>:<rule_action>=<rule_expr>
-//
-// <rule_kind>: dns, ipv4, ipv6
-//
-// <rule_action>: allow | deny
-//
-// dns:
-// <rule_expr>:
-// {<domain_spec>}:{<port_spec>} (this will be expanded to an outbound IP rule)
-// <domain_spec>: domain | domain glob | *
-//
-// ipv4:
-// <rule_expr>:
-// {<ipv4_spec>}:{<port_spec>}/<in|out>
-// <ipv4_spec>: ipv4 | ipv4_range | *
-//
-// ipv6:
-// <rule_expr>:
-// {<ipv6_spec>}:{<port_spec>}/<in|out>
-// <ipv4_spec>: ipv6 | ipv6_range | *
-//
-// <port_spec>: port | start_port-end_port | *
-
+/// Represents the errors that could happen during parsing the ruleset
 #[derive(Debug, thiserror::Error)]
-pub enum RulesetError {
+pub enum RuleParseError {
     #[error("invalid connection direction: {0}")]
-    DirectionParsingError(String),
+    Direction(String),
     #[error("failed to parse int: {0}")]
-    IntParsingError(#[from] std::num::ParseIntError),
+    InvalidInteger(#[from] std::num::ParseIntError),
+    #[error("failed to parse IP range address: {0}")]
+    InvalidIpRange(#[from] ipnet::AddrParseError),
     #[error("failed to parse IP address: {0}")]
-    IpNetParsingError(#[from] ipnet::AddrParseError),
-    #[error("failed to parse IP address: {0}")]
-    IpParsingError(#[from] std::net::AddrParseError),
+    InvalidIpAddr(#[from] std::net::AddrParseError),
     #[error("missing colon in rule: {0}")]
     MissingColon(String),
     #[error("Single IPV6 entry is not enclosed in brackets: {0}")]
-    IPV6ParsingError(String),
+    MalformedIpv6(String),
     #[error("Invalid rule type: {0}. Rule type must be either dns, ipv4, or ipv6")]
     InvalidRuleType(String),
     #[error("Invalid rule action: {0}. Rule action must be either allow or deny")]
@@ -53,6 +87,7 @@ pub enum RulesetError {
     DomainAlreadyExpanded(String),
 }
 
+/// Represents the direction of the network traffic
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Inbound,
@@ -67,7 +102,7 @@ impl Direction {
 }
 
 impl FromStr for Direction {
-    type Err = RulesetError;
+    type Err = RuleParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let direction = if s == "in" {
@@ -75,17 +110,21 @@ impl FromStr for Direction {
         } else if s == "out" {
             Direction::Outbound
         } else {
-            return Err(RulesetError::DirectionParsingError(s.to_string()));
+            return Err(RuleParseError::Direction(s.to_string()));
         };
 
         Ok(direction)
     }
 }
 
+/// Specification of a port rule
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PortSpec {
+    /// All ports are allowed
     All,
+    /// Allows a single port
     Port(u16),
+    /// Allows a range of ports
     PortRange(RangeInclusive<u16>),
 }
 
@@ -100,7 +139,7 @@ impl PortSpec {
 }
 
 impl FromStr for PortSpec {
-    type Err = RulesetError;
+    type Err = RuleParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let rule = if s == "*" {
@@ -119,10 +158,14 @@ impl FromStr for PortSpec {
     }
 }
 
+/// Specification of a domain
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DomainSpec {
+    /// All domains
     All,
+    /// A single domain like: example.com
     Domain(String),
+    /// A domain glob like: *.example.com
     DomainGlob(String),
 }
 
@@ -139,7 +182,7 @@ impl DomainSpec {
 }
 
 impl FromStr for DomainSpec {
-    type Err = RulesetError;
+    type Err = RuleParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let spec = if s == "*" {
@@ -154,27 +197,38 @@ impl FromStr for DomainSpec {
     }
 }
 
+/// Represents a DNS rule
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DNSRule {
+    // The allowed domain
     domain: DomainSpec,
+    // The allowed port
     port: PortSpec,
+    // Indicates whether this rule has been expanded into
+    // a list of IP and port based rules
     expanded: bool,
 }
 
 impl DNSRule {
-    pub fn is_allowed(&self, domain: impl AsRef<str>) -> bool {
+    /// Returns `true` if the `domain` is allowed by this rule
+    pub fn allows(&self, domain: impl AsRef<str>) -> bool {
         self.domain.matches(domain)
     }
 
+    /// Returns the allowed ports on the domains allowed by this rule
     pub fn allowed_ports(&self) -> PortSpec {
         self.port.clone()
     }
 }
 
+/// Specification of an Ipv4
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IPV4Spec {
+    /// All IPs
     All,
+    /// A single IP
     IP(Ipv4Addr),
+    /// An IP range in the format of `ip/mask`
     IPRange(IpRange<Ipv4Net>),
 }
 
@@ -191,7 +245,7 @@ impl IPV4Spec {
 }
 
 impl FromStr for IPV4Spec {
-    type Err = RulesetError;
+    type Err = RuleParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let spec = if s == "*" {
@@ -210,10 +264,14 @@ impl FromStr for IPV4Spec {
     }
 }
 
+/// Represents an Ipv4 rule
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IPV4Rule {
+    // Allowed IPs
     ip_spec: IPV4Spec,
+    // Allowed ports
     port_spec: PortSpec,
+    // Allowed direction of the traffic
     direction: Direction,
 }
 
@@ -225,10 +283,14 @@ impl IPV4Rule {
     }
 }
 
+/// Specification of an Ipv6 address
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IPV6Spec {
+    /// All IPs
     All,
+    /// Single IP
     IP(Ipv6Addr),
+    /// An IP range in the format of `ip/mask`
     IPRange(IpRange<Ipv6Net>),
 }
 
@@ -243,7 +305,7 @@ impl IPV6Spec {
 }
 
 impl FromStr for IPV6Spec {
-    type Err = RulesetError;
+    type Err = RuleParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let spec = if s == "*" {
@@ -262,10 +324,14 @@ impl FromStr for IPV6Spec {
     }
 }
 
+/// Represents an Ipv6 rule
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IPV6Rule {
+    // Allowed IPs
     ip_spec: IPV6Spec,
+    // Allowed ports
     port_spec: PortSpec,
+    // Allowed direction of the traffic
     direction: Direction,
 }
 
@@ -277,16 +343,22 @@ impl IPV6Rule {
     }
 }
 
+/// Represents all supported rules
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Rule {
+    /// Allowed IPv4 traffic
     IPV4(IPV4Rule),
+    /// Allowed IPv6 traffic
     IPV6(IPV6Rule),
+    /// Allowed DNS queries
     DNS(DNSRule),
+    /// Negative of a rule
     Neg(Arc<Rule>),
 }
 
 impl Rule {
-    pub fn is_socket_allowed(&self, socket_addr: SocketAddr, direction: Direction) -> bool {
+    /// Returns `true` if this rule allows accessing `socket_addr` in the specific `direction`
+    pub fn allows_socket(&self, socket_addr: SocketAddr, direction: Direction) -> bool {
         let ip = socket_addr.ip();
         let port = socket_addr.port();
 
@@ -297,33 +369,37 @@ impl Rule {
         }
     }
 
-    pub fn is_domain_allowed(&self, domain: impl AsRef<str>) -> bool {
+    /// Returns `true` if this rule allows querying the specific `domain`
+    pub fn allows_domain(&self, domain: impl AsRef<str>) -> bool {
         if let Rule::DNS(rule) = self {
-            rule.is_allowed(domain)
+            rule.allows(domain)
         } else {
             false
         }
     }
 
-    pub fn is_socket_blocked(&self, socket_addr: SocketAddr, direction: Direction) -> bool {
+    /// Returns `true` if this rule blocks accessing `socket_addr` in the specific `direction`
+    pub fn blocks_socket(&self, socket_addr: SocketAddr, direction: Direction) -> bool {
         if let Rule::Neg(rule) = self {
-            rule.is_socket_allowed(socket_addr, direction)
+            rule.allows_socket(socket_addr, direction)
         } else {
             false
         }
     }
 
-    pub fn is_domain_blocked(&self, domain: impl AsRef<str>) -> bool {
+    /// Returns `true` if this rule blocks querying the specific `domain`
+    pub fn blocks_domain(&self, domain: impl AsRef<str>) -> bool {
         if let Rule::Neg(rule) = self {
-            rule.is_domain_allowed(domain)
+            rule.allows_domain(domain)
         } else {
             false
         }
     }
 
+    /// Returns allowed ports for the specified `domain` if this rule is a DNS rule
     pub fn port_spec_of_domain(&mut self, domain: impl AsRef<str>) -> Option<PortSpec> {
         if let Rule::DNS(rule) = self {
-            if rule.is_allowed(domain) {
+            if rule.allows(domain) {
                 return Some(rule.allowed_ports());
             }
         }
@@ -331,6 +407,7 @@ impl Rule {
         None
     }
 
+    /// Returns `true` if this rule is a DNS rule and has not been expanded yet
     pub fn is_expandable(&self) -> bool {
         if let Rule::DNS(rule) = self {
             !rule.expanded
@@ -339,6 +416,7 @@ impl Rule {
         }
     }
 
+    /// Sets the expanded state of this rule if its a DNS rule
     pub fn set_expanded(&mut self, expanded: bool) {
         if let Rule::DNS(rule) = self {
             rule.expanded = expanded;
@@ -355,7 +433,7 @@ fn parse_enclosed(s: &str, left: char, right: char) -> Option<&str> {
     }
 }
 
-fn parse_as_list<T: FromStr<Err = RulesetError>>(s: &str) -> Result<Vec<T>, RulesetError> {
+fn parse_as_list<T: FromStr<Err = RuleParseError>>(s: &str) -> Result<Vec<T>, RuleParseError> {
     let entries = if let Some(entries) = parse_enclosed(s, '{', '}') {
         entries
             .split(',')
@@ -370,10 +448,10 @@ fn parse_as_list<T: FromStr<Err = RulesetError>>(s: &str) -> Result<Vec<T>, Rule
     Ok(entries)
 }
 
-fn parse_ipv4_rule(s: &str) -> Result<Vec<IPV4Rule>, RulesetError> {
+fn parse_ipv4_rule(s: &str) -> Result<Vec<IPV4Rule>, RuleParseError> {
     let (ips, ports_and_direction) = s
         .split_once(':')
-        .ok_or_else(|| RulesetError::MissingColon(s.to_string()))?;
+        .ok_or_else(|| RuleParseError::MissingColon(s.to_string()))?;
 
     let mut direction = Direction::Bidirectional;
     let ports = if let Some((ports, dir)) = ports_and_direction.split_once('/') {
@@ -401,10 +479,10 @@ fn parse_ipv4_rule(s: &str) -> Result<Vec<IPV4Rule>, RulesetError> {
     Ok(rules)
 }
 
-fn parse_ipv6_rule(s: &str) -> Result<Vec<IPV6Rule>, RulesetError> {
+fn parse_ipv6_rule(s: &str) -> Result<Vec<IPV6Rule>, RuleParseError> {
     let (ips, ports_and_direction) = s
         .rsplit_once(':')
-        .ok_or_else(|| RulesetError::MissingColon(s.to_string()))?;
+        .ok_or_else(|| RuleParseError::MissingColon(s.to_string()))?;
 
     let mut direction = Direction::Bidirectional;
     let ports = if let Some((ports, dir)) = ports_and_direction.split_once('/') {
@@ -419,7 +497,7 @@ fn parse_ipv6_rule(s: &str) -> Result<Vec<IPV6Rule>, RulesetError> {
 
     let ips = if ips.contains('[') {
         let ip = parse_enclosed(ips, '[', ']')
-            .ok_or_else(|| RulesetError::IPV6ParsingError(ips.to_string()))?;
+            .ok_or_else(|| RuleParseError::MalformedIpv6(ips.to_string()))?;
 
         vec![ip.parse::<IPV6Spec>()?]
     } else {
@@ -440,10 +518,10 @@ fn parse_ipv6_rule(s: &str) -> Result<Vec<IPV6Rule>, RulesetError> {
     Ok(rules)
 }
 
-fn parse_dns_rule(s: &str) -> Result<Vec<DNSRule>, RulesetError> {
+fn parse_dns_rule(s: &str) -> Result<Vec<DNSRule>, RuleParseError> {
     let (domains, ports) = s
         .split_once(':')
-        .ok_or_else(|| RulesetError::MissingColon(s.to_string()))?;
+        .ok_or_else(|| RuleParseError::MissingColon(s.to_string()))?;
 
     let mut rules = Vec::new();
     let domains = parse_as_list::<DomainSpec>(domains)?;
@@ -462,6 +540,7 @@ fn parse_dns_rule(s: &str) -> Result<Vec<DNSRule>, RulesetError> {
     Ok(rules)
 }
 
+// Represents the rule type section in a rule segment
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum RuleType {
     Dns,
@@ -470,7 +549,11 @@ enum RuleType {
 }
 
 impl RuleType {
-    pub fn consume_input(input: &str) -> Result<(Self, &str), RulesetError> {
+    // Receives a string as input and returns the parsed out rule type and the remaining string
+    // |-------------|---...
+    // rule_type ----^     ^
+    // rem ----------------'
+    pub fn consume_input(input: &str) -> Result<(Self, &str), RuleParseError> {
         let pair = if let Some(rem) = input.strip_prefix("dns:") {
             (RuleType::Dns, rem)
         } else if let Some(rem) = input.strip_prefix("ipv4:") {
@@ -478,13 +561,14 @@ impl RuleType {
         } else if let Some(rem) = input.strip_prefix("ipv6:") {
             (RuleType::IPV6, rem)
         } else {
-            return Err(RulesetError::InvalidRuleType(input.to_string()));
+            return Err(RuleParseError::InvalidRuleType(input.to_string()));
         };
 
         Ok(pair)
     }
 }
 
+// Represents the rule action section in a [`RulesetSegment`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum RuleAction {
     Allow,
@@ -492,24 +576,36 @@ enum RuleAction {
 }
 
 impl RuleAction {
-    pub fn consume_input(input: &str) -> Result<(Self, &str), RulesetError> {
+    // Receives a string as input and returns the parsed out rule action and the remaining string
+    // |----------|---------|---...
+    // rule_type -^         ^     ^
+    // rule_action ---------'     '
+    // rem -----------------------'
+    pub fn consume_input(input: &str) -> Result<(Self, &str), RuleParseError> {
         let pair = if let Some(rem) = input.strip_prefix("allow=") {
             (RuleAction::Allow, rem)
         } else if let Some(rem) = input.strip_prefix("deny=") {
             (RuleAction::Deny, rem)
         } else {
-            return Err(RulesetError::InvalidRuleAction(input.to_string()));
+            return Err(RuleParseError::InvalidRuleAction(input.to_string()));
         };
 
         Ok(pair)
     }
 }
 
+// Represents the rule expression section in a [`RulesetSegment`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RuleExpr(String);
 
 impl RuleExpr {
-    pub fn consume_input(input: &str) -> Result<(Self, &str), RulesetError> {
+    // Receives a string as input and returns the parsed out rule expression and the remaining string
+    // |----------|---------|-----|---...
+    // rule_type -^         ^     ^     ^
+    // rule_action ---------'     '     '
+    // rule_expr -----------------'     '
+    // rem -----------------------------'
+    pub fn consume_input(input: &str) -> Result<(Self, &str), RuleParseError> {
         let mut next_dns_entry = usize::MAX;
         let mut next_ipv4_entry = usize::MAX;
         let mut next_ipv6_entry = usize::MAX;
@@ -539,6 +635,10 @@ impl RuleExpr {
     }
 }
 
+// A ruleset is a series of comma separated ruleset segments:
+//     <rule1>, <rule2>, ...
+// each rule is consistent of three sections:
+//     <rule-type>:<rule-action>=<rule-expr>
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RulesetSegment {
     ty: RuleType,
@@ -546,7 +646,7 @@ struct RulesetSegment {
     expr: RuleExpr,
 }
 
-fn ruleset_segments(s: impl AsRef<str>) -> Result<Vec<RulesetSegment>, RulesetError> {
+fn parse_ruleset_segments(s: impl AsRef<str>) -> Result<Vec<RulesetSegment>, RuleParseError> {
     let mut input = s.as_ref();
     let mut segments = Vec::new();
 
@@ -563,39 +663,58 @@ fn ruleset_segments(s: impl AsRef<str>) -> Result<Vec<RulesetSegment>, RulesetEr
     Ok(segments)
 }
 
+/// Represents a ruleset that can be used to specify a whitelist and a blacklist in order to
+/// control the inbound and outbound traffic of a network.
 #[derive(Debug, Clone)]
 pub struct Ruleset {
     rules: Arc<RwLock<Vec<Rule>>>,
 }
 
 impl Ruleset {
-    pub fn is_socket_allowed(&self, addr: impl Into<SocketAddr>, dir: Direction) -> bool {
+    /// Returns `true` if at least one rule allows accessing `socket_addr` in the specific `direction`
+    /// and no rule blocks it
+    pub fn allows_socket(&self, addr: impl Into<SocketAddr>, dir: Direction) -> bool {
         let addr = addr.into();
 
-        let ruleset = self.rules.read().unwrap();
-        let is_whitelisted = ruleset.iter().any(|r| r.is_socket_allowed(addr, dir));
-        let is_blacklisted = ruleset.iter().any(|r| r.is_socket_blocked(addr, dir));
-        drop(ruleset);
+        let is_allowed = {
+            let ruleset = self.rules.read().unwrap();
 
-        is_whitelisted && !is_blacklisted
+            let is_blacklisted = ruleset.iter().any(|r| r.blocks_socket(addr, dir));
+            if is_blacklisted {
+                return false;
+            }
+
+            ruleset.iter().any(|r| r.allows_socket(addr, dir))
+        };
+
+        is_allowed
     }
 
-    pub fn is_domain_allowed(&self, domain: impl AsRef<str>) -> bool {
+    /// Returns `true` if at least one rule allows querying the specific `domain` and no rule blocks it
+    pub fn allows_domain(&self, domain: impl AsRef<str>) -> bool {
         let domain = domain.as_ref();
 
-        let ruleset = self.rules.read().unwrap();
-        let is_whitelisted = ruleset.iter().any(|r| r.is_domain_allowed(domain));
-        let is_blacklisted = ruleset.iter().any(|r| r.is_domain_blocked(domain));
-        drop(ruleset);
+        let is_allowed = {
+            let ruleset = self.rules.read().unwrap();
 
-        is_whitelisted && !is_blacklisted
+            let is_blacklisted = ruleset.iter().any(|r| r.blocks_domain(domain));
+            if is_blacklisted {
+                return false;
+            }
+
+            ruleset.iter().any(|r| r.allows_domain(domain))
+        };
+
+        is_allowed
     }
 
+    /// Expands the DNS rule that allows the specified `domain` into a list of IP based
+    /// rules with addresses specified by `addrs`
     pub fn expand_domain(
         &self,
         domain: impl AsRef<str>,
         addrs: impl AsRef<[IpAddr]>,
-    ) -> Result<(), RulesetError> {
+    ) -> Result<(), RuleParseError> {
         let mut ruleset = self.rules.write().unwrap();
         let domain = domain.as_ref();
 
@@ -619,9 +738,9 @@ impl Ruleset {
             })
             .ok_or_else(|| {
                 if already_expanded {
-                    RulesetError::DomainAlreadyExpanded(domain.to_string())
+                    RuleParseError::DomainAlreadyExpanded(domain.to_string())
                 } else {
-                    RulesetError::DomainRuleNotFound(domain.to_string())
+                    RuleParseError::DomainRuleNotFound(domain.to_string())
                 }
             })?;
 
@@ -647,12 +766,12 @@ impl Ruleset {
 }
 
 impl FromStr for Ruleset {
-    type Err = RulesetError;
+    type Err = RuleParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s: String = s.chars().filter(|c| !c.is_whitespace()).collect();
         let mut rules = vec![];
-        for seg in ruleset_segments(s)? {
+        for seg in parse_ruleset_segments(s)? {
             let rule_type = &seg.ty;
             let rule_action = &seg.action;
             let rule_expr = &seg.expr;
@@ -845,7 +964,7 @@ mod tests {
         let rules = parse_dns_rule("*:*").unwrap();
 
         assert_eq!(rules.len(), 1);
-        assert!(rules[0].is_allowed("example.com"));
+        assert!(rules[0].allows("example.com"));
         assert_eq!(rules[0].allowed_ports(), PortSpec::All);
     }
 
@@ -854,7 +973,7 @@ mod tests {
         let rules = parse_dns_rule("example.com:80").unwrap();
 
         assert_eq!(rules.len(), 1);
-        assert!(rules[0].is_allowed("example.com"));
+        assert!(rules[0].allows("example.com"));
         assert_eq!(rules[0].allowed_ports(), PortSpec::Port(80));
     }
 
@@ -869,24 +988,24 @@ mod tests {
 
         assert!(rules.is_empty());
 
-        assert!(rule1.is_allowed("sub.b.com"));
-        assert!(!rule1.is_allowed("b.com"));
-        assert!(!rule1.is_allowed("a.com"));
+        assert!(rule1.allows("sub.b.com"));
+        assert!(!rule1.allows("b.com"));
+        assert!(!rule1.allows("a.com"));
         assert_eq!(rule1.allowed_ports(), PortSpec::PortRange(100..=200));
 
-        assert!(rule2.is_allowed("sub.b.com"));
-        assert!(!rule2.is_allowed("b.com"));
-        assert!(!rule2.is_allowed("a.com"));
+        assert!(rule2.allows("sub.b.com"));
+        assert!(!rule2.allows("b.com"));
+        assert!(!rule2.allows("a.com"));
         assert_eq!(rule2.allowed_ports(), PortSpec::Port(80));
 
-        assert!(rule3.is_allowed("a.com"));
-        assert!(!rule3.is_allowed("sub.a.com"));
-        assert!(!rule3.is_allowed("b.com"));
+        assert!(rule3.allows("a.com"));
+        assert!(!rule3.allows("sub.a.com"));
+        assert!(!rule3.allows("b.com"));
         assert_eq!(rule3.allowed_ports(), PortSpec::PortRange(100..=200));
 
-        assert!(rule4.is_allowed("a.com"));
-        assert!(!rule4.is_allowed("sub.a.com"));
-        assert!(!rule4.is_allowed("b.com"));
+        assert!(rule4.allows("a.com"));
+        assert!(!rule4.allows("sub.a.com"));
+        assert!(!rule4.allows("b.com"));
         assert_eq!(rule4.allowed_ports(), PortSpec::Port(80));
     }
 
@@ -1258,11 +1377,11 @@ mod tests {
     fn ruleset_dns() {
         let ruleset = Ruleset::from_str("dns:allow={a.com, *.b.com}:{80, 8080}").unwrap();
 
-        assert!(ruleset.is_domain_allowed("a.com"));
-        assert!(!ruleset.is_domain_allowed("sub.a.com"));
-        assert!(!ruleset.is_domain_allowed("b.com"));
-        assert!(ruleset.is_domain_allowed("sub.b.com"));
-        assert!(ruleset.is_domain_allowed("another.sub.b.com"));
+        assert!(ruleset.allows_domain("a.com"));
+        assert!(!ruleset.allows_domain("sub.a.com"));
+        assert!(!ruleset.allows_domain("b.com"));
+        assert!(ruleset.allows_domain("sub.b.com"));
+        assert!(ruleset.allows_domain("another.sub.b.com"));
     }
 
     #[test]
@@ -1280,11 +1399,11 @@ mod tests {
 
         for ip in &ip_matches {
             let ip_addr: Ipv4Addr = ip.parse().unwrap();
-            assert!(!ruleset.is_socket_allowed((ip_addr, 8080), Direction::Inbound));
+            assert!(!ruleset.allows_socket((ip_addr, 8080), Direction::Inbound));
         }
 
-        assert!(!ruleset.is_socket_allowed(([127, 0, 0, 1], 8080), Direction::Inbound));
-        assert!(!ruleset.is_socket_allowed(([127, 0, 0, 1], 80), Direction::Inbound));
+        assert!(!ruleset.allows_socket(([127, 0, 0, 1], 8080), Direction::Inbound));
+        assert!(!ruleset.allows_socket(([127, 0, 0, 1], 80), Direction::Inbound));
     }
 
     #[test]
@@ -1302,14 +1421,14 @@ mod tests {
 
         for ip in &ip_matches {
             let ip_addr: Ipv6Addr = ip.parse().unwrap();
-            assert!(ruleset.is_socket_allowed((ip_addr, 8080), Direction::Inbound));
+            assert!(ruleset.allows_socket((ip_addr, 8080), Direction::Inbound));
         }
 
-        assert!(ruleset.is_socket_allowed(
+        assert!(ruleset.allows_socket(
             ("3001:db8::".parse::<Ipv6Addr>().unwrap(), 8080),
             Direction::Inbound
         ));
-        assert!(ruleset.is_socket_allowed(
+        assert!(ruleset.allows_socket(
             ("3001:db8::".parse::<Ipv6Addr>().unwrap(), 8080),
             Direction::Inbound
         ));
@@ -1325,11 +1444,11 @@ mod tests {
         .unwrap();
 
         // dns rules
-        assert!(ruleset.is_domain_allowed("a.com"));
-        assert!(!ruleset.is_domain_allowed("sub.a.com"));
-        assert!(!ruleset.is_domain_allowed("b.com"));
-        assert!(ruleset.is_domain_allowed("sub.b.com"));
-        assert!(ruleset.is_domain_allowed("another.sub.b.com"));
+        assert!(ruleset.allows_domain("a.com"));
+        assert!(!ruleset.allows_domain("sub.a.com"));
+        assert!(!ruleset.allows_domain("b.com"));
+        assert!(ruleset.allows_domain("sub.b.com"));
+        assert!(ruleset.allows_domain("another.sub.b.com"));
 
         // ipv4 rules
         let ip_matches = vec![
@@ -1342,11 +1461,11 @@ mod tests {
 
         for ip in &ip_matches {
             let ip_addr: Ipv4Addr = ip.parse().unwrap();
-            assert!(!ruleset.is_socket_allowed((ip_addr, 8080), Direction::Inbound));
+            assert!(!ruleset.allows_socket((ip_addr, 8080), Direction::Inbound));
         }
 
-        assert!(!ruleset.is_socket_allowed(([127, 0, 0, 1], 8080), Direction::Inbound));
-        assert!(!ruleset.is_socket_allowed(([127, 0, 0, 1], 80), Direction::Inbound));
+        assert!(!ruleset.allows_socket(([127, 0, 0, 1], 8080), Direction::Inbound));
+        assert!(!ruleset.allows_socket(([127, 0, 0, 1], 80), Direction::Inbound));
 
         // ipv6 rules
         let ip_matches = vec![
@@ -1359,30 +1478,16 @@ mod tests {
 
         for ip in &ip_matches {
             let ip_addr: Ipv6Addr = ip.parse().unwrap();
-            assert!(ruleset.is_socket_allowed((ip_addr, 8080), Direction::Inbound));
+            assert!(ruleset.allows_socket((ip_addr, 8080), Direction::Inbound));
         }
 
-        assert!(ruleset.is_socket_allowed(
+        assert!(ruleset.allows_socket(
             ("3001:db8::".parse::<Ipv6Addr>().unwrap(), 8080),
             Direction::Inbound
         ));
-        assert!(ruleset.is_socket_allowed(
+        assert!(ruleset.allows_socket(
             ("3001:db8::".parse::<Ipv6Addr>().unwrap(), 8080),
             Direction::Inbound
         ));
-    }
-
-    #[test]
-    fn ruleset_temp() {
-        let _ruleset = Ruleset::from_str(
-            "
-            dns:allow=localhost:8080,
-            ipv4:allow=*:8080/in,
-            ipv6:allow=*:8080/in,
-            ipv4:allow=*:*/out,
-            ipv6:allow=*:*/out
-        ",
-        )
-        .unwrap();
     }
 }

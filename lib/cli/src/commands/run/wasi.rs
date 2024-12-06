@@ -101,7 +101,11 @@ pub struct Wasi {
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
     #[clap(long = "net")]
-    pub networking: Option<Option<String>>,
+    pub networking: bool,
+
+    /// Define a set of filters to control the network sandbox
+    #[clap(long, requires = "networking")]
+    pub net_filter: Option<String>,
 
     /// Disables the TTY bridge
     #[clap(long = "no-tty")]
@@ -557,15 +561,14 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        let has_networking = self.networking.is_some()
+        let has_networking = self.networking
             || capabilities::get_cached_capability(pkg_cache_path)
                 .ok()
                 .is_some_and(|v| v.enable_networking);
 
         let ruleset = self
-            .networking
+            .net_filter
             .clone()
-            .flatten()
             .map(|ruleset| Ruleset::from_str(&ruleset))
             .transpose()?;
 
