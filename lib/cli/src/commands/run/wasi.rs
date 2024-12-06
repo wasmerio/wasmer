@@ -103,7 +103,21 @@ pub struct Wasi {
     #[clap(long = "net")]
     pub networking: bool,
 
-    /// Define a set of filters to control the network sandbox
+    /// Define a set of network filters
+    ///
+    /// Allows fine-grained control over the network sandbox.
+    ///
+    /// Syntax:
+    ///
+    /// <rule-type>:<allow|deny>=<rule-expression>
+    ///
+    /// Examples:
+    ///
+    ///  - Allow a specific domain and port: dns:allow=example.com:80
+    ///
+    ///  - Deny a domain and all its subdomains on all ports: dns:deny=*danger.xyz:*
+    ///
+    ///  - Allow opening ipv4 sockets only on a specific IP and port: ipv4:allow=127.0.0.1:80/in.
     #[clap(long, requires = "networking")]
     pub net_filter: Option<String>,
 

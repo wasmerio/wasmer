@@ -3,7 +3,7 @@
 ///
 /// ## Rule Specification
 /// Each rule can be expressed like:
-/// ```
+/// ```text
 /// <rule_kind>:<rule_action>=<rule_expr>
 ///
 /// <rule_kind>: dns, ipv4, ipv6
@@ -44,11 +44,11 @@
 /// ### Rule Combination
 /// In order to prevent repetition, the parts before and after the `:` could hold multiple values.
 /// For example:
-/// ```
+/// ```text
 /// ipv4:deny={127.0.0.1/24, 192.168.1.1/24}:{80, 443}
 /// ```
 /// This is equivalent to:
-/// ```
+/// ```text
 /// ipv4:deny=127.0.0.1/24:80,
 /// ipv4:deny=127.0.0.1/24:443,
 /// ipv4:deny=192.168.1.1/24:80,
