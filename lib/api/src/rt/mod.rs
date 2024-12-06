@@ -19,6 +19,7 @@ pub mod js;
 #[cfg(feature = "jsc")]
 pub mod jsc;
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 /// An enumeration over all the supported runtimes.
 pub enum RuntimeKind {
