@@ -9,7 +9,6 @@ use std::{
 use anyhow::{bail, Context, Result};
 use bytes::Bytes;
 use clap::Parser;
-use futures::future::FlattenSink;
 use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
