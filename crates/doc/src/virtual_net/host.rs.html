@@ -916,8 +916,77 @@
 <a href="#916" id="916">916</a>
 <a href="#917" id="917">917</a>
 <a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_variables)]
-</span><span class="kw">use crate</span>::{io_err_into_net_error, VirtualIoSource};
+</span><span class="kw">use </span><span class="kw">crate</span>::ruleset::{Direction, Ruleset};
+<span class="kw">use crate</span>::{io_err_into_net_error, VirtualIoSource};
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use crate</span>::{
     IpCidr, IpRoute, NetworkError, <span class="prelude-ty">Result</span>, SocketStatus, StreamSecurity, VirtualConnectedSocket,
@@ -950,6 +1019,7 @@
 </span><span class="kw">pub struct </span>LocalNetworking {
     selector: Arc&lt;Selector&gt;,
     handle: Handle,
+    ruleset: <span class="prelude-ty">Option</span>&lt;Ruleset&gt;,
 }
 
 <span class="kw">impl </span>LocalNetworking {
@@ -957,6 +1027,15 @@
         <span class="self">Self </span>{
             selector: Selector::new(),
             handle: Handle::current(),
+            ruleset: <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="kw">pub fn </span>with_ruleset(ruleset: Ruleset) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            selector: Selector::new(),
+            handle: Handle::current(),
+            ruleset: <span class="prelude-val">Some</span>(ruleset),
         }
     }
 }
@@ -983,6 +1062,13 @@
         reuse_port: bool,
         reuse_addr: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync&gt;&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
+            <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Inbound) {
+                <span class="macro">tracing::warn!</span>(%addr, <span class="string">"listen_tcp blocked by firewall rule"</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
+            }
+        }
+
         <span class="kw">let </span>listener = std::net::TcpListener::bind(addr)
             .map(|sock| {
                 sock.set_nonblocking(<span class="bool-val">true</span>).ok();
@@ -993,6 +1079,7 @@
                     no_delay: <span class="prelude-val">None</span>,
                     keep_alive: <span class="prelude-val">None</span>,
                     backlog: Default::default(),
+                    ruleset: <span class="self">self</span>.ruleset.clone(),
                 })
             })
             .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
@@ -1005,6 +1092,13 @@
         _reuse_port: bool,
         _reuse_addr: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync&gt;&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
+            <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Inbound) {
+                <span class="macro">tracing::warn!</span>(%addr, <span class="string">"bind_udp blocked by firewall rule"</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
+            }
+        }
+
         <span class="kw">let </span>socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
 
         <span class="attr">#[allow(unused_mut)]
@@ -1014,6 +1108,7 @@
             addr,
             handler_guard: HandlerGuardState::None,
             backlog: Default::default(),
+            ruleset: <span class="self">self</span>.ruleset.clone(),
         };
 
         <span class="comment">// In windows we can not poll the socket as it is not supported and hence
@@ -1035,6 +1130,13 @@
         _addr: SocketAddr,
         <span class="kw-2">mut </span>peer: SocketAddr,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
+            <span class="kw">if </span>!ruleset.allows_socket(peer, Direction::Outbound) {
+                <span class="macro">tracing::warn!</span>(%peer, <span class="string">"connect_tcp blocked by firewall rule"</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
+            }
+        }
+
         <span class="kw">let </span>stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(p) = stream.peer_addr() {
@@ -1050,17 +1152,35 @@
         port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
         dns_server: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpAddr&gt;&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
+            <span class="kw">if </span>!ruleset.allows_domain(host) {
+                <span class="macro">tracing::warn!</span>(%host, <span class="string">"dns resolve blocked by firewall rule"</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
+            }
+        }
+
         <span class="kw">let </span>host_to_lookup = <span class="kw">if </span>host.contains(<span class="string">':'</span>) {
             host.to_string()
         } <span class="kw">else </span>{
             <span class="macro">format!</span>(<span class="string">"{}:{}"</span>, host, port.unwrap_or(<span class="number">0</span>))
         };
-        <span class="self">self</span>.handle
+        <span class="kw">let </span>addrs = <span class="self">self
+            </span>.handle
             .spawn(tokio::net::lookup_host(host_to_lookup))
             .<span class="kw">await
             </span>.map_err(|<span class="kw">_</span>| NetworkError::IOError)<span class="question-mark">?
             </span>.map(|a| a.map(|a| a.ip()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;())
-            .map_err(io_err_into_net_error)
+            .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = ruleset.expand_domain(host, <span class="kw-2">&amp;</span>addrs) {
+                <span class="macro">tracing::debug!</span>(err=%e, <span class="string">"ruleset expansion failed"</span>);
+            } <span class="kw">else </span>{
+                <span class="macro">tracing::debug!</span>(addrs=<span class="question-mark">?</span>addrs, domain = host, <span class="string">"ruleset expansion"</span>)
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(addrs)
     }
 }
 
@@ -1072,12 +1192,20 @@
     no_delay: <span class="prelude-ty">Option</span>&lt;bool&gt;,
     keep_alive: <span class="prelude-ty">Option</span>&lt;bool&gt;,
     backlog: VecDeque&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt;,
+    ruleset: <span class="prelude-ty">Option</span>&lt;Ruleset&gt;,
 }
 
 <span class="kw">impl </span>LocalTcpListener {
     <span class="kw">fn </span>try_accept_internal(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt; {
         <span class="kw">match </span><span class="self">self</span>.stream.accept().map_err(io_err_into_net_error) {
             <span class="prelude-val">Ok</span>((stream, addr)) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
+                    <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Outbound) {
+                        <span class="macro">tracing::warn!</span>(%addr, <span class="string">"try_accept blocked by firewall rule"</span>);
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
+                    }
+                }
+
                 <span class="kw">let </span><span class="kw-2">mut </span>socket = LocalTcpStream::new(<span class="self">self</span>.selector.clone(), stream, addr);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(no_delay) = <span class="self">self</span>.no_delay {
                     socket.set_nodelay(no_delay).ok();
@@ -1580,6 +1708,7 @@
     selector: Arc&lt;Selector&gt;,
     handler_guard: HandlerGuardState,
     backlog: VecDeque&lt;(BytesMut, SocketAddr)&gt;,
+    ruleset: <span class="prelude-ty">Option</span>&lt;Ruleset&gt;,
 }
 
 <span class="kw">impl </span>LocalUdpSocket {
@@ -1680,6 +1809,13 @@
 
 <span class="kw">impl </span>VirtualConnectionlessSocket <span class="kw">for </span>LocalUdpSocket {
     <span class="kw">fn </span>try_send_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8], addr: SocketAddr) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
+            <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Outbound) {
+                <span class="macro">tracing::warn!</span>(%addr, <span class="string">"try_send blocked by firewall rule"</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
+            }
+        }
+
         <span class="kw">let </span>ret = <span class="self">self
             </span>.socket
             .send_to(data, addr)

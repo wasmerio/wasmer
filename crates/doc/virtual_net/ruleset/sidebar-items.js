@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Direction","DomainSpec","IPV4Spec","IPV6Spec","PortSpec","Rule","RuleAction","RuleParseError","RuleType"],"fn":["parse_as_list","parse_dns_rule","parse_enclosed","parse_ipv4_rule","parse_ipv6_rule","parse_ruleset_segments"],"struct":["DNSRule","IPV4Rule","IPV6Rule","RuleExpr","Ruleset","RulesetSegment"]};

@@ -750,6 +750,37 @@
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -764,6 +795,7 @@
 <span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
+<span class="kw">use </span>virtual_net::ruleset::Ruleset;
 <span class="kw">use </span>wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 <span class="kw">use </span>wasmer_config::package::PackageSource <span class="kw">as </span>PackageSpecifier;
 <span class="kw">use </span>wasmer_types::ModuleHash;
@@ -851,8 +883,25 @@
     <span class="doccomment">/// Enable networking with the host network.
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
-    </span><span class="attr">#[clap(long = <span class="string">"net"</span>)]
-    </span><span class="kw">pub </span>networking: bool,
+    ///
+    /// Optionally, a set of network filters could be defined which allows fine-grained
+    /// control over the network sandbox.
+    ///
+    /// Rule Syntax:
+    ///
+    /// &lt;rule-type&gt;:&lt;allow|deny&gt;=&lt;rule-expression&gt;
+    ///
+    /// Examples:
+    ///
+    ///  - Allow a specific domain and port: dns:allow=example.com:80
+    ///
+    ///  - Deny a domain and all its subdomains on all ports: dns:deny=*danger.xyz:*
+    ///
+    ///  - Allow opening ipv4 sockets only on a specific IP and port: ipv4:allow=127.0.0.1:80/in.
+    </span><span class="attr">#[clap(long = <span class="string">"net"</span>, require_equals = <span class="bool-val">true</span>)]
+    </span><span class="comment">// Note that when --net is passed to the cli, the first Option will be initialized: Some(None)
+    // and when --net=&lt;ruleset&gt; is specified, the inner Option will be initialized: Some(Some(ruleset))
+    </span><span class="kw">pub </span>networking: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;,
 
     <span class="doccomment">/// Disables the TTY bridge
     </span><span class="attr">#[clap(long = <span class="string">"no-tty"</span>)]
@@ -1308,17 +1357,30 @@
         <span class="kw">let </span>tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        <span class="kw">let </span>has_networking = <span class="self">self</span>.networking
+        <span class="kw">let </span>has_networking = <span class="self">self</span>.networking.is_some()
             || capabilities::get_cached_capability(pkg_cache_path)
                 .ok()
                 .is_some_and(|v| v.enable_networking);
 
+        <span class="kw">let </span>ruleset = <span class="self">self
+            </span>.networking
+            .clone()
+            .flatten()
+            .map(|ruleset| Ruleset::from_str(<span class="kw-2">&amp;</span>ruleset))
+            .transpose()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>network = <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = ruleset {
+            virtual_net::host::LocalNetworking::with_ruleset(ruleset)
+        } <span class="kw">else </span>{
+            virtual_net::host::LocalNetworking::default()
+        };
+
         <span class="kw">if </span>has_networking {
-            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
+            rt.set_networking_implementation(network);
         } <span class="kw">else </span>{
             <span class="kw">let </span>net = <span class="kw">super</span>::capabilities::net::AskingNetworking::new(
                 pkg_cache_path.to_path_buf(),
-                Arc::new(virtual_net::host::LocalNetworking::default()),
+                Arc::new(network),
             );
 
             rt.set_networking_implementation(net);
