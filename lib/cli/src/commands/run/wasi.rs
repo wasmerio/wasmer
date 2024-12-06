@@ -9,6 +9,7 @@ use std::{
 use anyhow::{bail, Context, Result};
 use bytes::Bytes;
 use clap::Parser;
+use futures::future::FlattenSink;
 use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
@@ -100,14 +101,11 @@ pub struct Wasi {
     /// Enable networking with the host network.
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
-    #[clap(long = "net")]
-    pub networking: bool,
-
-    /// Define a set of network filters
     ///
-    /// Allows fine-grained control over the network sandbox.
+    /// Optionally, a set of network filters could be defined which allows fine-grained
+    /// control over the network sandbox.
     ///
-    /// Syntax:
+    /// Rule Syntax:
     ///
     /// <rule-type>:<allow|deny>=<rule-expression>
     ///
@@ -118,8 +116,10 @@ pub struct Wasi {
     ///  - Deny a domain and all its subdomains on all ports: dns:deny=*danger.xyz:*
     ///
     ///  - Allow opening ipv4 sockets only on a specific IP and port: ipv4:allow=127.0.0.1:80/in.
-    #[clap(long, requires = "networking")]
-    pub net_filter: Option<String>,
+    #[clap(long = "net", require_equals = true)]
+    // Note that when --net is passed to the cli, the first Option will be initialized: Some(None)
+    // and when --net=<ruleset> is specified, the inner Option will be initialized: Some(Some(ruleset))
+    pub networking: Option<Option<String>>,
 
     /// Disables the TTY bridge
     #[clap(long = "no-tty")]
@@ -575,14 +575,15 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        let has_networking = self.networking
+        let has_networking = self.networking.is_some()
             || capabilities::get_cached_capability(pkg_cache_path)
                 .ok()
                 .is_some_and(|v| v.enable_networking);
 
         let ruleset = self
-            .net_filter
+            .networking
             .clone()
+            .flatten()
             .map(|ruleset| Ruleset::from_str(&ruleset))
             .transpose()?;
 
