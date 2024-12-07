@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-swift"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 description = "Experimental wasmer bindings for swift"
 license = "MIT"
@@ -22,7 +22,7 @@ wasmer = { version = "=5.0.3", path = "../api", default-features = false, featur
 	"wamr",
 	"std",
 ] }
-wasmer-wasix = { version = "=0.32.0", path = "../wasix" }
+wasmer-wasix = { version = "=0.33.0", path = "../wasix" }
 webc.workspace = true
 wasmer-package.workspace = true
 
