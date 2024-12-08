@@ -31,7 +31,7 @@ pub fn path_filestat_get<M: MemorySize>(
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
 
     // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
+    if path_string.starts_with("./") || path_string == "." {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
     }
     tracing::trace!(path = path_string.as_str());
