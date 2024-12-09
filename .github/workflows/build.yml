@@ -517,7 +517,7 @@ jobs:
 
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -550,7 +550,7 @@ jobs:
 
   darwin_x86_64_jsc:
     name: macOS x86_64 (JSC)
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable

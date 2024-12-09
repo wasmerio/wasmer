@@ -1,6 +1,6 @@
 [package]
 name = "virtual-net"
-version = "0.12.0"
+version = "0.13.0"
 description = "Wasmer Virtual Networking"
 authors.workspace = true
 edition.workspace = true
@@ -14,6 +14,8 @@ base64.workspace = true
 hyper = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
 
+ipnet = "2.10.1"
+iprange = "0.6.7"
 thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
