@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::http::HttpClientCapabilityV1;
 
 /// Defines capabilities for a Wasi environment.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Capabilities {
     pub insecure_allow_all: bool,
     pub http_client: HttpClientCapabilityV1,
@@ -40,7 +40,7 @@ impl Default for Capabilities {
 }
 
 /// Defines threading related permissions.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct CapabilityThreadingV1 {
     /// Maximum number of threads that can be spawned.
     ///
