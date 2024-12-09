@@ -1,4 +1,7 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    path::{Component, PathBuf},
+    str::FromStr,
+};
 
 use super::*;
 use crate::syscalls::*;
@@ -30,7 +33,7 @@ pub fn path_create_directory<M: MemorySize>(
     Span::current().record("path", path_string.as_str());
 
     // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
+    if !path_string.starts_with("/") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
         trace!(
             %path_string
@@ -68,11 +71,14 @@ pub(crate) fn path_create_directory_internal(
     let path = std::path::PathBuf::from(path);
     let path_vec = path
         .components()
-        .map(|comp| {
-            comp.as_os_str()
-                .to_str()
-                .map(|inner_str| inner_str.to_string())
-                .ok_or(Errno::Inval)
+        .filter_map(|comp| match comp {
+            Component::RootDir => None,
+            _ => Some(
+                comp.as_os_str()
+                    .to_str()
+                    .map(|inner_str| inner_str.to_string())
+                    .ok_or(Errno::Inval),
+            ),
         })
         .collect::<Result<Vec<String>, Errno>>()?;
     if path_vec.is_empty() {
@@ -86,6 +92,11 @@ pub(crate) fn path_create_directory_internal(
         let processing_cur_dir_inode = cur_dir_inode.clone();
         let mut guard = processing_cur_dir_inode.write();
         match guard.deref_mut() {
+            // TODO: this depends on entries already being filled in. This is the case when you go
+            // through wasix-libc (which is, realistically, what everybody does) because it stats
+            // the path before calling path_create_directory, at which point entries is filled in.
+            // However, an alternate implementation or a manually implemented module may not always
+            // do this.
             Kind::Dir {
                 ref mut entries,
                 path,

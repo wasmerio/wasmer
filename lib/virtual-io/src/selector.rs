@@ -134,7 +134,14 @@ impl Selector {
         let mut events = mio::Events::with_capacity(128);
         loop {
             // Wait for an event to trigger
-            poll.poll(&mut events, None).unwrap();
+            if let Err(e) = poll.poll(&mut events, None) {
+                // This can happen when a debugger is attached
+                #[cfg(debug_assertions)]
+                if e.kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
+                panic!("Unexpected error in selector poll loop: {e:?}");
+            }
 
             // Loop through all the events while under a guard lock
             let mut guard = engine.inner.lock().unwrap();
