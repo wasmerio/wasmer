@@ -464,6 +464,34 @@
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
 
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
@@ -720,6 +748,34 @@
                     object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_LO20),
                     <span class="number">0</span>,
                 ) =&gt; RelocationKind::LArchAbs64Lo20,
+                (
+                    object::Architecture::LoongArch64,
+                    <span class="comment">// FIXME: Replace with R_LARCH_CALL36 while object is updated
+                    // to 0.32.2.
+                    // https://github.com/gimli-rs/object/commit/16b6d902f6c9b39ec7aaea141460f8981e57dd79
+                    </span>object::RelocationKind::Elf(<span class="number">110</span>),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchCall36,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA_HI20),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchPCAlaHi20,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA_LO12),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchPCAlaLo12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA64_HI12),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchPCAla64Hi12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA64_LO20),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::LArchPCAla64Lo20,
                 (
                     object::Architecture::Aarch64,
                     object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_LO21),

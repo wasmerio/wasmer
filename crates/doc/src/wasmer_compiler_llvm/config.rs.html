@@ -525,7 +525,7 @@
                 <span class="self">self</span>.opt_level,
                 <span class="self">self</span>.reloc_mode(),
                 <span class="kw">match </span>triple.architecture {
-                    Architecture::Riscv64(<span class="kw">_</span>) =&gt; CodeModel::Medium,
+                    Architecture::LoongArch64 | Architecture::Riscv64(<span class="kw">_</span>) =&gt; CodeModel::Medium,
                     <span class="kw">_ </span>=&gt; <span class="self">self</span>.code_model(),
                 },
             )

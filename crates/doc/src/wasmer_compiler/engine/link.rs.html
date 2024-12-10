@@ -268,6 +268,15 @@
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Linking for Universal-compiled code.
 
 </span><span class="kw">use crate</span>::{
@@ -397,29 +406,38 @@
                 | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u64);
             write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u64, reloc_delta);
         },
-        RelocationKind::LArchAbsHi20 =&gt; <span class="kw">unsafe </span>{
+        RelocationKind::LArchAbsHi20 | RelocationKind::LArchPCAlaHi20 =&gt; <span class="kw">unsafe </span>{
             <span class="kw">let </span>(reloc_address, reloc_abs) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
             <span class="kw">let </span>reloc_abs = ((((reloc_abs &gt;&gt; <span class="number">12</span>) &amp; <span class="number">0xfffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">5</span>)
                 | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
             write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_abs);
         },
-        RelocationKind::LArchAbsLo12 =&gt; <span class="kw">unsafe </span>{
+        RelocationKind::LArchAbsLo12 | RelocationKind::LArchPCAlaLo12 =&gt; <span class="kw">unsafe </span>{
             <span class="kw">let </span>(reloc_address, reloc_abs) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
             <span class="kw">let </span>reloc_abs =
                 (((reloc_abs &amp; <span class="number">0xfff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">10</span>) | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
             write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_abs);
         },
-        RelocationKind::LArchAbs64Hi12 =&gt; <span class="kw">unsafe </span>{
+        RelocationKind::LArchAbs64Hi12 | RelocationKind::LArchPCAla64Hi12 =&gt; <span class="kw">unsafe </span>{
             <span class="kw">let </span>(reloc_address, reloc_abs) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
             <span class="kw">let </span>reloc_abs = ((((reloc_abs &gt;&gt; <span class="number">52</span>) &amp; <span class="number">0xfff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">10</span>)
                 | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
             write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_abs);
         },
-        RelocationKind::LArchAbs64Lo20 =&gt; <span class="kw">unsafe </span>{
+        RelocationKind::LArchAbs64Lo20 | RelocationKind::LArchPCAla64Lo20 =&gt; <span class="kw">unsafe </span>{
             <span class="kw">let </span>(reloc_address, reloc_abs) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
             <span class="kw">let </span>reloc_abs = ((((reloc_abs &gt;&gt; <span class="number">32</span>) &amp; <span class="number">0xfffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">5</span>)
                 | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
             write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_abs);
+        },
+        RelocationKind::LArchCall36 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">let </span>reloc_delta1 = ((((reloc_delta &gt;&gt; <span class="number">18</span>) &amp; <span class="number">0xfffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">5</span>)
+                | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta1);
+            <span class="kw">let </span>reloc_delta2 = ((((reloc_delta &gt;&gt; <span class="number">2</span>) &amp; <span class="number">0xffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">10</span>)
+                | read_unaligned((reloc_address + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned((reloc_address + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta2);
         },
         RelocationKind::Aarch64AdrPrelPgHi21 =&gt; <span class="kw">unsafe </span>{
             <span class="kw">let </span>(reloc_address, delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
