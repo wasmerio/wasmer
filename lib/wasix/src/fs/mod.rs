@@ -545,7 +545,7 @@ impl WasiFs {
 
     /// Converts a relative path into an absolute path
     pub(crate) fn relative_path_to_absolute(&self, mut path: String) -> String {
-        if path.starts_with("./") {
+        if !path.starts_with("/") {
             let current_dir = self.current_dir.lock().unwrap();
             path = format!("{}{}", current_dir.as_str(), &path[1..]);
             if path.contains("//") {
@@ -575,7 +575,7 @@ impl WasiFs {
         let root_inode = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: true,
-            name: "/".into(),
+            name: RwLock::new("/".into()),
             kind: RwLock::new(root_kind),
         });
 
@@ -895,6 +895,13 @@ impl WasiFs {
 
         // TODO: rights checks
         'path_iter: for (i, component) in path.components().enumerate() {
+            // Since we're resolving the path against the given inode, we want to
+            // assume '/a/b' to be the same as `a/b` relative to the inode, so
+            // we skip over the RootDir component.
+            if matches!(component, Component::RootDir) {
+                continue;
+            }
+
             // used to terminate symlink resolution properly
             let last_component = i + 1 == n_components;
             // for each component traverse file structure
@@ -1255,13 +1262,31 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        let start_inode =
-            if !base_inode.deref().name.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
-                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-                cur_inode
+        let name = base_inode.name.read().unwrap();
+
+        let start_inode;
+        if name.starts_with('/') {
+            drop(name);
+            start_inode = base_inode;
+        } else {
+            let kind = base_inode.kind.read().unwrap();
+
+            // HACK: We preopen '/' with an alias of '.' by default in `prepare_webc_env`. If wasix-libc
+            // picks that up as the base FD, we want to do the same thing we do when the base is '/'
+            if *name == "."
+                && matches!(kind.deref(), Kind::Dir { path, .. } if path.as_os_str().as_encoded_bytes() == b"/")
+            {
+                drop(name);
+                drop(kind);
+                start_inode = base_inode;
             } else {
-                self.get_fd_inode(base)?
-            };
+                drop(name);
+                drop(kind);
+                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
+                start_inode = cur_inode;
+            }
+        };
+
         self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
     }
 
@@ -1416,7 +1441,7 @@ impl WasiFs {
                 // REVIEW:
                 // no need for +1, because there is no 0 end-of-string marker
                 // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.len() as u32 + 1,
+                pr_name_len: inode_val.name.read().unwrap().len() as u32 + 1,
             }
             .untagged(),
         }
@@ -1527,7 +1552,7 @@ impl WasiFs {
         inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
-            name,
+            name: RwLock::new(name),
             kind: RwLock::new(kind),
         })
     }
@@ -1906,7 +1931,7 @@ impl WasiFs {
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: true,
-                name: name.to_string().into(),
+                name: RwLock::new(name.to_string().into()),
                 kind: RwLock::new(kind),
             })
         };
