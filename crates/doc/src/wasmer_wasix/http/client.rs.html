@@ -188,31 +188,31 @@
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, ops::Deref, sync::Arc};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeSet, ops::Deref, sync::Arc};
 
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>http::{HeaderMap, Method, StatusCode};
 <span class="kw">use </span>url::Url;
 
 <span class="doccomment">/// Defines http client permissions.
-</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>HttpClientCapabilityV1 {
     <span class="kw">pub </span>allow_all: bool,
-    <span class="kw">pub </span>allowed_hosts: HashSet&lt;String&gt;,
+    <span class="kw">pub </span>allowed_hosts: BTreeSet&lt;String&gt;,
 }
 
 <span class="kw">impl </span>HttpClientCapabilityV1 {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             allow_all: <span class="bool-val">false</span>,
-            allowed_hosts: HashSet::new(),
+            allowed_hosts: Default::default(),
         }
     }
 
     <span class="kw">pub fn </span>new_allow_all() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             allow_all: <span class="bool-val">true</span>,
-            allowed_hosts: HashSet::new(),
+            allowed_hosts: Default::default(),
         }
     }
 

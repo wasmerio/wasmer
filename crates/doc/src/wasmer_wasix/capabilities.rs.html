@@ -83,7 +83,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::http::HttpClientCapabilityV1;
 
 <span class="doccomment">/// Defines capabilities for a Wasi environment.
-</span><span class="attr">#[derive(Clone, Debug)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>Capabilities {
     <span class="kw">pub </span>insecure_allow_all: bool,
     <span class="kw">pub </span>http_client: HttpClientCapabilityV1,
@@ -120,7 +120,7 @@
 }
 
 <span class="doccomment">/// Defines threading related permissions.
-</span><span class="attr">#[derive(Debug, Default, Clone)]
+</span><span class="attr">#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>CapabilityThreadingV1 {
     <span class="doccomment">/// Maximum number of threads that can be spawned.
     ///
