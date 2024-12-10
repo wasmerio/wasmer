@@ -202,7 +202,7 @@ impl PackageTag {
 
         let maybe_readme_content = match maybe_readme {
             Some(readme) => {
-                let readme_path = Path::new(&readme);
+                let readme_path = self.package_path.join(&readme);
                 if readme_path.exists() {
                     Some(tokio::fs::read_to_string(readme_path).await?)
                 } else {
