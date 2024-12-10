@@ -60,16 +60,8 @@ pub fn path_open<M: MemorySize>(
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
-    let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
+    let path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
-
-    // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        trace!(
-            %path_string
-        );
-    }
 
     let out_fd = wasi_try_ok!(path_open_internal(
         &mut ctx,

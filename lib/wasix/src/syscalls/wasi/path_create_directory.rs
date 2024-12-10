@@ -32,14 +32,6 @@ pub fn path_create_directory<M: MemorySize>(
     let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    // Convert relative paths into absolute paths
-    if !path_string.starts_with("/") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        trace!(
-            %path_string
-        );
-    }
-
     wasi_try_ok!(path_create_directory_internal(&mut ctx, fd, &path_string));
     let env = ctx.data();
 
@@ -82,7 +74,7 @@ pub(crate) fn path_create_directory_internal(
         })
         .collect::<Result<Vec<String>, Errno>>()?;
     if path_vec.is_empty() {
-        trace!("path vector is inva;id (its empty)");
+        trace!("path vector is invalid (its empty)");
         return Err(Errno::Inval);
     }
 

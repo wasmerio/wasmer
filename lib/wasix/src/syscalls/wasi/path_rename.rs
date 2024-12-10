@@ -28,12 +28,10 @@ pub fn path_rename<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let mut source_str = unsafe { get_input_str_ok!(&memory, old_path, old_path_len) };
+    let source_str = unsafe { get_input_str_ok!(&memory, old_path, old_path_len) };
     Span::current().record("old_path", source_str.as_str());
-    source_str = ctx.data().state.fs.relative_path_to_absolute(source_str);
-    let mut target_str = unsafe { get_input_str_ok!(&memory, new_path, new_path_len) };
+    let target_str = unsafe { get_input_str_ok!(&memory, new_path, new_path_len) };
     Span::current().record("new_path", target_str.as_str());
-    target_str = ctx.data().state.fs.relative_path_to_absolute(target_str);
 
     let ret = path_rename_internal(&mut ctx, old_fd, &source_str, new_fd, &target_str)?;
     let env = ctx.data();

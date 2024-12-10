@@ -14,16 +14,8 @@ pub fn path_remove_directory<M: MemorySize>(
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let base_dir = wasi_try!(state.fs.get_fd(fd));
-    let mut path_str = unsafe { get_input_str!(&memory, path, path_len) };
+    let path_str = unsafe { get_input_str!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
-
-    // Convert relative paths into absolute paths
-    if path_str.starts_with("./") {
-        path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
-        trace!(
-            %path_str
-        );
-    }
 
     wasi_try!(path_remove_directory_internal(&mut ctx, fd, &path_str));
     let env = ctx.data();

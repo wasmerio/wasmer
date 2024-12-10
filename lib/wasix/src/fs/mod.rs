@@ -545,7 +545,7 @@ impl WasiFs {
 
     /// Converts a relative path into an absolute path
     pub(crate) fn relative_path_to_absolute(&self, mut path: String) -> String {
-        if path.starts_with("./") || path == "." {
+        if !path.starts_with("/") {
             let current_dir = self.current_dir.lock().unwrap();
             path = format!("{}{}", current_dir.as_str(), &path[1..]);
             if path.contains("//") {
