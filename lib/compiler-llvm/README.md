@@ -17,7 +17,7 @@ let mut store = Store::new(compiler);
 ## When to use LLVM
 
 We recommend using LLVM as the default compiler when running WebAssembly
-files on any **production** system, as it offers maximum peformance near
+files on any **production** system, as it offers maximum performance near
 to native speeds.
 
 ## Requirements
