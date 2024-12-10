@@ -533,6 +533,11 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -601,13 +606,18 @@
         });
         <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span><span class="self">self</span>.mounts, container_fs)<span class="question-mark">?</span>;
 
-        builder.add_preopen_dir(<span class="string">"/"</span>)<span class="question-mark">?</span>;
-
-        <span class="kw">if </span><span class="self">self</span>.mounts.iter().all(|m| m.guest != <span class="string">"."</span>) {
+        <span class="comment">// TODO: What's a preopen for '.' supposed to mean anyway? Why do we need it?
+        </span><span class="kw">if </span><span class="self">self</span>.mounts.iter().all(|m| m.guest != <span class="string">"."</span>) {
             <span class="comment">// The user hasn't mounted "." to anything, so let's map it to "/"
             </span><span class="kw">let </span>path = builder.get_current_dir().unwrap_or(PathBuf::from(<span class="string">"/"</span>));
             builder.add_map_dir(<span class="string">"."</span>, path)<span class="question-mark">?</span>;
         }
+
+        <span class="comment">// wasix-libc favors later FDs, and we want it to pass in the preopen
+        // for '/' when opening things since that's faster, so do this after
+        // the '.' alias. Purely a performance thing, since we also account
+        // for the alias in `get_inode_at_path`.
+        </span>builder.add_preopen_dir(<span class="string">"/"</span>)<span class="question-mark">?</span>;
 
         builder.set_fs(Box::new(fs));
 

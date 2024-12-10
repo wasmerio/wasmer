@@ -176,7 +176,13 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::PathBuf, str::FromStr};
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    path::{Component, PathBuf},
+    str::FromStr,
+};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
@@ -206,14 +212,6 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">"path"</span>, path_string.as_str());
-
-    <span class="comment">// Convert relative paths into absolute paths
-    </span><span class="kw">if </span>path_string.starts_with(<span class="string">"./"</span>) {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        <span class="macro">trace!</span>(
-            %path_string
-        );
-    }
 
     <span class="macro">wasi_try_ok!</span>(path_create_directory_internal(<span class="kw-2">&amp;mut </span>ctx, fd, <span class="kw-2">&amp;</span>path_string));
     <span class="kw">let </span>env = ctx.data();
@@ -246,15 +244,18 @@
     <span class="kw">let </span>path = std::path::PathBuf::from(path);
     <span class="kw">let </span>path_vec = path
         .components()
-        .map(|comp| {
-            comp.as_os_str()
-                .to_str()
-                .map(|inner_str| inner_str.to_string())
-                .ok_or(Errno::Inval)
+        .filter_map(|comp| <span class="kw">match </span>comp {
+            Component::RootDir =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(
+                comp.as_os_str()
+                    .to_str()
+                    .map(|inner_str| inner_str.to_string())
+                    .ok_or(Errno::Inval),
+            ),
         })
         .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Errno&gt;&gt;()<span class="question-mark">?</span>;
     <span class="kw">if </span>path_vec.is_empty() {
-        <span class="macro">trace!</span>(<span class="string">"path vector is inva;id (its empty)"</span>);
+        <span class="macro">trace!</span>(<span class="string">"path vector is invalid (its empty)"</span>);
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
     }
 
@@ -264,7 +265,12 @@
         <span class="kw">let </span>processing_cur_dir_inode = cur_dir_inode.clone();
         <span class="kw">let </span><span class="kw-2">mut </span>guard = processing_cur_dir_inode.write();
         <span class="kw">match </span>guard.deref_mut() {
-            Kind::Dir {
+            <span class="comment">// TODO: this depends on entries already being filled in. This is the case when you go
+            // through wasix-libc (which is, realistically, what everybody does) because it stats
+            // the path before calling path_create_directory, at which point entries is filled in.
+            // However, an alternate implementation or a manually implemented module may not always
+            // do this.
+            </span>Kind::Dir {
                 <span class="kw-2">ref mut </span>entries,
                 path,
                 parent,

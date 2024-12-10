@@ -673,7 +673,7 @@
                 inner: Arc::new(InodeVal {
                     is_preopened: <span class="bool-val">false</span>,
                     kind: RwLock::new(Kind::Buffer { buffer: <span class="macro">vec!</span>[] }),
-                    name: Cow::Borrowed(<span class="string">""</span>),
+                    name: RwLock::new(Cow::Borrowed(<span class="string">""</span>)),
                     stat: RwLock::new(Default::default()),
                 }),
             },

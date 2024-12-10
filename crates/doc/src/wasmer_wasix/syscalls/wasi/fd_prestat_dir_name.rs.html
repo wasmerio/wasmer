@@ -44,6 +44,7 @@
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
 <a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -59,7 +60,8 @@
     <span class="kw">let </span>path_chars = <span class="macro">wasi_try_mem!</span>(path.slice(<span class="kw-2">&amp;</span>memory, path_len));
 
     <span class="kw">let </span>inode = <span class="macro">wasi_try!</span>(state.fs.get_fd_inode(fd));
-    Span::current().record(<span class="string">"path"</span>, inode.name.as_ref());
+    <span class="kw">let </span>name = inode.name.read().unwrap();
+    Span::current().record(<span class="string">"path"</span>, name.as_ref());
 
     <span class="comment">// check inode-val.is_preopened?
 
@@ -68,11 +70,11 @@
         Kind::Dir { .. } | Kind::Root { .. } =&gt; {
             <span class="comment">// TODO: verify this: null termination, etc
             </span><span class="kw">let </span>path_len: u64 = path_len.into();
-            <span class="kw">if </span>(inode.name.len() <span class="kw">as </span>u64) &lt; path_len {
+            <span class="kw">if </span>(name.len() <span class="kw">as </span>u64) &lt; path_len {
                 <span class="macro">wasi_try_mem!</span>(path_chars
-                    .subslice(<span class="number">0</span>..inode.name.len() <span class="kw">as </span>u64)
-                    .write_slice(inode.name.as_bytes()));
-                <span class="macro">wasi_try_mem!</span>(path_chars.index(inode.name.len() <span class="kw">as </span>u64).write(<span class="number">0</span>));
+                    .subslice(<span class="number">0</span>..name.len() <span class="kw">as </span>u64)
+                    .write_slice(name.as_bytes()));
+                <span class="macro">wasi_try_mem!</span>(path_chars.index(name.len() <span class="kw">as </span>u64).write(<span class="number">0</span>));
 
                 <span class="comment">//trace!("=&gt; result: \"{}\"", inode_val.name);
 

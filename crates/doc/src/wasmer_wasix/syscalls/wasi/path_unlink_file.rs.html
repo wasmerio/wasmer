@@ -113,11 +113,6 @@
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -144,13 +139,8 @@
     <span class="kw">if </span>!base_dir.rights.contains(Rights::PATH_UNLINK_FILE) {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
     }
-    <span class="kw">let </span><span class="kw-2">mut </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    <span class="kw">let </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">"path"</span>, path_str.as_str());
-
-    <span class="comment">// Convert relative paths into absolute paths
-    </span><span class="kw">if </span>path_str.starts_with(<span class="string">"./"</span>) {
-        path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
-    }
 
     <span class="kw">let </span>ret = path_unlink_file_internal(<span class="kw-2">&amp;mut </span>ctx, fd, <span class="kw-2">&amp;</span>path_str)<span class="question-mark">?</span>;
     <span class="kw">let </span>env = ctx.data();

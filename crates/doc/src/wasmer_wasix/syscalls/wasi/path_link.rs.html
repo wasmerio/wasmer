@@ -128,15 +128,6 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -226,25 +217,16 @@
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
-    <span class="comment">// Convert relative paths into absolute paths
-    </span><span class="kw">let </span>old_path_str = ctx
-        .data()
-        .state
-        .fs
-        .relative_path_to_absolute(old_path.to_string());
-    <span class="kw">let </span>new_path_str = ctx
-        .data()
-        .state
-        .fs
-        .relative_path_to_absolute(new_path.to_string());
+    Span::current().record(<span class="string">"old_path"</span>, old_path);
+    Span::current().record(<span class="string">"new_path"</span>, new_path);
 
     <span class="kw">let </span>source_inode = state.fs.get_inode_at_path(
         inodes,
         old_fd,
-        <span class="kw-2">&amp;</span>old_path_str,
+        old_path,
         old_flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
     )<span class="question-mark">?</span>;
-    <span class="kw">let </span>target_path_arg = std::path::PathBuf::from(<span class="kw-2">&amp;</span>new_path_str);
+    <span class="kw">let </span>target_path_arg = std::path::PathBuf::from(new_path);
     <span class="kw">let </span>(target_parent_inode, new_entry_name) =
         state
             .fs

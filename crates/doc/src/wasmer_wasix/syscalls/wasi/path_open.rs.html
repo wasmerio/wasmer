@@ -419,14 +419,6 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -489,16 +481,8 @@
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
-    </span><span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    </span><span class="kw">let </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">"path"</span>, path_string.as_str());
-
-    <span class="comment">// Convert relative paths into absolute paths
-    </span><span class="kw">if </span>path_string.starts_with(<span class="string">"./"</span>) {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        <span class="macro">trace!</span>(
-            %path_string
-        );
-    }
 
     <span class="kw">let </span>out_fd = <span class="macro">wasi_try_ok!</span>(path_open_internal(
         <span class="kw-2">&amp;mut </span>ctx,

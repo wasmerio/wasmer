@@ -64,14 +64,6 @@
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -110,14 +102,6 @@
     }
     <span class="kw">let </span><span class="kw-2">mut </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">"path"</span>, path_str.as_str());
-
-    <span class="comment">// Convert relative paths into absolute paths
-    </span><span class="kw">if </span>path_str.starts_with(<span class="string">"./"</span>) {
-        path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
-        <span class="macro">trace!</span>(
-            %path_str
-        );
-    }
 
     <span class="kw">let </span>inode = <span class="macro">wasi_try!</span>(state.fs.get_inode_at_path(inodes, dir_fd, <span class="kw-2">&amp;</span>path_str, <span class="bool-val">false</span>));
 

@@ -133,8 +133,6 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -162,12 +160,10 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span><span class="kw-2">mut </span>old_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
+    <span class="kw">let </span>old_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
     Span::current().record(<span class="string">"old_path"</span>, old_path_str.as_str());
-    <span class="kw">let </span><span class="kw-2">mut </span>new_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
+    <span class="kw">let </span>new_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
     Span::current().record(<span class="string">"new_path"</span>, new_path_str.as_str());
-    old_path_str = ctx.data().state.fs.relative_path_to_absolute(old_path_str);
-    new_path_str = ctx.data().state.fs.relative_path_to_absolute(new_path_str);
 
     <span class="macro">wasi_try_ok!</span>(path_symlink_internal(
         <span class="kw-2">&amp;mut </span>ctx,

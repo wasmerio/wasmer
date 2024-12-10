@@ -222,7 +222,6 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -253,12 +252,10 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span><span class="kw-2">mut </span>source_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
+    <span class="kw">let </span>source_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
     Span::current().record(<span class="string">"old_path"</span>, source_str.as_str());
-    source_str = ctx.data().state.fs.relative_path_to_absolute(source_str);
-    <span class="kw">let </span><span class="kw-2">mut </span>target_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
+    <span class="kw">let </span>target_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
     Span::current().record(<span class="string">"new_path"</span>, target_str.as_str());
-    target_str = ctx.data().state.fs.relative_path_to_absolute(target_str);
 
     <span class="kw">let </span>ret = path_rename_internal(<span class="kw-2">&amp;mut </span>ctx, old_fd, <span class="kw-2">&amp;</span>source_str, new_fd, <span class="kw-2">&amp;</span>target_str)<span class="question-mark">?</span>;
     <span class="kw">let </span>env = ctx.data();
@@ -297,7 +294,7 @@
         }
     }
 
-    <span class="comment">// this is to be sure the source file is fetch from filesystem if needed
+    <span class="comment">// this is to be sure the source file is fetched from the filesystem if needed
     </span><span class="macro">wasi_try_ok!</span>(state
         .fs
         .get_inode_at_path(inodes, source_fd, source_path, <span class="bool-val">true</span>));
@@ -431,7 +428,7 @@
     <span class="kw">if </span>need_create {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = target_parent_inode.write();
         <span class="kw">if let </span>Kind::Dir { entries, .. } = guard.deref_mut() {
-            <span class="kw">let </span>result = entries.insert(target_entry_name, source_entry);
+            <span class="kw">let </span>result = entries.insert(target_entry_name.clone(), source_entry);
             <span class="macro">assert!</span>(
                 result.is_none(),
                 <span class="string">"fatal error: race condition on filesystem detected or internal logic error"
@@ -444,6 +441,7 @@
         <span class="macro">wasi_try_ok!</span>(state
             .fs
             .get_inode_at_path(inodes, target_fd, target_path, <span class="bool-val">true</span>));
+    <span class="kw-2">*</span>target_inode.name.write().unwrap() = target_entry_name.into();
     target_inode.stat.write().unwrap().st_size = source_size;
 
     <span class="prelude-val">Ok</span>(Errno::Success)
