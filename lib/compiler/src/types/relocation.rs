@@ -85,6 +85,16 @@ pub enum RelocationKind {
     LArchAbs64Hi12,
     /// LoongArch absolute low 20bit
     LArchAbs64Lo20,
+    /// LoongArch PC-relative call 38bit
+    LArchCall36,
+    /// LoongArch PC-relative high 20bit
+    LArchPCAlaHi20,
+    /// LoongArch PC-relative low 12bit
+    LArchPCAlaLo12,
+    /// LoongArch PC64-relative high 12bit
+    LArchPCAla64Hi12,
+    /// LoongArch PC64-relative low 20bit
+    LArchPCAla64Lo20,
     /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
     ElfX86_64TlsGd,
     // /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
@@ -115,6 +125,11 @@ impl fmt::Display for RelocationKind {
             Self::LArchAbsLo12 => write!(f, "LArchAbsLo12"),
             Self::LArchAbs64Hi12 => write!(f, "LArchAbs64Hi12"),
             Self::LArchAbs64Lo20 => write!(f, "LArchAbs64Lo20"),
+            Self::LArchCall36 => write!(f, "LArchCall36"),
+            Self::LArchPCAlaHi20 => write!(f, "LArchPCAlaHi20"),
+            Self::LArchPCAlaLo12 => write!(f, "LArchPCAlaLo12"),
+            Self::LArchPCAla64Hi12 => write!(f, "LArchPCAla64Hi12"),
+            Self::LArchPCAla64Lo20 => write!(f, "LArchPCAla64Lo20"),
             Self::Aarch64AdrPrelLo21 => write!(f, "Aarch64AdrPrelLo21"),
             Self::Aarch64AdrPrelPgHi21 => write!(f, "Aarch64AdrPrelPgHi21"),
             Self::Aarch64AddAbsLo12Nc => write!(f, "Aarch64AddAbsLo12Nc"),
@@ -172,7 +187,12 @@ pub trait RelocationLike {
             | RelocationKind::Arm64Movw3
             | RelocationKind::RiscvPCRelLo12I
             | RelocationKind::Aarch64Ldst128AbsLo12Nc
-            | RelocationKind::Aarch64Ldst64AbsLo12Nc => {
+            | RelocationKind::Aarch64Ldst64AbsLo12Nc
+            | RelocationKind::LArchAbsHi20
+            | RelocationKind::LArchAbsLo12
+            | RelocationKind::LArchAbs64Lo20
+            | RelocationKind::LArchAbs64Hi12
+            | RelocationKind::LArchPCAlaLo12 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let reloc_abs = target_func_address
@@ -238,6 +258,45 @@ pub trait RelocationLike {
                     (target_func_address.wrapping_add(reloc_addend as u64) & !(0xFFF)) as usize;
                 let pc_page = reloc_address & !(0xFFF);
                 (reloc_address, target_page.wrapping_sub(pc_page) as u64)
+            }
+            RelocationKind::LArchCall36 => {
+                let reloc_address = start + self.offset() as usize;
+                let reloc_addend = self.addend() as isize;
+                let reloc_delta = target_func_address
+                    .wrapping_sub(reloc_address as u64)
+                    .wrapping_add(reloc_addend as u64);
+                (
+                    reloc_address,
+                    reloc_delta.wrapping_add((reloc_delta & 0x20000) << 1),
+                )
+            }
+            RelocationKind::LArchPCAlaHi20 => {
+                let reloc_address = start + self.offset() as usize;
+                let reloc_addend = self.addend() as isize;
+                let target_page = (target_func_address
+                    .wrapping_add(reloc_addend as u64)
+                    .wrapping_add(0x800)
+                    & !(0xFFF)) as usize;
+                let pc_page = reloc_address & !(0xFFF);
+                (reloc_address, target_page.wrapping_sub(pc_page) as u64)
+            }
+            RelocationKind::LArchPCAla64Hi12 | RelocationKind::LArchPCAla64Lo20 => {
+                let reloc_address = start + self.offset() as usize;
+                let reloc_addend = self.addend() as isize;
+                let reloc_offset = match self.kind() {
+                    RelocationKind::LArchPCAla64Lo20 => 8,
+                    RelocationKind::LArchPCAla64Hi12 => 12,
+                    _ => 0,
+                };
+                let target_func_address = target_func_address.wrapping_add(reloc_addend as u64);
+                let target_page = (target_func_address & !(0xFFF)) as usize;
+                let pc_page = (reloc_address - reloc_offset) & !(0xFFF);
+                let mut reloc_delta = target_page.wrapping_sub(pc_page) as u64;
+                reloc_delta = reloc_delta
+                    .wrapping_add((target_func_address & 0x800) << 1)
+                    .wrapping_sub((target_func_address & 0x800) << 21);
+                reloc_delta = reloc_delta.wrapping_add((reloc_delta & 0x80000000) << 1);
+                (reloc_address, reloc_delta)
             }
             _ => panic!("Relocation kind unsupported"),
         }
