@@ -83,14 +83,16 @@ pub(crate) fn path_create_directory_internal(
 
             // TODO: This condition should already have been checked by the entries.get check
             // above, but it was in the code before my refactor and I'm keeping it just in case.
-            if let Ok(_) = path_filestat_get_internal(
+            if path_filestat_get_internal(
                 &memory,
                 state,
                 inodes,
                 fd,
                 0,
                 &new_dir_path.to_string_lossy(),
-            ) {
+            )
+            .is_ok()
+            {
                 return Err(Errno::Exist);
             }
 

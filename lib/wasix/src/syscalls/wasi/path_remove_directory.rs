@@ -47,7 +47,7 @@ pub(crate) fn path_remove_directory_internal(
     let (parent_inode, dir_name) =
         state
             .fs
-            .get_parent_inode_at_path(inodes, fd, &Path::new(path), true)?;
+            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
 
     let mut guard = parent_inode.write();
     match guard.deref_mut() {
