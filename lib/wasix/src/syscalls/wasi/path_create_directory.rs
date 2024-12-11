@@ -60,122 +60,73 @@ pub(crate) fn path_create_directory_internal(
         return Err(Errno::Access);
     }
 
-    let path = std::path::PathBuf::from(path);
-    let path_vec = path
-        .components()
-        .filter_map(|comp| match comp {
-            Component::RootDir => None,
-            _ => Some(
-                comp.as_os_str()
-                    .to_str()
-                    .map(|inner_str| inner_str.to_string())
-                    .ok_or(Errno::Inval),
-            ),
-        })
-        .collect::<Result<Vec<String>, Errno>>()?;
-    if path_vec.is_empty() {
-        trace!("path vector is invalid (its empty)");
-        return Err(Errno::Inval);
-    }
+    let (parent_inode, dir_name) =
+        state
+            .fs
+            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
 
-    let mut cur_dir_inode = working_dir.inode;
-    let mut created_directory = false;
-    for (comp_idx, comp) in path_vec.iter().enumerate() {
-        let processing_cur_dir_inode = cur_dir_inode.clone();
-        let mut guard = processing_cur_dir_inode.write();
-        match guard.deref_mut() {
-            // TODO: this depends on entries already being filled in. This is the case when you go
-            // through wasix-libc (which is, realistically, what everybody does) because it stats
-            // the path before calling path_create_directory, at which point entries is filled in.
-            // However, an alternate implementation or a manually implemented module may not always
-            // do this.
-            Kind::Dir {
-                ref mut entries,
-                path,
-                parent,
-            } => {
-                match comp.borrow() {
-                    ".." => {
-                        if let Some(p) = parent.upgrade() {
-                            cur_dir_inode = p;
-                            continue;
-                        }
-                    }
-                    "." => continue,
-                    _ => (),
-                }
-                if let Some(child) = entries.get(comp) {
-                    cur_dir_inode = child.clone();
-                } else {
-                    let mut adjusted_path = path.clone();
-                    drop(guard);
-
-                    // TODO: double check this doesn't risk breaking the sandbox
-                    adjusted_path.push(comp);
-                    if let Ok(adjusted_path_stat) = path_filestat_get_internal(
-                        &memory,
-                        state,
-                        inodes,
-                        fd,
-                        0,
-                        &adjusted_path.to_string_lossy(),
-                    ) {
-                        if adjusted_path_stat.st_filetype != Filetype::Directory {
-                            trace!("path is not a directory");
-                            return Err(Errno::Notdir);
-                        }
-                    } else {
-                        if comp_idx != path_vec.len() - 1 {
-                            return Err(Errno::Noent);
-                        }
-
-                        created_directory = true;
-                        state.fs_create_dir(&adjusted_path)?;
-                    }
-                    let kind = Kind::Dir {
-                        parent: cur_dir_inode.downgrade(),
-                        path: adjusted_path,
-                        entries: Default::default(),
-                    };
-                    let new_inode = state
-                        .fs
-                        .create_inode(inodes, kind, false, comp.to_string())?;
-
-                    // reborrow to insert
-                    {
-                        let mut guard = cur_dir_inode.write();
-                        if let Kind::Dir {
-                            ref mut entries, ..
-                        } = guard.deref_mut()
-                        {
-                            entries.insert(comp.to_string(), new_inode.clone());
-                        }
-                    }
-                    cur_dir_inode = new_inode;
-                }
+    let mut guard = parent_inode.write();
+    match guard.deref_mut() {
+        Kind::Dir {
+            ref entries,
+            ref path,
+            ..
+        } => {
+            if let Some(child) = entries.get(&dir_name) {
+                return Err(Errno::Exist);
             }
-            Kind::Root { entries } => {
-                match comp.borrow() {
-                    "." | ".." => continue,
-                    _ => (),
-                }
-                if let Some(child) = entries.get(comp) {
-                    cur_dir_inode = child.clone();
-                } else {
-                    trace!("the root node can no create a directory");
-                    return Err(Errno::Access);
-                }
+
+            let mut new_dir_path = path.clone();
+            new_dir_path.push(&dir_name);
+
+            drop(guard);
+
+            // TODO: This condition should already have been checked by the entries.get check
+            // above, but it was in the code before my refactor and I'm keeping it just in case.
+            if let Ok(_) = path_filestat_get_internal(
+                &memory,
+                state,
+                inodes,
+                fd,
+                0,
+                &new_dir_path.to_string_lossy(),
+            ) {
+                return Err(Errno::Exist);
             }
-            _ => {
-                trace!("path is not a directory");
-                return Err(Errno::Notdir);
+
+            state.fs_create_dir(&new_dir_path)?;
+
+            let kind = Kind::Dir {
+                parent: parent_inode.downgrade(),
+                path: new_dir_path,
+                entries: Default::default(),
+            };
+            let new_inode = state
+                .fs
+                .create_inode(inodes, kind, false, dir_name.clone())?;
+
+            // reborrow to insert
+            {
+                let mut guard = parent_inode.write();
+                let Kind::Dir {
+                    ref mut entries, ..
+                } = guard.deref_mut()
+                else {
+                    unreachable!();
+                };
+
+                entries.insert(dir_name, new_inode.clone());
             }
+        }
+        Kind::Root { .. } => {
+            trace!("the root node can only contain pre-opened directories");
+            return Err(Errno::Access);
+        }
+        _ => {
+            trace!("path is not a directory");
+            return Err(Errno::Notdir);
         }
     }
 
-    if created_directory {
-        Ok(())
-    } else {
-        Err(Errno::Exist)
-    }
+    Ok(())
 }
