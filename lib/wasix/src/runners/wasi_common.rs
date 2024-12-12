@@ -73,10 +73,6 @@ impl CommonWasiOptions {
             builder.add_map_dir(".", path)?;
         }
 
-        // wasix-libc favors later FDs, and we want it to pass in the preopen
-        // for '/' when opening things since that's faster, so do this after
-        // the '.' alias. Purely a performance thing, since we also account
-        // for the alias in `get_inode_at_path`.
         builder.add_preopen_dir("/")?;
 
         builder.set_fs(Box::new(fs));
