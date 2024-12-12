@@ -394,16 +394,6 @@
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>auth_server;
 <span class="kw">use </span>auth_server::<span class="kw-2">*</span>;
 <span class="kw">use </span>colored::Colorize;
@@ -461,25 +451,15 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(AuthorizationState::TokenSuccess(token.clone()));
         }
 
-        <span class="kw">let </span>registry_host = env.registry_endpoint()<span class="question-mark">?</span>;
-        <span class="kw">let </span>registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
-            .extract(registry_host.as_str())
-            .map_err(|e| {
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    <span class="macro">format!</span>(<span class="string">"Invalid registry for login {}: {e}"</span>, registry_host),
-                )
-            })<span class="question-mark">?</span>;
+        <span class="kw">let </span>public_url = env.registry_public_url()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>login_prompt = <span class="kw">match </span>(
-            registry_tld.domain.as_deref(),
-            registry_tld.suffix.as_deref(),
-        ) {
-            (<span class="prelude-val">Some</span>(d), <span class="prelude-val">Some</span>(s)) =&gt; {
-                <span class="macro">format!</span>(<span class="string">"Please paste the login token from https://{d}.{s}/settings/access-tokens"</span>)
+        <span class="kw">let </span>login_prompt = <span class="kw">match </span>public_url.domain() {
+            <span class="prelude-val">Some</span>(d) =&gt; {
+                <span class="macro">format!</span>(<span class="string">"Please paste the login token from https://{d}/settings/access-tokens"</span>)
             }
             <span class="kw">_ </span>=&gt; <span class="string">"Please paste the login token"</span>.to_string(),
         };
+
         <span class="attr">#[cfg(test)]
         </span>{
             <span class="prelude-val">Ok</span>(AuthorizationState::TokenSuccess(login_prompt))
