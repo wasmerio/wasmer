@@ -1,5 +1,5 @@
 pub(crate) mod render;
-
+use anyhow::Context;
 use colored::Colorize;
 use std::{
     env::current_dir,
@@ -112,9 +112,9 @@ pub(super) async fn get_app_id(
         let (app, _) = r;
 
         let app_name = if let Some(owner) = &app.owner {
-            format!("{owner}/{}", app.name)
+            format!("{owner}/{}", &app.name.clone().context("App name has to be specified")?)
         } else {
-            app.name.to_string()
+            app.name.clone().context("App name has to be specified")?.to_string()
         };
 
         let id = if let Some(id) = &app.app_id {
@@ -140,10 +140,10 @@ pub(super) async fn get_app_id(
                 if let Some(owner) = &app.owner {
                     eprintln!(
                         "Managing secrets related to app {} ({owner}).",
-                        app.name.bold()
+                        app.name.context("App name has to be specified")?.bold()
                     );
                 } else {
-                    eprintln!("Managing secrets related to app {}.", app.name.bold());
+                    eprintln!("Managing secrets related to app {}.", app.name.context("App name has to be specified")?.bold());
                 }
             }
             return Ok(id);
