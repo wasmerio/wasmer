@@ -199,6 +199,17 @@ pub(crate) fn path_open_internal(
 
     let orig_path = path;
 
+    let (parent_inode, new_entity_name) = wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
+        inodes,
+        dirfd,
+        &path_arg,
+        dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
+    ));
+    let file_host_path = wasi_try_ok_ok!(crate::fs::reconstruct_child_path(
+        &parent_inode,
+        &new_entity_name
+    ));
+
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         let processing_inode = inode.clone();
@@ -212,10 +223,7 @@ pub(crate) fn path_open_internal(
 
         match deref_mut {
             Kind::File {
-                ref mut handle,
-                path,
-                fd,
-                ..
+                ref mut handle, fd, ..
             } => {
                 if let Some(special_fd) = fd {
                     // short circuit if we're dealing with a special file
@@ -245,7 +253,9 @@ pub(crate) fn path_open_internal(
                     open_flags |= Fd::TRUNCATE;
                 }
                 *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
-                    open_options.open(&path).map_err(fs_error_into_wasi_err)
+                    open_options
+                        .open(&file_host_path)
+                        .map_err(fs_error_into_wasi_err)
                 ))));
 
                 if let Some(handle) = handle {
@@ -304,29 +314,6 @@ pub(crate) fn path_open_internal(
 
             // strip end file name
 
-            let (parent_inode, new_entity_name) =
-                wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
-                    inodes,
-                    dirfd,
-                    &path_arg,
-                    dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
-                ));
-            let new_file_host_path = {
-                let guard = parent_inode.read();
-                match guard.deref() {
-                    Kind::Dir { path, .. } => {
-                        let mut new_path = path.clone();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
-                    Kind::Root { .. } => {
-                        let mut new_path = std::path::PathBuf::new();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
-                    _ => return Ok(Err(Errno::Inval)),
-                }
-            };
             // once we got the data we need from the parent, we lookup the host file
             // todo: extra check that opening with write access is okay
             let handle = {
@@ -351,7 +338,7 @@ pub(crate) fn path_open_internal(
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                match open_options.open(&new_file_host_path) {
+                match open_options.open(&file_host_path) {
                     Ok(handle) => Some(handle),
                     Err(err) => {
                         // Even though the file does not exist, it still failed to create with
@@ -369,12 +356,15 @@ pub(crate) fn path_open_internal(
             let new_inode = {
                 let kind = Kind::File {
                     handle: handle.map(|a| Arc::new(std::sync::RwLock::new(a))),
-                    path: new_file_host_path,
                     fd: None,
                 };
-                wasi_try_ok_ok!(state
-                    .fs
-                    .create_inode(inodes, kind, false, new_entity_name.clone()))
+                wasi_try_ok_ok!(state.fs.create_inode(
+                    inodes,
+                    &parent_inode,
+                    kind,
+                    false,
+                    new_entity_name.clone()
+                ))
             };
 
             {

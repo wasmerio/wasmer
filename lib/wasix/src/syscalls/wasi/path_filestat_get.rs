@@ -1,3 +1,5 @@
+use std::fs;
+
 use super::*;
 use crate::syscalls::*;
 use crate::types::wasi::Snapshot0Filestat;
@@ -83,8 +85,15 @@ pub(crate) fn path_filestat_get_internal(
     let mut stat = if file_inode.is_preopened {
         *file_inode.stat.read().unwrap().deref()
     } else {
+        let (parent_inode, file_name) = state.fs.get_parent_inode_at_path(
+            inodes,
+            fd,
+            &Path::new(path_string),
+            flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        )?;
+        let full_path = crate::fs::reconstruct_child_path(&parent_inode, &file_name)?;
         let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
+        state.fs.get_stat_for_kind(&full_path, guard.deref())?
     };
     stat.st_ino = st_ino;
     Ok(stat)

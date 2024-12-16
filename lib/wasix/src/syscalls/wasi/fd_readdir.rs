@@ -39,7 +39,8 @@ pub fn fd_readdir<M: MemorySize>(
     let entries: Vec<(String, Filetype, u64)> = {
         let guard = working_dir.inode.read();
         match guard.deref() {
-            Kind::Dir { path, entries, .. } => {
+            Kind::Dir { entries, .. } => {
+                let path = wasi_try!(crate::fs::reconstruct_dir_path(&working_dir.inode));
                 trace!("reading dir {:?}", path);
                 // TODO: refactor this code
                 // we need to support multiple calls,

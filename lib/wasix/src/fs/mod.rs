@@ -635,7 +635,6 @@ impl WasiFs {
 
                     let kind = Kind::Dir {
                         parent: cur_inode.downgrade(),
-                        path: PathBuf::from(""),
                         entries: HashMap::new(),
                     };
 
@@ -707,13 +706,12 @@ impl WasiFs {
 
                 let kind = Kind::File {
                     handle: Some(Arc::new(RwLock::new(file))),
-                    path: PathBuf::from(""),
                     fd: None,
                 };
 
                 drop(guard);
                 let inode = self
-                    .create_inode(inodes, kind, false, name.clone())
+                    .create_inode(inodes, &base_inode, kind, false, name.clone())
                     .map_err(|_| FsError::IOError)?;
 
                 {
@@ -913,7 +911,6 @@ impl WasiFs {
                     Kind::Buffer { .. } => unimplemented!("state::get_inode_at_path for buffers"),
                     Kind::Dir {
                         ref mut entries,
-                        ref path,
                         ref parent,
                         ..
                     } => {
@@ -936,14 +933,15 @@ impl WasiFs {
                         {
                             cur_inode = entry.clone();
                         } else {
-                            let file = {
-                                let mut cd = path.clone();
-                                cd.push(component);
-                                cd
-                            };
+                            drop(guard);
+
+                            let entity_name = component.as_os_str().to_string_lossy().to_string();
+                            let new_node_path =
+                                reconstruct_child_path(&processing_cur_inode, &entity_name)?;
+
                             let metadata = self
                                 .root_fs
-                                .symlink_metadata(&file)
+                                .symlink_metadata(&new_node_path)
                                 .ok()
                                 .ok_or(Errno::Noent)?;
                             let file_type = metadata.file_type();
@@ -956,7 +954,6 @@ impl WasiFs {
                                 // load DIR
                                 Kind::Dir {
                                     parent: cur_inode.downgrade(),
-                                    path: file.clone(),
                                     entries: Default::default(),
                                 }
                             } else if file_type.is_file() {
@@ -964,17 +961,19 @@ impl WasiFs {
                                 // load file
                                 Kind::File {
                                     handle: None,
-                                    path: file.clone(),
                                     fd: None,
                                 }
                             } else if file_type.is_symlink() {
                                 should_insert = false;
-                                let link_value =
-                                    self.root_fs.readlink(&file).ok().ok_or(Errno::Noent)?;
+                                let link_value = self
+                                    .root_fs
+                                    .readlink(&new_node_path)
+                                    .ok()
+                                    .ok_or(Errno::Noent)?;
                                 debug!("attempting to decompose path {:?}", link_value);
 
                                 let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
-                                    self.path_into_pre_open_and_relative_path(&file)?
+                                    self.path_into_pre_open_and_relative_path(&new_node_path)?
                                 } else {
                                     tracing::error!("Absolute symlinks are not yet supported");
                                     return Err(Errno::Notsup);
@@ -1007,18 +1006,19 @@ impl WasiFs {
 
                                     let kind = Kind::File {
                                         handle: None,
-                                        path: file.clone(),
                                         fd: None,
                                     };
-                                    drop(guard);
                                     let new_inode = self.create_inode_with_stat(
                                         inodes,
                                         kind,
                                         false,
-                                        file.to_string_lossy().to_string().into(),
+                                        entity_name.clone().into(),
                                         Filestat {
                                             st_filetype: file_type,
-                                            st_ino: Inode::from_path(path_str).as_u64(),
+                                            st_ino: Inode::from_path(
+                                                new_node_path.to_string_lossy().as_ref(),
+                                            )
+                                            .as_u64(),
                                             st_size: metadata.len(),
                                             st_ctim: metadata.created(),
                                             st_mtim: metadata.modified(),
@@ -1032,10 +1032,7 @@ impl WasiFs {
                                         ref mut entries, ..
                                     } = guard.deref_mut()
                                     {
-                                        entries.insert(
-                                            component.as_os_str().to_string_lossy().to_string(),
-                                            new_inode.clone(),
-                                        );
+                                        entries.insert(entity_name, new_inode.clone());
                                     } else {
                                         unreachable!(
                                             "Attempted to insert special device into non-directory"
@@ -1047,13 +1044,13 @@ impl WasiFs {
                                 #[cfg(not(unix))]
                                 unimplemented!("state::get_inode_at_path unknown file type: not file, directory, or symlink");
                             };
-                            drop(guard);
 
                             let new_inode = self.create_inode(
                                 inodes,
+                                &cur_inode,
                                 kind,
                                 false,
-                                file.to_string_lossy().to_string(),
+                                entity_name.clone(),
                             )?;
                             if should_insert {
                                 let mut guard = processing_cur_inode.write();
@@ -1061,10 +1058,7 @@ impl WasiFs {
                                     ref mut entries, ..
                                 } = guard.deref_mut()
                                 {
-                                    entries.insert(
-                                        component.as_os_str().to_string_lossy().to_string(),
-                                        new_inode.clone(),
-                                    );
+                                    entries.insert(entity_name, new_inode.clone());
                                 }
                             }
                             cur_inode = new_inode;
@@ -1195,8 +1189,12 @@ impl WasiFs {
                 .inode
                 .clone();
             let guard = po_inode.read();
+            let dir_path;
             let po_path = match guard.deref() {
-                Kind::Dir { path, .. } => &**path,
+                Kind::Dir { .. } => {
+                    dir_path = reconstruct_dir_path(&po_inode)?;
+                    &dir_path
+                }
                 Kind::Root { .. } => Path::new("/"),
                 _ => unreachable!("Preopened FD that's not a directory or the root"),
             };
@@ -1478,11 +1476,13 @@ impl WasiFs {
     pub(crate) fn create_inode(
         &self,
         inodes: &WasiInodes,
+        parent_inode: &InodeGuard,
         kind: Kind,
         is_preopened: bool,
         name: String,
     ) -> Result<InodeGuard, Errno> {
-        let stat = self.get_stat_for_kind(&kind)?;
+        let path = reconstruct_child_path(parent_inode, &name)?;
+        let stat = self.get_stat_for_kind(&path, &kind)?;
         Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name.into(), stat))
     }
 
@@ -1507,6 +1507,10 @@ impl WasiFs {
         name: Cow<'static, str>,
         mut stat: Filestat,
     ) -> InodeGuard {
+        // Bit of help while refactoring this method...
+        #[cfg(debug_assertions)]
+        assert!(!(name.len() > 1 && name.contains('/')));
+
         match &kind {
             Kind::File {
                 handle: Some(handle),
@@ -1716,7 +1720,6 @@ impl WasiFs {
         for preopen_name in self.init_vfs_preopens.iter() {
             let kind = Kind::Dir {
                 parent: self.root_inode.downgrade(),
-                path: PathBuf::from(preopen_name),
                 entries: Default::default(),
             };
             let rights = Rights::FD_ADVISE
@@ -1733,7 +1736,7 @@ impl WasiFs {
                 | Rights::POLL_FD_READWRITE
                 | Rights::SOCK_SHUTDOWN;
             let inode = self
-                .create_inode(inodes, kind, true, preopen_name.clone())
+                .create_inode(inodes, &self.root_inode, kind, true, preopen_name.clone())
                 .map_err(|e| {
                     format!(
                         "Failed to create inode for preopened dir (name `{}`): WASI error code: {}",
@@ -1780,7 +1783,6 @@ impl WasiFs {
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
                     parent: self.root_inode.downgrade(),
-                    path: path.clone(),
                     entries: Default::default(),
                 }
             } else {
@@ -1834,9 +1836,15 @@ impl WasiFs {
                 rights
             };
             let inode = if let Some(alias) = &alias {
-                self.create_inode(inodes, kind, true, alias.clone())
+                self.create_inode(inodes, &self.root_inode, kind, true, alias.clone())
             } else {
-                self.create_inode(inodes, kind, true, path.to_string_lossy().into_owned())
+                self.create_inode(
+                    inodes,
+                    &self.root_inode,
+                    kind,
+                    true,
+                    path.to_string_lossy().into_owned(),
+                )
             }
             .map_err(|e| {
                 format!(
@@ -1901,7 +1909,6 @@ impl WasiFs {
             let kind = Kind::File {
                 fd: Some(raw_fd),
                 handle: Some(Arc::new(RwLock::new(handle))),
-                path: "".into(),
             };
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
@@ -1926,9 +1933,10 @@ impl WasiFs {
         );
     }
 
-    pub fn get_stat_for_kind(&self, kind: &Kind) -> Result<Filestat, Errno> {
+    pub fn get_stat_for_kind(&self, path: &Path, kind: &Kind) -> Result<Filestat, Errno> {
         let md = match kind {
-            Kind::File { handle, path, .. } => match handle {
+            // TODO: Does this create different st_ino for files with/without a handle?
+            Kind::File { handle, .. } => match handle {
                 Some(wf) => {
                     let wf = wf.read().unwrap();
                     return Ok(Filestat {
@@ -1947,7 +1955,7 @@ impl WasiFs {
                     .metadata(path)
                     .map_err(fs_error_into_wasi_err)?,
             },
-            Kind::Dir { path, .. } => self
+            Kind::Dir { .. } => self
                 .root_fs
                 .metadata(path)
                 .map_err(fs_error_into_wasi_err)?,
@@ -1960,11 +1968,8 @@ impl WasiFs {
                 let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
                 let guard = base_po_inode.read();
                 match guard.deref() {
-                    Kind::Root { .. } => {
-                        self.root_fs.symlink_metadata(path_to_symlink).map_err(fs_error_into_wasi_err)?
-                    }
-                    Kind::Dir { path, .. } => {
-                        let mut real_path = path.clone();
+                    Kind::Root { .. } | Kind::Dir{..} => {
+                        let mut real_path = reconstruct_dir_path(base_po_inode)?;
                         // PHASE 1: ignore all possible symlinks in `relative_path`
                         // TODO: walk the segments of `relative_path` via the entries of the Dir
                         //       use helper function to avoid duplicating this logic (walking this will require
@@ -2162,4 +2167,47 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::Lock | FsError::UnknownError => Errno::Io,
         FsError::Unsupported => Errno::Notsup,
     }
+}
+
+pub fn reconstruct_dir_path(inode: &InodeGuard) -> Result<PathBuf, Errno> {
+    let mut comps = vec![];
+
+    let mut inode = inode.clone();
+
+    loop {
+        let kind_guard = inode.kind.read().unwrap();
+        match kind_guard.deref() {
+            Kind::Dir { parent, .. } => {
+                let name_guard = inode.name.read().unwrap();
+                comps.push(name_guard.as_ref().to_owned());
+                if let Some(p) = parent.upgrade() {
+                    drop(name_guard);
+                    drop(kind_guard);
+                    inode = p;
+                } else {
+                    return Err(Errno::Access);
+                }
+            }
+            Kind::Root { .. } => {
+                break;
+            }
+            _ => return Err(Errno::Inval),
+        }
+    }
+
+    Ok(PathBuf::from_iter(
+        std::iter::once("/".to_owned()).chain(comps.into_iter().rev()),
+    ))
+}
+
+pub fn reconstruct_child_path(
+    parent_inode: &InodeGuard,
+    file_name: impl AsRef<str>,
+) -> Result<PathBuf, Errno> {
+    let mut path = reconstruct_dir_path(parent_inode)?;
+    let file_name = file_name.as_ref();
+    if file_name != "." {
+        path.push(file_name);
+    }
+    Ok(path)
 }

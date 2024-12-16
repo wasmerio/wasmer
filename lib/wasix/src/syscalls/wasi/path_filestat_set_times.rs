@@ -92,10 +92,6 @@ pub(crate) fn path_filestat_set_times_internal(
         state
             .fs
             .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)?;
-    let stat = {
-        let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
-    };
 
     if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {

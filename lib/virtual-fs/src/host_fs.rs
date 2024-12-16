@@ -312,6 +312,8 @@ impl crate::FileOpener for FileSystem {
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         let path = self.prepare_path(path);
 
+        tracing::Span::current().record("host_path", path.to_string_lossy().as_ref());
+
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();

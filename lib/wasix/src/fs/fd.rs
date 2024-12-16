@@ -158,9 +158,6 @@ pub enum Kind {
         /// The open file, if it's open
         #[cfg_attr(feature = "enable-serde", serde(skip))]
         handle: Option<Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>>,
-        /// The path on the host system where the file is located
-        /// This is deprecated and will be removed soon
-        path: PathBuf,
         /// Marks the file as a special file that only one `fd` can exist for
         /// This is useful when dealing with host-provided special files that
         /// should be looked up by path
@@ -189,9 +186,6 @@ pub enum Kind {
     Dir {
         /// Parent directory
         parent: InodeWeakGuard,
-        /// The path on the host system where the directory is located
-        // TODO: wrap it like VirtualFile
-        path: PathBuf,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, InodeGuard>,
     },

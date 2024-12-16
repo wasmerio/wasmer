@@ -49,6 +49,8 @@ pub(crate) fn path_remove_directory_internal(
             .fs
             .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
 
+    let child_path = crate::fs::reconstruct_child_path(&parent_inode, &dir_name)?;
+
     let mut guard = parent_inode.write();
     match guard.deref_mut() {
         Kind::Dir {
@@ -62,7 +64,6 @@ pub(crate) fn path_remove_directory_internal(
             {
                 let Kind::Dir {
                     entries: ref child_entries,
-                    path: ref child_path,
                     ..
                 } = *child_inode.read()
                 else {
@@ -73,7 +74,7 @@ pub(crate) fn path_remove_directory_internal(
                     return Err(Errno::Notempty);
                 }
 
-                if let Err(e) = state.fs_remove_dir(child_path) {
+                if let Err(e) = state.fs_remove_dir(&child_path) {
                     tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
                     return Err(e);
                 }

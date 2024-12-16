@@ -67,19 +67,14 @@ pub(crate) fn path_create_directory_internal(
 
     let mut guard = parent_inode.write();
     match guard.deref_mut() {
-        Kind::Dir {
-            ref entries,
-            ref path,
-            ..
-        } => {
+        Kind::Dir { ref entries, .. } => {
             if let Some(child) = entries.get(&dir_name) {
                 return Err(Errno::Exist);
             }
 
-            let mut new_dir_path = path.clone();
-            new_dir_path.push(&dir_name);
-
             drop(guard);
+
+            let new_dir_path = crate::fs::reconstruct_child_path(&parent_inode, &dir_name)?;
 
             // TODO: This condition should already have been checked by the entries.get check
             // above, but it was in the code before my refactor and I'm keeping it just in case.
@@ -100,12 +95,12 @@ pub(crate) fn path_create_directory_internal(
 
             let kind = Kind::Dir {
                 parent: parent_inode.downgrade(),
-                path: new_dir_path,
                 entries: Default::default(),
             };
-            let new_inode = state
-                .fs
-                .create_inode(inodes, kind, false, dir_name.clone())?;
+            let new_inode =
+                state
+                    .fs
+                    .create_inode(inodes, &parent_inode, kind, false, dir_name.clone())?;
 
             // reborrow to insert
             {

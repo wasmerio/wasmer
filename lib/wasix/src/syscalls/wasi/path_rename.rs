@@ -94,13 +94,14 @@ pub fn path_rename_internal(
     let host_adjusted_target_path = {
         let guard = target_parent_inode.read();
         match guard.deref() {
-            Kind::Dir { entries, path, .. } => {
+            Kind::Dir { entries, .. } => {
                 if entries.contains_key(&target_entry_name) {
                     need_create = false;
                 }
-                let mut out_path = path.clone();
-                out_path.push(std::path::Path::new(&target_entry_name));
-                out_path
+                wasi_try_ok!(crate::fs::reconstruct_child_path(
+                    &target_parent_inode,
+                    &target_entry_name
+                ))
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
@@ -113,6 +114,11 @@ pub fn path_rename_internal(
             }
         }
     };
+
+    let host_adjusted_source_path = wasi_try_ok!(crate::fs::reconstruct_child_path(
+        &source_parent_inode,
+        &source_entry_name
+    ));
 
     let source_entry = {
         let mut guard = source_parent_inode.write();
@@ -137,15 +143,15 @@ pub fn path_rename_internal(
     {
         let mut guard = source_entry.write();
         match guard.deref_mut() {
-            Kind::File { ref path, .. } => {
+            Kind::File { .. } => {
                 let result = {
-                    let path_clone = path.clone();
                     drop(guard);
                     let state = state;
+                    let host_adjusted_source_path = host_adjusted_source_path.clone();
                     let host_adjusted_target_path = host_adjusted_target_path.clone();
                     __asyncify_light(env, None, async move {
                         state
-                            .fs_rename(path_clone, &host_adjusted_target_path)
+                            .fs_rename(&host_adjusted_source_path, &host_adjusted_target_path)
                             .await
                     })?
                 };
@@ -156,36 +162,26 @@ pub fn path_rename_internal(
                         entries.insert(source_entry_name, source_entry);
                         return Ok(e);
                     }
-                } else {
-                    {
-                        let mut guard = source_entry.write();
-                        if let Kind::File { ref mut path, .. } = guard.deref_mut() {
-                            *path = host_adjusted_target_path;
-                        } else {
-                            unreachable!()
-                        }
-                    }
                 }
             }
-            Kind::Dir { ref path, .. } => {
-                let cloned_path = path.clone();
-                let res = {
+            Kind::Dir { .. } => {
+                let result = {
+                    drop(guard);
                     let state = state;
+                    let host_adjusted_source_path = host_adjusted_source_path.clone();
                     let host_adjusted_target_path = host_adjusted_target_path.clone();
                     __asyncify_light(env, None, async move {
                         state
-                            .fs_rename(cloned_path, &host_adjusted_target_path)
+                            .fs_rename(&host_adjusted_source_path, &host_adjusted_target_path)
                             .await
                     })?
                 };
-                if let Err(e) = res {
-                    return Ok(e);
-                }
-                {
-                    drop(guard);
-                    let mut guard = source_entry.write();
-                    if let Kind::Dir { path, .. } = guard.deref_mut() {
-                        *path = host_adjusted_target_path;
+                // if the above operation failed we have to revert the previous change and then fail
+                if let Err(e) = result {
+                    let mut guard = source_parent_inode.write();
+                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                        entries.insert(source_entry_name, source_entry);
+                        return Ok(e);
                     }
                 }
             }

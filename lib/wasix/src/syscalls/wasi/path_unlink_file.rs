@@ -89,7 +89,7 @@ pub(crate) fn path_unlink_file_internal(
         {
             let mut guard = removed_inode.read();
             match guard.deref() {
-                Kind::File { handle, path, .. } => {
+                Kind::File { handle, .. } => {
                     if let Some(h) = handle {
                         let mut h = h.write().unwrap();
                         wasi_try_ok!(h.unlink().map_err(fs_error_into_wasi_err));
@@ -97,7 +97,10 @@ pub(crate) fn path_unlink_file_internal(
                         // File is closed
                         // problem with the abstraction, we can't call unlink because there's no handle
                         // drop mutable borrow on `path`
-                        let path = path.clone();
+                        let path = wasi_try_ok!(crate::fs::reconstruct_child_path(
+                            &parent_inode,
+                            &childs_name
+                        ));
                         drop(guard);
                         wasi_try_ok!(state.fs_remove_file(path));
                     }
