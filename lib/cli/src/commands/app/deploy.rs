@@ -548,9 +548,20 @@ impl AsyncCliCommand for CmdAppDeploy {
         let app = &opts.app;
 
         let pretty_name = if let Some(owner) = &owner {
-            format!("{} ({})", app.name.as_ref().context("App name has to be specified")?.bold(), owner.bold())
+            format!(
+                "{} ({})",
+                app.name
+                    .as_ref()
+                    .context("App name has to be specified")?
+                    .bold(),
+                owner.bold()
+            )
         } else {
-            app.name.as_ref().context("App name has to be specified")?.bold().to_string()
+            app.name
+                .as_ref()
+                .context("App name has to be specified")?
+                .bold()
+                .to_string()
         };
 
         if !self.quiet {

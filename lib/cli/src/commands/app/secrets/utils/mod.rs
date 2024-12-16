@@ -112,9 +112,15 @@ pub(super) async fn get_app_id(
         let (app, _) = r;
 
         let app_name = if let Some(owner) = &app.owner {
-            format!("{owner}/{}", &app.name.clone().context("App name has to be specified")?)
+            format!(
+                "{owner}/{}",
+                &app.name.clone().context("App name has to be specified")?
+            )
         } else {
-            app.name.clone().context("App name has to be specified")?.to_string()
+            app.name
+                .clone()
+                .context("App name has to be specified")?
+                .to_string()
         };
 
         let id = if let Some(id) = &app.app_id {
@@ -143,7 +149,10 @@ pub(super) async fn get_app_id(
                         app.name.context("App name has to be specified")?.bold()
                     );
                 } else {
-                    eprintln!("Managing secrets related to app {}.", app.name.context("App name has to be specified")?.bold());
+                    eprintln!(
+                        "Managing secrets related to app {}.",
+                        app.name.context("App name has to be specified")?.bold()
+                    );
                 }
             }
             return Ok(id);
