@@ -310,7 +310,7 @@ scheduled_tasks:
         assert_eq!(
             parsed,
             AppConfigV1 {
-                name: "test".to_string(),
+                name: Some("test".to_string()),
                 app_id: None,
                 package: "ns/name@0.1.0".parse().unwrap(),
                 owner: None,
