@@ -227,7 +227,7 @@ fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path
     let mut guard = inode.write();
     match guard.deref_mut() {
         Kind::File { ref mut path, .. } => {
-            *path = adjust_path(&path, source_dir_path, target_dir_path);
+            *path = adjust_path(path, source_dir_path, target_dir_path);
             return;
         }
         Kind::Dir {
@@ -235,7 +235,7 @@ fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path
             entries,
             ..
         } => {
-            *path = adjust_path(&path, source_dir_path, target_dir_path);
+            *path = adjust_path(path, source_dir_path, target_dir_path);
             children = entries.values().cloned().collect::<Vec<_>>();
         }
         _ => return,
