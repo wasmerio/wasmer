@@ -1,3 +1,10 @@
+// TODO: currently, hard links are broken in the presence or renames.
+// It is impossible to fix them with the current setup, since a hard
+// link must point to the actual file rather than its path, but the
+// only way we can get to a file on a FileSystem instance is by going
+// through its repective FileOpener and giving it a path as input.
+// TODO: refactor away the InodeVal type
+
 mod fd;
 mod fd_list;
 mod inode_guard;

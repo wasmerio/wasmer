@@ -1,3 +1,7 @@
+use std::path::PathBuf;
+
+use anyhow::Context;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -98,9 +102,7 @@ pub fn path_rename_internal(
                 if entries.contains_key(&target_entry_name) {
                     need_create = false;
                 }
-                let mut out_path = path.clone();
-                out_path.push(std::path::Path::new(&target_entry_name));
-                out_path
+                path.join(&target_entry_name)
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
@@ -157,13 +159,11 @@ pub fn path_rename_internal(
                         return Ok(e);
                     }
                 } else {
-                    {
-                        let mut guard = source_entry.write();
-                        if let Kind::File { ref mut path, .. } = guard.deref_mut() {
-                            *path = host_adjusted_target_path;
-                        } else {
-                            unreachable!()
-                        }
+                    let mut guard = source_entry.write();
+                    if let Kind::File { ref mut path, .. } = guard.deref_mut() {
+                        *path = host_adjusted_target_path;
+                    } else {
+                        unreachable!()
                     }
                 }
             }
@@ -182,19 +182,17 @@ pub fn path_rename_internal(
                     return Ok(e);
                 }
                 {
+                    let source_dir_path = path.clone();
                     drop(guard);
-                    let mut guard = source_entry.write();
-                    if let Kind::Dir { path, .. } = guard.deref_mut() {
-                        *path = host_adjusted_target_path;
-                    }
+                    rename_inode_tree(&source_entry, &source_dir_path, &host_adjusted_target_path);
                 }
             }
-            Kind::Buffer { .. } => {}
-            Kind::Symlink { .. } => {}
-            Kind::Socket { .. } => {}
-            Kind::Pipe { .. } => {}
-            Kind::Epoll { .. } => {}
-            Kind::EventNotifications { .. } => {}
+            Kind::Buffer { .. }
+            | Kind::Symlink { .. }
+            | Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::Epoll { .. }
+            | Kind::EventNotifications { .. } => {}
             Kind::Root { .. } => unreachable!("The root can not be moved"),
         }
     }
@@ -213,12 +211,46 @@ pub fn path_rename_internal(
     }
 
     // The target entry is created, one way or the other
-    let target_inode =
-        wasi_try_ok!(state
-            .fs
-            .get_inode_at_path(inodes, target_fd, target_path, true));
+    let target_inode = state
+        .fs
+        .get_inode_at_path(inodes, target_fd, target_path, true)
+        .expect("Expected target inode to exist, and it's too late to safely fail");
     *target_inode.name.write().unwrap() = target_entry_name.into();
     target_inode.stat.write().unwrap().st_size = source_size;
 
     Ok(Errno::Success)
+}
+
+fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path: &Path) {
+    let children;
+
+    let mut guard = inode.write();
+    match guard.deref_mut() {
+        Kind::File { ref mut path, .. } => {
+            *path = adjust_path(&path, source_dir_path, target_dir_path);
+            return;
+        }
+        Kind::Dir {
+            ref mut path,
+            entries,
+            ..
+        } => {
+            *path = adjust_path(&path, source_dir_path, target_dir_path);
+            children = entries.values().cloned().collect::<Vec<_>>();
+        }
+        _ => return,
+    }
+    drop(guard);
+
+    for child in children {
+        rename_inode_tree(&child, source_dir_path, target_dir_path);
+    }
+}
+
+fn adjust_path(path: &Path, source_dir_path: &Path, target_dir_path: &Path) -> PathBuf {
+    let relative_path = path
+        .strip_prefix(source_dir_path)
+        .with_context(|| format!("Expected path {path:?} to be a subpath of {source_dir_path:?}"))
+        .expect("Fatal filesystem error");
+    target_dir_path.join(relative_path)
 }
