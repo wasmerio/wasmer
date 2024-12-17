@@ -6918,7 +6918,7 @@ version = "5.0.4"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "async-trait",
