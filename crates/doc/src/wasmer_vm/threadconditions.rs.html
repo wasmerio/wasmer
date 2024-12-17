@@ -367,7 +367,7 @@
         }
 
         <span class="comment">// fetch the notifier
-        </span><span class="kw">if </span><span class="self">self</span>.inner.map.len() &gt;= <span class="number">1 </span>&lt;&lt; <span class="number">32 </span>{
+        </span><span class="kw">if </span><span class="self">self</span>.inner.map.len() <span class="kw">as </span>u64 &gt;= <span class="number">1u64 </span>&lt;&lt; <span class="number">32 </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(WaiterError::TooManyWaiters);
         }
         <span class="self">self</span>.inner.map.entry(dst).or_default().push(NotifyWaiter {
