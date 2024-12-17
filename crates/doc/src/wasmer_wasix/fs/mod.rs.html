@@ -2170,25 +2170,14 @@
 <a href="#2170" id="2170">2170</a>
 <a href="#2171" id="2171">2171</a>
 <a href="#2172" id="2172">2172</a>
-<a href="#2173" id="2173">2173</a>
-<a href="#2174" id="2174">2174</a>
-<a href="#2175" id="2175">2175</a>
-<a href="#2176" id="2176">2176</a>
-<a href="#2177" id="2177">2177</a>
-<a href="#2178" id="2178">2178</a>
-<a href="#2179" id="2179">2179</a>
-<a href="#2180" id="2180">2180</a>
-<a href="#2181" id="2181">2181</a>
-<a href="#2182" id="2182">2182</a>
-<a href="#2183" id="2183">2183</a>
-<a href="#2184" id="2184">2184</a>
-<a href="#2185" id="2185">2185</a>
-<a href="#2186" id="2186">2186</a>
-<a href="#2187" id="2187">2187</a>
-<a href="#2188" id="2188">2188</a>
-<a href="#2189" id="2189">2189</a>
-<a href="#2190" id="2190">2190</a>
-</pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
+</pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
+// It is impossible to fix them with the current setup, since a hard
+// link must point to the actual file rather than its path, but the
+// only way we can get to a file on a FileSystem instance is by going
+// through its repective FileOpener and giving it a path as input.
+// TODO: refactor away the InodeVal type
+
+</span><span class="kw">mod </span>fd;
 <span class="kw">mod </span>fd_list;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -3452,32 +3441,7 @@
         follow_symlinks: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeGuard, Errno&gt; {
         <span class="kw">let </span>base_inode = <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?</span>;
-        <span class="kw">let </span>name = base_inode.name.read().unwrap();
-
-        <span class="kw">let </span>start_inode;
-        <span class="kw">if </span>name.starts_with(<span class="string">'/'</span>) {
-            drop(name);
-            start_inode = base_inode;
-        } <span class="kw">else </span>{
-            <span class="kw">let </span>kind = base_inode.kind.read().unwrap();
-
-            <span class="comment">// HACK: We preopen '/' with an alias of '.' by default in `prepare_webc_env`. If wasix-libc
-            // picks that up as the base FD, we want to do the same thing we do when the base is '/'
-            </span><span class="kw">if </span><span class="kw-2">*</span>name == <span class="string">"."
-                </span>&amp;&amp; <span class="macro">matches!</span>(kind.deref(), Kind::Dir { path, .. } <span class="kw">if </span>path.as_os_str().as_encoded_bytes() == <span class="string">b"/"</span>)
-            {
-                drop(name);
-                drop(kind);
-                start_inode = base_inode;
-            } <span class="kw">else </span>{
-                drop(name);
-                drop(kind);
-                <span class="kw">let </span>(cur_inode, <span class="kw">_</span>) = <span class="self">self</span>.get_current_dir(inodes, base)<span class="question-mark">?</span>;
-                start_inode = cur_inode;
-            }
-        };
-
-        <span class="self">self</span>.get_inode_at_path_inner(inodes, start_inode, path, <span class="number">0</span>, follow_symlinks)
+        <span class="self">self</span>.get_inode_at_path_inner(inodes, base_inode, path, <span class="number">0</span>, follow_symlinks)
     }
 
     <span class="doccomment">/// Returns the parent Dir or Root that the file at a given path is in and the file name

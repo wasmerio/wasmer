@@ -534,10 +534,6 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
-<a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -613,11 +609,7 @@
             builder.add_map_dir(<span class="string">"."</span>, path)<span class="question-mark">?</span>;
         }
 
-        <span class="comment">// wasix-libc favors later FDs, and we want it to pass in the preopen
-        // for '/' when opening things since that's faster, so do this after
-        // the '.' alias. Purely a performance thing, since we also account
-        // for the alias in `get_inode_at_path`.
-        </span>builder.add_preopen_dir(<span class="string">"/"</span>)<span class="question-mark">?</span>;
+        builder.add_preopen_dir(<span class="string">"/"</span>)<span class="question-mark">?</span>;
 
         builder.set_fs(Box::new(fs));
 

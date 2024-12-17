@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["path_rename","path_rename_internal"]};
+window.SIDEBAR_ITEMS = {"fn":["adjust_path","path_rename","path_rename_internal","rename_inode_tree"]};
