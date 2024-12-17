@@ -805,6 +805,17 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -1355,9 +1366,20 @@
         <span class="kw">let </span>app = <span class="kw-2">&amp;</span>opts.app;
 
         <span class="kw">let </span>pretty_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span>owner {
-            <span class="macro">format!</span>(<span class="string">"{} ({})"</span>, app.name.bold(), owner.bold())
+            <span class="macro">format!</span>(
+                <span class="string">"{} ({})"</span>,
+                app.name
+                    .as_ref()
+                    .context(<span class="string">"App name has to be specified"</span>)<span class="question-mark">?
+                    </span>.bold(),
+                owner.bold()
+            )
         } <span class="kw">else </span>{
-            app.name.bold().to_string()
+            app.name
+                .as_ref()
+                .context(<span class="string">"App name has to be specified"</span>)<span class="question-mark">?
+                </span>.bold()
+                .to_string()
         };
 
         <span class="kw">if </span>!<span class="self">self</span>.quiet {
@@ -1436,7 +1458,7 @@
         client,
         wasmer_backend_api::types::PublishDeployAppVars {
             config: raw_config,
-            name: app.name.clone().into(),
+            name: app.name.clone().context(<span class="string">"Expected an app name"</span>)<span class="question-mark">?</span>.into(),
             owner: opts.owner.map(|o| o.into()),
             make_default: <span class="prelude-val">Some</span>(opts.make_default),
         },

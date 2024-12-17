@@ -415,7 +415,7 @@
 )]
 </span><span class="kw">pub struct </span>AppConfigV1 {
     <span class="doccomment">/// Name of the app.
-    </span><span class="kw">pub </span>name: String,
+    </span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// App id assigned by the backend.
     ///
@@ -693,7 +693,7 @@ scheduled_tasks:
         <span class="macro">assert_eq!</span>(
             parsed,
             AppConfigV1 {
-                name: <span class="string">"test"</span>.to_string(),
+                name: <span class="prelude-val">Some</span>(<span class="string">"test"</span>.to_string()),
                 app_id: <span class="prelude-val">None</span>,
                 package: <span class="string">"ns/name@0.1.0"</span>.parse().unwrap(),
                 owner: <span class="prelude-val">None</span>,

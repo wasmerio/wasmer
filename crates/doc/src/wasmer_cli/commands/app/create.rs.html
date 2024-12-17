@@ -957,7 +957,7 @@
     <span class="attr">#[inline]
     </span><span class="kw">fn </span>get_app_config(<span class="kw-2">&amp;</span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str, package: <span class="kw-2">&amp;</span>str) -&gt; AppConfigV1 {
         AppConfigV1 {
-            name: String::from(name),
+            name: <span class="prelude-val">Some</span>(String::from(name)),
             owner: <span class="prelude-val">Some</span>(String::from(owner)),
             package: PackageSource::from_str(package).unwrap(),
             app_id: <span class="prelude-val">None</span>,

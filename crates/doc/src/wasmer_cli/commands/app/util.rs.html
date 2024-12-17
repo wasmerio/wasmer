@@ -307,6 +307,9 @@
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, str::FromStr};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -461,9 +464,12 @@
         <span class="kw">let </span>ident = <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = <span class="kw-2">&amp;</span>config.app_id {
             AppIdent::AppId(id.clone())
         } <span class="kw">else if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span>config.owner {
-            AppIdent::NamespacedName(owner.clone(), config.name.clone())
+            AppIdent::NamespacedName(
+                owner.clone(),
+                config.name.clone().context(<span class="string">"App name was not specified"</span>)<span class="question-mark">?</span>,
+            )
         } <span class="kw">else </span>{
-            AppIdent::Name(config.name.clone())
+            AppIdent::Name(config.name.clone().context(<span class="string">"App name was not specified"</span>)<span class="question-mark">?</span>)
         };
 
         <span class="prelude-val">Ok</span>(ResolvedAppIdent::Config {
