@@ -135,7 +135,7 @@ wasmer-types = { version = "=5.0.4", path = "../types", features = [
 virtual-fs = { version = "0.20.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.13.0", path = "../virtual-net" }
+virtual-net = { version = "0.14.0", path = "../virtual-net" }
 virtual-mio = { version = "0.7.0", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
