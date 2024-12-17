@@ -120,7 +120,7 @@ wasmer-compiler-llvm = { version = "=5.0.4", path = "../compiler-llvm", optional
 wasmer-package.workspace = true
 
 wasmer-vm = { version = "=5.0.4", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.33.0", features = [
+wasmer-wasix = { path = "../wasix", version = "=0.34.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -136,12 +136,12 @@ virtual-fs = { version = "0.20.0", path = "../virtual-fs", default-features = fa
 	"host-fs",
 ] }
 virtual-net = { version = "0.13.0", path = "../virtual-net" }
-virtual-mio = { version = "0.6.0", path = "../virtual-io" }
+virtual-mio = { version = "0.7.0", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
 webc = { workspace = true }
-wasmer-backend-api = { version = "=0.3.0", path = "../backend-api" }
+wasmer-backend-api = { version = "=0.4.0", path = "../backend-api" }
 lazy_static = "1.4.0"
 
 # Used by the mount command
@@ -165,7 +165,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 dirs = "4.0"
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
-wasmer-config = { version = "0.11.0", path = "../config" }
+wasmer-config = { version = "0.12.0", path = "../config" }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
 regex = "1.6.0"

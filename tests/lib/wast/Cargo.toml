@@ -11,8 +11,8 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../../../lib/types", version="=5.0.3" }
-wasmer-wasix = { path = "../../../lib/wasix", version="=0.33.0" }
+wasmer-types = { path = "../../../lib/types", version = "=5.0.4" }
+wasmer-wasix = { path = "../../../lib/wasix", version = "=0.34.0" }
 wasmer = { path = "../../../lib/api", version = "=5.0.4", default-features = false }
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.20.0" }
 
@@ -23,8 +23,8 @@ tempfile = "3.6.0"
 thiserror = "1.0"
 futures = "0.3"
 tokio = { workspace = true, features = [
-    "io-util",
-    "rt",
+	"io-util",
+	"rt",
 ], default-features = false }
 
 [features]
