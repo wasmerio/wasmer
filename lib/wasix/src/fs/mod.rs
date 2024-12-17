@@ -1,3 +1,10 @@
+// TODO: currently, hard links are broken in the presence or renames.
+// It is impossible to fix them with the current setup, since a hard
+// link must point to the actual file rather than its path, but the
+// only way we can get to a file on a FileSystem instance is by going
+// through its repective FileOpener and giving it a path as input.
+// TODO: refactor away the InodeVal type
+
 mod fd;
 mod fd_list;
 mod inode_guard;
@@ -1262,32 +1269,7 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        let name = base_inode.name.read().unwrap();
-
-        let start_inode;
-        if name.starts_with('/') {
-            drop(name);
-            start_inode = base_inode;
-        } else {
-            let kind = base_inode.kind.read().unwrap();
-
-            // HACK: We preopen '/' with an alias of '.' by default in `prepare_webc_env`. If wasix-libc
-            // picks that up as the base FD, we want to do the same thing we do when the base is '/'
-            if *name == "."
-                && matches!(kind.deref(), Kind::Dir { path, .. } if path.as_os_str().as_encoded_bytes() == b"/")
-            {
-                drop(name);
-                drop(kind);
-                start_inode = base_inode;
-            } else {
-                drop(name);
-                drop(kind);
-                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-                start_inode = cur_inode;
-            }
-        };
-
-        self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
+        self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
     }
 
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
