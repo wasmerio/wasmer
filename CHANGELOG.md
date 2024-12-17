@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 5.0.4 - 17/12/2024
 
+This release fixes minor bugs and adds spurious improvements. 
+
 ## Added
 
 
@@ -22,7 +24,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
   - [#5277](https://github.com/wasmerio/wasmer/pull/5277) Rephrase the description for `--no-persist-id`
   - [#5291](https://github.com/wasmerio/wasmer/pull/5291) chore(wasix): make Capabilities hashable
   - [#5293](https://github.com/wasmerio/wasmer/pull/5293) LoongArch: Switch to the medium code model
-  - [#5283](https://github.com/wasmerio/wasmer/pull/5283) Better network sandbox
 
 ## Fixed
 
