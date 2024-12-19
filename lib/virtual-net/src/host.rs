@@ -106,7 +106,7 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
-        use socket2::{Socket, Domain, Type};        
+        use socket2::{Domain, Socket, Type};
 
         if let Some(ruleset) = self.ruleset.as_ref() {
             if !ruleset.allows_socket(addr, Direction::Inbound) {
@@ -115,11 +115,16 @@ impl VirtualNetworking for LocalNetworking {
             }
         }
 
-        let std_sock = Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(io_err_into_net_error)?;
         #[cfg(not(windows))]
         let socket = {
-            std_sock.set_reuse_address(reuse_addr).map_err(io_err_into_net_error)?;
-            std_sock.set_reuse_port(reuse_port).map_err(io_err_into_net_error)?;
+            let std_sock =
+                Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_address(reuse_addr)
+                .map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_port(reuse_port)
+                .map_err(io_err_into_net_error)?;
             std_sock.bind(&addr.into()).map_err(io_err_into_net_error)?;
             mio::net::UdpSocket::from_std(std_sock.into())
         };
