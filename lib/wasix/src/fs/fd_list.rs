@@ -218,7 +218,7 @@ mod tests {
                 inner: Arc::new(InodeVal {
                     is_preopened: false,
                     kind: RwLock::new(Kind::Buffer { buffer: vec![] }),
-                    name: Cow::Borrowed(""),
+                    name: RwLock::new(Cow::Borrowed("")),
                     stat: RwLock::new(Default::default()),
                 }),
             },

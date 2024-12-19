@@ -24,13 +24,8 @@ pub fn path_unlink_file<M: MemorySize>(
     if !base_dir.rights.contains(Rights::PATH_UNLINK_FILE) {
         return Ok(Errno::Access);
     }
-    let mut path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
+    let path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
-
-    // Convert relative paths into absolute paths
-    if path_str.starts_with("./") {
-        path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
-    }
 
     let ret = path_unlink_file_internal(&mut ctx, fd, &path_str)?;
     let env = ctx.data();

@@ -64,7 +64,11 @@ pub fn fd_readdir<M: MemorySize>(
                 entry_vec.extend(entries.iter().filter(|(_, inode)| inode.is_preopened).map(
                     |(name, inode)| {
                         let stat = inode.stat.read().unwrap();
-                        (inode.name.to_string(), stat.st_filetype, stat.st_ino)
+                        (
+                            inode.name.read().unwrap().to_string(),
+                            stat.st_filetype,
+                            stat.st_ino,
+                        )
                     },
                 ));
                 // adding . and .. special folders
@@ -88,7 +92,11 @@ pub fn fd_readdir<M: MemorySize>(
                     .into_iter()
                     .map(|(name, inode)| {
                         let stat = inode.stat.read().unwrap();
-                        (format!("/{}", inode.name), stat.st_filetype, stat.st_ino)
+                        (
+                            format!("/{}", inode.name.read().unwrap().as_ref()),
+                            stat.st_filetype,
+                            stat.st_ino,
+                        )
                     })
                     .collect()
             }

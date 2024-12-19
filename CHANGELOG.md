@@ -9,6 +9,31 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 5.0.4 - 17/12/2024
+
+This release fixes minor bugs and adds spurious improvements. 
+
+## Added
+
+
+## Changed
+
+  - [#5305](https://github.com/wasmerio/wasmer/pull/5305) make `AppConfig.name` optional in wasmer-config
+  - [#5292](https://github.com/wasmerio/wasmer/pull/5292) Pass readme content instead of readme file name
+  - [#5300](https://github.com/wasmerio/wasmer/pull/5300) Refactor path_create_directory and path_remove_directory to…
+  - [#5277](https://github.com/wasmerio/wasmer/pull/5277) Rephrase the description for `--no-persist-id`
+  - [#5291](https://github.com/wasmerio/wasmer/pull/5291) chore(wasix): make Capabilities hashable
+  - [#5293](https://github.com/wasmerio/wasmer/pull/5293) LoongArch: Switch to the medium code model
+
+## Fixed
+
+  - [#5306](https://github.com/wasmerio/wasmer/pull/5306) Fix build for 32bit targets (usize == u32)
+  - [#5307](https://github.com/wasmerio/wasmer/pull/5307) A few WASIX FS-related fixes
+  - [#5285](https://github.com/wasmerio/wasmer/pull/5285) Fix handling of the root path in WasiFS resulting in a bad inode structure
+  - [#5294](https://github.com/wasmerio/wasmer/pull/5294) Fix typo in readme file
+
+
+
 ## 5.0.3 - 07/12/2024
 
 This release adds support for a more fine-grained and flexible control over the network sandbox. Also, some bug fixes

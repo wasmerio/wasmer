@@ -4,7 +4,6 @@
   "description": "User-facing app.yaml config file for apps.\n\nNOTE: only used by the backend, Edge itself does not use this format, and uses [`super::AppVersionV1Spec`] instead.",
   "type": "object",
   "required": [
-    "name",
     "package"
   ],
   "properties": {
@@ -81,7 +80,10 @@
     },
     "name": {
       "description": "Name of the app.",
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "owner": {
       "description": "Owner of the app.\n\nThis is either a username or a namespace.",
