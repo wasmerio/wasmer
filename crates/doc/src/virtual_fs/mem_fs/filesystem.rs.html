@@ -1952,6 +1952,25 @@
 <a href="#1952" id="1952">1952</a>
 <a href="#1953" id="1953">1953</a>
 <a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadBackingStore;
@@ -2401,7 +2420,7 @@
     }
 
     <span class="kw">fn </span>rename&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
-        Box::pin(<span class="kw">async </span>{
+        Box::pin(<span class="kw">async move </span>{
             <span class="kw">let </span>name_of_to;
 
             <span class="comment">// Read lock.
@@ -2447,7 +2466,8 @@
             };
 
             <span class="kw">match </span>(inode_of_from_parent, inode_of_to_parent) {
-                (Either::Left(inode_of_from_parent), Either::Left(inode_of_to_parent)) =&gt; {
+                <span class="comment">// Rename within this MemFS instance
+                </span>(Either::Left(inode_of_from_parent), Either::Left(inode_of_to_parent)) =&gt; {
                     <span class="kw">let </span>fs = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
                     <span class="comment">// Find the inode of the dest file if it exists
@@ -2526,16 +2546,34 @@
 
                     <span class="prelude-val">Ok</span>(())
                 }
-                (Either::Right((from_fs, from_path)), Either::Right((to_fs, to_path))) =&gt; {
-                    <span class="kw">if </span>Arc::ptr_eq(<span class="kw-2">&amp;</span>from_fs, <span class="kw-2">&amp;</span>to_fs) {
-                        <span class="kw">let </span>same_fs = from_fs;
 
-                        same_fs.rename(<span class="kw-2">&amp;</span>from_path, <span class="kw-2">&amp;</span>to_path).<span class="kw">await
-                    </span>} <span class="kw">else </span>{
-                        <span class="prelude-val">Err</span>(FsError::InvalidInput)
+                <span class="comment">// Rename within the same mounted FS instance
+                </span>(Either::Right((from_fs, from_path)), Either::Right((to_fs, to_path)))
+                    <span class="kw">if </span>Arc::ptr_eq(<span class="kw-2">&amp;</span>from_fs, <span class="kw-2">&amp;</span>to_fs) =&gt;
+                {
+                    <span class="kw">let </span>same_fs = from_fs;
+                    same_fs.rename(<span class="kw-2">&amp;</span>from_path, <span class="kw-2">&amp;</span>to_path).<span class="kw">await
+                </span>}
+
+                <span class="comment">// Rename across file systems; we need to do a create and a delete
+                </span><span class="kw">_ </span>=&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>from_file = <span class="self">self</span>.new_open_options().read(<span class="bool-val">true</span>).open(from)<span class="question-mark">?</span>;
+                    <span class="kw">let </span><span class="kw-2">mut </span>to_file = <span class="self">self
+                        </span>.new_open_options()
+                        .create_new(<span class="bool-val">true</span>)
+                        .write(<span class="bool-val">true</span>)
+                        .open(to)<span class="question-mark">?</span>;
+                    tokio::io::copy(from_file.as_mut(), to_file.as_mut()).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = <span class="self">self</span>.remove_file(from) {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="question-mark">?</span>from,
+                            <span class="question-mark">?</span>to,
+                            <span class="question-mark">?</span>error,
+                            <span class="string">"Failed to remove file after cross-FS rename"
+                        </span>);
                     }
+                    <span class="prelude-val">Ok</span>(())
                 }
-                <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(FsError::InvalidInput),
             }
         })
     }
