@@ -16,6 +16,9 @@
     <a href="https://discord.gg/rWkMNStrEW">
       <img src="https://img.shields.io/discord/1110300506942881873?label=Wasmer&logo=discord&logoColor=white" alt="Wasmer on Discord">
     </a>
+    <a href="https://gurubase.io/g/wasmer">
+      <img src="https://img.shields.io/badge/Gurubase-Ask%20Wasmer%20Guru-006BFF" alt="Gurubase">
+    </a>
   </p>
 </div>
 
