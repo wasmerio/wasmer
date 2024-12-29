@@ -1,10 +1,13 @@
-use gimli::write::{Address, EndianVec, Result, Writer};
-use gimli::{RunTimeEndian, SectionId};
-use wasmer_types::entity::EntityRef;
-use wasmer_types::{
-    CustomSection, CustomSectionProtection, Endianness, LocalFunctionIndex, Relocation,
-    RelocationKind, RelocationTarget, SectionBody,
+use gimli::{
+    write::{Address, EndianVec, Result, Writer},
+    RunTimeEndian, SectionId,
 };
+use wasmer_compiler::types::{
+    relocation::{Relocation, RelocationKind, RelocationTarget},
+    section::{CustomSection, CustomSectionProtection, SectionBody},
+    target::Endianness,
+};
+use wasmer_types::{entity::EntityRef, LocalFunctionIndex};
 
 #[derive(Clone, Debug)]
 pub struct WriterRelocate {

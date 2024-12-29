@@ -9,7 +9,6 @@ use crate::{
     InterestHandler, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource,
     VirtualNetworking, VirtualTcpListener, VirtualTcpSocket,
 };
-use derivative::Derivative;
 use virtual_mio::InterestType;
 
 const DEFAULT_MAX_BUFFER_SIZE: usize = 1_048_576;
@@ -136,10 +135,8 @@ impl VirtualNetworking for LoopbackNetworking {
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 struct LoopbackTcpListenerState {
-    #[derivative(Debug = "ignore")]
     handler: Option<Box<dyn InterestHandler + Send + Sync>>,
     addr_local: SocketAddr,
     backlog: VecDeque<TcpSocketHalf>,

@@ -4,12 +4,15 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
 
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{
-    CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
-    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
-    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
+use wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
+
+use wasmer_compiler::types::{
+    address_map::{FunctionAddressMap, InstructionAddressMap},
+    function::{CompiledFunctionFrameInfo, CustomSections, FunctionBody},
+    relocation::{Relocation, RelocationKind, RelocationTarget},
+    section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 };
+
 use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
@@ -21,7 +24,7 @@ fn map_object_err(error: object::read::Error) -> CompileError {
 }
 
 pub struct CompiledFunction {
-    pub compiled_function: wasmer_types::CompiledFunction,
+    pub compiled_function: wasmer_compiler::types::function::CompiledFunction,
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
 }
@@ -251,6 +254,60 @@ where
                     object::RelocationKind::Elf(object::elf::R_LARCH_ABS64_LO20),
                     0,
                 ) => RelocationKind::LArchAbs64Lo20,
+                (
+                    object::Architecture::LoongArch64,
+                    // FIXME: Replace with R_LARCH_CALL36 while object is updated
+                    // to 0.32.2.
+                    // https://github.com/gimli-rs/object/commit/16b6d902f6c9b39ec7aaea141460f8981e57dd79
+                    object::RelocationKind::Elf(110),
+                    0,
+                ) => RelocationKind::LArchCall36,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA_HI20),
+                    0,
+                ) => RelocationKind::LArchPCAlaHi20,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA_LO12),
+                    0,
+                ) => RelocationKind::LArchPCAlaLo12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA64_HI12),
+                    0,
+                ) => RelocationKind::LArchPCAla64Hi12,
+                (
+                    object::Architecture::LoongArch64,
+                    object::RelocationKind::Elf(object::elf::R_LARCH_PCALA64_LO20),
+                    0,
+                ) => RelocationKind::LArchPCAla64Lo20,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_LO21),
+                    0,
+                ) => RelocationKind::Aarch64AdrPrelLo21,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADR_PREL_PG_HI21),
+                    0,
+                ) => RelocationKind::Aarch64AdrPrelPgHi21,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_LDST128_ABS_LO12_NC),
+                    0,
+                ) => RelocationKind::Aarch64Ldst128AbsLo12Nc,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_ADD_ABS_LO12_NC),
+                    0,
+                ) => RelocationKind::Aarch64AddAbsLo12Nc,
+                (
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_LDST64_ABS_LO12_NC),
+                    0,
+                ) => RelocationKind::Aarch64Ldst64AbsLo12Nc,
+
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",
@@ -421,7 +478,7 @@ where
     };
 
     Ok(CompiledFunction {
-        compiled_function: wasmer_types::CompiledFunction {
+        compiled_function: wasmer_compiler::types::function::CompiledFunction {
             body: function_body,
             relocations: relocations
                 .remove_entry(&root_section_index)

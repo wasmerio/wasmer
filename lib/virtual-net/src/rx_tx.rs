@@ -62,6 +62,7 @@ impl AsyncWrite for FailOnWrite {
 
 pub(crate) type StreamSink<T> = Pin<Box<dyn Sink<T, Error = std::io::Error> + Send + 'static>>;
 
+#[derive(derive_more::Debug)]
 pub(crate) enum RemoteTx<T>
 where
     T: Serialize,
@@ -72,6 +73,7 @@ where
         wakers: RemoteTxWakers,
     },
     Stream {
+        #[debug(ignore)]
         tx: Arc<tokio::sync::Mutex<StreamSink<T>>>,
         work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
         wakers: RemoteTxWakers,
@@ -504,6 +506,7 @@ where
     }
 }
 
+#[derive(derive_more::Debug)]
 pub(crate) enum RemoteRx<T>
 where
     T: serde::de::DeserializeOwned,
@@ -513,6 +516,7 @@ where
         wakers: RemoteTxWakers,
     },
     Stream {
+        #[debug(ignore)]
         rx: Pin<Box<dyn Stream<Item = std::io::Result<T>> + Send + 'static>>,
     },
     #[cfg(feature = "hyper")]

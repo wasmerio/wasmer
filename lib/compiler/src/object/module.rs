@@ -1,10 +1,18 @@
-use crate::error::ObjectError;
-use object::write::{
-    Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
+use super::error::ObjectError;
+use crate::types::{
+    function::Compilation,
+    relocation::{RelocationKind as Reloc, RelocationTarget},
+    section::{CustomSectionProtection, SectionIndex},
+    symbols::{Symbol, SymbolRegistry},
+    target::{Architecture, BinaryFormat, Endianness, Triple},
 };
 use object::{
-    elf, macho, FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags,
-    SymbolKind, SymbolScope,
+    elf, macho,
+    write::{
+        Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
+    },
+    FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
+    SymbolScope,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -23,9 +31,8 @@ const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_types::Triple;
-/// # use wasmer_object::ObjectError;
-/// use wasmer_object::get_object_for_target;
+/// # use wasmer_compiler::types::target::Triple;
+/// # use wasmer_compiler::object::{ObjectError, get_object_for_target};
 ///
 /// # fn generate_object_for_target(triple: &Triple) -> Result<(), ObjectError> {
 /// let mut object = get_object_for_target(&triple)?;
@@ -83,9 +90,8 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_types::Triple;
-/// # use wasmer_object::ObjectError;
-/// use wasmer_object::{get_object_for_target, emit_data};
+/// # use wasmer_compiler::types::target::Triple;
+/// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_data};
 ///
 /// # fn emit_data_into_object(triple: &Triple) -> Result<(), ObjectError> {
 /// let mut object = get_object_for_target(&triple)?;
@@ -136,10 +142,8 @@ fn append_usize(size: usize, triple: &Triple, serialized_data: &mut Vec<u8>) {
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_types::SymbolRegistry;
-/// # use wasmer_types::{Compilation, Triple};
-/// # use wasmer_object::ObjectError;
-/// use wasmer_object::{get_object_for_target, emit_compilation};
+/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, target::{Triple}, function::{Compilation} };
+/// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
 /// #     triple: &Triple,
@@ -544,10 +548,8 @@ pub fn emit_compilation(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_types::SymbolRegistry;
-/// # use wasmer_types::{Compilation, Triple};
-/// # use wasmer_object::{ObjectError, emit_serialized};
-/// use wasmer_object::{get_object_for_target, emit_compilation};
+/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, target::{Triple}, function::{Compilation} };
+/// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_serialized};
 ///
 /// # fn emit_compilation_into_object(
 /// #     triple: &Triple,

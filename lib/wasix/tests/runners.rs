@@ -2,11 +2,14 @@
 // there.
 #![cfg(not(target_family = "wasm"))]
 
+use std::sync::Once;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
+
+static INIT: Once = Once::new();
 
 use reqwest::Client;
 use tokio::runtime::Handle;
@@ -29,6 +32,13 @@ mod wasi {
 
     use super::*;
 
+    fn setup() {
+        INIT.call_once(|| {
+            env_logger::builder()
+                .filter_level(log::LevelFilter::Debug)
+                .init();
+        });
+    }
     #[tokio::test]
     async fn can_run_wat2wasm() {
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
@@ -40,20 +50,23 @@ mod wasi {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn wat2wasm() {
+        setup();
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
         let container = from_bytes(webc).unwrap();
         let (rt, tasks) = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
         let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+        let mut stderr = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
 
         let stdout_2 = stdout.clone();
+        let stderr_2 = stderr.clone();
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["--version"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
-                .with_stderr(Box::<virtual_fs::NullFile>::default())
+                .with_stderr(Box::new(stderr_2) as Box<_>)
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
 
@@ -63,27 +76,55 @@ mod wasi {
             .expect("The runner encountered an error");
 
         stdout.rewind().await.unwrap();
-        let mut output = Vec::new();
-        stdout.read_to_end(&mut output).await.unwrap();
-        assert_eq!(String::from_utf8(output).unwrap(), "1.0.37 (git~v1.0.37)\n");
+        stderr.rewind().await.unwrap();
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        stdout.read_to_end(&mut stdout_buf).await.unwrap();
+        stderr.read_to_end(&mut stderr_buf).await.unwrap();
+        let stdout = String::from_utf8(stdout_buf).unwrap();
+        let stderr = String::from_utf8(stderr_buf).unwrap();
+
+        eprintln!("{stdout}");
+        eprintln!("{stderr}");
+
+        assert_eq!(stdout, "1.0.37 (git~v1.0.37)\n");
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn python() {
+        setup();
+
         let webc = download_cached("https://wasmer.io/python/python@0.1.0").await;
         let (rt, tasks) = runtime();
         let container = from_bytes(webc).unwrap();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
+        let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+        let mut stderr = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
+
+        let stdout_2 = stdout.clone();
+        let stderr_2 = stderr.clone();
 
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
-                .with_stdout(Box::<virtual_fs::NullFile>::default())
-                .with_stderr(Box::<virtual_fs::NullFile>::default())
+                .with_stdout(Box::new(stdout_2) as Box<_>)
+                .with_stderr(Box::new(stderr_2) as Box<_>)
                 .run_command("python", &pkg, Arc::new(rt))
         });
+
+        stdout.rewind().await.unwrap();
+        stderr.rewind().await.unwrap();
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        stdout.read_to_end(&mut stdout_buf).await.unwrap();
+        stderr.read_to_end(&mut stderr_buf).await.unwrap();
+        let stdout = String::from_utf8(stdout_buf).unwrap();
+        let stderr = String::from_utf8(stderr_buf).unwrap();
+
+        eprintln!("{stdout}");
+        eprintln!("{stderr}");
 
         let err = handle.join().unwrap().unwrap_err();
         let runtime_error = err.chain().find_map(|e| e.downcast_ref::<WasiError>());
@@ -202,9 +243,9 @@ async fn download_cached(url: &str) -> bytes::Bytes {
     let cache_dir = tmp_dir().join("downloads");
     let cached_path = cache_dir.join(file_name);
 
-    if cached_path.exists() {
-        return std::fs::read(&cached_path).unwrap().into();
-    }
+    //if cached_path.exists() {
+    //    return std::fs::read(&cached_path).unwrap().into();
+    //}
 
     let response = client()
         .get(url)

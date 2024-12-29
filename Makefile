@@ -149,19 +149,19 @@ else ifeq ($(ENABLE_LLVM), 1)
 	LLVM_VERSION := $(shell llvm-config --version)
 	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
-else ifneq (, $(shell which llvm-config-15 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-15 --version)
+else ifneq (, $(shell which llvm-config-18 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-18 --version)
 	compilers += llvm
-	# need force LLVM_SYS_150_PREFIX, or llvm_sys will not build in the case
-	export LLVM_SYS_150_PREFIX = $(shell llvm-config-15 --prefix)
+	# need force LLVM_SYS_180_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_180_PREFIX = $(shell llvm-config-18 --prefix)
 else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
-	ifneq (, $(findstring 15,$(LLVM_VERSION)))
+	ifneq (, $(findstring 18,$(LLVM_VERSION)))
 		compilers += llvm
-		export LLVM_SYS_150_PREFIX = $(shell llvm-config --prefix)
+		export LLVM_SYS_180_PREFIX = $(shell llvm-config --prefix)
 	else ifneq (, $(findstring 14,$(LLVM_VERSION)))
 		compilers += llvm
-		export LLVM_SYS_150_PREFIX = $(shell llvm-config --prefix)
+		export LLVM_SYS_180_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 
@@ -404,6 +404,9 @@ build-wasmer-wasmi:
 build-wasmer-jsc:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat" --bin wasmer --locked
 
+build-wasmer-api-js:
+	$(CARGO_BINARY) rustc --target wasm32-unknown-unknown --release --manifest-path lib/api/Cargo.toml --no-default-features --features "js, js-default, wasm-types-polyfill, enable-serde" --crate-type=cdylib --locked
+
 build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
 
@@ -437,7 +440,7 @@ else
 endif
 
 build-docs:
-	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api --locked
+	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api --exclude wasmer-swift --locked
 
 # The tokio crate was excluded from the docs build because the code (which is not under our control)
 # does not currently compile its docs successfully

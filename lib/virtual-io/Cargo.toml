@@ -1,6 +1,6 @@
 [package]
 name = "virtual-mio"
-version = "0.5.0"
+version = "0.7.0"
 description = "Wasmer Virtual IO Engine powered by mio"
 authors.workspace = true
 edition.workspace = true
@@ -17,7 +17,6 @@ tracing = "0.1"
 
 mio = { workspace = true, features = ["os-poll"], optional = true }
 socket2 = { workspace = true, optional = true }
-derivative = { version = "^2" }
 futures = { version = "0.3" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 

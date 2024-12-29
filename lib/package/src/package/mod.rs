@@ -275,7 +275,7 @@ mod tests {
         let out_dir = temp.path().join("out");
         container.unpack(&out_dir, false).unwrap();
 
-        let expected_entries = vec![
+        let expected_entries = [
             "bar",      // the volume
             "metadata", // the metadata volume
             "foo",      // the atom

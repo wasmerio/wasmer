@@ -12,6 +12,7 @@ use clap::Parser;
 use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
+use virtual_net::ruleset::Ruleset;
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_types::ModuleHash;
@@ -99,8 +100,25 @@ pub struct Wasi {
     /// Enable networking with the host network.
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
-    #[clap(long = "net")]
-    pub networking: bool,
+    ///
+    /// Optionally, a set of network filters could be defined which allows fine-grained
+    /// control over the network sandbox.
+    ///
+    /// Rule Syntax:
+    ///
+    /// <rule-type>:<allow|deny>=<rule-expression>
+    ///
+    /// Examples:
+    ///
+    ///  - Allow a specific domain and port: dns:allow=example.com:80
+    ///
+    ///  - Deny a domain and all its subdomains on all ports: dns:deny=*danger.xyz:*
+    ///
+    ///  - Allow opening ipv4 sockets only on a specific IP and port: ipv4:allow=127.0.0.1:80/in.
+    #[clap(long = "net", require_equals = true)]
+    // Note that when --net is passed to the cli, the first Option will be initialized: Some(None)
+    // and when --net=<ruleset> is specified, the inner Option will be initialized: Some(Some(ruleset))
+    pub networking: Option<Option<String>>,
 
     /// Disables the TTY bridge
     #[clap(long = "no-tty")]
@@ -556,17 +574,30 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        let has_networking = self.networking
+        let has_networking = self.networking.is_some()
             || capabilities::get_cached_capability(pkg_cache_path)
                 .ok()
                 .is_some_and(|v| v.enable_networking);
 
+        let ruleset = self
+            .networking
+            .clone()
+            .flatten()
+            .map(|ruleset| Ruleset::from_str(&ruleset))
+            .transpose()?;
+
+        let network = if let Some(ruleset) = ruleset {
+            virtual_net::host::LocalNetworking::with_ruleset(ruleset)
+        } else {
+            virtual_net::host::LocalNetworking::default()
+        };
+
         if has_networking {
-            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
+            rt.set_networking_implementation(network);
         } else {
             let net = super::capabilities::net::AskingNetworking::new(
                 pkg_cache_path.to_path_buf(),
-                Arc::new(virtual_net::host::LocalNetworking::default()),
+                Arc::new(network),
             );
 
             rt.set_networking_implementation(net);

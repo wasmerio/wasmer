@@ -37,14 +37,6 @@ pub fn path_readlink<M: MemorySize>(
     let mut path_str = unsafe { get_input_str!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
-    // Convert relative paths into absolute paths
-    if path_str.starts_with("./") {
-        path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
-        trace!(
-            %path_str
-        );
-    }
-
     let inode = wasi_try!(state.fs.get_inode_at_path(inodes, dir_fd, &path_str, false));
 
     {

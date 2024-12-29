@@ -1,13 +1,16 @@
-use crate::codegen_error;
-use crate::common_decl::Size;
-use crate::location::Location as AbstractLocation;
-pub use crate::location::Multiplier;
-pub use crate::machine::{Label, Offset};
-use crate::machine_x64::AssemblerX64;
-pub use crate::x64_decl::{GPR, XMM};
+use crate::{
+    codegen_error, common_decl::Size, location::Location as AbstractLocation,
+    machine_x64::AssemblerX64,
+};
+pub use crate::{
+    location::Multiplier,
+    machine::{Label, Offset},
+    x64_decl::{GPR, XMM},
+};
 use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_types::{CompileError, CpuFeature};
+use wasmer_compiler::types::target::CpuFeature;
+use wasmer_types::CompileError;
 
 /// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the

@@ -1104,10 +1104,6 @@ impl<'ctx> Intrinsics<'ctx> {
         intrinsics
             .throw_trap
             .add_attribute(AttributeLoc::Function, noreturn);
-        //intrinsics
-        //    .func_ref
-        //    .add_attribute(AttributeLoc::Function, intrinsics.readonly);
-
         intrinsics
     }
 }

@@ -1,19 +1,15 @@
 //! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
-use crate::lib::std::boxed::Box;
-use crate::lib::std::sync::Arc;
-use crate::translator::ModuleMiddleware;
-use crate::FunctionBodyData;
-use crate::ModuleTranslationState;
+use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry, target::Target};
+use crate::{
+    lib::std::{boxed::Box, sync::Arc},
+    translator::ModuleMiddleware,
+    types::{function::Compilation, target::CpuFeature},
+    FunctionBodyData, ModuleTranslationState,
+};
 use enumset::EnumSet;
-use wasmer_types::compilation::function::Compilation;
-use wasmer_types::compilation::module::CompileModuleInfo;
-use wasmer_types::compilation::symbols::SymbolRegistry;
-use wasmer_types::compilation::target::Target;
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::error::CompileError;
-use wasmer_types::{CpuFeature, Features, LocalFunctionIndex};
+use wasmer_types::{entity::PrimaryMap, error::CompileError, Features, LocalFunctionIndex};
 use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.

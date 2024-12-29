@@ -4,8 +4,15 @@ use wasmer_vm::TrapHandlerFn;
 
 pub(crate) struct Store {
     pub(crate) engine: Engine,
-
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
+}
+
+impl std::fmt::Debug for Store {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Store")
+            .field("engine", &self.engine)
+            .finish()
+    }
 }
 
 impl Store {

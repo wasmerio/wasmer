@@ -200,6 +200,18 @@ impl PackageTag {
             None
         };
 
+        let maybe_readme_content = match maybe_readme {
+            Some(readme) => {
+                let readme_path = self.package_path.join(&readme);
+                if readme_path.exists() {
+                    Some(tokio::fs::read_to_string(readme_path).await?)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        };
+
         let r = wasmer_backend_api::query::tag_package_release(
             client,
             maybe_description.as_deref(),
@@ -211,7 +223,7 @@ impl PackageTag {
             None,
             package_release_id,
             private,
-            maybe_readme.as_deref(),
+            maybe_readme_content.as_deref(),
             maybe_repository.as_deref(),
             &version,
         );

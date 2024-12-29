@@ -4,22 +4,18 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use derivative::Derivative;
 use mio::{Registry, Token};
 
 use crate::{InterestHandler, InterestType};
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub(crate) struct EngineInner {
     seed: usize,
     registry: Registry,
-    #[derivative(Debug = "ignore")]
     lookup: HashMap<Token, Box<dyn InterestHandler + Send + Sync>>,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct Selector {
     token_close: Token,
     inner: Mutex<EngineInner>,
@@ -138,8 +134,13 @@ impl Selector {
         let mut events = mio::Events::with_capacity(128);
         loop {
             // Wait for an event to trigger
-            if poll.poll(&mut events, None).is_err() {
-                continue;
+            if let Err(e) = poll.poll(&mut events, None) {
+                // This can happen when a debugger is attached
+                #[cfg(debug_assertions)]
+                if e.kind() == std::io::ErrorKind::Interrupted {
+                    continue;
+                }
+                panic!("Unexpected error in selector poll loop: {e:?}");
             }
 
             // Loop through all the events while under a guard lock

@@ -19,8 +19,6 @@
     clippy::unicode_not_nfc,
     clippy::use_self
 )]
-#![allow(deprecated_cfg_attr_crate_type_name)]
-#![cfg_attr(feature = "js", crate_type = "cdylib")]
 
 //! [`Wasmer`](https://wasmer.io/) is the most popular
 //! [WebAssembly](https://webassembly.org/) runtime for Rust. It supports
@@ -519,13 +517,17 @@ pub use value::Value;
 // Reexport from other modules
 
 pub use wasmer_derive::ValueType;
+
+#[cfg(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"))]
+pub use wasmer_compiler::types::target::{CpuFeature, Target};
+
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use wasmer_types::{
-    is_wasm, Bytes, CompileError, CpuFeature, DeserializeError, ExportIndex, ExportType,
-    ExternType, FrameInfo, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex,
-    MemoryError, MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages,
-    ParseCpuFeatureError, SerializeError, TableType, Target, Type, ValueType, WasmError,
-    WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
+    FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryType,
+    MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
+    TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
 };
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;

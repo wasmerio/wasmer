@@ -1,10 +1,10 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
-use cranelift_codegen::Context;
-use cranelift_codegen::MachSrcLoc;
+use cranelift_codegen::{Context, MachSrcLoc};
 use std::ops::Range;
-use wasmer_types::{FunctionAddressMap, InstructionAddressMap, SourceLoc};
+use wasmer_compiler::types::address_map::{FunctionAddressMap, InstructionAddressMap};
+use wasmer_types::SourceLoc;
 
 pub fn get_function_address_map(
     context: &Context,

@@ -131,7 +131,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
-          targets: "wasm32-wasi"
+          targets: "wasm32-wasip1"
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -500,7 +500,7 @@ jobs:
           },
           {
             build: macos-x64,
-            os: macos-12,
+            os: macos-13,
             target: x86_64-apple-darwin,
             exe: '',
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
@@ -511,8 +511,7 @@ jobs:
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
@@ -551,15 +550,17 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: |
-          ./scripts/alpine-linux-install-deps.sh
+          ./scripts/alpine-linux-install-deps.sh 
+          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
           echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
+         # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-12'
+        if: matrix.metadata.os == 'macos-13'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -607,7 +608,7 @@ jobs:
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-12' && !matrix.metadata.llvm_url
+        if: matrix.metadata.os == 'macos-13' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -744,7 +745,6 @@ jobs:
           }
         ]
         metadata: [
-          # We cannot test on macos-arm since we don't have ARM runners
           {
             build: linux-x64,
             os: ubuntu-22.04,
@@ -754,19 +754,17 @@ jobs:
           },
           {
             build: macos-x64,
-            os: macos-12,
+            os: macos-13,
             target: x86_64-apple-darwin,
             exe: '',
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-
           },
           {
             build: macos-arm,
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
@@ -800,7 +798,9 @@ jobs:
         if: matrix.metadata.build == 'linux-musl'
         run: |
           ./scripts/alpine-linux-install-deps.sh
+          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
           echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
+         # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.metadata.build == 'windows-x64' }}
@@ -815,7 +815,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-12'
+        if: matrix.metadata.os == 'macos-13'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -824,7 +824,7 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-12' && !matrix.metadata.llvm_url
+        if: matrix.metadata.os == 'macos-13' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -891,11 +891,11 @@ jobs:
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           - build: macos-x64
-            os: macos-12
+            os: macos-13
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
-            os: macos-12
+            os: macos-13
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl
@@ -920,7 +920,9 @@ jobs:
         if: matrix.build == 'linux-musl'
         run: |
           ./scripts/alpine-linux-install-deps.sh
+          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
           echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
+         # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - uses: actions/download-artifact@v4
         id: download
         with:
@@ -1094,47 +1096,16 @@ jobs:
     - uses: actions/download-artifact@v4
       with:
         name: wasmer-cli-linux-x64 
-    - name: Cargo Registry Cache
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/advisory-db
-          ~/.cargo/git
-          ~/.cargo/registry
-        key: cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    - name: Cargo target cache
-      uses: actions/cache@v3
-      with:
-        path: |
-          target/
-        key: cargo-release-${{ hashFiles('**/Cargo.lock') }}
+    - uses: wasmerio/setup-wasmer@v2
+    - uses: denoland/setup-deno@v1
     - run: |
-        # install rust toolchain
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        . "$HOME/.cargo/env"
-
-        # add wasmer cli to PATH
         tar -xzf build-wasmer.tar.gz
-
-        docker build -t tmp .
-        docker run -v $PWD:/app -w /app tmp bash -c " \
-          cp ./bin/wasmer /root/.wasmer/bin/wasmer &&\
-          export MYSQL_HOST='${{ vars.INTEGRATION_TEST_MYSQL_HOST }}' &&\
-          export MYSQL_DBNAME='${{ vars.INTEGRATION_TEST_MYSQL_DBNAME }}' &&\
-          export MYSQL_USERNAME='${{ secrets.INTEGRATION_TEST_MYSQL_USERNAME }}' &&\
-          export MYSQL_PASSWORD='${{ secrets.INTEGRATION_TEST_MYSQL_PASSWORD }}' &&\
-          export MYSQL_PORT='${{ vars.INTEGRATION_TEST_MYSQL_PORT }}' &&\
-          export MYSQL_CERT='${{ secrets.INTEGRATION_TEST_MYSQL_CERT }}' &&\
-          export PG_HOST='${{ vars.INTEGRATION_TEST_PG_HOST }}' &&\
-          export PG_DBNAME='${{ vars.INTEGRATION_TEST_PG_DBNAME }}' &&\
-          export PG_USERNAME='${{ secrets.INTEGRATION_TEST_PG_USERNAME }}' &&\
-          export PG_PASSWORD='${{ secrets.INTEGRATION_TEST_PG_PASSWORD }}' &&\
-          export PG_PORT='${{ vars.INTEGRATION_TEST_PG_PORT }}' &&\
-          wasmer config set registry.url https://registry.wasmer.io/graphql &&\
-          wasmer login '${{ secrets.WAPM_PROD_TOKEN }}' &&\
-          wasmer config set registry.url https://registry.wasmer.wtf/graphql &&\
-          wasmer login '${{ secrets.WAPM_DEV_TOKEN }}' &&\
-          cargo test --no-fail-fast"      
+        cp ./bin/wasmer ~/.wasmer/bin/wasmer 
+    - name: test
+      env:
+        WASMER_REGISTRY: https://registry.wasmer.wtf/graphql
+        WASMER_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+      run: deno test --allow-all --parallel  
     - name: notify failure in slack
       if: failure()
       run: |

@@ -10,13 +10,19 @@ use inkwell::DLLStorageClass;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState};
-use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::{
-    Compilation, CompileError, CompileModuleInfo, CustomSection, CustomSectionProtection, Dwarf,
-    FunctionIndex, LocalFunctionIndex, RelocationTarget, SectionBody, SectionIndex, SignatureIndex,
-    Symbol, SymbolRegistry, Target,
+use wasmer_compiler::types::function::{Compilation, Dwarf};
+use wasmer_compiler::types::module::CompileModuleInfo;
+use wasmer_compiler::{
+    types::{
+        relocation::RelocationTarget,
+        section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+        symbols::{Symbol, SymbolRegistry},
+        target::Target,
+    },
+    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
 };
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
 //use std::sync::Mutex;
 
@@ -176,7 +182,7 @@ impl LLVMCompiler {
         let metadata_gv = merged_module.add_global(
             metadata_init.get_type(),
             None,
-            &symbol_registry.symbol_to_name(wasmer_types::Symbol::Metadata),
+            &symbol_registry.symbol_to_name(wasmer_compiler::types::symbols::Symbol::Metadata),
         );
         metadata_gv.set_initializer(&metadata_init);
         metadata_gv.set_linkage(Linkage::DLLExport);

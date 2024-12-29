@@ -4,7 +4,7 @@ use gimli::write::{Address, CallFrameInstruction, CommonInformationEntry, FrameD
 use gimli::{AArch64, Encoding, Format, X86_64};
 use std::fmt::Debug;
 #[cfg(feature = "unwind")]
-use wasmer_types::Architecture;
+use wasmer_compiler::types::target::Architecture;
 
 #[derive(Clone, Debug)]
 pub enum UnwindOps {

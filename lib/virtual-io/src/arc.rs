@@ -1,14 +1,10 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use derivative::Derivative;
-
 use crate::{InterestHandler, InterestType};
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 struct ArcInterestHandlerState {
-    #[derivative(Debug = "ignore")]
     handler: Box<dyn InterestHandler + Send + Sync>,
 }
 

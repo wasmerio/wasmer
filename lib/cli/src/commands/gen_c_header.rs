@@ -3,14 +3,16 @@ use std::path::PathBuf;
 use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
-use wasmer_compiler::Artifact;
-use wasmer_package::package::WasmerPackageError;
-use wasmer_package::utils::from_bytes;
-use wasmer_types::{
-    compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
+use wasmer_compiler::{
+    types::{
+        symbols::ModuleMetadataSymbolRegistry,
+        target::{CpuFeature, Triple},
+    },
+    Artifact,
 };
-use webc::{compat::SharedBytes, DetectError};
-use webc::{Container, ContainerError};
+use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
+use wasmer_types::MetadataHeader;
+use webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
 use crate::store::CompilerOptions;
 

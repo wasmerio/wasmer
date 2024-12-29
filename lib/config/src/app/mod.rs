@@ -32,7 +32,7 @@ pub const HEADER_APP_VERSION_ID: &str = "x-edge-app-version-id";
 )]
 pub struct AppConfigV1 {
     /// Name of the app.
-    pub name: String,
+    pub name: Option<String>,
 
     /// App id assigned by the backend.
     ///
@@ -310,7 +310,7 @@ scheduled_tasks:
         assert_eq!(
             parsed,
             AppConfigV1 {
-                name: "test".to_string(),
+                name: Some("test".to_string()),
                 app_id: None,
                 package: "ns/name@0.1.0".parse().unwrap(),
                 owner: None,

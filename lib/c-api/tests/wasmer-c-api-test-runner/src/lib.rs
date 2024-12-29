@@ -167,12 +167,12 @@ fn test_ok() {
 
             let mut command = compiler.to_command();
 
-            command.arg(&format!("{manifest_dir}/../{test}.c"));
+            command.arg(format!("{manifest_dir}/../{test}.c"));
             if !config.wasmer_dir.is_empty() {
                 command.arg("/I");
-                command.arg(&format!("{}/wasm-c-api/include/", config.root_dir));
+                command.arg(format!("{}/wasm-c-api/include/", config.root_dir));
                 command.arg("/I");
-                command.arg(&format!("{}/include/", config.wasmer_dir));
+                command.arg(format!("{}/include/", config.wasmer_dir));
                 let mut log = String::new();
                 fixup_symlinks(
                     &[
@@ -188,10 +188,10 @@ fn test_ok() {
             }
             command.arg("/link");
             if !config.wasmer_dir.is_empty() {
-                command.arg(&format!("/LIBPATH:{}/lib", config.wasmer_dir));
-                command.arg(&format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
+                command.arg(format!("/LIBPATH:{}/lib", config.wasmer_dir));
+                command.arg(format!("{}/lib/wasmer.dll.lib", config.wasmer_dir));
             }
-            command.arg(&format!("/OUT:{manifest_dir}/../{test}.exe"));
+            command.arg(format!("/OUT:{manifest_dir}/../{test}.exe"));
 
             println!("compiling {test}: {command:?}");
 
@@ -212,7 +212,7 @@ fn test_ok() {
             }
 
             // execute
-            let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}.exe"));
+            let mut command = std::process::Command::new(format!("{manifest_dir}/../{test}.exe"));
             println!("newpath: {}", newpath.clone());
             command.env("PATH", newpath.clone());
             command.current_dir(exe_dir.clone());
@@ -250,9 +250,9 @@ fn test_ok() {
 
             if !config.wasmer_dir.is_empty() {
                 command.arg("-I");
-                command.arg(&format!("{}/wasm-c-api/include/", config.root_dir));
+                command.arg(format!("{}/wasm-c-api/include/", config.root_dir));
                 command.arg("-I");
-                command.arg(&format!("{}/include/", config.wasmer_dir));
+                command.arg(format!("{}/include/", config.wasmer_dir));
                 let mut log = String::new();
                 fixup_symlinks(
                     &[
@@ -265,15 +265,15 @@ fn test_ok() {
                 )
                 .unwrap_or_else(|_| panic!("failed to fix symlinks: {log}"));
             }
-            command.arg(&format!("{manifest_dir}/../{test}.c"));
+            command.arg(format!("{manifest_dir}/../{test}.c"));
             if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
-                command.arg(&format!("{}/lib/", config.wasmer_dir));
+                command.arg(format!("{}/lib/", config.wasmer_dir));
                 command.arg("-lwasmer");
-                command.arg(&format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
+                command.arg(format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
             }
             command.arg("-o");
-            command.arg(&format!("{manifest_dir}/../{test}"));
+            command.arg(format!("{manifest_dir}/../{test}"));
 
             // print_wasmer_root_to_stdout(&config);
 
@@ -293,7 +293,7 @@ fn test_ok() {
             }
 
             // execute
-            let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
+            let mut command = std::process::Command::new(format!("{manifest_dir}/../{test}"));
             command.env("LD_PRELOAD", libwasmer_so_path.clone());
             command.current_dir(exe_dir.clone());
             println!("execute: {command:#?}");
@@ -310,9 +310,9 @@ fn test_ok() {
     }
 
     for test in CAPI_BASE_TESTS.iter() {
-        let _ = std::fs::remove_file(&format!("{manifest_dir}/{test}.obj"));
-        let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}.exe"));
-        let _ = std::fs::remove_file(&format!("{manifest_dir}/../{test}"));
+        let _ = std::fs::remove_file(format!("{manifest_dir}/{test}.obj"));
+        let _ = std::fs::remove_file(format!("{manifest_dir}/../{test}.exe"));
+        let _ = std::fs::remove_file(format!("{manifest_dir}/../{test}"));
     }
 }
 

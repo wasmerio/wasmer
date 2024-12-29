@@ -30,15 +30,20 @@ use crate::{
     config::{CompiledKind, LLVM},
     error::err_nt,
 };
-use wasmer_compiler::wasmparser::{MemArg, Operator};
 use wasmer_compiler::{
-    from_binaryreadererror_wasmerror, wpheaptype_to_type, wptype_to_type, FunctionBinaryReader,
-    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror,
+    types::{
+        relocation::RelocationTarget,
+        symbols::{Symbol, SymbolRegistry},
+    },
+    wasmparser::{MemArg, Operator},
+    wpheaptype_to_type, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
+    MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, RelocationTarget, SignatureIndex, Symbol, SymbolRegistry, TableIndex, Type,
+    ModuleInfo, SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 

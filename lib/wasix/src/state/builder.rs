@@ -581,6 +581,10 @@ impl WasiEnvBuilder {
         self.journals.push(journal);
     }
 
+    pub fn get_current_dir(&mut self) -> Option<PathBuf> {
+        self.current_dir.clone()
+    }
+
     pub fn set_current_dir(&mut self, dir: impl Into<PathBuf>) {
         self.current_dir = Some(dir.into());
     }

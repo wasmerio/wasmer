@@ -132,7 +132,7 @@ impl CmdAppCreate {
     #[inline]
     fn get_app_config(&self, owner: &str, name: &str, package: &str) -> AppConfigV1 {
         AppConfigV1 {
-            name: String::from(name),
+            name: Some(String::from(name)),
             owner: Some(String::from(owner)),
             package: PackageSource::from_str(package).unwrap(),
             app_id: None,

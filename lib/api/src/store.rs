@@ -1,7 +1,6 @@
 use crate::engine::{AsEngineRef, Engine, EngineRef};
 #[cfg(feature = "sys")]
 use crate::sys::NativeStoreExt;
-use derivative::Derivative;
 use std::{
     fmt,
     ops::{Deref, DerefMut},
@@ -45,14 +44,20 @@ pub type OnCalledHandler = Box<
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-#[derive(Derivative)]
-#[derivative(Debug)]
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    #[derivative(Debug = "ignore")]
     pub(crate) store: store_imp::Store,
-    #[derivative(Debug = "ignore")]
     pub(crate) on_called: Option<OnCalledHandler>,
+}
+
+impl std::fmt::Debug for StoreInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("StoreInner")
+            .field("objects", &self.objects)
+            .field("store", &self.store)
+            .field("on_called", &"<...>")
+            .finish()
+    }
 }
 
 /// The store represents all global state that can be manipulated by

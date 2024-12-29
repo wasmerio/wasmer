@@ -12,19 +12,19 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=5.0.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=5.0.0", path = "lib/compiler", features = [
+wasmer = { version = "=5.0.4", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "=5.0.4", path = "lib/compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=5.0.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=5.0.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=5.0.0", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=5.0.4", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=5.0.4", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=5.0.4", path = "lib/compiler-llvm", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
-wasmer-wast = { version = "=5.0.0", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=5.0.0", path = "tests/wasi-wast", optional = true }
-wasmer-cache = { version = "=5.0.0", path = "lib/cache", optional = true }
-wasmer-types = { version = "=5.0.0", path = "lib/types" }
-wasmer-middlewares = { version = "=5.0.0", path = "lib/middlewares", optional = true }
+wasmer-wast = { version = "=5.0.4", path = "tests/lib/wast", optional = true }
+wasi-test-generator = { version = "=5.0.4", path = "tests/wasi-wast", optional = true }
+wasmer-cache = { version = "=5.0.4", path = "lib/cache", optional = true }
+wasmer-types = { version = "=5.0.4", path = "lib/types" }
+wasmer-middlewares = { version = "=5.0.4", path = "lib/middlewares", optional = true }
 
 # Third party dependencies
 cfg-if = "1.0"
@@ -54,7 +54,6 @@ members = [
 	"lib/compiler",
 	"lib/config",
 	"lib/derive",
-	"lib/object",
 	"lib/sys-utils",
 	"lib/types",
 	"lib/virtual-io",
@@ -84,16 +83,16 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.81"
-version = "5.0.0"
+version = "5.0.4"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.2.0", path = "lib/package" }
+wasmer-package = { version = "0.4.0", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "7.0.0-rc.1" }
+webc = { version = "7.0.0-rc.2" }
 shared-buffer = "0.1.4"
 
 # Third-party crates
@@ -121,6 +120,9 @@ socket2 = "0.5.7"
 pretty_assertions = "1.4.0"
 base64 = "0.22.0"
 time = "0.3.36"
+target-lexicon = { version = "0.12.2", default-features = false }
+object = "0.32.0"
+derive_more = { version = "1", features = ["debug"] }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -130,7 +132,7 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=5.0.0", path = "lib/api", features = [
+wasmer = { version = "=5.0.4", path = "lib/api", features = [
 	"compiler",
 	"singlepass",
 	"sys",
@@ -153,19 +155,12 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
-reqwest.workspace = true
+reqwest = {workspace = true, features = ["blocking", "rustls-tls"]}
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = [
-	"wat",
-	"wast",
-	"cache",
-	"wasi",
-	"engine",
-	"middlewares",
-]
+default = ["wat", "wast", "cache", "wasi", "engine", "middlewares"]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []
@@ -226,7 +221,11 @@ opt-level = 3
 opt-level = 3
 
 [[bench]]
-name = "compiler_run"
+name = "run"
+harness = false
+
+[[bench]]
+name = "compile"
 harness = false
 
 [[bench]]

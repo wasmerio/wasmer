@@ -1,26 +1,33 @@
+// TODO: currently, hard links are broken in the presence or renames.
+// It is impossible to fix them with the current setup, since a hard
+// link must point to the actual file rather than its path, but the
+// only way we can get to a file on a FileSystem instance is by going
+// through its repective FileOpener and giving it a path as input.
+// TODO: refactor away the InodeVal type
+
 mod fd;
+mod fd_list;
 mod inode_guard;
 mod notification;
 
 use std::{
     borrow::{Borrow, Cow},
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
     task::{Context, Poll},
 };
 
+use self::fd_list::FdList;
 use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
-use ahash::AHashMap;
 use futures::{future::BoxFuture, Future, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
@@ -195,53 +202,38 @@ impl WasiInodes {
     }
 
     /// Get the `VirtualFile` object at stdout
-    pub(crate) fn stdout(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
-    ) -> Result<InodeValFileReadGuard, FsError> {
+    pub(crate) fn stdout(fd_map: &RwLock<FdList>) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDOUT_FILENO)
     }
     /// Get the `VirtualFile` object at stdout mutably
-    pub(crate) fn stdout_mut(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
-    ) -> Result<InodeValFileWriteGuard, FsError> {
+    pub(crate) fn stdout_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
     /// Get the `VirtualFile` object at stderr
-    pub(crate) fn stderr(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
-    ) -> Result<InodeValFileReadGuard, FsError> {
+    pub(crate) fn stderr(fd_map: &RwLock<FdList>) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDERR_FILENO)
     }
     /// Get the `VirtualFile` object at stderr mutably
-    pub(crate) fn stderr_mut(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
-    ) -> Result<InodeValFileWriteGuard, FsError> {
+    pub(crate) fn stderr_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDERR_FILENO)
     }
 
     /// Get the `VirtualFile` object at stdin
     /// TODO: Review why this is dead
     #[allow(dead_code)]
-    pub(crate) fn stdin(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
-    ) -> Result<InodeValFileReadGuard, FsError> {
+    pub(crate) fn stdin(fd_map: &RwLock<FdList>) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDIN_FILENO)
     }
     /// Get the `VirtualFile` object at stdin mutably
-    pub(crate) fn stdin_mut(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
-    ) -> Result<InodeValFileWriteGuard, FsError> {
+    pub(crate) fn stdin_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDIN_FILENO)
     }
 
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    fn std_dev_get(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
-        fd: WasiFd,
-    ) -> Result<InodeValFileReadGuard, FsError> {
-        if let Some(fd) = fd_map.read().unwrap().get(&fd) {
+    fn std_dev_get(fd_map: &RwLock<FdList>, fd: WasiFd) -> Result<InodeValFileReadGuard, FsError> {
+        if let Some(fd) = fd_map.read().unwrap().get(fd) {
             let guard = fd.inode.read();
             if let Kind::File {
                 handle: Some(handle),
@@ -261,10 +253,10 @@ impl WasiInodes {
     /// Internal helper function to mutably get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     fn std_dev_get_mut(
-        fd_map: &RwLock<AHashMap<u32, Fd>>,
+        fd_map: &RwLock<FdList>,
         fd: WasiFd,
     ) -> Result<InodeValFileWriteGuard, FsError> {
-        if let Some(fd) = fd_map.read().unwrap().get(&fd) {
+        if let Some(fd) = fd_map.read().unwrap().get(fd) {
             let guard = fd.inode.read();
             if let Kind::File {
                 handle: Some(handle),
@@ -450,76 +442,13 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::Fs
     Ok(())
 }
 
-/// This needs to be exposed so that the multiple use-cases are able
-/// to generated unique file descriptors and update the seed during
-/// journal restoration
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct WasiFdSeed {
-    next_fd: Arc<AtomicU32>,
-}
-
-impl Default for WasiFdSeed {
-    fn default() -> Self {
-        Self::new(3)
-    }
-}
-
-impl WasiFdSeed {
-    pub fn new(initial_val: u32) -> Self {
-        Self {
-            next_fd: Arc::new(AtomicU32::new(initial_val)),
-        }
-    }
-
-    pub fn fork(&self) -> Self {
-        Self {
-            next_fd: Arc::new(AtomicU32::new(self.next_fd.load(Ordering::SeqCst))),
-        }
-    }
-
-    pub fn next_val(&self) -> WasiFd {
-        self.next_fd.fetch_add(1, Ordering::SeqCst)
-    }
-
-    pub fn set_val(&self, val: WasiFd) {
-        self.next_fd.store(val, std::sync::atomic::Ordering::SeqCst)
-    }
-
-    pub fn cur_val(&self) -> WasiFd {
-        self.next_fd.load(Ordering::SeqCst)
-    }
-
-    pub fn clip_val(&self, fd: WasiFd) {
-        loop {
-            let existing = self.next_fd.load(Ordering::SeqCst);
-            if existing >= fd {
-                return;
-            }
-            if self
-                .next_fd
-                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
-                .is_ok()
-            {
-                break;
-            }
-        }
-    }
-}
-
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
-    pub fd_map: Arc<RwLock<AHashMap<WasiFd, Fd>>>,
-    pub next_fd: WasiFdSeed,
-    // The Unix spec requires newly allocated FDs to always be the lowest-numbered
-    // FD available. We keep track of freed (i.e. closed) FDs in a min-heap to
-    // reuse them and fulfill this requirement.
-    // Note: BinaryHeap is a max-heap, we need Reverse to make it a min-heap.
-    pub freed_fds: Arc<RwLock<BinaryHeap<Reverse<WasiFd>>>>,
+    pub fd_map: Arc<RwLock<FdList>>,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
@@ -552,12 +481,9 @@ impl WasiFs {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         let fd_map = self.fd_map.read().unwrap().clone();
-        let freed_fds = self.freed_fds.read().unwrap().clone();
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
-            next_fd: self.next_fd.fork(),
-            freed_fds: Arc::new(RwLock::new(freed_fds)),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
@@ -568,32 +494,12 @@ impl WasiFs {
         }
     }
 
-    fn get_first_free_fd(&self) -> WasiFd {
-        let mut freed_fds = self.freed_fds.write().unwrap();
-
-        match freed_fds.pop() {
-            Some(Reverse(fd)) => fd,
-            None => self.next_fd.next_val(),
-        }
-    }
-
-    /// We need to clear the freed FD list when the journal is replayed as it
-    /// will close lots of file descriptors which will fill the list. We clear
-    /// the list and allocate new FD's instead.
-    ///
-    /// This should only be used when the file descriptors are being managed
-    /// externally (e.g. journals)
-    pub(crate) fn clear_freed_fd_list(&self) {
-        let mut freed_fds = self.freed_fds.write().unwrap();
-        freed_fds.clear();
-    }
-
     /// Closes all the file handles.
     #[allow(clippy::await_holding_lock)]
     pub async fn close_all(&self) {
         let mut to_close = {
             if let Ok(map) = self.fd_map.read() {
-                map.keys().copied().collect::<HashSet<_>>()
+                map.keys().collect::<HashSet<_>>()
             } else {
                 HashSet::new()
             }
@@ -646,7 +552,7 @@ impl WasiFs {
 
     /// Converts a relative path into an absolute path
     pub(crate) fn relative_path_to_absolute(&self, mut path: String) -> String {
-        if path.starts_with("./") {
+        if !path.starts_with("/") {
             let current_dir = self.current_dir.lock().unwrap();
             path = format!("{}{}", current_dir.as_str(), &path[1..]);
             if path.contains("//") {
@@ -676,15 +582,13 @@ impl WasiFs {
         let root_inode = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: true,
-            name: "/".into(),
+            name: RwLock::new("/".into()),
             kind: RwLock::new(root_kind),
         });
 
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
-            fd_map: Arc::new(RwLock::new(AHashMap::new())),
-            next_fd: WasiFdSeed::default(),
-            freed_fds: Arc::new(RwLock::new(BinaryHeap::new())),
+            fd_map: Arc::new(RwLock::new(FdList::new())),
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
@@ -783,6 +687,7 @@ impl WasiFs {
     /// Opens a user-supplied file in the directory specified with the
     /// name and flags given
     // dead code because this is an API for external use
+    // TODO: is this used anywhere?
     #[allow(dead_code, clippy::too_many_arguments)]
     pub fn open_file_at(
         &mut self,
@@ -810,7 +715,7 @@ impl WasiFs {
                 let kind = Kind::File {
                     handle: Some(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(""),
-                    fd: Some(self.get_first_free_fd()),
+                    fd: None,
                 };
 
                 drop(guard);
@@ -831,8 +736,21 @@ impl WasiFs {
                     }
                 }
 
-                self.create_fd(rights, rights_inheriting, flags, open_flags, inode)
-                    .map_err(fs_error_from_wasi_err)
+                // Here, we clone the inode so we can use it to overwrite the fd field below.
+                let real_fd = self
+                    .create_fd(rights, rights_inheriting, flags, open_flags, inode.clone())
+                    .map_err(fs_error_from_wasi_err)?;
+
+                {
+                    let mut guard = inode.kind.write().unwrap();
+                    if let Kind::File { ref mut fd, .. } = *guard {
+                        *fd = Some(real_fd);
+                    } else {
+                        unreachable!("We just created a Kind::File");
+                    }
+                }
+
+                Ok(real_fd)
             }
             _ => Err(FsError::BaseNotDirectory),
         }
@@ -984,6 +902,13 @@ impl WasiFs {
 
         // TODO: rights checks
         'path_iter: for (i, component) in path.components().enumerate() {
+            // Since we're resolving the path against the given inode, we want to
+            // assume '/a/b' to be the same as `a/b` relative to the inode, so
+            // we skip over the RootDir component.
+            if matches!(component, Component::RootDir) {
+                continue;
+            }
+
             // used to terminate symlink resolution properly
             let last_component = i + 1 == n_components;
             // for each component traverse file structure
@@ -1268,7 +1193,14 @@ impl WasiFs {
         // for each preopened directory
         let preopen_fds = self.preopen_fds.read().unwrap();
         for po_fd in preopen_fds.deref() {
-            let po_inode = self.fd_map.read().unwrap()[po_fd].inode.clone();
+            let po_inode = self
+                .fd_map
+                .read()
+                .unwrap()
+                .get(*po_fd)
+                .unwrap()
+                .inode
+                .clone();
             let guard = po_inode.read();
             let po_path = match guard.deref() {
                 Kind::Dir { path, .. } => &**path,
@@ -1337,14 +1269,7 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        let start_inode =
-            if !base_inode.deref().name.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
-                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-                cur_inode
-            } else {
-                self.get_fd_inode(base)?
-            };
-        self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
+        self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
     }
 
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
@@ -1376,7 +1301,7 @@ impl WasiFs {
             .fd_map
             .read()
             .unwrap()
-            .get(&fd)
+            .get(fd)
             .ok_or(Errno::Badf)
             .cloned();
 
@@ -1403,7 +1328,7 @@ impl WasiFs {
         self.fd_map
             .read()
             .unwrap()
-            .get(&fd)
+            .get(fd)
             .ok_or(Errno::Badf)
             .map(|a| a.inode.clone())
     }
@@ -1498,7 +1423,7 @@ impl WasiFs {
                 // REVIEW:
                 // no need for +1, because there is no 0 end-of-string marker
                 // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.len() as u32 + 1,
+                pr_name_len: inode_val.name.read().unwrap().len() as u32 + 1,
             }
             .untagged(),
         }
@@ -1609,7 +1534,7 @@ impl WasiFs {
         inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
-            name,
+            name: RwLock::new(name),
             kind: RwLock::new(kind),
         })
     }
@@ -1622,17 +1547,15 @@ impl WasiFs {
         open_flags: u16,
         inode: InodeGuard,
     ) -> Result<WasiFd, Errno> {
-        let idx = self.get_first_free_fd();
         self.create_fd_ext(
             rights,
             rights_inheriting,
             flags,
             open_flags,
             inode,
-            idx,
+            None,
             false,
-        )?;
-        Ok(idx)
+        )
     }
 
     pub fn with_fd(
@@ -1644,21 +1567,16 @@ impl WasiFs {
         inode: InodeGuard,
         idx: WasiFd,
     ) -> Result<(), Errno> {
-        self.make_max_fd(idx + 1);
         self.create_fd_ext(
             rights,
             rights_inheriting,
             flags,
             open_flags,
             inode,
-            idx,
+            Some(idx),
             true,
         )?;
         Ok(())
-    }
-
-    pub fn make_max_fd(&self, fd: u32) {
-        self.next_fd.clip_val(fd);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1669,48 +1587,48 @@ impl WasiFs {
         flags: Fdflags,
         open_flags: u16,
         inode: InodeGuard,
-        idx: WasiFd,
+        idx: Option<WasiFd>,
         exclusive: bool,
-    ) -> Result<(), Errno> {
+    ) -> Result<WasiFd, Errno> {
         let is_stdio = matches!(
             idx,
-            __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
+            Some(__WASI_STDIN_FILENO) | Some(__WASI_STDOUT_FILENO) | Some(__WASI_STDERR_FILENO)
         );
+        let fd = Fd {
+            rights,
+            rights_inheriting,
+            flags,
+            offset: Arc::new(AtomicU64::new(0)),
+            open_flags,
+            inode,
+            is_stdio,
+        };
+
         let mut guard = self.fd_map.write().unwrap();
-        if exclusive && guard.contains_key(&idx) {
-            return Err(Errno::Exist);
+
+        match idx {
+            Some(idx) => {
+                if guard.insert(exclusive, idx, fd) {
+                    Ok(idx)
+                } else {
+                    Err(Errno::Exist)
+                }
+            }
+            None => Ok(guard.insert_first_free(fd)),
         }
-        guard.insert(
-            idx,
-            Fd {
-                rights,
-                rights_inheriting,
-                flags,
-                offset: Arc::new(AtomicU64::new(0)),
-                open_flags,
-                inode,
-                is_stdio,
-            },
-        );
-        Ok(())
     }
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
-        let idx = self.get_first_free_fd();
-        self.fd_map.write().unwrap().insert(
-            idx,
-            Fd {
-                rights: fd.rights,
-                rights_inheriting: fd.rights_inheriting,
-                flags: fd.flags,
-                offset: fd.offset.clone(),
-                open_flags: fd.open_flags,
-                inode: fd.inode,
-                is_stdio: fd.is_stdio,
-            },
-        );
-        Ok(idx)
+        Ok(self.fd_map.write().unwrap().insert_first_free(Fd {
+            rights: fd.rights,
+            rights_inheriting: fd.rights_inheriting,
+            flags: fd.flags,
+            offset: fd.offset.clone(),
+            open_flags: fd.open_flags,
+            inode: fd.inode,
+            is_stdio: fd.is_stdio,
+        }))
     }
 
     /// Low level function to remove an inode, that is it deletes the WASI FS's
@@ -1995,11 +1913,12 @@ impl WasiFs {
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: true,
-                name: name.to_string().into(),
+                name: RwLock::new(name.to_string().into()),
                 kind: RwLock::new(kind),
             })
         };
         self.fd_map.write().unwrap().insert(
+            false,
             raw_fd,
             Fd {
                 rights,
@@ -2044,7 +1963,8 @@ impl WasiFs {
                 path_to_symlink,
                 ..
             } => {
-                let base_po_inode = &self.fd_map.read().unwrap()[base_po_dir].inode;
+                let guard = self.fd_map.read().unwrap();
+                let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
                 let guard = base_po_inode.read();
                 match guard.deref() {
                     Kind::Root { .. } => {
@@ -2081,12 +2001,9 @@ impl WasiFs {
     pub(crate) fn close_fd(&self, fd: WasiFd) -> Result<(), Errno> {
         let mut fd_map = self.fd_map.write().unwrap();
 
-        let pfd = fd_map.remove(&fd).ok_or(Errno::Badf);
+        let pfd = fd_map.remove(fd).ok_or(Errno::Badf);
         match pfd {
             Ok(fd_ref) => {
-                let mut freed_fds = self.freed_fds.write().unwrap();
-                freed_fds.push(Reverse(fd));
-
                 let inode = fd_ref.inode.ino().as_u64();
                 let ref_cnt = fd_ref.inode.ref_cnt();
                 if ref_cnt == 1 {
@@ -2110,7 +2027,16 @@ impl std::fmt::Debug for WasiFs {
         } else {
             write!(f, "current_dir=(locked) ")?;
         }
-        write!(f, "next_fd={} ", self.next_fd.cur_val())?;
+        if let Ok(guard) = self.fd_map.read() {
+            write!(
+                f,
+                "next_fd={} max_fd={:?} ",
+                guard.next_free_fd(),
+                guard.last_fd()
+            )?;
+        } else {
+            write!(f, "next_fd=(locked) max_fd=(locked) ")?;
+        }
         write!(f, "{:?}", self.root_fs)
     }
 }

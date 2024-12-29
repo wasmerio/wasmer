@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{NamedPackageIdent, PackageHash, PackageParseError};
+use super::{NamedPackageIdent, PackageHash, PackageId, PackageParseError};
 
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum PackageIdent {
@@ -22,6 +22,17 @@ impl PackageIdent {
             Some(v)
         } else {
             None
+        }
+    }
+
+    /// Returns true if this ident matches the given package id.
+    ///
+    /// Semver constraints are matched against the package id's version.
+    pub fn matches_id(&self, id: &PackageId) -> bool {
+        match (self, id) {
+            (Self::Named(a), PackageId::Named(b)) => a.matches_id(b),
+            (Self::Hash(a), PackageId::Hash(b)) => a == b,
+            _ => false,
         }
     }
 }
@@ -90,5 +101,25 @@ impl schemars::JsonSchema for PackageIdent {
 
     fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
         String::json_schema(gen)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_package_ident_matches_id() {
+        assert!(PackageIdent::from_str("ns/pkg")
+            .unwrap()
+            .matches_id(&PackageId::new_named("ns/pkg", "1.0.0".parse().unwrap())));
+
+        assert!(PackageIdent::from_str("ns/pkg@2")
+            .unwrap()
+            .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap())));
+
+        assert!(!PackageIdent::from_str("ns/pkg@3")
+            .unwrap()
+            .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap())));
     }
 }
