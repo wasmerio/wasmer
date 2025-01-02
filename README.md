@@ -7,9 +7,6 @@
   </a>
 
   <p>
-    <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?event=push" alt="Build Status">
-    </a>
     <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
     </a>
@@ -17,7 +14,7 @@
       <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
     </a>
     <a href="https://discord.gg/rWkMNStrEW">
-      <img src="https://img.shields.io/discord/1110300506942881873" alt="Wasmer on Discord">
+      <img src="https://img.shields.io/discord/1110300506942881873?label=Wasmer&logo=discord&logoColor=white" alt="Wasmer on Discord">
     </a>
   </p>
 </div>
