@@ -2006,13 +2006,15 @@ impl WasiFs {
             Ok(fd_ref) => {
                 let inode = fd_ref.inode.ino().as_u64();
 
-                match fd_ref.inode.write().deref_mut() {
-                    Kind::File { handle, .. } if handle.is_some() => {
-                        let file_ref_count = Arc::strong_count(handle.as_ref().unwrap());
-                        trace!(%file_ref_count, %inode, "dropping file handle");
-                        drop(handle.take().unwrap());
+                if !fd_ref.is_stdio {
+                    match fd_ref.inode.write().deref_mut() {
+                        Kind::File { handle, .. } if handle.is_some() => {
+                            let file_ref_count = Arc::strong_count(handle.as_ref().unwrap());
+                            trace!(%file_ref_count, %inode, "dropping file handle");
+                            drop(handle.take().unwrap());
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
 
                 let ref_cnt = fd_ref.inode.ref_cnt();
