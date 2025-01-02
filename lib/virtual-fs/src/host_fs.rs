@@ -351,10 +351,10 @@ impl crate::FileOpener for FileSystem {
 pub struct File {
     #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
-    #[cfg_attr(feature = "enable-serde", serde(skip_serializing))]
-    inner_std: fs::File,
     #[cfg_attr(feature = "enable-serde", serde(skip))]
     inner: tfs::File,
+    #[cfg_attr(feature = "enable-serde", serde(skip_serializing))]
+    inner_std: fs::File,
     pub host_path: PathBuf,
     #[cfg(feature = "enable-serde")]
     flags: u16,
@@ -632,6 +632,12 @@ impl AsyncSeek for File {
         let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_complete(cx)
+    }
+}
+
+impl Drop for File {
+    fn drop(&mut self) {
+        tracing::trace!(?self.host_path, "Closing host file");
     }
 }
 

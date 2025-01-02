@@ -29,6 +29,10 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
         }
     }
 
+    // HACK: we use tokio files to back WASI file handles. Since tokio
+    // does writes in the background, it may miss writes if the file is
+    // closed without flushing first. Hence, we flush once here.
+    wasi_try_ok!(__asyncify_light(env, None, state.fs.flush(fd))?);
     wasi_try_ok!(state.fs.close_fd(fd));
 
     #[cfg(feature = "journal")]
