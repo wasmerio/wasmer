@@ -2327,6 +2327,18 @@
 <a href="#2327" id="2327">2327</a>
 <a href="#2328" id="2328">2328</a>
 <a href="#2329" id="2329">2329</a>
+<a href="#2330" id="2330">2330</a>
+<a href="#2331" id="2331">2331</a>
+<a href="#2332" id="2332">2332</a>
+<a href="#2333" id="2333">2333</a>
+<a href="#2334" id="2334">2334</a>
+<a href="#2335" id="2335">2335</a>
+<a href="#2336" id="2336">2336</a>
+<a href="#2337" id="2337">2337</a>
+<a href="#2338" id="2338">2338</a>
+<a href="#2339" id="2339">2339</a>
+<a href="#2340" id="2340">2340</a>
+<a href="#2341" id="2341">2341</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -4044,52 +4056,62 @@
     }
 
     <span class="kw">fn </span>filter_tarball_internal(p: <span class="kw-2">&amp;</span>Path, target: <span class="kw-2">&amp;</span>Triple) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
-        <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.ends_with(<span class="string">".tar.gz"</span>) {
+        <span class="comment">// [todo]: Move this description to a better suited place.
+        //
+        // The filename scheme:
+        // FILENAME := "wasmer-" [ FEATURE ] OS  PLATFORM  .
+        // FEATURE  := "wamr-" | "v8-" | "wasmi-" .
+        // OS       := "darwin" | "linux" | "linux-musl" | "windows" .
+        // PLATFORM := "aarch64" | "amd64" | "gnu64" .
+        //
+        // In this function we want to select only those version where features don't appear.
+
+        </span><span class="kw">let </span>filename = p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>;
+
+        <span class="kw">if </span>!filename.ends_with(<span class="string">".tar.gz"</span>) {
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="kw">if </span>target.environment == Environment::Musl &amp;&amp; !p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"musl"</span>)
-            || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"musl"</span>) &amp;&amp; target.environment != Environment::Musl
+        <span class="kw">if </span>filename.contains(<span class="string">"wamr"</span>) || filename.contains(<span class="string">"v8"</span>) || filename.contains(<span class="string">"wasmi"</span>) {
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        }
+
+        <span class="kw">if </span>target.environment == Environment::Musl &amp;&amp; !filename.contains(<span class="string">"musl"</span>)
+            || filename.contains(<span class="string">"musl"</span>) &amp;&amp; target.environment != Environment::Musl
         {
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
         <span class="kw">if let </span>Architecture::Aarch64(<span class="kw">_</span>) = target.architecture {
-            <span class="kw">if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"aarch64"</span>)
-                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"arm64"</span>))
-            {
+            <span class="kw">if </span>!(filename.contains(<span class="string">"aarch64"</span>) || filename.contains(<span class="string">"arm64"</span>)) {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
 
         <span class="kw">if let </span>Architecture::X86_64 = target.architecture {
             <span class="kw">if </span>target.operating_system == OperatingSystem::Windows {
-                <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"gnu64"</span>) {
+                <span class="kw">if </span>!filename.contains(<span class="string">"gnu64"</span>) {
                     <span class="kw">return </span><span class="prelude-val">None</span>;
                 }
-            } <span class="kw">else if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"x86_64"</span>)
-                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"amd64"</span>))
-            {
+            } <span class="kw">else if </span>!(filename.contains(<span class="string">"x86_64"</span>) || filename.contains(<span class="string">"amd64"</span>)) {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
 
         <span class="kw">if let </span>OperatingSystem::Windows = target.operating_system {
-            <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"windows"</span>) {
+            <span class="kw">if </span>!filename.contains(<span class="string">"windows"</span>) {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
 
         <span class="kw">if let </span>OperatingSystem::Darwin = target.operating_system {
-            <span class="kw">if </span>!(p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"apple"</span>)
-                || p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"darwin"</span>))
-            {
+            <span class="kw">if </span>!(filename.contains(<span class="string">"apple"</span>) || filename.contains(<span class="string">"darwin"</span>)) {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
 
         <span class="kw">if let </span>OperatingSystem::Linux = target.operating_system {
-            <span class="kw">if </span>!p.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.contains(<span class="string">"linux"</span>) {
+            <span class="kw">if </span>!filename.contains(<span class="string">"linux"</span>) {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
         }
@@ -4459,6 +4481,8 @@
 
         <span class="kw">let </span>status = response.status();
 
+        <span class="macro">log::info!</span>(<span class="string">"GitHub api response status: {status}"</span>);
+
         <span class="kw">let </span>body = response
             .bytes()
             .map_err(anyhow::Error::new)
@@ -4558,7 +4582,7 @@
 
         <span class="kw">if </span>assets.len() != <span class="number">1 </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                <span class="string">"GitHub API: more that one release selected for target {target_triple}: {assets:?}"
+                <span class="string">"GitHub API: more than one release selected for target {target_triple}: {assets:#?}"
             </span>));
         }
 
