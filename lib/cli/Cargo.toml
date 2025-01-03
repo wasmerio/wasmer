@@ -110,17 +110,17 @@ enable-serde = [
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=5.0.4", path = "../api", default-features = false }
-wasmer-compiler = { version = "=5.0.4", path = "../compiler", features = [
+wasmer = { version = "=5.0.5-rc1", path = "../api", default-features = false }
+wasmer-compiler = { version = "=5.0.5-rc1", path = "../compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=5.0.4", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=5.0.4", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=5.0.4", path = "../compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=5.0.5-rc1", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=5.0.5-rc1", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=5.0.5-rc1", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
 
-wasmer-vm = { version = "=5.0.4", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.34.0", features = [
+wasmer-vm = { version = "=5.0.5-rc1", path = "../vm", optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.35.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -128,11 +128,11 @@ wasmer-wasix = { path = "../wasix", version = "=0.34.0", features = [
 	"host-fs",
 	"ctrlc",
 ] }
-wasmer-wast = { version = "=5.0.4", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=5.0.4", path = "../types", features = [
+wasmer-wast = { version = "=5.0.5-rc1", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=5.0.5-rc1", path = "../types", features = [
 	"enable-serde",
 ] }
-virtual-fs = { version = "0.20.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.21.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
 virtual-net = { version = "0.14.0", path = "../virtual-net" }
