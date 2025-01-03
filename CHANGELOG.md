@@ -9,6 +9,22 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 5.0.5-rc1 - 03/01/2025
+
+## Added
+
+
+## Changed
+
+  - [#5321](https://github.com/wasmerio/wasmer/pull/5321) Flush before closing files to avoid missed writes
+  - [#5315](https://github.com/wasmerio/wasmer/pull/5315) Implement cross-FS file rename
+
+## Fixed
+
+  - [#5320](https://github.com/wasmerio/wasmer/pull/5320) Fix "error: GitHub API: more that one release selected" in `create-exe`
+
+
+
 ## 5.0.4 - 17/12/2024
 
 This release fixes minor bugs and adds spurious improvements. 
