@@ -6094,7 +6094,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6240,7 +6240,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7001,7 +7001,7 @@ version = "5.0.5-rc1"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7065,7 +7065,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "thiserror 1.0.69",
  "tokio",
@@ -7079,7 +7079,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "libc",
  "region",
@@ -7143,7 +7143,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7230,7 +7230,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "anyhow",
  "bitflags 1.3.2",

@@ -120,7 +120,7 @@ wasmer-compiler-llvm = { version = "=5.0.5-rc1", path = "../compiler-llvm", opti
 wasmer-package.workspace = true
 
 wasmer-vm = { version = "=5.0.5-rc1", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.34.0", features = [
+wasmer-wasix = { path = "../wasix", version = "=0.35.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -132,7 +132,7 @@ wasmer-wast = { version = "=5.0.5-rc1", path = "../../tests/lib/wast", optional 
 wasmer-types = { version = "=5.0.5-rc1", path = "../types", features = [
 	"enable-serde",
 ] }
-virtual-fs = { version = "0.20.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.21.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
 virtual-net = { version = "0.14.0", path = "../virtual-net" }
