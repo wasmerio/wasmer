@@ -41,6 +41,9 @@
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
 <a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -71,7 +74,10 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
         }
     }
-
+    <span class="comment">// HACK: we use tokio files to back WASI file handles. Since tokio
+    // does writes in the background, it may miss writes if the file is
+    // closed without flushing first. Hence, we flush once here.
+    </span><span class="macro">wasi_try_ok!</span>(__asyncify_light(env, <span class="prelude-val">None</span>, state.fs.flush(fd))<span class="question-mark">?</span>);
     <span class="macro">wasi_try_ok!</span>(state.fs.close_fd(fd));
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
