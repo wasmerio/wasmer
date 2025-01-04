@@ -17,7 +17,7 @@ use std::{
     path::{Component, Path, PathBuf},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
     task::{Context, Poll},
@@ -121,19 +121,61 @@ impl Inode {
 pub struct InodeGuard {
     ino: Inode,
     inner: Arc<InodeVal>,
+
+    // This exists because self.inner doesn't really represent the
+    // number of FDs referencing this InodeGuard. We need that number
+    // so we can know when to drop the file handle, which should result
+    // in the backing file (which may be a host file) getting closed.
+    open_handles: Arc<AtomicI32>,
 }
 impl InodeGuard {
     pub fn ino(&self) -> Inode {
         self.ino
     }
+
     pub fn downgrade(&self) -> InodeWeakGuard {
         InodeWeakGuard {
             ino: self.ino,
+            open_handles: self.open_handles.clone(),
             inner: Arc::downgrade(&self.inner),
         }
     }
+
     pub fn ref_cnt(&self) -> usize {
         Arc::strong_count(&self.inner)
+    }
+
+    pub fn handle_count(&self) -> u32 {
+        self.open_handles.load(Ordering::SeqCst) as u32
+    }
+
+    pub fn acquire_handle(&self) {
+        self.open_handles.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub fn drop_one_handle(&self) {
+        if self.open_handles.fetch_sub(1, Ordering::SeqCst) != 1 {
+            return;
+        }
+
+        let mut guard = self.inner.write();
+
+        // Re-check the open handles to account for race conditions
+        if self.open_handles.load(Ordering::SeqCst) != 0 {
+            return;
+        }
+
+        let ino = self.ino.0;
+        trace!(%ino, "InodeGuard has no more open handles");
+
+        match guard.deref_mut() {
+            Kind::File { handle, .. } if handle.is_some() => {
+                let file_ref_count = Arc::strong_count(handle.as_ref().unwrap());
+                trace!(%file_ref_count, %ino, "dropping file handle");
+                drop(handle.take().unwrap());
+            }
+            _ => (),
+        }
     }
 }
 impl std::ops::Deref for InodeGuard {
@@ -146,6 +188,10 @@ impl std::ops::Deref for InodeGuard {
 #[derive(Debug, Clone)]
 pub struct InodeWeakGuard {
     ino: Inode,
+    // Needed for when we want to upgrade back. We don't exactly
+    // care too much when the AtomicI32 is dropped, so this is
+    // a strong reference to keep things simple.
+    open_handles: Arc<AtomicI32>,
     inner: Weak<InodeVal>,
 }
 impl InodeWeakGuard {
@@ -155,6 +201,7 @@ impl InodeWeakGuard {
     pub fn upgrade(&self) -> Option<InodeGuard> {
         Weak::upgrade(&self.inner).map(|inner| InodeGuard {
             ino: self.ino,
+            open_handles: self.open_handles.clone(),
             inner,
         })
     }
@@ -198,7 +245,13 @@ impl WasiInodes {
             guard.lookup.retain(|_, v| Weak::strong_count(v) > 0);
         }
 
-        InodeGuard { ino, inner: val }
+        let open_handles = Arc::new(AtomicI32::new(0));
+
+        InodeGuard {
+            ino,
+            open_handles,
+            inner: val,
+        }
     }
 
     /// Get the `VirtualFile` object at stdout
@@ -687,7 +740,7 @@ impl WasiFs {
     /// Opens a user-supplied file in the directory specified with the
     /// name and flags given
     // dead code because this is an API for external use
-    // TODO: is this used anywhere?
+    // TODO: is this used anywhere? Is it even sound?
     #[allow(dead_code, clippy::too_many_arguments)]
     pub fn open_file_at(
         &mut self,

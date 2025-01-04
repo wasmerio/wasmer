@@ -244,6 +244,8 @@ pub(crate) fn path_open_internal(
                 if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
+                // TODO: I strongly suspect that assigning the handle unconditionally
+                // breaks opening the same file multiple times.
                 *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
                     open_options.open(&path).map_err(fs_error_into_wasi_err)
                 ))));

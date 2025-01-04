@@ -7,7 +7,7 @@
 use super::fd::Fd;
 use wasmer_wasix_types::wasi::Fd as WasiFd;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FdList {
     fds: Vec<Option<Fd>>,
     first_free: Option<usize>,
@@ -62,6 +62,7 @@ impl FdList {
     }
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
+        fd.inode.acquire_handle();
         match self.first_free {
             Some(free) => {
                 debug_assert!(self.fds[free].is_none());
@@ -106,6 +107,7 @@ impl FdList {
             return false;
         }
 
+        fd.inode.acquire_handle();
         self.fds[idx] = Some(fd);
         true
     }
@@ -115,18 +117,26 @@ impl FdList {
 
         let result = self.fds.get_mut(idx).and_then(|fd| fd.take());
 
-        if result.is_some() {
+        if let Some(fd) = result.as_ref() {
             match self.first_free {
                 None => self.first_free = Some(idx),
                 Some(x) if x > idx => self.first_free = Some(idx),
                 _ => (),
             }
+
+            fd.inode.drop_one_handle();
         }
 
         result
     }
 
     pub fn clear(&mut self) {
+        for fd in &self.fds {
+            if let Some(fd) = fd.as_ref() {
+                fd.inode.drop_one_handle();
+            }
+        }
+
         self.fds.clear();
         self.first_free = None;
     }
@@ -146,6 +156,21 @@ impl FdList {
         FdListIteratorMut {
             fds_iterator: self.fds.iter_mut(),
             idx: 0,
+        }
+    }
+}
+
+impl Clone for FdList {
+    fn clone(&self) -> Self {
+        for fd in &self.fds {
+            if let Some(fd) = fd.as_ref() {
+                fd.inode.acquire_handle();
+            }
+        }
+
+        Self {
+            fds: self.fds.clone(),
+            first_free: self.first_free.clone(),
         }
     }
 }
@@ -200,7 +225,10 @@ impl<'a> Iterator for FdListIteratorMut<'a> {
 mod tests {
     use std::{
         borrow::Cow,
-        sync::{atomic::AtomicU64, Arc, RwLock},
+        sync::{
+            atomic::{AtomicI32, AtomicU64},
+            Arc, RwLock,
+        },
     };
 
     use wasmer_wasix_types::wasi::{Fdflags, Rights};
@@ -221,6 +249,7 @@ mod tests {
                     name: RwLock::new(Cow::Borrowed("")),
                     stat: RwLock::new(Default::default()),
                 }),
+                open_handles: Arc::new(AtomicI32::new(0)),
             },
             is_stdio: false,
             offset: Arc::new(AtomicU64::new(0)),
