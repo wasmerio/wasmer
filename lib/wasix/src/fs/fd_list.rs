@@ -170,7 +170,7 @@ impl Clone for FdList {
 
         Self {
             fds: self.fds.clone(),
-            first_free: self.first_free.clone(),
+            first_free: self.first_free,
         }
     }
 }
