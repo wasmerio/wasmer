@@ -154,11 +154,23 @@ impl InodeGuard {
     }
 
     pub fn drop_one_handle(&self) {
-        if self.open_handles.fetch_sub(1, Ordering::SeqCst) != 1 {
+        let prev_handles = self.open_handles.fetch_sub(1, Ordering::SeqCst);
+
+        // If this wasn't the last handle, nothing else to do...
+        if prev_handles > 1 {
             return;
         }
 
+        // ... otherwise, drop the VirtualFile reference
         let mut guard = self.inner.write();
+
+        // Must have at least one open handle before we can drop.
+        // This check happens after `inner` is locked so we can
+        // poison the lock and keep people from using this (possibly
+        // corrupt) InodeGuard.
+        if prev_handles != 1 {
+            panic!("InodeGuard handle dropped too many times");
+        }
 
         // Re-check the open handles to account for race conditions
         if self.open_handles.load(Ordering::SeqCst) != 0 {

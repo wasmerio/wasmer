@@ -175,6 +175,12 @@ impl Clone for FdList {
     }
 }
 
+impl Drop for FdList {
+    fn drop(&mut self) {
+        self.clear();
+    }
+}
+
 impl<'a> Iterator for FdListIterator<'a> {
     type Item = (WasiFd, &'a Fd);
 
@@ -231,6 +237,7 @@ mod tests {
         },
     };
 
+    use assert_panic::assert_panic;
     use wasmer_wasix_types::wasi::{Fdflags, Rights};
 
     use crate::fs::{Inode, InodeGuard, InodeVal, Kind};
@@ -480,5 +487,49 @@ mod tests {
         assert!(i.next().is_none());
 
         assert_fds_match(&l, &[(0, 2), (1, 1)]);
+    }
+
+    #[test]
+    fn open_handles_are_updated_correctly() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+
+        let fd0 = l.get(0).unwrap().clone();
+        assert_eq!(fd0.inode.handle_count(), 1);
+
+        // Try removing an FD, should drop the handle
+        let fd1 = l.get(1).unwrap().clone();
+        assert_eq!(fd1.inode.handle_count(), 1);
+        l.remove(1).unwrap();
+        assert_eq!(fd1.inode.handle_count(), 0);
+
+        // Existing FDs should get a new handle when cloning the list
+        let mut l2 = l.clone();
+        assert_eq!(fd0.inode.handle_count(), 2);
+
+        {
+            // Dropping the list should drop open handles
+            let l3 = l2.clone();
+            assert_eq!(fd0.inode.handle_count(), 3);
+            drop(l3);
+            assert_eq!(fd0.inode.handle_count(), 2);
+        }
+
+        // Clearing the list should drop open handles
+        l.clear();
+        assert_eq!(fd0.inode.handle_count(), 1);
+
+        // Clear the last handle, should go back to zero
+        l2.clear();
+        assert_eq!(fd0.inode.handle_count(), 0);
+
+        assert_panic!(
+            fd0.inode.drop_one_handle(),
+            &str,
+            "InodeGuard handle dropped too many times"
+        );
+
+        assert_panic!(drop(fd0.inode.write()), String, contains "PoisonError");
     }
 }
