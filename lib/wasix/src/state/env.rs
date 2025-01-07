@@ -905,7 +905,7 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
+    pub fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
         self.try_inner().map(|i| i.memory())
     }
 
