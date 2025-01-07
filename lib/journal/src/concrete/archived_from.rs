@@ -178,6 +178,7 @@ impl From<SnapshotTrigger> for JournalSnapshotTriggerV1 {
             SnapshotTrigger::NonDeterministicCall => JournalSnapshotTriggerV1::NonDeterministicCall,
             SnapshotTrigger::Bootstrap => JournalSnapshotTriggerV1::Bootstrap,
             SnapshotTrigger::Transaction => JournalSnapshotTriggerV1::Transaction,
+            SnapshotTrigger::Explicit => JournalSnapshotTriggerV1::Explicit,
         }
     }
 }
@@ -197,6 +198,7 @@ impl From<JournalSnapshotTriggerV1> for SnapshotTrigger {
             JournalSnapshotTriggerV1::NonDeterministicCall => SnapshotTrigger::NonDeterministicCall,
             JournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
             JournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
+            JournalSnapshotTriggerV1::Explicit => SnapshotTrigger::Explicit,
         }
     }
 }
@@ -218,6 +220,7 @@ impl From<&'_ ArchivedJournalSnapshotTriggerV1> for SnapshotTrigger {
             }
             ArchivedJournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
             ArchivedJournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
+            ArchivedJournalSnapshotTriggerV1::Explicit => SnapshotTrigger::Explicit,
         }
     }
 }
