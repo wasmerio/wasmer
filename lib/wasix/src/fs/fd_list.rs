@@ -57,7 +57,12 @@ impl FdList {
         self.fds.get(idx as usize).and_then(|x| x.as_ref())
     }
 
-    pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut Fd> {
+    /// # Safety
+    /// If [`Fd::inode`] is changed in a way that affects the number
+    /// of open handles, it will cause either (and likely both of):
+    /// * Host file handles leaked and left open
+    /// * A panic when closing the [`WasiFd`]
+    pub unsafe fn get_mut(&mut self, idx: WasiFd) -> Option<&mut Fd> {
         self.fds.get_mut(idx as usize).and_then(|x| x.as_mut())
     }
 
@@ -152,7 +157,12 @@ impl FdList {
         self.iter().map(|(key, _)| key)
     }
 
-    pub fn iter_mut(&mut self) -> FdListIteratorMut {
+    /// # Safety
+    /// If [`Fd::inode`] is changed in a way that affects the number
+    /// of open handles, it will cause either (and likely both of):
+    /// * Host file handles leaked and left open
+    /// * A panic when closing the [`WasiFd`]
+    pub unsafe fn iter_mut(&mut self) -> FdListIteratorMut {
         FdListIteratorMut {
             fds_iterator: self.fds.iter_mut(),
             idx: 0,
@@ -381,13 +391,13 @@ mod tests {
         assert!(l.get(1).is_none());
         assert!(is_useless_fd(l.get(2).unwrap(), 2));
 
-        let at_4 = l.get_mut(4).unwrap();
+        let at_4 = unsafe { l.get_mut(4) }.unwrap();
         assert!(is_useless_fd(at_4, 4));
-        *at_4 = useless_fd(5);
+        at_4.open_flags = 5; // Update the "useless FD" number without changing the InodeGuard
         assert!(is_useless_fd(l.get(4).unwrap(), 5));
 
         assert!(l.get(10).is_none());
-        assert!(l.get_mut(10).is_none());
+        assert!(unsafe { l.get_mut(10) }.is_none());
     }
 
     #[test]
@@ -473,12 +483,12 @@ mod tests {
         l.insert_first_free(useless_fd(0));
         l.insert_first_free(useless_fd(1));
 
-        let mut i = l.iter_mut();
+        let mut i = unsafe { l.iter_mut() };
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 0);
         assert!(is_useless_fd(next.1, 0));
-        *next.1 = useless_fd(2);
+        next.1.open_flags = 2; // Update the "useless FD" number without changing the InodeGuard
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 1);
@@ -531,5 +541,18 @@ mod tests {
         );
 
         assert_panic!(drop(fd0.inode.write()), String, contains "PoisonError");
+    }
+
+    #[test]
+    fn replacing_inode_causes_panic() {
+        // We want to pin this behavior down, as not causing a panic
+        // can lead to inconsistencies
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+
+        let fd = unsafe { l.get_mut(0) }.unwrap();
+        *fd = useless_fd(1);
+
+        assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");
     }
 }
