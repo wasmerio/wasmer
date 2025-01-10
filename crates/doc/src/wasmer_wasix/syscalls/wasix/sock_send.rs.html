@@ -199,7 +199,7 @@
             <span class="kw">let </span>inodes = state.inodes.clone();
 
             <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
-            fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
+            fd_entry.inner.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
         };
 
         <span class="macro">wasi_try_ok!</span>(fd_write_internal::&lt;M&gt;(
@@ -260,7 +260,7 @@
         sock,
         Rights::SOCK_SEND,
         |socket, fd| <span class="kw">async move </span>{
-            <span class="kw">let </span>nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+            <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
             <span class="kw">let </span>timeout = socket
                 .opt_time(TimeType::WriteTimeout)
                 .ok()

@@ -54,6 +54,9 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -101,8 +104,11 @@
 
     <span class="kw">let </span>new_fd_entry = Fd {
         <span class="comment">// TODO: verify this is correct
-        </span>offset: fd_entry.offset.clone(),
-        rights: fd_entry.rights_inheriting,
+        </span>inner: FdInner {
+            offset: fd_entry.inner.offset.clone(),
+            rights: fd_entry.inner.rights_inheriting,
+            ..fd_entry.inner
+        },
         inode: fd_entry.inode.clone(),
         ..<span class="kw-2">*</span>fd_entry
     };

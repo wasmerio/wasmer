@@ -1485,6 +1485,12 @@
 <a href="#1485" id="1485">1485</a>
 <a href="#1486" id="1486">1486</a>
 <a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -1838,10 +1844,10 @@
 </span><span class="kw">pub struct </span>File {
     <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip, default = <span class="string">"default_handle"</span>))]
     </span>handle: Handle,
-    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip_serializing))]
-    </span>inner_std: fs::File,
     <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip))]
     </span>inner: tfs::File,
+    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip_serializing))]
+    </span>inner_std: fs::File,
     <span class="kw">pub </span>host_path: PathBuf,
     <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
     </span>flags: u16,
@@ -2119,6 +2125,12 @@
         <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_complete(cx)
+    }
+}
+
+<span class="kw">impl </span>Drop <span class="kw">for </span>File {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span><span class="self">self</span>.host_path, <span class="string">"Closing host file"</span>);
     }
 }
 

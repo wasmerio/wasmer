@@ -96,6 +96,10 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::BorrowMut;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -147,7 +151,11 @@
     <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
 
-    <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_FILESTAT_SET_TIMES) {
+    <span class="kw">if </span>!fd_entry
+        .inner
+        .rights
+        .contains(Rights::FD_FILESTAT_SET_TIMES)
+    {
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 

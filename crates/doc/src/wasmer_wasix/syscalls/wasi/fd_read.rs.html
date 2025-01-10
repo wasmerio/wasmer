@@ -449,7 +449,7 @@
         <span class="kw">let </span>inodes = state.inodes.clone();
 
         <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
-        fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
+        fd_entry.inner.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
     };
 
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
@@ -545,13 +545,13 @@
     <span class="kw">let </span>is_stdio = fd_entry.is_stdio;
 
     <span class="kw">let </span>bytes_read = {
-        <span class="kw">if </span>!is_stdio &amp;&amp; !fd_entry.rights.contains(Rights::FD_READ) {
+        <span class="kw">if </span>!is_stdio &amp;&amp; !fd_entry.inner.rights.contains(Rights::FD_READ) {
             <span class="comment">// TODO: figure out the error to return when lacking rights
             </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
         }
 
         <span class="kw">let </span>inode = fd_entry.inode;
-        <span class="kw">let </span>fd_flags = fd_entry.flags;
+        <span class="kw">let </span>fd_flags = fd_entry.inner.flags;
 
         <span class="kw">let </span>(bytes_read, can_update_cursor) = {
             <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();

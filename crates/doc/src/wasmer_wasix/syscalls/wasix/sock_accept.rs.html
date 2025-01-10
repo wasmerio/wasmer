@@ -305,7 +305,7 @@
         sock,
         Rights::SOCK_ACCEPT,
         <span class="kw">move </span>|socket, fd| <span class="kw">async move </span>{
-            <span class="kw">if </span>fd.flags.contains(Fdflags::NONBLOCK) {
+            <span class="kw">if </span>fd.inner.flags.contains(Fdflags::NONBLOCK) {
                 fd_flags.set(Fdflags::NONBLOCK, <span class="bool-val">true</span>);
                 nonblocking = <span class="bool-val">true</span>;
             }

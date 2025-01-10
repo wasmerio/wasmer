@@ -419,6 +419,8 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -552,10 +554,10 @@
     );
 
     <span class="kw">let </span>working_dir = <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_fd(dirfd));
-    <span class="kw">let </span>working_dir_rights_inheriting = working_dir.rights_inheriting;
+    <span class="kw">let </span>working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
 
     <span class="comment">// ASSUMPTION: open rights apply recursively
-    </span><span class="kw">if </span>!working_dir.rights.contains(Rights::PATH_OPEN) {
+    </span><span class="kw">if </span>!working_dir.inner.rights.contains(Rights::PATH_OPEN) {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
     }
 
@@ -604,8 +606,8 @@
     };
 
     <span class="kw">let </span>parent_rights = virtual_fs::OpenOptionsConfig {
-        read: working_dir.rights.contains(Rights::FD_READ),
-        write: working_dir.rights.contains(Rights::FD_WRITE),
+        read: working_dir.inner.rights.contains(Rights::FD_READ),
+        write: working_dir.inner.rights.contains(Rights::FD_WRITE),
         <span class="comment">// The parent is a directory, which is why these options
         // aren't inherited from the parent (append / truncate doesn't work on directories)
         </span>create_new: <span class="bool-val">true</span>,
@@ -665,7 +667,9 @@
                 <span class="kw">if </span>minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
-                <span class="kw-2">*</span>handle = <span class="prelude-val">Some</span>(Arc::new(std::sync::RwLock::new(<span class="macro">wasi_try_ok_ok!</span>(
+                <span class="comment">// TODO: I strongly suspect that assigning the handle unconditionally
+                // breaks opening the same file multiple times.
+                </span><span class="kw-2">*</span>handle = <span class="prelude-val">Some</span>(Arc::new(std::sync::RwLock::new(<span class="macro">wasi_try_ok_ok!</span>(
                     open_options.open(<span class="kw-2">&amp;</span>path).map_err(fs_error_into_wasi_err)
                 ))));
 

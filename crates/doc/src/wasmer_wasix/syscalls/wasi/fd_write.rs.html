@@ -501,7 +501,7 @@
         <span class="kw">let </span>inodes = state.inodes.clone();
 
         <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
-        fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
+        fd_entry.inner.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
     };
 
     <span class="kw">let </span>bytes_written = <span class="macro">wasi_try_ok!</span>(fd_write_internal::&lt;M&gt;(
@@ -598,11 +598,11 @@
     <span class="kw">let </span>is_stdio = fd_entry.is_stdio;
 
     <span class="kw">let </span>bytes_written = {
-        <span class="kw">if </span>!is_stdio &amp;&amp; !fd_entry.rights.contains(Rights::FD_WRITE) {
+        <span class="kw">if </span>!is_stdio &amp;&amp; !fd_entry.inner.rights.contains(Rights::FD_WRITE) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
         }
 
-        <span class="kw">let </span>fd_flags = fd_entry.flags;
+        <span class="kw">let </span>fd_flags = fd_entry.inner.flags;
         <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
         <span class="kw">let </span>(bytes_written, is_file, can_snapshot) = {
@@ -616,7 +616,7 @@
 
                         <span class="kw">let </span>res = __asyncify_light(
                             env,
-                            <span class="kw">if </span>fd_entry.flags.contains(Fdflags::NONBLOCK) {
+                            <span class="kw">if </span>fd_entry.inner.flags.contains(Fdflags::NONBLOCK) {
                                 <span class="prelude-val">Some</span>(Duration::ZERO)
                             } <span class="kw">else </span>{
                                 <span class="prelude-val">None
@@ -624,10 +624,10 @@
                             <span class="kw">async </span>{
                                 <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
                                 <span class="kw">if </span>!is_stdio {
-                                    <span class="kw">if </span>fd_entry.flags.contains(Fdflags::APPEND) {
+                                    <span class="kw">if </span>fd_entry.inner.flags.contains(Fdflags::APPEND) {
                                         <span class="comment">// `fdflags::append` means we need to seek to the end before writing.
                                         </span>offset = fd_entry.inode.stat.read().unwrap().st_size;
-                                        fd_entry.offset.store(offset, Ordering::Release);
+                                        fd_entry.inner.offset.store(offset, Ordering::Release);
                                     }
 
                                     handle
@@ -894,7 +894,7 @@
                     <span class="comment">// fetch_add returns the previous value, we have to add bytes_written again here
                     </span>+ bytes_written
             } <span class="kw">else </span>{
-                fd_entry.offset.load(Ordering::Acquire)
+                fd_entry.inner.offset.load(Ordering::Acquire)
             };
 
             <span class="comment">// we set the size but we don't return any errors if it fails as

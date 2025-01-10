@@ -209,7 +209,7 @@
     <span class="kw">let </span>(memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_fd(fd));
 
-    <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_SEEK) {
+    <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::FD_SEEK) {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
     }
 
@@ -283,7 +283,7 @@
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
                 }
             }
-            fd_entry.offset.load(Ordering::Acquire)
+            fd_entry.inner.offset.load(Ordering::Acquire)
         }
         Whence::Set =&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();

@@ -223,6 +223,16 @@
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -249,16 +259,26 @@
 <span class="attr">#[derive(Debug, Clone)]
 #[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Fd {
-    <span class="kw">pub </span>rights: Rights,
-    <span class="kw">pub </span>rights_inheriting: Rights,
-    <span class="kw">pub </span>flags: Fdflags,
-    <span class="kw">pub </span>offset: Arc&lt;AtomicU64&gt;,
+    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(flatten))]
+    </span><span class="kw">pub </span>inner: FdInner,
+
     <span class="doccomment">/// Flags that determine how the [`Fd`] can be used.
     ///
     /// Used when reopening a [`VirtualFile`] during deserialization.
     </span><span class="kw">pub </span>open_flags: u16,
     <span class="kw">pub </span>inode: InodeGuard,
     <span class="kw">pub </span>is_stdio: bool,
+}
+
+<span class="comment">// This struct contains the bits of Fd that are safe to mutate, so that
+// FdList::get_mut can safely return mutable references.
+</span><span class="attr">#[derive(Debug, Clone)]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>FdInner {
+    <span class="kw">pub </span>rights: Rights,
+    <span class="kw">pub </span>rights_inheriting: Rights,
+    <span class="kw">pub </span>flags: Fdflags,
+    <span class="kw">pub </span>offset: Arc&lt;AtomicU64&gt;,
 }
 
 <span class="kw">impl </span>Fd {

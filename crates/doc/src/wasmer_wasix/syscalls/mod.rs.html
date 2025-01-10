@@ -1689,7 +1689,7 @@
 };
 <span class="kw">use crate</span>::{
     fs::{
-        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
+        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, FdInner, InodeVal, Kind,
         MAX_SYMLINKS,
     },
     journal::{DynJournal, JournalEffector},
@@ -2195,7 +2195,7 @@
     Fut: std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
 {
     <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock)<span class="question-mark">?</span>;
-    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.rights.contains(rights) {
+    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.inner.rights.contains(rights) {
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
@@ -2239,7 +2239,7 @@
     <span class="kw">let </span>tasks = env.tasks().clone();
 
     <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock)<span class="question-mark">?</span>;
-    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.rights.contains(rights) {
+    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.inner.rights.contains(rights) {
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
@@ -2278,7 +2278,7 @@
     <span class="kw">let </span>tasks = env.tasks().clone();
 
     <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock)<span class="question-mark">?</span>;
-    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.rights.contains(rights) {
+    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.inner.rights.contains(rights) {
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
@@ -2315,7 +2315,7 @@
     <span class="kw">let </span>tasks = env.tasks().clone();
 
     <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock)<span class="question-mark">?</span>;
-    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.rights.contains(rights) {
+    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.inner.rights.contains(rights) {
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
@@ -2349,7 +2349,7 @@
 {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock)<span class="question-mark">?</span>;
-    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.rights.contains(rights) {
+    <span class="kw">if </span>!rights.is_empty() &amp;&amp; !fd_entry.inner.rights.contains(rights) {
         <span class="macro">tracing::warn!</span>(
             <span class="string">"wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade"</span>,
             ctx.data().pid(),
@@ -2370,7 +2370,7 @@
                 drop(guard);
 
                 <span class="comment">// Start the work using the socket
-                </span><span class="kw">let </span>work = actor(socket, fd_entry.flags);
+                </span><span class="kw">let </span>work = actor(socket, fd_entry.inner.flags);
 
                 <span class="comment">// Block on the work and process it
                 </span><span class="kw">let </span>res = InlineWaker::block_on(work);

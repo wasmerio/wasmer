@@ -249,7 +249,7 @@
             sock,
             Rights::SOCK_SEND_TO,
             |socket, fd| <span class="kw">async move </span>{
-                <span class="kw">let </span>nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
                 <span class="kw">let </span>timeout = socket
                     .opt_time(TimeType::WriteTimeout)
                     .ok()

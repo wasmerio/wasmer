@@ -674,7 +674,7 @@
             .map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>,
         <span class="kw">_ </span>=&gt; {
             <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
-            <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+            <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
             }
             <span class="kw">let </span>inode = fd_entry.inode;
@@ -751,7 +751,7 @@
                             <span class="prelude-val">Ok</span>(a) =&gt; a,
                             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(err),
                         };
-                        <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                        <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
                             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
                         }
                     }
@@ -769,7 +769,7 @@
                             <span class="prelude-val">Ok</span>(a) =&gt; a,
                             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(err),
                         };
-                        <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                        <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
                             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
                         }
                     }

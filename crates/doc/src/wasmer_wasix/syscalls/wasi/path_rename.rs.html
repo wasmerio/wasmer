@@ -321,11 +321,11 @@
 
     {
         <span class="kw">let </span>source_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(source_fd));
-        <span class="kw">if </span>!source_fd.rights.contains(Rights::PATH_RENAME_SOURCE) {
+        <span class="kw">if </span>!source_fd.inner.rights.contains(Rights::PATH_RENAME_SOURCE) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
         }
         <span class="kw">let </span>target_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(target_fd));
-        <span class="kw">if </span>!target_fd.rights.contains(Rights::PATH_RENAME_TARGET) {
+        <span class="kw">if </span>!target_fd.inner.rights.contains(Rights::PATH_RENAME_TARGET) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
         }
     }

@@ -54,11 +54,11 @@
 
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
 
-    <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_TELL) {
+    <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::FD_TELL) {
         <span class="kw">return </span>Errno::Access;
     }
 
-    <span class="kw">let </span>offset = fd_entry.offset.load(Ordering::Acquire);
+    <span class="kw">let </span>offset = fd_entry.inner.offset.load(Ordering::Acquire);
     Span::current().record(<span class="string">"offset"</span>, offset);
     <span class="macro">wasi_try_mem!</span>(offset_ref.write(offset));
 

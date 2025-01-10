@@ -2170,6 +2170,79 @@
 <a href="#2170" id="2170">2170</a>
 <a href="#2171" id="2171">2171</a>
 <a href="#2172" id="2172">2172</a>
+<a href="#2173" id="2173">2173</a>
+<a href="#2174" id="2174">2174</a>
+<a href="#2175" id="2175">2175</a>
+<a href="#2176" id="2176">2176</a>
+<a href="#2177" id="2177">2177</a>
+<a href="#2178" id="2178">2178</a>
+<a href="#2179" id="2179">2179</a>
+<a href="#2180" id="2180">2180</a>
+<a href="#2181" id="2181">2181</a>
+<a href="#2182" id="2182">2182</a>
+<a href="#2183" id="2183">2183</a>
+<a href="#2184" id="2184">2184</a>
+<a href="#2185" id="2185">2185</a>
+<a href="#2186" id="2186">2186</a>
+<a href="#2187" id="2187">2187</a>
+<a href="#2188" id="2188">2188</a>
+<a href="#2189" id="2189">2189</a>
+<a href="#2190" id="2190">2190</a>
+<a href="#2191" id="2191">2191</a>
+<a href="#2192" id="2192">2192</a>
+<a href="#2193" id="2193">2193</a>
+<a href="#2194" id="2194">2194</a>
+<a href="#2195" id="2195">2195</a>
+<a href="#2196" id="2196">2196</a>
+<a href="#2197" id="2197">2197</a>
+<a href="#2198" id="2198">2198</a>
+<a href="#2199" id="2199">2199</a>
+<a href="#2200" id="2200">2200</a>
+<a href="#2201" id="2201">2201</a>
+<a href="#2202" id="2202">2202</a>
+<a href="#2203" id="2203">2203</a>
+<a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
+<a href="#2208" id="2208">2208</a>
+<a href="#2209" id="2209">2209</a>
+<a href="#2210" id="2210">2210</a>
+<a href="#2211" id="2211">2211</a>
+<a href="#2212" id="2212">2212</a>
+<a href="#2213" id="2213">2213</a>
+<a href="#2214" id="2214">2214</a>
+<a href="#2215" id="2215">2215</a>
+<a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
@@ -2189,7 +2262,7 @@
     path::{Component, Path, PathBuf},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
     task::{Context, Poll},
@@ -2215,7 +2288,7 @@
     },
 };
 
-<span class="kw">pub use </span><span class="self">self</span>::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, InodeVal, Kind};
+<span class="kw">pub use </span><span class="self">self</span>::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, FdInner, InodeVal, Kind};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
     InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard, POLL_GUARD_MAX_RET,
@@ -2293,19 +2366,73 @@
 </span><span class="kw">pub struct </span>InodeGuard {
     ino: Inode,
     inner: Arc&lt;InodeVal&gt;,
+
+    <span class="comment">// This exists because self.inner doesn't really represent the
+    // number of FDs referencing this InodeGuard. We need that number
+    // so we can know when to drop the file handle, which should result
+    // in the backing file (which may be a host file) getting closed.
+    </span>open_handles: Arc&lt;AtomicI32&gt;,
 }
 <span class="kw">impl </span>InodeGuard {
     <span class="kw">pub fn </span>ino(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Inode {
         <span class="self">self</span>.ino
     }
+
     <span class="kw">pub fn </span>downgrade(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; InodeWeakGuard {
         InodeWeakGuard {
             ino: <span class="self">self</span>.ino,
+            open_handles: <span class="self">self</span>.open_handles.clone(),
             inner: Arc::downgrade(<span class="kw-2">&amp;</span><span class="self">self</span>.inner),
         }
     }
+
     <span class="kw">pub fn </span>ref_cnt(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         Arc::strong_count(<span class="kw-2">&amp;</span><span class="self">self</span>.inner)
+    }
+
+    <span class="kw">pub fn </span>handle_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.open_handles.load(Ordering::SeqCst) <span class="kw">as </span>u32
+    }
+
+    <span class="kw">pub fn </span>acquire_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.open_handles.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
+    }
+
+    <span class="kw">pub fn </span>drop_one_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span>prev_handles = <span class="self">self</span>.open_handles.fetch_sub(<span class="number">1</span>, Ordering::SeqCst);
+
+        <span class="comment">// If this wasn't the last handle, nothing else to do...
+        </span><span class="kw">if </span>prev_handles &gt; <span class="number">1 </span>{
+            <span class="kw">return</span>;
+        }
+
+        <span class="comment">// ... otherwise, drop the VirtualFile reference
+        </span><span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.write();
+
+        <span class="comment">// Must have at least one open handle before we can drop.
+        // This check happens after `inner` is locked so we can
+        // poison the lock and keep people from using this (possibly
+        // corrupt) InodeGuard.
+        </span><span class="kw">if </span>prev_handles != <span class="number">1 </span>{
+            <span class="macro">panic!</span>(<span class="string">"InodeGuard handle dropped too many times"</span>);
+        }
+
+        <span class="comment">// Re-check the open handles to account for race conditions
+        </span><span class="kw">if </span><span class="self">self</span>.open_handles.load(Ordering::SeqCst) != <span class="number">0 </span>{
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">let </span>ino = <span class="self">self</span>.ino.<span class="number">0</span>;
+        <span class="macro">trace!</span>(%ino, <span class="string">"InodeGuard has no more open handles"</span>);
+
+        <span class="kw">match </span>guard.deref_mut() {
+            Kind::File { handle, .. } <span class="kw">if </span>handle.is_some() =&gt; {
+                <span class="kw">let </span>file_ref_count = Arc::strong_count(handle.as_ref().unwrap());
+                <span class="macro">trace!</span>(%file_ref_count, %ino, <span class="string">"dropping file handle"</span>);
+                drop(handle.take().unwrap());
+            }
+            <span class="kw">_ </span>=&gt; (),
+        }
     }
 }
 <span class="kw">impl </span>std::ops::Deref <span class="kw">for </span>InodeGuard {
@@ -2318,6 +2445,10 @@
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>InodeWeakGuard {
     ino: Inode,
+    <span class="comment">// Needed for when we want to upgrade back. We don't exactly
+    // care too much when the AtomicI32 is dropped, so this is
+    // a strong reference to keep things simple.
+    </span>open_handles: Arc&lt;AtomicI32&gt;,
     inner: Weak&lt;InodeVal&gt;,
 }
 <span class="kw">impl </span>InodeWeakGuard {
@@ -2327,6 +2458,7 @@
     <span class="kw">pub fn </span>upgrade(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;InodeGuard&gt; {
         Weak::upgrade(<span class="kw-2">&amp;</span><span class="self">self</span>.inner).map(|inner| InodeGuard {
             ino: <span class="self">self</span>.ino,
+            open_handles: <span class="self">self</span>.open_handles.clone(),
             inner,
         })
     }
@@ -2370,7 +2502,13 @@
             guard.lookup.retain(|<span class="kw">_</span>, v| Weak::strong_count(v) &gt; <span class="number">0</span>);
         }
 
-        InodeGuard { ino, inner: val }
+        <span class="kw">let </span>open_handles = Arc::new(AtomicI32::new(<span class="number">0</span>));
+
+        InodeGuard {
+            ino,
+            open_handles,
+            inner: val,
+        }
     }
 
     <span class="doccomment">/// Get the `VirtualFile` object at stdout
@@ -2859,7 +2997,7 @@
     <span class="doccomment">/// Opens a user-supplied file in the directory specified with the
     /// name and flags given
     </span><span class="comment">// dead code because this is an API for external use
-    // TODO: is this used anywhere?
+    // TODO: is this used anywhere? Is it even sound?
     </span><span class="attr">#[allow(dead_code, clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>open_file_at(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -3479,10 +3617,12 @@
 
         <span class="kw">if </span>ret.is_err() &amp;&amp; fd == VIRTUAL_ROOT_FD {
             <span class="prelude-val">Ok</span>(Fd {
-                rights: ALL_RIGHTS,
-                rights_inheriting: ALL_RIGHTS,
-                flags: Fdflags::empty(),
-                offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+                inner: FdInner {
+                    rights: ALL_RIGHTS,
+                    rights_inheriting: ALL_RIGHTS,
+                    flags: Fdflags::empty(),
+                    offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+                },
                 open_flags: <span class="number">0</span>,
                 inode: <span class="self">self</span>.root_inode.clone(),
                 is_stdio: <span class="bool-val">false</span>,
@@ -3571,9 +3711,9 @@
                 },
                 <span class="kw">_ </span>=&gt; Filetype::Unknown,
             },
-            fs_flags: fd.flags,
-            fs_rights_base: fd.rights,
-            fs_rights_inheriting: fd.rights_inheriting, <span class="comment">// TODO(lachlan): Is this right?
+            fs_flags: fd.inner.flags,
+            fs_rights_base: fd.inner.rights,
+            fs_rights_inheriting: fd.inner.rights_inheriting, <span class="comment">// TODO(lachlan): Is this right?
         </span>})
     }
 
@@ -3617,7 +3757,7 @@
             </span>}
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">let </span>fd = <span class="self">self</span>.get_fd(fd)<span class="question-mark">?</span>;
-                <span class="kw">if </span>!fd.rights.contains(Rights::FD_DATASYNC) {
+                <span class="kw">if </span>!fd.inner.rights.contains(Rights::FD_DATASYNC) {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
                 }
 
@@ -3767,10 +3907,12 @@
             <span class="prelude-val">Some</span>(__WASI_STDIN_FILENO) | <span class="prelude-val">Some</span>(__WASI_STDOUT_FILENO) | <span class="prelude-val">Some</span>(__WASI_STDERR_FILENO)
         );
         <span class="kw">let </span>fd = Fd {
-            rights,
-            rights_inheriting,
-            flags,
-            offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+            inner: FdInner {
+                rights,
+                rights_inheriting,
+                flags,
+                offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+            },
             open_flags,
             inode,
             is_stdio,
@@ -3793,10 +3935,12 @@
     <span class="kw">pub fn </span>clone_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
         <span class="kw">let </span>fd = <span class="self">self</span>.get_fd(fd)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.fd_map.write().unwrap().insert_first_free(Fd {
-            rights: fd.rights,
-            rights_inheriting: fd.rights_inheriting,
-            flags: fd.flags,
-            offset: fd.offset.clone(),
+            inner: FdInner {
+                rights: fd.inner.rights,
+                rights_inheriting: fd.inner.rights_inheriting,
+                flags: fd.inner.flags,
+                offset: fd.inner.offset.clone(),
+            },
             open_flags: fd.open_flags,
             inode: fd.inode,
             is_stdio: fd.is_stdio,
@@ -4093,12 +4237,14 @@
             <span class="bool-val">false</span>,
             raw_fd,
             Fd {
-                rights,
-                rights_inheriting: Rights::empty(),
-                flags: fd_flags,
+                inner: FdInner {
+                    rights,
+                    rights_inheriting: Rights::empty(),
+                    flags: fd_flags,
+                    offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+                },
                 <span class="comment">// since we're not calling open on this, we don't need open flags
                 </span>open_flags: <span class="number">0</span>,
-                offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
                 inode,
                 is_stdio: <span class="bool-val">true</span>,
             },

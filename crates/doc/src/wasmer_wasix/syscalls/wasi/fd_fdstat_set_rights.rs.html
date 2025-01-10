@@ -108,7 +108,7 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-    <span class="kw">let </span>fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>fd_entry = <span class="kw">unsafe </span>{ fd_map.get_mut(fd) }.ok_or(Errno::Badf)<span class="question-mark">?</span>;
 
     <span class="comment">// ensure new rights are a subset of current rights
     </span><span class="kw">if </span>fd_entry.rights | fs_rights_base != fd_entry.rights

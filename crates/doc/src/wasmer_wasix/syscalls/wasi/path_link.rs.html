@@ -211,8 +211,8 @@
     <span class="kw">let </span>source_fd = state.fs.get_fd(old_fd)<span class="question-mark">?</span>;
     <span class="kw">let </span>target_fd = state.fs.get_fd(new_fd)<span class="question-mark">?</span>;
 
-    <span class="kw">if </span>!source_fd.rights.contains(Rights::PATH_LINK_SOURCE)
-        || !target_fd.rights.contains(Rights::PATH_LINK_TARGET)
+    <span class="kw">if </span>!source_fd.inner.rights.contains(Rights::PATH_LINK_SOURCE)
+        || !target_fd.inner.rights.contains(Rights::PATH_LINK_TARGET)
     {
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }

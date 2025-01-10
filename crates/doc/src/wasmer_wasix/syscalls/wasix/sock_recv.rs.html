@@ -296,7 +296,7 @@
                     </span>.access()
                     .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
                 <span class="kw">let </span>timeout = socket
                     .opt_time(TimeType::ReadTimeout)
                     .ok()

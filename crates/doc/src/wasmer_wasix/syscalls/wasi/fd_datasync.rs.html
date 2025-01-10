@@ -37,7 +37,7 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>state = env.state.clone();
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
-    <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_DATASYNC) {
+    <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::FD_DATASYNC) {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
     }
 

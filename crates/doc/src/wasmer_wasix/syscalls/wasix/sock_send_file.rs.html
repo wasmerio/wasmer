@@ -311,7 +311,7 @@
         count -= sub_count;
 
         <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_fd(in_fd));
-        <span class="kw">let </span>fd_flags = fd_entry.flags;
+        <span class="kw">let </span>fd_flags = fd_entry.inner.flags;
 
         <span class="kw">let </span>data = {
             <span class="kw">match </span>in_fd {
@@ -331,12 +331,12 @@
                 }
                 __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval)),
                 <span class="kw">_ </span>=&gt; {
-                    <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_READ) {
+                    <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::FD_READ) {
                         <span class="comment">// TODO: figure out the error to return when lacking rights
                         </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
                     }
 
-                    <span class="kw">let </span>offset = fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize;
+                    <span class="kw">let </span>offset = fd_entry.inner.offset.load(Ordering::Acquire) <span class="kw">as </span>usize;
                     <span class="kw">let </span>inode = fd_entry.inode;
                     <span class="kw">let </span>data = {
                         <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
