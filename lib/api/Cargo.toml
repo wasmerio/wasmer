@@ -130,7 +130,7 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 
 # - Engines.
 engine = ["sys"]
-wamr = ["wasm-c-api", "std", "wat"]
+wamr = ["wasm-c-api", "std", "wat", "dep:zip"]
 wasmi = ["wasm-c-api", "std", "wat", "dep:wasmi_c_api"]
 v8 = ["wasm-c-api", "std", "wat", "dep:seq-macro"]
 wasm-c-api = ["wasm-types-polyfill"]
@@ -165,7 +165,7 @@ cmake = "0.1.50"
 tar = "0.4.42"
 ureq = "2.10.1"
 xz = "0.1.0"
-zip = "2.2.0"
+zip = { version = "2.2.0", optional = true }
 
 [target.'cfg(target_env = "musl")'.build-dependencies]
 bindgen = { version = "0.70.1", default-features = false, features = [
