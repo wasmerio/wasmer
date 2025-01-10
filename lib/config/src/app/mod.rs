@@ -2,11 +2,9 @@
 
 mod healthcheck;
 mod http;
+mod job;
 
-pub use self::{
-    healthcheck::{HealthCheckHttpV1, HealthCheckV1},
-    http::HttpRequest,
-};
+pub use self::{healthcheck::*, http::*, job::*};
 
 use std::collections::HashMap;
 
@@ -94,6 +92,9 @@ pub struct AppConfigV1 {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redirect: Option<Redirect>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jobs: Option<Vec<Job>>,
 
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
@@ -341,7 +342,8 @@ scheduled_tasks:
                 }),
                 locality: Some(Locality {
                     regions: vec!["eu-rome".to_string()]
-                })
+                }),
+                jobs: None,
             }
         );
     }

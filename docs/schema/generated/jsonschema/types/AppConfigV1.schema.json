@@ -67,6 +67,15 @@
         "$ref": "#/definitions/HealthCheckV1"
       }
     },
+    "jobs": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/Job"
+      }
+    },
     "locality": {
       "description": "Location-related configuration for the app.",
       "anyOf": [
@@ -245,6 +254,85 @@
           "type": "string"
         }
       }
+    },
+    "ExecutableJob": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExecutableJobCompatibilityMapV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cli_args": {
+          "description": "CLI arguments passed to the runner. Only applicable for runners that accept CLI arguments.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "description": "The command to run. Defaults to the package's entrypoint.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "env": {
+          "description": "Environment variables.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "package": {
+          "description": "The package that contains the command to run. Defaults to the app config's package.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PackageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "volumes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/AppVolume"
+          }
+        }
+      }
+    },
+    "ExecutableJobCompatibilityMapV1": {
+      "type": "object",
+      "properties": {
+        "memory": {
+          "description": "Instance memory settings.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppConfigCapabilityMemoryV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
     },
     "HealthCheckHttpV1": {
       "description": "Health check configuration for http endpoints.",
@@ -442,6 +530,45 @@
           }
         }
       }
+    },
+    "Job": {
+      "description": "Job configuration.",
+      "type": "object",
+      "required": [
+        "name",
+        "trigger"
+      ],
+      "properties": {
+        "execute": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExecutableJob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fetch": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HttpRequest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/definitions/JobTrigger"
+        }
+      }
+    },
+    "JobTrigger": {
+      "type": "string"
     },
     "Locality": {
       "type": "object",
