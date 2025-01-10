@@ -21,11 +21,11 @@ pub fn fd_tell<M: MemorySize>(
 
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
-    if !fd_entry.rights.contains(Rights::FD_TELL) {
+    if !fd_entry.inner.rights.contains(Rights::FD_TELL) {
         return Errno::Access;
     }
 
-    let offset = fd_entry.offset.load(Ordering::Acquire);
+    let offset = fd_entry.inner.offset.load(Ordering::Acquire);
     Span::current().record("offset", offset);
     wasi_try_mem!(offset_ref.write(offset));
 

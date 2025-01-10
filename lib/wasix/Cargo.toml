@@ -165,6 +165,7 @@ tracing-test = "0.2.4"
 wasm-bindgen-test = "0.3.0"
 env_logger = { version = "0.11.5", default-features = false }
 log = "0.4.22"
+assert-panic = "1.0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

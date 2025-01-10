@@ -217,6 +217,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert-panic"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763b2b82aee23fe46c14c792470080c26538396e9ea589f548298f26b22d7f41"
+
+[[package]]
 name = "assert_cmd"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7146,6 +7152,7 @@ name = "wasmer-wasix"
 version = "0.35.0"
 dependencies = [
  "anyhow",
+ "assert-panic",
  "async-trait",
  "base64",
  "bincode",

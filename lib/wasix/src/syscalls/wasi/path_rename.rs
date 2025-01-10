@@ -65,11 +65,11 @@ pub fn path_rename_internal(
 
     {
         let source_fd = wasi_try_ok!(state.fs.get_fd(source_fd));
-        if !source_fd.rights.contains(Rights::PATH_RENAME_SOURCE) {
+        if !source_fd.inner.rights.contains(Rights::PATH_RENAME_SOURCE) {
             return Ok(Errno::Access);
         }
         let target_fd = wasi_try_ok!(state.fs.get_fd(target_fd));
-        if !target_fd.rights.contains(Rights::PATH_RENAME_TARGET) {
+        if !target_fd.inner.rights.contains(Rights::PATH_RENAME_TARGET) {
             return Ok(Errno::Access);
         }
     }

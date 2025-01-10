@@ -4,10 +4,10 @@
 //! Note, The Unix spec requires newly allocated FDs to always be the
 //! lowest-numbered FD available.
 
-use super::fd::Fd;
+use super::fd::{Fd, FdInner};
 use wasmer_wasix_types::wasi::Fd as WasiFd;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FdList {
     fds: Vec<Option<Fd>>,
     first_free: Option<usize>,
@@ -57,11 +57,15 @@ impl FdList {
         self.fds.get(idx as usize).and_then(|x| x.as_ref())
     }
 
-    pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut Fd> {
-        self.fds.get_mut(idx as usize).and_then(|x| x.as_mut())
+    pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut FdInner> {
+        self.fds
+            .get_mut(idx as usize)
+            .and_then(|x| x.as_mut())
+            .map(|x| &mut x.inner)
     }
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
+        fd.inode.acquire_handle();
         match self.first_free {
             Some(free) => {
                 debug_assert!(self.fds[free].is_none());
@@ -106,6 +110,7 @@ impl FdList {
             return false;
         }
 
+        fd.inode.acquire_handle();
         self.fds[idx] = Some(fd);
         true
     }
@@ -115,18 +120,26 @@ impl FdList {
 
         let result = self.fds.get_mut(idx).and_then(|fd| fd.take());
 
-        if result.is_some() {
+        if let Some(fd) = result.as_ref() {
             match self.first_free {
                 None => self.first_free = Some(idx),
                 Some(x) if x > idx => self.first_free = Some(idx),
                 _ => (),
             }
+
+            fd.inode.drop_one_handle();
         }
 
         result
     }
 
     pub fn clear(&mut self) {
+        for fd in &self.fds {
+            if let Some(fd) = fd.as_ref() {
+                fd.inode.drop_one_handle();
+            }
+        }
+
         self.fds.clear();
         self.first_free = None;
     }
@@ -147,6 +160,27 @@ impl FdList {
             fds_iterator: self.fds.iter_mut(),
             idx: 0,
         }
+    }
+}
+
+impl Clone for FdList {
+    fn clone(&self) -> Self {
+        for fd in &self.fds {
+            if let Some(fd) = fd.as_ref() {
+                fd.inode.acquire_handle();
+            }
+        }
+
+        Self {
+            fds: self.fds.clone(),
+            first_free: self.first_free,
+        }
+    }
+}
+
+impl Drop for FdList {
+    fn drop(&mut self) {
+        self.clear();
     }
 }
 
@@ -174,7 +208,7 @@ impl<'a> Iterator for FdListIterator<'a> {
 }
 
 impl<'a> Iterator for FdListIteratorMut<'a> {
-    type Item = (WasiFd, &'a mut Fd);
+    type Item = (WasiFd, &'a mut FdInner);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -189,7 +223,7 @@ impl<'a> Iterator for FdListIteratorMut<'a> {
                 Some(Some(fd)) => {
                     let wasi_fd = self.idx as WasiFd;
                     self.idx += 1;
-                    return Some((wasi_fd, fd));
+                    return Some((wasi_fd, &mut fd.inner));
                 }
             }
         }
@@ -200,19 +234,22 @@ impl<'a> Iterator for FdListIteratorMut<'a> {
 mod tests {
     use std::{
         borrow::Cow,
-        sync::{atomic::AtomicU64, Arc, RwLock},
+        sync::{
+            atomic::{AtomicI32, AtomicU64},
+            Arc, RwLock,
+        },
     };
 
+    use assert_panic::assert_panic;
     use wasmer_wasix_types::wasi::{Fdflags, Rights};
 
-    use crate::fs::{Inode, InodeGuard, InodeVal, Kind};
+    use crate::fs::{fd::FdInner, Inode, InodeGuard, InodeVal, Kind};
 
     use super::{Fd, FdList, WasiFd};
 
     fn useless_fd(n: u16) -> Fd {
         Fd {
-            open_flags: n,
-            flags: Fdflags::empty(),
+            open_flags: 0,
             inode: InodeGuard {
                 ino: Inode(0),
                 inner: Arc::new(InodeVal {
@@ -221,16 +258,24 @@ mod tests {
                     name: RwLock::new(Cow::Borrowed("")),
                     stat: RwLock::new(Default::default()),
                 }),
+                open_handles: Arc::new(AtomicI32::new(0)),
             },
             is_stdio: false,
-            offset: Arc::new(AtomicU64::new(0)),
-            rights: Rights::empty(),
-            rights_inheriting: Rights::empty(),
+            inner: FdInner {
+                offset: Arc::new(AtomicU64::new(0)),
+                rights: Rights::empty(),
+                rights_inheriting: Rights::empty(),
+                flags: Fdflags::from_bits_preserve(n),
+            },
         }
     }
 
     fn is_useless_fd(fd: &Fd, n: u16) -> bool {
-        fd.open_flags == n
+        fd.inner.flags.bits() == n
+    }
+
+    fn is_useless_fd_inner(fd_inner: &FdInner, n: u16) -> bool {
+        fd_inner.flags.bits() == n
     }
 
     fn assert_fds_match(l: &FdList, expected: &[(WasiFd, u16)]) {
@@ -346,8 +391,8 @@ mod tests {
         assert!(is_useless_fd(l.get(2).unwrap(), 2));
 
         let at_4 = l.get_mut(4).unwrap();
-        assert!(is_useless_fd(at_4, 4));
-        *at_4 = useless_fd(5);
+        assert!(is_useless_fd_inner(at_4, 4));
+        at_4.flags = Fdflags::from_bits_preserve(5); // Update the "useless FD" number without changing the InodeGuard
         assert!(is_useless_fd(l.get(4).unwrap(), 5));
 
         assert!(l.get(10).is_none());
@@ -441,15 +486,72 @@ mod tests {
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 0);
-        assert!(is_useless_fd(next.1, 0));
-        *next.1 = useless_fd(2);
+        assert!(is_useless_fd_inner(next.1, 0));
+        next.1.flags = Fdflags::from_bits_preserve(2); // Update the "useless FD" number without changing the InodeGuard
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 1);
-        assert!(is_useless_fd(next.1, 1));
+        assert!(is_useless_fd_inner(next.1, 1));
 
         assert!(i.next().is_none());
 
         assert_fds_match(&l, &[(0, 2), (1, 1)]);
+    }
+
+    #[test]
+    fn open_handles_are_updated_correctly() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+
+        let fd0 = l.get(0).unwrap().clone();
+        assert_eq!(fd0.inode.handle_count(), 1);
+
+        // Try removing an FD, should drop the handle
+        let fd1 = l.get(1).unwrap().clone();
+        assert_eq!(fd1.inode.handle_count(), 1);
+        l.remove(1).unwrap();
+        assert_eq!(fd1.inode.handle_count(), 0);
+
+        // Existing FDs should get a new handle when cloning the list
+        let mut l2 = l.clone();
+        assert_eq!(fd0.inode.handle_count(), 2);
+
+        {
+            // Dropping the list should drop open handles
+            let l3 = l2.clone();
+            assert_eq!(fd0.inode.handle_count(), 3);
+            drop(l3);
+            assert_eq!(fd0.inode.handle_count(), 2);
+        }
+
+        // Clearing the list should drop open handles
+        l.clear();
+        assert_eq!(fd0.inode.handle_count(), 1);
+
+        // Clear the last handle, should go back to zero
+        l2.clear();
+        assert_eq!(fd0.inode.handle_count(), 0);
+
+        assert_panic!(
+            fd0.inode.drop_one_handle(),
+            &str,
+            "InodeGuard handle dropped too many times"
+        );
+
+        assert_panic!(drop(fd0.inode.write()), String, contains "PoisonError");
+    }
+
+    #[test]
+    fn messing_with_inode_causes_panic() {
+        // We want to pin this behavior down, as not causing a panic
+        // can lead to inconsistencies
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+
+        let fd = l.get(0).unwrap();
+        fd.inode.drop_one_handle();
+
+        assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");
     }
 }

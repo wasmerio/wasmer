@@ -69,7 +69,7 @@ pub(crate) fn path_filestat_get_internal(
 ) -> Result<Filestat, Errno> {
     let root_dir = state.fs.get_fd(fd)?;
 
-    if !root_dir.rights.contains(Rights::PATH_FILESTAT_GET) {
+    if !root_dir.inner.rights.contains(Rights::PATH_FILESTAT_GET) {
         return Err(Errno::Access);
     }
     let file_inode = state.fs.get_inode_at_path(

@@ -24,16 +24,26 @@ use super::{
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Fd {
-    pub rights: Rights,
-    pub rights_inheriting: Rights,
-    pub flags: Fdflags,
-    pub offset: Arc<AtomicU64>,
+    #[cfg_attr(feature = "enable-serde", serde(flatten))]
+    pub inner: FdInner,
+
     /// Flags that determine how the [`Fd`] can be used.
     ///
     /// Used when reopening a [`VirtualFile`] during deserialization.
     pub open_flags: u16,
     pub inode: InodeGuard,
     pub is_stdio: bool,
+}
+
+// This struct contains the bits of Fd that are safe to mutate, so that
+// FdList::get_mut can safely return mutable references.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct FdInner {
+    pub rights: Rights,
+    pub rights_inheriting: Rights,
+    pub flags: Fdflags,
+    pub offset: Arc<AtomicU64>,
 }
 
 impl Fd {

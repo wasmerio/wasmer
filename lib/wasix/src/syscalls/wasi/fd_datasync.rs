@@ -13,7 +13,7 @@ pub fn fd_datasync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<E
     let env = ctx.data();
     let state = env.state.clone();
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-    if !fd_entry.rights.contains(Rights::FD_DATASYNC) {
+    if !fd_entry.inner.rights.contains(Rights::FD_DATASYNC) {
         return Ok(Errno::Access);
     }
 
