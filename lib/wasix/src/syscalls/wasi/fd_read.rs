@@ -41,7 +41,7 @@ pub fn fd_read<M: MemorySize>(
         let inodes = state.inodes.clone();
 
         let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-        fd_entry.offset.load(Ordering::Acquire) as usize
+        fd_entry.inner.offset.load(Ordering::Acquire) as usize
     };
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
@@ -137,13 +137,13 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_read = {
-        if !is_stdio && !fd_entry.rights.contains(Rights::FD_READ) {
+        if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_READ) {
             // TODO: figure out the error to return when lacking rights
             return Ok(Err(Errno::Access));
         }
 
         let inode = fd_entry.inode;
-        let fd_flags = fd_entry.flags;
+        let fd_flags = fd_entry.inner.flags;
 
         let (bytes_read, can_update_cursor) = {
             let mut guard = inode.write();
@@ -395,7 +395,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
         if !is_stdio && should_update_cursor && can_update_cursor {
             // reborrow
             let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok_ok!(unsafe { fd_map.get_mut(fd) }.ok_or(Errno::Badf));
+            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
             let old = fd_entry
                 .offset
                 .fetch_add(bytes_read as u64, Ordering::AcqRel);

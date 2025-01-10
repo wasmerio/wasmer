@@ -43,7 +43,7 @@ use wasmer_wasix_types::{
     },
 };
 
-pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, InodeVal, Kind};
+pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, FdInner, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
     InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard, POLL_GUARD_MAX_RET,
@@ -1372,10 +1372,12 @@ impl WasiFs {
 
         if ret.is_err() && fd == VIRTUAL_ROOT_FD {
             Ok(Fd {
-                rights: ALL_RIGHTS,
-                rights_inheriting: ALL_RIGHTS,
-                flags: Fdflags::empty(),
-                offset: Arc::new(AtomicU64::new(0)),
+                inner: FdInner {
+                    rights: ALL_RIGHTS,
+                    rights_inheriting: ALL_RIGHTS,
+                    flags: Fdflags::empty(),
+                    offset: Arc::new(AtomicU64::new(0)),
+                },
                 open_flags: 0,
                 inode: self.root_inode.clone(),
                 is_stdio: false,
@@ -1464,9 +1466,9 @@ impl WasiFs {
                 },
                 _ => Filetype::Unknown,
             },
-            fs_flags: fd.flags,
-            fs_rights_base: fd.rights,
-            fs_rights_inheriting: fd.rights_inheriting, // TODO(lachlan): Is this right?
+            fs_flags: fd.inner.flags,
+            fs_rights_base: fd.inner.rights,
+            fs_rights_inheriting: fd.inner.rights_inheriting, // TODO(lachlan): Is this right?
         })
     }
 
@@ -1510,7 +1512,7 @@ impl WasiFs {
             }
             _ => {
                 let fd = self.get_fd(fd)?;
-                if !fd.rights.contains(Rights::FD_DATASYNC) {
+                if !fd.inner.rights.contains(Rights::FD_DATASYNC) {
                     return Err(Errno::Access);
                 }
 
@@ -1660,10 +1662,12 @@ impl WasiFs {
             Some(__WASI_STDIN_FILENO) | Some(__WASI_STDOUT_FILENO) | Some(__WASI_STDERR_FILENO)
         );
         let fd = Fd {
-            rights,
-            rights_inheriting,
-            flags,
-            offset: Arc::new(AtomicU64::new(0)),
+            inner: FdInner {
+                rights,
+                rights_inheriting,
+                flags,
+                offset: Arc::new(AtomicU64::new(0)),
+            },
             open_flags,
             inode,
             is_stdio,
@@ -1686,10 +1690,12 @@ impl WasiFs {
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
         Ok(self.fd_map.write().unwrap().insert_first_free(Fd {
-            rights: fd.rights,
-            rights_inheriting: fd.rights_inheriting,
-            flags: fd.flags,
-            offset: fd.offset.clone(),
+            inner: FdInner {
+                rights: fd.inner.rights,
+                rights_inheriting: fd.inner.rights_inheriting,
+                flags: fd.inner.flags,
+                offset: fd.inner.offset.clone(),
+            },
             open_flags: fd.open_flags,
             inode: fd.inode,
             is_stdio: fd.is_stdio,
@@ -1986,12 +1992,14 @@ impl WasiFs {
             false,
             raw_fd,
             Fd {
-                rights,
-                rights_inheriting: Rights::empty(),
-                flags: fd_flags,
+                inner: FdInner {
+                    rights,
+                    rights_inheriting: Rights::empty(),
+                    flags: fd_flags,
+                    offset: Arc::new(AtomicU64::new(0)),
+                },
                 // since we're not calling open on this, we don't need open flags
                 open_flags: 0,
-                offset: Arc::new(AtomicU64::new(0)),
                 inode,
                 is_stdio: true,
             },

@@ -81,8 +81,8 @@ pub(crate) fn path_link_internal(
     let source_fd = state.fs.get_fd(old_fd)?;
     let target_fd = state.fs.get_fd(new_fd)?;
 
-    if !source_fd.rights.contains(Rights::PATH_LINK_SOURCE)
-        || !target_fd.rights.contains(Rights::PATH_LINK_TARGET)
+    if !source_fd.inner.rights.contains(Rights::PATH_LINK_SOURCE)
+        || !target_fd.inner.rights.contains(Rights::PATH_LINK_TARGET)
     {
         return Err(Errno::Access);
     }

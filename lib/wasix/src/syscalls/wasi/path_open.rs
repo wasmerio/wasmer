@@ -131,10 +131,10 @@ pub(crate) fn path_open_internal(
     );
 
     let working_dir = wasi_try_ok_ok!(state.fs.get_fd(dirfd));
-    let working_dir_rights_inheriting = working_dir.rights_inheriting;
+    let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
 
     // ASSUMPTION: open rights apply recursively
-    if !working_dir.rights.contains(Rights::PATH_OPEN) {
+    if !working_dir.inner.rights.contains(Rights::PATH_OPEN) {
         return Ok(Err(Errno::Access));
     }
 
@@ -183,8 +183,8 @@ pub(crate) fn path_open_internal(
     };
 
     let parent_rights = virtual_fs::OpenOptionsConfig {
-        read: working_dir.rights.contains(Rights::FD_READ),
-        write: working_dir.rights.contains(Rights::FD_WRITE),
+        read: working_dir.inner.rights.contains(Rights::FD_READ),
+        write: working_dir.inner.rights.contains(Rights::FD_WRITE),
         // The parent is a directory, which is why these options
         // aren't inherited from the parent (append / truncate doesn't work on directories)
         create_new: true,

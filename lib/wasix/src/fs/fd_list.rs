@@ -4,7 +4,7 @@
 //! Note, The Unix spec requires newly allocated FDs to always be the
 //! lowest-numbered FD available.
 
-use super::fd::Fd;
+use super::fd::{Fd, FdInner};
 use wasmer_wasix_types::wasi::Fd as WasiFd;
 
 #[derive(Debug)]
@@ -57,13 +57,11 @@ impl FdList {
         self.fds.get(idx as usize).and_then(|x| x.as_ref())
     }
 
-    /// # Safety
-    /// If [`Fd::inode`] is changed in a way that affects the number
-    /// of open handles, it will cause either (and likely both of):
-    /// * Host file handles leaked and left open
-    /// * A panic when closing the [`WasiFd`]
-    pub unsafe fn get_mut(&mut self, idx: WasiFd) -> Option<&mut Fd> {
-        self.fds.get_mut(idx as usize).and_then(|x| x.as_mut())
+    pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut FdInner> {
+        self.fds
+            .get_mut(idx as usize)
+            .and_then(|x| x.as_mut())
+            .map(|x| &mut x.inner)
     }
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
@@ -157,12 +155,7 @@ impl FdList {
         self.iter().map(|(key, _)| key)
     }
 
-    /// # Safety
-    /// If [`Fd::inode`] is changed in a way that affects the number
-    /// of open handles, it will cause either (and likely both of):
-    /// * Host file handles leaked and left open
-    /// * A panic when closing the [`WasiFd`]
-    pub unsafe fn iter_mut(&mut self) -> FdListIteratorMut {
+    pub fn iter_mut(&mut self) -> FdListIteratorMut {
         FdListIteratorMut {
             fds_iterator: self.fds.iter_mut(),
             idx: 0,
@@ -215,7 +208,7 @@ impl<'a> Iterator for FdListIterator<'a> {
 }
 
 impl<'a> Iterator for FdListIteratorMut<'a> {
-    type Item = (WasiFd, &'a mut Fd);
+    type Item = (WasiFd, &'a mut FdInner);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -230,7 +223,7 @@ impl<'a> Iterator for FdListIteratorMut<'a> {
                 Some(Some(fd)) => {
                     let wasi_fd = self.idx as WasiFd;
                     self.idx += 1;
-                    return Some((wasi_fd, fd));
+                    return Some((wasi_fd, &mut fd.inner));
                 }
             }
         }
@@ -250,14 +243,13 @@ mod tests {
     use assert_panic::assert_panic;
     use wasmer_wasix_types::wasi::{Fdflags, Rights};
 
-    use crate::fs::{Inode, InodeGuard, InodeVal, Kind};
+    use crate::fs::{fd::FdInner, Inode, InodeGuard, InodeVal, Kind};
 
     use super::{Fd, FdList, WasiFd};
 
     fn useless_fd(n: u16) -> Fd {
         Fd {
-            open_flags: n,
-            flags: Fdflags::empty(),
+            open_flags: 0,
             inode: InodeGuard {
                 ino: Inode(0),
                 inner: Arc::new(InodeVal {
@@ -269,14 +261,21 @@ mod tests {
                 open_handles: Arc::new(AtomicI32::new(0)),
             },
             is_stdio: false,
-            offset: Arc::new(AtomicU64::new(0)),
-            rights: Rights::empty(),
-            rights_inheriting: Rights::empty(),
+            inner: FdInner {
+                offset: Arc::new(AtomicU64::new(0)),
+                rights: Rights::empty(),
+                rights_inheriting: Rights::empty(),
+                flags: Fdflags::from_bits_preserve(n),
+            },
         }
     }
 
     fn is_useless_fd(fd: &Fd, n: u16) -> bool {
-        fd.open_flags == n
+        fd.inner.flags.bits() == n
+    }
+
+    fn is_useless_fd_inner(fd_inner: &FdInner, n: u16) -> bool {
+        fd_inner.flags.bits() == n
     }
 
     fn assert_fds_match(l: &FdList, expected: &[(WasiFd, u16)]) {
@@ -391,13 +390,13 @@ mod tests {
         assert!(l.get(1).is_none());
         assert!(is_useless_fd(l.get(2).unwrap(), 2));
 
-        let at_4 = unsafe { l.get_mut(4) }.unwrap();
-        assert!(is_useless_fd(at_4, 4));
-        at_4.open_flags = 5; // Update the "useless FD" number without changing the InodeGuard
+        let at_4 = l.get_mut(4).unwrap();
+        assert!(is_useless_fd_inner(at_4, 4));
+        at_4.flags = Fdflags::from_bits_preserve(5); // Update the "useless FD" number without changing the InodeGuard
         assert!(is_useless_fd(l.get(4).unwrap(), 5));
 
         assert!(l.get(10).is_none());
-        assert!(unsafe { l.get_mut(10) }.is_none());
+        assert!(l.get_mut(10).is_none());
     }
 
     #[test]
@@ -483,16 +482,16 @@ mod tests {
         l.insert_first_free(useless_fd(0));
         l.insert_first_free(useless_fd(1));
 
-        let mut i = unsafe { l.iter_mut() };
+        let mut i = l.iter_mut();
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 0);
-        assert!(is_useless_fd(next.1, 0));
-        next.1.open_flags = 2; // Update the "useless FD" number without changing the InodeGuard
+        assert!(is_useless_fd_inner(next.1, 0));
+        next.1.flags = Fdflags::from_bits_preserve(2); // Update the "useless FD" number without changing the InodeGuard
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 1);
-        assert!(is_useless_fd(next.1, 1));
+        assert!(is_useless_fd_inner(next.1, 1));
 
         assert!(i.next().is_none());
 
@@ -544,14 +543,14 @@ mod tests {
     }
 
     #[test]
-    fn replacing_inode_causes_panic() {
+    fn messing_with_inode_causes_panic() {
         // We want to pin this behavior down, as not causing a panic
         // can lead to inconsistencies
         let mut l = FdList::new();
         l.insert_first_free(useless_fd(0));
 
-        let fd = unsafe { l.get_mut(0) }.unwrap();
-        *fd = useless_fd(1);
+        let fd = l.get(0).unwrap();
+        fd.inode.drop_one_handle();
 
         assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");
     }

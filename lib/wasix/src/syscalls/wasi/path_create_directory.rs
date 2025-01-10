@@ -55,7 +55,11 @@ pub(crate) fn path_create_directory_internal(
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;
 
-    if !working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+    if !working_dir
+        .inner
+        .rights
+        .contains(Rights::PATH_CREATE_DIRECTORY)
+    {
         trace!("working directory (fd={fd}) has no rights to create a directory");
         return Err(Errno::Access);
     }

@@ -49,7 +49,11 @@ pub(crate) fn fd_filestat_set_times_internal(
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let fd_entry = state.fs.get_fd(fd)?;
 
-    if !fd_entry.rights.contains(Rights::FD_FILESTAT_SET_TIMES) {
+    if !fd_entry
+        .inner
+        .rights
+        .contains(Rights::FD_FILESTAT_SET_TIMES)
+    {
         return Err(Errno::Access);
     }
 

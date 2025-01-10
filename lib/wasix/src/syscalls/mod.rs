@@ -121,7 +121,7 @@ pub(crate) use crate::{
 };
 use crate::{
     fs::{
-        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
+        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, FdInner, InodeVal, Kind,
         MAX_SYMLINKS,
     },
     journal::{DynJournal, JournalEffector},
@@ -627,7 +627,7 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -671,7 +671,7 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -710,7 +710,7 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -747,7 +747,7 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -781,7 +781,7 @@ where
 {
     let env = ctx.data();
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         tracing::warn!(
             "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",
             ctx.data().pid(),
@@ -802,7 +802,7 @@ where
                 drop(guard);
 
                 // Start the work using the socket
-                let work = actor(socket, fd_entry.flags);
+                let work = actor(socket, fd_entry.inner.flags);
 
                 // Block on the work and process it
                 let res = InlineWaker::block_on(work);
