@@ -463,6 +463,33 @@ pub enum CommandAnnotations {
     Raw(toml::Value),
 }
 
+/// Helper struct for building annotations
+#[derive(Debug, Clone, Default)]
+pub struct CommandAnnotationBuilder {
+    annotations: HashMap<String, toml::Value>,
+}
+
+impl CommandAnnotationBuilder {
+    /// Add an annotation, associating `key` to any serializable `value`.
+    pub fn add(
+        &mut self,
+        key: impl Into<String>,
+        value: impl serde::Serialize,
+    ) -> Result<&mut Self, anyhow::Error> {
+        let key = key.into();
+        let value = toml::Value::try_from(value)?;
+
+        self.annotations.insert(key, value);
+
+        Ok(self)
+    }
+
+    /// Builds the added annotations into a [`toml::Value::Table`]
+    pub fn build(&self) -> toml::Value {
+        toml::Value::Table(toml::map::Map::from_iter(self.annotations.clone()))
+    }
+}
+
 /// Annotations on disk.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct FileCommandAnnotations {
@@ -974,7 +1001,7 @@ pub enum ValidationError {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
+    use std::{collections::HashSet, fmt::Debug};
 
     use serde::{de::DeserializeOwned, Deserialize};
     use toml::toml;
@@ -1496,5 +1523,42 @@ annotations = { file = "Runefile.yml", kind = "yaml" }
         let round_tripped: ModuleReference = repr.parse().unwrap();
 
         assert_eq!(round_tripped, original);
+    }
+
+    #[test]
+    fn create_command_annotations() -> Result<(), anyhow::Error> {
+        let command_annotations = CommandAnnotationBuilder::default()
+            .add(
+                "wasi",
+                CommandAnnotationBuilder::default()
+                    .add("main-args", vec!["-w=/assets/config.toml", "-g=info"])?
+                    .build(),
+            )?
+            .build();
+
+        let args = command_annotations
+            .as_table()
+            .unwrap()
+            .get("wasi")
+            .unwrap()
+            .as_table()
+            .unwrap()
+            .get("main-args")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t.as_str().unwrap().to_string())
+            .collect::<HashSet<String>>();
+
+        assert_eq!(
+            args,
+            HashSet::from_iter(vec![
+                "-w=/assets/config.toml".to_string(),
+                "-g=info".to_string()
+            ])
+        );
+
+        Ok(())
     }
 }
