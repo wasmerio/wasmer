@@ -148,6 +148,7 @@ impl CmdAppCreate {
             locality: None,
             redirect: None,
             extra: HashMap::new(),
+            jobs: None,
         }
     }
 
