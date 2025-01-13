@@ -13,10 +13,17 @@ use super::{AppConfigCapabilityMemoryV1, AppVolume, HttpRequest};
 pub struct Job {
     name: String,
     trigger: JobTrigger,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    fetch: Option<HttpRequest>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    execute: Option<ExecutableJob>,
+    #[serde(flatten)]
+    action: JobAction,
+}
+
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum JobAction {
+    Fetch(HttpRequest),
+    Execute(ExecutableJob),
 }
 
 #[derive(
@@ -151,7 +158,7 @@ impl schemars::JsonSchema for JobTrigger {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::JobTrigger;
+    use crate::app::{JobAction, JobTrigger};
 
     use super::Job;
 
@@ -186,8 +193,7 @@ mod tests {
             trigger: JobTrigger::Cron(super::CronType::CronExpression(
                 "0 0/2 12 ? JAN-APR 2".to_owned(),
             )),
-            fetch: None,
-            execute: Some(super::ExecutableJob {
+            action: JobAction::Execute(super::ExecutableJob {
                 package: Some(crate::package::PackageSource::Ident(
                     crate::package::PackageIdent::Named(crate::package::NamedPackageIdent {
                         registry: None,

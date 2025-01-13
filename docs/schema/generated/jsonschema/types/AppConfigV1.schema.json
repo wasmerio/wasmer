@@ -534,31 +534,37 @@
     "Job": {
       "description": "Job configuration.",
       "type": "object",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "fetch"
+          ],
+          "properties": {
+            "fetch": {
+              "$ref": "#/definitions/HttpRequest"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "execute"
+          ],
+          "properties": {
+            "execute": {
+              "$ref": "#/definitions/ExecutableJob"
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
       "required": [
         "name",
         "trigger"
       ],
       "properties": {
-        "execute": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/ExecutableJob"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "fetch": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/HttpRequest"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "name": {
           "type": "string"
         },
