@@ -2,16 +2,16 @@
 
 mod healthcheck;
 mod http;
+mod job;
+mod pretty_duration;
 
-pub use self::{
-    healthcheck::{HealthCheckHttpV1, HealthCheckV1},
-    http::HttpRequest,
-};
+pub use self::{healthcheck::*, http::*, job::*};
 
 use std::collections::HashMap;
 
 use anyhow::{bail, Context};
 use bytesize::ByteSize;
+use pretty_duration::PrettyDuration;
 
 use crate::package::PackageSource;
 
@@ -94,6 +94,9 @@ pub struct AppConfigV1 {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redirect: Option<Redirect>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jobs: Option<Vec<Job>>,
 
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
@@ -255,7 +258,7 @@ pub struct AppConfigCapabilityInstaBootV1 {
     /// After the specified time new snapshots will be created, and the old
     /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_age: Option<String>,
+    pub max_age: Option<PrettyDuration>,
 }
 
 /// App redirect configuration.
@@ -341,7 +344,8 @@ scheduled_tasks:
                 }),
                 locality: Some(Locality {
                     regions: vec!["eu-rome".to_string()]
-                })
+                }),
+                jobs: None,
             }
         );
     }

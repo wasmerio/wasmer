@@ -1,3 +1,5 @@
+use super::pretty_duration::PrettyDuration;
+
 /// Defines an HTTP request.
 #[derive(
     schemars::JsonSchema, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone, Debug,
@@ -24,7 +26,7 @@ pub struct HttpRequest {
     ///
     /// Format: 1s, 5m, 11h, ...
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout: Option<String>,
+    pub timeout: Option<PrettyDuration>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expect: Option<HttpRequestExpect>,
