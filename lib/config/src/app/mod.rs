@@ -3,6 +3,7 @@
 mod healthcheck;
 mod http;
 mod job;
+mod pretty_duration;
 
 pub use self::{healthcheck::*, http::*, job::*};
 
@@ -10,6 +11,7 @@ use std::collections::HashMap;
 
 use anyhow::{bail, Context};
 use bytesize::ByteSize;
+use pretty_duration::PrettyDuration;
 
 use crate::package::PackageSource;
 
@@ -256,7 +258,7 @@ pub struct AppConfigCapabilityInstaBootV1 {
     /// After the specified time new snapshots will be created, and the old
     /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_age: Option<String>,
+    pub max_age: Option<PrettyDuration>,
 }
 
 /// App redirect configuration.

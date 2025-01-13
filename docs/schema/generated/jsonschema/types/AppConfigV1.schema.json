@@ -152,9 +152,13 @@
       "properties": {
         "max_age": {
           "description": "Maximum age of snapshots.\n\nFormat: 5m, 1h, 2d, ...\n\nAfter the specified time new snapshots will be created, and the old ones discarded.",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "requests": {
@@ -295,11 +299,40 @@
             "type": "string"
           }
         },
+        "max_schedule_drift": {
+          "description": "Don't start job if past the due time by this amount, instead opting to wait for the next instance of it to be triggered.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "package": {
           "description": "The package that contains the command to run. Defaults to the app config's package.",
           "anyOf": [
             {
               "$ref": "#/definitions/PackageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retries": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
             },
             {
               "type": "null"
@@ -397,9 +430,13 @@
         },
         "timeout": {
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "unhealthy_threshold": {
@@ -492,9 +529,13 @@
         },
         "timeout": {
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       }
@@ -591,6 +632,9 @@
       }
     },
     "PackageSource": {
+      "type": "string"
+    },
+    "PrettyDuration": {
       "type": "string"
     },
     "Redirect": {

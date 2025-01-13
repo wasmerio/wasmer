@@ -4,7 +4,7 @@ use serde::{de::Error, Deserialize, Serialize};
 
 use crate::package::PackageSource;
 
-use super::{AppConfigCapabilityMemoryV1, AppVolume, HttpRequest};
+use super::{pretty_duration::PrettyDuration, AppConfigCapabilityMemoryV1, AppVolume, HttpRequest};
 
 /// Job configuration.
 #[derive(
@@ -69,6 +69,18 @@ pub struct ExecutableJob {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub volumes: Option<Vec<AppVolume>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<PrettyDuration>,
+
+    /// Don't start job if past the due time by this amount,
+    /// instead opting to wait for the next instance of it
+    /// to be triggered.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_schedule_drift: Option<PrettyDuration>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retries: Option<u32>,
 }
 
 #[derive(
@@ -215,6 +227,9 @@ mod tests {
                     name: "vol".to_owned(),
                     mount: "/path/to/volume".to_owned(),
                 }]),
+                timeout: Some("1m".parse().unwrap()),
+                max_schedule_drift: Some("2h".parse().unwrap()),
+                retries: None,
             }),
         };
 
@@ -234,7 +249,9 @@ execute:
       limit: '1000.0 MB'
   volumes:
   - name: vol
-    mount: /path/to/volume"#;
+    mount: /path/to/volume
+  timeout: '1m'
+  max_schedule_drift: '2h'"#;
 
         assert_eq!(
             serialized.trim(),
