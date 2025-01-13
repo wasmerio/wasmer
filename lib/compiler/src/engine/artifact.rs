@@ -13,7 +13,6 @@ use crate::{
     serialize::{MetadataHeader, SerializableModule},
     types::{
         function::GOT,
-        relocation::RelocationTarget,
         section::CustomSectionLike,
         target::{CpuFeature, Target},
     },
@@ -378,7 +377,7 @@ impl Artifact {
                     .map(|(k, v)| (k, v.iter())),
                 a.get_libcall_trampolines(),
                 a.get_libcall_trampoline_len(),
-                got_info
+                got_info,
             ),
         };
 

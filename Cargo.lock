@@ -7344,7 +7344,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ureq",
- "wasi-test-generator",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",

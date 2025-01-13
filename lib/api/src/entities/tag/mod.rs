@@ -21,7 +21,7 @@ impl Tag {
     /// and has no return value.
     //
     // Note: in the future, a tag might express other kinds of events other than just exceptions.
-    // This would imply that the signature of this function becomes 
+    // This would imply that the signature of this function becomes
     //
     // `pub fn new<R: Into<Box<[Type]>>, P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, kind: TagKind, params: P, rets: R) -> Self`
     //

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
@@ -19,6 +21,7 @@ use inkwell::{
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
 };
+use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::BinaryFormat;
 
@@ -38,7 +41,7 @@ use wasmer_compiler::{
     wpheaptype_to_type, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
     MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
-use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{entity::PrimaryMap, TagIndex};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex, Type,
@@ -246,7 +249,12 @@ impl FuncTranslator {
             symbol_registry,
             abi: &*self.abi,
             config,
-            //got_cache: HashSet::new(),
+            exception_types_cache: HashMap::new(),
+            tags_cache: HashMap::new(),
+            ptr_size: self
+                .target_machine
+                .get_target_data()
+                .get_pointer_byte_size(None),
         };
 
         fcg.ctx.add_func(
@@ -271,7 +279,6 @@ impl FuncTranslator {
 
         let mut passes = vec![];
 
-        // cut
         module
             .print_to_file(format!(
                 "{}/obj_unv.ll",
@@ -318,9 +325,9 @@ impl FuncTranslator {
             )
             .unwrap();
 
-        module
-            .print_to_file(format!("{}/obj.ll", std::env!("LLVM_EH_TESTS_DUMP_DIR")))
-            .unwrap();
+        //module
+        //    .print_to_file(format!("{}/obj.ll", std::env!("LLVM_EH_TESTS_DUMP_DIR")))
+        //    .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -357,16 +364,13 @@ impl FuncTranslator {
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
-        target_machine
-            .write_to_file(
-                &module,
-                FileType::Assembly,
-                std::path::Path::new(&format!(
-                    "{}/obj.asm",
-                    std::env!("LLVM_EH_TESTS_DUMP_DIR")
-                )),
-            )
-            .unwrap();
+        //target_machine
+        //    .write_to_file(
+        //        &module,
+        //        FileType::Assembly,
+        //        std::path::Path::new(&format!("{}/obj.asm", std::env!("LLVM_EH_TESTS_DUMP_DIR"))),
+        //    )
+        //    .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
@@ -1417,6 +1421,77 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         }
         Ok(())
     }
+
+    fn get_or_insert_global_tag(&mut self, tag: u32) -> BasicValueEnum<'ctx> {
+        if let Some(tag) = self.tags_cache.get(&tag) {
+            return tag.clone();
+        }
+
+        let tag_ty = self
+            .context
+            .struct_type(&[self.intrinsics.i64_ty.into()], false);
+        let tag_glbl = self.module.add_global(
+            tag_ty,
+            Some(AddressSpace::default()),
+            &format!("__wasmer_eh_type_info_{tag}"),
+        );
+        tag_glbl.set_initializer(
+            &tag_ty
+                .const_named_struct(&[self
+                    .intrinsics
+                    .i64_ty
+                    .const_int(self.encode_tag(tag) as _, false)
+                    .into()])
+                .as_basic_value_enum(),
+        );
+
+        tag_glbl.set_linkage(Linkage::External);
+        tag_glbl.set_constant(true);
+        tag_glbl.set_section(Some("__wasmer_eh_type_info"));
+
+        let tag_glbl = tag_glbl.as_basic_value_enum();
+
+        self.tags_cache.insert(tag, tag_glbl.clone());
+        tag_glbl
+    }
+
+    fn get_or_insert_exception_type(
+        &mut self,
+        tag: u32,
+        signature: &FunctionType,
+    ) -> Result<inkwell::types::StructType<'ctx>, CompileError> {
+        if let Some(ty) = self.exception_types_cache.get(&tag) {
+            return Ok(ty.clone());
+        }
+        let types = signature
+            .params()
+            .iter()
+            .map(|v| type_to_llvm(self.intrinsics, *v))
+            .collect::<Result<Vec<_>, CompileError>>()?;
+
+        let ty = self.context.struct_type(&types, false);
+        self.exception_types_cache.insert(tag, ty.clone());
+        Ok(ty)
+    }
+
+    // Encode a tag - an u32 identifying an event - into a unique value that can be used in
+    // catch clauses.
+    //
+    // This is to avoid that the #0 tag is reinterpreted as nullptr in the catch clause of a
+    // landing pad.
+    #[inline]
+    fn encode_tag(&self, tag: u32) -> usize {
+        let size = self.ptr_size;
+        if size == 4 {
+            (tag + 2099) as usize
+        } else if size == 8 {
+            let mut base = vec!['w' as u8, 'a' as u8, 's' as u8, 'm' as u8];
+            base.append(&mut tag.to_be_bytes().to_vec());
+            u64::from_be_bytes(base.try_into().unwrap()) as usize
+        } else {
+            panic!()
+        }
+    }
 }
 
 /*
@@ -1530,7 +1605,9 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
-    //got_cache: HashSet<String>,
+    tags_cache: HashMap<u32, BasicValueEnum<'ctx>>,
+    exception_types_cache: HashMap<u32, inkwell::types::StructType<'ctx>>,
+    ptr_size: u32,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -1950,9 +2027,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         phi.add_incoming(&[(&value, current_block)]);
                     }
 
-                    dbg!(err!(self
-                        .builder
-                        .build_unconditional_branch(*frame.code_after())));
+                    err!(self.builder.build_unconditional_branch(*frame.code_after()));
                 }
 
                 if let ControlFrame::IfElse {
@@ -2418,17 +2493,33 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-                let call_site = err!(self.builder.build_indirect_call(
-                    llvm_func_type,
-                    func,
-                    params
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::<Vec<BasicMetadataValueEnum>>()
-                        .as_slice(),
-                    "",
-                ));
+                let call_site = if let Some(lpad) = self.state.get_landingpad() {
+                    let then_block = self.context.append_basic_block(self.function, "then_block");
+
+                    let ret = err!(self.builder.build_indirect_invoke(
+                        llvm_func_type,
+                        func,
+                        params.as_slice(),
+                        then_block,
+                        lpad,
+                        "",
+                    ));
+
+                    self.builder.position_at_end(then_block);
+                    ret
+                } else {
+                    err!(self.builder.build_indirect_call(
+                        llvm_func_type,
+                        func,
+                        params
+                            .iter()
+                            .copied()
+                            .map(Into::into)
+                            .collect::<Vec<BasicMetadataValueEnum>>()
+                            .as_slice(),
+                        "",
+                    ))
+                };
                 for (attr, attr_loc) in attrs {
                     call_site.add_attribute(attr_loc, attr);
                 }
@@ -2734,17 +2825,34 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-                let call_site = err!(self.builder.build_indirect_call(
-                    llvm_func_type,
-                    typed_func_ptr,
-                    params
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::<Vec<BasicMetadataValueEnum>>()
-                        .as_slice(),
-                    "indirect_call",
-                ));
+
+                let call_site = if let Some(lpad) = self.state.get_landingpad() {
+                    let then_block = self.context.append_basic_block(self.function, "then_block");
+
+                    let ret = err!(self.builder.build_indirect_invoke(
+                        llvm_func_type,
+                        typed_func_ptr,
+                        params.as_slice(),
+                        then_block,
+                        lpad,
+                        "",
+                    ));
+
+                    self.builder.position_at_end(then_block);
+                    ret
+                } else {
+                    err!(self.builder.build_indirect_call(
+                        llvm_func_type,
+                        typed_func_ptr,
+                        params
+                            .iter()
+                            .copied()
+                            .map(Into::into)
+                            .collect::<Vec<BasicMetadataValueEnum>>()
+                            .as_slice(),
+                        "indirect_call",
+                    ))
+                };
                 for (attr, attr_loc) in llvm_func_attrs {
                     call_site.add_attribute(attr_loc, attr);
                 }
@@ -12061,6 +12169,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let can_throw_block = self.context.append_basic_block(self.function, "try_begin");
                 let catch_block = self.context.append_basic_block(self.function, "catch");
 
+                let rethrow_block = self.context.append_basic_block(self.function, "rethrow");
+
+                self.builder.position_at_end(current_block);
+
                 let end_block = self.context.append_basic_block(self.function, "try_end");
 
                 let end_phis = {
@@ -12087,6 +12199,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 err!(self.builder.build_unconditional_branch(can_throw_block));
                 self.builder.position_at_end(catch_block);
 
+                // Collect unique catches. It is not a "hard" error on the wasm side,
+                // but LLVM will definitely complain about having the same identifier
+                // match two different branches in the switch below.
+                let catches: Vec<_> = try_table
+                    .catches
+                    .into_iter()
+                    .unique_by(|v| match v {
+                        Catch::One { label, .. }
+                        | Catch::OneRef { label, .. }
+                        | Catch::All { label }
+                        | Catch::AllRef { label } => *label,
+                    })
+                    .collect();
+
                 let block_param_types = self
                     .module_translation
                     .blocktype_params_results(&try_table.ty)?
@@ -12105,52 +12231,24 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     false,
                 );
 
-                let mut clauses: Vec<BasicValueEnum<'ctx>> = vec![];
-                let mut catch_blocks = vec![];
-
-                for catch in try_table.catches.iter() {
-                    match catch {
-                        Catch::All { label } => {
-                            clauses.push(null.into());
-                            let b = self
-                                .context
-                                .append_basic_block(self.function, "catch_clause");
-                            self.builder.position_at_end(b);
-                            let frame = self.state.frame_at_depth(*label)?;
-
-                            let current_block =
-                                self.builder.get_insert_block().ok_or_else(|| {
-                                    CompileError::Codegen("not currently in a block".to_string())
-                                })?;
-
-                            let phis = if frame.is_loop() {
-                                frame.loop_body_phis()
-                            } else {
-                                frame.phis()
-                            };
-
-                            let len = phis.len();
-                            let values = self.state.peekn_extra(len)?;
-                            let values = values
-                                .iter()
-                                .map(|(v, info)| self.apply_pending_canonicalization(*v, *info))
-                                .collect::<Result<Vec<_>, _>>()?;
-
-                            // For each result of the block we're branching to,
-                            // pop a value off the value stack and load it into
-                            // the corresponding phi.
-                            for (phi, value) in phis.iter().zip(values.into_iter()) {
-                                phi.add_incoming(&[(&value, current_block)]);
-                            }
-
-                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
-
-                            self.builder.position_at_end(catch_block);
-                            catch_blocks.push(b);
+                let mut tags = vec![];
+                let clauses: Vec<BasicValueEnum<'ctx>> = catches
+                    .iter()
+                    .map(|catch| match catch {
+                        Catch::All { .. } | Catch::AllRef { .. } => {
+                            tags.push(0);
+                            Ok(null.into())
                         }
-                        _ => todo!(),
-                    }
-                }
+                        Catch::One { tag, .. } | Catch::OneRef { tag, .. } => {
+                            //let (int_tag, tag_ptr) = self.tag_to_catch_clause(*tag);
+                            //let tag_ptr = tag_ptr?;
+                            //tags.push(int_tag);
+                            //Ok(tag_ptr.into())
+                            tags.push(*tag);
+                            Ok(self.get_or_insert_global_tag(*tag))
+                        }
+                    })
+                    .collect::<Result<Vec<BasicValueEnum<'ctx>>, CompileError>>()?;
 
                 let res = err!(self.builder.build_landing_pad(
                     exception_type,
@@ -12162,24 +12260,234 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let res = res.into_struct_value();
 
-                let _exc = err!(self.builder.build_extract_value(res, 0, "exc"));
+                let exc = err!(self.builder.build_extract_value(res, 0, "exc"));
                 let exc_ty = err!(self.builder.build_extract_value(res, 1, "exc_ty"));
 
+                let exc = exc.into_pointer_value();
                 let exc_ty = exc_ty.into_int_value();
+
+                let mut catch_blocks = vec![];
+                for catch in catches.iter() {
+                    match catch {
+                        Catch::All { label } => {
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_all_clause");
+                            self.builder.position_at_end(b);
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::One { tag, label } => {
+                            let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
+                            let signature = &self.wasm_module.signatures[tag_idx];
+                            let params = signature.params();
+
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_one_clause");
+                            self.builder.position_at_end(b);
+
+                            // Get the type of the exception.
+                            let inner_exc_ty =
+                                self.get_or_insert_exception_type(*tag, signature)?;
+
+                            // Cast the outer exception - a pointer - to a pointer to a struct of
+                            // type WasmerException.
+                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                            //     exc,
+                            //     self.intrinsics.exc_ty,
+                            //     "wasmer_exc_ptr"
+                            // ));
+                            //
+                            // Not actually needed, since ptr is a single, unique type.
+
+                            // Points at the `data` field of the exception.
+                            let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
+                                self.intrinsics.exc_ty,
+                                exc,
+                                1,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = err!(self.builder.build_load(
+                                self.intrinsics.ptr_ty,
+                                wasmer_exc_data_ptr_ptr,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                            // Read each value from the data ptr.
+                            let values = params
+                                .into_iter()
+                                .enumerate()
+                                .map(|(i, v)| {
+                                    let name = format!("value{i}");
+                                    let ptr = err!(self.builder.build_struct_gep(
+                                        inner_exc_ty,
+                                        wasmer_exc_data_ptr,
+                                        i as u32,
+                                        &(name.clone() + "ptr")
+                                    ));
+                                    err_nt!(self.builder.build_load(
+                                        type_to_llvm(self.intrinsics, *v)?,
+                                        ptr,
+                                        &name,
+                                    ))
+                                })
+                                .collect::<Result<Vec<_>, CompileError>>()?;
+
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            // todo: check that the types are compatible
+
+                            for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                phi.add_incoming(&[(value, b)])
+                            }
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::OneRef { label, tag } => {
+                            let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
+                            let signature = &self.wasm_module.signatures[tag_idx];
+                            let params = signature.params();
+
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_one_clause");
+                            self.builder.position_at_end(b);
+
+                            // Get the type of the exception.
+                            let inner_exc_ty =
+                                self.get_or_insert_exception_type(*tag, signature)?;
+
+                            // Cast the outer exception - a pointer - to a pointer to a struct of
+                            // type WasmerException.
+                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                            //     exc,
+                            //     self.intrinsics.exc_ty,
+                            //     "wasmer_exc_ptr"
+                            // ));
+                            //
+                            // Not actually needed, since ptr is a single, unique type.
+
+                            // Points at the `data` field of the exception.
+                            let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
+                                self.intrinsics.exc_ty,
+                                exc,
+                                1,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = err!(self.builder.build_load(
+                                self.intrinsics.ptr_ty,
+                                wasmer_exc_data_ptr_ptr,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                            // Read each value from the data ptr.
+                            let mut values = params
+                                .into_iter()
+                                .enumerate()
+                                .map(|(i, v)| {
+                                    let name = format!("value{i}");
+                                    let ptr = err!(self.builder.build_struct_gep(
+                                        inner_exc_ty,
+                                        wasmer_exc_data_ptr,
+                                        i as u32,
+                                        &(name.clone() + "ptr")
+                                    ));
+                                    err_nt!(self.builder.build_load(
+                                        type_to_llvm(self.intrinsics, *v)?,
+                                        ptr,
+                                        &name,
+                                    ))
+                                })
+                                .collect::<Result<Vec<_>, CompileError>>()?;
+
+                            values.push(exc.as_basic_value_enum());
+
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            // todo: check that the types are compatible
+
+                            for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                phi.add_incoming(&[(value, b)])
+                            }
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::AllRef { label } => {
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_one_clause");
+                            self.builder.position_at_end(b);
+
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            let phis = frame.phis();
+
+                            // sanity check (todo): check that the phi has only one element
+
+                            for phi in phis.iter() {
+                                phi.add_incoming(&[(&exc.as_basic_value_enum(), b)])
+                            }
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                    }
+                }
 
                 err!(self.builder.build_switch(
                     exc_ty,
-                    end_block,
+                    rethrow_block,
                     catch_blocks
                         .into_iter()
                         .enumerate()
-                        .map(|(i, v)| (self.intrinsics.i32_ty.const_int(i as _, false), v))
+                        .map(|(i, v)| (self.intrinsics.i32_ty.const_int(tags[i] as _, false), v))
                         .collect::<Vec<_>>()
                         .as_slice()
                 ));
 
                 self.state.push_landingpad(catch_block);
                 // -- end
+
+
+                self.builder.position_at_end(rethrow_block);
+
+
+err!(self.builder.build_call(
+                        self.intrinsics.throw,
+                        &[
+                            self.intrinsics
+                                .i64_ty
+                                .const_int(encoded_tag as _, false)
+                                .into(),
+                            exc.into(),
+                            size.into()
+                        ],
+                        "throw"
+                    ));
+                    // can't reach after an explicit throw!
+                    err!(self.builder.build_unreachable());
+
+
+
 
                 self.builder.position_at_end(can_throw_block);
                 let can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
@@ -12194,12 +12502,60 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state
                     .push_try_table(can_throw_block, can_throw_phis, end_block, end_phis);
             }
-            Operator::Throw { .. } => {
+            Operator::Throw { tag_index } => {
                 let current_block = self
                     .builder
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
+                let tag = self.wasm_module.tags[TagIndex::from_u32(tag_index)];
+                let signature = &self.wasm_module.signatures[tag];
+                let params = signature.params();
+                let values = self.state.popn_save_extra(params.len())?;
+
+                values
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (v, _))| {
+                        let t = type_to_llvm(self.intrinsics, params[i])?;
+                        if t != v.get_type() {
+                            return Err(CompileError::Codegen(format!(
+                                "Incompatible types: {:?} != {:?}",
+                                t,
+                                v.get_type()
+                            )));
+                        }
+
+                        Ok(())
+                    })
+                    .collect::<Result<(), CompileError>>()?;
+
+                let exception_type: inkwell::types::StructType = self
+                    .get_or_insert_exception_type(tag_index, signature)?
+                    .clone();
+
+                let size = exception_type.size_of().unwrap();
+
+                // Allocate the necessary bytes for the exception.
+                let exc = err!(self.builder.build_direct_call(
+                    self.intrinsics.alloc_exception,
+                    &[size.into()],
+                    "exception_ptr",
+                ));
+                let exc = exc.try_as_basic_value().left().unwrap();
+                let exc = exc.into_pointer_value();
+
+                for (i, value) in values.into_iter().enumerate() {
+                    let ptr = err!(self.builder.build_struct_gep(
+                        exception_type,
+                        exc,
+                        i as u32,
+                        i.to_string().as_str(),
+                    ));
+                    err!(self.builder.build_store(ptr, value.0));
+                }
+
+                let encoded_tag = self.encode_tag(tag_index);
                 if let Some(pad) = self.state.get_landingpad() {
                     let unreachable_block = self
                         .context
@@ -12207,7 +12563,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     err!(self.builder.build_invoke(
                         self.intrinsics.throw,
-                        &[self.intrinsics.i64_ty.const_zero().into()],
+                        &[
+                            self.intrinsics
+                                .i64_ty
+                                .const_int(encoded_tag as _, false)
+                                .into(),
+                            exc.into(),
+                            size.into()
+                        ],
                         unreachable_block,
                         pad,
                         "throw",
@@ -12221,9 +12584,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 } else {
                     err!(self.builder.build_call(
                         self.intrinsics.throw,
-                        &[self.intrinsics.i64_ty.const_zero().into()],
+                        &[
+                            self.intrinsics
+                                .i64_ty
+                                .const_int(encoded_tag as _, false)
+                                .into(),
+                            exc.into(),
+                            size.into()
+                        ],
                         "throw"
                     ));
+                    // can't reach after an explicit throw!
+                    err!(self.builder.build_unreachable());
                 }
 
                 self.state.reachable = false;

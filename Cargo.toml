@@ -21,7 +21,7 @@ wasmer-compiler-singlepass = { version = "=5.0.2", path = "lib/compiler-singlepa
 wasmer-compiler-llvm = { version = "=5.0.2", path = "lib/compiler-llvm", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 wasmer-wast = { version = "=5.0.2", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=5.0.2", path = "tests/wasi-wast", optional = true }
+# wasi-test-generator = { version = "=5.0.2", path = "tests/wasi-wast", optional = true }
 wasmer-cache = { version = "=5.0.2", path = "lib/cache", optional = true }
 wasmer-types = { version = "=5.0.2", path = "lib/types" }
 wasmer-middlewares = { version = "=5.0.2", path = "lib/middlewares", optional = true }

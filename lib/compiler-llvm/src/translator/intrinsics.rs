@@ -182,6 +182,7 @@ pub struct Intrinsics<'ctx> {
     pub ptr_ty: PointerType<'ctx>,
 
     pub anyfunc_ty: StructType<'ctx>,
+    pub exc_ty: StructType<'ctx>,
 
     pub i1_zero: IntValue<'ctx>,
     pub i8_zero: IntValue<'ctx>,
@@ -243,6 +244,12 @@ pub struct Intrinsics<'ctx> {
 
     // EH
     pub throw: FunctionValue<'ctx>,
+    pub rethrow: FunctionValue<'ctx>,
+    pub alloc_exception: FunctionValue<'ctx>,
+    pub delete_exception: FunctionValue<'ctx>,
+
+    // Debug
+    pub debug_ptr: FunctionValue<'ctx>,
 
     // VM builtins.
     pub vmfunction_import_ty: StructType<'ctx>,
@@ -721,6 +728,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i32x8_ty,
 
             anyfunc_ty,
+            exc_ty: context.struct_type(&[i32_ty.into(), ptr_ty.into(), i64_ty.into()], false),
             i1_zero,
             i8_zero,
             i32_zero,
@@ -995,10 +1003,29 @@ impl<'ctx> Intrinsics<'ctx> {
 
             throw: module.add_function(
                 "wasmer_vm_throw",
-                void_ty.fn_type(&[i64_ty_basic_md], false),
+                void_ty.fn_type(&[i64_ty.into(), ptr_ty.into(), i64_ty.into()], false),
                 None,
             ),
-
+            rethrow: module.add_function(
+                "wasmer_vm_rethrow",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            alloc_exception: module.add_function(
+                "wasmer_vm_alloc_exception",
+                ptr_ty.fn_type(&[i64_ty.into()], false),
+                None,
+            ),
+            delete_exception: module.add_function(
+                "wasmer_vm_delete_exception",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            debug_ptr: module.add_function(
+                "wasmer_vm_dbg_usize",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
             memory_wait32: module.add_function(
                 "wasmer_vm_memory32_atomic_wait32",
                 i32_ty.fn_type(

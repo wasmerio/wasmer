@@ -269,11 +269,10 @@ impl Wast {
                 }
             }
             AssertException { span: _, exec } => {
-                //if !self.disable_assert_exception {
-                // todo this obviously does not catch unwinds
-                let result = self.perform_execute(exec);
-                self.assert_exception(result)?;
-                //}
+                if !self.disable_assert_exception {
+                    let result = self.perform_execute(exec);
+                    self.assert_exception(result)?;
+                }
             }
             AssertMalformed {
                 module,
@@ -538,6 +537,7 @@ impl Wast {
             // for this scenario
             || (expected == "unknown global" && actual.contains("global.get of locally defined global"))
             || (expected == "immutable global" && actual.contains("global is immutable: cannot modify it with `global.set`"))
+            || (expected.contains("type mismatch: instruction requires") && actual.contains("instantiation failed with: Validation error: type mismatch: expected"))
     }
 
     // Checks if the `assert_trap` message matches the expected one

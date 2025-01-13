@@ -11,7 +11,7 @@ use wasmer_compiler::{
     types::target::{Architecture, OperatingSystem, Target, Triple},
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
 };
-use wasmer_types::{FunctionType, LocalFunctionIndex};
+use wasmer_types::{Features, FunctionType, LocalFunctionIndex};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -298,6 +298,12 @@ impl CompilerConfig for LLVM {
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
+    }
+
+    fn default_features_for_target(&self, _target: &Target) -> wasmer_types::Features {
+        let mut feats = Features::default();
+        feats.exceptions(true);
+        feats
     }
 }
 

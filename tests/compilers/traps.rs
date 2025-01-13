@@ -300,7 +300,10 @@ fn rust_panic_import(config: crate::Config) -> Result<()> {
     let module = Module::new(&store, binary)?;
     let sig = FunctionType::new(vec![], vec![]);
     let func = Function::new(&mut store, &sig, |_| panic!("this is a panic"));
-    let f0 = Function::new_typed(&mut store, || panic!("this is another panic"));
+    let f0 = Function::new_typed(&mut store, || {
+        _ = panic!("this is another panic");
+        ()
+    });
     let instance = Instance::new(
         &mut store,
         &module,
@@ -359,7 +362,10 @@ fn rust_panic_start_function(config: crate::Config) -> Result<()> {
     .unwrap_err();
     assert_eq!(err.downcast_ref::<&'static str>(), Some(&"this is a panic"));
 
-    let func = Function::new_typed(&mut store, || panic!("this is another panic"));
+    let func = Function::new_typed(&mut store, || {
+        _ = panic!("this is another panic");
+        ()
+    });
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
         drop(Instance::new(
             &mut store,

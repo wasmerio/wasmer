@@ -139,8 +139,20 @@ pub enum LibCall {
     /// throw
     Throw,
 
+    /// rethrow
+    Rethrow,
+
+    /// alloc_exception
+    AllocException,
+
+    /// delete_exception
+    DeleteException,
+
     /// The personality function
     EHPersonality,
+
+    /// debug_usize
+    DebugUsize,
 }
 
 impl LibCall {
@@ -190,7 +202,11 @@ impl LibCall {
             Self::Memory32AtomicNotify => "wasmer_vm_memory32_atomic_notify",
             Self::ImportedMemory32AtomicNotify => "wasmer_vm_imported_memory32_atomic_notify",
             Self::Throw => "wasmer_vm_throw",
+            Self::Rethrow => "wasmer_vm_rethrow",
             Self::EHPersonality => "__gxx_personality_v0",
+            Self::AllocException => "wasmer_vm_alloc_exception",
+            Self::DeleteException => "wasmer_vm_delete_exception",
+            Self::DebugUsize => "wasmer_vm_dbg_usize",
         }
     }
 }

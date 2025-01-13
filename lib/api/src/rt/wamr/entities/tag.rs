@@ -2,8 +2,8 @@
 use wasmer_types::{TagType, Type};
 
 use crate::{
-    wamr::vm::VMTag,
     vm::{VMExtern, VMExternTag},
+    wamr::vm::VMTag,
     AsStoreMut, AsStoreRef,
 };
 

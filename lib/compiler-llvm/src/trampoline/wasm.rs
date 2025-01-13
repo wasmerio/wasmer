@@ -127,12 +127,12 @@ impl FuncTrampoline {
             callbacks.postopt_ir(&function, &module);
         }
 
-        module
-            .print_to_file(format!(
-                "{}/obj_trmpl.ll",
-                std::env!("LLVM_EH_TESTS_DUMP_DIR")
-            ))
-            .unwrap();
+        //module
+        //    .print_to_file(format!(
+        //        "{}/obj_trmpl.ll",
+        //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
+        //    ))
+        //    .unwrap();
         Ok(module)
     }
 

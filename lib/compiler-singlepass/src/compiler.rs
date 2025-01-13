@@ -22,7 +22,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     types::{
-        function::{Compilation, CompiledFunction, FunctionBody, Dwarf},
+        function::{Compilation, CompiledFunction, Dwarf, FunctionBody},
         module::CompileModuleInfo,
         section::SectionIndex,
         target::{Architecture, CallingConvention, CpuFeature, OperatingSystem, Target},
@@ -248,9 +248,7 @@ impl Compiler for SinglepassCompiler {
 
             let eh_frame_section = eh_frame.0.into_section();
             custom_sections.push(eh_frame_section);
-            Some(Dwarf::new(SectionIndex::new(
-                custom_sections.len() - 1,
-            )))
+            Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
         } else {
             None
         };

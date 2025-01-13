@@ -147,9 +147,29 @@ impl VMBuiltinFunctionIndex {
         Self(30)
     }
 
+    /// Returns an index for wasm's imported `rethrow` builtin function.
+    pub const fn get_imported_rethrow_index() -> Self {
+        Self(31)
+    }
+
+    /// Returns an index for wasm's imported `alloc_exception` builtin function.
+    pub const fn get_imported_alloc_exception_index() -> Self {
+        Self(32)
+    }
+
+    /// Returns an index for wasm's imported `delete_exception` builtin function.
+    pub const fn get_imported_delete_exception_index() -> Self {
+        Self(33)
+    }
+
+    /// Returns an index for wasm's imported `debug_usize` builtin function.
+    pub const fn get_imported_debug_usize_index() -> Self {
+        Self(34)
+    }
+
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        31
+        35
     }
 
     /// Return the index as an u32 number.

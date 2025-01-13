@@ -3,7 +3,7 @@ use target_lexicon::BinaryFormat;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-use std::io::Write;
+//use std::io::Write;
 use std::num::TryFromIntError;
 
 use wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
@@ -79,6 +79,9 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
     "wasmer_vm_throw" => LibCall::Throw,
+    "wasmer_vm_alloc_exception" => LibCall::AllocException,
+    "wasmer_vm_delete_exception" => LibCall::DeleteException,
+    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "__gxx_personality_v0" => LibCall::EHPersonality,
 };
 
@@ -128,6 +131,9 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "_wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
     "_wasmer_vm_throw" => LibCall::Throw,
+    "_wasmer_vm_alloc_exception" => LibCall::AllocException,
+    "_wasmer_vm_delete_exception" => LibCall::DeleteException,
+    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "___gxx_personality_v0" => LibCall::EHPersonality,
 };
 
@@ -141,15 +147,15 @@ pub fn load_object_file<F>(
 where
     F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
 {
-    let mut fs = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(format!(
-            "{}/obj_{root_section}.o",
-            std::env!("LLVM_EH_TESTS_DUMP_DIR")
-        ))
-        .unwrap();
-    fs.write_all(contents).unwrap();
+    //let mut fs = std::fs::OpenOptions::new()
+    //    .write(true)
+    //    .create(true)
+    //    .open(format!(
+    //        "{}/obj_{root_section}.o",
+    //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
+    //    ))
+    //    .unwrap();
+    //fs.write_all(contents).unwrap();
 
     let obj = object::File::parse(contents).map_err(map_object_err)?;
 
@@ -216,26 +222,36 @@ where
 
     for section in obj.sections() {
         let index = section.index();
+        //println!(
+        //    "section kind: {:?}, section name: {:?}",
+        //    section.kind(),
+        //    section.name()
+        //);
         if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
             || section.name().unwrap_or_default() == "__eh_frame"
-            || section.name().unwrap_or_default() == "__compact_unwind"
-            || section.name().unwrap_or_default() == "__gcc_except_tab"
         {
             worklist.push(index);
-            if section.name().unwrap_or_default() == "__compact_unwind" {
-                compact_unwind_section_indices.push(index);
-                println!("{root_section} compact_unwind bytes: {:?}", section.data());
-                println!(
-                    "{root_section} compact_unwind relocs: {:?}",
-                    section.relocations().collect::<Vec<_>>()
-                );
-            } else {
-                visited.insert(index);
-                eh_frame_section_indices.push(index);
-            }
+
+            //visited.insert(index);
+            eh_frame_section_indices.push(index);
             // This allocates a custom section index for the ELF section.
             elf_section_to_target(index);
+        } else if section.name().unwrap_or_default() == "__compact_unwind" {
+            worklist.push(index);
+            compact_unwind_section_indices.push(index);
+            elf_section_to_target(index);
         }
+        //       } else if section.name().unwrap_or_default() == "__gcc_except_tab"
+        //           || section.name().unwrap_or_default() == ".gcc_except_tab"
+        //       {
+        //           worklist.push(index);
+        //           elf_section_to_target(index);
+        //       } else if section.name().unwrap_or_default() == "__wasmer_eh_type_info" {
+        //           worklist.push(index);
+        //           visited.insert(index);
+        //           eh_frame_section_indices.push(index);
+        //           elf_section_to_target(index);
+        //       }
 
         //if section.name().unwrap_or_default() == "__got" {
         //    got_index = Some(section.index());
@@ -245,11 +261,20 @@ where
     }
 
     while let Some(section_index) = worklist.pop() {
-        for (offset, reloc) in obj
+        let sec = obj
             .section_by_index(section_index)
-            .map_err(map_object_err)?
-            .relocations()
-        {
+            .map_err(map_object_err)?;
+        let relocs = sec.relocations();
+        //println!(
+        //    "analysing section: {:?}; it has relocs: {:?}",
+        //    sec.name(),
+        //    sec.relocations().into_iter().collect::<Vec<_>>()
+        //);
+
+        //if sec.name().unwrap_or_default() == "__wasmer_eh_type_info" {
+        //    eprintln!("eh: {:?}", sec.data());
+        //}
+        for (offset, reloc) in relocs {
             let mut addend = reloc.addend();
             let target = match reloc.target() {
                 object::read::RelocationTarget::Symbol(index) => {
@@ -262,7 +287,17 @@ where
                                     root_section_reloc_target
                                 } else {
                                     if visited.insert(section_index) {
+                                        //let name = obj.section_by_index(section_index);
+                                        //let name = name.unwrap();
+                                        //let name = name.name().unwrap_or_default();
+                                        //println!("Adding section: {:?}", name);
                                         worklist.push(section_index);
+
+                                        //if name == ".gcc_except_table"
+                                        //    || name == "__wasmer_eh_type_info"
+                                        //{
+                                        //    //eh_frame_section_indices.push(section_index);
+                                        //}
                                     }
                                     elf_section_to_target(section_index)
                                 }
@@ -565,6 +600,7 @@ where
     //    None
     //};
 
+    //println!("cus: {section_to_custom_section:?}");
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {

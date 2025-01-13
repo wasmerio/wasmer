@@ -32,6 +32,8 @@ pub struct Features {
     pub memory64: bool,
     /// Wasm exceptions proposal should be enabled
     pub exceptions: bool,
+    /// Wasm (legacy) exceptions proposal should be enabled
+    pub legacy_exceptions: bool,
     /// Relaxed SIMD proposal should be enabled
     pub relaxed_simd: bool,
     /// Extended constant expressions proposal should be enabled
@@ -56,6 +58,7 @@ impl Features {
             multi_memory: false,
             memory64: false,
             exceptions: false,
+            legacy_exceptions: false,
             relaxed_simd: false,
             extended_const: false,
         }

@@ -35,7 +35,7 @@ pub enum CompiledFunctionUnwindInfo {
 pub enum CompiledFunctionUnwindInfoReference<'a> {
     WindowsX64(&'a [u8]),
     Dwarf,
-    CompactUnwind
+    CompactUnwind,
 }
 
 /// Any struct that acts like a `CompiledFunctionUnwindInfo`.
