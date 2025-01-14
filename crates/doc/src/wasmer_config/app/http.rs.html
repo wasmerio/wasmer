@@ -56,7 +56,11 @@
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
-</pre></div><pre class="rust"><code><span class="doccomment">/// Defines an HTTP request.
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::pretty_duration::PrettyDuration;
+
+<span class="doccomment">/// Defines an HTTP request.
 </span><span class="attr">#[derive(
     schemars::JsonSchema, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone, Debug,
 )]
@@ -82,7 +86,7 @@
     ///
     /// Format: 1s, 5m, 11h, ...
     </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-    </span><span class="kw">pub </span>timeout: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    </span><span class="kw">pub </span>timeout: <span class="prelude-ty">Option</span>&lt;PrettyDuration&gt;,
 
     <span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     </span><span class="kw">pub </span>expect: <span class="prelude-ty">Option</span>&lt;HttpRequestExpect&gt;,

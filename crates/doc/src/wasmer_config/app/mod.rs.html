@@ -381,20 +381,24 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! User-facing app.yaml file config: [`AppConfigV1`].
 
 </span><span class="kw">mod </span>healthcheck;
 <span class="kw">mod </span>http;
+<span class="kw">mod </span>job;
+<span class="kw">mod </span>pretty_duration;
 
-<span class="kw">pub use </span><span class="self">self</span>::{
-    healthcheck::{HealthCheckHttpV1, HealthCheckV1},
-    http::HttpRequest,
-};
+<span class="kw">pub use </span><span class="self">self</span>::{healthcheck::<span class="kw-2">*</span>, http::<span class="kw-2">*</span>, job::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>bytesize::ByteSize;
+<span class="kw">use </span>pretty_duration::PrettyDuration;
 
 <span class="kw">use </span><span class="kw">crate</span>::package::PackageSource;
 
@@ -477,6 +481,9 @@
 
     <span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     </span><span class="kw">pub </span>redirect: <span class="prelude-ty">Option</span>&lt;Redirect&gt;,
+
+    <span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+    </span><span class="kw">pub </span>jobs: <span class="prelude-ty">Option</span>&lt;Vec&lt;Job&gt;&gt;,
 
     <span class="doccomment">/// Capture extra fields for forwards compatibility.
     </span><span class="attr">#[serde(flatten)]
@@ -638,7 +645,7 @@
     /// After the specified time new snapshots will be created, and the old
     /// ones discarded.
     </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-    </span><span class="kw">pub </span>max_age: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    </span><span class="kw">pub </span>max_age: <span class="prelude-ty">Option</span>&lt;PrettyDuration&gt;,
 }
 
 <span class="doccomment">/// App redirect configuration.
@@ -724,7 +731,8 @@ scheduled_tasks:
                 }),
                 locality: <span class="prelude-val">Some</span>(Locality {
                     regions: <span class="macro">vec!</span>[<span class="string">"eu-rome"</span>.to_string()]
-                })
+                }),
+                jobs: <span class="prelude-val">None</span>,
             }
         );
     }
