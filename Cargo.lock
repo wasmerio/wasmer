@@ -2654,12 +2654,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indexmap-nostd"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e04e2fd2b8188ea827b32ef11de88377086d690286ab35747ef7f9bf3ccb590"
-
-[[package]]
 name = "indicatif"
 version = "0.17.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7293,8 +7287,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi"
-version = "0.39.1"
-source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a19af97fcb96045dd1d6b4d23e2b4abdbbe81723dbc5c9f016eb52145b320063"
 dependencies = [
  "arrayvec 0.7.6",
  "multi-stash",
@@ -7303,13 +7298,14 @@ dependencies = [
  "wasmi_collections",
  "wasmi_core",
  "wasmi_ir",
- "wasmparser-nostd",
+ "wasmparser 0.221.2",
 ]
 
 [[package]]
 name = "wasmi_c_api_impl"
-version = "0.39.1"
-source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45e45f29eb7b0a2c0789c3c8075fc9c2c05182d6be2222702c6c848f72a2c2df"
 dependencies = [
  "wasmi",
  "wasmi_c_api_macros",
@@ -7317,8 +7313,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi_c_api_macros"
-version = "0.39.1"
-source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e03aa7908b941120f347018583d474de0950ca1eae5bc3f6cb680e0f9fbd7695"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7326,13 +7323,15 @@ dependencies = [
 
 [[package]]
 name = "wasmi_collections"
-version = "0.39.1"
-source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e80d6b275b1c922021939d561574bf376613493ae2b61c6963b15db0e8813562"
 
 [[package]]
 name = "wasmi_core"
-version = "0.39.1"
-source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a8c51482cc32d31c2c7ff211cd2bedd73c5bd057ba16a2ed0110e7a96097c33"
 dependencies = [
  "downcast-rs",
  "libm",
@@ -7340,8 +7339,9 @@ dependencies = [
 
 [[package]]
 name = "wasmi_ir"
-version = "0.39.1"
-source = "git+https://github.com/xdoardo/wasmi#bbcb8db941dce2797402d67ea0668de365f05989"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e431a14c186db59212a88516788bd68ed51f87aa1e08d1df742522867b5289a"
 dependencies = [
  "wasmi_core",
 ]
@@ -7381,12 +7381,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmparser-nostd"
-version = "0.100.2"
+name = "wasmparser"
+version = "0.221.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5a015fe95f3504a94bb1462c717aae75253e39b9dd6c3fb1062c934535c64aa"
+checksum = "9845c470a2e10b61dd42c385839cdd6496363ed63b5c9e420b5488b77bd22083"
 dependencies = [
- "indexmap-nostd",
+ "bitflags 2.6.0",
 ]
 
 [[package]]
