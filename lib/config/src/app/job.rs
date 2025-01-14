@@ -13,6 +13,19 @@ use super::{pretty_duration::PrettyDuration, AppConfigCapabilityMemoryV1, AppVol
 pub struct Job {
     name: String,
     trigger: JobTrigger,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<PrettyDuration>,
+
+    /// Don't start job if past the due time by this amount,
+    /// instead opting to wait for the next instance of it
+    /// to be triggered.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_schedule_drift: Option<PrettyDuration>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retries: Option<u32>,
+
     #[serde(flatten)]
     action: JobAction,
 }
@@ -29,9 +42,9 @@ pub enum JobAction {
 #[derive(
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
-pub enum CronType {
-    Daily,
+pub enum CronSchedule {
     Hourly,
+    Daily,
     Weekly,
     CronExpression(String),
 }
@@ -40,7 +53,7 @@ pub enum CronType {
 pub enum JobTrigger {
     PreDeployment,
     PostDeployment,
-    Cron(CronType),
+    Cron(CronSchedule),
 }
 
 #[derive(
@@ -69,18 +82,6 @@ pub struct ExecutableJob {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub volumes: Option<Vec<AppVolume>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout: Option<PrettyDuration>,
-
-    /// Don't start job if past the due time by this amount,
-    /// instead opting to wait for the next instance of it
-    /// to be triggered.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_schedule_drift: Option<PrettyDuration>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retries: Option<u32>,
 }
 
 #[derive(
@@ -123,10 +124,10 @@ impl Display for JobTrigger {
         match self {
             Self::PreDeployment => write!(f, "pre-deployment"),
             Self::PostDeployment => write!(f, "post-deployment"),
-            Self::Cron(CronType::Hourly) => write!(f, "@hourly"),
-            Self::Cron(CronType::Daily) => write!(f, "@daily"),
-            Self::Cron(CronType::Weekly) => write!(f, "@weekly"),
-            Self::Cron(CronType::CronExpression(sched)) => write!(f, "{}", sched),
+            Self::Cron(CronSchedule::Hourly) => write!(f, "@hourly"),
+            Self::Cron(CronSchedule::Daily) => write!(f, "@daily"),
+            Self::Cron(CronSchedule::Weekly) => write!(f, "@weekly"),
+            Self::Cron(CronSchedule::CronExpression(sched)) => write!(f, "{}", sched),
         }
     }
 }
@@ -141,15 +142,15 @@ impl FromStr for JobTrigger {
             Ok(Self::PostDeployment)
         } else if let Some(predefined_sched) = s.strip_prefix('@') {
             match predefined_sched {
-                "hourly" => Ok(Self::Cron(CronType::Hourly)),
-                "daily" => Ok(Self::Cron(CronType::Daily)),
-                "weekly" => Ok(Self::Cron(CronType::Weekly)),
+                "hourly" => Ok(Self::Cron(CronSchedule::Hourly)),
+                "daily" => Ok(Self::Cron(CronSchedule::Daily)),
+                "weekly" => Ok(Self::Cron(CronSchedule::Weekly)),
                 _ => Err(format!("Invalid cron expression {s}").into()),
             }
         } else {
             // Let's make sure the input string is valid...
             match cron::Schedule::from_str(s) {
-                Ok(sched) => Ok(Self::Cron(CronType::CronExpression(
+                Ok(sched) => Ok(Self::Cron(CronSchedule::CronExpression(
                     sched.source().to_owned(),
                 ))),
                 Err(_) => Err(format!("Invalid cron expression {s}").into()),
@@ -184,15 +185,21 @@ mod tests {
         assert_roundtrip("pre-deployment", JobTrigger::PreDeployment);
         assert_roundtrip("post-deployment", JobTrigger::PostDeployment);
 
-        assert_roundtrip("@hourly", JobTrigger::Cron(crate::app::CronType::Hourly));
-        assert_roundtrip("@daily", JobTrigger::Cron(crate::app::CronType::Daily));
-        assert_roundtrip("@weekly", JobTrigger::Cron(crate::app::CronType::Weekly));
+        assert_roundtrip(
+            "@hourly",
+            JobTrigger::Cron(crate::app::CronSchedule::Hourly),
+        );
+        assert_roundtrip("@daily", JobTrigger::Cron(crate::app::CronSchedule::Daily));
+        assert_roundtrip(
+            "@weekly",
+            JobTrigger::Cron(crate::app::CronSchedule::Weekly),
+        );
 
         // Note: the parsing code should keep the formatting of the source string.
         // This is tested in assert_roundtrip.
         assert_roundtrip(
             "0 0/2 12 ? JAN-APR 2",
-            JobTrigger::Cron(crate::app::CronType::CronExpression(
+            JobTrigger::Cron(crate::app::CronSchedule::CronExpression(
                 "0 0/2 12 ? JAN-APR 2".to_owned(),
             )),
         );
@@ -202,9 +209,12 @@ mod tests {
     pub fn job_serialization_roundtrip() {
         let job = Job {
             name: "my-job".to_owned(),
-            trigger: JobTrigger::Cron(super::CronType::CronExpression(
+            trigger: JobTrigger::Cron(super::CronSchedule::CronExpression(
                 "0 0/2 12 ? JAN-APR 2".to_owned(),
             )),
+            timeout: Some("1m".parse().unwrap()),
+            max_schedule_drift: Some("2h".parse().unwrap()),
+            retries: None,
             action: JobAction::Execute(super::ExecutableJob {
                 package: Some(crate::package::PackageSource::Ident(
                     crate::package::PackageIdent::Named(crate::package::NamedPackageIdent {
@@ -227,15 +237,14 @@ mod tests {
                     name: "vol".to_owned(),
                     mount: "/path/to/volume".to_owned(),
                 }]),
-                timeout: Some("1m".parse().unwrap()),
-                max_schedule_drift: Some("2h".parse().unwrap()),
-                retries: None,
             }),
         };
 
         let serialized = r#"
 name: my-job
 trigger: '0 0/2 12 ? JAN-APR 2'
+timeout: '1m'
+max_schedule_drift: '2h'
 execute:
   package: ns/pkg
   command: cmd
@@ -249,9 +258,7 @@ execute:
       limit: '1000.0 MB'
   volumes:
   - name: vol
-    mount: /path/to/volume
-  timeout: '1m'
-  max_schedule_drift: '2h'"#;
+    mount: /path/to/volume"#;
 
         assert_eq!(
             serialized.trim(),
