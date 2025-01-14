@@ -167,13 +167,31 @@ impl RuntimeOptions {
     }
 
     pub fn get_store(&self) -> Result<Store> {
-        let target = Target::default();
-        self.get_store_for_target(target)
+        #[cfg(feature = "compiler")]
+        {
+            let target = Target::default();
+            return self.get_store_for_target(target);
+        }
+
+        let engine = self.get_engine()?;
+        Ok(Store::new(engine))
     }
 
     pub fn get_engine(&self) -> Result<Engine> {
-        let target = Target::default();
-        self.get_engine_for_target(target)
+        #[cfg(feature = "compiler")]
+        {
+            let target = Target::default();
+            self.get_engine_for_target(target)
+        }
+        Ok(match self.get_rt()? {
+            #[cfg(feature = "v8")]
+            RuntimeType::V8 => v8::V8::new().into(),
+            #[cfg(feature = "wamr")]
+            RuntimeType::Wamr => wamr::Wamr::new().into(),
+            #[cfg(feature = "wasmi")]
+            RuntimeType::Wasmi => wasmi::Wasmi::new().into(),
+            _ => unreachable!(),
+        })
     }
 
     #[cfg(feature = "compiler")]
@@ -201,6 +219,7 @@ impl RuntimeOptions {
     }
 
     /// Gets the Store for a given target.
+    #[cfg(feature = "compiler")]
     pub fn get_store_for_target(&self, target: Target) -> Result<Store> {
         let rt = self.get_rt()?;
         let engine = self.get_engine_for_target_and_rt(target, &rt)?;
