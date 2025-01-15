@@ -168,6 +168,7 @@ impl RuntimeOptions {
 
     pub fn get_store(&self) -> Result<Store> {
         #[cfg(feature = "compiler")]
+        #[allow(clippy::needless_return)]
         {
             let target = Target::default();
             return self.get_store_for_target(target);
@@ -182,6 +183,7 @@ impl RuntimeOptions {
 
     pub fn get_engine(&self) -> Result<Engine> {
         #[cfg(feature = "compiler")]
+        #[allow(clippy::needless_return)]
         {
             let target = Target::default();
             return self.get_engine_for_target(target);

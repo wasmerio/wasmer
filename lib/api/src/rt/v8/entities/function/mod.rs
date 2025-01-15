@@ -17,7 +17,7 @@ use crate::{
     RuntimeTrap, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
 };
 
-use super::{super::error::Trap, store::StoreHandle};
+use super::{super::error::Trap, check_isolate, store::StoreHandle};
 use wasmer_types::{FunctionType, RawValue};
 
 pub(crate) mod env;
@@ -82,13 +82,9 @@ impl Function {
             + Send
             + Sync,
     {
+        check_isolate(store);
+
         let mut store = store.as_store_mut();
-        let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot create new function: current thread is different from the thread the store was created in!");
-        }
-
         let fn_ty: FunctionType = ty.into();
         let params = fn_ty.params();
 
@@ -165,12 +161,8 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
+        check_isolate(store);
         let mut store = store.as_store_mut();
-        let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot create new typed function: current thread is different from the thread the store was created in!");
-        }
 
         let mut param_types = Args::wasm_types()
             .into_iter()
@@ -246,12 +238,8 @@ impl Function {
         Rets: WasmTypeList,
         T: Send + 'static,
     {
+        check_isolate(store);
         let mut store = store.as_store_mut();
-        let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot create new typed function with env: current thread is different from the thread the store was created in!");
-        }
 
         let mut param_types = Args::wasm_types()
             .into_iter()
@@ -321,12 +309,8 @@ impl Function {
     }
 
     pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
+        check_isolate(store);
         let store_ref = store.as_store_ref();
-        let v8_store = store_ref.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot get the function's type: current thread is different from the thread the store was created in!");
-        }
         let type_ = unsafe { wasm_func_type(self.handle) };
         let params: *const wasm_valtype_vec_t = unsafe { wasm_functype_params(type_) };
         let returns: *const wasm_valtype_vec_t = unsafe { wasm_functype_results(type_) };
@@ -366,12 +350,8 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        check_isolate(store);
         let store_mut = store.as_store_mut();
-        let v8_store = store_mut.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            return Err(RuntimeError::new("Cannot call function: current thread is different from the thread the store was created in!"));
-        }
 
         let mut args = {
             let params = params

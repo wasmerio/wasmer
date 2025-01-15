@@ -6,6 +6,8 @@ use crate::{
     Imports, InstantiationError, Module,
 };
 
+use super::check_isolate;
+
 #[derive(PartialEq, Eq)]
 pub(crate) struct InstanceHandle(pub(crate) *mut wasm_instance_t);
 
@@ -87,12 +89,8 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {
+        check_isolate(store);
         let mut store = store.as_store_mut();
-        let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot create new instance: current thread is different from the thread the store was created in!");
-        }
 
         let externs = module
             .imports()

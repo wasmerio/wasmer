@@ -15,6 +15,8 @@ use crate::{
     AsStoreMut, AsStoreRef, RuntimeError, Value,
 };
 
+use super::check_isolate;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `global` in the `v8` runtime.
 pub struct Global {
@@ -44,13 +46,9 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
+        check_isolate(store);
         let store = store.as_store_mut();
         let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            return Err(RuntimeError::new("Cannot create a new global from value: current thread is different from the thread the store was created in!"));
-        }
-
         let v8_type = val.ty().into_ct();
         let v8_value = val.into_cv();
         let v8_mutability = if mutability.is_mutable() {
@@ -68,13 +66,8 @@ impl Global {
     }
 
     pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
+        check_isolate(store);
         let store = store.as_store_ref();
-        let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot get the global's type: current thread is different from the thread the store was created in!");
-        }
-
         let r#type = unsafe { wasm_global_type(self.handle) };
         let mutability = unsafe { wasm_globaltype_mutability(&*r#type) };
         let valtype = unsafe { wasm_globaltype_content(r#type) };
@@ -91,25 +84,15 @@ impl Global {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
+        check_isolate(store);
         let store = store.as_store_ref();
-        let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot get the global: current thread is different from the thread the store was created in!");
-        }
-
         let mut out = unsafe { std::mem::zeroed() };
         unsafe { wasm_global_get(self.handle, &mut out) };
         out.into_wv()
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
-        let _store = store.as_store_ref();
-        let v8_store = _store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            return Err(RuntimeError::new("Cannot set the global: current thread is different from the thread the store was created in!".to_owned()));
-        }
+        check_isolate(store);
 
         if val.ty() != self.ty(store).ty {
             return Err(RuntimeError::new(format!(
@@ -131,26 +114,14 @@ impl Global {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
-        let _store = store.as_store_ref();
-        let v8_store = _store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot create a new global from vm extern: current thread is different from the thread the store was created in!");
-        }
-
+        check_isolate(store);
         Self {
             handle: vm_global.into_v8(),
         }
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        let store = store.as_store_ref();
-        let v8_store = store.inner.store.as_v8();
-
-        if v8_store.thread_id != std::thread::current().id() {
-            panic!("Cannot check if global is from store: current thread is different from the thread the store was created in!");
-        }
-
+        check_isolate(store);
         true
     }
 }
