@@ -67,7 +67,7 @@ impl Memory {
         MemoryType {
             // [TODO]: Find a way to extract this from the inner memory type instead
             // of hardcoding.
-            shared: true,
+            shared: false,
             minimum: unsafe { wasmer_types::Pages((*limits).min) },
             maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
         }
