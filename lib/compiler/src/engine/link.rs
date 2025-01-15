@@ -3,13 +3,14 @@
 use crate::{
     get_libcall_trampoline,
     types::{
+        function::GOT,
         relocation::{RelocationKind, RelocationLike, RelocationTarget},
         section::SectionIndex,
     },
     FunctionExtent,
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ptr::{read_unaligned, write_unaligned},
 };
 
@@ -21,21 +22,34 @@ fn apply_relocation(
     r: &impl RelocationLike,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
-    libcall_trampolines: SectionIndex,
+    libcall_trampolines_sec_idx: SectionIndex,
     libcall_trampoline_len: usize,
     riscv_pcrel_hi20s: &mut HashMap<usize, u32>,
+    got_info: &Option<(usize, GOT)>,
 ) {
-    let target_func_address: usize = match r.reloc_target() {
+    let reloc_target = r.reloc_target();
+    let target_func_address: usize = match reloc_target {
         RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
         RelocationTarget::LibCall(libcall) => {
             // Use the direct target of the libcall if the relocation supports
             // a full 64-bit address. Otherwise use a trampoline.
-            if r.kind() == RelocationKind::Abs8 || r.kind() == RelocationKind::X86PCRel8 {
+            if matches!(
+                r.kind(),
+                RelocationKind::Abs8
+                    | RelocationKind::X86PCRel8
+                    | RelocationKind::MachoArm64RelocUnsigned
+                    | RelocationKind::MachoX86_64RelocUnsigned
+                    | RelocationKind::MachoArm64RelocGotLoadPage21
+                    | RelocationKind::MachoArm64RelocGotLoadPageoff12
+                    | RelocationKind::MachoArm64RelocPointerToGot
+            ) {
                 function_pointer(libcall)
+            //} else if matches!(r.kind(), RelocationKind::MachoArm64RelocPointerToGot) {
+            //    Box::leak(Box::new(function_pointer(libcall))) as *mut _ as usize
             } else {
                 get_libcall_trampoline(
                     libcall,
-                    allocated_sections[libcall_trampolines].0 as usize,
+                    allocated_sections[libcall_trampolines_sec_idx].0 as usize,
                     libcall_trampoline_len,
                 )
             }
@@ -44,6 +58,9 @@ fn apply_relocation(
             *allocated_sections[custom_section] as usize
         }
     };
+
+    // A set of addresses at which a SUBTRACTOR relocation was applied.
+    let mut macho_aarch64_subtractor_addresses = HashSet::new();
 
     match r.kind() {
         RelocationKind::Abs8 => unsafe {
@@ -151,7 +168,7 @@ fn apply_relocation(
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_abs);
         },
-        RelocationKind::Aarch64AdrPrelPgHi21 => unsafe {
+        RelocationKind::Aarch64AdrPrelPgHi21 | RelocationKind::MachoArm64RelocGotLoadPage21 => unsafe {
             let (reloc_address, delta) = r.for_address(body, target_func_address as u64);
 
             let delta = delta as isize;
@@ -209,6 +226,50 @@ fn apply_relocation(
                 | (read_unaligned(reloc_address as *mut u32) & 0xFFC003FF);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
+        RelocationKind::MachoArm64RelocGotLoadPageoff12 => unsafe {
+            // Hacky: we replace the `ldr` instruction with an `add` instruction, as we already
+            // know the absolute address of a function, and we don't need any GOT.
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let ldr = read_unaligned(reloc_address as *mut u32);
+            let xn = ldr & 0xFFFFF;
+
+            let new_op = 0x91000000 | (reloc_delta as u32) << 10 | (xn << 5) | xn;
+            write_unaligned(reloc_address as *mut u32, new_op);
+        },
+        RelocationKind::MachoArm64RelocSubtractor | RelocationKind::MachoX86_64RelocSubtractor => unsafe {
+            let (reloc_address, reloc_sub) = r.for_address(body, target_func_address as u64);
+            macho_aarch64_subtractor_addresses.insert(reloc_address);
+            write_unaligned(reloc_address as *mut u64, reloc_sub);
+        },
+
+        RelocationKind::MachoArm64RelocUnsigned | RelocationKind::MachoX86_64RelocUnsigned => unsafe {
+            let (reloc_address, mut reloc_delta) = r.for_address(body, target_func_address as u64);
+
+            if macho_aarch64_subtractor_addresses.contains(&reloc_address) {
+                reloc_delta -= read_unaligned(reloc_address as *mut u64);
+            }
+
+            write_unaligned(reloc_address as *mut u64, reloc_delta);
+        },
+
+        RelocationKind::MachoArm64RelocPointerToGot => unsafe {
+            if let Some(got) = got_info {
+                let base = got.0;
+                let base = std::mem::transmute::<usize, *const usize>(base);
+
+                if let Some(reloc_idx) = got.1.map.get(&reloc_target) {
+                    let got_address = base.wrapping_add(*reloc_idx);
+
+                    let (reloc_address, _reloc_delta) = r.for_address(body, got_address as u64);
+
+                    write_unaligned(reloc_address as *mut u64, got_address as u64);
+                } else {
+                    panic!("Missing GOT info for reloc target {reloc_target:?}");
+                }
+            } else {
+                panic!("Missing GOT info for reloc target {reloc_target:?}");
+            }
+        },
         kind => panic!(
             "Relocation kind unsupported in the current architecture {}",
             kind
@@ -236,6 +297,7 @@ pub fn link_module<'a>(
     >,
     libcall_trampolines: SectionIndex,
     trampoline_len: usize,
+    got_info: Option<(usize, GOT)>,
 ) {
     let mut riscv_pcrel_hi20s: HashMap<usize, u32> = HashMap::new();
 
@@ -250,6 +312,7 @@ pub fn link_module<'a>(
                 libcall_trampolines,
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
+                &got_info,
             );
         }
     }
@@ -264,6 +327,7 @@ pub fn link_module<'a>(
                 libcall_trampolines,
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
+                &got_info,
             );
         }
     }

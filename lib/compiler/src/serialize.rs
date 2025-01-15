@@ -5,7 +5,7 @@
 #![allow(missing_docs)]
 
 use crate::types::{
-    function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+    function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody, GOT},
     module::CompileModuleInfo,
     relocation::Relocation,
     section::{CustomSection, SectionIndex},
@@ -36,6 +36,7 @@ pub struct SerializableCompilation {
     pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
     // The section indices corresponding to the Dwarf debug info
     pub debug: Option<Dwarf>,
+    pub got: Option<GOT>,
     // Custom section containing libcall trampolines.
     pub libcall_trampolines: SectionIndex,
     // Length of each libcall trampoline.

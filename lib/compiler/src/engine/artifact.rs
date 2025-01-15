@@ -11,7 +11,11 @@ use crate::{
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
-    types::target::{CpuFeature, Target},
+    types::{
+        function::GOT,
+        section::CustomSectionLike,
+        target::{CpuFeature, Target},
+    },
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
     ModuleEnvironment, Tunables,
@@ -324,6 +328,28 @@ impl Artifact {
             )?,
         };
 
+        let got_info: Option<(usize, GOT)> = match &artifact {
+            ArtifactBuildVariant::Plain(ref p) => {
+                if let Some(got) = p.get_got_ref() {
+                    let got = got.clone();
+                    let body = p.get_custom_sections_ref()[got.index].bytes.as_ptr() as usize;
+                    Some((body, got))
+                } else {
+                    None
+                }
+            }
+
+            ArtifactBuildVariant::Archived(ref p) => {
+                if let Some(got) = p.get_got_ref() {
+                    let got = got.clone();
+                    let body = p.get_custom_sections_ref()[got.index].bytes().as_ptr() as usize;
+                    Some((body, got))
+                } else {
+                    None
+                }
+            }
+        };
+
         match &artifact {
             ArtifactBuildVariant::Plain(p) => link_module(
                 module_info,
@@ -337,6 +363,7 @@ impl Artifact {
                     .map(|(k, v)| (k, v.iter())),
                 p.get_libcall_trampolines(),
                 p.get_libcall_trampoline_len(),
+                got_info,
             ),
             ArtifactBuildVariant::Archived(a) => link_module(
                 module_info,
@@ -350,6 +377,7 @@ impl Artifact {
                     .map(|(k, v)| (k, v.iter())),
                 a.get_libcall_trampolines(),
                 a.get_libcall_trampoline_len(),
+                got_info,
             ),
         };
 
@@ -368,17 +396,18 @@ impl Artifact {
             ArtifactBuildVariant::Plain(p) => p.get_debug_ref().cloned(),
             ArtifactBuildVariant::Archived(a) => a.get_debug_ref(),
         };
-        let eh_frame = match debug_ref {
-            Some(debug) => {
+
+        let eh_frame = match debug_ref.as_ref().and_then(|v| v.eh_frame) {
+            Some(eh_frame) => {
                 let eh_frame_section_size = match &artifact {
                     ArtifactBuildVariant::Plain(p) => {
-                        p.get_custom_sections_ref()[debug.eh_frame].bytes.len()
+                        p.get_custom_sections_ref()[eh_frame].bytes.len()
                     }
                     ArtifactBuildVariant::Archived(a) => {
-                        a.get_custom_sections_ref()[debug.eh_frame].bytes.len()
+                        a.get_custom_sections_ref()[eh_frame].bytes.len()
                     }
                 };
-                let eh_frame_section_pointer = custom_sections[debug.eh_frame];
+                let eh_frame_section_pointer = custom_sections[eh_frame];
                 Some(unsafe {
                     std::slice::from_raw_parts(*eh_frame_section_pointer, eh_frame_section_size)
                 })
@@ -386,8 +415,24 @@ impl Artifact {
             None => None,
         };
 
+        let compact_unwind = match debug_ref.and_then(|v| v.compact_unwind) {
+            Some(cu) => {
+                let cu_section_size = match &artifact {
+                    ArtifactBuildVariant::Plain(p) => p.get_custom_sections_ref()[cu].bytes.len(),
+                    ArtifactBuildVariant::Archived(a) => {
+                        a.get_custom_sections_ref()[cu].bytes.len()
+                    }
+                };
+                let cu_section_pointer = custom_sections[cu];
+                Some((cu_section_pointer, cu_section_size))
+            }
+            None => None,
+        };
+
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
+
+        engine_inner.publish_compact_unwind(compact_unwind)?;
 
         engine_inner.publish_eh_frame(eh_frame)?;
 

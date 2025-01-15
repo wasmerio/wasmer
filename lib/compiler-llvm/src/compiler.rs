@@ -9,6 +9,7 @@ use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::collections::HashSet;
 use std::sync::Arc;
 use wasmer_compiler::types::function::{Compilation, Dwarf};
 use wasmer_compiler::types::module::CompileModuleInfo;
@@ -23,6 +24,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_vm::libcalls::function_pointer;
 
 //use std::sync::Mutex;
 
@@ -90,6 +92,7 @@ impl LLVMCompiler {
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         symbol_registry: &dyn SymbolRegistry,
         wasmer_metadata: &[u8],
+        binary_format: target_lexicon::BinaryFormat,
     ) -> Result<Vec<u8>, CompileError> {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
@@ -99,7 +102,7 @@ impl LLVMCompiler {
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine)
+                FuncTranslator::new(target_machine, binary_format).unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -112,6 +115,7 @@ impl LLVMCompiler {
                     &compile_info.table_styles,
                     symbol_registry,
                 )?;
+
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
             },
         );
@@ -119,7 +123,7 @@ impl LLVMCompiler {
         let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTrampoline::new(target_machine)
+                FuncTrampoline::new(target_machine, binary_format).unwrap()
             },
             |func_trampoline, (i, sig)| {
                 let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
@@ -133,7 +137,7 @@ impl LLVMCompiler {
                 || {
                     let target_machine = self.config().target_machine(target);
                     (
-                        FuncTrampoline::new(target_machine),
+                        FuncTrampoline::new(target_machine, binary_format).unwrap(),
                         &compile_info.module.signatures,
                     )
                 },
@@ -196,6 +200,7 @@ impl LLVMCompiler {
             callbacks.obj_memory_buffer(&CompiledKind::Module, &memory_buffer);
         }
 
+        tracing::trace!("Finished compling the module!");
         Ok(memory_buffer.as_slice().to_vec())
     }
 }
@@ -228,6 +233,7 @@ impl Compiler for LLVMCompiler {
             function_body_inputs,
             symbol_registry,
             wasmer_metadata,
+            self.config.target_binary_format(target),
         ))
     }
 
@@ -241,16 +247,25 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
+
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.
 
         let mut module_custom_sections = PrimaryMap::new();
-        let mut frame_section_bytes = vec![];
-        let mut frame_section_relocations = vec![];
+
+        let mut eh_frame_section_bytes = vec![];
+        let mut eh_frame_section_relocations = vec![];
+
+        let mut compact_unwind_section_bytes = vec![];
+        let mut compact_unwind_section_relocations = vec![];
+
+        let mut got_targets = HashSet::new();
+
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -258,11 +273,12 @@ impl Compiler for LLVMCompiler {
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTranslator::new(target_machine)
+                    FuncTranslator::new(target_machine, binary_format).unwrap()
                 },
                 |func_translator, (i, input)| {
                     // TODO: remove (to serialize)
                     //let _data = data.lock().unwrap();
+
                     func_translator.translate(
                         module,
                         module_translation,
@@ -289,16 +305,49 @@ impl Compiler for LLVMCompiler {
                             )
                         }
                     }
+
+                    compiled_function
+                        .compiled_function
+                        .relocations
+                        .iter()
+                        .filter(|v| v.kind.needs_got())
+                        .for_each(|v| _ = got_targets.insert(v.reloc_target.clone()));
+
+                    compiled_function
+                        .custom_sections
+                        .iter()
+                        .map(|v| v.1.relocations.iter())
+                        .flatten()
+                        .filter(|v| v.kind.needs_got())
+                        .for_each(|v| _ = got_targets.insert(v.reloc_target.clone()));
+
                     if compiled_function
                         .eh_frame_section_indices
                         .contains(&section_index)
                     {
-                        let offset = frame_section_bytes.len() as u32;
+                        let offset = eh_frame_section_bytes.len() as u32;
                         for reloc in &mut custom_section.relocations {
                             reloc.offset += offset;
                         }
-                        frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
-                        frame_section_relocations.extend(custom_section.relocations);
+                        eh_frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
+                        eh_frame_section_relocations.extend(custom_section.relocations);
+                        // TODO: we do this to keep the count right, remove it.
+                        module_custom_sections.push(CustomSection {
+                            protection: CustomSectionProtection::Read,
+                            bytes: SectionBody::new_with_vec(vec![]),
+                            relocations: vec![],
+                        });
+                    } else if compiled_function
+                        .compact_unwind_section_indices
+                        .contains(&section_index)
+                    {
+                        let offset = compact_unwind_section_bytes.len() as u32;
+                        for reloc in &mut custom_section.relocations {
+                            reloc.offset += offset;
+                        }
+                        compact_unwind_section_bytes
+                            .extend_from_slice(custom_section.bytes.as_slice());
+                        compact_unwind_section_relocations.extend(custom_section.relocations);
                         // TODO: we do this to keep the count right, remove it.
                         module_custom_sections.push(CustomSection {
                             protection: CustomSectionProtection::Read,
@@ -320,21 +369,39 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let dwarf = if !frame_section_bytes.is_empty() {
-            let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
-                module_custom_sections.len() as u32,
-            )));
+        let debug = if !eh_frame_section_bytes.is_empty() {
+            let debug = Dwarf::new(SectionIndex::from_u32(module_custom_sections.len() as u32));
             // Do not terminate dwarf info with a zero-length CIE.
             // Because more info will be added later
             // in lib/object/src/module.rs emit_compilation
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
-                bytes: SectionBody::new_with_vec(frame_section_bytes),
-                relocations: frame_section_relocations,
+                bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
+                relocations: eh_frame_section_relocations,
             });
-            dwarf
+
+            Some(debug)
         } else {
             None
+        };
+
+        //println!("compact_unwind_bytes: {compact_unwind_section_bytes:?}");
+
+        let debug = if !compact_unwind_section_bytes.is_empty() {
+            let section_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
+            module_custom_sections.push(CustomSection {
+                protection: CustomSectionProtection::Read,
+                bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
+                relocations: compact_unwind_section_relocations,
+            });
+            if let Some(mut dbg) = debug {
+                dbg.compact_unwind = Some(section_idx);
+                Some(dbg)
+            } else {
+                Some(Dwarf::new_cu(section_idx))
+            }
+        } else {
+            debug
         };
 
         let function_call_trampolines = module
@@ -345,7 +412,7 @@ impl Compiler for LLVMCompiler {
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine)
+                    FuncTrampoline::new(target_machine, binary_format).unwrap()
                 },
                 |func_trampoline, sig| func_trampoline.trampoline(sig, self.config(), ""),
             )
@@ -360,7 +427,7 @@ impl Compiler for LLVMCompiler {
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine)
+                    FuncTrampoline::new(target_machine, binary_format).unwrap()
                 },
                 |func_trampoline, func_type| {
                     func_trampoline.dynamic_trampoline(func_type, self.config(), "")
@@ -370,12 +437,43 @@ impl Compiler for LLVMCompiler {
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
 
+        let got = if !got_targets.is_empty() {
+            let mut got_data = vec![];
+            let mut map = std::collections::HashMap::new();
+            for (i, reloc) in got_targets.into_iter().enumerate() {
+                match reloc {
+                    RelocationTarget::LibCall(c) => got_data.push(function_pointer(c)),
+                    RelocationTarget::LocalFunc(_) => todo!(),
+                    RelocationTarget::CustomSection(_) => todo!(),
+                }
+
+                map.insert(reloc, i);
+            }
+            let got_data: Vec<u8> = got_data
+                .into_iter()
+                .map(|v| v.to_ne_bytes())
+                .flatten()
+                .collect();
+            let index = SectionIndex::from_u32(module_custom_sections.len() as u32);
+            module_custom_sections.push(CustomSection {
+                protection: CustomSectionProtection::Read,
+                bytes: SectionBody::new_with_vec(got_data),
+                relocations: vec![],
+            });
+
+            Some(wasmer_compiler::types::function::GOT { index, map })
+        } else {
+            None
+        };
+
+        tracing::trace!("Finished compling the module!");
         Ok(Compilation {
             functions,
             custom_sections: module_custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            debug: dwarf,
+            debug,
+            got,
         })
     }
 }

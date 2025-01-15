@@ -15,7 +15,7 @@ use crate::{
         SerializableModule,
     },
     types::{
-        function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody, GOT},
         module::CompileModuleInfo,
         relocation::Relocation,
         section::{CustomSection, SectionIndex},
@@ -143,6 +143,7 @@ impl ArtifactBuild {
             debug: compilation.debug,
             libcall_trampolines,
             libcall_trampoline_len,
+            got: compilation.got,
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -201,6 +202,11 @@ impl ArtifactBuild {
     /// Get Debug optional Dwarf ref
     pub fn get_debug_ref(&self) -> Option<&Dwarf> {
         self.serializable.compilation.debug.as_ref()
+    }
+
+    /// Get a reference to the [`GOT`], if available.
+    pub fn get_got_ref(&self) -> Option<&GOT> {
+        self.serializable.compilation.got.as_ref()
     }
 
     /// Get Function Relocations ref
@@ -416,6 +422,16 @@ impl ArtifactBuildFromArchive {
     /// Get Debug optional Dwarf ref
     pub fn get_debug_ref(&self) -> Option<Dwarf> {
         match self.cell.borrow_dependent().compilation.debug {
+            ArchivedOption::Some(ref x) => {
+                Some(rkyv::deserialize::<_, rkyv::rancor::Error>(x).unwrap())
+            }
+            ArchivedOption::None => None,
+        }
+    }
+
+    /// Get a reference to the [`GOT`], if available.
+    pub fn get_got_ref(&self) -> Option<GOT> {
+        match self.cell.borrow_dependent().compilation.got {
             ArchivedOption::Some(ref x) => {
                 Some(rkyv::deserialize::<_, rkyv::rancor::Error>(x).unwrap())
             }

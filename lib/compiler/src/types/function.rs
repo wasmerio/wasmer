@@ -9,9 +9,11 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
+use std::collections::HashMap;
+
 use super::{
     address_map::FunctionAddressMap,
-    relocation::Relocation,
+    relocation::{Relocation, RelocationTarget},
     section::{CustomSection, SectionIndex},
     unwind::{
         ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo,
@@ -120,7 +122,7 @@ pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 /// The custom sections for a Compilation.
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 
-/// The DWARF information for this Compilation.
+/// The unwinding information for this Compilation.
 ///
 /// It is used for retrieving the unwind information once an exception
 /// happens.
@@ -134,13 +136,43 @@ pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// [Learn
     /// more](https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html).
-    pub eh_frame: SectionIndex,
+    pub eh_frame: Option<SectionIndex>,
+    pub compact_unwind: Option<SectionIndex>,
+}
+
+/// The GOT - Global Offset Table - for this Compilation.
+///
+/// The GOT is but a list of pointers to objects (functions, data, sections..); in our context the
+/// GOT is represented simply as a custom section.
+///
+/// This data structure holds the index of the related custom section and a map between
+/// [`RelocationTarget`] and the entry number in the GOT; that is, for a relocation target `r` one
+/// can find its address in the got as `r_addr = custom_sections[GOT_index][GOT_map[r]]`.
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
+#[rkyv(derive(Debug))]
+pub struct GOT {
+    /// The section index in the [`Compilation`] that corresponds to the GOT.
+    pub index: SectionIndex,
+    /// The map between relocation targets and their index in the GOT.
+    pub map: HashMap<RelocationTarget, usize>,
 }
 
 impl Dwarf {
     /// Creates a `Dwarf` struct with the corresponding indices for its sections
     pub fn new(eh_frame: SectionIndex) -> Self {
-        Self { eh_frame }
+        Self {
+            eh_frame: Some(eh_frame),
+            compact_unwind: None,
+        }
+    }
+
+    pub fn new_cu(compact_unwind: SectionIndex) -> Self {
+        Self {
+            eh_frame: None,
+            compact_unwind: Some(compact_unwind),
+        }
     }
 }
 
@@ -190,4 +222,7 @@ pub struct Compilation {
 
     /// Section ids corresponding to the Dwarf debug info
     pub debug: Option<Dwarf>,
+
+    /// An optional reference to the [`GOT`].
+    pub got: Option<GOT>,
 }
