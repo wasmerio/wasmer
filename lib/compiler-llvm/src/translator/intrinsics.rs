@@ -154,6 +154,8 @@ pub struct Intrinsics<'ctx> {
     pub personality: FunctionValue<'ctx>,
     pub readonly: Attribute,
     pub stack_probe: Attribute,
+    pub uwtable: Attribute,
+    pub frame_pointer: Attribute,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -180,6 +182,7 @@ pub struct Intrinsics<'ctx> {
     pub ptr_ty: PointerType<'ctx>,
 
     pub anyfunc_ty: StructType<'ctx>,
+    pub exc_ty: StructType<'ctx>,
 
     pub i1_zero: IntValue<'ctx>,
     pub i8_zero: IntValue<'ctx>,
@@ -238,6 +241,16 @@ pub struct Intrinsics<'ctx> {
     pub imported_memory_notify: FunctionValue<'ctx>,
 
     pub throw_trap: FunctionValue<'ctx>,
+
+    // EH
+    pub throw: FunctionValue<'ctx>,
+    pub rethrow: FunctionValue<'ctx>,
+    pub alloc_exception: FunctionValue<'ctx>,
+    pub delete_exception: FunctionValue<'ctx>,
+    pub read_exception: FunctionValue<'ctx>,
+
+    // Debug
+    pub debug_ptr: FunctionValue<'ctx>,
 
     // VM builtins.
     pub vmfunction_import_ty: StructType<'ctx>,
@@ -676,13 +689,23 @@ impl<'ctx> Intrinsics<'ctx> {
             debug_trap: module.add_function("llvm.debugtrap", void_ty.fn_type(&[], false), None),
             personality: module.add_function(
                 "__gxx_personality_v0",
-                i32_ty.fn_type(&[], false),
-                Some(Linkage::External),
+                i32_ty.fn_type(
+                    &[
+                        i32_ty.into(),
+                        i32_ty.into(),
+                        i64_ty.into(),
+                        ptr_ty.into(),
+                        ptr_ty.into(),
+                    ],
+                    false,
+                ),
+                None,
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
-
+            uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
+            frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
             void_ty,
             i1_ty,
             i2_ty,
@@ -706,6 +729,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i32x8_ty,
 
             anyfunc_ty,
+            exc_ty: context.struct_type(&[i32_ty.into(), ptr_ty.into(), i64_ty.into()], false),
             i1_zero,
             i8_zero,
             i32_zero,
@@ -975,6 +999,38 @@ impl<'ctx> Intrinsics<'ctx> {
             throw_trap: module.add_function(
                 "wasmer_vm_raise_trap",
                 void_ty.fn_type(&[i32_ty_basic_md], false),
+                None,
+            ),
+
+            throw: module.add_function(
+                "wasmer_vm_throw",
+                void_ty.fn_type(&[i64_ty.into(), ptr_ty.into(), i64_ty.into()], false),
+                None,
+            ),
+            rethrow: module.add_function(
+                "wasmer_vm_rethrow",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            alloc_exception: module.add_function(
+                "wasmer_vm_alloc_exception",
+                ptr_ty.fn_type(&[i64_ty.into()], false),
+                None,
+            ),
+            delete_exception: module.add_function(
+                "wasmer_vm_delete_exception",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            read_exception: module.add_function(
+                "wasmer_vm_read_exception",
+                ptr_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+
+            debug_ptr: module.add_function(
+                "wasmer_vm_dbg_usize",
+                void_ty.fn_type(&[ptr_ty.into()], false),
                 None,
             ),
             memory_wait32: module.add_function(
