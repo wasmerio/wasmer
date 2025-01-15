@@ -1,5 +1,6 @@
 use crate::{
-    VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
+    VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
+    VMTable, VMTag,
 };
 use core::slice::Iter;
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
@@ -35,6 +36,8 @@ impl_context_object! {
     instances => VMInstance,
     memories => VMMemory,
     extern_objs => VMExternObj,
+    exceptions => VMExceptionObj,
+    tags => VMTag,
     function_environments => VMFunctionEnvironment,
 }
 
@@ -48,6 +51,8 @@ pub struct StoreObjects {
     functions: Vec<VMFunction>,
     instances: Vec<VMInstance>,
     extern_objs: Vec<VMExternObj>,
+    exceptions: Vec<VMExceptionObj>,
+    tags: Vec<VMTag>,
     function_environments: Vec<VMFunctionEnvironment>,
 }
 
@@ -62,6 +67,8 @@ impl StoreObjects {
         functions: Vec<VMFunction>,
         instances: Vec<VMInstance>,
         extern_objs: Vec<VMExternObj>,
+        exceptions: Vec<VMExceptionObj>,
+        tags: Vec<VMTag>,
         function_environments: Vec<VMFunctionEnvironment>,
     ) -> Self {
         Self {
@@ -73,6 +80,8 @@ impl StoreObjects {
             instances,
             extern_objs,
             function_environments,
+            exceptions,
+            tags,
         }
     }
 

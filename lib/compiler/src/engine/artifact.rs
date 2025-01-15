@@ -809,6 +809,10 @@ impl Artifact {
             )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
+        let finished_tags = tunables
+            .create_tags(context, &module)
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
         let finished_globals = tunables
             .create_globals(context, &module)
             .map_err(InstantiationError::Link)?
@@ -822,6 +826,7 @@ impl Artifact {
             self.finished_function_call_trampolines().clone(),
             finished_memories,
             finished_tables,
+            finished_tags,
             finished_globals,
             imports,
             self.signatures().clone(),

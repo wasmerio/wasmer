@@ -19,7 +19,7 @@ impl ExternRef {
         T: Any + Send + Sync + 'static + Sized,
     {
         Self {
-            handle: crate::rt::sys::store::StoreHandle::new(
+            handle: StoreHandle::new(
                 store.objects_mut().as_sys_mut(),
                 wasmer_vm::VMExternObj::new(value),
             ),

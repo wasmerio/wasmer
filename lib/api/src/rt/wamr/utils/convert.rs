@@ -53,8 +53,15 @@ impl IntoCApiValue for Value {
                     ref_: unsafe { wasm_func_as_ref(std::ptr::null_mut()) },
                 },
             },
-            Value::ExternRef(_) => panic!("Creating host values from guest ExternRefs is not currently supported through wasm_c_api.") ,
-            Value::V128(_) => panic!("Creating host values from guest V128s is not currently supported through wasm_c_api."),
+            Value::ExternRef(_) => panic!(
+                "Creating host values from guest ExternRefs is not currently supported in wamr ."
+            ),
+            Value::ExceptionRef(_) => {
+                panic!("Creating host values from guest V128s is not currently supported in wamr.")
+            }
+            Value::V128(_) => {
+                panic!("Creating host values from guest V128s is not currently supported in wamr.")
+            }
         }
     }
 }
@@ -79,10 +86,7 @@ impl IntoWasmerValue for wasm_val_t {
             bindings::wasm_valkind_enum_WASM_EXTERNREF => {
                 panic!("ExternRefs are not currently supported through wasm_c_api")
             }
-
-            _ => {
-                panic!("wamr currently does not support V128 values")
-            }
+            _ => unreachable!("wamr kind has no matching wasmer_types::Type"),
         }
     }
 }
@@ -122,6 +126,7 @@ impl IntoCApiType for Type {
             Type::FuncRef => bindings::wasm_valkind_enum_WASM_FUNCREF as _,
             Type::ExternRef => bindings::wasm_valkind_enum_WASM_EXTERNREF as _,
             Type::V128 => bindings::wasm_valkind_enum_WASM_V128 as _,
+            Type::ExceptionRef => panic!("v8 currently does not support exnrefs"),
         }
     }
 }

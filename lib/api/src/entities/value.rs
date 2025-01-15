@@ -1,9 +1,9 @@
 use wasmer_types::{RawValue, Type};
 
 use crate::{
-    entities::{ExternRef, Function},
-    vm::{VMExternRef, VMFuncRef},
-    AsStoreRef,
+    entities::{ExceptionRef, ExternRef, Function},
+    vm::{VMExceptionRef, VMExternRef, VMFuncRef},
+    AsStoreRef, Tag,
 };
 
 /// WebAssembly computations manipulate values of basic value types:
@@ -30,14 +30,18 @@ pub enum Value {
     /// A 64-bit float.
     F64(f64),
 
-    /// An `externref` value which can hold opaque data to the wasm instance itself.
-    ExternRef(Option<ExternRef>),
-
-    /// A first-class reference to a WebAssembly function.
-    FuncRef(Option<Function>),
-
     /// A 128-bit number
     V128(u128),
+
+    // -- references --
+    /// A nullable `externref` value which can hold opaque data to the wasm instance itself.
+    ExternRef(Option<ExternRef>),
+
+    /// A nullable first-class reference to a WebAssembly function.
+    FuncRef(Option<Function>),
+
+    /// A nullable first-class reference to a WebAssembly exception.
+    ExceptionRef(Option<ExceptionRef>),
 }
 
 macro_rules! accessors {
@@ -77,9 +81,10 @@ impl Value {
             Self::I64(_) => Type::I64,
             Self::F32(_) => Type::F32,
             Self::F64(_) => Type::F64,
+            Self::V128(_) => Type::V128,
             Self::ExternRef(_) => Type::ExternRef,
             Self::FuncRef(_) => Type::FuncRef,
-            Self::V128(_) => Type::V128,
+            Self::ExceptionRef(_) => Type::ExceptionRef,
         }
     }
 
@@ -91,6 +96,8 @@ impl Value {
             Self::F32(f32) => RawValue { f32 },
             Self::F64(f64) => RawValue { f64 },
             Self::V128(u128) => RawValue { u128 },
+            Self::ExceptionRef(Some(ref f)) => f.vm_exceptionref().into_raw(),
+            Self::ExceptionRef(None) => RawValue { funcref: 0 },
             Self::FuncRef(Some(ref f)) => f.vm_funcref(store).into_raw(),
             Self::FuncRef(None) => RawValue { funcref: 0 },
             Self::ExternRef(Some(ref e)) => e.vm_externref().into_raw(),
@@ -191,6 +198,45 @@ impl Value {
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
             },
+            Type::ExceptionRef => match store.as_store_ref().inner.store {
+                #[cfg(feature = "sys")]
+                crate::RuntimeStore::Sys(_) => Self::ExceptionRef(
+                    crate::rt::sys::vm::VMExceptionRef::from_raw(raw)
+                        .map(VMExceptionRef::Sys)
+                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                ),
+                #[cfg(feature = "wamr")]
+                crate::RuntimeStore::Wamr(_) => Self::ExceptionRef(
+                    crate::rt::wamr::vm::VMExceptionRef::from_raw(raw)
+                        .map(VMExceptionRef::Wamr)
+                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                ),
+                #[cfg(feature = "wasmi")]
+                crate::RuntimeStore::Wasmi(_) => Self::ExceptionRef(
+                    crate::rt::wasmi::vm::VMExceptionRef::from_raw(raw)
+                        .map(VMExceptionRef::Wasmi)
+                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                ),
+
+                #[cfg(feature = "v8")]
+                crate::RuntimeStore::V8(_) => Self::ExceptionRef(
+                    crate::rt::v8::vm::VMExceptionRef::from_raw(raw)
+                        .map(VMExceptionRef::V8)
+                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                ),
+                #[cfg(feature = "js")]
+                crate::RuntimeStore::Js(_) => Self::ExceptionRef(
+                    crate::rt::js::vm::VMExceptionRef::from_raw(raw)
+                        .map(VMExceptionRef::Js)
+                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                ),
+                #[cfg(feature = "jsc")]
+                crate::RuntimeStore::Jsc(_) => Self::ExceptionRef(
+                    crate::rt::jsc::vm::VMExceptionRef::from_raw(raw)
+                        .map(VMExceptionRef::Jsc)
+                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                ),
+            },
         }
     }
 
@@ -209,8 +255,10 @@ impl Value {
             | Self::F64(_)
             | Self::V128(_)
             | Self::ExternRef(None)
+            | Self::ExceptionRef(None)
             | Self::FuncRef(None) => true,
             Self::ExternRef(Some(e)) => e.is_from_store(store),
+            Self::ExceptionRef(Some(e)) => e.is_from_store(store),
             Self::FuncRef(Some(f)) => f.is_from_store(store),
         }
     }
@@ -234,6 +282,8 @@ impl std::fmt::Debug for Value {
             Self::I64(v) => write!(f, "I64({:?})", v),
             Self::F32(v) => write!(f, "F32({:?})", v),
             Self::F64(v) => write!(f, "F64({:?})", v),
+            Self::ExceptionRef(None) => write!(f, "Null ExceptionRef"),
+            Self::ExceptionRef(Some(v)) => write!(f, "ExceptionRef({:?})", v),
             Self::ExternRef(None) => write!(f, "Null ExternRef"),
             Self::ExternRef(Some(v)) => write!(f, "ExternRef({:?})", v),
             Self::FuncRef(None) => write!(f, "Null FuncRef"),
@@ -253,6 +303,7 @@ impl std::fmt::Display for Value {
                 Self::I64(v) => v.to_string(),
                 Self::F32(v) => v.to_string(),
                 Self::F64(v) => v.to_string(),
+                Self::ExceptionRef(_) => "exceptionref".to_string(),
                 Self::ExternRef(_) => "externref".to_string(),
                 Self::FuncRef(_) => "funcref".to_string(),
                 Self::V128(v) => v.to_string(),
@@ -336,12 +387,25 @@ impl From<Option<ExternRef>> for Value {
     }
 }
 
+impl From<ExceptionRef> for Value {
+    fn from(val: ExceptionRef) -> Self {
+        Self::ExceptionRef(Some(val))
+    }
+}
+
+impl From<Option<ExceptionRef>> for Value {
+    fn from(val: Option<ExceptionRef>) -> Self {
+        Self::ExceptionRef(val)
+    }
+}
+
 const NOT_I32: &str = "Value is not of Wasm type i32";
 const NOT_I64: &str = "Value is not of Wasm type i64";
 const NOT_F32: &str = "Value is not of Wasm type f32";
 const NOT_F64: &str = "Value is not of Wasm type f64";
 const NOT_FUNCREF: &str = "Value is not of Wasm type funcref";
 const NOT_EXTERNREF: &str = "Value is not of Wasm type externref";
+const NOT_EXCEPTIONREF: &str = "Value is not of Wasm type exceptionref";
 
 impl TryFrom<Value> for i32 {
     type Error = &'static str;
@@ -409,6 +473,17 @@ impl TryFrom<Value> for Option<ExternRef> {
         match value {
             Value::ExternRef(e) => Ok(e),
             _ => Err(NOT_EXTERNREF),
+        }
+    }
+}
+
+impl TryFrom<Value> for Option<ExceptionRef> {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::ExceptionRef(e) => Ok(e),
+            _ => Err(NOT_EXCEPTIONREF),
         }
     }
 }

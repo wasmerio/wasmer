@@ -49,8 +49,9 @@ pub fn type_to_llvm<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ty.as_basic_type_enum()),
         Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
-        Type::FuncRef => Ok(intrinsics.ptr_ty.as_basic_type_enum()),
-        Type::ExternRef => Ok(intrinsics.ptr_ty.as_basic_type_enum()),
+        Type::FuncRef | Type::ExceptionRef | Type::ExternRef => {
+            Ok(intrinsics.ptr_ty.as_basic_type_enum())
+        }
     }
 }
 

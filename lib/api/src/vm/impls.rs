@@ -51,3 +51,10 @@ impl VMExternRef {
         })
     }
 }
+
+impl VMExceptionRef {
+    /// Converts the `VMExternRef` into a `RawValue`.
+    pub fn into_raw(self) -> RawValue {
+        todo!()
+    }
+}

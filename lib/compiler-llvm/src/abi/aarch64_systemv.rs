@@ -165,7 +165,7 @@ impl Abi for Aarch64SystemV {
                         Type::I32 | Type::F32 => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
                 match sig_returns_bitwidths.as_slice() {
@@ -328,7 +328,7 @@ impl Abi for Aarch64SystemV {
                         assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
                         Ok(value)
                     }
-                    Type::ExternRef | Type::FuncRef => {
+                    Type::ExternRef | Type::FuncRef | Type::ExceptionRef => {
                         assert!(value.get_type() == intrinsics.ptr_ty.as_basic_type_enum());
                         Ok(value)
                     }
@@ -367,7 +367,7 @@ impl Abi for Aarch64SystemV {
                         Type::I32 | Type::F32 => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
@@ -479,7 +479,7 @@ impl Abi for Aarch64SystemV {
                 Type::I32 | Type::F32 => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
             })
             .collect::<Vec<i32>>();
 

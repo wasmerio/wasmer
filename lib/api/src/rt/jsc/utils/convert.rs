@@ -152,6 +152,9 @@ impl AsJsc for Extern {
                     )),
                 )))
             }
+            ExternType::Tag(tag) => {
+                panic!("EH not supported in `jsc` rt")
+            }
         }
     }
 }

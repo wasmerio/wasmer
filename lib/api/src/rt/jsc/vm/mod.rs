@@ -24,3 +24,25 @@ pub(crate) type VMExternMemory = VMMemory;
 pub(crate) type VMExternGlobal = VMGlobal;
 /// The type of extern functions in the `js` VM.
 pub(crate) type VMExternFunction = VMFunction;
+
+// No EH for now.
+pub(crate) type VMException = ();
+pub(crate) type VMTag = ();
+pub(crate) type VMExternTag = ();
+
+pub struct VMExceptionRef;
+
+impl VMExceptionRef {
+    /// Converts the `VMExceptionRef` into a `RawValue`.
+    pub fn into_raw(self) -> wasmer_types::RawValue {
+        unimplemented!()
+    }
+
+    /// Extracts a `VMExceptionRef` from a `RawValue`.
+    ///
+    /// # Safety
+    /// `raw` must be a valid `VMExceptionRef` instance.
+    pub unsafe fn from_raw(_raw: wasmer_types::RawValue) -> Option<Self> {
+        unimplemented!();
+    }
+}

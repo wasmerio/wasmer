@@ -54,7 +54,7 @@ pub fn type_to_irtype(ty: Type, target_config: TargetFrontendConfig) -> WasmResu
         Type::F32 => Ok(ir::types::F32),
         Type::F64 => Ok(ir::types::F64),
         Type::V128 => Ok(ir::types::I8X16),
-        Type::ExternRef | Type::FuncRef => reference_type(target_config),
+        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => reference_type(target_config),
         // ty => Err(wasm_unsupported!("type_to_type: wasm type {:?}", ty)),
     }
 }

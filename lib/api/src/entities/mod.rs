@@ -26,20 +26,23 @@ pub use trap::*;
 pub(crate) mod value;
 pub use value::*;
 
-pub(crate) mod extref;
-pub use extref::*;
-
 pub(crate) mod external;
 pub use external::*;
 
-pub(crate) mod table;
-pub use table::*;
+pub(crate) mod function;
+pub use function::*;
+
+pub(crate) mod tag;
+pub use tag::*;
+
+pub(crate) mod exception;
+pub use exception::*;
 
 pub(crate) mod global;
 pub use global::*;
 
-pub(crate) mod function;
-pub use function::*;
+pub(crate) mod table;
+pub use table::*;
 
 pub(crate) mod memory;
 pub use memory::*;
