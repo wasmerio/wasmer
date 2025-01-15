@@ -11,7 +11,7 @@ use wasmer_compiler::{
     types::target::{Architecture, OperatingSystem, Target, Triple},
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
 };
-use wasmer_types::{FunctionType, LocalFunctionIndex};
+use wasmer_types::{Features, FunctionType, LocalFunctionIndex};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -98,6 +98,36 @@ impl LLVM {
         }
     }
 
+    pub(crate) fn target_operating_system(&self, target: &Target) -> OperatingSystem {
+        if target.triple().operating_system == OperatingSystem::Darwin && !self.is_pic {
+            // LLVM detects static relocation + darwin + 64-bit and
+            // force-enables PIC because MachO doesn't support that
+            // combination. They don't check whether they're targeting
+            // MachO, they check whether the OS is set to Darwin.
+            //
+            // Since both linux and darwin use SysV ABI, this should work.
+            //  but not in the case of Aarch64, there the ABI is slightly different
+            #[allow(clippy::match_single_binding)]
+            match target.triple().architecture {
+                Architecture::Aarch64(_) => OperatingSystem::Darwin,
+                _ => OperatingSystem::Linux,
+            }
+        } else {
+            target.triple().operating_system
+        }
+    }
+
+    pub(crate) fn target_binary_format(&self, target: &Target) -> target_lexicon::BinaryFormat {
+        if self.is_pic {
+            target.triple().binary_format
+        } else {
+            match self.target_operating_system(target) {
+                OperatingSystem::Darwin => target_lexicon::BinaryFormat::Macho,
+                _ => target_lexicon::BinaryFormat::Elf,
+            }
+        }
+    }
+
     fn target_triple(&self, target: &Target) -> TargetTriple {
         let architecture = if target.triple().architecture
             == Architecture::Riscv64(target_lexicon::Riscv64Architecture::Riscv64gc)
@@ -109,29 +139,9 @@ impl LLVM {
         // Hack: we're using is_pic to determine whether this is a native
         // build or not.
 
-        let operating_system =
-            if target.triple().operating_system == OperatingSystem::Darwin && !self.is_pic {
-                // LLVM detects static relocation + darwin + 64-bit and
-                // force-enables PIC because MachO doesn't support that
-                // combination. They don't check whether they're targeting
-                // MachO, they check whether the OS is set to Darwin.
-                //
-                // Since both linux and darwin use SysV ABI, this should work.
-                //  but not in the case of Aarch64, there the ABI is slightly different
-                #[allow(clippy::match_single_binding)]
-                match target.triple().architecture {
-                    Architecture::Aarch64(_) => OperatingSystem::Darwin,
-                    _ => OperatingSystem::Linux,
-                }
-            } else {
-                target.triple().operating_system
-            };
+        let operating_system = self.target_operating_system(target);
+        let binary_format = self.target_binary_format(target);
 
-        let binary_format = if self.is_pic {
-            target.triple().binary_format
-        } else {
-            target_lexicon::BinaryFormat::Elf
-        };
         let triple = Triple {
             architecture,
             vendor: target.triple().vendor.clone(),
@@ -288,6 +298,12 @@ impl CompilerConfig for LLVM {
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
+    }
+
+    fn default_features_for_target(&self, _target: &Target) -> wasmer_types::Features {
+        let mut feats = Features::default();
+        feats.exceptions(true);
+        feats
     }
 }
 
