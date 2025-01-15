@@ -58,32 +58,98 @@ pub struct WasmFeatures {
 pub struct RuntimeOptions {
     /// Use Singlepass compiler.
     #[cfg(feature = "singlepass")]
-    #[clap(long, conflicts_with_all = &["cranelift", "v8", "wamr", "wasmi"])]
+    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+        #[cfg(feature = "llvm")]
+        "llvm", 
+        #[cfg(feature = "v8")]
+        "v8", 
+        #[cfg(feature = "cranelift")]
+        "cranelift", 
+        #[cfg(feature = "wamr")]
+        "wamr", 
+        #[cfg(feature = "wasmi")]
+        "wasmi"
+    ]))]
     singlepass: bool,
 
     /// Use Cranelift compiler.
     #[cfg(feature = "cranelift")]
-    #[clap(long, conflicts_with_all = &["v8", "wamr", "wasmi"])]
+    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+        #[cfg(feature = "llvm")]
+        "llvm", 
+        #[cfg(feature = "v8")]
+        "v8", 
+        #[cfg(feature = "singlepass")]
+        "singlepass", 
+        #[cfg(feature = "wamr")]
+        "wamr", 
+        #[cfg(feature = "wasmi")]
+        "wasmi"
+    ]))]
     cranelift: bool,
 
     /// Use LLVM compiler.
     #[cfg(feature = "llvm")]
-    #[clap(long, conflicts_with_all = &["cranelift", "v8", "wamr", "wasmi"])]
+    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+        #[cfg(feature = "cranelift")]
+        "cranelift", 
+        #[cfg(feature = "v8")]
+        "v8", 
+        #[cfg(feature = "singlepass")]
+        "singlepass", 
+        #[cfg(feature = "wamr")]
+        "wamr", 
+        #[cfg(feature = "wasmi")]
+        "wasmi"
+    ]))]
     llvm: bool,
 
     /// Use the V8 runtime.
     #[cfg(feature = "v8")]
-    #[clap(long, conflicts_with_all = &["cranelift", "wamr", "wasmi"])]
+    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+        #[cfg(feature = "cranelift")]
+        "cranelift", 
+        #[cfg(feature = "llvm")]
+        "llvm", 
+        #[cfg(feature = "singlepass")]
+        "singlepass", 
+        #[cfg(feature = "wamr")]
+        "wamr", 
+        #[cfg(feature = "wasmi")]
+        "wasmi"
+    ]))]
     v8: bool,
 
     /// Use WAMR.
     #[cfg(feature = "wamr")]
-    #[clap(long, conflicts_with_all = &[ "cranelift", "v8", "wasmi"])]
+    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+        #[cfg(feature = "cranelift")]
+        "cranelift", 
+        #[cfg(feature = "llvm")]
+        "llvm", 
+        #[cfg(feature = "singlepass")]
+        "singlepass", 
+        #[cfg(feature = "v8")]
+        "v8", 
+        #[cfg(feature = "wasmi")]
+        "wasmi"
+    ]))]
     wamr: bool,
 
     /// Use the wasmi runtime.
     #[cfg(feature = "wasmi")]
-    #[clap(long, conflicts_with_all = &[ "cranelift",  "v8", "wamr"])]
+    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
+        #[cfg(feature = "cranelift")]
+        "cranelift", 
+        #[cfg(feature = "llvm")]
+        "llvm", 
+        #[cfg(feature = "singlepass")]
+        "singlepass", 
+        #[cfg(feature = "v8")]
+        "v8", 
+        #[cfg(feature = "wamr")]
+        "wamr"
+    ]))]
     wasmi: bool,
 
     /// Enable compiler internal verification.
