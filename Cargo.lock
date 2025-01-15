@@ -6466,6 +6466,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-encoder"
+version = "0.221.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c17a3bd88f2155da63a1f2fcb8a56377a24f0b6dfed12733bb5f544e86f690c5"
+dependencies = [
+ "leb128",
+ "wasmparser 0.221.2",
+]
+
+[[package]]
 name = "wasm-smith"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6529,7 +6539,7 @@ dependencies = [
  "wasmer-types",
  "wasmer-vm",
  "wasmi_c_api_impl",
- "wasmparser 0.216.0",
+ "wasmparser 0.221.2",
  "wat",
  "which",
  "windows-sys 0.59.0",
@@ -6797,7 +6807,7 @@ dependencies = [
  "thiserror 1.0.69",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.216.0",
+ "wasmparser 0.221.2",
  "windows-sys 0.59.0",
  "xxhash-rust",
 ]
@@ -7243,7 +7253,7 @@ dependencies = [
  "wasmer",
  "wasmer-types",
  "wasmer-wasix",
- "wast 216.0.0",
+ "wast 221.0.2",
 ]
 
 [[package]]
@@ -7359,19 +7369,6 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.216.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcdee6bea3619d311fb4b299721e89a986c3470f804b6d534340e412589028e3"
-dependencies = [
- "ahash 0.8.11",
- "bitflags 2.6.0",
- "hashbrown 0.14.5",
- "indexmap 2.6.0",
- "semver 1.0.23",
-]
-
-[[package]]
-name = "wasmparser"
 version = "0.220.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e246c2772ce3ebc83f89a2d4487ac5794cad6c309b2071818a88c7db7c36d87b"
@@ -7387,6 +7384,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9845c470a2e10b61dd42c385839cdd6496363ed63b5c9e420b5488b77bd22083"
 dependencies = [
  "bitflags 2.6.0",
+ "indexmap 2.6.0",
+ "semver 1.0.23",
 ]
 
 [[package]]
@@ -7423,6 +7422,19 @@ dependencies = [
  "memchr",
  "unicode-width 0.2.0",
  "wasm-encoder 0.220.0",
+]
+
+[[package]]
+name = "wast"
+version = "221.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc4470b9de917ba199157d1f0ae104f2ae362be728c43e68c571c7715bd629e"
+dependencies = [
+ "bumpalo",
+ "leb128",
+ "memchr",
+ "unicode-width 0.2.0",
+ "wasm-encoder 0.221.2",
 ]
 
 [[package]]
@@ -7869,7 +7881,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
 dependencies = [
  "byteorder",
- "zerocopy-derive",
+ "zerocopy-derive 0.7.35",
+]
+
+[[package]]
+name = "zerocopy"
+version = "0.8.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a367f292d93d4eab890745e75a778da40909cab4d6ff8173693812f79c4a2468"
+dependencies = [
+ "zerocopy-derive 0.8.14",
 ]
 
 [[package]]
@@ -7877,6 +7898,17 @@ name = "zerocopy-derive"
 version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.8.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3931cb58c62c13adec22e38686b559c86a30565e16ad6e8510a337cedc611e1"
 dependencies = [
  "proc-macro2",
  "quote",

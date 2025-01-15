@@ -35,7 +35,7 @@
 (assert_return (invoke "f64.no_fma" (f64.const 0x1.7e2c44058a799p+52) (f64.const 0x1.c73b71765b8b2p+685) (f64.const -0x1.16c641df0b108p+690)) (f64.const 0x1.53ccb53de0bd1p+738))
 
 ;; Test that x+0.0 is not folded to x.
-;; See IEEE 754-2008 10.4 "Literal meaning and value-changing optimizations".
+;; See IEEE 754-2019 10.4 "Literal meaning and value-changing optimizations".
 
 (module
   (func (export "f32.no_fold_add_zero") (param $x f32) (result f32)
@@ -94,7 +94,7 @@
 (assert_return (invoke "f64.no_fold_mul_zero" (f64.const nan:0x4000000000000)) (f64.const nan:arithmetic))
 
 ;; Test that x*1.0 is not folded to x.
-;; See IEEE 754-2008 10.4 "Literal meaning and value-changing optimizations".
+;; See IEEE 754-2019 10.4 "Literal meaning and value-changing optimizations".
 
 (module
   (func (export "f32.no_fold_mul_one") (param $x f32) (result f32)
