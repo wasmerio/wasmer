@@ -29,7 +29,9 @@ unsafe impl Sync for Memory {}
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         check_isolate(store);
+
         let mut store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
 
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum.0,
@@ -46,7 +48,7 @@ impl Memory {
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        check_isolate(store);
+        check_isolate(new_store);
         let store_mut = new_store.as_store_mut();
         Self { handle: memory }
     }

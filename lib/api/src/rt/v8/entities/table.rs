@@ -44,6 +44,7 @@ impl Table {
     ) -> Result<Self, RuntimeError> {
         check_isolate(store);
         let store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
 
         let engine = store_mut.engine();
 

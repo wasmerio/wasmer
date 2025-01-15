@@ -85,6 +85,7 @@ impl Function {
         check_isolate(store);
 
         let mut store = store.as_store_mut();
+        let v8_store = store.inner.store.as_v8();
         let fn_ty: FunctionType = ty.into();
         let params = fn_ty.params();
 
@@ -163,6 +164,7 @@ impl Function {
     {
         check_isolate(store);
         let mut store = store.as_store_mut();
+        let v8_store = store.inner.store.as_v8();
 
         let mut param_types = Args::wasm_types()
             .into_iter()
@@ -240,6 +242,7 @@ impl Function {
     {
         check_isolate(store);
         let mut store = store.as_store_mut();
+        let v8_store = store.inner.store.as_v8();
 
         let mut param_types = Args::wasm_types()
             .into_iter()
