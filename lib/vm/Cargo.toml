@@ -33,6 +33,7 @@ fnv = "1.0.3"
 tracing = { version = "0.1", optional = true }
 crossbeam-queue = "0.3.8"
 loupe = { version = "0.1.3", optional = true }
+libunwind = "1.3.3"
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 mach2 = "0.4.2"
@@ -53,7 +54,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = []
-enable-serde = ["serde", "indexmap/serde", "wasmer-types/enable-serde" ]
+enable-serde = ["serde", "indexmap/serde", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe", "wasmer-types/artifact-size"]
 
 [package.metadata.docs.rs]

@@ -233,6 +233,20 @@ impl Features {
         self.memory64 = enable;
         self
     }
+
+    /// Configures whether the WebAssembly exception-handling proposal will be enabled.
+    ///
+    /// The [WebAssembly exception-handling proposal][eh] is not currently fully
+    /// standardized and is undergoing development. Support for this feature can
+    /// be enabled through this method for appropriate WebAssembly modules.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [eh]: https://github.com/webassembly/exception-handling
+    pub fn exceptions(&mut self, enable: bool) -> &mut Self {
+        self.exceptions = enable;
+        self
+    }
 }
 
 impl Default for Features {
