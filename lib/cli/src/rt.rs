@@ -173,25 +173,31 @@ impl RuntimeOptions {
             return self.get_store_for_target(target);
         }
 
-        let engine = self.get_engine()?;
-        Ok(Store::new(engine))
+        #[cfg(not(feature = "compiler"))]
+        {
+            let engine = self.get_engine()?;
+            Ok(Store::new(engine))
+        }
     }
 
     pub fn get_engine(&self) -> Result<Engine> {
         #[cfg(feature = "compiler")]
         {
             let target = Target::default();
-            self.get_engine_for_target(target)
+            return self.get_engine_for_target(target);
         }
-        Ok(match self.get_rt()? {
-            #[cfg(feature = "v8")]
-            RuntimeType::V8 => v8::V8::new().into(),
-            #[cfg(feature = "wamr")]
-            RuntimeType::Wamr => wamr::Wamr::new().into(),
-            #[cfg(feature = "wasmi")]
-            RuntimeType::Wasmi => wasmi::Wasmi::new().into(),
-            _ => unreachable!(),
-        })
+        #[cfg(not(feature = "compiler"))]
+        {
+            Ok(match self.get_rt()? {
+                #[cfg(feature = "v8")]
+                RuntimeType::V8 => v8::V8::new().into(),
+                #[cfg(feature = "wamr")]
+                RuntimeType::Wamr => wamr::Wamr::new().into(),
+                #[cfg(feature = "wasmi")]
+                RuntimeType::Wasmi => wasmi::Wasmi::new().into(),
+                _ => unreachable!(),
+            })
+        }
     }
 
     #[cfg(feature = "compiler")]
