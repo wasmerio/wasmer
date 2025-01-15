@@ -84,6 +84,7 @@ impl SymbolRegistry for ShortNames {
 }
 
 impl LLVMCompiler {
+    #[allow(clippy::too_many_arguments)]
     fn compile_native_object(
         &self,
         target: &Target,
@@ -311,15 +312,14 @@ impl Compiler for LLVMCompiler {
                         .relocations
                         .iter()
                         .filter(|v| v.kind.needs_got())
-                        .for_each(|v| _ = got_targets.insert(v.reloc_target.clone()));
+                        .for_each(|v| _ = got_targets.insert(v.reloc_target));
 
                     compiled_function
                         .custom_sections
                         .iter()
-                        .map(|v| v.1.relocations.iter())
-                        .flatten()
+                        .flat_map(|v| v.1.relocations.iter())
                         .filter(|v| v.kind.needs_got())
-                        .for_each(|v| _ = got_targets.insert(v.reloc_target.clone()));
+                        .for_each(|v| _ = got_targets.insert(v.reloc_target));
 
                     if compiled_function
                         .eh_frame_section_indices
@@ -449,11 +449,7 @@ impl Compiler for LLVMCompiler {
 
                 map.insert(reloc, i);
             }
-            let got_data: Vec<u8> = got_data
-                .into_iter()
-                .map(|v| v.to_ne_bytes())
-                .flatten()
-                .collect();
+            let got_data: Vec<u8> = got_data.into_iter().flat_map(|v| v.to_ne_bytes()).collect();
             let index = SectionIndex::from_u32(module_custom_sections.len() as u32);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,

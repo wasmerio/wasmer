@@ -7,6 +7,7 @@ mod import;
 mod memory;
 mod mutability;
 mod table;
+mod tag;
 mod value;
 
 pub use export::*;
@@ -18,6 +19,7 @@ pub use import::*;
 pub use memory::*;
 pub use mutability::*;
 pub use table::*;
+use tag::*;
 pub use value::*;
 
 #[allow(non_camel_case_types)]

@@ -69,6 +69,11 @@ struct InnerException {
 }
 
 #[no_mangle]
+/// The implementation of Wasmer's personality function.
+///
+/// # Safety
+///
+/// Performs libunwind unwinding magic.
 pub unsafe extern "C" fn wasmer_eh_personality(
     version: std::ffi::c_int,
     actions: uw::_Unwind_Action,

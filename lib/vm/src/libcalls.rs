@@ -665,6 +665,10 @@ pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
 }
 
 /// Implementation for throwing an exception.
+///
+/// # Safety
+///
+/// Calls libunwind to perform unwinding magic.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
     //println!("Throwing exception with tag {tag}");
@@ -678,11 +682,15 @@ pub unsafe extern "C-unwind" fn wasmer_vm_throw(tag: u64, data_ptr: usize, data_
         c => {
             dbg!(c);
             unreachable!()
-        },
+        }
     }
 }
 
 /// Implementation for throwing an exception.
+///
+/// # Safety
+///
+/// Calls libunwind to perform unwinding magic.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_rethrow(exc: *mut UwExceptionWrapper) -> ! {
     if exc.is_null() {
@@ -709,33 +717,49 @@ pub unsafe extern "C-unwind" fn wasmer_vm_rethrow(exc: *mut UwExceptionWrapper) 
 
 /// (debug) Print an usize.
 #[no_mangle]
-pub unsafe extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
-    println!("wasmer_vm_dbg_usize: {value}");
+pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
+    #[allow(clippy::print_stdout)]
+    {
+        println!("wasmer_vm_dbg_usize: {value}");
+    }
 }
 
 /// Implementation for allocating an exception.
 #[no_mangle]
-pub unsafe extern "C-unwind" fn wasmer_vm_alloc_exception(size: usize) -> u64 {
+pub extern "C-unwind" fn wasmer_vm_alloc_exception(size: usize) -> u64 {
     Vec::<u8>::with_capacity(size).leak().as_ptr() as usize as u64
 }
 
 /// Implementation for deleting the data of an exception.
+///
+/// # Safety
+///
+/// `exception` must be dereferenceable.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_delete_exception(exception: *mut WasmerException) {
-    let size = (*exception).data_size as usize;
-    let data = Vec::<u8>::from_raw_parts((*exception).data_ptr as *mut u8, size, size);
-    std::mem::drop(data);
+    if !exception.is_null() {
+        let size = (*exception).data_size as usize;
+        let data = Vec::<u8>::from_raw_parts((*exception).data_ptr as *mut u8, size, size);
+        std::mem::drop(data);
+    }
 }
 
 /// Implementation for reading a [`WasmerException`] from a [`UwExceptionWrapper`].
+/// # Safety
+///
+/// `exception` must be dereferenceable.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_read_exception(
-    exc: *const UwExceptionWrapper,
+    exception: *const UwExceptionWrapper,
 ) -> *const WasmerException {
-    if let Some(w) = (*exc).cause.downcast_ref() {
-        w as *const WasmerException
+    if !exception.is_null() {
+        if let Some(w) = (*exception).cause.downcast_ref() {
+            w as *const WasmerException
+        } else {
+            panic!()
+        }
     } else {
-        panic!()
+        std::ptr::null()
     }
 }
 

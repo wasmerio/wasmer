@@ -550,7 +550,7 @@ impl Wast {
     }
 
     fn assert_exception(&self, result: Result<Vec<Value>>) -> Result<()> {
-        if !result.is_err() {
+        if result.is_ok() {
             anyhow::bail!("Expected exception to be thrown, returned {result:?} instead");
         }
         Ok(())

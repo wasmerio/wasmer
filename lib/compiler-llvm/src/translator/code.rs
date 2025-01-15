@@ -1428,7 +1428,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
     fn get_or_insert_global_tag(&mut self, tag: u32) -> BasicValueEnum<'ctx> {
         if let Some(tag) = self.tags_cache.get(&tag) {
-            return tag.clone();
+            return *tag;
         }
 
         let tag_ty = self
@@ -1455,7 +1455,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         let tag_glbl = tag_glbl.as_basic_value_enum();
 
-        self.tags_cache.insert(tag, tag_glbl.clone());
+        self.tags_cache.insert(tag, tag_glbl);
         tag_glbl
     }
 
@@ -1465,7 +1465,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         signature: &FunctionType,
     ) -> Result<inkwell::types::StructType<'ctx>, CompileError> {
         if let Some(ty) = self.exception_types_cache.get(&tag) {
-            return Ok(ty.clone());
+            return Ok(*ty);
         }
         let types = signature
             .params()
@@ -1474,7 +1474,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .collect::<Result<Vec<_>, CompileError>>()?;
 
         let ty = self.context.struct_type(&types, false);
-        self.exception_types_cache.insert(tag, ty.clone());
+        self.exception_types_cache.insert(tag, ty);
         Ok(ty)
     }
 
@@ -1489,7 +1489,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         if size == 4 {
             (tag + 2099) as usize
         } else if size == 8 {
-            let mut base = vec!['w' as u8, 'a' as u8, 's' as u8, 'm' as u8];
+            let mut base = vec![b'w', b'a', b's', b'm'];
             base.append(&mut tag.to_be_bytes().to_vec());
             u64::from_be_bytes(base.try_into().unwrap()) as usize
         } else {
@@ -12341,7 +12341,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                             // Read each value from the data ptr.
                             let values = params
-                                .into_iter()
+                                .iter()
                                 .enumerate()
                                 .map(|(i, v)| {
                                     let name = format!("value{i}");
@@ -12414,7 +12414,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                             // Read each value from the data ptr.
                             let mut values = params
-                                .into_iter()
+                                .iter()
                                 .enumerate()
                                 .map(|(i, v)| {
                                     let name = format!("value{i}");
@@ -12524,26 +12524,21 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let params = signature.params();
                 let values = self.state.popn_save_extra(params.len())?;
 
-                values
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (v, _))| {
-                        let t = type_to_llvm(self.intrinsics, params[i])?;
-                        if t != v.get_type() {
-                            return Err(CompileError::Codegen(format!(
-                                "Incompatible types: {:?} != {:?}",
-                                t,
-                                v.get_type()
-                            )));
-                        }
+                values.iter().enumerate().try_for_each(|(i, (v, _))| {
+                    let t = type_to_llvm(self.intrinsics, params[i])?;
+                    if t != v.get_type() {
+                        return Err(CompileError::Codegen(format!(
+                            "Incompatible types: {:?} != {:?}",
+                            t,
+                            v.get_type()
+                        )));
+                    }
 
-                        Ok(())
-                    })
-                    .collect::<Result<(), CompileError>>()?;
+                    Ok(())
+                })?;
 
-                let exception_type: inkwell::types::StructType = self
-                    .get_or_insert_exception_type(tag_index, signature)?
-                    .clone();
+                let exception_type: inkwell::types::StructType =
+                    self.get_or_insert_exception_type(tag_index, signature)?;
 
                 let size = exception_type.size_of().unwrap();
 
@@ -12626,7 +12621,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     err!(self.builder.build_invoke(
                         self.intrinsics.rethrow,
-                        &[exc.into()],
+                        &[exc],
                         unreachable_block,
                         pad,
                         "throw",

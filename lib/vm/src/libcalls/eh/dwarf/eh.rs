@@ -1,5 +1,5 @@
 //! Parsing of GCC-style Language-Specific Data Area (LSDA)
-//! For details see:
+//! For details se*const ():
 //!  * <https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html>
 //!  * <https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html>
 //!  * <https://itanium-cxx-abi.github.io/cxx-abi/exceptions.pdf>
@@ -10,10 +10,11 @@
 //! (`<root>/libgcc/unwind-c.c` as of this writing).
 
 #![allow(non_upper_case_globals)]
+#![allow(clippy::transmutes_expressible_as_ptr_casts)]
+#![allow(clippy::comparison_chain)]
 #![allow(unused)]
 
 use core::{mem, ptr};
-use std::u16;
 
 use crate::libcalls::eh::InnerException;
 
@@ -194,7 +195,7 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
         }
 
         // Ip is not present in the table. This indicates a nounwind call.
-        return Ok(EHAction::Terminate);
+        Ok(EHAction::Terminate)
     } else {
         todo!()
     }
@@ -298,14 +299,14 @@ unsafe fn read_encoded_pointer(
                 let addr = round_up(
                     {
                         let this = reader.ptr;
-                        unsafe { mem::transmute(this.cast::<()>()) }
+                        unsafe { mem::transmute::<*const (), usize>(this.cast::<()>()) }
                     },
                     mem::size_of::<*const u8>(),
                 )?;
                 // In the mean-time, this operation is defined to be "as if" it was
                 // a wrapping_offset, so we can emulate it as such. This should properly
                 // restore pointer provenance even under today's compiler.
-                let self_addr = unsafe { mem::transmute::<_, isize>(this.cast::<()>()) };
+                let self_addr = unsafe { mem::transmute::<*const (), isize>(this.cast::<()>()) };
                 let dest_addr = addr as isize;
                 let offset = dest_addr.wrapping_sub(self_addr);
 

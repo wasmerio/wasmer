@@ -493,12 +493,12 @@ impl TagType {
 
     /// Return types.
     pub fn results(&self) -> &[Type] {
-        &self.ty.results()
+        self.ty.results()
     }
 
     /// Parameter types.
     pub fn params(&self) -> &[Type] {
-        &self.ty.params()
+        self.ty.params()
     }
 
     /// Create a new [`TagType`] with the given kind and the associated type.

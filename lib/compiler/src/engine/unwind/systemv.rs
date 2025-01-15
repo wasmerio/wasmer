@@ -248,7 +248,6 @@ impl UnwindRegistry {
                 // Skip over the CIE and zero-length FDEs.
                 // LLVM's libunwind emits a warning on zero-length FDEs.
                 if current != start && len != 0 {
-                    println!("Hehe!");
                     __register_frame(current);
                     self.registrations.push(current as usize);
                 }

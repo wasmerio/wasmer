@@ -504,7 +504,7 @@ impl<'ctx> State<'ctx> {
     }
 
     pub(crate) fn get_landingpad(&mut self) -> Option<BasicBlock<'ctx>> {
-        self.landingpads.back().map(|v| v.catch_block.clone())
+        self.landingpads.back().map(|v| v.catch_block)
     }
 
     pub(crate) fn get_landingpad_for_tag(&mut self, tag: u32) -> Option<BasicBlock<'ctx>> {
@@ -512,7 +512,7 @@ impl<'ctx> State<'ctx> {
         if let Some(v) = self.landingpads_scope.get(&tag) {
             v.back().cloned()
         } else {
-            self.landingpads.back().map(|v| v.catch_block.clone())
+            self.landingpads.back().map(|v| v.catch_block)
         }
     }
 

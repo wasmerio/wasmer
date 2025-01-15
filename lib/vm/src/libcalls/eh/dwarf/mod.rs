@@ -17,8 +17,8 @@ pub struct DwarfReader {
 }
 
 impl DwarfReader {
-    pub fn new(ptr: *const u8) -> DwarfReader {
-        DwarfReader { ptr }
+    pub fn new(ptr: *const u8) -> Self {
+        Self { ptr }
     }
 
     /// Read a type T and then bump the pointer by that amount.

@@ -141,14 +141,14 @@ pub enum RelocationKind {
 
 impl RelocationKind {
     pub fn needs_got(&self) -> bool {
-        match self {
-            RelocationKind::MachoArm64RelocGotLoadPage21
-            | RelocationKind::MachoArm64RelocGotLoadPageoff12
-            | RelocationKind::MachoArm64RelocPointerToGot
-            | RelocationKind::MachoX86_64RelocGotLoad
-            | RelocationKind::MachoX86_64RelocGot => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::MachoArm64RelocGotLoadPage21
+                | Self::MachoArm64RelocGotLoadPageoff12
+                | Self::MachoArm64RelocPointerToGot
+                | Self::MachoX86_64RelocGotLoad
+                | Self::MachoX86_64RelocGot
+        )
     }
 }
 

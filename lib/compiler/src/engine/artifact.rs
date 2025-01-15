@@ -111,6 +111,7 @@ pub struct Artifact {
 /// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
 /// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[allow(clippy::large_enum_variant)]
 pub enum ArtifactBuildVariant {
     Plain(ArtifactBuild),
     Archived(ArtifactBuildFromArchive),

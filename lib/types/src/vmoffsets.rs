@@ -639,6 +639,7 @@ impl VMOffsets {
 /// Offsets for `VMTag` imports.
 impl VMOffsets {
     /// Return the size of `VMTagImport`.
+    #[allow(clippy::identity_op)]
     pub const fn size_of_vmtag_import(&self) -> u8 {
         1 * self.pointer_size
     }

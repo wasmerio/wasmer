@@ -17,6 +17,7 @@ use std::{
 use wasmer_types::{entity::PrimaryMap, LocalFunctionIndex, ModuleInfo};
 use wasmer_vm::{libcalls::function_pointer, SectionBodyPtr};
 
+#[allow(clippy::too_many_arguments)]
 fn apply_relocation(
     body: usize,
     r: &impl RelocationLike,
@@ -255,7 +256,7 @@ fn apply_relocation(
         RelocationKind::MachoArm64RelocPointerToGot => unsafe {
             if let Some(got) = got_info {
                 let base = got.0;
-                let base = std::mem::transmute::<usize, *const usize>(base);
+                let base = base as *const usize;
 
                 if let Some(reloc_idx) = got.1.map.get(&reloc_target) {
                     let got_address = base.wrapping_add(*reloc_idx);
@@ -279,6 +280,7 @@ fn apply_relocation(
 
 /// Links a module, patching the allocated functions with the
 /// required relocations and jump tables.
+#[allow(clippy::too_many_arguments)]
 pub fn link_module<'a>(
     _module: &ModuleInfo,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
