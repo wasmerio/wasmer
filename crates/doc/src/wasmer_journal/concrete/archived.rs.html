@@ -1829,6 +1829,7 @@
 <a href="#1829" id="1829">1829</a>
 <a href="#1830" id="1830">1830</a>
 <a href="#1831" id="1831">1831</a>
+<a href="#1832" id="1832">1832</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="kw">use </span>rkyv::rancor::Fallible;
 <span class="kw">use </span>rkyv::ser::{Allocator, Writer};
@@ -3435,6 +3436,7 @@
     NonDeterministicCall,
     Bootstrap,
     Transaction,
+    Explicit,
 }
 
 <span class="attr">#[repr(C)]

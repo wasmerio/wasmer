@@ -71,6 +71,16 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Various triggers that will cause the runtime to take snapshot
@@ -103,22 +113,31 @@
     </span>Bootstrap,
     <span class="doccomment">/// Transaction
     </span>Transaction,
+    <span class="doccomment">/// Explicitly requested by the guest module
+    </span>Explicit,
 }
 
 <span class="kw">impl </span>SnapshotTrigger {
     <span class="kw">pub fn </span>only_once(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(
             <span class="self">self</span>,
-            <span class="self">Self</span>::FirstListen | <span class="self">Self</span>::FirstEnviron | <span class="self">Self</span>::FirstStdin | <span class="self">Self</span>::FirstSigint
+            <span class="self">Self</span>::FirstListen
+                | <span class="self">Self</span>::FirstEnviron
+                | <span class="self">Self</span>::FirstStdin
+                | <span class="self">Self</span>::FirstSigint
+                <span class="comment">// TODO: I don't think this should be an only_once trigger, but
+                // repeatable triggers currently get stuck in a loop
+                </span>| <span class="self">Self</span>::Explicit
         )
     }
 }
 
-<span class="kw">pub const </span>DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; <span class="number">4</span>] = [
+<span class="kw">pub const </span>DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; <span class="number">5</span>] = [
     SnapshotTrigger::Idle,
     SnapshotTrigger::FirstEnviron,
     SnapshotTrigger::FirstListen,
     SnapshotTrigger::FirstStdin,
+    SnapshotTrigger::Explicit,
 ];
 
 <span class="kw">impl </span>FromStr <span class="kw">for </span>SnapshotTrigger {
@@ -140,6 +159,7 @@
             <span class="string">"non-deterministic-call" </span>=&gt; <span class="self">Self</span>::NonDeterministicCall,
             <span class="string">"bootstrap" </span>=&gt; <span class="self">Self</span>::Bootstrap,
             <span class="string">"transaction" </span>=&gt; <span class="self">Self</span>::Transaction,
+            <span class="string">"explicit" </span>=&gt; <span class="self">Self</span>::Explicit,
             a =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">"invalid or unknown trigger ({a})"</span>)),
         })
     }
