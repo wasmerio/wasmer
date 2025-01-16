@@ -632,6 +632,7 @@ jobs:
         shell: bash
         run: |
           echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
+          echo "RUSTDOCFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
