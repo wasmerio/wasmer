@@ -172,7 +172,8 @@ pub struct Wasi {
     /// and written to the journal file.
     ///
     /// If not specified, the default is to snapshot when the process idles, when
-    /// the process exits or periodically if an interval argument is also supplied.
+    /// the process exits or periodically if an interval argument is also supplied,
+    /// as well as when the process requests a snapshot explicitly.
     ///
     /// Additionally if the snapshot-on is not specified it will also take a snapshot
     /// on the first stdin, environ or socket listen - this can be used to accelerate
