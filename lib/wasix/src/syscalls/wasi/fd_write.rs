@@ -38,7 +38,7 @@ pub fn fd_write<M: MemorySize>(
         let inodes = state.inodes.clone();
 
         let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-        fd_entry.offset.load(Ordering::Acquire) as usize
+        fd_entry.inner.offset.load(Ordering::Acquire) as usize
     };
 
     let bytes_written = wasi_try_ok!(fd_write_internal::<M>(
@@ -135,11 +135,11 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_written = {
-        if !is_stdio && !fd_entry.rights.contains(Rights::FD_WRITE) {
+        if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_WRITE) {
             return Ok(Err(Errno::Access));
         }
 
-        let fd_flags = fd_entry.flags;
+        let fd_flags = fd_entry.inner.flags;
         let mut memory = unsafe { env.memory_view(&ctx) };
 
         let (bytes_written, is_file, can_snapshot) = {
@@ -153,7 +153,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
                         let res = __asyncify_light(
                             env,
-                            if fd_entry.flags.contains(Fdflags::NONBLOCK) {
+                            if fd_entry.inner.flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
                             } else {
                                 None
@@ -161,10 +161,10 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             async {
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
-                                    if fd_entry.flags.contains(Fdflags::APPEND) {
+                                    if fd_entry.inner.flags.contains(Fdflags::APPEND) {
                                         // `fdflags::append` means we need to seek to the end before writing.
                                         offset = fd_entry.inode.stat.read().unwrap().st_size;
-                                        fd_entry.offset.store(offset, Ordering::Release);
+                                        fd_entry.inner.offset.store(offset, Ordering::Release);
                                     }
 
                                     handle
@@ -431,7 +431,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     // fetch_add returns the previous value, we have to add bytes_written again here
                     + bytes_written
             } else {
-                fd_entry.offset.load(Ordering::Acquire)
+                fd_entry.inner.offset.load(Ordering::Acquire)
             };
 
             // we set the size but we don't return any errors if it fails as
