@@ -75,7 +75,7 @@ pub(crate) fn sock_send_file_internal(
         count -= sub_count;
 
         let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(in_fd));
-        let fd_flags = fd_entry.flags;
+        let fd_flags = fd_entry.inner.flags;
 
         let data = {
             match in_fd {
@@ -95,12 +95,12 @@ pub(crate) fn sock_send_file_internal(
                 }
                 __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return Ok(Err(Errno::Inval)),
                 _ => {
-                    if !fd_entry.rights.contains(Rights::FD_READ) {
+                    if !fd_entry.inner.rights.contains(Rights::FD_READ) {
                         // TODO: figure out the error to return when lacking rights
                         return Ok(Err(Errno::Access));
                     }
 
-                    let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
+                    let offset = fd_entry.inner.offset.load(Ordering::Acquire) as usize;
                     let inode = fd_entry.inode;
                     let data = {
                         let mut guard = inode.write();

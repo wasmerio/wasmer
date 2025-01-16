@@ -42,7 +42,7 @@ pub(crate) fn fd_allocate_internal(
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
-    if !fd_entry.rights.contains(Rights::FD_ALLOCATE) {
+    if !fd_entry.inner.rights.contains(Rights::FD_ALLOCATE) {
         return Err(Errno::Access);
     }
     let new_size = offset.checked_add(len).ok_or(Errno::Inval)?;

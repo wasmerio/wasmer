@@ -104,6 +104,7 @@ allow = [
     # BOOST source license
     # NOTE: not to be confused with business source license!
     "BSL-1.0",
+    "Unicode-3.0",
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
@@ -139,7 +140,7 @@ exceptions = [
 [[licenses.clarify]]
 crate = "ring"
 expression = "MIT AND ISC AND OpenSSL"
-license-files = [ { path = "LICENSE", hash = 0xbd0eed23 } ]
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
 
 [licenses.private]
 # If true, ignores workspace crates that aren't published, or are only

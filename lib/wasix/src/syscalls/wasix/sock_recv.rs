@@ -132,7 +132,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
                     .access()
                     .map_err(mem_error_to_wasi)?;
 
-                let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                let nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
                 let timeout = socket
                     .opt_time(TimeType::ReadTimeout)
                     .ok()

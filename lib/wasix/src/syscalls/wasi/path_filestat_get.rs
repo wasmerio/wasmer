@@ -31,9 +31,16 @@ pub fn path_filestat_get<M: MemorySize>(
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
 
     // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-    }
+    // let path_str = if path_string == "." {
+    //     &"/"
+    // } else if path_string.starts_with("./") {
+    //     &path_string[1..]
+    // } else {
+    //     &path_string
+    // };
+    // if path_string.starts_with("./") || path_string == "." {
+    //     path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
+    // }
     tracing::trace!(path = path_string.as_str());
 
     let stat = wasi_try!(path_filestat_get_internal(
@@ -62,7 +69,7 @@ pub(crate) fn path_filestat_get_internal(
 ) -> Result<Filestat, Errno> {
     let root_dir = state.fs.get_fd(fd)?;
 
-    if !root_dir.rights.contains(Rights::PATH_FILESTAT_GET) {
+    if !root_dir.inner.rights.contains(Rights::PATH_FILESTAT_GET) {
         return Err(Errno::Access);
     }
     let file_inode = state.fs.get_inode_at_path(
@@ -109,13 +116,8 @@ pub fn path_filestat_get_old<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
-
-    // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-    }
-    tracing::trace!(path = path_string.as_str());
+    let path_string = unsafe { get_input_str!(&memory, path, path_len) };
+    Span::current().record("path", path_string.as_str());
 
     let stat = wasi_try!(path_filestat_get_internal(
         &memory,

@@ -179,7 +179,7 @@ pub(crate) fn poll_fd_guard(
             .map_err(fs_error_into_wasi_err)?,
         _ => {
             let fd_entry = state.fs.get_fd(fd)?;
-            if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+            if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
                 return Err(Errno::Access);
             }
             let inode = fd_entry.inode;
@@ -256,7 +256,7 @@ where
                             Ok(a) => a,
                             Err(err) => return Ok(err),
                         };
-                        if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                        if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
                             return Ok(Errno::Access);
                         }
                     }
@@ -274,7 +274,7 @@ where
                             Ok(a) => a,
                             Err(err) => return Ok(err),
                         };
-                        if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                        if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
                             return Ok(Errno::Access);
                         }
                     }

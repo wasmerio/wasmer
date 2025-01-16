@@ -905,15 +905,17 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
+    pub fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
         self.try_inner().map(|i| i.memory())
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
-    pub(crate) unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
+    pub unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
         self.try_memory().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -921,7 +923,7 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn try_memory_view<'a>(
+    pub fn try_memory_view<'a>(
         &self,
         store: &'a (impl AsStoreRef + ?Sized),
     ) -> Option<MemoryView<'a>> {
@@ -930,12 +932,11 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
-    pub(crate) unsafe fn memory_view<'a>(
-        &self,
-        store: &'a (impl AsStoreRef + ?Sized),
-    ) -> MemoryView<'a> {
+    pub unsafe fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
         self.try_memory_view(store).expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
