@@ -1,3 +1,10 @@
+// TODO: currently, hard links are broken in the presence or renames.
+// It is impossible to fix them with the current setup, since a hard
+// link must point to the actual file rather than its path, but the
+// only way we can get to a file on a FileSystem instance is by going
+// through its repective FileOpener and giving it a path as input.
+// TODO: refactor away the InodeVal type
+
 mod fd;
 mod fd_list;
 mod inode_guard;
@@ -10,7 +17,7 @@ use std::{
     path::{Component, Path, PathBuf},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
     task::{Context, Poll},
@@ -36,7 +43,7 @@ use wasmer_wasix_types::{
     },
 };
 
-pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, InodeVal, Kind};
+pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, FdInner, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
     InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard, POLL_GUARD_MAX_RET,
@@ -114,19 +121,73 @@ impl Inode {
 pub struct InodeGuard {
     ino: Inode,
     inner: Arc<InodeVal>,
+
+    // This exists because self.inner doesn't really represent the
+    // number of FDs referencing this InodeGuard. We need that number
+    // so we can know when to drop the file handle, which should result
+    // in the backing file (which may be a host file) getting closed.
+    open_handles: Arc<AtomicI32>,
 }
 impl InodeGuard {
     pub fn ino(&self) -> Inode {
         self.ino
     }
+
     pub fn downgrade(&self) -> InodeWeakGuard {
         InodeWeakGuard {
             ino: self.ino,
+            open_handles: self.open_handles.clone(),
             inner: Arc::downgrade(&self.inner),
         }
     }
+
     pub fn ref_cnt(&self) -> usize {
         Arc::strong_count(&self.inner)
+    }
+
+    pub fn handle_count(&self) -> u32 {
+        self.open_handles.load(Ordering::SeqCst) as u32
+    }
+
+    pub fn acquire_handle(&self) {
+        self.open_handles.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub fn drop_one_handle(&self) {
+        let prev_handles = self.open_handles.fetch_sub(1, Ordering::SeqCst);
+
+        // If this wasn't the last handle, nothing else to do...
+        if prev_handles > 1 {
+            return;
+        }
+
+        // ... otherwise, drop the VirtualFile reference
+        let mut guard = self.inner.write();
+
+        // Must have at least one open handle before we can drop.
+        // This check happens after `inner` is locked so we can
+        // poison the lock and keep people from using this (possibly
+        // corrupt) InodeGuard.
+        if prev_handles != 1 {
+            panic!("InodeGuard handle dropped too many times");
+        }
+
+        // Re-check the open handles to account for race conditions
+        if self.open_handles.load(Ordering::SeqCst) != 0 {
+            return;
+        }
+
+        let ino = self.ino.0;
+        trace!(%ino, "InodeGuard has no more open handles");
+
+        match guard.deref_mut() {
+            Kind::File { handle, .. } if handle.is_some() => {
+                let file_ref_count = Arc::strong_count(handle.as_ref().unwrap());
+                trace!(%file_ref_count, %ino, "dropping file handle");
+                drop(handle.take().unwrap());
+            }
+            _ => (),
+        }
     }
 }
 impl std::ops::Deref for InodeGuard {
@@ -139,6 +200,10 @@ impl std::ops::Deref for InodeGuard {
 #[derive(Debug, Clone)]
 pub struct InodeWeakGuard {
     ino: Inode,
+    // Needed for when we want to upgrade back. We don't exactly
+    // care too much when the AtomicI32 is dropped, so this is
+    // a strong reference to keep things simple.
+    open_handles: Arc<AtomicI32>,
     inner: Weak<InodeVal>,
 }
 impl InodeWeakGuard {
@@ -148,6 +213,7 @@ impl InodeWeakGuard {
     pub fn upgrade(&self) -> Option<InodeGuard> {
         Weak::upgrade(&self.inner).map(|inner| InodeGuard {
             ino: self.ino,
+            open_handles: self.open_handles.clone(),
             inner,
         })
     }
@@ -191,7 +257,13 @@ impl WasiInodes {
             guard.lookup.retain(|_, v| Weak::strong_count(v) > 0);
         }
 
-        InodeGuard { ino, inner: val }
+        let open_handles = Arc::new(AtomicI32::new(0));
+
+        InodeGuard {
+            ino,
+            open_handles,
+            inner: val,
+        }
     }
 
     /// Get the `VirtualFile` object at stdout
@@ -545,7 +617,7 @@ impl WasiFs {
 
     /// Converts a relative path into an absolute path
     pub(crate) fn relative_path_to_absolute(&self, mut path: String) -> String {
-        if path.starts_with("./") {
+        if !path.starts_with("/") {
             let current_dir = self.current_dir.lock().unwrap();
             path = format!("{}{}", current_dir.as_str(), &path[1..]);
             if path.contains("//") {
@@ -575,7 +647,7 @@ impl WasiFs {
         let root_inode = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened: true,
-            name: "/".into(),
+            name: RwLock::new("/".into()),
             kind: RwLock::new(root_kind),
         });
 
@@ -680,7 +752,7 @@ impl WasiFs {
     /// Opens a user-supplied file in the directory specified with the
     /// name and flags given
     // dead code because this is an API for external use
-    // TODO: is this used anywhere?
+    // TODO: is this used anywhere? Is it even sound?
     #[allow(dead_code, clippy::too_many_arguments)]
     pub fn open_file_at(
         &mut self,
@@ -895,6 +967,13 @@ impl WasiFs {
 
         // TODO: rights checks
         'path_iter: for (i, component) in path.components().enumerate() {
+            // Since we're resolving the path against the given inode, we want to
+            // assume '/a/b' to be the same as `a/b` relative to the inode, so
+            // we skip over the RootDir component.
+            if matches!(component, Component::RootDir) {
+                continue;
+            }
+
             // used to terminate symlink resolution properly
             let last_component = i + 1 == n_components;
             // for each component traverse file structure
@@ -1255,14 +1334,7 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        let start_inode =
-            if !base_inode.deref().name.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
-                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-                cur_inode
-            } else {
-                self.get_fd_inode(base)?
-            };
-        self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
+        self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
     }
 
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
@@ -1300,10 +1372,12 @@ impl WasiFs {
 
         if ret.is_err() && fd == VIRTUAL_ROOT_FD {
             Ok(Fd {
-                rights: ALL_RIGHTS,
-                rights_inheriting: ALL_RIGHTS,
-                flags: Fdflags::empty(),
-                offset: Arc::new(AtomicU64::new(0)),
+                inner: FdInner {
+                    rights: ALL_RIGHTS,
+                    rights_inheriting: ALL_RIGHTS,
+                    flags: Fdflags::empty(),
+                    offset: Arc::new(AtomicU64::new(0)),
+                },
                 open_flags: 0,
                 inode: self.root_inode.clone(),
                 is_stdio: false,
@@ -1392,9 +1466,9 @@ impl WasiFs {
                 },
                 _ => Filetype::Unknown,
             },
-            fs_flags: fd.flags,
-            fs_rights_base: fd.rights,
-            fs_rights_inheriting: fd.rights_inheriting, // TODO(lachlan): Is this right?
+            fs_flags: fd.inner.flags,
+            fs_rights_base: fd.inner.rights,
+            fs_rights_inheriting: fd.inner.rights_inheriting, // TODO(lachlan): Is this right?
         })
     }
 
@@ -1416,7 +1490,7 @@ impl WasiFs {
                 // REVIEW:
                 // no need for +1, because there is no 0 end-of-string marker
                 // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.len() as u32 + 1,
+                pr_name_len: inode_val.name.read().unwrap().len() as u32 + 1,
             }
             .untagged(),
         }
@@ -1438,7 +1512,7 @@ impl WasiFs {
             }
             _ => {
                 let fd = self.get_fd(fd)?;
-                if !fd.rights.contains(Rights::FD_DATASYNC) {
+                if !fd.inner.rights.contains(Rights::FD_DATASYNC) {
                     return Err(Errno::Access);
                 }
 
@@ -1527,7 +1601,7 @@ impl WasiFs {
         inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
-            name,
+            name: RwLock::new(name),
             kind: RwLock::new(kind),
         })
     }
@@ -1588,10 +1662,12 @@ impl WasiFs {
             Some(__WASI_STDIN_FILENO) | Some(__WASI_STDOUT_FILENO) | Some(__WASI_STDERR_FILENO)
         );
         let fd = Fd {
-            rights,
-            rights_inheriting,
-            flags,
-            offset: Arc::new(AtomicU64::new(0)),
+            inner: FdInner {
+                rights,
+                rights_inheriting,
+                flags,
+                offset: Arc::new(AtomicU64::new(0)),
+            },
             open_flags,
             inode,
             is_stdio,
@@ -1614,10 +1690,12 @@ impl WasiFs {
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
         Ok(self.fd_map.write().unwrap().insert_first_free(Fd {
-            rights: fd.rights,
-            rights_inheriting: fd.rights_inheriting,
-            flags: fd.flags,
-            offset: fd.offset.clone(),
+            inner: FdInner {
+                rights: fd.inner.rights,
+                rights_inheriting: fd.inner.rights_inheriting,
+                flags: fd.inner.flags,
+                offset: fd.inner.offset.clone(),
+            },
             open_flags: fd.open_flags,
             inode: fd.inode,
             is_stdio: fd.is_stdio,
@@ -1906,7 +1984,7 @@ impl WasiFs {
             inodes.add_inode_val(InodeVal {
                 stat: RwLock::new(stat),
                 is_preopened: true,
-                name: name.to_string().into(),
+                name: RwLock::new(name.to_string().into()),
                 kind: RwLock::new(kind),
             })
         };
@@ -1914,12 +1992,14 @@ impl WasiFs {
             false,
             raw_fd,
             Fd {
-                rights,
-                rights_inheriting: Rights::empty(),
-                flags: fd_flags,
+                inner: FdInner {
+                    rights,
+                    rights_inheriting: Rights::empty(),
+                    flags: fd_flags,
+                    offset: Arc::new(AtomicU64::new(0)),
+                },
                 // since we're not calling open on this, we don't need open flags
                 open_flags: 0,
-                offset: Arc::new(AtomicU64::new(0)),
                 inode,
                 is_stdio: true,
             },

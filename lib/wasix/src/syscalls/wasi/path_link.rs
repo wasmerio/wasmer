@@ -81,31 +81,22 @@ pub(crate) fn path_link_internal(
     let source_fd = state.fs.get_fd(old_fd)?;
     let target_fd = state.fs.get_fd(new_fd)?;
 
-    if !source_fd.rights.contains(Rights::PATH_LINK_SOURCE)
-        || !target_fd.rights.contains(Rights::PATH_LINK_TARGET)
+    if !source_fd.inner.rights.contains(Rights::PATH_LINK_SOURCE)
+        || !target_fd.inner.rights.contains(Rights::PATH_LINK_TARGET)
     {
         return Err(Errno::Access);
     }
 
-    // Convert relative paths into absolute paths
-    let old_path_str = ctx
-        .data()
-        .state
-        .fs
-        .relative_path_to_absolute(old_path.to_string());
-    let new_path_str = ctx
-        .data()
-        .state
-        .fs
-        .relative_path_to_absolute(new_path.to_string());
+    Span::current().record("old_path", old_path);
+    Span::current().record("new_path", new_path);
 
     let source_inode = state.fs.get_inode_at_path(
         inodes,
         old_fd,
-        &old_path_str,
+        old_path,
         old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
-    let target_path_arg = std::path::PathBuf::from(&new_path_str);
+    let target_path_arg = std::path::PathBuf::from(new_path);
     let (target_parent_inode, new_entry_name) =
         state
             .fs

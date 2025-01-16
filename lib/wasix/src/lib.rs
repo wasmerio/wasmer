@@ -363,8 +363,7 @@ pub fn generate_import_object_from_env(
 
     let exports_wasi_generic = wasi_exports_generic(store, ctx);
 
-    #[allow(unused_mut)]
-    let mut imports_wasi_generic = imports! {
+    let imports_wasi_generic = imports! {
         "wasi" => exports_wasi_generic,
     };
 
@@ -547,6 +546,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory32>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
+        "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory32>),
         "proc_spawn" => Function::new_typed_with_env(&mut store, env, proc_spawn::<Memory32>),
         "proc_id" => Function::new_typed_with_env(&mut store, env, proc_id::<Memory32>),
         "proc_parent" => Function::new_typed_with_env(&mut store, env, proc_parent::<Memory32>),
@@ -669,6 +669,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory64>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
+        "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory64>),
         "proc_spawn" => Function::new_typed_with_env(&mut store, env, proc_spawn::<Memory64>),
         "proc_id" => Function::new_typed_with_env(&mut store, env, proc_id::<Memory64>),
         "proc_parent" => Function::new_typed_with_env(&mut store, env, proc_parent::<Memory64>),

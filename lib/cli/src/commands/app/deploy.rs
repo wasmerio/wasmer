@@ -63,7 +63,7 @@ pub struct CmdAppDeploy {
     #[clap(long)]
     pub no_default: bool,
 
-    /// Do not persist the app version ID in the app.yaml.
+    /// Do not persist the app ID under `app_id` field in app.yaml.
     #[clap(long)]
     pub no_persist_id: bool,
 
@@ -548,9 +548,20 @@ impl AsyncCliCommand for CmdAppDeploy {
         let app = &opts.app;
 
         let pretty_name = if let Some(owner) = &owner {
-            format!("{} ({})", app.name.bold(), owner.bold())
+            format!(
+                "{} ({})",
+                app.name
+                    .as_ref()
+                    .context("App name has to be specified")?
+                    .bold(),
+                owner.bold()
+            )
         } else {
-            app.name.bold().to_string()
+            app.name
+                .as_ref()
+                .context("App name has to be specified")?
+                .bold()
+                .to_string()
         };
 
         if !self.quiet {
@@ -629,7 +640,7 @@ pub async fn deploy_app(
         client,
         wasmer_backend_api::types::PublishDeployAppVars {
             config: raw_config,
-            name: app.name.clone().into(),
+            name: app.name.clone().context("Expected an app name")?.into(),
             owner: opts.owner.map(|o| o.into()),
             make_default: Some(opts.make_default),
         },

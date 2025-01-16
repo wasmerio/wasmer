@@ -2,16 +2,16 @@
 
 mod healthcheck;
 mod http;
+mod job;
+mod pretty_duration;
 
-pub use self::{
-    healthcheck::{HealthCheckHttpV1, HealthCheckV1},
-    http::HttpRequest,
-};
+pub use self::{healthcheck::*, http::*, job::*};
 
 use std::collections::HashMap;
 
 use anyhow::{bail, Context};
 use bytesize::ByteSize;
+use pretty_duration::PrettyDuration;
 
 use crate::package::PackageSource;
 
@@ -32,7 +32,7 @@ pub const HEADER_APP_VERSION_ID: &str = "x-edge-app-version-id";
 )]
 pub struct AppConfigV1 {
     /// Name of the app.
-    pub name: String,
+    pub name: Option<String>,
 
     /// App id assigned by the backend.
     ///
@@ -94,6 +94,9 @@ pub struct AppConfigV1 {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redirect: Option<Redirect>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jobs: Option<Vec<Job>>,
 
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
@@ -255,7 +258,7 @@ pub struct AppConfigCapabilityInstaBootV1 {
     /// After the specified time new snapshots will be created, and the old
     /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_age: Option<String>,
+    pub max_age: Option<PrettyDuration>,
 }
 
 /// App redirect configuration.
@@ -310,7 +313,7 @@ scheduled_tasks:
         assert_eq!(
             parsed,
             AppConfigV1 {
-                name: "test".to_string(),
+                name: Some("test".to_string()),
                 app_id: None,
                 package: "ns/name@0.1.0".parse().unwrap(),
                 owner: None,
@@ -341,7 +344,8 @@ scheduled_tasks:
                 }),
                 locality: Some(Locality {
                     regions: vec!["eu-rome".to_string()]
-                })
+                }),
+                jobs: None,
             }
         );
     }

@@ -127,29 +127,38 @@ fn apply_relocation(
                 | read_unaligned(reloc_address as *mut u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
-        RelocationKind::LArchAbsHi20 => unsafe {
+        RelocationKind::LArchAbsHi20 | RelocationKind::LArchPCAlaHi20 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let reloc_abs = ((((reloc_abs >> 12) & 0xfffff) as u32) << 5)
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_abs);
         },
-        RelocationKind::LArchAbsLo12 => unsafe {
+        RelocationKind::LArchAbsLo12 | RelocationKind::LArchPCAlaLo12 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let reloc_abs =
                 (((reloc_abs & 0xfff) as u32) << 10) | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_abs);
         },
-        RelocationKind::LArchAbs64Hi12 => unsafe {
+        RelocationKind::LArchAbs64Hi12 | RelocationKind::LArchPCAla64Hi12 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let reloc_abs = ((((reloc_abs >> 52) & 0xfff) as u32) << 10)
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_abs);
         },
-        RelocationKind::LArchAbs64Lo20 => unsafe {
+        RelocationKind::LArchAbs64Lo20 | RelocationKind::LArchPCAla64Lo20 => unsafe {
             let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
             let reloc_abs = ((((reloc_abs >> 32) & 0xfffff) as u32) << 5)
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_abs);
+        },
+        RelocationKind::LArchCall36 => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let reloc_delta1 = ((((reloc_delta >> 18) & 0xfffff) as u32) << 5)
+                | read_unaligned(reloc_address as *mut u32);
+            write_unaligned(reloc_address as *mut u32, reloc_delta1);
+            let reloc_delta2 = ((((reloc_delta >> 2) & 0xffff) as u32) << 10)
+                | read_unaligned((reloc_address + 4) as *mut u32);
+            write_unaligned((reloc_address + 4) as *mut u32, reloc_delta2);
         },
         RelocationKind::Aarch64AdrPrelPgHi21 => unsafe {
             let (reloc_address, delta) = r.for_address(body, target_func_address as u64);
