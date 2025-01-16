@@ -30,22 +30,31 @@ pub enum SnapshotTrigger {
     Bootstrap,
     /// Transaction
     Transaction,
+    /// Explicitly requested by the guest module
+    Explicit,
 }
 
 impl SnapshotTrigger {
     pub fn only_once(&self) -> bool {
         matches!(
             self,
-            Self::FirstListen | Self::FirstEnviron | Self::FirstStdin | Self::FirstSigint
+            Self::FirstListen
+                | Self::FirstEnviron
+                | Self::FirstStdin
+                | Self::FirstSigint
+                // TODO: I don't think this should be an only_once trigger, but
+                // repeatable triggers currently get stuck in a loop
+                | Self::Explicit
         )
     }
 }
 
-pub const DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; 4] = [
+pub const DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; 5] = [
     SnapshotTrigger::Idle,
     SnapshotTrigger::FirstEnviron,
     SnapshotTrigger::FirstListen,
     SnapshotTrigger::FirstStdin,
+    SnapshotTrigger::Explicit,
 ];
 
 impl FromStr for SnapshotTrigger {
@@ -67,6 +76,7 @@ impl FromStr for SnapshotTrigger {
             "non-deterministic-call" => Self::NonDeterministicCall,
             "bootstrap" => Self::Bootstrap,
             "transaction" => Self::Transaction,
+            "explicit" => Self::Explicit,
             a => return Err(anyhow::format_err!("invalid or unknown trigger ({a})")),
         })
     }
