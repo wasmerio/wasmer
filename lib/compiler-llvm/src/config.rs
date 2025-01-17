@@ -231,7 +231,7 @@ impl LLVM {
                 self.opt_level,
                 self.reloc_mode(),
                 match triple.architecture {
-                    Architecture::Riscv64(_) => CodeModel::Medium,
+                    Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
                     _ => self.code_model(),
                 },
             )

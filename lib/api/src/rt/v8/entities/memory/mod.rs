@@ -15,6 +15,8 @@ use crate::{
 pub(crate) mod view;
 pub use view::*;
 
+use super::check_isolate;
+
 #[derive(Debug, Clone)]
 /// A WebAssembly `memory` in the `v8` runtime.
 pub struct Memory {
@@ -26,6 +28,11 @@ unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+        check_isolate(store);
+
+        let mut store_mut = store.as_store_mut();
+        let v8_store = store_mut.inner.store.as_v8();
+
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum.0,
             max: match ty.maximum {
@@ -35,15 +42,14 @@ impl Memory {
         }));
 
         let memorytype = unsafe { wasm_memorytype_new(limits) };
-
-        let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_v8().inner;
-        let c_memory = unsafe { wasm_memory_new(inner, memorytype) };
+        let c_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
 
         Ok(Self { handle: c_memory })
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
+        check_isolate(new_store);
+        let store_mut = new_store.as_store_mut();
         Self { handle: memory }
     }
 
@@ -51,7 +57,10 @@ impl Memory {
         VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle) })
     }
 
-    pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
+    pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
+        check_isolate(store);
+        let store = store.as_store_ref();
+
         let memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle) };
         let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(memory_type) };
 
@@ -65,6 +74,8 @@ impl Memory {
     }
 
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        check_isolate(store);
+        let store_ref = store.as_store_ref();
         MemoryView::new(self, store)
     }
 
@@ -77,6 +88,8 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
+        check_isolate(store);
+        let store_mut = store.as_store_mut();
         unsafe {
             let delta: Pages = delta.into();
             let current = Pages(wasm_memory_size(self.handle));
@@ -97,6 +110,9 @@ impl Memory {
         store: &mut impl AsStoreMut,
         min_size: u64,
     ) -> Result<(), MemoryError> {
+        check_isolate(store);
+        let store_mut = store.as_store_mut();
+
         unsafe {
             let current = wasm_memory_size(self.handle);
             let delta = (min_size as u32) - current;
@@ -108,7 +124,8 @@ impl Memory {
         Ok(())
     }
 
-    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        check_isolate(store);
         Ok(())
     }
 
@@ -140,6 +157,7 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
+        check_isolate(store);
         Self {
             handle: internal.into_v8(),
         }
@@ -147,13 +165,16 @@ impl Memory {
 
     /// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
-    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        check_isolate(store);
         Ok(self.handle.clone())
     }
 
     /// Copying the memory will actually copy all the bytes in the memory to
     /// a identical byte copy of the original that can be put into a new store
     pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        check_isolate(store);
+
         let res = unsafe { wasm_memory_copy(self.handle) };
         if res.is_null() {
             Err(MemoryError::Generic("memory copy failed".to_owned()))
@@ -162,7 +183,8 @@ impl Memory {
         }
     }
 
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        check_isolate(store);
         true
     }
 

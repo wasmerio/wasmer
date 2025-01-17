@@ -5,7 +5,7 @@ use super::CliCommand;
 use crate::{
     common::{normalize_path, HashAlgorithm},
     config::WasmerEnv,
-    store::RuntimeOptions,
+    rt::RuntimeOptions,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
@@ -234,9 +234,9 @@ impl CliCommand for CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let compiler_type = self.compiler.get_rt()?;
+        let mut engine = self.compiler.get_engine()?;
 
-        let mut engine = store.engine().clone();
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
@@ -282,6 +282,8 @@ impl CliCommand for CreateExe {
                 self.debug_dir.is_some(),
             )
         }?;
+
+        let store = self.compiler.get_store()?;
 
         get_module_infos(&store, &tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
@@ -1718,52 +1720,62 @@ pub(super) mod utils {
     }
 
     fn filter_tarball_internal(p: &Path, target: &Triple) -> Option<bool> {
-        if !p.file_name()?.to_str()?.ends_with(".tar.gz") {
+        // [todo]: Move this description to a better suited place.
+        //
+        // The filename scheme:
+        // FILENAME := "wasmer-" [ FEATURE ] OS  PLATFORM  .
+        // FEATURE  := "wamr-" | "v8-" | "wasmi-" .
+        // OS       := "darwin" | "linux" | "linux-musl" | "windows" .
+        // PLATFORM := "aarch64" | "amd64" | "gnu64" .
+        //
+        // In this function we want to select only those version where features don't appear.
+
+        let filename = p.file_name()?.to_str()?;
+
+        if !filename.ends_with(".tar.gz") {
             return None;
         }
 
-        if target.environment == Environment::Musl && !p.file_name()?.to_str()?.contains("musl")
-            || p.file_name()?.to_str()?.contains("musl") && target.environment != Environment::Musl
+        if filename.contains("wamr") || filename.contains("v8") || filename.contains("wasmi") {
+            return None;
+        }
+
+        if target.environment == Environment::Musl && !filename.contains("musl")
+            || filename.contains("musl") && target.environment != Environment::Musl
         {
             return None;
         }
 
         if let Architecture::Aarch64(_) = target.architecture {
-            if !(p.file_name()?.to_str()?.contains("aarch64")
-                || p.file_name()?.to_str()?.contains("arm64"))
-            {
+            if !(filename.contains("aarch64") || filename.contains("arm64")) {
                 return None;
             }
         }
 
         if let Architecture::X86_64 = target.architecture {
             if target.operating_system == OperatingSystem::Windows {
-                if !p.file_name()?.to_str()?.contains("gnu64") {
+                if !filename.contains("gnu64") {
                     return None;
                 }
-            } else if !(p.file_name()?.to_str()?.contains("x86_64")
-                || p.file_name()?.to_str()?.contains("amd64"))
-            {
+            } else if !(filename.contains("x86_64") || filename.contains("amd64")) {
                 return None;
             }
         }
 
         if let OperatingSystem::Windows = target.operating_system {
-            if !p.file_name()?.to_str()?.contains("windows") {
+            if !filename.contains("windows") {
                 return None;
             }
         }
 
         if let OperatingSystem::Darwin = target.operating_system {
-            if !(p.file_name()?.to_str()?.contains("apple")
-                || p.file_name()?.to_str()?.contains("darwin"))
-            {
+            if !(filename.contains("apple") || filename.contains("darwin")) {
                 return None;
             }
         }
 
         if let OperatingSystem::Linux = target.operating_system {
-            if !p.file_name()?.to_str()?.contains("linux") {
+            if !filename.contains("linux") {
                 return None;
             }
         }
@@ -2133,6 +2145,8 @@ mod http_fetch {
 
         let status = response.status();
 
+        log::info!("GitHub api response status: {status}");
+
         let body = response
             .bytes()
             .map_err(anyhow::Error::new)
@@ -2232,7 +2246,7 @@ mod http_fetch {
 
         if assets.len() != 1 {
             return Err(anyhow!(
-                "GitHub API: more that one release selected for target {target_triple}: {assets:?}"
+                "GitHub API: more than one release selected for target {target_triple}: {assets:#?}"
             ));
         }
 

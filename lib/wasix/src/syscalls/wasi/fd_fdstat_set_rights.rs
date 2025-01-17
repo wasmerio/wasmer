@@ -46,7 +46,7 @@ pub(crate) fn fd_fdstat_set_rights_internal(
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let mut fd_map = state.fs.fd_map.write().unwrap();
-    let fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)?;
+    let mut fd_entry = unsafe { fd_map.get_mut(fd) }.ok_or(Errno::Badf)?;
 
     // ensure new rights are a subset of current rights
     if fd_entry.rights | fs_rights_base != fd_entry.rights

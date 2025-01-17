@@ -60,16 +60,8 @@ pub fn path_open<M: MemorySize>(
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
-    let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
+    let path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
-
-    // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        trace!(
-            %path_string
-        );
-    }
 
     let out_fd = wasi_try_ok!(path_open_internal(
         &mut ctx,
@@ -139,10 +131,10 @@ pub(crate) fn path_open_internal(
     );
 
     let working_dir = wasi_try_ok_ok!(state.fs.get_fd(dirfd));
-    let working_dir_rights_inheriting = working_dir.rights_inheriting;
+    let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
 
     // ASSUMPTION: open rights apply recursively
-    if !working_dir.rights.contains(Rights::PATH_OPEN) {
+    if !working_dir.inner.rights.contains(Rights::PATH_OPEN) {
         return Ok(Err(Errno::Access));
     }
 
@@ -191,8 +183,8 @@ pub(crate) fn path_open_internal(
     };
 
     let parent_rights = virtual_fs::OpenOptionsConfig {
-        read: working_dir.rights.contains(Rights::FD_READ),
-        write: working_dir.rights.contains(Rights::FD_WRITE),
+        read: working_dir.inner.rights.contains(Rights::FD_READ),
+        write: working_dir.inner.rights.contains(Rights::FD_WRITE),
         // The parent is a directory, which is why these options
         // aren't inherited from the parent (append / truncate doesn't work on directories)
         create_new: true,
@@ -252,6 +244,8 @@ pub(crate) fn path_open_internal(
                 if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
+                // TODO: I strongly suspect that assigning the handle unconditionally
+                // breaks opening the same file multiple times.
                 *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
                     open_options.open(&path).map_err(fs_error_into_wasi_err)
                 ))));

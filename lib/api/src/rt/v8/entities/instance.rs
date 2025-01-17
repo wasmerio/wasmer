@@ -6,6 +6,8 @@ use crate::{
     Imports, InstantiationError, Module,
 };
 
+use super::check_isolate;
+
 #[derive(PartialEq, Eq)]
 pub(crate) struct InstanceHandle(pub(crate) *mut wasm_instance_t);
 
@@ -15,7 +17,7 @@ unsafe impl Sync for InstanceHandle {}
 impl InstanceHandle {
     fn new(
         store: *mut wasm_store_t,
-        module: *mut wasm_module_t,
+        module: *mut wasm_shared_module_t,
         mut externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
@@ -26,7 +28,12 @@ impl InstanceHandle {
             let ptr = externs.as_ptr();
             std::mem::forget(externs);
 
-            wasm_instance_new(store, module, ptr as *const *const _, &mut trap)
+            wasm_instance_new(
+                store,
+                wasm_module_obtain(store, module),
+                ptr as *const *const _,
+                &mut trap,
+            )
         };
 
         if instance.is_null() {
@@ -82,16 +89,19 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {
+        check_isolate(store);
+        let mut store = store.as_store_mut();
+
         let externs = module
             .imports()
             .map(|import_ty| {
                 imports
                     .get_export(import_ty.module(), import_ty.name())
-                    .expect("Extern not found")
+                    .expect(format!("Export {import_ty:?} not found").as_str())
             })
             .collect::<Vec<_>>();
 
-        return Self::new_by_index(store, module, &externs);
+        return Self::new_by_index(&mut store, module, &externs);
     }
 
     pub(crate) fn new_by_index(

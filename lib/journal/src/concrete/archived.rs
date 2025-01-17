@@ -1604,6 +1604,7 @@ pub enum JournalSnapshotTriggerV1 {
     NonDeterministicCall,
     Bootstrap,
     Transaction,
+    Explicit,
 }
 
 #[repr(C)]

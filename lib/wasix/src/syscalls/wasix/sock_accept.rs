@@ -126,7 +126,7 @@ pub(crate) fn sock_accept_internal(
         sock,
         Rights::SOCK_ACCEPT,
         move |socket, fd| async move {
-            if fd.flags.contains(Fdflags::NONBLOCK) {
+            if fd.inner.flags.contains(Fdflags::NONBLOCK) {
                 fd_flags.set(Fdflags::NONBLOCK, true);
                 nonblocking = true;
             }

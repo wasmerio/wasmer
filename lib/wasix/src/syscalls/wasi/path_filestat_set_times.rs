@@ -32,16 +32,8 @@ pub fn path_filestat_set_times<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
+    let path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
-
-    // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        trace!(
-            %path_string
-        );
-    }
 
     wasi_try_ok!(path_filestat_set_times_internal(
         &mut ctx,
@@ -87,7 +79,11 @@ pub(crate) fn path_filestat_set_times_internal(
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let fd_entry = state.fs.get_fd(fd)?;
     let fd_inode = fd_entry.inode;
-    if !fd_entry.rights.contains(Rights::PATH_FILESTAT_SET_TIMES) {
+    if !fd_entry
+        .inner
+        .rights
+        .contains(Rights::PATH_FILESTAT_SET_TIMES)
+    {
         return Err(Errno::Access);
     }
     if (fst_flags.contains(Fstflags::SET_ATIM) && fst_flags.contains(Fstflags::SET_ATIM_NOW))

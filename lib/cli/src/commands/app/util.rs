@@ -152,9 +152,12 @@ impl AppIdentOpts {
         let ident = if let Some(id) = &config.app_id {
             AppIdent::AppId(id.clone())
         } else if let Some(owner) = &config.owner {
-            AppIdent::NamespacedName(owner.clone(), config.name.clone())
+            AppIdent::NamespacedName(
+                owner.clone(),
+                config.name.clone().context("App name was not specified")?,
+            )
         } else {
-            AppIdent::Name(config.name.clone())
+            AppIdent::Name(config.name.clone().context("App name was not specified")?)
         };
 
         Ok(ResolvedAppIdent::Config {

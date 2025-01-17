@@ -66,13 +66,14 @@ impl CommonWasiOptions {
         });
         let fs = prepare_filesystem(root_fs, &self.mounts, container_fs)?;
 
-        builder.add_preopen_dir("/")?;
-
+        // TODO: What's a preopen for '.' supposed to mean anyway? Why do we need it?
         if self.mounts.iter().all(|m| m.guest != ".") {
             // The user hasn't mounted "." to anything, so let's map it to "/"
             let path = builder.get_current_dir().unwrap_or(PathBuf::from("/"));
             builder.add_map_dir(".", path)?;
         }
+
+        builder.add_preopen_dir("/")?;
 
         builder.set_fs(Box::new(fs));
 

@@ -447,7 +447,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async {
+        Box::pin(async move {
             let name_of_to;
 
             // Read lock.
@@ -493,6 +493,7 @@ impl crate::FileSystem for FileSystem {
             };
 
             match (inode_of_from_parent, inode_of_to_parent) {
+                // Rename within this MemFS instance
                 (Either::Left(inode_of_from_parent), Either::Left(inode_of_to_parent)) => {
                     let fs = self.inner.read().map_err(|_| FsError::Lock)?;
 
@@ -572,16 +573,34 @@ impl crate::FileSystem for FileSystem {
 
                     Ok(())
                 }
-                (Either::Right((from_fs, from_path)), Either::Right((to_fs, to_path))) => {
-                    if Arc::ptr_eq(&from_fs, &to_fs) {
-                        let same_fs = from_fs;
 
-                        same_fs.rename(&from_path, &to_path).await
-                    } else {
-                        Err(FsError::InvalidInput)
-                    }
+                // Rename within the same mounted FS instance
+                (Either::Right((from_fs, from_path)), Either::Right((to_fs, to_path)))
+                    if Arc::ptr_eq(&from_fs, &to_fs) =>
+                {
+                    let same_fs = from_fs;
+                    same_fs.rename(&from_path, &to_path).await
                 }
-                _ => Err(FsError::InvalidInput),
+
+                // Rename across file systems; we need to do a create and a delete
+                _ => {
+                    let mut from_file = self.new_open_options().read(true).open(from)?;
+                    let mut to_file = self
+                        .new_open_options()
+                        .create_new(true)
+                        .write(true)
+                        .open(to)?;
+                    tokio::io::copy(from_file.as_mut(), to_file.as_mut()).await?;
+                    if let Err(error) = self.remove_file(from) {
+                        tracing::warn!(
+                            ?from,
+                            ?to,
+                            ?error,
+                            "Failed to remove file after cross-FS rename"
+                        );
+                    }
+                    Ok(())
+                }
             }
         })
     }
