@@ -267,6 +267,18 @@
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{borrow::Cow, collections::HashMap, fmt::Display, str::FromStr};
 
 <span class="kw">use </span>serde::{de::Error, Deserialize, Serialize};
@@ -295,15 +307,26 @@
     <span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     </span><span class="kw">pub </span>retries: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 
+    action: JobAction,
+}
+
+<span class="comment">// We need this wrapper struct to enable this formatting:
+// job:
+//   action:
+//     execute: ...
+</span><span class="attr">#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+</span><span class="kw">pub struct </span>JobAction {
     <span class="attr">#[serde(flatten)]
-    </span>action: JobAction,
+    </span>action: JobActionCase,
 }
 
 <span class="attr">#[derive(
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
 #[serde(rename_all = <span class="string">"lowercase"</span>)]
-</span><span class="kw">pub enum </span>JobAction {
+</span><span class="kw">pub enum </span>JobActionCase {
     Fetch(HttpRequest),
     Execute(ExecutableJob),
 }
@@ -440,9 +463,7 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span><span class="kw">crate</span>::app::{JobAction, JobTrigger};
-
-    <span class="kw">use </span><span class="kw">super</span>::Job;
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>job_trigger_serialization_roundtrip() {
@@ -484,29 +505,31 @@
             timeout: <span class="prelude-val">Some</span>(<span class="string">"1m"</span>.parse().unwrap()),
             max_schedule_drift: <span class="prelude-val">Some</span>(<span class="string">"2h"</span>.parse().unwrap()),
             retries: <span class="prelude-val">None</span>,
-            action: JobAction::Execute(<span class="kw">super</span>::ExecutableJob {
-                package: <span class="prelude-val">Some</span>(<span class="kw">crate</span>::package::PackageSource::Ident(
-                    <span class="kw">crate</span>::package::PackageIdent::Named(<span class="kw">crate</span>::package::NamedPackageIdent {
-                        registry: <span class="prelude-val">None</span>,
-                        namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_owned()),
-                        name: <span class="string">"pkg"</span>.to_owned(),
-                        tag: <span class="prelude-val">None</span>,
+            action: JobAction {
+                action: JobActionCase::Execute(<span class="kw">super</span>::ExecutableJob {
+                    package: <span class="prelude-val">Some</span>(<span class="kw">crate</span>::package::PackageSource::Ident(
+                        <span class="kw">crate</span>::package::PackageIdent::Named(<span class="kw">crate</span>::package::NamedPackageIdent {
+                            registry: <span class="prelude-val">None</span>,
+                            namespace: <span class="prelude-val">Some</span>(<span class="string">"ns"</span>.to_owned()),
+                            name: <span class="string">"pkg"</span>.to_owned(),
+                            tag: <span class="prelude-val">None</span>,
+                        }),
+                    )),
+                    command: <span class="prelude-val">Some</span>(<span class="string">"cmd"</span>.to_owned()),
+                    cli_args: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"arg-1"</span>.to_owned(), <span class="string">"arg-2"</span>.to_owned()]),
+                    env: <span class="prelude-val">Some</span>([(<span class="string">"VAR1"</span>.to_owned(), <span class="string">"Value"</span>.to_owned())].into()),
+                    capabilities: <span class="prelude-val">Some</span>(<span class="kw">super</span>::ExecutableJobCompatibilityMapV1 {
+                        memory: <span class="prelude-val">Some</span>(<span class="kw">crate</span>::app::AppConfigCapabilityMemoryV1 {
+                            limit: <span class="prelude-val">Some</span>(bytesize::ByteSize::gb(<span class="number">1</span>)),
+                        }),
+                        other: Default::default(),
                     }),
-                )),
-                command: <span class="prelude-val">Some</span>(<span class="string">"cmd"</span>.to_owned()),
-                cli_args: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"arg-1"</span>.to_owned(), <span class="string">"arg-2"</span>.to_owned()]),
-                env: <span class="prelude-val">Some</span>([(<span class="string">"VAR1"</span>.to_owned(), <span class="string">"Value"</span>.to_owned())].into()),
-                capabilities: <span class="prelude-val">Some</span>(<span class="kw">super</span>::ExecutableJobCompatibilityMapV1 {
-                    memory: <span class="prelude-val">Some</span>(<span class="kw">crate</span>::app::AppConfigCapabilityMemoryV1 {
-                        limit: <span class="prelude-val">Some</span>(bytesize::ByteSize::gb(<span class="number">1</span>)),
-                    }),
-                    other: Default::default(),
+                    volumes: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="kw">crate</span>::app::AppVolume {
+                        name: <span class="string">"vol"</span>.to_owned(),
+                        mount: <span class="string">"/path/to/volume"</span>.to_owned(),
+                    }]),
                 }),
-                volumes: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="kw">crate</span>::app::AppVolume {
-                    name: <span class="string">"vol"</span>.to_owned(),
-                    mount: <span class="string">"/path/to/volume"</span>.to_owned(),
-                }]),
-            }),
+            },
         };
 
         <span class="kw">let </span>serialized = <span class="string">r#"
@@ -514,20 +537,21 @@ name: my-job
 trigger: '0 0/2 12 ? JAN-APR 2'
 timeout: '1m'
 max_schedule_drift: '2h'
-execute:
-  package: ns/pkg
-  command: cmd
-  cli_args:
-  - arg-1
-  - arg-2
-  env:
-    VAR1: Value
-  capabilities:
-    memory:
-      limit: '1000.0 MB'
-  volumes:
-  - name: vol
-    mount: /path/to/volume"#</span>;
+action:
+  execute:
+    package: ns/pkg
+    command: cmd
+    cli_args:
+    - arg-1
+    - arg-2
+    env:
+      VAR1: Value
+    capabilities:
+      memory:
+        limit: '1000.0 MB'
+    volumes:
+    - name: vol
+      mount: /path/to/volume"#</span>;
 
         <span class="macro">assert_eq!</span>(
             serialized.trim(),
