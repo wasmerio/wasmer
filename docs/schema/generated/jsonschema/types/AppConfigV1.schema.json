@@ -546,37 +546,15 @@
     "Job": {
       "description": "Job configuration.",
       "type": "object",
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "fetch"
-          ],
-          "properties": {
-            "fetch": {
-              "$ref": "#/definitions/HttpRequest"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "execute"
-          ],
-          "properties": {
-            "execute": {
-              "$ref": "#/definitions/ExecutableJob"
-            }
-          },
-          "additionalProperties": false
-        }
-      ],
       "required": [
+        "action",
         "name",
         "trigger"
       ],
       "properties": {
+        "action": {
+          "$ref": "#/definitions/JobAction"
+        },
         "max_schedule_drift": {
           "description": "Don't start job if past the due time by this amount, instead opting to wait for the next instance of it to be triggered.",
           "anyOf": [
@@ -613,6 +591,35 @@
           "$ref": "#/definitions/JobTrigger"
         }
       }
+    },
+    "JobAction": {
+      "type": "object",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "fetch"
+          ],
+          "properties": {
+            "fetch": {
+              "$ref": "#/definitions/HttpRequest"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "execute"
+          ],
+          "properties": {
+            "execute": {
+              "$ref": "#/definitions/ExecutableJob"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "JobTrigger": {
       "type": "string"
