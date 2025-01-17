@@ -31,30 +31,35 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             {
 
-                #[allow(unused_unsafe)]
-                let params_list: Vec<_> = unsafe {
-                    vec![ $( {
-                        let raw = $x.to_native().into_raw(store);
-                        let value = Value::from_raw(&mut store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
-                        value.into_cv()
-                    } ),* ]
+                 // // let store_ptr = Value::I64(store.as_store_mut().as_raw() as _).as_jsvalue(store);
+                 #[allow(unused_unsafe)]
+                 let params_list: Vec<_> = unsafe {
+                     vec![ $( {
+                         let raw = $x.to_native().into_raw(store);
+                         let value = Value::from_raw(&mut store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
+                         value.into_cv()
+                     } ),* ]
+                 };
+
+                 let mut results = {
+                    unsafe {
+                        let mut ret = std::mem::zeroed();
+                        wasm_val_vec_new_uninitialized(&mut ret, Rets::wasm_types().len());
+                        ret
+                    }
                 };
 
-                let mut results = unsafe {
-                    let rets_len = Rets::wasm_types().len();
-                    let mut vec = Vec::<crate::rt::v8::bindings::wasm_val_t>::with_capacity(rets_len);
-                    let ptr = vec.as_mut_ptr();
-                    std::mem::forget(vec);
-                    ptr as *mut _
-                };
 
+                 let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().into_v8()) };
 
-                let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().into_v8()) };
+                let mut params = unsafe {std::mem::zeroed()};
+                unsafe {wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr())};
 
-                let mut trap;
+                 let mut trap;
 
-                loop {
-                    trap = unsafe {wasm_func_call(func, params_list.as_ptr() as *const _, results)};
+                 loop {
+                    trap = unsafe { wasm_func_call(func, &params, &mut results) };
+
                     let store_mut = store.as_store_mut();
                     if let Some(callback) = store_mut.inner.on_called.take() {
                         match callback(store_mut) {
@@ -65,24 +70,40 @@ macro_rules! impl_native_traits {
                         }
                     }
                     break;
-                }
+                };
 
-                if !trap.is_null() {
-                    unsafe {
+
+
+                 if !trap.is_null() {
+                     unsafe {
                         let trap: Trap = trap.into();
                         return Err(RuntimeError::from(trap));
-                    }
+                     }
                 }
 
                 unsafe {
-                    let rets_len = Rets::wasm_types().len();
-                    let mut results: *const [crate::rt::v8::bindings::wasm_val_t] = std::ptr::slice_from_raw_parts(results, rets_len);
+                    let mut rets_list_array = Rets::empty_array();
+                    let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
 
-                    unsafe {
-                        let results: Vec<_> = (*results).into_iter().map(|v| v.into_wv().as_raw(&mut store)).collect();
-                        Ok(unsafe {Rets::from_slice(store, &results).unwrap()})
+                    match Rets::size() {
+                        0 => {},
+                        1 => {
+                            let val = (*results.data.wrapping_add(0)).clone();
+                            let val = val.into_wv();
+                            *mut_rets = val.as_raw(&mut store);
+                        }
+                        _n => {
+                            for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
+                                    let val = (*results.data.wrapping_add(i)).clone();
+                                    let val = val.into_wv();
+                                    let slot = mut_rets.add(i);
+                                    *slot = val.as_raw(&mut store);
+                            }
+                        }
                     }
-                 }
+
+                    Ok(unsafe { Rets::from_array(store, rets_list_array) })
+                }
             }
 
             #[doc(hidden)]
