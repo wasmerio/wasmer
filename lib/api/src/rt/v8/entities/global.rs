@@ -15,6 +15,8 @@ use crate::{
     AsStoreMut, AsStoreRef, RuntimeError, Value,
 };
 
+use super::check_isolate;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `global` in the `v8` runtime.
 pub struct Global {
@@ -44,8 +46,9 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
+        check_isolate(store);
         let store = store.as_store_mut();
-
+        let v8_store = store.inner.store.as_v8();
         let v8_type = val.ty().into_ct();
         let v8_value = val.into_cv();
         let v8_mutability = if mutability.is_mutable() {
@@ -58,13 +61,13 @@ impl Global {
             unsafe { wasm_globaltype_new(wasm_valtype_new(v8_type), v8_mutability) };
 
         Ok(Self {
-            handle: unsafe {
-                wasm_global_new(store.inner.store.as_v8().inner, v8_global_type, &v8_value)
-            },
+            handle: unsafe { wasm_global_new(v8_store.inner, v8_global_type, &v8_value) },
         })
     }
 
-    pub fn ty(&self, _store: &impl AsStoreRef) -> GlobalType {
+    pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
+        check_isolate(store);
+        let store = store.as_store_ref();
         let r#type = unsafe { wasm_global_type(self.handle) };
         let mutability = unsafe { wasm_globaltype_mutability(&*r#type) };
         let valtype = unsafe { wasm_globaltype_content(r#type) };
@@ -81,12 +84,16 @@ impl Global {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
+        check_isolate(store);
+        let store = store.as_store_ref();
         let mut out = unsafe { std::mem::zeroed() };
         unsafe { wasm_global_get(self.handle, &mut out) };
         out.into_wv()
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
+        check_isolate(store);
+
         if val.ty() != self.ty(store).ty {
             return Err(RuntimeError::new(format!(
                 "Incompatible types: {} != {}",
@@ -107,12 +114,14 @@ impl Global {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
+        check_isolate(store);
         Self {
             handle: vm_global.into_v8(),
         }
     }
 
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        check_isolate(store);
         true
     }
 }

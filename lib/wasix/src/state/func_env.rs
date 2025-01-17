@@ -12,7 +12,7 @@ use crate::os::task::thread::RewindResultType;
 use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
-    runtime::SpawnMemoryType,
+    runtime::task_manager::SpawnMemoryTypeOrStore,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
     RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
@@ -41,16 +41,37 @@ impl WasiFunctionEnv {
     pub fn new_with_store(
         module: Module,
         env: WasiEnv,
-        store_snapshot: Option<&StoreSnapshot>,
-        spawn_type: SpawnMemoryType,
+        store_snapshot: Option<StoreSnapshot>,
+        spawn_type: SpawnMemoryTypeOrStore,
         update_layout: bool,
     ) -> Result<(Self, Store), WasiThreadError> {
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)
-        let mut store = env.runtime.new_store();
-        let memory = env
-            .tasks()
-            .build_memory(&mut store.as_store_mut(), spawn_type)?;
+        let (memory, store): (Option<wasmer::Memory>, Option<wasmer::Store>) = match spawn_type {
+            SpawnMemoryTypeOrStore::New => (None, None),
+            SpawnMemoryTypeOrStore::Type(mut ty) => {
+                ty.shared = true;
+
+                let mut store = env.runtime.new_store();
+
+                // Note: If memory is shared, maximum needs to be set in the
+                // browser otherwise creation will fail.
+                let _ = ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
+
+                let mem = Memory::new(&mut store, ty).map_err(|err| {
+                    tracing::error!(
+                        error = &err as &dyn std::error::Error,
+                        memory_type=?ty,
+                        "could not create memory",
+                    );
+                    WasiThreadError::MemoryCreateFailed(err)
+                })?;
+                (Some(mem), Some(store))
+            }
+            SpawnMemoryTypeOrStore::StoreAndMemory(s, m) => (m, Some(s)),
+        };
+
+        let mut store = store.unwrap_or_else(|| env.runtime().new_store());
 
         // Build the context object and import the memory
         let mut ctx = WasiFunctionEnv::new(&mut store, env);
@@ -79,7 +100,7 @@ impl WasiFunctionEnv {
 
         // Set all the globals
         if let Some(snapshot) = store_snapshot {
-            restore_store_snapshot(&mut store, snapshot);
+            restore_store_snapshot(&mut store, &snapshot);
         }
 
         Ok((ctx, store))

@@ -8,7 +8,7 @@ use clap::Parser;
 use wasmer::sys::*;
 use wasmer_package::utils::from_disk;
 
-use crate::store::RuntimeOptions;
+use crate::rt::RuntimeOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
@@ -80,12 +80,12 @@ impl CreateObj {
             &target_triple,
             &self.cpu_features,
         );
-        let (_, compiler_type) = self.rt.get_store_for_target(target.clone())?;
+        let compiler_type = self.rt.get_rt()?;
         match compiler_type {
-            crate::store::RuntimeType::V8 | crate::store::RuntimeType::Wamr => {
+            crate::rt::RuntimeType::V8 | crate::rt::RuntimeType::Wamr => {
                 anyhow::bail!("Cannot produce objects with {compiler_type}!")
             }
-            crate::store::RuntimeType::Headless => todo!(),
+            crate::rt::RuntimeType::Headless => todo!(),
             _ => {}
         }
         println!("Compiler: {}", compiler_type);

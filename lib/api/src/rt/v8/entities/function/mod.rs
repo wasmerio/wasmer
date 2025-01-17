@@ -17,7 +17,7 @@ use crate::{
     RuntimeTrap, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
 };
 
-use super::{super::error::Trap, store::StoreHandle};
+use super::{super::error::Trap, check_isolate, store::StoreHandle};
 use wasmer_types::{FunctionType, RawValue};
 
 pub(crate) mod env;
@@ -82,6 +82,10 @@ impl Function {
             + Send
             + Sync,
     {
+        check_isolate(store);
+
+        let mut store = store.as_store_mut();
+        let v8_store = store.inner.store.as_v8();
         let fn_ty: FunctionType = ty.into();
         let params = fn_ty.params();
 
@@ -121,8 +125,7 @@ impl Function {
             )
         };
 
-        let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_v8().inner;
+        let inner = v8_store.inner;
 
         let callback: CCallback = make_fn_callback(&func, param_types.len());
 
@@ -159,6 +162,10 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
+        check_isolate(store);
+        let mut store = store.as_store_mut();
+        let v8_store = store.inner.store.as_v8();
+
         let mut param_types = Args::wasm_types()
             .into_iter()
             .map(|param| {
@@ -190,11 +197,11 @@ impl Function {
         let wasm_functype =
             unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
 
-        let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_v8().inner;
+        let inner = v8_store.inner;
 
-        let callback: CCallback =
-            unsafe { std::mem::transmute(func.function_callback(crate::Runtime::V8).into_v8()) };
+        let callback: CCallback = unsafe {
+            std::mem::transmute(func.function_callback(crate::RuntimeKind::V8).into_v8())
+        };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
@@ -233,6 +240,10 @@ impl Function {
         Rets: WasmTypeList,
         T: Send + 'static,
     {
+        check_isolate(store);
+        let mut store = store.as_store_mut();
+        let v8_store = store.inner.store.as_v8();
+
         let mut param_types = Args::wasm_types()
             .into_iter()
             .map(|param| {
@@ -268,11 +279,11 @@ impl Function {
             )
         };
 
-        let mut store = store.as_store_mut();
-        let inner = store.inner.store.as_v8().inner;
+        let inner = v8_store.inner;
 
-        let callback: CCallback =
-            unsafe { std::mem::transmute(func.function_callback(crate::Runtime::V8).into_v8()) };
+        let callback: CCallback = unsafe {
+            std::mem::transmute(func.function_callback(crate::RuntimeKind::V8).into_v8())
+        };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
@@ -300,7 +311,9 @@ impl Function {
         }
     }
 
-    pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
+    pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
+        check_isolate(store);
+        let store_ref = store.as_store_ref();
         let type_ = unsafe { wasm_func_type(self.handle) };
         let params: *const wasm_valtype_vec_t = unsafe { wasm_functype_params(type_) };
         let returns: *const wasm_valtype_vec_t = unsafe { wasm_functype_results(type_) };
@@ -340,6 +353,7 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        check_isolate(store);
         let store_mut = store.as_store_mut();
 
         let mut args = {
@@ -366,7 +380,34 @@ impl Function {
             ptr
         };
 
-        let trap = unsafe { wasm_func_call(self.handle, args as *const _, results as *mut _) };
+        let mut trap;
+
+        loop {
+            trap = unsafe { wasm_func_call(self.handle, args as *const _, results) };
+            let store_mut = store.as_store_mut();
+            if let Some(callback) = store_mut.inner.on_called.take() {
+                match callback(store_mut) {
+                    Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
+                        continue;
+                    }
+                    Ok(wasmer_types::OnCalledAction::Finish) => {
+                        break;
+                    }
+                    Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
+                        return Err(RuntimeError::user(trap))
+                    }
+                    Err(trap) => return Err(RuntimeError::user(trap)),
+                }
+            }
+            break;
+        }
+
+        if !trap.is_null() {
+            unsafe {
+                let trap: Trap = trap.into();
+                return Err(RuntimeError::from(trap));
+            }
+        }
 
         if !trap.is_null() {
             return Err(Into::<Trap>::into(trap).into());

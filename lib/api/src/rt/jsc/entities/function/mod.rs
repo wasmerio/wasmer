@@ -313,7 +313,9 @@ where
         T: Sized,
     {
         Self {
-            callback: function.function_callback(crate::Runtime::Jsc).into_jsc(),
+            callback: function
+                .function_callback(crate::RuntimeKind::Jsc)
+                .into_jsc(),
             _phantom: PhantomData,
         }
     }
