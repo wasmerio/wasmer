@@ -26,15 +26,26 @@ pub struct Job {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retries: Option<u32>,
 
-    #[serde(flatten)]
     action: JobAction,
+}
+
+// We need this wrapper struct to enable this formatting:
+// job:
+//   action:
+//     execute: ...
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct JobAction {
+    #[serde(flatten)]
+    action: JobActionCase,
 }
 
 #[derive(
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
 #[serde(rename_all = "lowercase")]
-pub enum JobAction {
+pub enum JobActionCase {
     Fetch(HttpRequest),
     Execute(ExecutableJob),
 }
@@ -171,9 +182,7 @@ impl schemars::JsonSchema for JobTrigger {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::{JobAction, JobTrigger};
-
-    use super::Job;
+    use super::*;
 
     #[test]
     pub fn job_trigger_serialization_roundtrip() {
@@ -215,29 +224,31 @@ mod tests {
             timeout: Some("1m".parse().unwrap()),
             max_schedule_drift: Some("2h".parse().unwrap()),
             retries: None,
-            action: JobAction::Execute(super::ExecutableJob {
-                package: Some(crate::package::PackageSource::Ident(
-                    crate::package::PackageIdent::Named(crate::package::NamedPackageIdent {
-                        registry: None,
-                        namespace: Some("ns".to_owned()),
-                        name: "pkg".to_owned(),
-                        tag: None,
+            action: JobAction {
+                action: JobActionCase::Execute(super::ExecutableJob {
+                    package: Some(crate::package::PackageSource::Ident(
+                        crate::package::PackageIdent::Named(crate::package::NamedPackageIdent {
+                            registry: None,
+                            namespace: Some("ns".to_owned()),
+                            name: "pkg".to_owned(),
+                            tag: None,
+                        }),
+                    )),
+                    command: Some("cmd".to_owned()),
+                    cli_args: Some(vec!["arg-1".to_owned(), "arg-2".to_owned()]),
+                    env: Some([("VAR1".to_owned(), "Value".to_owned())].into()),
+                    capabilities: Some(super::ExecutableJobCompatibilityMapV1 {
+                        memory: Some(crate::app::AppConfigCapabilityMemoryV1 {
+                            limit: Some(bytesize::ByteSize::gb(1)),
+                        }),
+                        other: Default::default(),
                     }),
-                )),
-                command: Some("cmd".to_owned()),
-                cli_args: Some(vec!["arg-1".to_owned(), "arg-2".to_owned()]),
-                env: Some([("VAR1".to_owned(), "Value".to_owned())].into()),
-                capabilities: Some(super::ExecutableJobCompatibilityMapV1 {
-                    memory: Some(crate::app::AppConfigCapabilityMemoryV1 {
-                        limit: Some(bytesize::ByteSize::gb(1)),
-                    }),
-                    other: Default::default(),
+                    volumes: Some(vec![crate::app::AppVolume {
+                        name: "vol".to_owned(),
+                        mount: "/path/to/volume".to_owned(),
+                    }]),
                 }),
-                volumes: Some(vec![crate::app::AppVolume {
-                    name: "vol".to_owned(),
-                    mount: "/path/to/volume".to_owned(),
-                }]),
-            }),
+            },
         };
 
         let serialized = r#"
@@ -245,20 +256,21 @@ name: my-job
 trigger: '0 0/2 12 ? JAN-APR 2'
 timeout: '1m'
 max_schedule_drift: '2h'
-execute:
-  package: ns/pkg
-  command: cmd
-  cli_args:
-  - arg-1
-  - arg-2
-  env:
-    VAR1: Value
-  capabilities:
-    memory:
-      limit: '1000.0 MB'
-  volumes:
-  - name: vol
-    mount: /path/to/volume"#;
+action:
+  execute:
+    package: ns/pkg
+    command: cmd
+    cli_args:
+    - arg-1
+    - arg-2
+    env:
+      VAR1: Value
+    capabilities:
+      memory:
+        limit: '1000.0 MB'
+    volumes:
+    - name: vol
+      mount: /path/to/volume"#;
 
         assert_eq!(
             serialized.trim(),
