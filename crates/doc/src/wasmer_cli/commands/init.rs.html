@@ -570,17 +570,13 @@
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>cargo_metadata::{CargoOpt, MetadataCommand};
 <span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>semver::VersionReq;
-<span class="kw">use </span>std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+<span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
 
@@ -845,8 +841,8 @@
     }
 
     <span class="doccomment">/// Returns the dependencies based on the `--template` flag
-    </span><span class="kw">fn </span>get_dependencies(template: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Template&gt;) -&gt; HashMap&lt;String, VersionReq&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::default();
+    </span><span class="kw">fn </span>get_dependencies(template: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Template&gt;) -&gt; IndexMap&lt;String, VersionReq&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>map = IndexMap::default();
 
         <span class="kw">match </span>template {
             <span class="prelude-val">Some</span>(Template::Js) =&gt; {
@@ -1063,7 +1059,7 @@
         abi: default_abi,
         bindings: bindings.as_ref().and_then(|b| b.first_binding()),
         interfaces: <span class="prelude-val">Some</span>({
-            <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::new();
+            <span class="kw">let </span><span class="kw-2">mut </span>map = IndexMap::new();
             map.insert(<span class="string">"wasi"</span>.to_string(), <span class="string">"0.1.0-unstable"</span>.to_string());
             map
         }),

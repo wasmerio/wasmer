@@ -1384,7 +1384,7 @@
 <a href="#1384" id="1384">1384</a>
 <a href="#1385" id="1385">1385</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::{Path, PathBuf},
 };
 
@@ -1612,7 +1612,7 @@
 }
 
 <span class="kw">fn </span>transform_dependencies(
-    original_dependencies: <span class="kw-2">&amp;</span>HashMap&lt;String, VersionReq&gt;,
+    original_dependencies: <span class="kw-2">&amp;</span>IndexMap&lt;String, VersionReq&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;IndexMap&lt;String, UrlOrManifest&gt;, ManifestError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>dependencies = IndexMap::new();
 

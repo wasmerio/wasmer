@@ -827,7 +827,6 @@
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
-    collections::HashMap,
     env,
     io::Cursor,
     path::{Path, PathBuf},
@@ -839,6 +838,7 @@
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Confirm, Select};
 <span class="kw">use </span>futures::stream::TryStreamExt;
+<span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>is_terminal::IsTerminal;
 <span class="kw">use </span>wasmer_backend_api::{
     types::{AppTemplate, TemplateLanguage},
@@ -963,7 +963,7 @@
             package: PackageSource::from_str(package).unwrap(),
             app_id: <span class="prelude-val">None</span>,
             domains: <span class="prelude-val">None</span>,
-            env: HashMap::new(),
+            env: IndexMap::new(),
             cli_args: <span class="prelude-val">None</span>,
             capabilities: <span class="prelude-val">None</span>,
             scheduled_tasks: <span class="prelude-val">None</span>,
@@ -973,7 +973,7 @@
             scaling: <span class="prelude-val">None</span>,
             locality: <span class="prelude-val">None</span>,
             redirect: <span class="prelude-val">None</span>,
-            extra: HashMap::new(),
+            extra: IndexMap::new(),
             jobs: <span class="prelude-val">None</span>,
         }
     }

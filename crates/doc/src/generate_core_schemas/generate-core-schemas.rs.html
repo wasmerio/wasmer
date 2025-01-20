@@ -109,6 +109,8 @@
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Generates JSON schemas for AppConfig schema
 
 </span><span class="kw">fn </span>main() {
@@ -116,7 +118,9 @@
 }
 
 <span class="kw">mod </span>codegen {
-    <span class="kw">use </span>std::{collections::HashMap, path::Path};
+    <span class="kw">use </span>indexmap::IndexMap;
+
+    <span class="kw">use </span>std::path::Path;
 
     <span class="kw">pub fn </span>generate_schemas() {
         <span class="macro">eprintln!</span>(<span class="string">"Generating schemas..."</span>);
@@ -148,10 +152,10 @@
     }
 
     <span class="doccomment">/// Returns a map of filename to serialized JSON schema.
-    </span><span class="kw">fn </span>build_jsonschema_map() -&gt; HashMap&lt;String, String&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::new();
+    </span><span class="kw">fn </span>build_jsonschema_map() -&gt; IndexMap&lt;String, String&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>map = IndexMap::new();
 
-        <span class="kw">fn </span>add_schema&lt;T: schemars::JsonSchema&gt;(map: <span class="kw-2">&amp;mut </span>HashMap&lt;String, String&gt;, name: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">fn </span>add_schema&lt;T: schemars::JsonSchema&gt;(map: <span class="kw-2">&amp;mut </span>IndexMap&lt;String, String&gt;, name: <span class="kw-2">&amp;</span>str) {
             <span class="kw">let </span>gen =
                 schemars::gen::SchemaGenerator::new(schemars::gen::SchemaSettings::draft2019_09());
             map.insert(

@@ -1522,7 +1522,7 @@
 
 <span class="kw">use </span>std::{
     borrow::Cow,
-    collections::{hash_map::HashMap, BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::{<span class="self">self</span>, Display},
     path::{Path, PathBuf},
     str::FromStr,
@@ -1999,7 +1999,7 @@
     </span><span class="kw">pub </span>kind: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// WebAssembly interfaces this module requires.
     </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-    </span><span class="kw">pub </span>interfaces: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, String&gt;&gt;,
+    </span><span class="kw">pub </span>interfaces: <span class="prelude-ty">Option</span>&lt;IndexMap&lt;String, String&gt;&gt;,
     <span class="doccomment">/// Interface definitions that can be used to generate bindings to this
     /// module.
     </span><span class="kw">pub </span>bindings: <span class="prelude-ty">Option</span>&lt;Bindings&gt;,
@@ -2212,9 +2212,9 @@
     <span class="doccomment">/// Metadata about the package itself.
     </span><span class="kw">pub </span>package: <span class="prelude-ty">Option</span>&lt;Package&gt;,
     <span class="doccomment">/// The package's dependencies.
-    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"HashMap::is_empty"</span>)]
+    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"IndexMap::is_empty"</span>)]
     #[builder(default)]
-    </span><span class="kw">pub </span>dependencies: HashMap&lt;String, VersionReq&gt;,
+    </span><span class="kw">pub </span>dependencies: IndexMap&lt;String, VersionReq&gt;,
     <span class="doccomment">/// The mappings used when making bundled assets available to WebAssembly
     /// instances, in the form guest -&gt; host.
     </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"IndexMap::is_empty"</span>)]
@@ -2234,7 +2234,7 @@
     <span class="kw">pub fn </span>new_empty() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             package: <span class="prelude-val">None</span>,
-            dependencies: HashMap::new(),
+            dependencies: IndexMap::new(),
             fs: IndexMap::new(),
             modules: Vec::new(),
             commands: Vec::new(),
@@ -2410,7 +2410,7 @@
     <span class="doccomment">/// Add a dependency to the [`Manifest`].
     </span><span class="kw">pub fn </span>with_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw">impl </span>Into&lt;String&gt;, version: VersionReq) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.dependencies
-            .get_or_insert_with(HashMap::new)
+            .get_or_insert_with(IndexMap::new)
             .insert(name.into(), version);
         <span class="self">self
     </span>}
@@ -2499,7 +2499,7 @@
                 entrypoint: <span class="prelude-val">None</span>,
                 private: <span class="bool-val">false</span>,
             }),
-            dependencies: HashMap::new(),
+            dependencies: IndexMap::new(),
             modules: <span class="macro">vec!</span>[Module {
                 name: <span class="string">"test"</span>.to_string(),
                 abi: Abi::Wasi,

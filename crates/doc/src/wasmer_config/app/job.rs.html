@@ -311,9 +311,13 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{borrow::Cow, collections::HashMap, fmt::Display, str::FromStr};
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{borrow::Cow, fmt::Display, str::FromStr};
 
 <span class="kw">use </span>serde::{de::Error, Deserialize, Serialize};
+
+<span class="kw">use </span>indexmap::IndexMap;
 
 <span class="kw">use </span><span class="kw">crate</span>::package::PackageSource;
 
@@ -396,7 +400,7 @@
 
     <span class="doccomment">/// Environment variables.
     </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-    </span><span class="kw">pub </span>env: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, String&gt;&gt;,
+    </span><span class="kw">pub </span>env: <span class="prelude-ty">Option</span>&lt;IndexMap&lt;String, String&gt;&gt;,
 
     <span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     </span><span class="kw">pub </span>capabilities: <span class="prelude-ty">Option</span>&lt;ExecutableJobCompatibilityMapV1&gt;,
@@ -418,7 +422,7 @@
     /// This provides a small bit of forwards compatibility for newly added
     /// capabilities.
     </span><span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>other: HashMap&lt;String, serde_json::Value&gt;,
+    </span><span class="kw">pub </span>other: IndexMap&lt;String, serde_json::Value&gt;,
 }
 
 <span class="kw">impl </span>Serialize <span class="kw">for </span>JobTrigger {

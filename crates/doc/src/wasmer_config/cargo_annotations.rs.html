@@ -24,9 +24,13 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Rust and cargo specific annotations used to interoperate with external tools.
 
-</span><span class="kw">use </span>std::{collections::HashMap, path::PathBuf};
+</span><span class="kw">use </span>std::path::PathBuf;
+
+<span class="kw">use </span>indexmap::IndexMap;
 
 <span class="kw">use </span><span class="kw">crate</span>::package::{Abi, Bindings};
 
@@ -46,7 +50,7 @@
     </span><span class="kw">pub </span>abi: Abi,
     <span class="doccomment">/// Filesystem mappings.
     </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-    </span><span class="kw">pub </span>fs: <span class="prelude-ty">Option</span>&lt;HashMap&lt;String, PathBuf&gt;&gt;,
+    </span><span class="kw">pub </span>fs: <span class="prelude-ty">Option</span>&lt;IndexMap&lt;String, PathBuf&gt;&gt;,
     <span class="doccomment">/// Binding declarations for the crate.
     </span><span class="kw">pub </span>bindings: <span class="prelude-ty">Option</span>&lt;Bindings&gt;,
 }

@@ -384,7 +384,6 @@
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! User-facing app.yaml file config: [`AppConfigV1`].
 
 </span><span class="kw">mod </span>healthcheck;
@@ -394,10 +393,9 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::{healthcheck::<span class="kw-2">*</span>, http::<span class="kw-2">*</span>, job::<span class="kw-2">*</span>};
 
-<span class="kw">use </span>std::collections::HashMap;
-
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>bytesize::ByteSize;
+<span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>pretty_duration::PrettyDuration;
 
 <span class="kw">use </span><span class="kw">crate</span>::package::PackageSource;
@@ -452,8 +450,8 @@
     </span><span class="kw">pub </span>locality: <span class="prelude-ty">Option</span>&lt;Locality&gt;,
 
     <span class="doccomment">/// Environment variables.
-    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"HashMap::is_empty"</span>)]
-    </span><span class="kw">pub </span>env: HashMap&lt;String, String&gt;,
+    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"IndexMap::is_empty"</span>)]
+    </span><span class="kw">pub </span>env: IndexMap&lt;String, String&gt;,
 
     <span class="comment">// CLI arguments passed to the runner.
     </span><span class="doccomment">/// Only applicable for runners that accept CLI arguments.
@@ -487,7 +485,7 @@
 
     <span class="doccomment">/// Capture extra fields for forwards compatibility.
     </span><span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>extra: HashMap&lt;String, serde_json::Value&gt;,
+    </span><span class="kw">pub </span>extra: IndexMap&lt;String, serde_json::Value&gt;,
 }
 
 <span class="attr">#[derive(
@@ -595,7 +593,7 @@
     /// This provides a small bit of forwards compatibility for newly added
     /// capabilities.
     </span><span class="attr">#[serde(flatten)]
-    </span><span class="kw">pub </span>other: HashMap&lt;String, serde_json::Value&gt;,
+    </span><span class="kw">pub </span>other: IndexMap&lt;String, serde_json::Value&gt;,
 }
 
 <span class="doccomment">/// Memory capability settings.
