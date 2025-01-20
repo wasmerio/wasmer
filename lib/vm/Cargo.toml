@@ -25,7 +25,6 @@ backtrace = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 enum-iterator = "0.7.0"
 scopeguard = "1.1.0"
-lazy_static = "1.4.0"
 region = { version = "3.0.2" }
 corosensei = { version = "0.2.0" }
 fnv = "1.0.3"

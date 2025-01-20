@@ -143,7 +143,6 @@ clap = { version = "=4.4.11" }
 clap_builder = { version = "=4.4.11" }
 clap_derive = { version = "=4.4.7" }
 clap_lex = { version = "=0.6.0" }
-lazy_static = "1.4"
 serial_test = { version = "2.0", default-features = false }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.6.0"
