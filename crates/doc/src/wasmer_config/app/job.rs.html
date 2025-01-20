@@ -279,6 +279,38 @@
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{borrow::Cow, collections::HashMap, fmt::Display, str::FromStr};
 
 <span class="kw">use </span>serde::{de::Error, Deserialize, Serialize};
@@ -331,21 +363,18 @@
     Execute(ExecutableJob),
 }
 
-<span class="attr">#[derive(
-    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
-)]
-</span><span class="kw">pub enum </span>CronSchedule {
-    Hourly,
-    Daily,
-    Weekly,
-    CronExpression(String),
+<span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>CronExpression {
+    <span class="kw">pub </span>cron: saffron::parse::CronExpr,
+    <span class="comment">// Keep the original string form around for serialization purposes.
+    </span><span class="kw">pub </span>parsed_from: String,
 }
 
 <span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>JobTrigger {
     PreDeployment,
     PostDeployment,
-    Cron(CronSchedule),
+    Cron(CronExpression),
 }
 
 <span class="attr">#[derive(
@@ -416,10 +445,7 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::PreDeployment =&gt; <span class="macro">write!</span>(f, <span class="string">"pre-deployment"</span>),
             <span class="self">Self</span>::PostDeployment =&gt; <span class="macro">write!</span>(f, <span class="string">"post-deployment"</span>),
-            <span class="self">Self</span>::Cron(CronSchedule::Hourly) =&gt; <span class="macro">write!</span>(f, <span class="string">"@hourly"</span>),
-            <span class="self">Self</span>::Cron(CronSchedule::Daily) =&gt; <span class="macro">write!</span>(f, <span class="string">"@daily"</span>),
-            <span class="self">Self</span>::Cron(CronSchedule::Weekly) =&gt; <span class="macro">write!</span>(f, <span class="string">"@weekly"</span>),
-            <span class="self">Self</span>::Cron(CronSchedule::CronExpression(sched)) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, sched),
+            <span class="self">Self</span>::Cron(cron) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, cron.parsed_from),
         }
     }
 }
@@ -432,19 +458,48 @@
             <span class="prelude-val">Ok</span>(<span class="self">Self</span>::PreDeployment)
         } <span class="kw">else if </span>s == <span class="string">"post-deployment" </span>{
             <span class="prelude-val">Ok</span>(<span class="self">Self</span>::PostDeployment)
-        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(predefined_sched) = s.strip_prefix(<span class="string">'@'</span>) {
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>expr = s.parse::&lt;CronExpression&gt;()<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Cron(expr))
+        }
+    }
+}
+
+<span class="kw">impl </span>FromStr <span class="kw">for </span>CronExpression {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;;
+
+    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(predefined_sched) = s.strip_prefix(<span class="string">'@'</span>) {
             <span class="kw">match </span>predefined_sched {
-                <span class="string">"hourly" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Cron(CronSchedule::Hourly)),
-                <span class="string">"daily" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Cron(CronSchedule::Daily)),
-                <span class="string">"weekly" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Cron(CronSchedule::Weekly)),
+                <span class="string">"hourly" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                    cron: <span class="string">"0 * * * *"</span>.parse().unwrap(),
+                    parsed_from: s.to_owned(),
+                }),
+                <span class="string">"daily" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                    cron: <span class="string">"0 0 * * *"</span>.parse().unwrap(),
+                    parsed_from: s.to_owned(),
+                }),
+                <span class="string">"weekly" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                    cron: <span class="string">"0 0 * * 1"</span>.parse().unwrap(),
+                    parsed_from: s.to_owned(),
+                }),
+                <span class="string">"monthly" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                    cron: <span class="string">"0 0 1 * *"</span>.parse().unwrap(),
+                    parsed_from: s.to_owned(),
+                }),
+                <span class="string">"yearly" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                    cron: <span class="string">"0 0 1 1 *"</span>.parse().unwrap(),
+                    parsed_from: s.to_owned(),
+                }),
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Invalid cron expression {s}"</span>).into()),
             }
         } <span class="kw">else </span>{
             <span class="comment">// Let's make sure the input string is valid...
-            </span><span class="kw">match </span>cron::Schedule::from_str(s) {
-                <span class="prelude-val">Ok</span>(sched) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Cron(CronSchedule::CronExpression(
-                    sched.source().to_owned(),
-                ))),
+            </span><span class="kw">match </span>s.parse() {
+                <span class="prelude-val">Ok</span>(expr) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                    cron: expr,
+                    parsed_from: s.to_owned(),
+                }),
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Invalid cron expression {s}"</span>).into()),
             }
         }
@@ -467,41 +522,50 @@
 
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>job_trigger_serialization_roundtrip() {
-        <span class="kw">fn </span>assert_roundtrip(serialized: <span class="kw-2">&amp;</span>str, value: JobTrigger) {
-            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>value.to_string(), serialized);
-            <span class="macro">assert_eq!</span>(serialized.parse::&lt;JobTrigger&gt;().unwrap(), value);
+        <span class="kw">fn </span>assert_roundtrip(serialized: <span class="kw-2">&amp;</span>str, description: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) {
+            <span class="kw">let </span>parsed = serialized.parse::&lt;JobTrigger&gt;().unwrap();
+            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>parsed.to_string(), serialized);
+
+            <span class="kw">if let </span>JobTrigger::Cron(expr) = parsed {
+                <span class="macro">assert_eq!</span>(
+                    <span class="kw-2">&amp;</span>expr
+                        .cron
+                        .describe(saffron::parse::English::default())
+                        .to_string(),
+                    description.unwrap()
+                );
+            } <span class="kw">else </span>{
+                <span class="macro">assert!</span>(description.is_none())
+            }
         }
 
-        assert_roundtrip(<span class="string">"pre-deployment"</span>, JobTrigger::PreDeployment);
-        assert_roundtrip(<span class="string">"post-deployment"</span>, JobTrigger::PostDeployment);
+        assert_roundtrip(<span class="string">"pre-deployment"</span>, <span class="prelude-val">None</span>);
+        assert_roundtrip(<span class="string">"post-deployment"</span>, <span class="prelude-val">None</span>);
 
-        assert_roundtrip(
-            <span class="string">"@hourly"</span>,
-            JobTrigger::Cron(<span class="kw">crate</span>::app::CronSchedule::Hourly),
-        );
-        assert_roundtrip(<span class="string">"@daily"</span>, JobTrigger::Cron(<span class="kw">crate</span>::app::CronSchedule::Daily));
-        assert_roundtrip(
-            <span class="string">"@weekly"</span>,
-            JobTrigger::Cron(<span class="kw">crate</span>::app::CronSchedule::Weekly),
-        );
+        assert_roundtrip(<span class="string">"@hourly"</span>, <span class="prelude-val">Some</span>(<span class="string">"Every hour"</span>));
+        assert_roundtrip(<span class="string">"@daily"</span>, <span class="prelude-val">Some</span>(<span class="string">"At 12:00 AM"</span>));
+        assert_roundtrip(<span class="string">"@weekly"</span>, <span class="prelude-val">Some</span>(<span class="string">"At 12:00 AM on Sunday"</span>));
+        assert_roundtrip(<span class="string">"@monthly"</span>, <span class="prelude-val">Some</span>(<span class="string">"At 12:00 AM on the 1st of every month"</span>));
+        assert_roundtrip(<span class="string">"@yearly"</span>, <span class="prelude-val">Some</span>(<span class="string">"At 12:00 AM on the 1st of January"</span>));
 
         <span class="comment">// Note: the parsing code should keep the formatting of the source string.
         // This is tested in assert_roundtrip.
-        </span>assert_roundtrip(
-            <span class="string">"0 0/2 12 ? JAN-APR 2"</span>,
-            JobTrigger::Cron(<span class="kw">crate</span>::app::CronSchedule::CronExpression(
-                <span class="string">"0 0/2 12 ? JAN-APR 2"</span>.to_owned(),
-            )),
-        );
+        </span>assert_roundtrip(<span class="string">"0/2 12 * JAN-APR 2"</span>, <span class="prelude-val">Some</span>(<span class="string">"At every 2nd minute from 0 through 59 minutes past the hour, \
+                                                    between 12:00 PM and 12:59 PM on Monday of January to April"</span>));
     }
 
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>job_serialization_roundtrip() {
+        <span class="kw">fn </span>parse_cron(expr: <span class="kw-2">&amp;</span>str) -&gt; CronExpression {
+            CronExpression {
+                cron: expr.parse().unwrap(),
+                parsed_from: expr.to_owned(),
+            }
+        }
+
         <span class="kw">let </span>job = Job {
             name: <span class="string">"my-job"</span>.to_owned(),
-            trigger: JobTrigger::Cron(<span class="kw">super</span>::CronSchedule::CronExpression(
-                <span class="string">"0 0/2 12 ? JAN-APR 2"</span>.to_owned(),
-            )),
+            trigger: JobTrigger::Cron(parse_cron(<span class="string">"0/2 12 * JAN-APR 2"</span>)),
             timeout: <span class="prelude-val">Some</span>(<span class="string">"1m"</span>.parse().unwrap()),
             max_schedule_drift: <span class="prelude-val">Some</span>(<span class="string">"2h"</span>.parse().unwrap()),
             retries: <span class="prelude-val">None</span>,
@@ -534,7 +598,7 @@
 
         <span class="kw">let </span>serialized = <span class="string">r#"
 name: my-job
-trigger: '0 0/2 12 ? JAN-APR 2'
+trigger: '0/2 12 * JAN-APR 2'
 timeout: '1m'
 max_schedule_drift: '2h'
 action:

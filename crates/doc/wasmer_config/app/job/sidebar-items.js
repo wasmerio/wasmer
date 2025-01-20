@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CronSchedule","JobActionCase","JobTrigger"],"struct":["ExecutableJob","ExecutableJobCompatibilityMapV1","Job","JobAction"]};
+window.SIDEBAR_ITEMS = {"enum":["JobActionCase","JobTrigger"],"struct":["CronExpression","ExecutableJob","ExecutableJobCompatibilityMapV1","Job","JobAction"]};
