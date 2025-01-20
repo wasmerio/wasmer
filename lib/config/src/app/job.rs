@@ -145,37 +145,48 @@ impl FromStr for JobTrigger {
             Ok(Self::PreDeployment)
         } else if s == "post-deployment" {
             Ok(Self::PostDeployment)
-        } else if let Some(predefined_sched) = s.strip_prefix('@') {
+        } else {
+            let expr = s.parse::<CronExpression>()?;
+            Ok(Self::Cron(expr))
+        }
+    }
+}
+
+impl FromStr for CronExpression {
+    type Err = Box<dyn std::error::Error + Send + Sync>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(predefined_sched) = s.strip_prefix('@') {
             match predefined_sched {
-                "hourly" => Ok(Self::Cron(CronExpression {
+                "hourly" => Ok(Self {
                     cron: "0 * * * *".parse().unwrap(),
                     parsed_from: s.to_owned(),
-                })),
-                "daily" => Ok(Self::Cron(CronExpression {
+                }),
+                "daily" => Ok(Self {
                     cron: "0 0 * * *".parse().unwrap(),
                     parsed_from: s.to_owned(),
-                })),
-                "weekly" => Ok(Self::Cron(CronExpression {
+                }),
+                "weekly" => Ok(Self {
                     cron: "0 0 * * 1".parse().unwrap(),
                     parsed_from: s.to_owned(),
-                })),
-                "monthly" => Ok(Self::Cron(CronExpression {
+                }),
+                "monthly" => Ok(Self {
                     cron: "0 0 1 * *".parse().unwrap(),
                     parsed_from: s.to_owned(),
-                })),
-                "yearly" => Ok(Self::Cron(CronExpression {
+                }),
+                "yearly" => Ok(Self {
                     cron: "0 0 1 1 *".parse().unwrap(),
                     parsed_from: s.to_owned(),
-                })),
+                }),
                 _ => Err(format!("Invalid cron expression {s}").into()),
             }
         } else {
             // Let's make sure the input string is valid...
             match s.parse() {
-                Ok(expr) => Ok(Self::Cron(CronExpression {
+                Ok(expr) => Ok(Self {
                     cron: expr,
                     parsed_from: s.to_owned(),
-                })),
+                }),
                 Err(_) => Err(format!("Invalid cron expression {s}").into()),
             }
         }
