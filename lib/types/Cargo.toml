@@ -29,7 +29,7 @@ bytecheck = "0.6.8"
 xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
 sha2 = { version = "0.10" }
 hex = { version = "^0.4" }
-loupe = { version = "0.1.3", optional = true }
+loupe = { workspace = true, optional = true }
 
 
 # `rand` uses `getrandom` transitively, and to be able to
