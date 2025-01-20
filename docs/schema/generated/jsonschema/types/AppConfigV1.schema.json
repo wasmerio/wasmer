@@ -67,6 +67,15 @@
         "$ref": "#/definitions/HealthCheckV1"
       }
     },
+    "jobs": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/Job"
+      }
+    },
     "locality": {
       "description": "Location-related configuration for the app.",
       "anyOf": [
@@ -143,9 +152,13 @@
       "properties": {
         "max_age": {
           "description": "Maximum age of snapshots.\n\nFormat: 5m, 1h, 2d, ...\n\nAfter the specified time new snapshots will be created, and the old ones discarded.",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "requests": {
@@ -246,6 +259,85 @@
         }
       }
     },
+    "ExecutableJob": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExecutableJobCompatibilityMapV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cli_args": {
+          "description": "CLI arguments passed to the runner. Only applicable for runners that accept CLI arguments.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "description": "The command to run. Defaults to the package's entrypoint.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "env": {
+          "description": "Environment variables.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "package": {
+          "description": "The package that contains the command to run. Defaults to the app config's package.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PackageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "volumes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/AppVolume"
+          }
+        }
+      }
+    },
+    "ExecutableJobCompatibilityMapV1": {
+      "type": "object",
+      "properties": {
+        "memory": {
+          "description": "Instance memory settings.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppConfigCapabilityMemoryV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
     "HealthCheckHttpV1": {
       "description": "Health check configuration for http endpoints.",
       "type": "object",
@@ -309,9 +401,13 @@
         },
         "timeout": {
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "unhealthy_threshold": {
@@ -404,9 +500,13 @@
         },
         "timeout": {
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       }
@@ -443,6 +543,87 @@
         }
       }
     },
+    "Job": {
+      "description": "Job configuration.",
+      "type": "object",
+      "required": [
+        "action",
+        "name",
+        "trigger"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/JobAction"
+        },
+        "max_schedule_drift": {
+          "description": "Don't start job if past the due time by this amount, instead opting to wait for the next instance of it to be triggered.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "retries": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trigger": {
+          "$ref": "#/definitions/JobTrigger"
+        }
+      }
+    },
+    "JobAction": {
+      "type": "object",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "fetch"
+          ],
+          "properties": {
+            "fetch": {
+              "$ref": "#/definitions/HttpRequest"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "execute"
+          ],
+          "properties": {
+            "execute": {
+              "$ref": "#/definitions/ExecutableJob"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "JobTrigger": {
+      "type": "string"
+    },
     "Locality": {
       "type": "object",
       "required": [
@@ -458,6 +639,9 @@
       }
     },
     "PackageSource": {
+      "type": "string"
+    },
+    "PrettyDuration": {
       "type": "string"
     },
     "Redirect": {

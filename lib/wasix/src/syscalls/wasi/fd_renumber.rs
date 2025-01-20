@@ -45,8 +45,11 @@ pub(crate) fn fd_renumber_internal(
 
     let new_fd_entry = Fd {
         // TODO: verify this is correct
-        offset: fd_entry.offset.clone(),
-        rights: fd_entry.rights_inheriting,
+        inner: FdInner {
+            offset: fd_entry.inner.offset.clone(),
+            rights: fd_entry.inner.rights_inheriting,
+            ..fd_entry.inner
+        },
         inode: fd_entry.inode.clone(),
         ..*fd_entry
     };

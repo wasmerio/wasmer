@@ -49,7 +49,7 @@ pub(crate) fn fd_advise_internal(
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
-    if !fd_entry.rights.contains(Rights::FD_ADVISE) {
+    if !fd_entry.inner.rights.contains(Rights::FD_ADVISE) {
         return Err(Errno::Access);
     }
 

@@ -27,6 +27,7 @@ schemars = { version = "0.8.16", features = ["url"] }
 url = { version = "2.5.0", features = ["serde"] }
 hex = "0.4.3"
 ciborium = "0.2.2"
+cron = { version = "0.14.0", features = ["serde"] }
 
 [dev-dependencies]
 pretty_assertions.workspace = true

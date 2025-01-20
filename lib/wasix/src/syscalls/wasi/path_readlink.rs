@@ -31,7 +31,7 @@ pub fn path_readlink<M: MemorySize>(
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let base_dir = wasi_try!(state.fs.get_fd(dir_fd));
-    if !base_dir.rights.contains(Rights::PATH_READLINK) {
+    if !base_dir.inner.rights.contains(Rights::PATH_READLINK) {
         return Errno::Access;
     }
     let mut path_str = unsafe { get_input_str!(&memory, path, path_len) };
