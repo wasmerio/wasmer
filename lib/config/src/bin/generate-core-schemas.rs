@@ -7,6 +7,8 @@ fn main() {
 mod codegen {
     use indexmap::IndexMap;
 
+    use std::path::Path;
+
     pub fn generate_schemas() {
         eprintln!("Generating schemas...");
 
