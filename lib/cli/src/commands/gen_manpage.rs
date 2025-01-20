@@ -3,10 +3,14 @@ use anyhow::Context;
 use clap::CommandFactory;
 use clap_mangen::generate_to;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
-lazy_static::lazy_static! {
-    static ref DEFAULT_MAN_DIR_PATH: PathBuf = dirs::data_dir().unwrap_or_default().join("man").join("man1");
-}
+static DEFAULT_MAN_DIR_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    dirs::data_dir()
+        .unwrap_or_default()
+        .join("man")
+        .join("man1")
+});
 
 #[derive(Debug, Clone, clap::Parser)]
 pub struct CmdGenManPage {
