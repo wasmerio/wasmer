@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::{Path, PathBuf},
 };
 
@@ -227,7 +227,7 @@ fn transform_package_annotations_shared(
 }
 
 fn transform_dependencies(
-    original_dependencies: &HashMap<String, VersionReq>,
+    original_dependencies: &IndexMap<String, VersionReq>,
 ) -> Result<IndexMap<String, UrlOrManifest>, ManifestError> {
     let mut dependencies = IndexMap::new();
 

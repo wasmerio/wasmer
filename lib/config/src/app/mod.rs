@@ -7,10 +7,9 @@ mod pretty_duration;
 
 pub use self::{healthcheck::*, http::*, job::*};
 
-use std::collections::HashMap;
-
 use anyhow::{bail, Context};
 use bytesize::ByteSize;
+use indexmap::IndexMap;
 use pretty_duration::PrettyDuration;
 
 use crate::package::PackageSource;
@@ -65,8 +64,8 @@ pub struct AppConfigV1 {
     pub locality: Option<Locality>,
 
     /// Environment variables.
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub env: HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub env: IndexMap<String, String>,
 
     // CLI arguments passed to the runner.
     /// Only applicable for runners that accept CLI arguments.
@@ -100,7 +99,7 @@ pub struct AppConfigV1 {
 
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
-    pub extra: HashMap<String, serde_json::Value>,
+    pub extra: IndexMap<String, serde_json::Value>,
 }
 
 #[derive(
@@ -208,7 +207,7 @@ pub struct AppConfigCapabilityMapV1 {
     /// This provides a small bit of forwards compatibility for newly added
     /// capabilities.
     #[serde(flatten)]
-    pub other: HashMap<String, serde_json::Value>,
+    pub other: IndexMap<String, serde_json::Value>,
 }
 
 /// Memory capability settings.
