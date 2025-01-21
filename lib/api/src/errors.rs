@@ -232,8 +232,8 @@ impl fmt::Display for RuntimeError {
             write!(f, "    at ")?;
             match frame.function_name() {
                 Some(name) => match rustc_demangle::try_demangle(name) {
-                    Ok(name) => write!(f, "{}", name)?,
-                    Err(_) => write!(f, "{}", name)?,
+                    Ok(name) => write!(f, "{name}")?,
+                    Err(_) => write!(f, "{name}")?,
                 },
                 None => write!(f, "<unnamed>")?,
             }

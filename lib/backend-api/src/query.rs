@@ -1075,7 +1075,7 @@ pub async fn app_deployment(
 ) -> Result<types::AutobuildRepository, anyhow::Error> {
     let node = get_node(client, id.clone())
         .await?
-        .with_context(|| format!("app deployment with id '{}' not found", id))?;
+        .with_context(|| format!("app deployment with id '{id}' not found"))?;
     match node {
         types::Node::AutobuildRepository(x) => Ok(*x),
         _ => anyhow::bail!("invalid node type returned"),
@@ -1429,7 +1429,7 @@ pub async fn namespace_apps(
 
         let ns = res
             .get_namespace
-            .with_context(|| format!("failed to get namespace '{}'", namespace))?;
+            .with_context(|| format!("failed to get namespace '{namespace}'"))?;
 
         let apps: Vec<_> = ns
             .apps

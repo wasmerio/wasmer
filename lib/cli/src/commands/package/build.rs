@@ -70,10 +70,10 @@ impl PackageBuild {
                     format!("{}-{}.webc", name.replace('/', "-"), pkg_hash)
                 }
             } else {
-                format!("{}.webc", pkg_hash)
+                format!("{pkg_hash}.webc")
             }
         } else {
-            format!("{}.webc", pkg_hash)
+            format!("{pkg_hash}.webc")
         };
 
         // Setup the progress bar

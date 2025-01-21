@@ -236,7 +236,7 @@ cfg_if::cfg_if! {
                 libc::SIGBUS => &PREV_SIGBUS,
                 libc::SIGFPE => &PREV_SIGFPE,
                 libc::SIGILL => &PREV_SIGILL,
-                _ => panic!("unknown signal: {}", signum),
+                _ => panic!("unknown signal: {signum}"),
             };
             // We try to get the fault address associated to this signal
             let maybe_fault_address = match signum {

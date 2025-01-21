@@ -57,8 +57,7 @@ impl Config {
                 Some(dir)
             })
             .context(format!(
-                "failed to retrieve the {} environment variables",
-                key
+                "failed to retrieve the {key} environment variables",
             ))?;
 
         let prefix = PathBuf::from(wasmer_dir);
@@ -67,40 +66,40 @@ impl Config {
         let bindir = prefix.join("bin").display().to_string();
         let includedir = prefix.join("include").display().to_string();
         let libdir = prefix.join("lib").display().to_string();
-        let cflags = format!("-I{}", includedir);
-        let libs = format!("-L{} -lwasmer", libdir);
+        let cflags = format!("-I{includedir}");
+        let libs = format!("-L{libdir} -lwasmer");
 
         if self.pkg_config {
-            println!("prefix={}", prefixdir);
-            println!("exec_prefix={}", bindir);
-            println!("includedir={}", includedir);
-            println!("libdir={}", libdir);
+            println!("prefix={prefixdir}");
+            println!("exec_prefix={bindir}");
+            println!("includedir={includedir}");
+            println!("libdir={libdir}");
             println!();
             println!("Name: wasmer");
             println!("Description: The Wasmer library for running WebAssembly");
-            println!("Version: {}", VERSION);
-            println!("Cflags: {}", cflags);
-            println!("Libs: {}", libs);
+            println!("Version: {VERSION}");
+            println!("Cflags: {cflags}");
+            println!("Libs: {libs}");
             return Ok(());
         }
 
         if self.prefix {
-            println!("{}", prefixdir);
+            println!("{prefixdir}");
         }
         if self.bindir {
-            println!("{}", bindir);
+            println!("{bindir}");
         }
         if self.includedir {
-            println!("{}", includedir);
+            println!("{includedir}");
         }
         if self.libdir {
-            println!("{}", libdir);
+            println!("{libdir}");
         }
         if self.libs {
-            println!("{}", libs);
+            println!("{libs}");
         }
         if self.cflags {
-            println!("{}", cflags);
+            println!("{cflags}");
         }
         Ok(())
     }

@@ -391,8 +391,7 @@ impl EngineInner {
                 )
                 .map_err(|message| {
                     CompileError::Resource(format!(
-                        "failed to allocate memory for functions: {}",
-                        message
+                        "failed to allocate memory for functions: {message}",
                     ))
                 })?;
 
@@ -459,7 +458,7 @@ impl EngineInner {
             .unwind_registry_mut()
             .publish(eh_frame)
             .map_err(|e| {
-                CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
+                CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
             })?;
         Ok(())
     }

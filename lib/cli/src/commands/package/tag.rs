@@ -231,7 +231,7 @@ impl PackageTag {
         match r.await? {
             Some(r) => {
                 if r.success {
-                    spinner_ok!(pb, format!("Successfully tagged package {id}",));
+                    spinner_ok!(pb, format!("Successfully tagged package {id}"));
                     if let Some(package_version) = r.package_version {
                         wait_package(client, self.wait, package_version.id, self.timeout).await?;
                     }

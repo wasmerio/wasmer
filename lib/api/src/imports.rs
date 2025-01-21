@@ -225,7 +225,7 @@ impl fmt::Debug for Imports {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 match self {
                     Self::Empty => write!(f, "(empty)"),
-                    Self::Some(len) => write!(f, "(... {} item(s) ...)", len),
+                    Self::Some(len) => write!(f, "(... {len} item(s) ...)"),
                 }
             }
         }

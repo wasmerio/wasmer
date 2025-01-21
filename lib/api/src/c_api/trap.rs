@@ -63,7 +63,7 @@ impl Trap {
                 let err_ptr = Box::leak(Box::new(err));
                 let mut data = std::mem::zeroed();
                 // let x = format!("")
-                let s1 = format!("🐛{:p}", err_ptr);
+                let s1 = format!("🐛{err_ptr:p}");
                 let _s = s1.into_bytes().into_boxed_slice();
                 wasm_byte_vec_new(&mut data, _s.len(), _s.as_ptr() as _);
                 std::mem::forget(_s);
@@ -76,7 +76,7 @@ impl Trap {
     // pub unsafe fn deserialize_from_wasm_trap(trap: *mut wasm_trap_t) -> Self {
     //     let mut data = std::mem::zeroed();
     //     wasm_trap_message(trap, data);
-    //     println!("data: {:p}", data);
+    //     println!("data: {data:p}");
 
     //     std::ptr::read(data as *const _)
     // }
@@ -126,7 +126,7 @@ impl std::error::Error for Trap {
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "{}", e),
+            InnerTrap::User(e) => write!(f, "{e}"),
             InnerTrap::CApi(value) => {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);

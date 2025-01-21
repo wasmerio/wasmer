@@ -84,7 +84,7 @@ pub trait Tunables {
             memories.push(InternalStoreHandle::new(
                 context,
                 self.create_vm_memory(ty, style, *mdl)
-                    .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
+                    .map_err(|e| LinkError::Resource(format!("Failed to create memory: {e}")))?,
             ));
         }
         Ok(memories)

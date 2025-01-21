@@ -377,10 +377,7 @@ volumes:
         if let Some(actual_volumes) = parsed.volumes {
             assert_eq!(actual_volumes, expected_volumes);
         } else {
-            panic!(
-                "Parsed volumes are None, expected Some({:?})",
-                expected_volumes
-            );
+            panic!("Parsed volumes are None, expected Some({expected_volumes:?})");
         }
     }
 }

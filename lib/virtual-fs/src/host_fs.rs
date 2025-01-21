@@ -1115,7 +1115,7 @@ mod tests {
         let cur_dir = read_dir_names(&fs, "/");
 
         if !cur_dir.contains(&"foo".to_string()) {
-            panic!("cur_dir does not contain foo: {:#?}", cur_dir);
+            panic!("cur_dir does not contain foo: {cur_dir:#?}");
         }
 
         assert!(
@@ -1276,7 +1276,7 @@ mod tests {
         let bar_dir = read_dir_names(&fs, bar);
 
         if !bar_dir.contains(&"qux".to_string()) {
-            println!("qux does not exist: {:?}", bar_dir)
+            println!("qux does not exist: {bar_dir:?}")
         }
 
         let qux_dir = read_dir_names(&fs, bar.join("qux"));
@@ -1293,7 +1293,7 @@ mod tests {
             "the /bar/hello2.txt file exists"
         );
 
-        assert_eq!(fs.create_dir(foo), Ok(()), "create ./foo again",);
+        assert_eq!(fs.create_dir(foo), Ok(()), "create ./foo again");
 
         assert_eq!(
             fs.rename(&bar.join("hello2.txt"), &foo.join("world2.txt"))
@@ -1487,7 +1487,7 @@ mod tests {
         assert!(next.metadata().unwrap().is_dir(), "checking entry #5");
 
         if let Some(s) = readdir.next() {
-            panic!("next: {:?}", s);
+            panic!("next: {s:?}");
         }
     }
 }

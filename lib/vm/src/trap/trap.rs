@@ -126,7 +126,7 @@ impl std::error::Error for Trap {
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::User(e) => write!(f, "{}", e),
+            Self::User(e) => write!(f, "{e}"),
             Self::Lib { .. } => write!(f, "lib"),
             Self::Wasm { .. } => write!(f, "wasm"),
             Self::OOM { .. } => write!(f, "Wasmer VM out of memory"),

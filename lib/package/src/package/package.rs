@@ -1534,8 +1534,8 @@ mod tests {
             meta_volume.read_file("README.md").unwrap(),
             (b"readme".as_slice().into(), Some(readme_hash)),
         );
-        assert!(dir1_volume.read_dir("/").unwrap().is_empty(),);
-        assert!(dir2_volume.read_dir("/").unwrap().is_empty(),);
+        assert!(dir1_volume.read_dir("/").unwrap().is_empty());
+        assert!(dir2_volume.read_dir("/").unwrap().is_empty());
     }
 
     #[test]

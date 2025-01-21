@@ -40,8 +40,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
         BinaryFormat::Coff => object::BinaryFormat::Coff,
         binary_format => {
             return Err(ObjectError::UnsupportedBinaryFormat(format!(
-                "{}",
-                binary_format
+                "{binary_format}"
             )));
         }
     };
@@ -52,8 +51,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
         Architecture::LoongArch64 => object::Architecture::LoongArch64,
         architecture => {
             return Err(ObjectError::UnsupportedArchitecture(format!(
-                "{}",
-                architecture
+                "{architecture}"
             )));
         }
     };
@@ -314,7 +312,7 @@ pub fn emit_compilation(
                             value: macho::ARM64_RELOC_BRANCH26,
                             relative: true,
                         },
-                        fmt => panic!("unsupported binary format {:?}", fmt),
+                        fmt => panic!("unsupported binary format {fmt:?}"),
                     },
                     RelocationEncoding::Generic,
                     32,
@@ -425,8 +423,8 @@ pub fn emit_serialized(
 ) -> Result<(), ObjectError> {
     obj.set_mangling(object::write::Mangling::None);
     //let module_name = module.compile_info.module.name.clone();
-    let len_name = format!("{}_LENGTH", object_name);
-    let data_name = format!("{}_DATA", object_name);
+    let len_name = format!("{object_name}_LENGTH");
+    let data_name = format!("{object_name}_DATA");
     //let metadata_name = "WASMER_MODULE_METADATA";
 
     let align = match triple.architecture {

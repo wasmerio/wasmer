@@ -639,7 +639,7 @@ impl TargetOnDisk {
         let mut buffer = [0_u8; 512];
 
         let mut f = File::open(path)
-            .with_context(|| format!("Unable to open \"{}\" for reading", path.display(),))?;
+            .with_context(|| format!("Unable to open \"{}\" for reading", path.display()))?;
         let bytes_read = f.read(&mut buffer)?;
 
         let leading_bytes = &buffer[..bytes_read];

@@ -421,9 +421,7 @@ impl Function {
 
             if expected != given {
                 return Err(RuntimeError::new(format!(
-                    "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
-                    given,
-                    expected,
+                    "given types (`{given:?}`) for the function arguments don't match the actual types (`{expected:?}`)",
                 )));
             }
         }
@@ -435,9 +433,7 @@ impl Function {
             if expected != given {
                 // todo: error result types don't match
                 return Err(RuntimeError::new(format!(
-                    "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
-                    given,
-                    expected,
+                    "given types (`{given:?}`) for the function results don't match the actual types (`{expected:?}`)",
                 )));
             }
         }

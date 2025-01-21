@@ -46,7 +46,7 @@ impl CliCommand for CmdJournalImport {
             }
 
             let record = serde_json::from_str::<JournalEntry<'static>>(&lines)?;
-            println!("{}", record);
+            println!("{record}");
             journal.write(record)?;
             lines.clear();
         }

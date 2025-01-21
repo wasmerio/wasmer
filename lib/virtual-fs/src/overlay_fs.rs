@@ -823,7 +823,7 @@ where
         fn poll_copy_start_and_progress(&mut self, cx: &mut Context) -> Poll<io::Result<()>> {
             replace_with_or_abort(&mut self.state, |state| match state {
                 CowState::ReadOnly(inner) => {
-                    tracing::trace!("COW file touched, starting file clone",);
+                    tracing::trace!("COW file touched, starting file clone");
                     CowState::SeekingGet(inner)
                 }
                 state => state,
@@ -1285,7 +1285,7 @@ mod tests {
         f.set_len(0).unwrap();
         assert_eq!(f.write(b"Hi").await.unwrap(), 2);
         // Same with flushing
-        assert_eq!(f.flush().await.unwrap(), (),);
+        assert_eq!(f.flush().await.unwrap(), ());
 
         // if we now read it then the data should be different
         buf = String::new();
