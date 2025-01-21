@@ -309,7 +309,7 @@ fn call_module(
                     return;
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
-                    debug!("failed as wasi version is unknown",);
+                    debug!("failed as wasi version is unknown");
                     runtime.on_taint(TaintReason::UnknownWasiVersion);
                     Ok(Errno::Noexec)
                 }

@@ -1164,15 +1164,13 @@ impl WasiEnv {
         for package_name in uses {
             let specifier = package_name.parse::<PackageSource>().map_err(|e| {
                 WasiStateCreationError::WasiIncludePackageError(format!(
-                    "package_name={package_name}, {}",
-                    e
+                    "package_name={package_name}, {e}",
                 ))
             })?;
             let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(
                 |e| {
                     WasiStateCreationError::WasiIncludePackageError(format!(
-                        "package_name={package_name}, {}",
-                        e
+                        "package_name={package_name}, {e}",
                     ))
                 },
             )?;
@@ -1209,7 +1207,7 @@ impl WasiEnv {
             if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
                 let _ = root_fs.create_dir(Path::new("/bin"));
 
-                let path = format!("/bin/{}", command);
+                let path = format!("/bin/{command}");
                 let path = Path::new(path.as_str());
                 if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, file) {
                     tracing::debug!("failed to add atom command [{}] - {}", command, err);

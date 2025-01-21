@@ -95,7 +95,7 @@ impl std::fmt::Debug for HttpRequest {
         } = self;
 
         f.debug_struct("HttpRequest")
-            .field("url", &format_args!("{}", url))
+            .field("url", &format_args!("{url}"))
             .field("method", method)
             .field("headers", headers)
             .field("body", &body.as_deref().map(String::from_utf8_lossy))

@@ -223,7 +223,7 @@ impl std::fmt::Display for ExtendedFsError {
         write!(f, "fs error: {}", self.error)?;
 
         if let Some(msg) = &self.message {
-            write!(f, " | {}", msg)?;
+            write!(f, " | {msg}")?;
         }
 
         Ok(())

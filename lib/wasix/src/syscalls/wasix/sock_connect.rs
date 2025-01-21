@@ -23,7 +23,7 @@ pub fn sock_connect<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
     let peer_addr = SocketAddr::new(addr.0, addr.1);
-    Span::current().record("addr", format!("{:?}", peer_addr));
+    Span::current().record("addr", format!("{peer_addr:?}"));
 
     wasi_try_ok!(sock_connect_internal(&mut ctx, sock, peer_addr)?);
 
