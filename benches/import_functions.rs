@@ -33,26 +33,23 @@ pub fn run_import_inner(store: &mut Store, n_fn: u32, compiler_name: &str, c: &m
     )
     .unwrap();
 
-    c.bench_function(
-        &format!("import in {} (size: {})", compiler_name, n_fn),
-        |b| {
-            let module = module.clone();
-            b.iter(|| {
-                let mut imports = imports! {};
-                for i in 0..n_fn {
-                    let name = format!("f{i}");
-                    imports.define(
-                        "env",
-                        &name,
-                        donor_instance.exports.get_function(&name).unwrap().clone(),
-                    );
-                }
+    c.bench_function(&format!("import in {compiler_name} (size: {n_fn})"), |b| {
+        let module = module.clone();
+        b.iter(|| {
+            let mut imports = imports! {};
+            for i in 0..n_fn {
+                let name = format!("f{i}");
+                imports.define(
+                    "env",
+                    &name,
+                    donor_instance.exports.get_function(&name).unwrap().clone(),
+                );
+            }
 
-                let instance = black_box(Instance::new(store, &module, &imports));
-                assert!(instance.is_ok());
-            })
-        },
-    );
+            let instance = black_box(Instance::new(store, &module, &imports));
+            assert!(instance.is_ok());
+        })
+    });
 }
 
 fn run_import_functions_benchmarks_small(_c: &mut Criterion) {

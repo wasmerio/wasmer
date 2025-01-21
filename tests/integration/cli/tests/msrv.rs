@@ -96,7 +96,7 @@ fn ensure_file_contents(path: impl AsRef<Path>, contents: impl AsRef<str>) {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    std::fs::write(&path, contents).unwrap();
+    std::fs::write(path, contents).unwrap();
     panic!(
         "\"{}\" was not up to date and has been updated. Please commit the changes and re-run the tests.",
         path.strip_prefix(project_root()).unwrap_or(path).display()

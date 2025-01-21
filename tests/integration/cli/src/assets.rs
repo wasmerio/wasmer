@@ -67,7 +67,7 @@ pub fn get_libwasmer_path() -> PathBuf {
         ret = wasmer_target_path_2().join(LIBWASMER_FILENAME);
     }
     if !ret.exists() {
-        panic!("Could not find libwasmer path! {:?}", ret);
+        panic!("Could not find libwasmer path! {ret:?}");
     }
     ret
 }
@@ -93,7 +93,7 @@ pub fn get_wasmer_path() -> PathBuf {
                 }
             }
             None => {
-                panic!("Could not find wasmer executable path! {:?}", ret);
+                panic!("Could not find wasmer executable path! {ret:?}");
             }
         };
     }
@@ -112,7 +112,7 @@ pub fn get_wasmer_path() -> PathBuf {
                     .join(executable)
             }
             None => {
-                panic!("Could not find wasmer executable path! {:?}", ret);
+                panic!("Could not find wasmer executable path! {ret:?}");
             }
         };
     }

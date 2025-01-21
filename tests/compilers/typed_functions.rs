@@ -86,7 +86,7 @@ fn typed_host_function_closure_panics(config: crate::Config) {
     let mut store = config.store();
     let state = 3;
     Function::new_typed(&mut store, move |_: i32| {
-        println!("{}", state);
+        println!("{state}");
     });
 }
 
@@ -100,7 +100,7 @@ fn typed_with_env_host_function_closure_panics(config: crate::Config) {
         &mut store,
         &env,
         move |_env: FunctionEnvMut<i32>, _: i32| {
-            println!("{}", state);
+            println!("{state}");
         },
     );
 }
