@@ -20,7 +20,7 @@ use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunction
 use crate::ArtifactBuildFromArchive;
 use rkyv::vec::ArchivedVec;
 use std::collections::BTreeMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use wasmer_types::lib::std::{cmp, ops::Deref};
 use wasmer_types::{
     entity::{BoxedSlice, EntityRef, PrimaryMap},
@@ -28,14 +28,12 @@ use wasmer_types::{
 };
 use wasmer_vm::FunctionBodyPtr;
 
-lazy_static::lazy_static! {
-    /// This is a global cache of backtrace frame information for all active
-    ///
-    /// This global cache is used during `Trap` creation to symbolicate frames.
-    /// This is populated on module compilation, and it is cleared out whenever
-    /// all references to a module are dropped.
-    pub static ref FRAME_INFO: RwLock<GlobalFrameInfo> = Default::default();
-}
+/// This is a global cache of backtrace frame information for all active
+///
+/// This global cache is used during `Trap` creation to symbolicate frames.
+/// This is populated on module compilation, and it is cleared out whenever
+/// all references to a module are dropped.
+pub static FRAME_INFO: LazyLock<RwLock<GlobalFrameInfo>> = LazyLock::new(RwLock::default);
 
 #[derive(Default)]
 pub struct GlobalFrameInfo {

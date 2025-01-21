@@ -39,7 +39,6 @@ target-lexicon = { version = "0.12.2", default-features = false }
 
 [dev-dependencies]
 cranelift-codegen = { version = "=0.110.2", features = ["all-arch"] }
-lazy_static = "1.4"
 
 [badges]
 maintenance = { status = "actively-developed" }
