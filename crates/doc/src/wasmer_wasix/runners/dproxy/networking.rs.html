@@ -220,8 +220,8 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::LazyLock;
+<span class="kw">use </span>std::{
     net::{IpAddr, SocketAddr},
     sync::{Arc, Mutex},
     task::{Context, Poll, Waker},
@@ -249,9 +249,7 @@
 
 <span class="kw">impl </span>LocalWithLoopbackNetworking {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        <span class="macro">lazy_static::lazy_static!</span> {
-            <span class="kw">static </span><span class="kw-2">ref </span>LOCAL_NETWORKING: Arc&lt;LocalNetworking&gt; = Arc::new(LocalNetworking::default());
-        }
+        <span class="kw">static </span>LOCAL_NETWORKING: LazyLock&lt;Arc&lt;LocalNetworking&gt;&gt; = LazyLock::new(Arc::default);
         <span class="self">Self </span>{
             local_listening: Default::default(),
             inner_networking: LOCAL_NETWORKING.clone(),

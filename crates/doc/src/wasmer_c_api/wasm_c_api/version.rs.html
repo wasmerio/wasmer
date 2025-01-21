@@ -122,23 +122,31 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>lazy_static::lazy_static;
-<span class="kw">use </span>std::os::raw::c_char;
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::os::raw::c_char;
+<span class="kw">use </span>std::sync::LazyLock;
 
 <span class="kw">const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>), <span class="string">"\0"</span>);
 <span class="kw">const </span>VERSION_PRE: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION_PRE"</span>), <span class="string">"\0"</span>);
 
-<span class="macro">lazy_static!</span> {
-    <span class="kw">static </span><span class="kw-2">ref </span>VERSION_MAJOR: u8 = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION_MAJOR"</span>)
+<span class="kw">static </span>VERSION_MAJOR: LazyLock&lt;u8&gt; = LazyLock::new(|| {
+    <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION_MAJOR"</span>)
         .parse()
-        .expect(<span class="string">"Failed to parse value for `VERSION_MAJOR` from `CARGO_PKG_VERSION_MAJOR`"</span>);
-    <span class="kw">static </span><span class="kw-2">ref </span>VERSION_MINOR: u8 = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION_MINOR"</span>)
+        .expect(<span class="string">"Failed to parse value for `VERSION_MAJOR` from `CARGO_PKG_VERSION_MAJOR`"</span>)
+});
+<span class="kw">static </span>VERSION_MINOR: LazyLock&lt;u8&gt; = LazyLock::new(|| {
+    <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION_MINOR"</span>)
         .parse()
-        .expect(<span class="string">"Failed to parse value for `VERSION_MINOR` from `CARGO_PKG_VERSION_MINOR`"</span>);
-    <span class="kw">static </span><span class="kw-2">ref </span>VERSION_PATCH: u8 = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION_PATCH"</span>)
+        .expect(<span class="string">"Failed to parse value for `VERSION_MINOR` from `CARGO_PKG_VERSION_MINOR`"</span>)
+});
+<span class="kw">static </span>VERSION_PATCH: LazyLock&lt;u8&gt; = LazyLock::new(|| {
+    <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION_PATCH"</span>)
         .parse()
-        .expect(<span class="string">"Failed to parse value for `VERSION_PATCH` from `CARGO_PKG_VERSION_PATCH`"</span>);
-}
+        .expect(<span class="string">"Failed to parse value for `VERSION_PATCH` from `CARGO_PKG_VERSION_PATCH`"</span>)
+});
 
 <span class="doccomment">/// Get the version of the Wasmer C API.
 ///

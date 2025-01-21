@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CmdGenManPage","DEFAULT_MAN_DIR_PATH"]};
+window.SIDEBAR_ITEMS = {"static":["DEFAULT_MAN_DIR_PATH"],"struct":["CmdGenManPage"]};

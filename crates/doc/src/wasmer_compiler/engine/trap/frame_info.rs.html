@@ -412,8 +412,6 @@
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.
 //! Once the Compiler has compiled the ModuleInfo, and we have a set of
 //! compiled functions (addresses and function index) and a module,
@@ -436,7 +434,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::ArtifactBuildFromArchive;
 <span class="kw">use </span>rkyv::vec::ArchivedVec;
 <span class="kw">use </span>std::collections::BTreeMap;
-<span class="kw">use </span>std::sync::{Arc, RwLock};
+<span class="kw">use </span>std::sync::{Arc, LazyLock, RwLock};
 <span class="kw">use </span>wasmer_types::lib::std::{cmp, ops::Deref};
 <span class="kw">use </span>wasmer_types::{
     entity::{BoxedSlice, EntityRef, PrimaryMap},
@@ -444,14 +442,12 @@
 };
 <span class="kw">use </span>wasmer_vm::FunctionBodyPtr;
 
-<span class="macro">lazy_static::lazy_static!</span> {
-    <span class="doccomment">/// This is a global cache of backtrace frame information for all active
-    ///
-    /// This global cache is used during `Trap` creation to symbolicate frames.
-    /// This is populated on module compilation, and it is cleared out whenever
-    /// all references to a module are dropped.
-    </span><span class="kw">pub static </span><span class="kw-2">ref </span>FRAME_INFO: RwLock&lt;GlobalFrameInfo&gt; = Default::default();
-}
+<span class="doccomment">/// This is a global cache of backtrace frame information for all active
+///
+/// This global cache is used during `Trap` creation to symbolicate frames.
+/// This is populated on module compilation, and it is cleared out whenever
+/// all references to a module are dropped.
+</span><span class="kw">pub static </span>FRAME_INFO: LazyLock&lt;RwLock&lt;GlobalFrameInfo&gt;&gt; = LazyLock::new(RwLock::default);
 
 <span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>GlobalFrameInfo {

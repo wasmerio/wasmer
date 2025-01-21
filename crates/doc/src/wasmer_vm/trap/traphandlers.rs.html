@@ -1161,7 +1161,7 @@
 </span><span class="kw">use </span>std::mem::MaybeUninit;
 <span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
 <span class="kw">use </span>std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
-<span class="kw">use </span>std::sync::Once;
+<span class="kw">use </span>std::sync::{LazyLock, Once};
 <span class="kw">use </span>wasmer_types::TrapCode;
 
 <span class="doccomment">/// Configuration for the runtime VM
@@ -2079,9 +2079,9 @@
     // system calls. We therefore keep a cache of pre-allocated stacks which
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
-    </span><span class="macro">lazy_static::lazy_static!</span> {
-        <span class="kw">static </span><span class="kw-2">ref </span>STACK_POOL: crossbeam_queue::SegQueue&lt;DefaultStack&gt; = crossbeam_queue::SegQueue::new();
-    }
+    </span><span class="kw">static </span>STACK_POOL: LazyLock&lt;crossbeam_queue::SegQueue&lt;DefaultStack&gt;&gt; =
+        LazyLock::new(crossbeam_queue::SegQueue::new);
+
     <span class="kw">let </span>stack = STACK_POOL
         .pop()
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());

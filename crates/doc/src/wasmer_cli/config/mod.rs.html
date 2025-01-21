@@ -346,20 +346,22 @@
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>env;
 <span class="kw">pub use </span>env::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::sync::LazyLock;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>wasmer_backend_api::WasmerClient;
 
 <span class="kw">pub static </span>GLOBAL_CONFIG_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"wasmer.toml"</span>;
 <span class="kw">pub static </span>DEFAULT_PROD_REGISTRY: <span class="kw-2">&amp;</span>str = <span class="string">"https://registry.wasmer.io/graphql"</span>;
 
-<span class="macro">lazy_static::lazy_static!</span> {
-    <span class="doccomment">/// The default value for `$WASMER_DIR`.
-    </span><span class="kw">pub static </span><span class="kw-2">ref </span>DEFAULT_WASMER_DIR: PathBuf = <span class="kw">match </span>WasmerConfig::get_wasmer_dir() {
+<span class="doccomment">/// The default value for `$WASMER_DIR`.
+</span><span class="kw">pub static </span>DEFAULT_WASMER_DIR: LazyLock&lt;PathBuf&gt; =
+    LazyLock::new(|| <span class="kw">match </span>WasmerConfig::get_wasmer_dir() {
         <span class="prelude-val">Ok</span>(path) =&gt; path,
         <span class="prelude-val">Err</span>(e) =&gt; {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(install_prefix) = <span class="macro">option_env!</span>(<span class="string">"WASMER_INSTALL_PREFIX"</span>) {
@@ -368,11 +370,11 @@
 
             <span class="macro">panic!</span>(<span class="string">"Unable to determine the wasmer dir: {e}"</span>);
         }
-    };
+    });
 
-    <span class="doccomment">/// The default value for `$WASMER_DIR`.
-    </span><span class="kw">pub static </span><span class="kw-2">ref </span>DEFAULT_WASMER_CACHE_DIR: PathBuf = DEFAULT_WASMER_DIR.join(<span class="string">"cache"</span>);
-}
+<span class="doccomment">/// The default value for `$WASMER_DIR`.
+</span><span class="kw">pub static </span>DEFAULT_WASMER_CACHE_DIR: LazyLock&lt;PathBuf&gt; =
+    LazyLock::new(|| DEFAULT_WASMER_DIR.join(<span class="string">"cache"</span>));
 
 <span class="attr">#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>WasmerConfig {

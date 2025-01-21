@@ -24,15 +24,23 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::WasmerCmd;
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>clap::CommandFactory;
 <span class="kw">use </span>clap_mangen::generate_to;
 <span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::sync::LazyLock;
 
-<span class="macro">lazy_static::lazy_static!</span> {
-    <span class="kw">static </span><span class="kw-2">ref </span>DEFAULT_MAN_DIR_PATH: PathBuf = dirs::data_dir().unwrap_or_default().join(<span class="string">"man"</span>).join(<span class="string">"man1"</span>);
-}
+<span class="kw">static </span>DEFAULT_MAN_DIR_PATH: LazyLock&lt;PathBuf&gt; = LazyLock::new(|| {
+    dirs::data_dir()
+        .unwrap_or_default()
+        .join(<span class="string">"man"</span>)
+        .join(<span class="string">"man1"</span>)
+});
 
 <span class="attr">#[derive(Debug, Clone, clap::Parser)]
 </span><span class="kw">pub struct </span>CmdGenManPage {
