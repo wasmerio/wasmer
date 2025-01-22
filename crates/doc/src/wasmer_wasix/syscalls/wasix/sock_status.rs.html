@@ -55,7 +55,7 @@
         WasiSocketStatus::Closed =&gt; Sockstatus::Closed,
         WasiSocketStatus::Failed =&gt; Sockstatus::Failed,
     };
-    Span::current().record(<span class="string">"status"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, status));
+    Span::current().record(<span class="string">"status"</span>, <span class="macro">format!</span>(<span class="string">"{status:?}"</span>));
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };

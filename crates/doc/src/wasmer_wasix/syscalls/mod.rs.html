@@ -2556,7 +2556,7 @@
                 .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to save stack: stack pointer overflow (stack_pointer={}, stack_lower={}, stack_upper={})"</span>, stack_offset, env.layout.stack_lower, env.layout.stack_upper))<span class="question-mark">?</span>,
         )
         .and_then(|memory_stack| memory_stack.read_to_bytes())
-        .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to read stack: {}"</span>, err))
+        .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to read stack: {err}"</span>))
 }
 
 <span class="attr">#[allow(dead_code)]
@@ -2586,7 +2586,7 @@
                 .map_err(|<span class="kw">_</span>| <span class="string">"failed to restore stack: stack pointer overflow"</span>.to_string())<span class="question-mark">?</span>,
         )
         .and_then(|memory_stack| memory_stack.write_slice(<span class="kw-2">&amp;</span>stack[..]))
-        .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to write stack: {}"</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to write stack: {err}"</span>))<span class="question-mark">?</span>;
 
     <span class="comment">// Set the stack pointer itself and return
     </span>set_memory_stack_offset(env, store, stack_offset)<span class="question-mark">?</span>;
@@ -2801,7 +2801,7 @@
                     .map_err(|<span class="kw">_</span>| <span class="string">"failed to save stack: stack pointer overflow"</span>.to_string())<span class="question-mark">?</span>,
             )
             .and_then(|memory_stack| memory_stack.read_to_bytes())
-            .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to read stack: {}"</span>, err))<span class="question-mark">?</span>;
+            .map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to read stack: {err}"</span>))<span class="question-mark">?</span>;
 
         <span class="comment">// Notify asyncify that we are no longer unwinding
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_stop_unwind) = env

@@ -1087,7 +1087,7 @@
         <span class="macro">write!</span>(f, <span class="string">"fs error: {}"</span>, <span class="self">self</span>.error)<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = <span class="kw-2">&amp;</span><span class="self">self</span>.message {
-            <span class="macro">write!</span>(f, <span class="string">" | {}"</span>, msg)<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(f, <span class="string">" | {msg}"</span>)<span class="question-mark">?</span>;
         }
 
         <span class="prelude-val">Ok</span>(())

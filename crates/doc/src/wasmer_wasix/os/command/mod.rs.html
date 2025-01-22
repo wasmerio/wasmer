@@ -204,7 +204,7 @@
             <span class="kw">unsafe </span>{
                 InlineWaker::block_on(stderr_write(
                     parent_ctx,
-                    <span class="macro">format!</span>(<span class="string">"wasm command unknown - {}\r\n"</span>, path).as_bytes(),
+                    <span class="macro">format!</span>(<span class="string">"wasm command unknown - {path}\r\n"</span>).as_bytes(),
                 ))
             }
             .ok();

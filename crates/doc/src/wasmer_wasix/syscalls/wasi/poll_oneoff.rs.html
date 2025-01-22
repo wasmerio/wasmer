@@ -852,9 +852,9 @@
 
             <span class="kw">if </span>fd_guards.len() &gt; <span class="number">10 </span>{
                 <span class="kw">let </span>small_list: Vec&lt;<span class="kw">_</span>&gt; = fd_guards.iter().take(<span class="number">10</span>).collect();
-                tracing::Span::current().record(<span class="string">"fd_guards"</span>, <span class="macro">format!</span>(<span class="string">"{:?}..."</span>, small_list));
+                tracing::Span::current().record(<span class="string">"fd_guards"</span>, <span class="macro">format!</span>(<span class="string">"{small_list:?}..."</span>));
             } <span class="kw">else </span>{
-                tracing::Span::current().record(<span class="string">"fd_guards"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, fd_guards));
+                tracing::Span::current().record(<span class="string">"fd_guards"</span>, <span class="macro">format!</span>(<span class="string">"{fd_guards:?}"</span>));
             }
 
             fd_guards
@@ -886,7 +886,7 @@
         |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;| {
             <span class="comment">// The timeout has triggered so lets add that event
             </span><span class="kw">if </span>clock_subs.is_empty() {
-                <span class="macro">tracing::warn!</span>(<span class="string">"triggered_timeout (without any clock subscriptions)"</span>,);
+                <span class="macro">tracing::warn!</span>(<span class="string">"triggered_timeout (without any clock subscriptions)"</span>);
             }
             <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
             <span class="kw">for </span>(clock_info, userdata) <span class="kw">in </span>clock_subs {

@@ -2236,13 +2236,6 @@
 <a href="#2236" id="2236">2236</a>
 <a href="#2237" id="2237">2237</a>
 <a href="#2238" id="2238">2238</a>
-<a href="#2239" id="2239">2239</a>
-<a href="#2240" id="2240">2240</a>
-<a href="#2241" id="2241">2241</a>
-<a href="#2242" id="2242">2242</a>
-<a href="#2243" id="2243">2243</a>
-<a href="#2244" id="2244">2244</a>
-<a href="#2245" id="2245">2245</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
@@ -4026,7 +4019,7 @@
                 Fd::READ,
                 <span class="self">self</span>.root_inode.clone(),
             )
-            .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not create root fd: {}"</span>, e))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not create root fd: {e}"</span>))<span class="question-mark">?</span>;
         <span class="self">self</span>.preopen_fds.write().unwrap().push(fd);
         <span class="prelude-val">Ok</span>(())
     }
@@ -4059,23 +4052,19 @@
                 </span>.create_inode(inodes, kind, <span class="bool-val">true</span>, preopen_name.clone())
                 .map_err(|e| {
                     <span class="macro">format!</span>(
-                        <span class="string">"Failed to create inode for preopened dir (name `{}`): WASI error code: {}"</span>,
-                        preopen_name, e
+                        <span class="string">"Failed to create inode for preopened dir (name `{preopen_name}`): WASI error code: {e}"</span>,
                     )
                 })<span class="question-mark">?</span>;
             <span class="kw">let </span>fd_flags = Fd::READ;
             <span class="kw">let </span>fd = <span class="self">self
                 </span>.create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not open fd for file {:?}: {}"</span>, preopen_name, e))<span class="question-mark">?</span>;
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not open fd for file {preopen_name:?}: {e}"</span>))<span class="question-mark">?</span>;
             {
                 <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.root_inode.write();
                 <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
                     <span class="kw">let </span>existing_entry = entries.insert(preopen_name.clone(), inode);
                     <span class="kw">if </span>existing_entry.is_some() &amp;&amp; !ignore_duplicates {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                            <span class="string">"Found duplicate entry for alias `{}`"</span>,
-                            preopen_name
-                        ));
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Found duplicate entry for alias `{preopen_name}`"</span>));
                     }
                 }
             }
@@ -4098,7 +4087,7 @@
             <span class="kw">let </span>cur_dir_metadata = <span class="self">self
                 </span>.root_fs
                 .metadata(path)
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not get metadata for file {:?}: {}"</span>, path, e))<span class="question-mark">?</span>;
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not get metadata for file {path:?}: {e}"</span>))<span class="question-mark">?</span>;
 
             <span class="kw">let </span>kind = <span class="kw">if </span>cur_dir_metadata.is_dir() {
                 Kind::Dir {
@@ -4162,10 +4151,7 @@
                 <span class="self">self</span>.create_inode(inodes, kind, <span class="bool-val">true</span>, path.to_string_lossy().into_owned())
             }
             .map_err(|e| {
-                <span class="macro">format!</span>(
-                    <span class="string">"Failed to create inode for preopened dir: WASI error code: {}"</span>,
-                    e
-                )
+                <span class="macro">format!</span>(<span class="string">"Failed to create inode for preopened dir: WASI error code: {e}"</span>)
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>fd_flags = {
                 <span class="kw">let </span><span class="kw-2">mut </span>fd_flags = <span class="number">0</span>;
@@ -4183,7 +4169,7 @@
             };
             <span class="kw">let </span>fd = <span class="self">self
                 </span>.create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not open fd for file {:?}: {}"</span>, path, e))<span class="question-mark">?</span>;
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not open fd for file {path:?}: {e}"</span>))<span class="question-mark">?</span>;
             {
                 <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.root_inode.write();
                 <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
@@ -4194,7 +4180,7 @@
                     };
                     <span class="kw">let </span>existing_entry = entries.insert(key.clone(), inode);
                     <span class="kw">if </span>existing_entry.is_some() &amp;&amp; !ignore_duplicates {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Found duplicate entry for alias `{}`"</span>, key));
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Found duplicate entry for alias `{key}`"</span>));
                     }
                 }
             }

@@ -53,7 +53,7 @@
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>ip = <span class="macro">wasi_try_ok!</span>(<span class="kw">crate</span>::net::read_ip(<span class="kw-2">&amp;</span>memory, ip));
-    Span::current().record(<span class="string">"ip"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, ip));
+    Span::current().record(<span class="string">"ip"</span>, <span class="macro">format!</span>(<span class="string">"{ip:?}"</span>));
 
     <span class="macro">wasi_try_ok!</span>(port_route_remove_internal(<span class="kw-2">&amp;mut </span>ctx, ip)<span class="question-mark">?</span>);
 

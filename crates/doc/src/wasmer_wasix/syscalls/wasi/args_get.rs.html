@@ -81,7 +81,7 @@
             .unwrap()
             .iter()
             .enumerate()
-            .map(|(i, v)| <span class="macro">format!</span>(<span class="string">"{:&gt;20}: {}"</span>, i, v))
+            .map(|(i, v)| <span class="macro">format!</span>(<span class="string">"{i:&gt;20}: {v}"</span>))
             .collect::&lt;Vec&lt;String&gt;&gt;()
             .join(<span class="string">"\n"</span>)
     );

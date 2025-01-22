@@ -289,7 +289,7 @@
         OptionTag::Some =&gt; <span class="prelude-val">Some</span>(Duration::from_nanos(timeout.u)),
         <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
     };
-    Span::current().record(<span class="string">"timeout"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, timeout));
+    Span::current().record(<span class="string">"timeout"</span>, <span class="macro">format!</span>(<span class="string">"{timeout:?}"</span>));
 
     <span class="kw">let </span>state = env.state.clone();
     <span class="kw">let </span>futex_idx: u64 = futex_ptr.offset().into();

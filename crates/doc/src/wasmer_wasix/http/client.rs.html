@@ -285,7 +285,7 @@
         } = <span class="self">self</span>;
 
         f.debug_struct(<span class="string">"HttpRequest"</span>)
-            .field(<span class="string">"url"</span>, <span class="kw-2">&amp;</span><span class="macro">format_args!</span>(<span class="string">"{}"</span>, url))
+            .field(<span class="string">"url"</span>, <span class="kw-2">&amp;</span><span class="macro">format_args!</span>(<span class="string">"{url}"</span>))
             .field(<span class="string">"method"</span>, method)
             .field(<span class="string">"headers"</span>, headers)
             .field(<span class="string">"body"</span>, <span class="kw-2">&amp;</span>body.as_deref().map(String::from_utf8_lossy))

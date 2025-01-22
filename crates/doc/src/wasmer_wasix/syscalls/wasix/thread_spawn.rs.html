@@ -539,7 +539,7 @@
                     <span class="kw">return </span><span class="prelude-val">Err</span>(deep);
                 }
                 <span class="prelude-val">Ok</span>(WasiError::UnknownWasiVersion) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">"failed as wasi version is unknown"</span>,);
+                    <span class="macro">debug!</span>(<span class="string">"failed as wasi version is unknown"</span>);
                     env.data(<span class="kw-2">&amp;</span>store)
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);

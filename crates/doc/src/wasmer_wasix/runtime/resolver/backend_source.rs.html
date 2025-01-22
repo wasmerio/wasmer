@@ -1663,7 +1663,7 @@
         };
 
     <span class="kw">let </span>id = PackageId::Named(NamedPackageId {
-        full_name: <span class="macro">format!</span>(<span class="string">"{}/{}"</span>, namespace, package_name),
+        full_name: <span class="macro">format!</span>(<span class="string">"{namespace}/{package_name}"</span>),
         version: pkg_version
             .version
             .parse()

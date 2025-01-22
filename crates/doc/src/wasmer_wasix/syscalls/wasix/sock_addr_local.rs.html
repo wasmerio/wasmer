@@ -63,7 +63,7 @@
         |socket, <span class="kw">_</span>| socket.addr_local()
     ));
 
-    Span::current().record(<span class="string">"addr"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, addr));
+    Span::current().record(<span class="string">"addr"</span>, <span class="macro">format!</span>(<span class="string">"{addr:?}"</span>));
 
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try!</span>(<span class="kw">crate</span>::net::write_ip_port(

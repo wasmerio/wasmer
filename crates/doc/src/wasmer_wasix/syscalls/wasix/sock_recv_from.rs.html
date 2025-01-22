@@ -280,7 +280,7 @@
     };
     Span::current()
         .record(<span class="string">"nread"</span>, bytes_read)
-        .record(<span class="string">"peer"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, peer));
+        .record(<span class="string">"peer"</span>, <span class="macro">format!</span>(<span class="string">"{peer:?}"</span>));
 
     <span class="macro">wasi_try_ok!</span>(write_ip_port(<span class="kw-2">&amp;</span>memory, ro_addr, peer.ip(), peer.port()));
 

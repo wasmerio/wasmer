@@ -1305,9 +1305,6 @@
 <a href="#1305" id="1305">1305</a>
 <a href="#1306" id="1306">1306</a>
 <a href="#1307" id="1307">1307</a>
-<a href="#1308" id="1308">1308</a>
-<a href="#1309" id="1309">1309</a>
-<a href="#1310" id="1310">1310</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1453,7 +1450,7 @@
 <span class="kw">fn </span>validate_mapped_dir_alias(alias: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiStateCreationError&gt; {
     <span class="kw">if </span>!alias.bytes().all(|b| b != <span class="string">b'\0'</span>) {
         <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::MappedDirAliasFormattingError(
-            <span class="macro">format!</span>(<span class="string">"Alias \"{}\" contains a nul byte"</span>, alias),
+            <span class="macro">format!</span>(<span class="string">"Alias \"{alias}\" contains a nul byte"</span>),
         ));
     }
 
@@ -2084,16 +2081,13 @@
             }) {
                 <span class="prelude-val">Some</span>(InvalidCharacter::Nul) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
-                        <span class="macro">format!</span>(<span class="string">"found nul byte in env var key \"{}\" (key=value)"</span>, env_key),
+                        <span class="macro">format!</span>(<span class="string">"found nul byte in env var key \"{env_key}\" (key=value)"</span>),
                     ))
                 }
 
                 <span class="prelude-val">Some</span>(InvalidCharacter::Equal) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
-                        <span class="macro">format!</span>(
-                            <span class="string">"found equal sign in env var key \"{}\" (key=value)"</span>,
-                            env_key
-                        ),
+                        <span class="macro">format!</span>(<span class="string">"found equal sign in env var key \"{env_key}\" (key=value)"</span>),
                     ))
                 }
 

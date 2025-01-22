@@ -381,8 +381,6 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tracing::trace;
@@ -743,9 +741,8 @@
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(<span class="macro">format!</span>(
-                        <span class="string">"journal failed to save the module initialization event - {}"</span>,
-                        err
-                    )))
+                        <span class="string">"journal failed to save the module initialization event - {err}"
+                    </span>)))
                 })<span class="question-mark">?</span>;
             } <span class="kw">else </span>{
                 <span class="comment">// Otherwise we should emit a clear ethereal event
@@ -756,8 +753,7 @@
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(<span class="macro">format!</span>(
-                        <span class="string">"journal failed to save clear ethereal event - {}"</span>,
-                        err
+                        <span class="string">"journal failed to save clear ethereal event - {err}"</span>,
                     )))
                 })<span class="question-mark">?</span>;
             }

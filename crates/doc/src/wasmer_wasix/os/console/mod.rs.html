@@ -405,9 +405,6 @@
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -658,12 +655,9 @@
         <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = env.uses(<span class="self">self</span>.uses.clone()) {
             <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
             InlineWaker::block_on(<span class="kw">async </span>{
-                virtual_fs::AsyncWriteExt::write_all(
-                    <span class="kw-2">&amp;mut </span>stderr,
-                    <span class="macro">format!</span>(<span class="string">"{}\r\n"</span>, err).as_bytes(),
-                )
-                .<span class="kw">await
-                </span>.ok();
+                virtual_fs::AsyncWriteExt::write_all(<span class="kw-2">&amp;mut </span>stderr, <span class="macro">format!</span>(<span class="string">"{err}\r\n"</span>).as_bytes())
+                    .<span class="kw">await
+                    </span>.ok();
             });
             <span class="macro">tracing::debug!</span>(<span class="string">"failed to load used dependency - {}"</span>, err);
             <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::BadRequest);

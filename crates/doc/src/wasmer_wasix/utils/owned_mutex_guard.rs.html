@@ -366,7 +366,7 @@
 {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
-            <span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, guard)
+            <span class="macro">write!</span>(f, <span class="string">"{guard:?}"</span>)
         } <span class="kw">else </span>{
             <span class="macro">write!</span>(f, <span class="string">"none"</span>)
         }
@@ -379,7 +379,7 @@
 {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
-            <span class="macro">write!</span>(f, <span class="string">"{}"</span>, guard)
+            <span class="macro">write!</span>(f, <span class="string">"{guard}"</span>)
         } <span class="kw">else </span>{
             <span class="macro">write!</span>(f, <span class="string">"none"</span>)
         }
@@ -444,7 +444,7 @@
 {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
-            <span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, guard)
+            <span class="macro">write!</span>(f, <span class="string">"{guard:?}"</span>)
         } <span class="kw">else </span>{
             <span class="macro">write!</span>(f, <span class="string">"none"</span>)
         }
@@ -457,7 +457,7 @@
 {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
-            <span class="macro">write!</span>(f, <span class="string">"{}"</span>, guard)
+            <span class="macro">write!</span>(f, <span class="string">"{guard}"</span>)
         } <span class="kw">else </span>{
             <span class="macro">write!</span>(f, <span class="string">"none"</span>)
         }

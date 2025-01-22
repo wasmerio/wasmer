@@ -56,7 +56,7 @@
     <span class="kw">let </span>path = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">"path"</span>, path.as_str());
 
-    <span class="macro">wasi_try_ok!</span>(chdir_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;</span>path,));
+    <span class="macro">wasi_try_ok!</span>(chdir_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;</span>path));
     <span class="kw">let </span>env = ctx.data();
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]

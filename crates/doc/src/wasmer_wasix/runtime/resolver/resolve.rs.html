@@ -1275,7 +1275,7 @@
         }
         PackageSource::Url(url) =&gt; <span class="macro">format!</span>(<span class="string">"Unable to resolve \"{url}\""</span>),
         PackageSource::Path(path) =&gt; {
-            <span class="macro">format!</span>(<span class="string">"Unable to load \"{}\" from disk"</span>, path)
+            <span class="macro">format!</span>(<span class="string">"Unable to load \"{path}\" from disk"</span>)
         }
     }
 }

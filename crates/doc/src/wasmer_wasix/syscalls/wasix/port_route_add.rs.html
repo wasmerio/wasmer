@@ -97,10 +97,10 @@
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>cidr = <span class="macro">wasi_try_ok!</span>(<span class="kw">crate</span>::net::read_cidr(<span class="kw-2">&amp;</span>memory, cidr));
-    Span::current().record(<span class="string">"cidr"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, cidr));
+    Span::current().record(<span class="string">"cidr"</span>, <span class="macro">format!</span>(<span class="string">"{cidr:?}"</span>));
 
     <span class="kw">let </span>via_router = <span class="macro">wasi_try_ok!</span>(<span class="kw">crate</span>::net::read_ip(<span class="kw-2">&amp;</span>memory, via_router));
-    Span::current().record(<span class="string">"via_router"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, via_router));
+    Span::current().record(<span class="string">"via_router"</span>, <span class="macro">format!</span>(<span class="string">"{via_router:?}"</span>));
 
     <span class="kw">let </span>preferred_until = <span class="macro">wasi_try_mem_ok!</span>(preferred_until.read(<span class="kw-2">&amp;</span>memory));
     <span class="kw">let </span>preferred_until = <span class="kw">match </span>preferred_until.tag {

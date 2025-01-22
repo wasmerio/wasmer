@@ -315,7 +315,7 @@
         .record(<span class="string">"working_dir"</span>, working_dir.as_str());
 
     <span class="kw">if </span>chroot == Bool::True {
-        <span class="macro">warn!</span>(<span class="string">"chroot is not currently supported"</span>,);
+        <span class="macro">warn!</span>(<span class="string">"chroot is not currently supported"</span>);
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notsup);
     }
 
