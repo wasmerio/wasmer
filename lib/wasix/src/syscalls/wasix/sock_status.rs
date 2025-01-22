@@ -23,7 +23,7 @@ pub fn sock_status<M: MemorySize>(
         WasiSocketStatus::Closed => Sockstatus::Closed,
         WasiSocketStatus::Failed => Sockstatus::Failed,
     };
-    Span::current().record("status", format!("{:?}", status));
+    Span::current().record("status", format!("{status:?}"));
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

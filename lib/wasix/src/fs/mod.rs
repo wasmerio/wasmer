@@ -1781,7 +1781,7 @@ impl WasiFs {
                 Fd::READ,
                 self.root_inode.clone(),
             )
-            .map_err(|e| format!("Could not create root fd: {}", e))?;
+            .map_err(|e| format!("Could not create root fd: {e}"))?;
         self.preopen_fds.write().unwrap().push(fd);
         Ok(())
     }
@@ -1814,23 +1814,19 @@ impl WasiFs {
                 .create_inode(inodes, kind, true, preopen_name.clone())
                 .map_err(|e| {
                     format!(
-                        "Failed to create inode for preopened dir (name `{}`): WASI error code: {}",
-                        preopen_name, e
+                        "Failed to create inode for preopened dir (name `{preopen_name}`): WASI error code: {e}",
                     )
                 })?;
             let fd_flags = Fd::READ;
             let fd = self
                 .create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| format!("Could not open fd for file {:?}: {}", preopen_name, e))?;
+                .map_err(|e| format!("Could not open fd for file {preopen_name:?}: {e}"))?;
             {
                 let mut guard = self.root_inode.write();
                 if let Kind::Root { entries } = guard.deref_mut() {
                     let existing_entry = entries.insert(preopen_name.clone(), inode);
                     if existing_entry.is_some() && !ignore_duplicates {
-                        return Err(format!(
-                            "Found duplicate entry for alias `{}`",
-                            preopen_name
-                        ));
+                        return Err(format!("Found duplicate entry for alias `{preopen_name}`"));
                     }
                 }
             }
@@ -1853,7 +1849,7 @@ impl WasiFs {
             let cur_dir_metadata = self
                 .root_fs
                 .metadata(path)
-                .map_err(|e| format!("Could not get metadata for file {:?}: {}", path, e))?;
+                .map_err(|e| format!("Could not get metadata for file {path:?}: {e}"))?;
 
             let kind = if cur_dir_metadata.is_dir() {
                 Kind::Dir {
@@ -1917,10 +1913,7 @@ impl WasiFs {
                 self.create_inode(inodes, kind, true, path.to_string_lossy().into_owned())
             }
             .map_err(|e| {
-                format!(
-                    "Failed to create inode for preopened dir: WASI error code: {}",
-                    e
-                )
+                format!("Failed to create inode for preopened dir: WASI error code: {e}")
             })?;
             let fd_flags = {
                 let mut fd_flags = 0;
@@ -1938,7 +1931,7 @@ impl WasiFs {
             };
             let fd = self
                 .create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| format!("Could not open fd for file {:?}: {}", path, e))?;
+                .map_err(|e| format!("Could not open fd for file {path:?}: {e}"))?;
             {
                 let mut guard = self.root_inode.write();
                 if let Kind::Root { entries } = guard.deref_mut() {
@@ -1949,7 +1942,7 @@ impl WasiFs {
                     };
                     let existing_entry = entries.insert(key.clone(), inode);
                     if existing_entry.is_some() && !ignore_duplicates {
-                        return Err(format!("Found duplicate entry for alias `{}`", key));
+                        return Err(format!("Found duplicate entry for alias `{key}`"));
                     }
                 }
             }

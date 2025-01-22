@@ -230,7 +230,7 @@ fn call_module<M: MemorySize>(
                     return Err(deep);
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
-                    debug!("failed as wasi version is unknown",);
+                    debug!("failed as wasi version is unknown");
                     env.data(&store)
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);

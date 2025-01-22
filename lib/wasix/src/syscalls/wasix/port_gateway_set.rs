@@ -16,7 +16,7 @@ pub fn port_gateway_set<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
-    Span::current().record("ip", format!("{:?}", ip));
+    Span::current().record("ip", format!("{ip:?}"));
 
     wasi_try_ok!(port_gateway_set_internal(&mut ctx, ip)?);
 

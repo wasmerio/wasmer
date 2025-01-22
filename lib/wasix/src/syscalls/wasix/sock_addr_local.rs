@@ -25,7 +25,7 @@ pub fn sock_addr_local<M: MemorySize>(
         |socket, _| socket.addr_local()
     ));
 
-    Span::current().record("addr", format!("{:?}", addr));
+    Span::current().record("addr", format!("{addr:?}"));
 
     let memory = unsafe { ctx.data().memory_view(&ctx) };
     wasi_try!(crate::net::write_ip_port(

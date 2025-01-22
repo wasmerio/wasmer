@@ -96,7 +96,7 @@ impl Commands {
             unsafe {
                 InlineWaker::block_on(stderr_write(
                     parent_ctx,
-                    format!("wasm command unknown - {}\r\n", path).as_bytes(),
+                    format!("wasm command unknown - {path}\r\n").as_bytes(),
                 ))
             }
             .ok();

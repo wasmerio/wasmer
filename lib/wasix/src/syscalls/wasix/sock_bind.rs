@@ -20,7 +20,7 @@ pub fn sock_bind<M: MemorySize>(
 
     let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
-    Span::current().record("addr", format!("{:?}", addr));
+    Span::current().record("addr", format!("{addr:?}"));
 
     wasi_try_ok!(sock_bind_internal(&mut ctx, sock, addr)?);
 
