@@ -644,7 +644,7 @@ fn test_run_http_request(
 
     let expected_size = match expected_size {
         None => {
-            let url = format!("http://localhost:{}/{}.size", port, what);
+            let url = format!("http://localhost:{port}/{what}.size");
             let expected_size = String::from_utf8_lossy(http_get(url, 50)?.as_ref())
                 .trim()
                 .parse()?;
@@ -655,9 +655,9 @@ fn test_run_http_request(
         }
         Some(s) => s,
     };
-    println!("expected_size: {}", expected_size);
+    println!("expected_size: {expected_size}");
 
-    let url = format!("http://localhost:{}/{}", port, what);
+    let url = format!("http://localhost:{port}/{what}");
     let reference_data = http_get(url.clone(), 50)?;
     for _ in 0..20 {
         let test_data = http_get(url.clone(), 2)?;
@@ -725,8 +725,7 @@ fn test_snapshot_web_server() {
 cat /public/main.js | wc -c > /public/main.js.size
 rm -r -f /cfg/
 cd /public
-/bin/webserver --log-level warn --root /public --port {}"#,
-        port
+/bin/webserver --log-level warn --root /public --port {port}"#,
     );
     let builder = TestBuilder::new()
         .with_name(name)
@@ -765,7 +764,7 @@ fn test_snapshot_web_server_epoll() {
         .arg("--log-level")
         .arg("warn")
         .arg("--port")
-        .arg(format!("{}", port));
+        .arg(format!("{port}"));
 
     let snapshot = builder.run_wasm_with(
         include_bytes!("./wasm/web-server-epoll.wasm"),
@@ -798,7 +797,7 @@ fn test_snapshot_web_server_poll() {
         .arg("--log-level")
         .arg("warn")
         .arg("--port")
-        .arg(&format!("{}", port));
+        .arg(format!("{port}"));
 
     let snapshot = builder.run_wasm_with(
         include_bytes!("./wasm/web-server-poll.wasm"),

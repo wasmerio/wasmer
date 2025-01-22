@@ -17,9 +17,9 @@ fn wasmer_create_package() -> anyhow::Result<()> {
         .arg("--quiet")
         .arg(format!("--name={app_name}"))
         .arg(format!("--owner={username}"))
-        .arg(format!("--package=wasmer/hello"))
+        .arg("--package=wasmer/hello")
         .arg(format!("--dir={}", app_dir.display()))
-        .arg(format!("--non-interactive"))
+        .arg("--non-interactive")
         .arg("--registry=https://registry.wasmer.wtf/graphql");
 
     if let Some(token) = wapm_dev_token {
@@ -61,9 +61,9 @@ fn wasmer_create_template() -> anyhow::Result<()> {
         .arg("--quiet")
         .arg(format!("--name={app_name}"))
         .arg(format!("--owner={username}"))
-        .arg(format!("--template=static-website"))
+        .arg("--template=static-website")
         .arg(format!("--dir={}", app_dir.display()))
-        .arg(format!("--non-interactive"))
+        .arg("--non-interactive")
         .arg("--registry=https://registry.wasmer.wtf/graphql");
 
     if let Some(token) = wapm_dev_token {
@@ -86,8 +86,7 @@ owner: {username}
     let got = std::fs::read_to_string(app_dir.join("app.yaml"))?;
     assert_eq!(got, want);
 
-    let want = format!(
-        r#"[dependencies]
+    let want = r#"[dependencies]
 "wasmer/static-web-server" = "^1"
 
 [fs]
@@ -101,8 +100,7 @@ runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]
 main-args = ["-w", "/settings/config.toml"]
-"#
-    );
+"#;
     let got = std::fs::read_to_string(app_dir.join("wasmer.toml"))?;
     assert_eq!(got, want);
 

@@ -157,7 +157,7 @@ impl<'a> Tester for CLIRunner<'a> {
         let webc_v2_path = dir_path.join("package_v2.webc");
 
         self.p
-            .set_message(format!("unpacking webc at {:?}", webc_v2_path));
+            .set_message(format!("unpacking webc at {webc_v2_path:?}"));
 
         let v2_bytes = std::fs::read(&webc_v2_path)?;
 
@@ -182,7 +182,7 @@ impl<'a> Tester for CLIRunner<'a> {
         let webc_v3_path = dir_path.join("package_v3.webc");
 
         self.p
-            .set_message(format!("unpacking webc at {:?}", webc_v3_path));
+            .set_message(format!("unpacking webc at {webc_v3_path:?}"));
 
         let v3_bytes = std::fs::read(&webc_v3_path)?;
 
