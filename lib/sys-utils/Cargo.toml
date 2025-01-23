@@ -29,3 +29,7 @@ tracing = "0.1.37"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+tracing = []

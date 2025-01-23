@@ -25,7 +25,7 @@ use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
     SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, HashAlgorithm, ModuleInfo};
+use wasmer_types::{CompileError, Features, HashAlgorithm};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -350,7 +350,7 @@ impl EngineInner {
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate<'a, FunctionBody, CustomSection>(
         &'a mut self,
-        _module: &ModuleInfo,
+        _module: &wasmer_types::ModuleInfo,
         functions: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         function_call_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         dynamic_function_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
