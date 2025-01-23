@@ -31,7 +31,7 @@ mod tests {
         let style = tunables.memory_style(&requested);
         match style {
             MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
-            s => panic!("Unexpected memory style: {:?}", s),
+            s => panic!("Unexpected memory style: {s:?}"),
         }
 
         // Large maximum
@@ -39,7 +39,7 @@ mod tests {
         let style = tunables.memory_style(&requested);
         match style {
             MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
-            s => panic!("Unexpected memory style: {:?}", s),
+            s => panic!("Unexpected memory style: {s:?}"),
         }
 
         // Small maximum
@@ -53,7 +53,7 @@ mod tests {
                 assert_eq!(bound, Pages(2048));
                 assert_eq!(offset_guard_size, 128);
             }
-            s => panic!("Unexpected memory style: {:?}", s),
+            s => panic!("Unexpected memory style: {s:?}"),
         }
     }
 
@@ -471,7 +471,7 @@ mod tests {
             .get_function("large_local")?
             .call(&mut store, &[]);
 
-        println!("result = {:?}", result);
+        println!("result = {result:?}");
         assert!(result.is_err());
 
         Ok(())

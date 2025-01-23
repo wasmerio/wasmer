@@ -130,7 +130,7 @@ impl Login {
                     let fut = graceful.watch(conn);
                     futs.push(async move {
                         if let Err(e) = fut.await {
-                            eprintln!("Error serving connection: {:?}", e);
+                            eprintln!("Error serving connection: {e:?}");
                         }
                     });
                 },

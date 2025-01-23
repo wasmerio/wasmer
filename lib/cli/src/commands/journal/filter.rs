@@ -35,7 +35,7 @@ impl FromStr for FilterOut {
             "core" => Self::Core,
             "snap" | "snapshot" | "snapshots" => Self::Snapshots,
             "net" | "network" | "networking" => Self::Networking,
-            t => return Err(format!("unknown filter type - {}", t)),
+            t => return Err(format!("unknown filter type - {t}")),
         })
     }
 }

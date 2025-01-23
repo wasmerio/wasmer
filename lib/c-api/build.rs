@@ -138,8 +138,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 #if !defined(WASMER_H_PRELUDE)
 
 #define WASMER_H_PRELUDE
-{pre_header}"#,
-        pre_header = PRE_HEADER
+{PRE_HEADER}"#,
     );
 
     map_feature_as_c_define!("jsc", JSC_FEATURE_AS_C_DEFINE, pre_header);
@@ -245,10 +244,7 @@ fn build_inline_c_env_vars() {
     );
 
     if let Ok(compiler_engine) = env::var("TEST") {
-        println!(
-            "cargo:rustc-env=INLINE_C_RS_TEST={test}",
-            test = compiler_engine
-        );
+        println!("cargo:rustc-env=INLINE_C_RS_TEST={compiler_engine}");
     }
 
     println!(
@@ -294,6 +290,7 @@ fn build_cdylib_link_arg() {
         }
 
         ("macos", _) | ("ios", _) => {
+            #[allow(clippy::uninlined_format_args)]
             lines.push(format!(
                 "-Wl,-install_name,@rpath/libwasmer.dylib,-current_version,{x}.{y}.{z},-compatibility_version,{x}",
                 x = version_major,
@@ -318,7 +315,7 @@ fn build_cdylib_link_arg() {
     }
 
     for line in lines {
-        println!("cargo:rustc-cdylib-link-arg={}", line);
+        println!("cargo:rustc-cdylib-link-arg={line}");
     }
 }
 

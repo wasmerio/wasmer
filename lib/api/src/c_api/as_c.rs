@@ -217,10 +217,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         crate::bindings::wasm_valkind_enum_WASM_V128 => Type::V128,
         crate::bindings::wasm_valkind_enum_WASM_EXTERNREF => Type::ExternRef,
         crate::bindings::wasm_valkind_enum_WASM_FUNCREF => Type::FuncRef,
-        _ => unreachable!(
-            "valtype {:?} has no matching valkind and therefore no matching wasmer_types::Type",
-            type_
-        ),
+        _ => unreachable!("valtype {type_:?} has no matching valkind and therefore no matching wasmer_types::Type"),
     }
     #[cfg(feature = "wasmi")]
     match type_ as _ {
@@ -231,8 +228,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         crate::bindings::wasm_valkind_enum_WASM_EXTERNREF => Type::ExternRef,
         crate::bindings::wasm_valkind_enum_WASM_FUNCREF => Type::FuncRef,
         _ => unreachable!(
-            "valtype {:?} has no matching valkind and therefore no matching wasmer_types::Type",
-            type_
+            "valtype {type_:?} has no matching valkind and therefore no matching wasmer_types::Type",
         ),
     }
     #[cfg(feature = "v8")]
@@ -244,8 +240,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         crate::bindings::wasm_valkind_enum_WASM_ANYREF => Type::ExternRef,
         crate::bindings::wasm_valkind_enum_WASM_FUNCREF => Type::FuncRef,
         _ => unreachable!(
-            "valtype {:?} has no matching valkind and therefore no matching wasmer_types::Type",
-            type_
+            "valtype {type_:?} has no matching valkind and therefore no matching wasmer_types::Type",
         ),
     }
 }

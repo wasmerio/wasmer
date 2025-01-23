@@ -1197,7 +1197,7 @@ mod test_filesystem {
             "creating the root which already exists",
         );
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory",);
+        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -1300,7 +1300,7 @@ mod test_filesystem {
             "cannot remove a directory that doesn't exist",
         );
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory",);
+        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory");
 
         assert_eq!(
             fs.create_dir(path!("/foo/bar")),
@@ -1329,7 +1329,7 @@ mod test_filesystem {
             "removing a sub-directory",
         );
 
-        assert_eq!(fs.remove_dir(path!("/foo")), Ok(()), "removing a directory",);
+        assert_eq!(fs.remove_dir(path!("/foo")), Ok(()), "removing a directory");
 
         {
             let fs_inner = fs.inner.read().unwrap();

@@ -172,7 +172,7 @@ pub const TESTS: &[&str] = &[
 fn test_run() {
     let _drop = RemoveTestsOnDrop::default();
     let config = Config::get();
-    println!("config: {:#?}", config);
+    println!("config: {config:#?}");
 
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let host = target_lexicon::HOST.to_string();
@@ -453,7 +453,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
             _ => continue,
         };
         let lines_3 = file.lines().take(3).collect::<Vec<_>>();
-        log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
+        log.push_str(&format!("first 3 lines of {path:?}: {lines_3:#?}\n"));
 
         let parent = std::path::Path::new(&path).parent().unwrap();
         if let Ok(symlink) = std::fs::read_to_string(parent.join(&file)) {
@@ -466,7 +466,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
             .captures_iter(&file)
             .map(|c| c[1].to_string())
             .collect::<Vec<_>>();
-        log.push_str(&format!("regex captures: ({path:?}): {:#?}\n", filepaths));
+        log.push_str(&format!("regex captures: ({path:?}): {filepaths:#?}\n"));
         let joined_filepaths = filepaths
             .iter()
             .map(|s| {

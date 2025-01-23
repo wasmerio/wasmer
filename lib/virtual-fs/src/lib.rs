@@ -393,7 +393,7 @@ pub trait VirtualFile:
     ) -> BoxFuture<'_, std::io::Result<()>> {
         Box::pin(async move {
             let bytes_written = tokio::io::copy(&mut src, self).await?;
-            tracing::trace!(bytes_written, "Copying file into host filesystem",);
+            tracing::trace!(bytes_written, "Copying file into host filesystem");
             Ok(())
         })
     }

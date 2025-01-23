@@ -18,7 +18,7 @@ fn main() {
             "freebsd" => "freebsd",
             "android" => "android",
             "ios" => "ios",
-            other => panic!("Unsupported CARGO_CFG_TARGET_OS: {}", other),
+            other => panic!("Unsupported CARGO_CFG_TARGET_OS: {other}"),
         };
 
         // Read target arch from cargo env
@@ -31,7 +31,7 @@ fn main() {
             "mips" => "MIPS",
             "powerpc" => "POWERPC",
             "powerpc64" => "POWERPC64",
-            other => panic!("Unsupported CARGO_CFG_TARGET_ARCH: {}", other),
+            other => panic!("Unsupported CARGO_CFG_TARGET_ARCH: {other}"),
         };
 
         // Cleanup tmp data from prior builds
@@ -220,7 +220,7 @@ fn main() {
         println!("cargo:rustc-link-lib=v8_snapshot");
         println!("cargo:rustc-link-lib=v8_torque_generated");
 
-        if cfg!(any(target_os = "linux",)) {
+        if cfg!(any(target_os = "linux")) {
             println!("cargo:rustc-link-lib=stdc++");
         } else if cfg!(target_os = "windows") {
             /* do nothing */

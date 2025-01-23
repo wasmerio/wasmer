@@ -56,9 +56,7 @@ impl PackageDownload {
 
         pb.println(format!(
             "{} {}Creating output directory...",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
             CREATING_OUTPUT_DIRECTORY_EMOJI,
         ));
 
@@ -84,9 +82,7 @@ impl PackageDownload {
 
         pb.println(format!(
             "{} {}Retrieving package information...",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
             RETRIEVING_PACKAGE_INFORMATION_EMOJI
         ));
 
@@ -151,7 +147,7 @@ impl PackageDownload {
                     .with_context(|| format!("Package with {hash} does not exist in the registry, or is not accessible"))?;
 
                 let ident = hash.to_string();
-                let filename = format!("{}.webc", hash);
+                let filename = format!("{hash}.webc");
 
                 (pkg.webc_url, ident, filename)
             }
@@ -173,12 +169,8 @@ impl PackageDownload {
             .header(http::header::ACCEPT, "application/webc");
 
         pb.println(format!(
-            "{} {}Downloading package {} ...",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
-            DOWNLOADING_PACKAGE_EMOJI,
-            ident,
+            "{} {DOWNLOADING_PACKAGE_EMOJI}Downloading package {ident} ...",
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
         ));
 
         step_num += 1;
@@ -221,8 +213,7 @@ impl PackageDownload {
         if !(accepted_contenttypes.contains(&ty)) {
             eprintln!(
                 "Warning: response has invalid content type - expected \
-                 one of {:?}, got {ty}",
-                accepted_contenttypes
+                 one of {accepted_contenttypes:?}, got {ty}",
             );
         }
 
@@ -234,11 +225,8 @@ impl PackageDownload {
         if self.validate {
             if !self.quiet {
                 println!(
-                    "{} {}Validating package...",
-                    style(format!("[{}/{}]", step_num, total_steps))
-                        .bold()
-                        .dim(),
-                    VALIDATING_PACKAGE_EMOJI
+                    "{} {VALIDATING_PACKAGE_EMOJI}Validating package...",
+                    style(format!("[{step_num}/{total_steps}]")).bold().dim(),
                 );
             }
 
@@ -262,11 +250,8 @@ impl PackageDownload {
         })?;
 
         pb.println(format!(
-            "{} {}Package downloaded to '{}'",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
-            WRITING_PACKAGE_EMOJI,
+            "{} {WRITING_PACKAGE_EMOJI}Package downloaded to '{}'",
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
             out_path.display()
         ));
 
