@@ -2512,7 +2512,7 @@
         <span class="kw">fn </span>poll_copy_start_and_progress(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
             replace_with_or_abort(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, |state| <span class="kw">match </span>state {
                 CowState::ReadOnly(inner) =&gt; {
-                    <span class="macro">tracing::trace!</span>(<span class="string">"COW file touched, starting file clone"</span>,);
+                    <span class="macro">tracing::trace!</span>(<span class="string">"COW file touched, starting file clone"</span>);
                     CowState::SeekingGet(inner)
                 }
                 state =&gt; state,
@@ -2974,7 +2974,7 @@
         </span>f.set_len(<span class="number">0</span>).unwrap();
         <span class="macro">assert_eq!</span>(f.write(<span class="string">b"Hi"</span>).<span class="kw">await</span>.unwrap(), <span class="number">2</span>);
         <span class="comment">// Same with flushing
-        </span><span class="macro">assert_eq!</span>(f.flush().<span class="kw">await</span>.unwrap(), (),);
+        </span><span class="macro">assert_eq!</span>(f.flush().<span class="kw">await</span>.unwrap(), ());
 
         <span class="comment">// if we now read it then the data should be different
         </span>buf = String::new();

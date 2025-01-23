@@ -2608,7 +2608,7 @@
         <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">"/"</span>);
 
         <span class="kw">if </span>!cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">"foo"</span>.to_string()) {
-            <span class="macro">panic!</span>(<span class="string">"cur_dir does not contain foo: {:#?}"</span>, cur_dir);
+            <span class="macro">panic!</span>(<span class="string">"cur_dir does not contain foo: {cur_dir:#?}"</span>);
         }
 
         <span class="macro">assert!</span>(
@@ -2769,7 +2769,7 @@
         <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, bar);
 
         <span class="kw">if </span>!bar_dir.contains(<span class="kw-2">&amp;</span><span class="string">"qux"</span>.to_string()) {
-            <span class="macro">println!</span>(<span class="string">"qux does not exist: {:?}"</span>, bar_dir)
+            <span class="macro">println!</span>(<span class="string">"qux does not exist: {bar_dir:?}"</span>)
         }
 
         <span class="kw">let </span>qux_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, bar.join(<span class="string">"qux"</span>));
@@ -2786,7 +2786,7 @@
             <span class="string">"the /bar/hello2.txt file exists"
         </span>);
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(foo), <span class="prelude-val">Ok</span>(()), <span class="string">"create ./foo again"</span>,);
+        <span class="macro">assert_eq!</span>(fs.create_dir(foo), <span class="prelude-val">Ok</span>(()), <span class="string">"create ./foo again"</span>);
 
         <span class="macro">assert_eq!</span>(
             fs.rename(<span class="kw-2">&amp;</span>bar.join(<span class="string">"hello2.txt"</span>), <span class="kw-2">&amp;</span>foo.join(<span class="string">"world2.txt"</span>))
@@ -2980,7 +2980,7 @@
         <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">"checking entry #5"</span>);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = readdir.next() {
-            <span class="macro">panic!</span>(<span class="string">"next: {:?}"</span>, s);
+            <span class="macro">panic!</span>(<span class="string">"next: {s:?}"</span>);
         }
     }
 }

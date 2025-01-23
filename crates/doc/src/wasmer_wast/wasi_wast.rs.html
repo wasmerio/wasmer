@@ -770,8 +770,6 @@
 <a href="#770" id="770">770</a>
 <a href="#771" id="771">771</a>
 <a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fs::{read_dir, File, OpenOptions, ReadDir},
     future::Future,
@@ -929,9 +927,7 @@
                 <span class="kw">let </span>stderr_str = get_stdio_output(<span class="kw-2">&amp;</span>stderr_rx)<span class="question-mark">?</span>;
                 <span class="prelude-val">Err</span>(e).with_context(|| {
                     <span class="macro">format!</span>(
-                        <span class="string">"failed to run WASI `_start` function: failed with stdout: \"{}\"\nstderr: \"{}\""</span>,
-                        stdout_str,
-                        stderr_str,
+                        <span class="string">"failed to run WASI `_start` function: failed with stdout: \"{stdout_str}\"\nstderr: \"{stderr_str}\""</span>,
                     )
                 })<span class="question-mark">?</span>;
             }
@@ -1081,7 +1077,7 @@
 
                 <span class="kw">for </span>alias <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.temp_dirs {
                     <span class="kw">let </span>temp_dir_name =
-                        PathBuf::from(<span class="macro">format!</span>(<span class="string">"/.tmp_wasmer_wast_{}"</span>, temp_dir_index));
+                        PathBuf::from(<span class="macro">format!</span>(<span class="string">"/.tmp_wasmer_wast_{temp_dir_index}"</span>));
                     fs.create_dir(temp_dir_name.as_path())<span class="question-mark">?</span>;
                     builder.add_map_dir(alias, temp_dir_name)<span class="question-mark">?</span>;
                     temp_dir_index += <span class="number">1</span>;

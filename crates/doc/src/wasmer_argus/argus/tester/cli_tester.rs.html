@@ -420,7 +420,7 @@
         <span class="kw">let </span>webc_v2_path = dir_path.join(<span class="string">"package_v2.webc"</span>);
 
         <span class="self">self</span>.p
-            .set_message(<span class="macro">format!</span>(<span class="string">"unpacking webc at {:?}"</span>, webc_v2_path));
+            .set_message(<span class="macro">format!</span>(<span class="string">"unpacking webc at {webc_v2_path:?}"</span>));
 
         <span class="kw">let </span>v2_bytes = std::fs::read(<span class="kw-2">&amp;</span>webc_v2_path)<span class="question-mark">?</span>;
 
@@ -445,7 +445,7 @@
         <span class="kw">let </span>webc_v3_path = dir_path.join(<span class="string">"package_v3.webc"</span>);
 
         <span class="self">self</span>.p
-            .set_message(<span class="macro">format!</span>(<span class="string">"unpacking webc at {:?}"</span>, webc_v3_path));
+            .set_message(<span class="macro">format!</span>(<span class="string">"unpacking webc at {webc_v3_path:?}"</span>));
 
         <span class="kw">let </span>v3_bytes = std::fs::read(<span class="kw-2">&amp;</span>webc_v3_path)<span class="question-mark">?</span>;
 

@@ -12027,7 +12027,6 @@
 <a href="#12027" id="12027">12027</a>
 <a href="#12028" id="12028">12028</a>
 <a href="#12029" id="12029">12029</a>
-<a href="#12030" id="12030">12030</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
@@ -12113,8 +12112,8 @@
         <span class="kw">let </span>function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(<span class="kw-2">*</span>local_func_index));
         <span class="kw">let </span>module_name = <span class="kw">match </span>wasm_module.name.as_ref() {
-            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"&lt;anonymous module&gt; function {}"</span>, function_name),
-            <span class="prelude-val">Some</span>(module_name) =&gt; <span class="macro">format!</span>(<span class="string">"module {} function {}"</span>, module_name, function_name),
+            <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"&lt;anonymous module&gt; function {function_name}"</span>),
+            <span class="prelude-val">Some</span>(module_name) =&gt; <span class="macro">format!</span>(<span class="string">"module {module_name} function {function_name}"</span>),
         };
         <span class="kw">let </span>module = <span class="self">self</span>.ctx.create_module(module_name.as_str());
 
@@ -14149,7 +14148,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                 tbaa_label(
                     <span class="self">self</span>.module,
                     <span class="self">self</span>.intrinsics,
-                    <span class="macro">format!</span>(<span class="string">"local {}"</span>, local_index),
+                    <span class="macro">format!</span>(<span class="string">"local {local_index}"</span>),
                     v.as_instruction_value().unwrap(),
                 );
                 <span class="self">self</span>.state.push1(v);
@@ -14162,7 +14161,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                 tbaa_label(
                     <span class="self">self</span>.module,
                     <span class="self">self</span>.intrinsics,
-                    <span class="macro">format!</span>(<span class="string">"local {}"</span>, local_index),
+                    <span class="macro">format!</span>(<span class="string">"local {local_index}"</span>),
                     store,
                 );
             }
@@ -14174,7 +14173,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                 tbaa_label(
                     <span class="self">self</span>.module,
                     <span class="self">self</span>.intrinsics,
-                    <span class="macro">format!</span>(<span class="string">"local {}"</span>, local_index),
+                    <span class="macro">format!</span>(<span class="string">"local {local_index}"</span>),
                     store,
                 );
             }
@@ -23998,8 +23997,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                    <span class="string">"Operator {:?} unimplemented"</span>,
-                    op
+                    <span class="string">"Operator {op:?} unimplemented"</span>,
                 )));
             }
         }

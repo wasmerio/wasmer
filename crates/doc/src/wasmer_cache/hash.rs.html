@@ -78,7 +78,6 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::DeserializeError;
 <span class="kw">use </span>std::string::ToString;
 <span class="kw">use </span>std::{
@@ -127,8 +126,7 @@
     </span><span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
         <span class="kw">let </span>bytes = hex::decode(s).map_err(|e| {
             DeserializeError::Generic(<span class="macro">format!</span>(
-                <span class="string">"Could not decode prehashed key as hexadecimal: {}"</span>,
-                e
+                <span class="string">"Could not decode prehashed key as hexadecimal: {e}"</span>,
             ))
         })<span class="question-mark">?</span>;
         <span class="kw">if </span>bytes.len() != <span class="number">32 </span>{
@@ -137,7 +135,7 @@
             ));
         }
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(bytes[<span class="number">0</span>..<span class="number">32</span>].try_into().map_err(|e| {
-            DeserializeError::Generic(<span class="macro">format!</span>(<span class="string">"Could not get first 32 bytes: {}"</span>, e))
+            DeserializeError::Generic(<span class="macro">format!</span>(<span class="string">"Could not get first 32 bytes: {e}"</span>))
         })<span class="question-mark">?</span>))
     }
 }

@@ -521,7 +521,7 @@
 
             <span class="kw">let </span>len = file.metadata().map_err(|e| e.to_string())<span class="question-mark">?</span>.len() <span class="kw">as </span>usize;
             <span class="kw">if </span>len &lt; mapping_size {
-                std::fs::write(<span class="kw-2">&amp;</span>backing_file_accessible, <span class="macro">format!</span>(<span class="string">"{}"</span>, len).as_bytes()).ok();
+                std::fs::write(<span class="kw-2">&amp;</span>backing_file_accessible, <span class="macro">format!</span>(<span class="string">"{len}"</span>).as_bytes()).ok();
 
                 file.set_len(mapping_size <span class="kw">as </span>u64)
                     .map_err(|e| e.to_string())<span class="question-mark">?</span>;

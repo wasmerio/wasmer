@@ -1187,7 +1187,7 @@
         <span class="kw">match </span>wasi_file.read(inner_buffer).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(a) =&gt; a <span class="kw">as </span>isize,
             <span class="prelude-val">Err</span>(err) =&gt; {
-                update_last_error(<span class="macro">format!</span>(<span class="string">"failed to read wasi_file: {}"</span>, err));
+                update_last_error(<span class="macro">format!</span>(<span class="string">"failed to read wasi_file: {err}"</span>));
                 -<span class="number">1
             </span>}
         }

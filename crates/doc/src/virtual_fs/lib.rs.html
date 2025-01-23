@@ -1141,7 +1141,7 @@
     ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, std::io::Result&lt;()&gt;&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">let </span>bytes_written = tokio::io::copy(<span class="kw-2">&amp;mut </span>src, <span class="self">self</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">"Copying file into host filesystem"</span>,);
+            <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">"Copying file into host filesystem"</span>);
             <span class="prelude-val">Ok</span>(())
         })
     }

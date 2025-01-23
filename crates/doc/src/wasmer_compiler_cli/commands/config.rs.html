@@ -104,7 +104,6 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::VERSION;
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
@@ -164,8 +163,7 @@
                 <span class="prelude-val">Some</span>(dir)
             })
             .context(<span class="macro">format!</span>(
-                <span class="string">"failed to retrieve the {} environment variables"</span>,
-                key
+                <span class="string">"failed to retrieve the {key} environment variables"</span>,
             ))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>prefix = PathBuf::from(wasmer_dir);
@@ -174,40 +172,40 @@
         <span class="kw">let </span>bindir = prefix.join(<span class="string">"bin"</span>).display().to_string();
         <span class="kw">let </span>includedir = prefix.join(<span class="string">"include"</span>).display().to_string();
         <span class="kw">let </span>libdir = prefix.join(<span class="string">"lib"</span>).display().to_string();
-        <span class="kw">let </span>cflags = <span class="macro">format!</span>(<span class="string">"-I{}"</span>, includedir);
-        <span class="kw">let </span>libs = <span class="macro">format!</span>(<span class="string">"-L{} -lwasmer"</span>, libdir);
+        <span class="kw">let </span>cflags = <span class="macro">format!</span>(<span class="string">"-I{includedir}"</span>);
+        <span class="kw">let </span>libs = <span class="macro">format!</span>(<span class="string">"-L{libdir} -lwasmer"</span>);
 
         <span class="kw">if </span><span class="self">self</span>.pkg_config {
-            <span class="macro">println!</span>(<span class="string">"prefix={}"</span>, prefixdir);
-            <span class="macro">println!</span>(<span class="string">"exec_prefix={}"</span>, bindir);
-            <span class="macro">println!</span>(<span class="string">"includedir={}"</span>, includedir);
-            <span class="macro">println!</span>(<span class="string">"libdir={}"</span>, libdir);
+            <span class="macro">println!</span>(<span class="string">"prefix={prefixdir}"</span>);
+            <span class="macro">println!</span>(<span class="string">"exec_prefix={bindir}"</span>);
+            <span class="macro">println!</span>(<span class="string">"includedir={includedir}"</span>);
+            <span class="macro">println!</span>(<span class="string">"libdir={libdir}"</span>);
             <span class="macro">println!</span>();
             <span class="macro">println!</span>(<span class="string">"Name: wasmer"</span>);
             <span class="macro">println!</span>(<span class="string">"Description: The Wasmer library for running WebAssembly"</span>);
-            <span class="macro">println!</span>(<span class="string">"Version: {}"</span>, VERSION);
-            <span class="macro">println!</span>(<span class="string">"Cflags: {}"</span>, cflags);
-            <span class="macro">println!</span>(<span class="string">"Libs: {}"</span>, libs);
+            <span class="macro">println!</span>(<span class="string">"Version: {VERSION}"</span>);
+            <span class="macro">println!</span>(<span class="string">"Cflags: {cflags}"</span>);
+            <span class="macro">println!</span>(<span class="string">"Libs: {libs}"</span>);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
         <span class="kw">if </span><span class="self">self</span>.prefix {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, prefixdir);
+            <span class="macro">println!</span>(<span class="string">"{prefixdir}"</span>);
         }
         <span class="kw">if </span><span class="self">self</span>.bindir {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, bindir);
+            <span class="macro">println!</span>(<span class="string">"{bindir}"</span>);
         }
         <span class="kw">if </span><span class="self">self</span>.includedir {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, includedir);
+            <span class="macro">println!</span>(<span class="string">"{includedir}"</span>);
         }
         <span class="kw">if </span><span class="self">self</span>.libdir {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, libdir);
+            <span class="macro">println!</span>(<span class="string">"{libdir}"</span>);
         }
         <span class="kw">if </span><span class="self">self</span>.libs {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, libs);
+            <span class="macro">println!</span>(<span class="string">"{libs}"</span>);
         }
         <span class="kw">if </span><span class="self">self</span>.cflags {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, cflags);
+            <span class="macro">println!</span>(<span class="string">"{cflags}"</span>);
         }
         <span class="prelude-val">Ok</span>(())
     }

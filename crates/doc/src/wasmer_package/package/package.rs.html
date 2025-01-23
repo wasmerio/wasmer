@@ -3475,8 +3475,8 @@
             meta_volume.read_file(<span class="string">"README.md"</span>).unwrap(),
             (<span class="string">b"readme"</span>.as_slice().into(), <span class="prelude-val">Some</span>(readme_hash)),
         );
-        <span class="macro">assert!</span>(dir1_volume.read_dir(<span class="string">"/"</span>).unwrap().is_empty(),);
-        <span class="macro">assert!</span>(dir2_volume.read_dir(<span class="string">"/"</span>).unwrap().is_empty(),);
+        <span class="macro">assert!</span>(dir1_volume.read_dir(<span class="string">"/"</span>).unwrap().is_empty());
+        <span class="macro">assert!</span>(dir2_volume.read_dir(<span class="string">"/"</span>).unwrap().is_empty());
     }
 
     <span class="attr">#[test]

@@ -93,7 +93,7 @@
                 <span class="macro">assert_eq!</span>(message, <span class="string">"unexpected end-of-file"</span>);
                 <span class="macro">assert_eq!</span>(offset, <span class="number">0</span>);
             }
-            err =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {:?}"</span>, err),
+            err =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {err:?}"</span>),
         }
     }
 
@@ -106,7 +106,7 @@
                 <span class="macro">assert_eq!</span>(message, <span class="string">"unexpected end-of-file"</span>);
                 <span class="macro">assert_eq!</span>(offset, <span class="number">0</span>);
             }
-            err =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {:?}"</span>, err),
+            err =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {err:?}"</span>),
         }
     }
 }

@@ -832,7 +832,7 @@
             <span class="kw">let </span>module = module_builder(buffer)<span class="question-mark">?</span>;
             compile_info = MaybeUninit::new(
                 rkyv::deserialize::&lt;<span class="kw">_</span>, RkyvError&gt;(<span class="kw-2">&amp;</span>module.compile_info)
-                    .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>,
+                    .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{e:?}"</span>)))<span class="question-mark">?</span>,
             );
             ModuleFromArchive::from_serializable_module(module)
         })<span class="question-mark">?</span>;
@@ -945,7 +945,7 @@
         rkyv::deserialize::&lt;<span class="kw">_</span>, RkyvError&gt;(
             <span class="kw-2">&amp;</span><span class="self">self</span>.cell.borrow_dependent().compilation.function_frame_info,
         )
-        .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
+        .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{e:?}"</span>)))
     }
 }
 

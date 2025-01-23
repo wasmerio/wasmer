@@ -453,7 +453,7 @@
             memories.push(InternalStoreHandle::new(
                 context,
                 <span class="self">self</span>.create_vm_memory(ty, style, <span class="kw-2">*</span>mdl)
-                    .map_err(|e| LinkError::Resource(<span class="macro">format!</span>(<span class="string">"Failed to create memory: {}"</span>, e)))<span class="question-mark">?</span>,
+                    .map_err(|e| LinkError::Resource(<span class="macro">format!</span>(<span class="string">"Failed to create memory: {e}"</span>)))<span class="question-mark">?</span>,
             ));
         }
         <span class="prelude-val">Ok</span>(memories)

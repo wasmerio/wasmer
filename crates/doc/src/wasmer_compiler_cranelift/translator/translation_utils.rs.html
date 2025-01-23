@@ -143,7 +143,6 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.
 
 </span><span class="kw">use </span><span class="kw">super</span>::func_environ::TargetEnvironment;
@@ -232,7 +231,7 @@
         Reloc::X86GOTPCRel4 =&gt; RelocationKind::X86GOTPCRel4,
         Reloc::Arm64Call =&gt; RelocationKind::Arm64Call,
         Reloc::RiscvCallPlt =&gt; RelocationKind::RiscvCall,
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"The relocation {} is not yet supported."</span>, reloc),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"The relocation {reloc} is not yet supported."</span>),
     }
 }
 
@@ -262,9 +261,8 @@
                     builder.append_block_param(block, environ.reference_type());
                 } <span class="kw">else </span>{
                     <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(<span class="macro">format!</span>(
-                        <span class="string">"unsupported reference type: {:?}"</span>,
-                        ty
-                    )));
+                        <span class="string">"unsupported reference type: {ty:?}"
+                    </span>)));
                 }
             }
             wasmparser::ValType::V128 =&gt; {

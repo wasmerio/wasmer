@@ -665,7 +665,7 @@
 </span><span class="kw">fn </span>test_run() {
     <span class="kw">let </span>_drop = RemoveTestsOnDrop::default();
     <span class="kw">let </span>config = Config::get();
-    <span class="macro">println!</span>(<span class="string">"config: {:#?}"</span>, config);
+    <span class="macro">println!</span>(<span class="string">"config: {config:#?}"</span>);
 
     <span class="kw">let </span>manifest_dir = <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>);
     <span class="kw">let </span>host = target_lexicon::HOST.to_string();
@@ -946,7 +946,7 @@
             <span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
         };
         <span class="kw">let </span>lines_3 = file.lines().take(<span class="number">3</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"first 3 lines of {path:?}: {:#?}\n"</span>, lines_3));
+        log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"first 3 lines of {path:?}: {lines_3:#?}\n"</span>));
 
         <span class="kw">let </span>parent = std::path::Path::new(<span class="kw-2">&amp;</span>path).parent().unwrap();
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(symlink) = std::fs::read_to_string(parent.join(<span class="kw-2">&amp;</span>file)) {
@@ -959,7 +959,7 @@
             .captures_iter(<span class="kw-2">&amp;</span>file)
             .map(|c| c[<span class="number">1</span>].to_string())
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"regex captures: ({path:?}): {:#?}\n"</span>, filepaths));
+        log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"regex captures: ({path:?}): {filepaths:#?}\n"</span>));
         <span class="kw">let </span>joined_filepaths = filepaths
             .iter()
             .map(|s| {

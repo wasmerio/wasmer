@@ -290,10 +290,10 @@
                     <span class="macro">format!</span>(<span class="string">"{}-{}.webc"</span>, name.replace(<span class="string">'/'</span>, <span class="string">"-"</span>), pkg_hash)
                 }
             } <span class="kw">else </span>{
-                <span class="macro">format!</span>(<span class="string">"{}.webc"</span>, pkg_hash)
+                <span class="macro">format!</span>(<span class="string">"{pkg_hash}.webc"</span>)
             }
         } <span class="kw">else </span>{
-            <span class="macro">format!</span>(<span class="string">"{}.webc"</span>, pkg_hash)
+            <span class="macro">format!</span>(<span class="string">"{pkg_hash}.webc"</span>)
         };
 
         <span class="comment">// Setup the progress bar

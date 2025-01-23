@@ -175,7 +175,7 @@
                 <span class="macro">warning!</span>(<span class="string">"the output file has no extension. We recommend using `{}.{}` for the chosen target"</span>, <span class="kw-2">&amp;</span>output_filename, <span class="kw-2">&amp;</span>recommended_extension)
             }
         }
-        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, compiler_type);
+        <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
         <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
 
         <span class="kw">let </span>module = Module::from_file(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;

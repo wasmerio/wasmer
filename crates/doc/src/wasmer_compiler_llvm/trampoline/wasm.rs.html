@@ -531,8 +531,6 @@
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     abi::{get_abi, Abi},
     config::{CompiledKind, LLVM},
@@ -674,8 +672,7 @@
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(<span class="number">0</span>)),
             |name: <span class="kw-2">&amp;</span>str| {
                 <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                    <span class="string">"trampoline generation produced reference to unknown function {}"</span>,
-                    name
+                    <span class="string">"trampoline generation produced reference to unknown function {name}"</span>,
                 )))
             },
         )<span class="question-mark">?</span>;
@@ -799,8 +796,7 @@
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(<span class="number">0</span>)),
             |name: <span class="kw-2">&amp;</span>str| {
                 <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                    <span class="string">"trampoline generation produced reference to unknown function {}"</span>,
-                    name
+                    <span class="string">"trampoline generation produced reference to unknown function {name}"</span>,
                 )))
             },
         )<span class="question-mark">?</span>;

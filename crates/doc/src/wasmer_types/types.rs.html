@@ -708,7 +708,7 @@
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Type {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>)
+        <span class="macro">write!</span>(f, <span class="string">"{self:?}"</span>)
     }
 }
 
@@ -939,16 +939,16 @@
         <span class="kw">let </span>params = <span class="self">self
             </span>.params
             .iter()
-            .map(|p| <span class="macro">format!</span>(<span class="string">"{:?}"</span>, p))
+            .map(|p| <span class="macro">format!</span>(<span class="string">"{p:?}"</span>))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             .join(<span class="string">", "</span>);
         <span class="kw">let </span>results = <span class="self">self
             </span>.results
             .iter()
-            .map(|p| <span class="macro">format!</span>(<span class="string">"{:?}"</span>, p))
+            .map(|p| <span class="macro">format!</span>(<span class="string">"{p:?}"</span>))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             .join(<span class="string">", "</span>);
-        <span class="macro">write!</span>(f, <span class="string">"[{}] -&gt; [{}]"</span>, params, results)
+        <span class="macro">write!</span>(f, <span class="string">"[{params}] -&gt; [{results}]"</span>)
     }
 }
 

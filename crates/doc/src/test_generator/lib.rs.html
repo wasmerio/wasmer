@@ -150,7 +150,7 @@
         <span class="string">"fn r#{}(config: crate::Config) -&gt; anyhow::Result&lt;()&gt; {{"</span>,
         <span class="kw-2">&amp;</span>testname
     )<span class="question-mark">?</span>;
-    <span class="macro">writeln!</span>(out.buffer, <span class="string">"{}"</span>, body)<span class="question-mark">?</span>;
+    <span class="macro">writeln!</span>(out.buffer, <span class="string">"{body}"</span>)<span class="question-mark">?</span>;
     <span class="macro">writeln!</span>(out.buffer, <span class="string">"}}"</span>)<span class="question-mark">?</span>;
     <span class="macro">writeln!</span>(out.buffer)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
@@ -164,7 +164,7 @@
     <span class="kw">let </span>path = path.as_ref();
     <span class="kw">let </span><span class="kw-2">mut </span>dir_entries: Vec&lt;<span class="kw">_</span>&gt; = path
         .read_dir()
-        .context(<span class="macro">format!</span>(<span class="string">"failed to read {:?}"</span>, path))<span class="question-mark">?
+        .context(<span class="macro">format!</span>(<span class="string">"failed to read {path:?}"</span>))<span class="question-mark">?
         </span>.map(|r| r.expect(<span class="string">"reading testsuite directory entry"</span>))
         .filter_map(|dir_entry| processor(out, dir_entry.path()))
         .collect();

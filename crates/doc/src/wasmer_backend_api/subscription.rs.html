@@ -102,7 +102,7 @@
     <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = client.auth_token() {
         req.headers_mut().insert(
             reqwest::header::AUTHORIZATION,
-            HeaderValue::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Bearer {}"</span>, token))<span class="question-mark">?</span>,
+            HeaderValue::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Bearer {token}"</span>))<span class="question-mark">?</span>,
         );
     }
 

@@ -504,7 +504,7 @@
         // are compliant with the same string representations as gcc.
         </span><span class="kw">let </span>llvm_cpu_features = cpu_features
             .iter()
-            .map(|feature| <span class="macro">format!</span>(<span class="string">"+{}"</span>, feature))
+            .map(|feature| <span class="macro">format!</span>(<span class="string">"+{feature}"</span>))
             .join(<span class="string">","</span>);
 
         <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple(target);

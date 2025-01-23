@@ -687,7 +687,7 @@
         <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>linux32, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>translation, inputs);
         <span class="kw">match </span>result.unwrap_err() {
             CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">"i686"</span>),
-            error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {:?}"</span>, error),
+            error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {error:?}"</span>),
         };
 
         <span class="comment">// Compile for win32
@@ -696,7 +696,7 @@
         <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>win32, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>translation, inputs);
         <span class="kw">match </span>result.unwrap_err() {
             CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">"i686"</span>), <span class="comment">// Windows should be checked before architecture
-            </span>error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {:?}"</span>, error),
+            </span>error =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {error:?}"</span>),
         };
     }
 

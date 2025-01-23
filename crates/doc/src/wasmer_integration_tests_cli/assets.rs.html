@@ -242,7 +242,7 @@
         ret = wasmer_target_path_2().join(LIBWASMER_FILENAME);
     }
     <span class="kw">if </span>!ret.exists() {
-        <span class="macro">panic!</span>(<span class="string">"Could not find libwasmer path! {:?}"</span>, ret);
+        <span class="macro">panic!</span>(<span class="string">"Could not find libwasmer path! {ret:?}"</span>);
     }
     ret
 }
@@ -268,7 +268,7 @@
                 }
             }
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">panic!</span>(<span class="string">"Could not find wasmer executable path! {:?}"</span>, ret);
+                <span class="macro">panic!</span>(<span class="string">"Could not find wasmer executable path! {ret:?}"</span>);
             }
         };
     }
@@ -287,7 +287,7 @@
                     .join(executable)
             }
             <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">panic!</span>(<span class="string">"Could not find wasmer executable path! {:?}"</span>, ret);
+                <span class="macro">panic!</span>(<span class="string">"Could not find wasmer executable path! {ret:?}"</span>);
             }
         };
     }

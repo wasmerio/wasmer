@@ -274,9 +274,6 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Linking for Universal-compiled code.
 
 </span><span class="kw">use crate</span>::{
@@ -497,10 +494,7 @@
                 </span>| (read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32) &amp; <span class="number">0xFFC003FF</span>);
             write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
         },
-        kind =&gt; <span class="macro">panic!</span>(
-            <span class="string">"Relocation kind unsupported in the current architecture {}"</span>,
-            kind
-        ),
+        kind =&gt; <span class="macro">panic!</span>(<span class="string">"Relocation kind unsupported in the current architecture {kind}"</span>),
     }
 }
 

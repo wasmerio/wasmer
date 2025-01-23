@@ -2335,10 +2335,6 @@
 <a href="#2335" id="2335">2335</a>
 <a href="#2336" id="2336">2336</a>
 <a href="#2337" id="2337">2337</a>
-<a href="#2338" id="2338">2338</a>
-<a href="#2339" id="2339">2339</a>
-<a href="#2340" id="2340">2340</a>
-<a href="#2341" id="2341">2341</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -2578,7 +2574,7 @@
         <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(<span class="prelude-val">Some</span>(hash_algorithm));
 
-        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, compiler_type);
+        <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
         <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
         <span class="macro">println!</span>(
             <span class="string">"Using path `{}` as libwasmer path."</span>,
@@ -2717,7 +2713,7 @@
         AllowMultiWasm::Reject(<span class="prelude-val">Some</span>(s)) =&gt; {
             <span class="kw">let </span>atom = pirita
                 .get_atom(s)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">"could not find atom \"{s}\""</span>,))<span class="question-mark">?</span>;
+                .with_context(|| <span class="macro">format!</span>(<span class="string">"could not find atom \"{s}\""</span>))<span class="question-mark">?</span>;
             <span class="macro">vec!</span>[(s.to_string(), atom)]
         }
     };
@@ -3226,7 +3222,7 @@
 
     <span class="comment">// On some compiler -target isn't implemented
     </span><span class="kw">if </span><span class="kw-2">*</span>target != Triple::host() {
-        command = command.arg(<span class="string">"-target"</span>).arg(<span class="macro">format!</span>(<span class="string">"{}"</span>, target));
+        command = command.arg(<span class="string">"-target"</span>).arg(<span class="macro">format!</span>(<span class="string">"{target}"</span>));
     }
 
     <span class="kw">let </span>command = command.arg(<span class="string">"-o"</span>).arg(output_name);
@@ -3751,7 +3747,7 @@
 
     <span class="kw">if </span><span class="kw-2">*</span>target != Triple::host() {
         command = command.arg(<span class="string">"-target"</span>);
-        command = command.arg(<span class="macro">format!</span>(<span class="string">"{}"</span>, target));
+        command = command.arg(<span class="macro">format!</span>(<span class="string">"{target}"</span>));
     }
 
     <span class="kw">for </span>include_dir <span class="kw">in </span>include_dirs {
@@ -3777,11 +3773,11 @@
     } <span class="kw">else </span>{
         additional_libraries.extend(LINK_SYSTEM_LIBRARIES_UNIX.iter().map(|s| s.to_string()));
     }
-    <span class="kw">let </span>link_against_extra_libs = additional_libraries.iter().map(|lib| <span class="macro">format!</span>(<span class="string">"-l{}"</span>, lib));
+    <span class="kw">let </span>link_against_extra_libs = additional_libraries.iter().map(|lib| <span class="macro">format!</span>(<span class="string">"-l{lib}"</span>));
     <span class="kw">let </span>command = command.args(link_against_extra_libs);
     <span class="kw">let </span>command = command.arg(<span class="string">"-o"</span>).arg(output_path);
     <span class="kw">if </span>debug {
-        <span class="macro">println!</span>(<span class="string">"{:#?}"</span>, command);
+        <span class="macro">println!</span>(<span class="string">"{command:#?}"</span>);
     }
     <span class="kw">let </span>output = command.output()<span class="question-mark">?</span>;
 
@@ -3897,8 +3893,7 @@
                 })<span class="question-mark">?</span>;
             <span class="macro">writeln!</span>(
                 c_code_to_instantiate,
-                <span class="string">"if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}"</span>,
-                prefix
+                <span class="string">"if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{prefix}; }}"</span>,
             )<span class="question-mark">?</span>;
         }
     }
@@ -4202,7 +4197,7 @@
             Environment::Msvc =&gt; <span class="string">"msvc"</span>,
             <span class="kw">_ </span>=&gt; <span class="string">"none"</span>,
         };
-        <span class="macro">format!</span>(<span class="string">"{}-{}-{}"</span>, arch, os, env)
+        <span class="macro">format!</span>(<span class="string">"{arch}-{os}-{env}"</span>)
     }
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_wasmer_include_directory(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; anyhow::Result&lt;PathBuf&gt; {
@@ -4652,10 +4647,7 @@
                 }
             }
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">eprintln!</span>(
-                    <span class="string">"Could not determine cache path for downloaded binaries.: {}"</span>,
-                    err
-                );
+                <span class="macro">eprintln!</span>(<span class="string">"Could not determine cache path for downloaded binaries.: {err}"</span>);
                 <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">"Could not determine libwasmer cache path"</span>))
             }
         }

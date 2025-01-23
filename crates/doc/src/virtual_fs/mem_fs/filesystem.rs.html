@@ -3170,7 +3170,7 @@
             <span class="string">"creating the root which already exists"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating a directory"</span>,);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating a directory"</span>);
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
@@ -3273,7 +3273,7 @@
             <span class="string">"cannot remove a directory that doesn't exist"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating a directory"</span>,);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"creating a directory"</span>);
 
         <span class="macro">assert_eq!</span>(
             fs.create_dir(<span class="macro">path!</span>(<span class="string">"/foo/bar"</span>)),
@@ -3302,7 +3302,7 @@
             <span class="string">"removing a sub-directory"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.remove_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"removing a directory"</span>,);
+        <span class="macro">assert_eq!</span>(fs.remove_dir(<span class="macro">path!</span>(<span class="string">"/foo"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"removing a directory"</span>);
 
         {
             <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();

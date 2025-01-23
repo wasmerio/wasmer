@@ -169,7 +169,7 @@
                     is_last: n == total_errors - <span class="number">1</span>,
                     started: <span class="bool-val">false</span>,
                 };
-                <span class="macro">write!</span>(indented, <span class="string">"{}"</span>, error)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(indented, <span class="string">"{error}"</span>)<span class="question-mark">?</span>;
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -198,14 +198,14 @@
                                 <span class="self">self</span>.inner,
                                 <span class="string">"{} {: &gt;4} "</span>,
                                 <span class="string">"│"</span>.bold().blue(),
-                                <span class="macro">format!</span>(<span class="string">"{}:"</span>, number).dimmed()
+                                <span class="macro">format!</span>(<span class="string">"{number}:"</span>).dimmed()
                             )<span class="question-mark">?
                         </span>} <span class="kw">else </span>{
                             <span class="macro">write!</span>(
                                 <span class="self">self</span>.inner,
                                 <span class="string">"{}{: &gt;2}: "</span>,
                                 <span class="string">"╰─▶"</span>.bold().blue(),
-                                <span class="macro">format!</span>(<span class="string">"{}"</span>, number).bold().blue()
+                                <span class="macro">format!</span>(<span class="string">"{number}"</span>).bold().blue()
                             )<span class="question-mark">?
                         </span>}
                     }

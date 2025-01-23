@@ -307,7 +307,7 @@
         }
         user_agent
             .parse()
-            .with_context(|| <span class="macro">format!</span>(<span class="string">"invalid user agent: '{}'"</span>, user_agent))
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"invalid user agent: '{user_agent}'"</span>))
     }
 
     <span class="kw">pub fn </span>new_with_client(

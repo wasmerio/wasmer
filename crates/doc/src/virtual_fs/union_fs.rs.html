@@ -1569,7 +1569,7 @@
     </span><span class="kw">async fn </span>test_create_dir() {
         <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"/"</span>)), <span class="prelude-val">Ok</span>(()),);
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"/"</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"/test_create_dir"</span>)), <span class="prelude-val">Ok</span>(()));
 
@@ -1582,7 +1582,7 @@
         <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">"/test_create_dir"</span>);
 
         <span class="kw">if </span>!cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">"foo"</span>.to_string()) {
-            <span class="macro">panic!</span>(<span class="string">"cur_dir does not contain foo: {:#?}"</span>, cur_dir);
+            <span class="macro">panic!</span>(<span class="string">"cur_dir does not contain foo: {cur_dir:#?}"</span>);
         }
 
         <span class="macro">assert!</span>(
@@ -1693,7 +1693,7 @@
             <span class="string">"renaming to a directory that has no parent"</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"/test_rename"</span>)), <span class="prelude-val">Ok</span>(()),);
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"/test_rename"</span>)), <span class="prelude-val">Ok</span>(()));
         <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"/test_rename/foo"</span>)), <span class="prelude-val">Ok</span>(()));
         <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">"/test_rename/foo/qux"</span>)), <span class="prelude-val">Ok</span>(()));
 
@@ -1748,7 +1748,7 @@
         <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">"/test_rename/bar"</span>);
 
         <span class="kw">if </span>!bar_dir.contains(<span class="kw-2">&amp;</span><span class="string">"qux"</span>.to_string()) {
-            <span class="macro">println!</span>(<span class="string">"qux does not exist: {:?}"</span>, bar_dir)
+            <span class="macro">println!</span>(<span class="string">"qux does not exist: {bar_dir:?}"</span>)
         }
 
         <span class="kw">let </span>qux_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">"/test_rename/bar/qux"</span>);
@@ -1962,7 +1962,7 @@
             <span class="string">"creating `b.txt`"</span>,
         );
 
-        <span class="macro">println!</span>(<span class="string">"fs: {:?}"</span>, fs);
+        <span class="macro">println!</span>(<span class="string">"fs: {fs:?}"</span>);
 
         <span class="kw">let </span>readdir = fs.read_dir(Path::new(<span class="string">"/test_readdir"</span>));
 
@@ -1972,7 +1972,7 @@
 
         <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
         <span class="macro">assert!</span>(next.path.ends_with(<span class="string">"foo"</span>), <span class="string">"checking entry #1"</span>);
-        <span class="macro">println!</span>(<span class="string">"entry 1: {:#?}"</span>, next);
+        <span class="macro">println!</span>(<span class="string">"entry 1: {next:#?}"</span>);
         <span class="macro">assert!</span>(next.file_type().unwrap().is_dir(), <span class="string">"checking entry #1"</span>);
 
         <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
@@ -1992,7 +1992,7 @@
         <span class="macro">assert!</span>(next.file_type().unwrap().is_file(), <span class="string">"checking entry #5"</span>);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = readdir.next() {
-            <span class="macro">panic!</span>(<span class="string">"next: {:?}"</span>, s);
+            <span class="macro">panic!</span>(<span class="string">"next: {s:?}"</span>);
         }
 
         <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">"./test_readdir"</span>]);

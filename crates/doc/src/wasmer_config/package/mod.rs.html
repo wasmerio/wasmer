@@ -1885,7 +1885,7 @@
         toml::Value::Integer(i) =&gt; ciborium::Value::Integer(ciborium::value::Integer::from(<span class="kw-2">*</span>i)),
         toml::Value::Float(f) =&gt; ciborium::Value::Float(<span class="kw-2">*</span>f),
         toml::Value::Boolean(b) =&gt; ciborium::Value::Bool(<span class="kw-2">*</span>b),
-        toml::Value::Datetime(d) =&gt; ciborium::Value::Text(<span class="macro">format!</span>(<span class="string">"{}"</span>, d)),
+        toml::Value::Datetime(d) =&gt; ciborium::Value::Text(<span class="macro">format!</span>(<span class="string">"{d}"</span>)),
         toml::Value::Array(sq) =&gt; {
             ciborium::Value::Array(sq.iter().map(toml_to_cbor_value).collect())
         }

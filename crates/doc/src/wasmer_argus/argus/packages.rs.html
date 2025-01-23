@@ -345,7 +345,7 @@
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="macro">info!</span>(<span class="string">"downloading package from {} to file {:?}"</span>, url, path);
         <span class="kw">static </span>APP_USER_AGENT: <span class="kw-2">&amp;</span>str =
-            <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"CARGO_PKG_NAME"</span>), <span class="string">"/"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>),);
+            <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"CARGO_PKG_NAME"</span>), <span class="string">"/"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>));
 
         <span class="kw">let </span><span class="kw-2">mut </span>dir_path = path.clone();
         dir_path.pop();

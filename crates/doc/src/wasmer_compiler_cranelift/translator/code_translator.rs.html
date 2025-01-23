@@ -6138,7 +6138,7 @@
         ir::Opcode::Istore16 | ir::Opcode::Sload16 | ir::Opcode::Uload16 =&gt; <span class="number">2</span>,
         ir::Opcode::Istore32 | ir::Opcode::Sload32 | ir::Opcode::Uload32 =&gt; <span class="number">4</span>,
         ir::Opcode::Store | ir::Opcode::Load =&gt; u8::try_from(ty.bytes()).unwrap(),
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"unknown size of mem op for {:?}"</span>, opcode),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"unknown size of mem op for {opcode:?}"</span>),
     }
 }
 

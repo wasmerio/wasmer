@@ -579,7 +579,7 @@
             <span class="macro">matches!</span>(stdout.write(<span class="string">b"qux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">"writing again into `stdout`"</span>,
         );
-        <span class="macro">assert_eq!</span>(stdout.buf, <span class="string">b"bazqux"</span>, <span class="string">"checking the content of `stdout`"</span>,);
+        <span class="macro">assert_eq!</span>(stdout.buf, <span class="string">b"bazqux"</span>, <span class="string">"checking the content of `stdout`"</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -619,7 +619,7 @@
             <span class="macro">matches!</span>(stderr.write(<span class="string">b"qux"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">"writing again into `stderr`"</span>,
         );
-        <span class="macro">assert_eq!</span>(stderr.buf, <span class="string">b"bazqux"</span>, <span class="string">"checking the content of `stderr`"</span>,);
+        <span class="macro">assert_eq!</span>(stderr.buf, <span class="string">b"bazqux"</span>, <span class="string">"checking the content of `stderr`"</span>);
     }
 
     <span class="attr">#[tokio::test]

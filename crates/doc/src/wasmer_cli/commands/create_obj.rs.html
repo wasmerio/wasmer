@@ -252,7 +252,7 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
         );
         <span class="kw">let </span>(<span class="kw">_</span>, compiler_type) = <span class="self">self</span>.compiler.get_store_for_target(target.clone())<span class="question-mark">?</span>;
-        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, compiler_type);
+        <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
         <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
 
         <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(webc) = from_disk(<span class="kw-2">&amp;</span>input_path) {

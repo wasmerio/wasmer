@@ -484,7 +484,6 @@
 <a href="#484" id="484">484</a>
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::fs;
@@ -607,8 +606,7 @@
         <span class="attr">#[cfg(feature = <span class="string">"wat"</span>)]
         </span><span class="kw">let </span>bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(<span class="macro">format!</span>(
-                <span class="string">"Error when converting wat: {}"</span>,
-                e
+                <span class="string">"Error when converting wat: {e}"</span>,
             )))
         })<span class="question-mark">?</span>;
         <span class="self">Self</span>::from_binary(engine, bytes.as_ref())

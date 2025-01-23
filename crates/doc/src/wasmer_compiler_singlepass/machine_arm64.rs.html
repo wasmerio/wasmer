@@ -9006,7 +9006,7 @@
     <span class="kw">match </span>reg {
         <span class="number">0</span>..=<span class="number">31 </span>=&gt; DWARF_GPR[reg <span class="kw">as </span>usize],
         <span class="number">64</span>..=<span class="number">95 </span>=&gt; DWARF_NEON[reg <span class="kw">as </span>usize - <span class="number">64</span>],
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unknown register index {}"</span>, reg),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unknown register index {reg}"</span>),
     }
 }
 
@@ -11213,7 +11213,7 @@
     <span class="comment">// assembler finalize
     </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
         <span class="self">self</span>.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"Assembler failed finalization with: {:?}"</span>, e))
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"Assembler failed finalization with: {e:?}"</span>))
         })
     }
 

@@ -65,7 +65,7 @@
             .map(|err| err.to_string())
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             .join(<span class="string">", "</span>);
-        <span class="macro">write!</span>(f, <span class="string">"GraphQL API failure: {}"</span>, errs)
+        <span class="macro">write!</span>(f, <span class="string">"GraphQL API failure: {errs}"</span>)
     }
 }
 

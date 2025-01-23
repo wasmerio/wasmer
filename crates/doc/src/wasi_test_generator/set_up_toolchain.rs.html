@@ -39,7 +39,7 @@
 <span class="kw">use </span>std::process::Command;
 
 <span class="kw">fn </span>install_toolchain(toolchain_name: <span class="kw-2">&amp;</span>str) {
-    <span class="macro">println!</span>(<span class="string">"Installing rustup toolchain: {}"</span>, toolchain_name);
+    <span class="macro">println!</span>(<span class="string">"Installing rustup toolchain: {toolchain_name}"</span>);
     <span class="kw">let </span>rustup_out = Command::new(<span class="string">"rustup"</span>)
         .arg(<span class="string">"toolchain"</span>)
         .arg(<span class="string">"install"</span>)

@@ -526,7 +526,6 @@
 <a href="#526" id="526">526</a>
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use crate</span>::{engine::builder::EngineBuilder, types::target::Target};
@@ -920,8 +919,7 @@
                 )
                 .map_err(|message| {
                     CompileError::Resource(<span class="macro">format!</span>(
-                        <span class="string">"failed to allocate memory for functions: {}"</span>,
-                        message
+                        <span class="string">"failed to allocate memory for functions: {message}"</span>,
                     ))
                 })<span class="question-mark">?</span>;
 
@@ -988,7 +986,7 @@
             .unwind_registry_mut()
             .publish(eh_frame)
             .map_err(|e| {
-                CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {}"</span>, e))
+                CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {e}"</span>))
             })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }

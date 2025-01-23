@@ -486,12 +486,6 @@
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
 <a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
 
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
@@ -510,11 +504,11 @@
 <span class="kw">use </span>wasmer_vm::libcalls::LibCall;
 
 <span class="kw">fn </span>map_tryfromint_err(error: TryFromIntError) -&gt; CompileError {
-    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"int doesn't fit: {}"</span>, error))
+    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"int doesn't fit: {error}"</span>))
 }
 
 <span class="kw">fn </span>map_object_err(error: object::read::Error) -&gt; CompileError {
-    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"error parsing object file: {}"</span>, error))
+    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"error parsing object file: {error}"</span>))
 }
 
 <span class="kw">pub struct </span>CompiledFunction {
@@ -626,7 +620,7 @@
 
     <span class="kw">let </span>root_section_index = elf
         .section_by_name(root_section)
-        .ok_or_else(|| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"no section named {}"</span>, root_section)))<span class="question-mark">?
+        .ok_or_else(|| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"no section named {root_section}"</span>)))<span class="question-mark">?
         </span>.index();
 
     <span class="kw">let </span><span class="kw-2">mut </span>section_to_custom_section = HashMap::new();
@@ -804,8 +798,7 @@
 
                 <span class="kw">_ </span>=&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">"unknown relocation {:?}"</span>,
-                        reloc
+                        <span class="string">"unknown relocation {reloc:?}"</span>,
                     )));
                 }
             };
@@ -828,8 +821,7 @@
                             }
                             <span class="kw">_ </span>=&gt; {
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                                    <span class="string">"relocation targets unknown section {:?}"</span>,
-                                    reloc
+                                    <span class="string">"relocation targets unknown section {reloc:?}"</span>,
                                 )));
                             }
                         }
@@ -855,8 +847,7 @@
                         }
                     } <span class="kw">else </span>{
                         <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                            <span class="string">"relocation targets unknown symbol {:?}"</span>,
-                            reloc
+                            <span class="string">"relocation targets unknown symbol {reloc:?}"</span>,
                         )));
                     }
                 }
@@ -877,8 +868,7 @@
                     // addresses in them because none of the parts of the Wasm
                     // VM, nor the generated code are loaded at fixed addresses.
                     </span><span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">"relocation targets absolute address {:?}"</span>,
-                        reloc
+                        <span class="string">"relocation targets absolute address {reloc:?}"</span>,
                     )));
                 }
 
@@ -890,8 +880,7 @@
                 // be added to account for any future variants.
                 </span>t =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">"relocation target is unknown `{:?}`"</span>,
-                        t
+                        <span class="string">"relocation target is unknown `{t:?}`"</span>,
                     )));
                 }
             };
@@ -913,8 +902,7 @@
             section_to_custom_section.get(index).map_or_else(
                 || {
                     <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                        <span class="string">".eh_frame section with index={:?} was never loaded"</span>,
-                        index
+                        <span class="string">".eh_frame section with index={index:?} was never loaded"</span>,
                     )))
                 },
                 |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),

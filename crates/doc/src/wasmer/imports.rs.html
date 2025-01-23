@@ -702,7 +702,7 @@
             <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
                 <span class="kw">match </span><span class="self">self </span>{
                     <span class="self">Self</span>::Empty =&gt; <span class="macro">write!</span>(f, <span class="string">"(empty)"</span>),
-                    <span class="self">Self</span>::Some(len) =&gt; <span class="macro">write!</span>(f, <span class="string">"(... {} item(s) ...)"</span>, len),
+                    <span class="self">Self</span>::Some(len) =&gt; <span class="macro">write!</span>(f, <span class="string">"(... {len} item(s) ...)"</span>),
                 }
             }
         }

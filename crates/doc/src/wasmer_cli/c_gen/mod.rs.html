@@ -874,7 +874,7 @@
                 w.push_str(<span class="string">"typedef "</span>);
                 <span class="comment">// leaky abstraction / hack, doesn't fully solve the problem
                 </span><span class="kw">if let </span>CType::Function { .. } = source_type {
-                    source_type.generate_c_with_name(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"(*{})"</span>, new_name), w);
+                    source_type.generate_c_with_name(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"(*{new_name})"</span>), w);
                 } <span class="kw">else </span>{
                     source_type.generate_c(w);
                     w.push(<span class="string">' '</span>);

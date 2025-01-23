@@ -1241,14 +1241,14 @@
                                         <span class="string">"Found local package (manifest path: {})."</span>,
                                         manifest_path.display()
                                     );
-                                    <span class="macro">eprintln!</span>(<span class="string">"The `package` field in `app.yaml` specified the same named package ({})."</span>, name);
+                                    <span class="macro">eprintln!</span>(<span class="string">"The `package` field in `app.yaml` specified the same named package ({name})."</span>);
                                     <span class="macro">eprintln!</span>(<span class="string">"This behaviour is deprecated."</span>);
                                 }
 
                                 <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
                                 <span class="kw">if </span><span class="self">self</span>.non_interactive {
                                     <span class="kw">if </span>!<span class="self">self</span>.quiet {
-                                        <span class="macro">eprintln!</span>(<span class="string">"Hint: replace `package: {}` with `package: .` to replicate the intended behaviour."</span>, n);
+                                        <span class="macro">eprintln!</span>(<span class="string">"Hint: replace `package: {n}` with `package: .` to replicate the intended behaviour."</span>);
                                     }
                                     <span class="macro">anyhow::bail!</span>(<span class="string">"deprecated deploy behaviour"</span>)
                                 } <span class="kw">else if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
@@ -1383,7 +1383,7 @@
         };
 
         <span class="kw">if </span>!<span class="self">self</span>.quiet {
-            <span class="macro">eprintln!</span>(<span class="string">"\nDeploying app {} to Wasmer Edge...\n"</span>, pretty_name);
+            <span class="macro">eprintln!</span>(<span class="string">"\nDeploying app {pretty_name} to Wasmer Edge...\n"</span>);
         }
 
         <span class="kw">let </span>app_version = deploy_app(<span class="kw-2">&amp;</span>client, opts.clone()).<span class="kw">await</span><span class="question-mark">?</span>;

@@ -463,8 +463,6 @@
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::error::ObjectError;
 <span class="kw">use </span><span class="kw">crate</span>::types::{
     function::Compilation,
@@ -507,9 +505,8 @@
         BinaryFormat::Coff =&gt; object::BinaryFormat::Coff,
         binary_format =&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ObjectError::UnsupportedBinaryFormat(<span class="macro">format!</span>(
-                <span class="string">"{}"</span>,
-                binary_format
-            )));
+                <span class="string">"{binary_format}"
+            </span>)));
         }
     };
     <span class="kw">let </span>obj_architecture = <span class="kw">match </span>triple.architecture {
@@ -519,9 +516,8 @@
         Architecture::LoongArch64 =&gt; object::Architecture::LoongArch64,
         architecture =&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(ObjectError::UnsupportedArchitecture(<span class="macro">format!</span>(
-                <span class="string">"{}"</span>,
-                architecture
-            )));
+                <span class="string">"{architecture}"
+            </span>)));
         }
     };
     <span class="kw">let </span>obj_endianness = <span class="kw">match </span>triple
@@ -781,7 +777,7 @@
                             value: macho::ARM64_RELOC_BRANCH26,
                             relative: <span class="bool-val">true</span>,
                         },
-                        fmt =&gt; <span class="macro">panic!</span>(<span class="string">"unsupported binary format {:?}"</span>, fmt),
+                        fmt =&gt; <span class="macro">panic!</span>(<span class="string">"unsupported binary format {fmt:?}"</span>),
                     },
                     RelocationEncoding::Generic,
                     <span class="number">32</span>,
@@ -892,8 +888,8 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ObjectError&gt; {
     obj.set_mangling(object::write::Mangling::None);
     <span class="comment">//let module_name = module.compile_info.module.name.clone();
-    </span><span class="kw">let </span>len_name = <span class="macro">format!</span>(<span class="string">"{}_LENGTH"</span>, object_name);
-    <span class="kw">let </span>data_name = <span class="macro">format!</span>(<span class="string">"{}_DATA"</span>, object_name);
+    </span><span class="kw">let </span>len_name = <span class="macro">format!</span>(<span class="string">"{object_name}_LENGTH"</span>);
+    <span class="kw">let </span>data_name = <span class="macro">format!</span>(<span class="string">"{object_name}_DATA"</span>);
     <span class="comment">//let metadata_name = "WASMER_MODULE_METADATA";
 
     </span><span class="kw">let </span>align = <span class="kw">match </span>triple.architecture {

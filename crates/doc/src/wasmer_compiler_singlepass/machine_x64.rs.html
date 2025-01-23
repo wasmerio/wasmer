@@ -8713,9 +8713,6 @@
 <a href="#8713" id="8713">8713</a>
 <a href="#8714" id="8714">8714</a>
 <a href="#8715" id="8715">8715</a>
-<a href="#8716" id="8716">8716</a>
-<a href="#8717" id="8717">8717</a>
-<a href="#8718" id="8718">8718</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts;
 <span class="kw">use crate</span>::{
@@ -8844,7 +8841,7 @@
     <span class="kw">match </span>reg {
         <span class="number">0</span>..=<span class="number">15 </span>=&gt; DWARF_GPR[reg <span class="kw">as </span>usize],
         <span class="number">17</span>..=<span class="number">24 </span>=&gt; DWARF_XMM[reg <span class="kw">as </span>usize - <span class="number">17</span>],
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unknown register index {}"</span>, reg),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unknown register index {reg}"</span>),
     }
 }
 
@@ -11151,10 +11148,7 @@
                     }
                 }
             },
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(
-                <span class="string">"unimplemented move_location_extend({:?}, {}, {:?}, {:?}, {:?}"</span>,
-                size_val, signed, source, size_op, dest
-            ),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(                <span class="string">"unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"            </span>),
         }<span class="question-mark">?</span>;
         <span class="kw">if </span>dst != dest {
             <span class="self">self</span>.assembler.emit_mov(size_op, dst, dest)<span class="question-mark">?</span>;
@@ -11226,7 +11220,7 @@
     <span class="comment">// assembler finalize
     </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
         <span class="self">self</span>.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"Assembler failed finalization with: {:?}"</span>, e))
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"Assembler failed finalization with: {e:?}"</span>))
         })
     }
 

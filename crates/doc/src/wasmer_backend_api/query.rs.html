@@ -3181,7 +3181,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;types::AutobuildRepository, anyhow::Error&gt; {
     <span class="kw">let </span>node = get_node(client, id.clone())
         .<span class="kw">await</span><span class="question-mark">?
-        </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"app deployment with id '{}' not found"</span>, id))<span class="question-mark">?</span>;
+        </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"app deployment with id '{id}' not found"</span>))<span class="question-mark">?</span>;
     <span class="kw">match </span>node {
         types::Node::AutobuildRepository(x) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>x),
         <span class="kw">_ </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">"invalid node type returned"</span>),
@@ -3535,7 +3535,7 @@
 
         <span class="kw">let </span>ns = res
             .get_namespace
-            .with_context(|| <span class="macro">format!</span>(<span class="string">"failed to get namespace '{}'"</span>, namespace))<span class="question-mark">?</span>;
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"failed to get namespace '{namespace}'"</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>apps: Vec&lt;<span class="kw">_</span>&gt; = ns
             .apps

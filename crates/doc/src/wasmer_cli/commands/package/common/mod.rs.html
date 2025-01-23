@@ -407,13 +407,13 @@
     <span class="kw">let </span>res = client
         .put(<span class="kw-2">&amp;</span>session_uri)
         .header(reqwest::header::CONTENT_TYPE, <span class="string">"application/octet-stream"</span>)
-        .header(reqwest::header::CONTENT_LENGTH, <span class="macro">format!</span>(<span class="string">"{}"</span>, total_bytes))
+        .header(reqwest::header::CONTENT_LENGTH, <span class="macro">format!</span>(<span class="string">"{total_bytes}"</span>))
         .body(Body::wrap_stream(stream));
 
     res.send()
         .<span class="kw">await
         </span>.map(|response| response.error_for_status())
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"error uploading package to {session_uri}: {e}"</span>,))<span class="question-mark">??</span>;
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"error uploading package to {session_uri}: {e}"</span>))<span class="question-mark">??</span>;
 
     <span class="prelude-val">Ok</span>(session_uri)
 }

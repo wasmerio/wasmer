@@ -13,7 +13,7 @@
 <a href="#13" id="13">13</a>
 </pre></div><pre class="rust"><code><span class="kw">pub fn </span>print_info_on_error(output: <span class="kw-2">&amp;</span>std::process::Output, context: <span class="kw-2">&amp;</span>str) {
     <span class="kw">if </span>!output.status.success() {
-        <span class="macro">println!</span>(<span class="string">"{}"</span>, context);
+        <span class="macro">println!</span>(<span class="string">"{context}"</span>);
         <span class="macro">println!</span>(
             <span class="string">"stdout:\n{}"</span>,
             std::str::from_utf8(<span class="kw-2">&amp;</span>output.stdout[..]).unwrap()

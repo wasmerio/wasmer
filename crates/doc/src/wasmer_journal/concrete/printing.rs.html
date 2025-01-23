@@ -293,74 +293,6 @@
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
-<a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -405,7 +337,7 @@
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>PrintingJournal {
     <span class="kw">fn </span>write&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">'a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="kw">match </span><span class="self">self</span>.mode {
-            JournalPrintingMode::Text =&gt; <span class="macro">println!</span>(<span class="string">"{}"</span>, entry),
+            JournalPrintingMode::Text =&gt; <span class="macro">println!</span>(<span class="string">"{entry}"</span>),
             JournalPrintingMode::Json =&gt; {
                 <span class="macro">println!</span>(<span class="string">"{}"</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>entry)<span class="question-mark">?</span>)
             }
@@ -434,7 +366,7 @@
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             JournalEntry::InitModuleV1 { wasm_hash } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"init-module (hash={:x?})"</span>, wasm_hash)
+                <span class="macro">write!</span>(f, <span class="string">"init-module (hash={wasm_hash:x?})"</span>)
             }
             JournalEntry::ClearEtherealV1 =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"clear-ethereal"</span>)
@@ -453,7 +385,7 @@
                 compressed_data.len()
             ),
             JournalEntry::ProcessExitV1 { exit_code } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"process-exit (code={:?})"</span>, exit_code)
+                <span class="macro">write!</span>(f, <span class="string">"process-exit (code={exit_code:?})"</span>)
             }
             JournalEntry::SetThreadV1 {
                 id,
@@ -470,142 +402,110 @@
                 store_data.len(),
             ),
             JournalEntry::CloseThreadV1 { id, exit_code } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"thread-close (id={}, code={:?})"</span>, id, exit_code)
+                <span class="macro">write!</span>(f, <span class="string">"thread-close (id={id}, code={exit_code:?})"</span>)
             }
-            JournalEntry::FileDescriptorSeekV1 { fd, offset, whence } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"fd-seek (fd={}, offset={}, whence={:?})"</span>,
-                fd, offset, whence
-            ),
+            JournalEntry::FileDescriptorSeekV1 { fd, offset, whence } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"fd-seek (fd={fd}, offset={offset}, whence={whence:?})"</span>)
+            },
             JournalEntry::FileDescriptorWriteV1 {
                 fd, offset, data, ..
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"fd-write (fd={}, offset={}, data.len={})"</span>,
-                fd,
-                offset,
-                data.len()
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-write (fd={fd}, offset={offset}, data.len={})"</span>, data.len()),
             JournalEntry::SetClockTimeV1 { clock_id, time } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"set-clock-time (id={:?}, time={})"</span>, clock_id, time)
+                <span class="macro">write!</span>(f, <span class="string">"set-clock-time (id={clock_id:?}, time={time})"</span>)
             }
-            JournalEntry::CloseFileDescriptorV1 { fd } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-close (fd={})"</span>, fd),
+            JournalEntry::CloseFileDescriptorV1 { fd } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-close (fd={fd})"</span>),
             JournalEntry::OpenFileDescriptorV1 {
                 fd, path, o_flags, ..
             } =&gt; {
                 <span class="kw">if </span>o_flags.contains(wasi::Oflags::CREATE) {
                     <span class="kw">if </span>o_flags.contains(wasi::Oflags::TRUNC) {
-                        <span class="macro">write!</span>(f, <span class="string">"fd-create-new (fd={}, path={})"</span>, fd, path)
+                        <span class="macro">write!</span>(f, <span class="string">"fd-create-new (fd={fd}, path={path})"</span>)
                     } <span class="kw">else if </span>o_flags.contains(wasi::Oflags::EXCL) {
-                        <span class="macro">write!</span>(f, <span class="string">"fd-create-excl (fd={}, path={})"</span>, fd, path)
+                        <span class="macro">write!</span>(f, <span class="string">"fd-create-excl (fd={fd}, path={path})"</span>)
                     } <span class="kw">else </span>{
-                        <span class="macro">write!</span>(f, <span class="string">"fd-create (fd={}, path={})"</span>, fd, path)
+                        <span class="macro">write!</span>(f, <span class="string">"fd-create (fd={fd}, path={path})"</span>)
                     }
                 } <span class="kw">else if </span>o_flags.contains(wasi::Oflags::TRUNC) {
-                    <span class="macro">write!</span>(f, <span class="string">"fd-open-new (fd={}, path={})"</span>, fd, path)
+                    <span class="macro">write!</span>(f, <span class="string">"fd-open-new (fd={fd}, path={path})"</span>)
                 } <span class="kw">else </span>{
-                    <span class="macro">write!</span>(f, <span class="string">"fd-open (fd={}, path={})"</span>, fd, path)
+                    <span class="macro">write!</span>(f, <span class="string">"fd-open (fd={fd}, path={path})"</span>)
                 }
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"fd-renumber (old={}, new={})"</span>, old_fd, new_fd)
+                <span class="macro">write!</span>(f, <span class="string">"fd-renumber (old={old_fd}, new={new_fd})"</span>)
             }
             JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"fd-duplicate (original={}, copied={})"</span>,
-                original_fd, copied_fd
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-duplicate (original={original_fd}, copied={copied_fd})"</span>),
             JournalEntry::CreateDirectoryV1 { fd, path } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"path-create-dir (fd={}, path={})"</span>, fd, path)
+                <span class="macro">write!</span>(f, <span class="string">"path-create-dir (fd={fd}, path={path})"</span>)
             }
             JournalEntry::RemoveDirectoryV1 { fd, path } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"path-remove-dir (fd={}, path={})"</span>, fd, path)
+                <span class="macro">write!</span>(f, <span class="string">"path-remove-dir (fd={fd}, path={path})"</span>)
             }
             JournalEntry::PathSetTimesV1 {
                 path,
                 st_atim,
                 st_mtim,
                 ..
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"path-set-times (path={}, atime={}, mtime={}))"</span>,
-                path, st_atim, st_mtim
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-set-times (path={path}, atime={st_atim}, mtime={st_mtim}))"</span>),
             JournalEntry::FileDescriptorSetTimesV1 {
                 fd,
                 st_atim,
                 st_mtim,
                 ..
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"fd-set-times (fd={}, atime={}, mtime={})"</span>,
-                fd, st_atim, st_mtim
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-set-times (fd={fd}, atime={st_atim}, mtime={st_mtim})"</span>),
             JournalEntry::FileDescriptorSetFlagsV1 { fd, flags } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"fd-set-flags (fd={}, flags={:?})"</span>, fd, flags)
+                <span class="macro">write!</span>(f, <span class="string">"fd-set-flags (fd={fd}, flags={flags:?})"</span>)
             }
             JournalEntry::FileDescriptorSetRightsV1 {
                 fd,
                 fs_rights_base,
                 fs_rights_inheriting,
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"fd-set-rights (fd={}, base={:?}, inherited={:?})"</span>,
-                fd, fs_rights_base, fs_rights_inheriting
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-set-rights (fd={fd}, base={fs_rights_base:?}, inherited={fs_rights_inheriting:?})"</span>),
             JournalEntry::FileDescriptorSetSizeV1 { fd, st_size } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"fd-set-size (fd={}, size={})"</span>, fd, st_size)
+                <span class="macro">write!</span>(f, <span class="string">"fd-set-size (fd={fd}, size={st_size})"</span>)
             }
             JournalEntry::FileDescriptorAdviseV1 {
                 fd, offset, len, ..
-            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-advise (fd={}, offset={}, len={})"</span>, fd, offset, len),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-advise (fd={fd}, offset={offset}, len={len})"</span>),
             JournalEntry::FileDescriptorAllocateV1 { fd, offset, len } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"fd-allocate (fd={}, offset={}, len={})"</span>, fd, offset, len)
+                <span class="macro">write!</span>(f, <span class="string">"fd-allocate (fd={fd}, offset={offset}, len={len})"</span>)
             }
             JournalEntry::CreateHardLinkV1 {
                 old_path, new_path, ..
-            } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-link (from={}, to={})"</span>, old_path, new_path),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-link (from={old_path}, to={new_path})"</span>),
             JournalEntry::CreateSymbolicLinkV1 {
                 old_path, new_path, ..
-            } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-symlink (from={}, to={})"</span>, old_path, new_path),
-            JournalEntry::UnlinkFileV1 { path, .. } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-unlink (path={})"</span>, path),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-symlink (from={old_path}, to={new_path})"</span>),
+            JournalEntry::UnlinkFileV1 { path, .. } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-unlink (path={path})"</span>),
             JournalEntry::PathRenameV1 {
                 old_path, new_path, ..
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"path-rename (old-path={}, new-path={})"</span>,
-                old_path, new_path
-            ),
-            JournalEntry::ChangeDirectoryV1 { path } =&gt; <span class="macro">write!</span>(f, <span class="string">"chdir (path={})"</span>, path),
-            JournalEntry::EpollCreateV1 { fd } =&gt; <span class="macro">write!</span>(f, <span class="string">"epoll-create (fd={})"</span>, fd),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"path-rename (old-path={old_path}, new-path={new_path})"</span>),
+            JournalEntry::ChangeDirectoryV1 { path } =&gt; <span class="macro">write!</span>(f, <span class="string">"chdir (path={path})"</span>),
+            JournalEntry::EpollCreateV1 { fd } =&gt; <span class="macro">write!</span>(f, <span class="string">"epoll-create (fd={fd})"</span>),
             JournalEntry::EpollCtlV1 { epfd, op, fd, .. } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"epoll-ctl (epfd={}, op={:?}, fd={})"</span>, epfd, op, fd)
+                <span class="macro">write!</span>(f, <span class="string">"epoll-ctl (epfd={epfd}, op={op:?}, fd={fd})"</span>)
             }
-            JournalEntry::TtySetV1 { tty, line_feeds } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"tty-set (echo={}, buffering={}, feeds={})"</span>,
-                tty.echo, tty.line_buffered, line_feeds
-            ),
+            JournalEntry::TtySetV1 { tty, line_feeds } =&gt; <span class="macro">write!</span>(f, <span class="string">"tty-set (echo={}, buffering={}, feeds={})"</span>, tty.echo, tty.line_buffered, line_feeds),
             JournalEntry::CreatePipeV1 { fd1, fd2 } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"fd-pipe (fd1={}, fd2={})"</span>, fd1, fd2)
+                <span class="macro">write!</span>(f, <span class="string">"fd-pipe (fd1={fd1}, fd2={fd2})"</span>)
             }
             JournalEntry::CreateEventV1 {
                 initial_val, fd, ..
-            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-event (fd={}, initial={})"</span>, fd, initial_val),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"fd-event (fd={fd}, initial={initial_val})"</span>),
             JournalEntry::PortAddAddrV1 { cidr } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"port-addr-add (ip={}, prefix={})"</span>, cidr.ip, cidr.prefix)
             }
-            JournalEntry::PortDelAddrV1 { addr } =&gt; <span class="macro">write!</span>(f, <span class="string">"port-addr-del (addr={})"</span>, addr),
+            JournalEntry::PortDelAddrV1 { addr } =&gt; <span class="macro">write!</span>(f, <span class="string">"port-addr-del (addr={addr})"</span>),
             JournalEntry::PortAddrClearV1 =&gt; <span class="macro">write!</span>(f, <span class="string">"port-addr-clear"</span>),
             JournalEntry::PortBridgeV1 { network, .. } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"port-bridge (network={})"</span>, network)
+                <span class="macro">write!</span>(f, <span class="string">"port-bridge (network={network})"</span>)
             }
             JournalEntry::PortUnbridgeV1 =&gt; <span class="macro">write!</span>(f, <span class="string">"port-unbridge"</span>),
             JournalEntry::PortDhcpAcquireV1 =&gt; <span class="macro">write!</span>(f, <span class="string">"port-dhcp-acquire"</span>),
-            JournalEntry::PortGatewaySetV1 { ip } =&gt; <span class="macro">write!</span>(f, <span class="string">"port-gateway-set (ip={})"</span>, ip),
+            JournalEntry::PortGatewaySetV1 { ip } =&gt; <span class="macro">write!</span>(f, <span class="string">"port-gateway-set (ip={ip})"</span>),
             JournalEntry::PortRouteAddV1 {
                 cidr, via_router, ..
             } =&gt; <span class="macro">write!</span>(
@@ -614,30 +514,22 @@
                 cidr.ip, cidr.prefix, via_router
             ),
             JournalEntry::PortRouteClearV1 =&gt; <span class="macro">write!</span>(f, <span class="string">"port-route-clear"</span>),
-            JournalEntry::PortRouteDelV1 { ip } =&gt; <span class="macro">write!</span>(f, <span class="string">"port-route-del (ip={})"</span>, ip),
+            JournalEntry::PortRouteDelV1 { ip } =&gt; <span class="macro">write!</span>(f, <span class="string">"port-route-del (ip={ip})"</span>),
             JournalEntry::SocketOpenV1 { af, ty, pt, fd } =&gt; {
-                <span class="macro">write!</span>(
-                    f,
-                    <span class="string">"sock-open (fd={}, af={:?}, ty={:?}, pt={:?})"</span>,
-                    fd, af, ty, pt
-                )
+                <span class="macro">write!</span>(f, <span class="string">"sock-open (fd={fd}, af={af:?}, ty={ty:?}, pt={pt:?})"</span>)
             }
             JournalEntry::SocketListenV1 { fd, backlog } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"sock-listen (fd={}, backlog={})"</span>, fd, backlog)
+                <span class="macro">write!</span>(f, <span class="string">"sock-listen (fd={fd}, backlog={backlog})"</span>)
             }
             JournalEntry::SocketBindV1 { fd, addr } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"sock-bind (fd={}, addr={})"</span>, fd, addr)
+                <span class="macro">write!</span>(f, <span class="string">"sock-bind (fd={fd}, addr={addr})"</span>)
             }
             JournalEntry::SocketConnectedV1 {
                 fd,
                 local_addr,
                 peer_addr,
             } =&gt; {
-                <span class="macro">write!</span>(
-                    f,
-                    <span class="string">"sock-connect (fd={}, addr={}, peer={})"</span>,
-                    fd, local_addr, peer_addr
-                )
+                <span class="macro">write!</span>(f, <span class="string">"sock-connect (fd={fd}, addr={local_addr}, peer={peer_addr})"</span>)
             }
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
@@ -645,81 +537,53 @@
                 local_addr,
                 peer_addr,
                 ..
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"sock-accept (listen-fd={}, sock_fd={}, addr={}, peer={})"</span>,
-                listen_fd, fd, local_addr, peer_addr
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"sock-accept (listen-fd={listen_fd}, sock_fd={fd}, addr={local_addr}, peer={peer_addr})"</span>),
             JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"sock-join-mcast-ipv4 (fd={}, addr={}, iface={})"</span>,
-                fd, multiaddr, iface
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"sock-join-mcast-ipv4 (fd={fd}, addr={multiaddr}, iface={iface})"</span>),
             JournalEntry::SocketJoinIpv6MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"sock-join-mcast-ipv6 (fd={}, addr={}, iface={})"</span>,
-                fd, multiaddr, iface
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"sock-join-mcast-ipv6 (fd={fd}, addr={multiaddr}, iface={iface})"</span>),
             JournalEntry::SocketLeaveIpv4MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"sock-leave-mcast-ipv4 (fd={}, addr={}, iface={})"</span>,
-                fd, multiaddr, iface
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"sock-leave-mcast-ipv4 (fd={fd}, addr={multiaddr}, iface={iface})"</span>),
             JournalEntry::SocketLeaveIpv6MulticastV1 {
                 fd,
                 multi_addr: multiaddr,
                 iface,
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"sock-leave-mcast-ipv6 (fd={}, addr={}, iface={})"</span>,
-                fd, multiaddr, iface
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"sock-leave-mcast-ipv6 (fd={fd}, addr={multiaddr}, iface={iface})"</span>),
             JournalEntry::SocketSendFileV1 {
                 socket_fd,
                 file_fd,
                 offset,
                 count,
-            } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"sock-send-file (sock-fd={}, file-fd={}, offset={}, count={})"</span>,
-                socket_fd, file_fd, offset, count
-            ),
-            JournalEntry::SocketSendToV1 { fd, data, addr, .. } =&gt; <span class="macro">write!</span>(
-                f,
-                <span class="string">"sock-send-to (fd={}, data.len={}, addr={})"</span>,
-                fd,
-                data.len(),
-                addr
-            ),
+            } =&gt; <span class="macro">write!</span>(f, <span class="string">"sock-send-file (sock-fd={socket_fd}, file-fd={file_fd}, offset={offset}, count={count})"</span>),
+            JournalEntry::SocketSendToV1 { fd, data, addr, .. } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"sock-send-to (fd={}, data.len={}, addr={})"</span>, fd, data.len(), addr)
+            }
             JournalEntry::SocketSendV1 { fd, data, .. } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"sock-send (fd={}, data.len={}"</span>, fd, data.len())
             }
             JournalEntry::SocketSetOptFlagV1 { fd, opt, flag } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"sock-set-opt (fd={}, opt={:?}, flag={})"</span>, fd, opt, flag)
+                <span class="macro">write!</span>(f, <span class="string">"sock-set-opt (fd={fd}, opt={opt:?}, flag={flag})"</span>)
             }
             JournalEntry::SocketSetOptSizeV1 { fd, opt, size } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"sock-set-opt (fd={}, opt={:?}, size={})"</span>, fd, opt, size)
+                <span class="macro">write!</span>(f, <span class="string">"sock-set-opt (fd={fd}, opt={opt:?}, size={size})"</span>)
             }
             JournalEntry::SocketSetOptTimeV1 { fd, ty, time } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"sock-set-opt (fd={}, opt={:?}, time={:?})"</span>, fd, ty, time)
+                <span class="macro">write!</span>(f, <span class="string">"sock-set-opt (fd={fd}, opt={ty:?}, time={time:?})"</span>)
             }
             JournalEntry::SocketShutdownV1 { fd, how } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"sock-shutdown (fd={}, how={:?})"</span>, fd, how)
+                <span class="macro">write!</span>(f, <span class="string">"sock-shutdown (fd={fd}, how={how:?})"</span>)
             }
             JournalEntry::SnapshotV1 { when, trigger } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"snapshot (when={:?}, trigger={:?})"</span>, when, trigger)
+                <span class="macro">write!</span>(f, <span class="string">"snapshot (when={when:?}, trigger={trigger:?})"</span>)
             }
         }
     }

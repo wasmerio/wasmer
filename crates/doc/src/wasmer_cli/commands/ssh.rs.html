@@ -126,9 +126,6 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Edge SSH command.
 
 </span><span class="kw">use </span>anyhow::Context;
@@ -206,10 +203,7 @@
             ])
             .args([<span class="string">"-p"</span>, <span class="macro">format!</span>(<span class="string">"{port}"</span>).as_str()]);
         <span class="kw">for </span>map_port <span class="kw">in </span><span class="self">self</span>.map_port {
-            cmd = cmd.args([
-                <span class="string">"-L"</span>,
-                <span class="macro">format!</span>(<span class="string">"{}:localhost:{}"</span>, map_port, map_port).as_str(),
-            ]);
+            cmd = cmd.args([<span class="string">"-L"</span>, <span class="macro">format!</span>(<span class="string">"{map_port}:localhost:{map_port}"</span>).as_str()]);
         }
 
         cmd = cmd.arg(<span class="macro">format!</span>(<span class="string">"{token}@{host}"</span>)).arg(<span class="self">self</span>.run.as_str());

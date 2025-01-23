@@ -582,7 +582,7 @@
                 <span class="macro">assert_eq!</span>(name, <span class="string">"manipulator3000"</span>);
                 <span class="macro">assert_eq!</span>(message, <span class="string">"foo"</span>);
             }
-            err =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {:?}"</span>, err),
+            err =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected error: {err:?}"</span>),
         }
     }
 }

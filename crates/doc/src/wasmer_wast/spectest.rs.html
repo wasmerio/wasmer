@@ -58,17 +58,17 @@
 </span><span class="attr">#[allow(clippy::print_stdout)]
 </span><span class="kw">pub fn </span>spectest_importobject(store: <span class="kw-2">&amp;mut </span>Store) -&gt; Imports {
     <span class="kw">let </span>print = Function::new_typed(store, || {});
-    <span class="kw">let </span>print_i32 = Function::new_typed(store, |val: i32| <span class="macro">println!</span>(<span class="string">"{}: i32"</span>, val));
-    <span class="kw">let </span>print_i64 = Function::new_typed(store, |val: i64| <span class="macro">println!</span>(<span class="string">"{}: i64"</span>, val));
-    <span class="kw">let </span>print_f32 = Function::new_typed(store, |val: f32| <span class="macro">println!</span>(<span class="string">"{}: f32"</span>, val));
-    <span class="kw">let </span>print_f64 = Function::new_typed(store, |val: f64| <span class="macro">println!</span>(<span class="string">"{}: f64"</span>, val));
+    <span class="kw">let </span>print_i32 = Function::new_typed(store, |val: i32| <span class="macro">println!</span>(<span class="string">"{val}: i32"</span>));
+    <span class="kw">let </span>print_i64 = Function::new_typed(store, |val: i64| <span class="macro">println!</span>(<span class="string">"{val}: i64"</span>));
+    <span class="kw">let </span>print_f32 = Function::new_typed(store, |val: f32| <span class="macro">println!</span>(<span class="string">"{val}: f32"</span>));
+    <span class="kw">let </span>print_f64 = Function::new_typed(store, |val: f64| <span class="macro">println!</span>(<span class="string">"{val}: f64"</span>));
     <span class="kw">let </span>print_i32_f32 = Function::new_typed(store, |i: i32, f: f32| {
-        <span class="macro">println!</span>(<span class="string">"{}: i32"</span>, i);
-        <span class="macro">println!</span>(<span class="string">"{}: f32"</span>, f);
+        <span class="macro">println!</span>(<span class="string">"{i}: i32"</span>);
+        <span class="macro">println!</span>(<span class="string">"{f}: f32"</span>);
     });
     <span class="kw">let </span>print_f64_f64 = Function::new_typed(store, |f1: f64, f2: f64| {
-        <span class="macro">println!</span>(<span class="string">"{}: f64"</span>, f1);
-        <span class="macro">println!</span>(<span class="string">"{}: f64"</span>, f2);
+        <span class="macro">println!</span>(<span class="string">"{f1}: f64"</span>);
+        <span class="macro">println!</span>(<span class="string">"{f2}: f64"</span>);
     });
 
     <span class="kw">let </span>global_i32 = Global::new(store, Value::I32(<span class="number">666</span>));

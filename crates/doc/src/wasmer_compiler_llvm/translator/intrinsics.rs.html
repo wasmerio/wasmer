@@ -3356,7 +3356,7 @@
                         </span>))
                     };
                     <span class="kw">let </span>ptr_to_base_ptr =
-                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                             .into_pointer_value();
                     <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
                         offsets
@@ -3417,7 +3417,7 @@
                         </span>))
                     };
                     <span class="kw">let </span>ptr_to_base_ptr =
-                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                             .into_pointer_value();
                     <span class="kw">let </span>offset = intrinsics
                         .i64_ty
@@ -3568,7 +3568,7 @@
                         </span>))
                     };
                     <span class="kw">let </span>global_ptr_ptr =
-                        <span class="macro">err!</span>(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                        <span class="macro">err!</span>(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                             .into_pointer_value();
                     <span class="kw">let </span>global_ptr =
                         <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, <span class="string">""</span>))
@@ -3713,7 +3713,7 @@
                     <span class="string">""</span>,
                 ));
                 <span class="kw">let </span>body_ptr = <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, body_ptr_ptr, <span class="string">""</span>));
-                <span class="kw">let </span>body_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                <span class="kw">let </span>body_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                     .into_pointer_value();
                 <span class="kw">let </span>vmctx_ptr_ptr = <span class="macro">err!</span>(cache_builder.build_struct_gep(
                     intrinsics.vmfunction_import_ty,
@@ -3768,7 +3768,7 @@
                 };
 
                 <span class="kw">let </span>grow_fn_ptr_ptr =
-                    <span class="macro">err!</span>(cache_builder.build_bit_cast(grow_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(grow_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                         .into_pointer_value();
                 <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(grow_fn_ty, grow_fn_ptr_ptr, <span class="string">""</span>))
                     .into_pointer_value();
@@ -3814,7 +3814,7 @@
                 };
 
                 <span class="kw">let </span>size_fn_ptr_ptr =
-                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                         .into_pointer_value();
 
                 <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">""</span>))
@@ -3859,7 +3859,7 @@
                 };
 
                 <span class="kw">let </span>size_fn_ptr_ptr =
-                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                         .into_pointer_value();
 
                 <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">""</span>))
@@ -3951,7 +3951,7 @@
                 };
 
                 <span class="kw">let </span>size_fn_ptr_ptr =
-                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                    <span class="macro">err!</span>(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
                         .into_pointer_value();
 
                 <span class="kw">let </span>val = <span class="macro">err!</span>(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">""</span>))

@@ -347,13 +347,13 @@
             AppIdent::AppId(app_id) =&gt; {
                 wasmer_backend_api::query::get_app_by_id(client, app_id.clone())
                     .<span class="kw">await
-                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not find app with id '{}'"</span>, app_id))
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not find app with id '{app_id}'"</span>))
             }
             AppIdent::AppVersionId(id) =&gt; {
                 <span class="kw">let </span>(app, _version) =
                     wasmer_backend_api::query::get_app_version_by_id_with_app(client, id.clone())
                         .<span class="kw">await
-                        </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not query for app version id '{}'"</span>, id))<span class="question-mark">?</span>;
+                        </span>.with_context(|| <span class="macro">format!</span>(<span class="string">"Could not query for app version id '{id}'"</span>))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(app)
             }
             AppIdent::Name(name) =&gt; {

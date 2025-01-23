@@ -526,7 +526,7 @@
         .unwrap();
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(stdin_str) = <span class="kw-2">&amp;</span>options.stdin {
-        <span class="macro">write!</span>(native_command.stdin.as_ref().unwrap(), <span class="string">"{}"</span>, stdin_str).unwrap();
+        <span class="macro">write!</span>(native_command.stdin.as_ref().unwrap(), <span class="string">"{stdin_str}"</span>).unwrap();
     }
 
     <span class="kw">let </span>result = native_command
@@ -547,8 +547,8 @@
     };
     <span class="kw">if </span>!result.success() {
         <span class="macro">println!</span>(<span class="string">"NATIVE PROGRAM FAILED"</span>);
-        <span class="macro">println!</span>(<span class="string">"stdout:\n{}"</span>, stdout_str);
-        <span class="macro">eprintln!</span>(<span class="string">"stderr:\n{}"</span>, stderr_str);
+        <span class="macro">println!</span>(<span class="string">"stdout:\n{stdout_str}"</span>);
+        <span class="macro">eprintln!</span>(<span class="string">"stderr:\n{stderr_str}"</span>);
     }
 
     <span class="kw">let </span>result = result.code().unwrap() <span class="kw">as </span>i64;
@@ -578,7 +578,7 @@
         wasm_out_name.set_extension(<span class="string">"wasm"</span>);
         wasm_out_name
     };
-    <span class="macro">println!</span>(<span class="string">"Reading contents from file `{}`"</span>, file);
+    <span class="macro">println!</span>(<span class="string">"Reading contents from file `{file}`"</span>);
     <span class="kw">let </span>file_contents: String = {
         <span class="kw">let </span><span class="kw-2">mut </span>fc = String::new();
         <span class="kw">let </span><span class="kw-2">mut </span>f = fs::OpenOptions::new().read(<span class="bool-val">true</span>).open(file)<span class="question-mark">?</span>;
@@ -586,7 +586,7 @@
         fc
     };
 
-    <span class="kw">let </span>temp_wasi_rs_file_name = temp_dir.join(<span class="macro">format!</span>(<span class="string">"wasi_modified_version_{}.rs"</span>, rs_mod_name));
+    <span class="kw">let </span>temp_wasi_rs_file_name = temp_dir.join(<span class="macro">format!</span>(<span class="string">"wasi_modified_version_{rs_mod_name}.rs"</span>));
     {
         <span class="kw">let </span><span class="kw-2">mut </span>actual_file = fs::OpenOptions::new()
             .write(<span class="bool-val">true</span>)
@@ -612,7 +612,7 @@
         .arg(<span class="kw-2">&amp;</span>temp_wasi_rs_file_name)
         .arg(<span class="string">"-o"</span>)
         .arg(<span class="kw-2">&amp;</span>wasm_out_name);
-    <span class="macro">println!</span>(<span class="string">"Command {:?}"</span>, command);
+    <span class="macro">println!</span>(<span class="string">"Command {command:?}"</span>);
 
     <span class="kw">let </span>wasm_compilation_out = command.output().expect(<span class="string">"Failed to compile program to wasm"</span>);
     util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_compilation_out, <span class="string">"WASM COMPILATION"</span>);
@@ -661,7 +661,7 @@
         .expect(<span class="string">"Generate native output"</span>);
 
     <span class="kw">let </span>test = WasiTest {
-        wasm_prog_name: <span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, rs_mod_name),
+        wasm_prog_name: <span class="macro">format!</span>(<span class="string">"{rs_mod_name}.wasm"</span>),
         stdout,
         stderr,
         result,
@@ -685,7 +685,7 @@
             <span class="macro">println!</span>(<span class="string">"Writing test output to {}"</span>, wasm_out_name.to_string_lossy());
             fs::write(<span class="kw-2">&amp;</span>wasm_out_name, test_serialized.clone()).unwrap();
 
-            <span class="macro">println!</span>(<span class="string">"Compiling wasm version {:?}"</span>, version);
+            <span class="macro">println!</span>(<span class="string">"Compiling wasm version {version:?}"</span>);
             compile_wasm_for_version(temp_dir, file, <span class="kw-2">&amp;</span>out_dir, <span class="kw-2">&amp;</span>rs_mod_name, version)
                 .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"Could not compile Wasm to WASI version {:?}, perhaps you need to install the `{}` rust toolchain"</span>, version, version.get_compiler_toolchain()));
         }).for_each(drop); <span class="comment">// Do nothing with it, but let the iterator be consumed/iterated.
@@ -708,7 +708,7 @@
                     compile(temp_dir.path(), test, wasi_versions);
                 }
             }
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">"{:?}"</span>, e),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">"{e:?}"</span>),
         }
     }
     <span class="macro">println!</span>(<span class="string">"All modules generated."</span>);
@@ -743,20 +743,20 @@
                 </span>.options
                 .env
                 .iter()
-                .map(|(name, value)| <span class="macro">format!</span>(<span class="string">"\"{}={}\""</span>, name, value))
+                .map(|(name, value)| <span class="macro">format!</span>(<span class="string">"\"{name}={value}\""</span>))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
                 .join(<span class="string">" "</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (envs {})"</span>, envs);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (envs {envs})"</span>);
         }
         <span class="kw">if </span>!<span class="self">self</span>.options.args.is_empty() {
             <span class="kw">let </span>args = <span class="self">self
                 </span>.options
                 .args
                 .iter()
-                .map(|v| <span class="macro">format!</span>(<span class="string">"\"{}\""</span>, v))
+                .map(|v| <span class="macro">format!</span>(<span class="string">"\"{v}\""</span>))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
                 .join(<span class="string">" "</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (args {})"</span>, args);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (args {args})"</span>);
         }
 
         <span class="kw">if </span>!<span class="self">self</span>.options.dir.is_empty() {
@@ -764,35 +764,35 @@
                 </span>.options
                 .dir
                 .iter()
-                .map(|v| <span class="macro">format!</span>(<span class="string">"\"{}\""</span>, v))
+                .map(|v| <span class="macro">format!</span>(<span class="string">"\"{v}\""</span>))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
                 .join(<span class="string">" "</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (preopens {})"</span>, preopens);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (preopens {preopens})"</span>);
         }
         <span class="kw">if </span>!<span class="self">self</span>.options.mapdir.is_empty() {
             <span class="kw">let </span>map_dirs = <span class="self">self
                 </span>.options
                 .mapdir
                 .iter()
-                .map(|(a, b)| <span class="macro">format!</span>(<span class="string">"\"{}:{}\""</span>, a, b))
+                .map(|(a, b)| <span class="macro">format!</span>(<span class="string">"\"{a}:{b}\""</span>))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
                 .join(<span class="string">" "</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (map_dirs {})"</span>, map_dirs);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (map_dirs {map_dirs})"</span>);
         }
         <span class="kw">if </span>!<span class="self">self</span>.options.tempdir.is_empty() {
             <span class="kw">let </span>temp_dirs = <span class="self">self
                 </span>.options
                 .tempdir
                 .iter()
-                .map(|td| <span class="macro">format!</span>(<span class="string">"\"{}\""</span>, td))
+                .map(|td| <span class="macro">format!</span>(<span class="string">"\"{td}\""</span>))
                 .collect::&lt;Vec&lt;String&gt;&gt;()
                 .join(<span class="string">" "</span>);
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (temp_dirs {})"</span>, temp_dirs);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (temp_dirs {temp_dirs})"</span>);
         }
 
         <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (assert_return (i64.const {}))"</span>, <span class="self">self</span>.result);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(stdin) = <span class="kw-2">&amp;</span><span class="self">self</span>.options.stdin {
-            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (stdin {:?})"</span>, stdin);
+            <span class="kw">let _ </span>= <span class="macro">write!</span>(out, <span class="string">"\n  (stdin {stdin:?})"</span>);
         }
 
         <span class="kw">if </span>!<span class="self">self</span>.stdout.is_empty() {
@@ -854,14 +854,14 @@
                         <span class="comment">// And then we try splitting by `:` (for compatibility with previous API)
                         </span>args.mapdir.push((alias.to_string(), real_dir.to_string()));
                     } <span class="kw">else </span>{
-                        <span class="macro">eprintln!</span>(<span class="string">"Parse error in mapdir {} not parsed correctly"</span>, value);
+                        <span class="macro">eprintln!</span>(<span class="string">"Parse error in mapdir {value} not parsed correctly"</span>);
                     }
                 }
                 <span class="string">"env" </span>=&gt; {
                     <span class="kw">if let </span>[name, val] = value.split(<span class="string">'='</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
                         args.env.push((name.to_string(), val.to_string()));
                     } <span class="kw">else </span>{
-                        <span class="macro">eprintln!</span>(<span class="string">"Parse error in env {} not parsed correctly"</span>, value);
+                        <span class="macro">eprintln!</span>(<span class="string">"Parse error in env {value} not parsed correctly"</span>);
                     }
                 }
                 <span class="string">"dir" </span>=&gt; {
@@ -884,7 +884,7 @@
                     args.stdin = <span class="prelude-val">Some</span>(s.to_string());
                 }
                 e =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">"WARN: comment arg: `{}` is not supported"</span>, e);
+                    <span class="macro">eprintln!</span>(<span class="string">"WARN: comment arg: `{e}` is not supported"</span>);
                 }
             }
         }

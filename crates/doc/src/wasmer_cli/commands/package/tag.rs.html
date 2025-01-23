@@ -898,7 +898,7 @@
         <span class="kw">match </span>r.<span class="kw">await</span><span class="question-mark">? </span>{
             <span class="prelude-val">Some</span>(r) =&gt; {
                 <span class="kw">if </span>r.success {
-                    <span class="macro">spinner_ok!</span>(pb, <span class="macro">format!</span>(<span class="string">"Successfully tagged package {id}"</span>,));
+                    <span class="macro">spinner_ok!</span>(pb, <span class="macro">format!</span>(<span class="string">"Successfully tagged package {id}"</span>));
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(package_version) = r.package_version {
                         wait_package(client, <span class="self">self</span>.wait, package_version.id, <span class="self">self</span>.timeout).<span class="kw">await</span><span class="question-mark">?</span>;
                     }

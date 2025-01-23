@@ -631,15 +631,15 @@
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Value {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::I32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"I32({:?})"</span>, v),
-            <span class="self">Self</span>::I64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"I64({:?})"</span>, v),
-            <span class="self">Self</span>::F32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"F32({:?})"</span>, v),
-            <span class="self">Self</span>::F64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"F64({:?})"</span>, v),
+            <span class="self">Self</span>::I32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"I32({v:?})"</span>),
+            <span class="self">Self</span>::I64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"I64({v:?})"</span>),
+            <span class="self">Self</span>::F32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"F32({v:?})"</span>),
+            <span class="self">Self</span>::F64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"F64({v:?})"</span>),
             <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Null ExternRef"</span>),
-            <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">"ExternRef({:?})"</span>, v),
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">"ExternRef({v:?})"</span>),
             <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Null FuncRef"</span>),
-            <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">"FuncRef({:?})"</span>, v),
-            <span class="self">Self</span>::V128(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"V128({:?})"</span>, v),
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">"FuncRef({v:?})"</span>),
+            <span class="self">Self</span>::V128(v) =&gt; <span class="macro">write!</span>(f, <span class="string">"V128({v:?})"</span>),
         }
     }
 }

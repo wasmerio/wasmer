@@ -874,7 +874,7 @@
     <span class="kw">fn </span>assert_trap(<span class="kw-2">&amp;</span><span class="self">self</span>, result: <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt;, expected: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>actual = <span class="kw">match </span>result {
             <span class="prelude-val">Ok</span>(values) =&gt; <span class="macro">bail!</span>(<span class="string">"expected trap, got {:?}"</span>, values),
-            <span class="prelude-val">Err</span>(t) =&gt; <span class="macro">format!</span>(<span class="string">"{}"</span>, t),
+            <span class="prelude-val">Err</span>(t) =&gt; <span class="macro">format!</span>(<span class="string">"{t}"</span>),
         };
         <span class="kw">if </span><span class="self">self</span>.matches_message_assert_trap(expected, <span class="kw-2">&amp;</span>actual) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
@@ -934,7 +934,7 @@
                     <span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">bail!</span>(<span class="string">"expected module to fail to build"</span>),
                     <span class="prelude-val">Err</span>(e) =&gt; e,
                 };
-                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, err);
+                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">"{err:?}"</span>);
                 <span class="kw">if </span>!<span class="self">Self</span>::matches_message_assert_invalid(message, <span class="kw-2">&amp;</span>error_message) {
                     <span class="macro">bail!</span>(
                         <span class="string">"assert_invalid: expected \"{}\", got \"{}\""</span>,
@@ -975,7 +975,7 @@
                     <span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">bail!</span>(<span class="string">"expected module to fail to link"</span>),
                     <span class="prelude-val">Err</span>(e) =&gt; e,
                 };
-                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, err);
+                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">"{err:?}"</span>);
                 <span class="kw">if </span>!<span class="self">Self</span>::matches_message_assert_unlinkable(message, <span class="kw-2">&amp;</span>error_message) {
                     <span class="macro">bail!</span>(
                         <span class="string">"assert_unlinkable: expected {}, got {}"</span>,
@@ -1010,7 +1010,7 @@
         <span class="kw">for </span>directive <span class="kw">in </span>ast.directives {
             <span class="kw">let </span>sp = directive.span();
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.run_directive(test, directive) {
-                <span class="kw">let </span>message = <span class="macro">format!</span>(<span class="string">"{}"</span>, e);
+                <span class="kw">let </span>message = <span class="macro">format!</span>(<span class="string">"{e}"</span>);
                 <span class="comment">// If depends on an instance that doesn't exist
                 </span><span class="kw">if </span>message.contains(<span class="string">"no previous instance found"</span>) {
                     <span class="kw">continue</span>;
@@ -1081,7 +1081,7 @@
                 <span class="comment">// We set the current to None to allow running other
                 // spectests when `fail_fast` is `false`.
                 </span><span class="self">self</span>.current = <span class="prelude-val">None</span>;
-                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">"{}"</span>, e);
+                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">"{e}"</span>);
                 <span class="self">self</span>.current_is_allowed_failure = <span class="bool-val">false</span>;
                 <span class="kw">for </span>allowed_failure <span class="kw">in </span><span class="self">self</span>.allowed_instantiation_failures.iter() {
                     <span class="kw">if </span>error_message.contains(allowed_failure) {

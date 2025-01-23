@@ -257,7 +257,6 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>packages;
 <span class="kw">mod </span>tester;
@@ -416,12 +415,11 @@
             }
         };
 
-        p.set_message(<span class="macro">format!</span>(<span class="string">"[{test_id}] testing package {package_name}"</span>,));
+        p.set_message(<span class="macro">format!</span>(<span class="string">"[{test_id}] testing package {package_name}"</span>));
 
         <span class="kw">let </span>path = Argus::get_path(config.clone(), package).<span class="kw">await</span>;
         p.set_message(<span class="macro">format!</span>(
-            <span class="string">"testing package {package_name} -- path to download to is: {:?}"</span>,
-            path
+            <span class="string">"testing package {package_name} -- path to download to is: {path:?}"</span>,
         ));
 
         <span class="attr">#[cfg(not(feature = <span class="string">"wasmer_lib"</span>))]

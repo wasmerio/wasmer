@@ -223,7 +223,7 @@
                 addend: <span class="number">0</span>,
             });
         }
-        arch =&gt; <span class="macro">panic!</span>(<span class="string">"Unsupported architecture: {}"</span>, arch),
+        arch =&gt; <span class="macro">panic!</span>(<span class="string">"Unsupported architecture: {arch}"</span>),
     };
 }
 
@@ -234,7 +234,7 @@
         Architecture::X86_64 =&gt; X86_64_TRAMPOLINE.len(),
         Architecture::Riscv64(<span class="kw">_</span>) =&gt; RISCV64_TRAMPOLINE.len(),
         Architecture::LoongArch64 =&gt; LOONGARCH64_TRAMPOLINE.len(),
-        arch =&gt; <span class="macro">panic!</span>(<span class="string">"Unsupported architecture: {}"</span>, arch),
+        arch =&gt; <span class="macro">panic!</span>(<span class="string">"Unsupported architecture: {arch}"</span>),
     }
 }
 

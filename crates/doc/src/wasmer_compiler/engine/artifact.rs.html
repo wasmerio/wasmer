@@ -1611,7 +1611,7 @@
 
         artifact
             .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>;
+            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{e:?}"</span>)))<span class="question-mark">?</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_frame_info(frame_info);
         }
@@ -2169,7 +2169,7 @@
         <span class="kw">use </span><span class="kw">crate</span>::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
 
         <span class="kw">fn </span>to_compile_error(err: <span class="kw">impl </span>std::error::Error) -&gt; CompileError {
-            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"{}"</span>, err))
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"{err}"</span>))
         }
 
         <span class="kw">let </span>target_triple = target.triple();

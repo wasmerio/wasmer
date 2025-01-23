@@ -267,7 +267,7 @@
         <span class="self">self</span>.handle
             .get_mut(store.objects_mut())
             .grow(delta, item)
-            .ok_or_else(|| RuntimeError::new(<span class="macro">format!</span>(<span class="string">"failed to grow table by `{}`"</span>, delta)))
+            .ok_or_else(|| RuntimeError::new(<span class="macro">format!</span>(<span class="string">"failed to grow table by `{delta}`"</span>)))
     }
 
     <span class="kw">pub fn </span>copy(

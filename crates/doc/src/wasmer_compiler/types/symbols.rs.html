@@ -365,7 +365,7 @@
         archived: <span class="kw-2">&amp;</span>ArchivedModuleMetadata,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(archived)
-            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
+            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">"{e:?}"</span>)))
     }
 }
 

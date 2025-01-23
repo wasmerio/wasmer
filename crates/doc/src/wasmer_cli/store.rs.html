@@ -713,7 +713,7 @@
                 }
                 Box::new(config)
             }
-            <span class="attr">#[cfg(not(all(feature = <span class="string">"singlepass"</span>, feature = <span class="string">"cranelift"</span>, feature = <span class="string">"llvm"</span>,)))]
+            <span class="attr">#[cfg(not(all(feature = <span class="string">"singlepass"</span>, feature = <span class="string">"cranelift"</span>, feature = <span class="string">"llvm"</span>)))]
             </span>compiler =&gt; {
                 <span class="macro">bail!</span>(
                     <span class="string">"The `{}` compiler is not included in this binary."</span>,

@@ -203,7 +203,7 @@
         }
         <span class="kw">let </span>tunables = <span class="self">self</span>.store.get_tunables_for_target(<span class="kw-2">&amp;</span>target)<span class="question-mark">?</span>;
 
-        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, compiler_type);
+        <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
         <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
 
         <span class="comment">// compile and save the artifact (without using module from api)

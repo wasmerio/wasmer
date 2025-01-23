@@ -388,7 +388,7 @@
                 <span class="kw">let </span>(name, version) = <span class="kw">if let </span><span class="prelude-val">Some</span>((name, version_raw)) = raw.split_once(<span class="string">'@'</span>) {
                     <span class="kw">let </span>version = version_raw.parse().map_err(|err| {
                         ConversionError::with_cause(
-                            <span class="macro">format!</span>(<span class="string">"Could not parse version of dependency: '{}'"</span>, raw),
+                            <span class="macro">format!</span>(<span class="string">"Could not parse version of dependency: '{raw}'"</span>),
                             err,
                         )
                     })<span class="question-mark">?</span>;
@@ -466,7 +466,7 @@
     <span class="kw">if </span>!atoms.is_empty() {
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>module_dir).map_err(|err| {
             ConversionError::with_cause(
-                <span class="macro">format!</span>(<span class="string">"Could not create directory '{}'"</span>, module_dir.display(),),
+                <span class="macro">format!</span>(<span class="string">"Could not create directory '{}'"</span>, module_dir.display()),
                 err,
             )
         })<span class="question-mark">?</span>;
@@ -510,7 +510,7 @@
             .annotation::&lt;webc::metadata::annotations::Atom&gt;(webc::metadata::annotations::Atom::KEY)
             .map_err(|err| {
                 ConversionError::with_cause(
-                    <span class="macro">format!</span>(<span class="string">"could not read atom annotation for command '{}'"</span>, name),
+                    <span class="macro">format!</span>(<span class="string">"could not read atom annotation for command '{name}'"</span>),
                     err,
                 )
             })<span class="question-mark">?

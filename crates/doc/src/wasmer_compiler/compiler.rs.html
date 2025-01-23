@@ -249,7 +249,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>validator = Validator::new_with_features(wasm_features);
         validator
             .validate_all(data)
-            .map_err(|e| CompileError::Validate(<span class="macro">format!</span>(<span class="string">"{}"</span>, e)))<span class="question-mark">?</span>;
+            .map_err(|e| CompileError::Validate(<span class="macro">format!</span>(<span class="string">"{e}"</span>)))<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 

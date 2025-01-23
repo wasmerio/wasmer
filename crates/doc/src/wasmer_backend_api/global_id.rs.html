@@ -854,25 +854,25 @@
 
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.kind {
             ErrorKind::UnknownPrefix(p) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"unknown type prefix '{}'"</span>, p)
+                <span class="macro">write!</span>(f, <span class="string">"unknown type prefix '{p}'"</span>)
             }
             ErrorKind::Decode(s) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"decode error: {}"</span>, s)
+                <span class="macro">write!</span>(f, <span class="string">"decode error: {s}"</span>)
             }
             ErrorKind::MissingScope =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"missing scope value"</span>)
             }
             ErrorKind::UnknownScope(x) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"unknown scope value {}"</span>, x)
+                <span class="macro">write!</span>(f, <span class="string">"unknown scope value {x}"</span>)
             }
             ErrorKind::MissingVersion =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"missing version value"</span>)
             }
             ErrorKind::UnknownVersion(v) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"unknown version value {}"</span>, v)
+                <span class="macro">write!</span>(f, <span class="string">"unknown version value {v}"</span>)
             }
             ErrorKind::UnknownNodeType(t) =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"unknown node type '{}'"</span>, t)
+                <span class="macro">write!</span>(f, <span class="string">"unknown node type '{t}'"</span>)
             }
             ErrorKind::MissingPrefix =&gt; <span class="macro">write!</span>(f, <span class="string">"missing prefix"</span>),
             ErrorKind::PrefixTypeMismatch =&gt; <span class="macro">write!</span>(f, <span class="string">"prefix type mismatch"</span>),
@@ -895,7 +895,7 @@
             kind: NodeKind::DeployApp,
             database_id: <span class="number">123</span>,
         };
-        <span class="macro">assert_eq!</span>(<span class="prelude-val">Ok</span>(x1), GlobalId::parse_prefixed(<span class="kw-2">&amp;</span>x1.encode_prefixed()),);
+        <span class="macro">assert_eq!</span>(<span class="prelude-val">Ok</span>(x1), GlobalId::parse_prefixed(<span class="kw-2">&amp;</span>x1.encode_prefixed()));
         <span class="macro">assert_eq!</span>(<span class="prelude-val">Ok</span>(x1), GlobalId::parse_url(<span class="kw-2">&amp;</span>x1.encode_url()));
 
         <span class="macro">assert_eq!</span>(
@@ -933,12 +933,12 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_global_id_parse_values() {
-        <span class="macro">assert_eq!</span>(GlobalId::parse_values(<span class="kw-2">&amp;</span>[]), <span class="prelude-val">Err</span>(ErrorKind::MissingScope),);
+        <span class="macro">assert_eq!</span>(GlobalId::parse_values(<span class="kw-2">&amp;</span>[]), <span class="prelude-val">Err</span>(ErrorKind::MissingScope));
         <span class="macro">assert_eq!</span>(
             GlobalId::parse_values(<span class="kw-2">&amp;</span>[<span class="number">2</span>]),
             <span class="prelude-val">Err</span>(ErrorKind::UnknownScope(<span class="number">2</span>)),
         );
-        <span class="macro">assert_eq!</span>(GlobalId::parse_values(<span class="kw-2">&amp;</span>[<span class="number">1</span>]), <span class="prelude-val">Err</span>(ErrorKind::MissingVersion),);
+        <span class="macro">assert_eq!</span>(GlobalId::parse_values(<span class="kw-2">&amp;</span>[<span class="number">1</span>]), <span class="prelude-val">Err</span>(ErrorKind::MissingVersion));
         <span class="macro">assert_eq!</span>(
             GlobalId::parse_values(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">999</span>]),
             <span class="prelude-val">Err</span>(ErrorKind::UnknownVersion(<span class="number">999</span>)),

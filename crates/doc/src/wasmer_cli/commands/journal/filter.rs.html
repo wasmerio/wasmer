@@ -149,7 +149,7 @@
             <span class="string">"core" </span>=&gt; <span class="self">Self</span>::Core,
             <span class="string">"snap" </span>| <span class="string">"snapshot" </span>| <span class="string">"snapshots" </span>=&gt; <span class="self">Self</span>::Snapshots,
             <span class="string">"net" </span>| <span class="string">"network" </span>| <span class="string">"networking" </span>=&gt; <span class="self">Self</span>::Networking,
-            t =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"unknown filter type - {}"</span>, t)),
+            t =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"unknown filter type - {t}"</span>)),
         })
     }
 }

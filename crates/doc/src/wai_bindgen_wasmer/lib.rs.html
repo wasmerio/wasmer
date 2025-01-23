@@ -320,7 +320,7 @@
     }
 
     <span class="kw">pub fn </span>invalid_variant(name: <span class="kw-2">&amp;</span>str) -&gt; RuntimeError {
-        <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"invalid discriminant for `{}`"</span>, name);
+        <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"invalid discriminant for `{name}`"</span>);
         RuntimeError::new(msg)
     }
 
@@ -334,7 +334,7 @@
         </span>T: std::ops::Not&lt;Output = T&gt; + std::ops::BitAnd&lt;Output = T&gt; + From&lt;u8&gt; + PartialEq + Copy,
     {
         <span class="kw">if </span>bits &amp; !all != <span class="number">0u8</span>.into() {
-            <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"invalid flags specified for `{}`"</span>, name);
+            <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"invalid flags specified for `{name}`"</span>);
             <span class="prelude-val">Err</span>(RuntimeError::new(msg))
         } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(mk(bits))

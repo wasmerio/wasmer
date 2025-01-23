@@ -100,7 +100,7 @@
             }
 
             <span class="kw">let </span>record = serde_json::from_str::&lt;JournalEntry&lt;<span class="lifetime">'static</span>&gt;&gt;(<span class="kw-2">&amp;</span>lines)<span class="question-mark">?</span>;
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, record);
+            <span class="macro">println!</span>(<span class="string">"{record}"</span>);
             journal.write(record)<span class="question-mark">?</span>;
             lines.clear();
         }

@@ -173,7 +173,7 @@
     <span class="kw">let </span>addr = listener.local_addr()<span class="question-mark">?</span>;
     <span class="kw">let </span>port = addr.port();
 
-    <span class="kw">let </span>server_url = <span class="macro">format!</span>(<span class="string">"http://localhost:{}"</span>, port);
+    <span class="kw">let </span>server_url = <span class="macro">format!</span>(<span class="string">"http://localhost:{port}"</span>);
 
     <span class="prelude-val">Ok</span>((listener, server_url))
 }

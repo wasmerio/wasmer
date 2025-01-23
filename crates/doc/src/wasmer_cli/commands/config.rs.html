@@ -503,40 +503,40 @@
         <span class="kw">let </span>bindir = prefix.join(<span class="string">"bin"</span>).display().to_string();
         <span class="kw">let </span>includedir = prefix.join(<span class="string">"include"</span>).display().to_string();
         <span class="kw">let </span>libdir = prefix.join(<span class="string">"lib"</span>).display().to_string();
-        <span class="kw">let </span>cflags = <span class="macro">format!</span>(<span class="string">"-I{}"</span>, includedir);
-        <span class="kw">let </span>libs = <span class="macro">format!</span>(<span class="string">"-L{} -lwasmer"</span>, libdir);
+        <span class="kw">let </span>cflags = <span class="macro">format!</span>(<span class="string">"-I{includedir}"</span>);
+        <span class="kw">let </span>libs = <span class="macro">format!</span>(<span class="string">"-L{libdir} -lwasmer"</span>);
 
         <span class="kw">if </span>flags.pkg_config {
-            <span class="macro">println!</span>(<span class="string">"prefix={}"</span>, prefixdir);
-            <span class="macro">println!</span>(<span class="string">"exec_prefix={}"</span>, bindir);
-            <span class="macro">println!</span>(<span class="string">"includedir={}"</span>, includedir);
-            <span class="macro">println!</span>(<span class="string">"libdir={}"</span>, libdir);
+            <span class="macro">println!</span>(<span class="string">"prefix={prefixdir}"</span>);
+            <span class="macro">println!</span>(<span class="string">"exec_prefix={bindir}"</span>);
+            <span class="macro">println!</span>(<span class="string">"includedir={includedir}"</span>);
+            <span class="macro">println!</span>(<span class="string">"libdir={libdir}"</span>);
             <span class="macro">println!</span>();
             <span class="macro">println!</span>(<span class="string">"Name: wasmer"</span>);
             <span class="macro">println!</span>(<span class="string">"Description: The Wasmer library for running WebAssembly"</span>);
-            <span class="macro">println!</span>(<span class="string">"Version: {}"</span>, VERSION);
-            <span class="macro">println!</span>(<span class="string">"Cflags: {}"</span>, cflags);
-            <span class="macro">println!</span>(<span class="string">"Libs: {}"</span>, libs);
+            <span class="macro">println!</span>(<span class="string">"Version: {VERSION}"</span>);
+            <span class="macro">println!</span>(<span class="string">"Cflags: {cflags}"</span>);
+            <span class="macro">println!</span>(<span class="string">"Libs: {libs}"</span>);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
         <span class="kw">if </span>flags.prefix {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, prefixdir);
+            <span class="macro">println!</span>(<span class="string">"{prefixdir}"</span>);
         }
         <span class="kw">if </span>flags.bindir {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, bindir);
+            <span class="macro">println!</span>(<span class="string">"{bindir}"</span>);
         }
         <span class="kw">if </span>flags.includedir {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, includedir);
+            <span class="macro">println!</span>(<span class="string">"{includedir}"</span>);
         }
         <span class="kw">if </span>flags.libdir {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, libdir);
+            <span class="macro">println!</span>(<span class="string">"{libdir}"</span>);
         }
         <span class="kw">if </span>flags.libs {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, libs);
+            <span class="macro">println!</span>(<span class="string">"{libs}"</span>);
         }
         <span class="kw">if </span>flags.cflags {
-            <span class="macro">println!</span>(<span class="string">"{}"</span>, cflags);
+            <span class="macro">println!</span>(<span class="string">"{cflags}"</span>);
         }
 
         <span class="kw">if </span>flags.config_path {

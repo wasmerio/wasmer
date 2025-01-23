@@ -604,7 +604,7 @@
         };
 
         <span class="kw">let </span>reg = <span class="kw">if </span>!reg.starts_with(<span class="string">"http://"</span>) &amp;&amp; !reg.starts_with(<span class="string">"https://"</span>) {
-            <span class="macro">format!</span>(<span class="string">"https://{}"</span>, reg)
+            <span class="macro">format!</span>(<span class="string">"https://{reg}"</span>)
         } <span class="kw">else </span>{
             reg.clone()
         };
@@ -627,7 +627,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = <span class="kw-2">&amp;</span><span class="self">self</span>.tag {
             ident.push(<span class="string">'@'</span>);
             <span class="comment">// Writing to a string only fails on memory allocation errors.
-            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>ident, <span class="string">"{}"</span>, tag).unwrap();
+            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>ident, <span class="string">"{tag}"</span>).unwrap();
         }
         ident
     }
@@ -636,7 +636,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(url) = <span class="kw-2">&amp;</span><span class="self">self</span>.registry {
             <span class="comment">// NOTE: writing to a String can only fail on allocation errors.
-            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">"{}"</span>, url).unwrap();
+            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">"{url}"</span>).unwrap();
 
             <span class="kw">if </span>!out.ends_with(<span class="string">'/'</span>) {
                 out.push(<span class="string">':'</span>);
@@ -650,7 +650,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = <span class="kw-2">&amp;</span><span class="self">self</span>.tag {
             out.push(<span class="string">'@'</span>);
             <span class="comment">// Writing to a string only fails on memory allocation errors.
-            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">"{}"</span>, tag).unwrap();
+            </span><span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>out, <span class="string">"{tag}"</span>).unwrap();
         }
 
         out

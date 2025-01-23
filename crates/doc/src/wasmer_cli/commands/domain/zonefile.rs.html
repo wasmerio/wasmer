@@ -120,7 +120,7 @@
                 std::fs::write(zone_file_path, zone_file_contents)
                     .context(<span class="string">"Unable to write file"</span>)<span class="question-mark">?</span>;
             } <span class="kw">else </span>{
-                <span class="macro">println!</span>(<span class="string">"{}"</span>, zone_file_contents);
+                <span class="macro">println!</span>(<span class="string">"{zone_file_contents}"</span>);
             }
         } <span class="kw">else </span>{
             <span class="macro">anyhow::bail!</span>(<span class="string">"Domain not found"</span>);

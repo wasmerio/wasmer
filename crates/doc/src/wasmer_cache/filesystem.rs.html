@@ -249,7 +249,7 @@
         key: Hash,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, <span class="self">Self</span>::DeserializeError&gt; {
         <span class="kw">let </span>filename = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>ext) = <span class="self">self</span>.ext {
-            <span class="macro">format!</span>(<span class="string">"{}.{}"</span>, key, ext)
+            <span class="macro">format!</span>(<span class="string">"{key}.{ext}"</span>)
         } <span class="kw">else </span>{
             key.to_string()
         };
@@ -265,7 +265,7 @@
 
     <span class="kw">fn </span>store(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Hash, module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::SerializeError&gt; {
         <span class="kw">let </span>filename = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>ext) = <span class="self">self</span>.ext {
-            <span class="macro">format!</span>(<span class="string">"{}.{}"</span>, key, ext)
+            <span class="macro">format!</span>(<span class="string">"{key}.{ext}"</span>)
         } <span class="kw">else </span>{
             key.to_string()
         };

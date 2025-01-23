@@ -6754,8 +6754,6 @@
 <a href="#6754" id="6754">6754</a>
 <a href="#6755" id="6755">6755</a>
 <a href="#6756" id="6756">6756</a>
-<a href="#6757" id="6757">6757</a>
-<a href="#6758" id="6758">6758</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
 
@@ -10849,7 +10847,7 @@
                 <span class="kw">let </span>targets = targets
                     .targets()
                     .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()
-                    .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"BrTable read_table: {:?}"</span>, e)))<span class="question-mark">?</span>;
+                    .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"BrTable read_table: {e:?}"</span>)))<span class="question-mark">?</span>;
                 <span class="kw">let </span>cond = <span class="self">self</span>.pop_value_released()<span class="question-mark">?</span>;
                 <span class="kw">let </span>table_label = <span class="self">self</span>.machine.get_label();
                 <span class="kw">let </span><span class="kw-2">mut </span>table: Vec&lt;Label&gt; = <span class="macro">vec!</span>[];
@@ -10872,8 +10870,7 @@
                     <span class="kw">if </span>!frame.loop_like &amp;&amp; !frame.returns.is_empty() {
                         <span class="kw">if </span>frame.returns.len() != <span class="number">1 </span>{
                             <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                                <span class="string">"BrTable: incorrect frame.returns for {:?}"</span>,
-                                target
+                                <span class="string">"BrTable: incorrect frame.returns for {target:?}"</span>,
                             )));
                         }
 
@@ -13377,9 +13374,8 @@
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-                    <span class="string">"not yet implemented: {:?}"</span>,
-                    op
-                )));
+                    <span class="string">"not yet implemented: {op:?}"
+                </span>)));
             }
         }
 
