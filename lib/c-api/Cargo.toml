@@ -102,6 +102,7 @@ wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 webc_runner = ["virtual-fs", "webc"]
+dylib = []
 # Deprecated features.
 jit = ["compiler"]
 

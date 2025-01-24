@@ -71,6 +71,9 @@ macro_rules! map_feature_as_c_define {
 }
 
 fn main() {
+    // TODO: perhaps the "yes" value is not needed here?
+    println!(r#"cargo::rustc-check-cfg=cfg(__cbindgen_hack__, values("yes"))"#);
+
     if !running_self() {
         return;
     }

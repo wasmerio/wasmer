@@ -41,7 +41,7 @@ impl Default for WasmerCreateExe {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(fixtures::qjs()),
+            wasm_path: fixtures::qjs(),
             native_executable_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -116,7 +116,7 @@ impl Default for WasmerCreateObj {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(fixtures::qjs()),
+            wasm_path: fixtures::qjs(),
             output_object_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],

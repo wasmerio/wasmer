@@ -75,6 +75,8 @@ cranelift = ["wasmer-compiler-cranelift", "compiler"]
 debug = ["fern", "log"]
 disable-all-logging = []
 jit = []
+llvm = []
+run = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
