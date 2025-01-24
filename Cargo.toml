@@ -296,6 +296,11 @@ path = "examples/exports_memory.rs"
 required-features = ["backend"]
 
 [[example]]
+name = "funcref"
+path = "examples/funcref.rs"
+required-features = ["backend"]
+
+[[example]]
 name = "imported-function"
 path = "examples/imports_function.rs"
 required-features = ["backend"]
