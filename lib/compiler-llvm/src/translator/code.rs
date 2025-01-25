@@ -1451,7 +1451,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         tag_glbl.set_linkage(Linkage::External);
         tag_glbl.set_constant(true);
-        tag_glbl.set_section(Some("__wasmer_eh_type_info"));
+        tag_glbl.set_section(Some("__DATA"));
 
         let tag_glbl = tag_glbl.as_basic_value_enum();
 

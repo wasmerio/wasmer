@@ -430,10 +430,11 @@ impl Artifact {
             None => None,
         };
 
+        // This needs to be called before publishind the `eh_frame`.
+        engine_inner.register_compact_unwind(compact_unwind)?;
+
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
-
-        engine_inner.publish_compact_unwind(compact_unwind)?;
 
         engine_inner.publish_eh_frame(eh_frame)?;
 

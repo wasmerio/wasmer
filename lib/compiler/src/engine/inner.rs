@@ -465,7 +465,7 @@ impl EngineInner {
 
     #[cfg(not(target_arch = "wasm32"))]
     /// Register macos-specific exception handling information associated with the code.
-    pub(crate) fn publish_compact_unwind(
+    pub(crate) fn register_compact_unwind(
         &mut self,
         compact_unwind: Option<(SectionBodyPtr, usize)>,
     ) -> Result<(), CompileError> {
@@ -473,7 +473,7 @@ impl EngineInner {
             .last_mut()
             .unwrap()
             .unwind_registry_mut()
-            .add_compact_unwind(compact_unwind)
+            .register_compact_unwind(compact_unwind)
             .map_err(|e| {
                 CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
             })?;
