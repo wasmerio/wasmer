@@ -893,6 +893,9 @@ mod tests {
         //   - file.txt
         // - nested/
         //   - dir/ ("second")
+        //     - .wasmerignore
+        //     - .hidden (should be ignored)
+        //     - ignore_me (should be ignored)
         //     - README.md
         //     - another-dir/
         //       - empty.txt
@@ -907,6 +910,9 @@ mod tests {
         // The "second" entry
         let second = temp.path().join("nested").join("dir");
         std::fs::create_dir_all(&second).unwrap();
+        std::fs::write(second.join(".wasmerignore"), "ignore_me").unwrap();
+        std::fs::write(second.join(".hidden"), "something something").unwrap();
+        std::fs::write(second.join("ignore_me"), "something something").unwrap();
         std::fs::write(second.join("README.md"), "please").unwrap();
         let another_dir = temp.path().join("nested").join("dir").join("another-dir");
         std::fs::create_dir_all(&another_dir).unwrap();
@@ -975,6 +981,9 @@ mod tests {
             nested_dir_volume.read_file("README.md").unwrap(),
             (b"please".as_slice().into(), Some(readme_hash)),
         );
+        assert!(nested_dir_volume.read_file(".wasmerignore").is_none());
+        assert!(nested_dir_volume.read_file(".hidden").is_none());
+        assert!(nested_dir_volume.read_file("ignore_me").is_none());
         assert_eq!(
             nested_dir_volume
                 .read_file("/another-dir/empty.txt")

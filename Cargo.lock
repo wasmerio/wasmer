@@ -7062,6 +7062,7 @@ dependencies = [
  "ciborium",
  "flate2",
  "hexdump",
+ "ignore",
  "insta",
  "pretty_assertions",
  "regex",
@@ -7526,9 +7527,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "7.0.0"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9738385c5b8ab310addc432664e8488f3c134f5109b51b90127e701b5ffec0bb"
+checksum = "870aa1d988842465951a64aedb4196e71b83dedff1c4f624a8bee59ac3d85be6"
 dependencies = [
  "anyhow",
  "base64",

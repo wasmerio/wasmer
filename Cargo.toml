@@ -92,7 +92,7 @@ wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "7.0.0" }
+webc = "7.1.0"
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
@@ -155,7 +155,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
-reqwest = {workspace = true, features = ["blocking", "rustls-tls"]}
+reqwest = { workspace = true, features = ["blocking", "rustls-tls"] }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile

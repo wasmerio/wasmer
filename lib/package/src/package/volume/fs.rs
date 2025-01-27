@@ -213,12 +213,26 @@ impl FsVolume {
         path: &PathSegments,
     ) -> Option<Vec<(PathSegment, Option<[u8; 32]>, Metadata)>> {
         let resolved = self.resolve(path)?;
+
+        let walker = ignore::WalkBuilder::new(&resolved)
+            .require_git(true)
+            .add_custom_ignore_filename(".wasmerignore")
+            .follow_links(false)
+            .max_depth(Some(1))
+            .build();
+
         let mut entries = Vec::new();
 
-        for entry in resolved.read_dir().ok()? {
-            let entry = entry.ok()?.path();
+        for entry in walker {
+            let entry = entry.ok()?;
+            // Walk returns the root dir as well, we don't want to process it
+            if entry.depth() == 0 {
+                continue;
+            }
 
-            if !self.is_accessible(&entry) {
+            let entry = entry.path();
+
+            if !self.is_accessible(entry) {
                 continue;
             }
 
@@ -360,13 +374,14 @@ fn directory_tree(
                 println!("Warning: {path:?} already exists. Overriding the old entry");
             }
         } else {
-            match create_directory_tree(&path) {
+            match webc::v3::write::Directory::from_path_with_ignore(&path) {
                 Ok(dir) => {
                     for (path, child) in dir.children {
                         root.children.insert(path.clone(), child);
                     }
                 }
                 Err(e) => {
+                    let e = Error::from(e);
                     let error = e.context(format!(
                         "Unable to add \"{}\" to the directory tree",
                         path.display()
@@ -378,35 +393,6 @@ fn directory_tree(
     }
 
     Ok(root)
-}
-
-fn create_directory_tree(absolute: &Path) -> Result<webc::v3::write::Directory<'static>, Error> {
-    let mut children = BTreeMap::new();
-
-    for entry in absolute.read_dir()? {
-        let entry = entry?;
-
-        let kind = entry.file_type()?;
-        let path = entry.path();
-
-        let entry = if kind.is_dir() {
-            v3::write::DirEntry::Dir(create_directory_tree(&path)?)
-        } else {
-            v3::write::DirEntry::File(v3::write::FileEntry::from_path(&path)?)
-        };
-
-        let path = path.strip_prefix(absolute)?;
-        let path_segment = webc::PathSegment::try_from(path.as_os_str())?;
-
-        children.insert(path_segment, entry);
-    }
-
-    let meta = absolute.metadata()?;
-    let timestamps = v3::Timestamps::from_metadata(&meta)?;
-
-    let dir = v3::write::Directory::new(children, timestamps);
-
-    Ok(dir)
 }
 
 #[cfg(test)]
@@ -491,9 +477,16 @@ mod tests {
         std::fs::write(temp.path().join("README.md"), "readme").unwrap();
         std::fs::write(temp.path().join("asdf.wai"), "exports").unwrap();
         std::fs::write(temp.path().join("browser.wai"), "imports").unwrap();
-        let share = temp.path().join("etc").join("share");
+
+        let etc = temp.path().join("etc");
+        let share = etc.join("share");
         std::fs::create_dir_all(&share).unwrap();
+
+        std::fs::write(etc.join(".wasmerignore"), b"ignore_me").unwrap();
+        std::fs::write(etc.join(".hidden"), "anything, really").unwrap();
+        std::fs::write(etc.join("ignore_me"), "I should be ignored").unwrap();
         std::fs::write(share.join("package.1"), "man page").unwrap();
+        std::fs::write(share.join("ignore_me"), "I should be ignored too").unwrap();
 
         let manifest: Manifest = toml::from_str(wasmer_toml).unwrap();
 
