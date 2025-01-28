@@ -1097,9 +1097,7 @@ impl WasiEnv {
 
                 match root_fs {
                     WasiFsRoot::Sandbox(root_fs) => {
-                        if let Err(err) = root_fs
-                            .new_open_options_ext()
-                            .insert_ro_file(path, atom.as_slice().to_vec().into())
+                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, atom)
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",
@@ -1174,6 +1172,7 @@ impl WasiEnv {
         #[allow(unused_imports)]
         use std::path::Path;
 
+        use shared_buffer::OwnedBuffer;
         #[allow(unused_imports)]
         use virtual_fs::FileSystem;
 
@@ -1187,7 +1186,7 @@ impl WasiEnv {
                     err
                 ))
             })?;
-            let file: std::borrow::Cow<'static, [u8]> = file.into();
+            let file = OwnedBuffer::from(file);
 
             if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
                 let _ = root_fs.create_dir(Path::new("/bin"));
