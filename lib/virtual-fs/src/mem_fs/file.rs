@@ -3,6 +3,7 @@
 //! `FileHandle` can be used through the `VirtualFile` trait object.
 
 use futures::future::BoxFuture;
+use shared_buffer::OwnedBuffer;
 use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
@@ -11,7 +12,6 @@ use self::offloaded_file::OffloadWrite;
 use super::*;
 use crate::limiter::TrackedVec;
 use crate::{CopyOnWriteFile, FsError, Result, VirtualFile};
-use std::borrow::Cow;
 use std::cmp;
 use std::convert::TryInto;
 use std::fmt;
@@ -1523,11 +1523,11 @@ impl File {
 /// Read only file that uses copy-on-write
 #[derive(Debug)]
 pub(super) struct ReadOnlyFile {
-    buffer: Cow<'static, [u8]>,
+    buffer: OwnedBuffer,
 }
 
 impl ReadOnlyFile {
-    pub(super) fn new(buffer: Cow<'static, [u8]>) -> Self {
+    pub(super) fn new(buffer: OwnedBuffer) -> Self {
         Self { buffer }
     }
 

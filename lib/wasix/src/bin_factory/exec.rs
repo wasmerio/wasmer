@@ -33,7 +33,13 @@ pub async fn spawn_exec(
 
     let wasm = spawn_load_wasm(&env, &binary, name).await?;
 
-    spawn_exec_wasm(wasm, name, env, runtime).await
+    let module = spawn_load_module(&env, name, wasm, runtime).await?;
+
+    // Free the space used by the binary, since we don't need it
+    // any longer
+    drop(binary);
+
+    spawn_exec_module(module, env, runtime)
 }
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name))]
