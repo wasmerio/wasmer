@@ -1093,28 +1093,13 @@ impl WasiEnv {
                 let path = format!("/bin/{}", command.name());
                 let path = Path::new(path.as_str());
 
-                // FIXME(Michael-F-Bryan): This is pretty sketchy.
-                // We should be using some sort of reference-counted
-                // pointer to some bytes that are either on the heap
-                // or from a memory-mapped file. However, that's not
-                // possible here because things like memfs and
-                // WasiEnv are expecting a Cow<'static, [u8]>. It's
-                // too hard to refactor those at the moment, and we
-                // were pulling the same trick before by storing an
-                // "ownership" object in the BinaryPackageCommand,
-                // so as long as packages aren't removed from the
-                // module cache it should be fine.
-                // See https://github.com/wasmerio/wasmer/issues/3875
-                let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
+                let atom = command.atom();
 
                 match root_fs {
                     WasiFsRoot::Sandbox(root_fs) => {
-                        // As a short-cut, when we are using a TmpFileSystem
-                        // we can (unsafely) add the file to the filesystem
-                        // without any copying.
                         if let Err(err) = root_fs
                             .new_open_options_ext()
-                            .insert_ro_file(path, atom.into())
+                            .insert_ro_file(path, atom.as_slice().to_vec().into())
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",

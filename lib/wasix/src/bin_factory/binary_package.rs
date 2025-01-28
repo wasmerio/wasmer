@@ -48,12 +48,10 @@ impl BinaryPackageCommand {
         &self.metadata
     }
 
-    /// Get a reference to this [`BinaryPackageCommand`]'s atom.
-    ///
-    /// The address of the returned slice is guaranteed to be stable and live as
-    /// long as the [`BinaryPackageCommand`].
-    pub fn atom(&self) -> &[u8] {
-        &self.atom
+    /// Get a reference to this [`BinaryPackageCommand`]'s atom as a cheap
+    /// clone of the internal OwnedBuffer.
+    pub fn atom(&self) -> SharedBytes {
+        self.atom.clone()
     }
 
     pub fn hash(&self) -> &ModuleHash {
@@ -204,10 +202,10 @@ impl BinaryPackage {
 
     /// Get the bytes for the entrypoint command.
     #[deprecated(
-        note = "Use BinaryPackage::get_entrypoint_cmd instead",
+        note = "Use BinaryPackage::get_entrypoint_command instead",
         since = "0.22.0"
     )]
-    pub fn entrypoint_bytes(&self) -> Option<&[u8]> {
+    pub fn entrypoint_bytes(&self) -> Option<SharedBytes> {
         self.get_entrypoint_command().map(|entry| entry.atom())
     }
 
