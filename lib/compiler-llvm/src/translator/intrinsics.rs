@@ -1332,7 +1332,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ))
                     };
                     let ptr_to_base_ptr =
-                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, "",))
+                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
                             .into_pointer_value();
                     let offset = intrinsics.i64_ty.const_int(
                         offsets
@@ -1393,7 +1393,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ))
                     };
                     let ptr_to_base_ptr =
-                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, "",))
+                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
                             .into_pointer_value();
                     let offset = intrinsics
                         .i64_ty
@@ -1544,7 +1544,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ))
                     };
                     let global_ptr_ptr =
-                        err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, "",))
+                        err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
                             .into_pointer_value();
                     let global_ptr =
                         err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
@@ -1689,7 +1689,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     "",
                 ));
                 let body_ptr = err!(cache_builder.build_load(intrinsics.ptr_ty, body_ptr_ptr, ""));
-                let body_ptr = err!(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, "",))
+                let body_ptr = err!(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, ""))
                     .into_pointer_value();
                 let vmctx_ptr_ptr = err!(cache_builder.build_struct_gep(
                     intrinsics.vmfunction_import_ty,
@@ -1744,7 +1744,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let grow_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(grow_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(grow_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
                 let val = err!(cache_builder.build_load(grow_fn_ty, grow_fn_ptr_ptr, ""))
                     .into_pointer_value();
@@ -1790,7 +1790,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let size_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
 
                 let val = err!(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, ""))
@@ -1835,7 +1835,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let size_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
 
                 let val = err!(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, ""))
@@ -1927,7 +1927,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let size_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
 
                 let val = err!(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, ""))

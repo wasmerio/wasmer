@@ -86,7 +86,7 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
         Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
         Reloc::Arm64Call => RelocationKind::Arm64Call,
         Reloc::RiscvCallPlt => RelocationKind::RiscvCall,
-        _ => panic!("The relocation {} is not yet supported.", reloc),
+        _ => panic!("The relocation {reloc} is not yet supported."),
     }
 }
 
@@ -116,8 +116,7 @@ pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
                     builder.append_block_param(block, environ.reference_type());
                 } else {
                     return Err(WasmError::Unsupported(format!(
-                        "unsupported reference type: {:?}",
-                        ty
+                        "unsupported reference type: {ty:?}"
                     )));
                 }
             }

@@ -450,7 +450,7 @@ fn read_inner(
         match wasi_file.read(inner_buffer).await {
             Ok(a) => a as isize,
             Err(err) => {
-                update_last_error(format!("failed to read wasi_file: {}", err));
+                update_last_error(format!("failed to read wasi_file: {err}"));
                 -1
             }
         }

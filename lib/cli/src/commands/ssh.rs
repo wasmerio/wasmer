@@ -75,10 +75,7 @@ impl AsyncCliCommand for CmdSsh {
             ])
             .args(["-p", format!("{port}").as_str()]);
         for map_port in self.map_port {
-            cmd = cmd.args([
-                "-L",
-                format!("{}:localhost:{}", map_port, map_port).as_str(),
-            ]);
+            cmd = cmd.args(["-L", format!("{map_port}:localhost:{map_port}").as_str()]);
         }
 
         cmd = cmd.arg(format!("{token}@{host}")).arg(self.run.as_str());

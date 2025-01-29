@@ -2,11 +2,9 @@ use crate::config::WasmerEnv;
 use anyhow::Context;
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
+use indexmap::IndexMap;
 use semver::VersionReq;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use super::AsyncCliCommand;
 
@@ -271,8 +269,8 @@ impl Init {
     }
 
     /// Returns the dependencies based on the `--template` flag
-    fn get_dependencies(template: Option<&Template>) -> HashMap<String, VersionReq> {
-        let mut map = HashMap::default();
+    fn get_dependencies(template: Option<&Template>) -> IndexMap<String, VersionReq> {
+        let mut map = IndexMap::default();
 
         match template {
             Some(Template::Js) => {
@@ -489,7 +487,7 @@ async fn construct_manifest(
         abi: default_abi,
         bindings: bindings.as_ref().and_then(|b| b.first_binding()),
         interfaces: Some({
-            let mut map = HashMap::new();
+            let mut map = IndexMap::new();
             map.insert("wasi".to_string(), "0.1.0-unstable".to_string());
             map
         }),

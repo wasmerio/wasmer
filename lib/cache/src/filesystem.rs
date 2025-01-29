@@ -98,7 +98,7 @@ impl Cache for FileSystemCache {
         key: Hash,
     ) -> Result<Module, Self::DeserializeError> {
         let filename = if let Some(ref ext) = self.ext {
-            format!("{}.{}", key, ext)
+            format!("{key}.{ext}")
         } else {
             key.to_string()
         };
@@ -114,7 +114,7 @@ impl Cache for FileSystemCache {
 
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {
         let filename = if let Some(ref ext) = self.ext {
-            format!("{}.{}", key, ext)
+            format!("{key}.{ext}")
         } else {
             key.to_string()
         };

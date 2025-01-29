@@ -261,7 +261,7 @@ mod test_read_write_seek {
             matches!(stdout.write(b"qux").await, Ok(3)),
             "writing again into `stdout`",
         );
-        assert_eq!(stdout.buf, b"bazqux", "checking the content of `stdout`",);
+        assert_eq!(stdout.buf, b"bazqux", "checking the content of `stdout`");
     }
 
     #[tokio::test]
@@ -301,7 +301,7 @@ mod test_read_write_seek {
             matches!(stderr.write(b"qux").await, Ok(3)),
             "writing again into `stderr`",
         );
-        assert_eq!(stderr.buf, b"bazqux", "checking the content of `stderr`",);
+        assert_eq!(stderr.buf, b"bazqux", "checking the content of `stderr`");
     }
 
     #[tokio::test]

@@ -5,7 +5,9 @@ fn main() {
 }
 
 mod codegen {
-    use std::{collections::HashMap, path::Path};
+    use indexmap::IndexMap;
+
+    use std::path::Path;
 
     pub fn generate_schemas() {
         eprintln!("Generating schemas...");
@@ -37,10 +39,10 @@ mod codegen {
     }
 
     /// Returns a map of filename to serialized JSON schema.
-    fn build_jsonschema_map() -> HashMap<String, String> {
-        let mut map = HashMap::new();
+    fn build_jsonschema_map() -> IndexMap<String, String> {
+        let mut map = IndexMap::new();
 
-        fn add_schema<T: schemars::JsonSchema>(map: &mut HashMap<String, String>, name: &str) {
+        fn add_schema<T: schemars::JsonSchema>(map: &mut IndexMap<String, String>, name: &str) {
             let gen =
                 schemars::gen::SchemaGenerator::new(schemars::gen::SchemaSettings::draft2019_09());
             map.insert(

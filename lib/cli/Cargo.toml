@@ -142,7 +142,6 @@ virtual-mio = { version = "0.7.0", path = "../virtual-io" }
 
 webc = { workspace = true }
 wasmer-backend-api = { version = "=0.4.0", path = "../backend-api" }
-lazy_static = "1.4.0"
 
 # Used by the mount command
 
@@ -166,7 +165,7 @@ dirs = "4.0"
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
 wasmer-config = { version = "0.12.0", path = "../config" }
-indexmap = "1.9.2"
+indexmap = { workspace = true }
 walkdir = "2.3.2"
 regex = "1.6.0"
 toml.workspace = true

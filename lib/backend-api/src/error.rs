@@ -29,7 +29,7 @@ impl std::fmt::Display for GraphQLApiFailure {
             .map(|err| err.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "GraphQL API failure: {}", errs)
+        write!(f, "GraphQL API failure: {errs}")
     }
 }
 

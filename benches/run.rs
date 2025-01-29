@@ -30,7 +30,7 @@ pub fn run_fn(c: &mut Criterion, module: &[u8], name: &str, input: i64) {
             .unwrap();
 
         b.iter(|| {
-            func.call(&mut store, input);
+            let _ = func.call(&mut store, input);
         })
     });
 }

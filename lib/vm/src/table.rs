@@ -119,8 +119,7 @@ impl VMTable {
             ValType::FuncRef | ValType::ExternRef => (),
             ty => {
                 return Err(format!(
-                    "tables of types other than funcref or externref ({})",
-                    ty
+                    "tables of types other than funcref or externref ({ty})",
                 ))
             }
         };
@@ -243,10 +242,7 @@ impl VMTable {
                     // This path should never be hit by the generated code due to Wasm
                     // validation.
                     (ty, v) => {
-                        panic!(
-                            "Attempted to set a table of type {} with the value {:?}",
-                            ty, v
-                        )
+                        panic!("Attempted to set a table of type {ty} with the value {v:?}")
                     }
                 };
 
@@ -311,7 +307,7 @@ impl VMTable {
     pub fn copy_on_write(&self) -> Result<Self, String> {
         let mut ret = Self::new(&self.table, &self.style)?;
         ret.copy(self, 0, 0, self.size())
-            .map_err(|trap| format!("failed to copy the table - {:?}", trap))?;
+            .map_err(|trap| format!("failed to copy the table - {trap:?}"))?;
         Ok(ret)
     }
 

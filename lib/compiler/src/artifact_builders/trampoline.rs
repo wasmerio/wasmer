@@ -92,7 +92,7 @@ fn make_trampoline(
                 addend: 0,
             });
         }
-        arch => panic!("Unsupported architecture: {}", arch),
+        arch => panic!("Unsupported architecture: {arch}"),
     };
 }
 
@@ -103,7 +103,7 @@ pub fn libcall_trampoline_len(target: &Target) -> usize {
         Architecture::X86_64 => X86_64_TRAMPOLINE.len(),
         Architecture::Riscv64(_) => RISCV64_TRAMPOLINE.len(),
         Architecture::LoongArch64 => LOONGARCH64_TRAMPOLINE.len(),
-        arch => panic!("Unsupported architecture: {}", arch),
+        arch => panic!("Unsupported architecture: {arch}"),
     }
 }
 

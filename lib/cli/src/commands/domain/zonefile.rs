@@ -46,7 +46,7 @@ impl AsyncCliCommand for CmdZoneFileGet {
                 std::fs::write(zone_file_path, zone_file_contents)
                     .context("Unable to write file")?;
             } else {
-                println!("{}", zone_file_contents);
+                println!("{zone_file_contents}");
             }
         } else {
             anyhow::bail!("Domain not found");

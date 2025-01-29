@@ -1,6 +1,8 @@
-use std::{borrow::Cow, collections::HashMap, fmt::Display, str::FromStr};
+use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use serde::{de::Error, Deserialize, Serialize};
+
+use indexmap::IndexMap;
 
 use crate::package::PackageSource;
 
@@ -83,7 +85,7 @@ pub struct ExecutableJob {
 
     /// Environment variables.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub env: Option<HashMap<String, String>>,
+    pub env: Option<IndexMap<String, String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<ExecutableJobCompatibilityMapV1>,
@@ -105,7 +107,7 @@ pub struct ExecutableJobCompatibilityMapV1 {
     /// This provides a small bit of forwards compatibility for newly added
     /// capabilities.
     #[serde(flatten)]
-    pub other: HashMap<String, serde_json::Value>,
+    pub other: IndexMap<String, serde_json::Value>,
 }
 
 impl Serialize for JobTrigger {

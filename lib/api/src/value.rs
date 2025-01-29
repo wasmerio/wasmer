@@ -157,15 +157,15 @@ impl Value {
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::I32(v) => write!(f, "I32({:?})", v),
-            Self::I64(v) => write!(f, "I64({:?})", v),
-            Self::F32(v) => write!(f, "F32({:?})", v),
-            Self::F64(v) => write!(f, "F64({:?})", v),
+            Self::I32(v) => write!(f, "I32({v:?})"),
+            Self::I64(v) => write!(f, "I64({v:?})"),
+            Self::F32(v) => write!(f, "F32({v:?})"),
+            Self::F64(v) => write!(f, "F64({v:?})"),
             Self::ExternRef(None) => write!(f, "Null ExternRef"),
-            Self::ExternRef(Some(v)) => write!(f, "ExternRef({:?})", v),
+            Self::ExternRef(Some(v)) => write!(f, "ExternRef({v:?})"),
             Self::FuncRef(None) => write!(f, "Null FuncRef"),
-            Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
-            Self::V128(v) => write!(f, "V128({:?})", v),
+            Self::FuncRef(Some(v)) => write!(f, "FuncRef({v:?})"),
+            Self::V128(v) => write!(f, "V128({v:?})"),
         }
     }
 }

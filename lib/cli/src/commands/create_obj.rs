@@ -81,7 +81,7 @@ impl CreateObj {
             &self.cpu_features,
         );
         let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
-        println!("Compiler: {}", compiler_type);
+        println!("Compiler: {compiler_type}");
         println!("Target: {}", target.triple());
 
         let atoms = if let Ok(webc) = from_disk(&input_path) {

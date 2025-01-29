@@ -18,7 +18,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         trace!("restored - (ret={})", val);
         return Ok(Errno::Success);
     }
-    trace!("capturing",);
+    trace!("capturing");
 
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 

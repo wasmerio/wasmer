@@ -59,7 +59,7 @@ fn registry_error_message(specifier: &PackageSource) -> String {
         }
         PackageSource::Url(url) => format!("Unable to resolve \"{url}\""),
         PackageSource::Path(path) => {
-            format!("Unable to load \"{}\" from disk", path)
+            format!("Unable to load \"{path}\" from disk")
         }
     }
 }

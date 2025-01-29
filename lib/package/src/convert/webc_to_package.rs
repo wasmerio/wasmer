@@ -56,7 +56,7 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
                 let (name, version) = if let Some((name, version_raw)) = raw.split_once('@') {
                     let version = version_raw.parse().map_err(|err| {
                         ConversionError::with_cause(
-                            format!("Could not parse version of dependency: '{}'", raw),
+                            format!("Could not parse version of dependency: '{raw}'"),
                             err,
                         )
                     })?;
@@ -134,7 +134,7 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
     if !atoms.is_empty() {
         std::fs::create_dir_all(&module_dir).map_err(|err| {
             ConversionError::with_cause(
-                format!("Could not create directory '{}'", module_dir.display(),),
+                format!("Could not create directory '{}'", module_dir.display()),
                 err,
             )
         })?;
@@ -178,7 +178,7 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
             .annotation::<webc::metadata::annotations::Atom>(webc::metadata::annotations::Atom::KEY)
             .map_err(|err| {
                 ConversionError::with_cause(
-                    format!("could not read atom annotation for command '{}'", name),
+                    format!("could not read atom annotation for command '{name}'"),
                     err,
                 )
             })?

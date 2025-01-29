@@ -115,7 +115,7 @@ pub const CAPI_BASE_TESTS_NOT_WORKING: &[&str] = &[
 fn test_ok() {
     let _drop = RemoveTestsOnDrop::default();
     let config = Config::get();
-    println!("config: {:#?}", config);
+    println!("config: {config:#?}");
 
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let host = target_lexicon::HOST.to_string();
@@ -143,7 +143,7 @@ fn test_ok() {
 
             let compiler = build.try_get_compiler().unwrap();
 
-            println!("compiler {:#?}", compiler);
+            println!("compiler {compiler:#?}");
 
             // run vcvars
             let vcvars_bat_path = find_vcvars64(&compiler).expect("no vcvars64.bat");
@@ -202,7 +202,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                println!("output: {:#?}", output);
+                println!("output: {output:#?}");
                 // print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
@@ -224,7 +224,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                println!("output: {:#?}", output);
+                println!("output: {output:#?}");
                 // print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}");
             }
@@ -411,7 +411,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
             _ => continue,
         };
         let lines_3 = file.lines().take(3).collect::<Vec<_>>();
-        log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
+        log.push_str(&format!("first 3 lines of {path:?}: {lines_3:#?}\n"));
 
         let parent = std::path::Path::new(&path).parent().unwrap();
         if let Ok(symlink) = std::fs::read_to_string(parent.join(&file)) {
@@ -424,7 +424,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
             .captures_iter(&file)
             .map(|c| c[1].to_string())
             .collect::<Vec<_>>();
-        log.push_str(&format!("regex captures: ({path:?}): {:#?}\n", filepaths));
+        log.push_str(&format!("regex captures: ({path:?}): {filepaths:#?}\n"));
         let joined_filepaths = filepaths
             .iter()
             .map(|s| {

@@ -1151,8 +1151,9 @@ impl DirectoryMustBeEmpty {
 
 #[cfg(test)]
 mod test_filesystem {
-    use std::{borrow::Cow, path::Path};
+    use std::path::Path;
 
+    use shared_buffer::OwnedBuffer;
     use tokio::io::AsyncReadExt;
 
     use crate::{mem_fs::*, ops, DirEntry, FileSystem as FS, FileType, FsError};
@@ -1197,7 +1198,7 @@ mod test_filesystem {
             "creating the root which already exists",
         );
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory",);
+        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -1300,7 +1301,7 @@ mod test_filesystem {
             "cannot remove a directory that doesn't exist",
         );
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory",);
+        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory");
 
         assert_eq!(
             fs.create_dir(path!("/foo/bar")),
@@ -1329,7 +1330,7 @@ mod test_filesystem {
             "removing a sub-directory",
         );
 
-        assert_eq!(fs.remove_dir(path!("/foo")), Ok(()), "removing a directory",);
+        assert_eq!(fs.remove_dir(path!("/foo")), Ok(()), "removing a directory");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -1942,13 +1943,13 @@ mod test_filesystem {
         let other = FileSystem::default();
         crate::ops::create_dir_all(&other, "/a/x").unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/a.txt"), Cow::Borrowed(b"a"))
+            .insert_ro_file(Path::new("/a/x/a.txt"), OwnedBuffer::from_static(b"a"))
             .unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/b.txt"), Cow::Borrowed(b"b"))
+            .insert_ro_file(Path::new("/a/x/b.txt"), OwnedBuffer::from_static(b"b"))
             .unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/c.txt"), Cow::Borrowed(b"c"))
+            .insert_ro_file(Path::new("/a/x/c.txt"), OwnedBuffer::from_static(b"c"))
             .unwrap();
 
         let out = other.read_dir(Path::new("/")).unwrap();

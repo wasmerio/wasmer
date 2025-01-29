@@ -156,12 +156,11 @@ impl Argus {
             }
         };
 
-        p.set_message(format!("[{test_id}] testing package {package_name}",));
+        p.set_message(format!("[{test_id}] testing package {package_name}"));
 
         let path = Argus::get_path(config.clone(), package).await;
         p.set_message(format!(
-            "testing package {package_name} -- path to download to is: {:?}",
-            path
+            "testing package {package_name} -- path to download to is: {path:?}",
         ));
 
         #[cfg(not(feature = "wasmer_lib"))]

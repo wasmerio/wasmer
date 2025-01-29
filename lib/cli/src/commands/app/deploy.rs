@@ -423,14 +423,14 @@ impl AsyncCliCommand for CmdAppDeploy {
                                         "Found local package (manifest path: {}).",
                                         manifest_path.display()
                                     );
-                                    eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", name);
+                                    eprintln!("The `package` field in `app.yaml` specified the same named package ({name}).");
                                     eprintln!("This behaviour is deprecated.");
                                 }
 
                                 let theme = dialoguer::theme::ColorfulTheme::default();
                                 if self.non_interactive {
                                     if !self.quiet {
-                                        eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
+                                        eprintln!("Hint: replace `package: {n}` with `package: .` to replicate the intended behaviour.");
                                     }
                                     anyhow::bail!("deprecated deploy behaviour")
                                 } else if Confirm::with_theme(&theme)
@@ -565,7 +565,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         };
 
         if !self.quiet {
-            eprintln!("\nDeploying app {} to Wasmer Edge...\n", pretty_name);
+            eprintln!("\nDeploying app {pretty_name} to Wasmer Edge...\n");
         }
 
         let app_version = deploy_app(&client, opts.clone()).await?;

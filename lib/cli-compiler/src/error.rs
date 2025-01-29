@@ -55,7 +55,7 @@ impl Debug for PrettyError {
                     is_last: n == total_errors - 1,
                     started: false,
                 };
-                write!(indented, "{}", error)?;
+                write!(indented, "{error}")?;
             }
         }
         Ok(())
@@ -84,14 +84,14 @@ where
                                 self.inner,
                                 "{} {: >4} ",
                                 "│".bold().blue(),
-                                format!("{}:", number).dimmed()
+                                format!("{number}:").dimmed()
                             )?
                         } else {
                             write!(
                                 self.inner,
                                 "{}{: >2}: ",
                                 "╰─▶".bold().blue(),
-                                format!("{}", number).bold().blue()
+                                format!("{number}").bold().blue()
                             )?
                         }
                     }

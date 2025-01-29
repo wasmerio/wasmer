@@ -24,7 +24,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
         OptionTag::Some => Some(Duration::from_nanos(time.u)),
         _ => return Ok(Errno::Inval),
     };
-    Span::current().record("time", format!("{:?}", time));
+    Span::current().record("time", format!("{time:?}"));
 
     let ty = match opt {
         Sockoption::RecvTimeout => TimeType::ReadTimeout,

@@ -62,7 +62,7 @@ impl WcgiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = runtime.load_module_sync(cmd.atom())?;
+        let module = runtime.load_module_sync(&cmd.atom())?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
@@ -154,7 +154,7 @@ impl WcgiRunner {
                         let fut = graceful.watch(conn);
                         futs.push(async move {
                             if let Err(e) = fut.await {
-                                eprintln!("Error serving connection: {:?}", e);
+                                eprintln!("Error serving connection: {e:?}");
                             }
                         });
                     },

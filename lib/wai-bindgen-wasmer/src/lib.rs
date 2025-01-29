@@ -82,7 +82,7 @@ pub mod rt {
     }
 
     pub fn invalid_variant(name: &str) -> RuntimeError {
-        let msg = format!("invalid discriminant for `{}`", name);
+        let msg = format!("invalid discriminant for `{name}`");
         RuntimeError::new(msg)
     }
 
@@ -96,7 +96,7 @@ pub mod rt {
         T: std::ops::Not<Output = T> + std::ops::BitAnd<Output = T> + From<u8> + PartialEq + Copy,
     {
         if bits & !all != 0u8.into() {
-            let msg = format!("invalid flags specified for `{}`", name);
+            let msg = format!("invalid flags specified for `{name}`");
             Err(RuntimeError::new(msg))
         } else {
             Ok(mk(bits))

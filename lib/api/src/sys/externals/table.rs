@@ -105,7 +105,7 @@ impl Table {
         self.handle
             .get_mut(store.objects_mut())
             .grow(delta, item)
-            .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
+            .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{delta}`")))
     }
 
     pub fn copy(

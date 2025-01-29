@@ -41,7 +41,7 @@ impl Default for WasmerCreateExe {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(fixtures::qjs()),
+            wasm_path: fixtures::qjs(),
             native_executable_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -65,7 +65,7 @@ impl WasmerCreateExe {
             output.arg("--tarball");
             output.arg(&tarball_path);
         }
-        let cmd = format!("{:?}", output);
+        let cmd = format!("{output:?}");
 
         println!("(integration-test) running create-exe: {cmd}");
 
@@ -116,7 +116,7 @@ impl Default for WasmerCreateObj {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(fixtures::qjs()),
+            wasm_path: fixtures::qjs(),
             output_object_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -135,7 +135,7 @@ impl WasmerCreateObj {
         output.arg("-o");
         output.arg(&self.output_object_path);
 
-        let cmd = format!("{:?}", output);
+        let cmd = format!("{output:?}");
 
         println!("(integration-test) running create-obj: {cmd}");
 
@@ -298,7 +298,7 @@ fn create_exe_works() -> anyhow::Result<()> {
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(result_lines, vec!["\"Hello, World\""],);
+    assert_eq!(result_lines, vec!["\"Hello, World\""]);
 
     Ok(())
 }
@@ -398,7 +398,7 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
     let mut create_exe_flags = Vec::new();
 
     for a in atoms.iter() {
-        let object_path = operating_dir.as_path().join(&format!("{a}.o"));
+        let object_path = operating_dir.as_path().join(format!("{a}.o"));
         let _output: Vec<u8> = WasmerCreateObj {
             current_dir: operating_dir.clone(),
             wasm_path: wasm_path.clone(),
@@ -546,7 +546,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(result_lines, vec!["\"Hello, World\""],);
+    assert_eq!(result_lines, vec!["\"Hello, World\""]);
 
     // test with `--mapdir`
     let result = run_code(
@@ -561,7 +561,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(result_lines, vec!["\"Hello, World\""],);
+    assert_eq!(result_lines, vec!["\"Hello, World\""]);
 
     Ok(())
 }
@@ -675,7 +675,7 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(result_lines, vec!["\"Hello, World\""],);
+    assert_eq!(result_lines, vec!["\"Hello, World\""]);
 
     Ok(())
 }
@@ -830,7 +830,7 @@ fn test_cross_compile_python_windows() {
                     .filter_map(|e| Some(e.ok()?.path()))
                     .collect::<Vec<_>>();
                 let output = assert.get_output();
-                panic!("target {t} was not compiled correctly tempdir: {p:#?}, {output:?}",);
+                panic!("target {t} was not compiled correctly tempdir: {p:#?}, {output:?}");
             }
         }
     }

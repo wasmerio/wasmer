@@ -237,7 +237,7 @@ impl CliCommand for CreateExe {
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
-        println!("Compiler: {}", compiler_type);
+        println!("Compiler: {compiler_type}");
         println!("Target: {}", target.triple());
         println!(
             "Using path `{}` as libwasmer path.",
@@ -376,7 +376,7 @@ pub(super) fn compile_pirita_into_directory(
         AllowMultiWasm::Reject(Some(s)) => {
             let atom = pirita
                 .get_atom(s)
-                .with_context(|| format!("could not find atom \"{s}\"",))?;
+                .with_context(|| format!("could not find atom \"{s}\""))?;
             vec![(s.to_string(), atom)]
         }
     };
@@ -885,7 +885,7 @@ fn run_c_compile(
 
     // On some compiler -target isn't implemented
     if *target != Triple::host() {
-        command = command.arg("-target").arg(format!("{}", target));
+        command = command.arg("-target").arg(format!("{target}"));
     }
 
     let command = command.arg("-o").arg(output_name);
@@ -1410,7 +1410,7 @@ fn link_objects_system_linker(
 
     if *target != Triple::host() {
         command = command.arg("-target");
-        command = command.arg(format!("{}", target));
+        command = command.arg(format!("{target}"));
     }
 
     for include_dir in include_dirs {
@@ -1436,11 +1436,11 @@ fn link_objects_system_linker(
     } else {
         additional_libraries.extend(LINK_SYSTEM_LIBRARIES_UNIX.iter().map(|s| s.to_string()));
     }
-    let link_against_extra_libs = additional_libraries.iter().map(|lib| format!("-l{}", lib));
+    let link_against_extra_libs = additional_libraries.iter().map(|lib| format!("-l{lib}"));
     let command = command.args(link_against_extra_libs);
     let command = command.arg("-o").arg(output_path);
     if debug {
-        println!("{:#?}", command);
+        println!("{command:#?}");
     }
     let output = command.output()?;
 
@@ -1556,8 +1556,7 @@ fn generate_wasmer_main_c(
                 })?;
             writeln!(
                 c_code_to_instantiate,
-                "if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}",
-                prefix
+                "if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{prefix}; }}",
             )?;
         }
     }
@@ -1861,7 +1860,7 @@ pub(super) mod utils {
             Environment::Msvc => "msvc",
             _ => "none",
         };
-        format!("{}-{}-{}", arch, os, env)
+        format!("{arch}-{os}-{env}")
     }
 
     pub(super) fn get_wasmer_include_directory(env: &WasmerEnv) -> anyhow::Result<PathBuf> {
@@ -2311,10 +2310,7 @@ mod http_fetch {
                 }
             }
             Err(err) => {
-                eprintln!(
-                    "Could not determine cache path for downloaded binaries.: {}",
-                    err
-                );
+                eprintln!("Could not determine cache path for downloaded binaries.: {err}");
                 Err(anyhow!("Could not determine libwasmer cache path"))
             }
         }

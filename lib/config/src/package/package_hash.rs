@@ -32,7 +32,7 @@ impl From<Sha256Hash> for PackageHash {
 impl std::fmt::Display for PackageHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Sha256(hash) => write!(f, "sha256:{}", hash),
+            Self::Sha256(hash) => write!(f, "sha256:{hash}"),
         }
     }
 }

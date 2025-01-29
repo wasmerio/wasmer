@@ -114,7 +114,7 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
         .expect_err("error calling function");
 
     let trace = e.trace();
-    println!("Trace {:?}", trace);
+    println!("Trace {trace:?}");
     // TODO: Reenable this (disabled as it was not working with llvm/singlepass)
     // assert_eq!(trace.len(), 2);
     // assert_eq!(trace[0].module_name(), "hello_mod");
@@ -430,7 +430,7 @@ fn call_signature_mismatch(config: crate::Config) -> Result<()> {
     let module = Module::new(&store, binary)?;
     let err = Instance::new(&mut store, &module, &imports! {}).expect_err("expected error");
     assert_eq!(
-        format!("{}", err),
+        format!("{err}"),
         "\
 RuntimeError: indirect call type mismatch
     at foo (a[0]:0x30)\
@@ -457,7 +457,7 @@ fn start_trap_pretty(config: crate::Config) -> Result<()> {
     let err = Instance::new(&mut store, &module, &imports! {}).expect_err("expected error");
 
     assert_eq!(
-        format!("{}", err),
+        format!("{err}"),
         "\
 RuntimeError: unreachable
     at die (m[0]:0x1d)
@@ -485,7 +485,7 @@ fn present_after_module_drop(config: crate::Config) -> Result<()> {
     return Ok(());
 
     fn assert_trap(t: RuntimeError) {
-        println!("{}", t);
+        println!("{t}");
         // assert_eq!(t.trace().len(), 1);
         // assert_eq!(t.trace()[0].func_index(), 0);
     }

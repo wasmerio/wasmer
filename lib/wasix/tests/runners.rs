@@ -130,8 +130,8 @@ mod wasi {
         let runtime_error = err.chain().find_map(|e| e.downcast_ref::<WasiError>());
         let exit_code = match runtime_error {
             Some(WasiError::Exit(code)) => *code,
-            Some(other) => panic!("Something else went wrong: {:?}", other),
-            None => panic!("Not a WasiError: {:?}", err),
+            Some(other) => panic!("Something else went wrong: {other:?}"),
+            None => panic!("Not a WasiError: {err:?}"),
         };
         assert_eq!(exit_code.raw(), 42);
     }

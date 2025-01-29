@@ -988,7 +988,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
                 .map_err(|err| format!("failed to save stack: stack pointer overflow (stack_pointer={}, stack_lower={}, stack_upper={})", stack_offset, env.layout.stack_lower, env.layout.stack_upper))?,
         )
         .and_then(|memory_stack| memory_stack.read_to_bytes())
-        .map_err(|err| format!("failed to read stack: {}", err))
+        .map_err(|err| format!("failed to read stack: {err}"))
 }
 
 #[allow(dead_code)]
@@ -1018,7 +1018,7 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
                 .map_err(|_| "failed to restore stack: stack pointer overflow".to_string())?,
         )
         .and_then(|memory_stack| memory_stack.write_slice(&stack[..]))
-        .map_err(|err| format!("failed to write stack: {}", err))?;
+        .map_err(|err| format!("failed to write stack: {err}"))?;
 
     // Set the stack pointer itself and return
     set_memory_stack_offset(env, store, stack_offset)?;
@@ -1233,7 +1233,7 @@ where
                     .map_err(|_| "failed to save stack: stack pointer overflow".to_string())?,
             )
             .and_then(|memory_stack| memory_stack.read_to_bytes())
-            .map_err(|err| format!("failed to read stack: {}", err))?;
+            .map_err(|err| format!("failed to read stack: {err}"))?;
 
         // Notify asyncify that we are no longer unwinding
         if let Some(asyncify_stop_unwind) = env

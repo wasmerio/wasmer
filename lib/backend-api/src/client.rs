@@ -45,7 +45,7 @@ impl WasmerClient {
         }
         user_agent
             .parse()
-            .with_context(|| format!("invalid user agent: '{}'", user_agent))
+            .with_context(|| format!("invalid user agent: '{user_agent}'"))
     }
 
     pub fn new_with_client(

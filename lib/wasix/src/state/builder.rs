@@ -143,7 +143,7 @@ pub enum WasiStateCreationError {
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
     if !alias.bytes().all(|b| b != b'\0') {
         return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-            format!("Alias \"{}\" contains a nul byte", alias),
+            format!("Alias \"{alias}\" contains a nul byte"),
         ));
     }
 
@@ -774,16 +774,13 @@ impl WasiEnvBuilder {
             }) {
                 Some(InvalidCharacter::Nul) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                        format!("found nul byte in env var key \"{}\" (key=value)", env_key),
+                        format!("found nul byte in env var key \"{env_key}\" (key=value)"),
                     ))
                 }
 
                 Some(InvalidCharacter::Equal) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                        format!(
-                            "found equal sign in env var key \"{}\" (key=value)",
-                            env_key
-                        ),
+                        format!("found equal sign in env var key \"{env_key}\" (key=value)"),
                     ))
                 }
 
