@@ -1088,16 +1088,32 @@ impl WasiEnv {
 
         if !pkg.commands.is_empty() {
             let _ = root_fs.create_dir(Path::new("/bin"));
+            let _ = root_fs.create_dir(Path::new("/usr"));
+            let _ = root_fs.create_dir(Path::new("/usr/bin"));
 
             for command in &pkg.commands {
                 let path = format!("/bin/{}", command.name());
+                let path2 = format!("/usr/bin/{}", command.name());
                 let path = Path::new(path.as_str());
+                let path2 = Path::new(path2.as_str());
 
                 let atom = command.atom();
 
                 match root_fs {
                     WasiFsRoot::Sandbox(root_fs) => {
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, atom)
+                        if let Err(err) = root_fs
+                            .new_open_options_ext()
+                            .insert_ro_file(path, atom.clone())
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                pkg.id,
+                                command.name(),
+                                err
+                            );
+                            continue;
+                        }
+                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",
@@ -1110,6 +1126,16 @@ impl WasiEnv {
                     }
                     WasiFsRoot::Backing(fs) => {
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
+                        if let Err(e) = f
+                            .copy_reference(Box::new(StaticFile::new(atom.clone())))
+                            .await
+                        {
+                            tracing::warn!(
+                                error = &e as &dyn std::error::Error,
+                                "Unable to copy file reference",
+                            );
+                        }
+                        let mut f = fs.new_open_options().create(true).write(true).open(path2)?;
                         if let Err(e) = f.copy_reference(Box::new(StaticFile::new(atom))).await {
                             tracing::warn!(
                                 error = &e as &dyn std::error::Error,
@@ -1190,8 +1216,19 @@ impl WasiEnv {
 
             if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
                 let _ = root_fs.create_dir(Path::new("/bin"));
+                let _ = root_fs.create_dir(Path::new("/usr"));
+                let _ = root_fs.create_dir(Path::new("/usr/bin"));
 
                 let path = format!("/bin/{command}");
+                let path = Path::new(path.as_str());
+                if let Err(err) = root_fs
+                    .new_open_options_ext()
+                    .insert_ro_file(path, file.clone())
+                {
+                    tracing::debug!("failed to add atom command [{}] - {}", command, err);
+                    continue;
+                }
+                let path = format!("/usr/bin/{command}");
                 let path = Path::new(path.as_str());
                 if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, file) {
                     tracing::debug!("failed to add atom command [{}] - {}", command, err);
