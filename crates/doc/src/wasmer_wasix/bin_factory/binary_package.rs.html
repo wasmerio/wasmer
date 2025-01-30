@@ -365,8 +365,6 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
-<a href="#368" id="368">368</a>
-<a href="#369" id="369">369</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>anyhow::Context;
@@ -417,12 +415,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.metadata
     }
 
-    <span class="doccomment">/// Get a reference to this [`BinaryPackageCommand`]'s atom.
-    ///
-    /// The address of the returned slice is guaranteed to be stable and live as
-    /// long as the [`BinaryPackageCommand`].
-    </span><span class="kw">pub fn </span>atom(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.atom
+    <span class="doccomment">/// Get a reference to this [`BinaryPackageCommand`]'s atom as a cheap
+    /// clone of the internal OwnedBuffer.
+    </span><span class="kw">pub fn </span>atom(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SharedBytes {
+        <span class="self">self</span>.atom.clone()
     }
 
     <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleHash {
@@ -573,10 +569,10 @@
 
     <span class="doccomment">/// Get the bytes for the entrypoint command.
     </span><span class="attr">#[deprecated(
-        note = <span class="string">"Use BinaryPackage::get_entrypoint_cmd instead"</span>,
+        note = <span class="string">"Use BinaryPackage::get_entrypoint_command instead"</span>,
         since = <span class="string">"0.22.0"
     </span>)]
-    </span><span class="kw">pub fn </span>entrypoint_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
+    </span><span class="kw">pub fn </span>entrypoint_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBytes&gt; {
         <span class="self">self</span>.get_entrypoint_command().map(|entry| entry.atom())
     }
 

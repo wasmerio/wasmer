@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_directory_tree","directory_tree","resolve"],"struct":["FsVolume"]};
+window.SIDEBAR_ITEMS = {"fn":["directory_tree","resolve"],"struct":["FsVolume"]};

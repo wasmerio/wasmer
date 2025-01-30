@@ -794,14 +794,14 @@
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::filesystem::InodeResolution;
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{FileType, FsError, Metadata, OpenOptionsConfig, <span class="prelude-ty">Result</span>, VirtualFile};
-<span class="kw">use </span>std::borrow::Cow;
+<span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>FileSystem {
     <span class="doccomment">/// Inserts a readonly file into the file system that uses copy-on-write
     /// (this is required for zero-copy creation of the same file)
-    </span><span class="kw">pub fn </span>insert_ro_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path, contents: Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    </span><span class="kw">pub fn </span>insert_ro_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path, contents: OwnedBuffer) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_file(<span class="self">self</span>, path);
         <span class="kw">let </span>(inode_of_parent, maybe_inode_of_file, name_of_file) = <span class="self">self</span>.insert_inode(path)<span class="question-mark">?</span>;
 

@@ -336,6 +336,12 @@
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
@@ -371,8 +377,14 @@
 
     <span class="kw">let </span>wasm = spawn_load_wasm(<span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>binary, name).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    spawn_exec_wasm(wasm, name, env, runtime).<span class="kw">await
-</span>}
+    <span class="kw">let </span>module = spawn_load_module(<span class="kw-2">&amp;</span>env, name, wasm, runtime).<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="comment">// Free the space used by the binary, since we don't need it
+    // any longer
+    </span>drop(binary);
+
+    spawn_exec_module(module, env, runtime)
+}
 
 <span class="attr">#[tracing::instrument(level = <span class="string">"trace"</span>, skip_all, fields(%name))]
 </span><span class="kw">pub async fn </span>spawn_exec_wasm(

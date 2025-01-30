@@ -1939,6 +1939,15 @@
 <a href="#1939" id="1939">1939</a>
 <a href="#1940" id="1940">1940</a>
 <a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
@@ -2834,6 +2843,9 @@
         //   - file.txt
         // - nested/
         //   - dir/ ("second")
+        //     - .wasmerignore
+        //     - .hidden (should be ignored)
+        //     - ignore_me (should be ignored)
         //     - README.md
         //     - another-dir/
         //       - empty.txt
@@ -2848,6 +2860,9 @@
         <span class="comment">// The "second" entry
         </span><span class="kw">let </span>second = temp.path().join(<span class="string">"nested"</span>).join(<span class="string">"dir"</span>);
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>second).unwrap();
+        std::fs::write(second.join(<span class="string">".wasmerignore"</span>), <span class="string">"ignore_me"</span>).unwrap();
+        std::fs::write(second.join(<span class="string">".hidden"</span>), <span class="string">"something something"</span>).unwrap();
+        std::fs::write(second.join(<span class="string">"ignore_me"</span>), <span class="string">"something something"</span>).unwrap();
         std::fs::write(second.join(<span class="string">"README.md"</span>), <span class="string">"please"</span>).unwrap();
         <span class="kw">let </span>another_dir = temp.path().join(<span class="string">"nested"</span>).join(<span class="string">"dir"</span>).join(<span class="string">"another-dir"</span>);
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>another_dir).unwrap();
@@ -2916,6 +2931,9 @@
             nested_dir_volume.read_file(<span class="string">"README.md"</span>).unwrap(),
             (<span class="string">b"please"</span>.as_slice().into(), <span class="prelude-val">Some</span>(readme_hash)),
         );
+        <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">".wasmerignore"</span>).is_none());
+        <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">".hidden"</span>).is_none());
+        <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">"ignore_me"</span>).is_none());
         <span class="macro">assert_eq!</span>(
             nested_dir_volume
                 .read_file(<span class="string">"/another-dir/empty.txt"</span>)

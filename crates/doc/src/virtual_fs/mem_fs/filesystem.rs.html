@@ -1971,6 +1971,7 @@
 <a href="#1971" id="1971">1971</a>
 <a href="#1972" id="1972">1972</a>
 <a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadBackingStore;
@@ -3124,8 +3125,9 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test_filesystem {
-    <span class="kw">use </span>std::{borrow::Cow, path::Path};
+    <span class="kw">use </span>std::path::Path;
 
+    <span class="kw">use </span>shared_buffer::OwnedBuffer;
     <span class="kw">use </span>tokio::io::AsyncReadExt;
 
     <span class="kw">use crate</span>::{mem_fs::<span class="kw-2">*</span>, ops, DirEntry, FileSystem <span class="kw">as </span>FS, FileType, FsError};
@@ -3915,13 +3917,13 @@
         <span class="kw">let </span>other = FileSystem::default();
         <span class="kw">crate</span>::ops::create_dir_all(<span class="kw-2">&amp;</span>other, <span class="string">"/a/x"</span>).unwrap();
         other
-            .insert_ro_file(Path::new(<span class="string">"/a/x/a.txt"</span>), Cow::Borrowed(<span class="string">b"a"</span>))
+            .insert_ro_file(Path::new(<span class="string">"/a/x/a.txt"</span>), OwnedBuffer::from_static(<span class="string">b"a"</span>))
             .unwrap();
         other
-            .insert_ro_file(Path::new(<span class="string">"/a/x/b.txt"</span>), Cow::Borrowed(<span class="string">b"b"</span>))
+            .insert_ro_file(Path::new(<span class="string">"/a/x/b.txt"</span>), OwnedBuffer::from_static(<span class="string">b"b"</span>))
             .unwrap();
         other
-            .insert_ro_file(Path::new(<span class="string">"/a/x/c.txt"</span>), Cow::Borrowed(<span class="string">b"c"</span>))
+            .insert_ro_file(Path::new(<span class="string">"/a/x/c.txt"</span>), OwnedBuffer::from_static(<span class="string">b"c"</span>))
             .unwrap();
 
         <span class="kw">let </span>out = other.read_dir(Path::new(<span class="string">"/"</span>)).unwrap();

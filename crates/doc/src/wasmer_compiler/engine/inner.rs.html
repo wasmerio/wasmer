@@ -553,7 +553,7 @@
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
     SignatureIndex,
 };
-<span class="kw">use </span>wasmer_types::{CompileError, Features, HashAlgorithm, ModuleInfo};
+<span class="kw">use </span>wasmer_types::{CompileError, Features, HashAlgorithm};
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_vm::{
@@ -878,7 +878,7 @@
     #[allow(clippy::type_complexity)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate&lt;<span class="lifetime">'a</span>, FunctionBody, CustomSection&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>,
-        _module: <span class="kw-2">&amp;</span>ModuleInfo,
+        _module: <span class="kw-2">&amp;</span>wasmer_types::ModuleInfo,
         functions: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
         function_call_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
         dynamic_function_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,

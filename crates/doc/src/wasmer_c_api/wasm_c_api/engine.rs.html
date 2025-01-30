@@ -741,7 +741,7 @@
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span>wasmer_api::CompilerConfig;
 
-<span class="attr">#[cfg(all(feature = <span class="string">"compiler"</span>, any(feature = <span class="string">"compiler"</span>, feature = <span class="string">"dylib"</span>)))]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">fn </span>get_default_compiler_config() -&gt; Box&lt;<span class="kw">dyn </span>CompilerConfig&gt; {
     <span class="macro">cfg_if!</span> {
         <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)] </span>{

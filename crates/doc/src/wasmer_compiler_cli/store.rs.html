@@ -387,12 +387,18 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::common::WasmFeatures;
 <span class="kw">use </span>anyhow::Result;
 <span class="kw">use </span>clap::Parser;
+<span class="attr">#[cfg(doc)]
+</span><span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>std::string::ToString;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>std::sync::Arc;
@@ -400,6 +406,8 @@
     types::target::{PointerWidth, Target},
     CompilerConfig, EngineBuilder, Features,
 };
+<span class="attr">#[cfg(doc)]
+</span><span class="kw">use </span>wasmer_types::Type;
 <span class="kw">use </span>wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
 
 <span class="doccomment">/// Minimul Subset of Tunable parameters for WebAssembly compilation.
@@ -600,7 +608,7 @@
                 <span class="kw">use </span>std::fs::File;
                 <span class="kw">use </span>std::io::Write;
                 <span class="kw">use </span>wasmer_compiler_llvm::{
-                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
+                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
                 };
                 <span class="kw">use </span>wasmer_types::entity::EntityRef;
                 <span class="kw">let </span><span class="kw-2">mut </span>config = LLVM::new();

@@ -509,13 +509,6 @@
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
@@ -731,12 +724,26 @@
         path: <span class="kw-2">&amp;</span>PathSegments,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(PathSegment, <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;, Metadata)&gt;&gt; {
         <span class="kw">let </span>resolved = <span class="self">self</span>.resolve(path)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>walker = ignore::WalkBuilder::new(<span class="kw-2">&amp;</span>resolved)
+            .require_git(<span class="bool-val">true</span>)
+            .add_custom_ignore_filename(<span class="string">".wasmerignore"</span>)
+            .follow_links(<span class="bool-val">false</span>)
+            .max_depth(<span class="prelude-val">Some</span>(<span class="number">1</span>))
+            .build();
+
         <span class="kw">let </span><span class="kw-2">mut </span>entries = Vec::new();
 
-        <span class="kw">for </span>entry <span class="kw">in </span>resolved.read_dir().ok()<span class="question-mark">? </span>{
-            <span class="kw">let </span>entry = entry.ok()<span class="question-mark">?</span>.path();
+        <span class="kw">for </span>entry <span class="kw">in </span>walker {
+            <span class="kw">let </span>entry = entry.ok()<span class="question-mark">?</span>;
+            <span class="comment">// Walk returns the root dir as well, we don't want to process it
+            </span><span class="kw">if </span>entry.depth() == <span class="number">0 </span>{
+                <span class="kw">continue</span>;
+            }
 
-            <span class="kw">if </span>!<span class="self">self</span>.is_accessible(<span class="kw-2">&amp;</span>entry) {
+            <span class="kw">let </span>entry = entry.path();
+
+            <span class="kw">if </span>!<span class="self">self</span>.is_accessible(entry) {
                 <span class="kw">continue</span>;
             }
 
@@ -878,13 +885,14 @@
                 <span class="macro">println!</span>(<span class="string">"Warning: {path:?} already exists. Overriding the old entry"</span>);
             }
         } <span class="kw">else </span>{
-            <span class="kw">match </span>create_directory_tree(<span class="kw-2">&amp;</span>path) {
+            <span class="kw">match </span>webc::v3::write::Directory::from_path_with_ignore(<span class="kw-2">&amp;</span>path) {
                 <span class="prelude-val">Ok</span>(dir) =&gt; {
                     <span class="kw">for </span>(path, child) <span class="kw">in </span>dir.children {
                         root.children.insert(path.clone(), child);
                     }
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="kw">let </span>e = Error::from(e);
                     <span class="kw">let </span>error = e.context(<span class="macro">format!</span>(
                         <span class="string">"Unable to add \"{}\" to the directory tree"</span>,
                         path.display()
@@ -896,35 +904,6 @@
     }
 
     <span class="prelude-val">Ok</span>(root)
-}
-
-<span class="kw">fn </span>create_directory_tree(absolute: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;webc::v3::write::Directory&lt;<span class="lifetime">'static</span>&gt;, Error&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>children = BTreeMap::new();
-
-    <span class="kw">for </span>entry <span class="kw">in </span>absolute.read_dir()<span class="question-mark">? </span>{
-        <span class="kw">let </span>entry = entry<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>kind = entry.file_type()<span class="question-mark">?</span>;
-        <span class="kw">let </span>path = entry.path();
-
-        <span class="kw">let </span>entry = <span class="kw">if </span>kind.is_dir() {
-            v3::write::DirEntry::Dir(create_directory_tree(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>)
-        } <span class="kw">else </span>{
-            v3::write::DirEntry::File(v3::write::FileEntry::from_path(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>)
-        };
-
-        <span class="kw">let </span>path = path.strip_prefix(absolute)<span class="question-mark">?</span>;
-        <span class="kw">let </span>path_segment = webc::PathSegment::try_from(path.as_os_str())<span class="question-mark">?</span>;
-
-        children.insert(path_segment, entry);
-    }
-
-    <span class="kw">let </span>meta = absolute.metadata()<span class="question-mark">?</span>;
-    <span class="kw">let </span>timestamps = v3::Timestamps::from_metadata(<span class="kw-2">&amp;</span>meta)<span class="question-mark">?</span>;
-
-    <span class="kw">let </span>dir = v3::write::Directory::new(children, timestamps);
-
-    <span class="prelude-val">Ok</span>(dir)
 }
 
 <span class="attr">#[cfg(test)]
@@ -1009,9 +988,16 @@
         std::fs::write(temp.path().join(<span class="string">"README.md"</span>), <span class="string">"readme"</span>).unwrap();
         std::fs::write(temp.path().join(<span class="string">"asdf.wai"</span>), <span class="string">"exports"</span>).unwrap();
         std::fs::write(temp.path().join(<span class="string">"browser.wai"</span>), <span class="string">"imports"</span>).unwrap();
-        <span class="kw">let </span>share = temp.path().join(<span class="string">"etc"</span>).join(<span class="string">"share"</span>);
+
+        <span class="kw">let </span>etc = temp.path().join(<span class="string">"etc"</span>);
+        <span class="kw">let </span>share = etc.join(<span class="string">"share"</span>);
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>share).unwrap();
+
+        std::fs::write(etc.join(<span class="string">".wasmerignore"</span>), <span class="string">b"ignore_me"</span>).unwrap();
+        std::fs::write(etc.join(<span class="string">".hidden"</span>), <span class="string">"anything, really"</span>).unwrap();
+        std::fs::write(etc.join(<span class="string">"ignore_me"</span>), <span class="string">"I should be ignored"</span>).unwrap();
         std::fs::write(share.join(<span class="string">"package.1"</span>), <span class="string">"man page"</span>).unwrap();
+        std::fs::write(share.join(<span class="string">"ignore_me"</span>), <span class="string">"I should be ignored too"</span>).unwrap();
 
         <span class="kw">let </span>manifest: Manifest = toml::from_str(wasmer_toml).unwrap();
 
