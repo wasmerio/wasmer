@@ -24,19 +24,19 @@ int main(int argc, char *argv[])
     sock1 = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock1 < 0)
     {
-        perror("socket");
+        puts("failed to create the first socket");
         return EXIT_FAILURE;
     }
 
     if (setsockopt(sock1, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
     {
-        perror("setsockopt first socket SO_REUSEADDR failed");
+        puts("setsockopt first socket SO_REUSEADDR failed");
         return EXIT_FAILURE;
     }
 
     if (setsockopt(sock1, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0)
     {
-        perror("setsockopt first socket SO_REUSEPORT failed");
+        puts("setsockopt first socket SO_REUSEPORT failed");
         return EXIT_FAILURE;
     }
 
@@ -46,38 +46,39 @@ int main(int argc, char *argv[])
 
     if (bind(sock1, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        perror("first socket bind failed");
+        puts("first socket bind failed");
         return EXIT_FAILURE;
     }
 
     sock2 = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock2 < 0)
     {
-        perror("socket");
+        puts("failed to create the second socket");
         return EXIT_FAILURE;
     }
 
     if (setsockopt(sock2, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
     {
-        perror("setsockopt second socket SO_REUSEADDR failed");
+        puts("setsockopt second socket SO_REUSEADDR failed");
         return EXIT_FAILURE;
     }
 
     if (setsockopt(sock2, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0)
     {
-        perror("setsockopt second socket SO_REUSEPORT failed");
+        puts("setsockopt second socket SO_REUSEPORT failed");
         return EXIT_FAILURE;
     }
 
     if (bind(sock2, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        perror("second socket bind failed");
+        puts("second socket bind failed");
         return EXIT_FAILURE;
     }
 
     close(sock1);
     close(sock2);
 
+    printf("%d", EXIT_SUCCESS);
     return EXIT_SUCCESS;
     
 }
