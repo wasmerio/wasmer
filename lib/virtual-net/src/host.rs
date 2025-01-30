@@ -115,6 +115,7 @@ impl VirtualNetworking for LocalNetworking {
             }
         }
 
+        #[cfg(not(windows))]
         let socket = {
             let std_sock =
                 Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(io_err_into_net_error)?;
@@ -127,6 +128,8 @@ impl VirtualNetworking for LocalNetworking {
             std_sock.bind(&addr.into()).map_err(io_err_into_net_error)?;
             mio::net::UdpSocket::from_std(std_sock.into())
         };
+        #[cfg(windows)]
+        let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
 
         #[allow(unused_mut)]
         let mut ret = LocalUdpSocket {
