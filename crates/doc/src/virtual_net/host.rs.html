@@ -984,6 +984,22 @@
 <a href="#984" id="984">984</a>
 <a href="#985" id="985">985</a>
 <a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_variables)]
 </span><span class="kw">use </span><span class="kw">crate</span>::ruleset::{Direction, Ruleset};
 <span class="kw">use crate</span>::{io_err_into_net_error, VirtualIoSource};
@@ -1089,9 +1105,11 @@
     <span class="kw">async fn </span>bind_udp(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         addr: SocketAddr,
-        _reuse_port: bool,
-        _reuse_addr: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync&gt;&gt; {
+        <span class="kw">use </span>socket2::{Domain, Socket, Type};
+
         <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
             <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Inbound) {
                 <span class="macro">tracing::warn!</span>(%addr, <span class="string">"bind_udp blocked by firewall rule"</span>);
@@ -1099,7 +1117,21 @@
             }
         }
 
-        <span class="kw">let </span>socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+        <span class="attr">#[cfg(not(windows))]
+        </span><span class="kw">let </span>socket = {
+            <span class="kw">let </span>std_sock =
+                Socket::new(Domain::IPV4, Type::DGRAM, <span class="prelude-val">None</span>).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+            std_sock
+                .set_reuse_address(reuse_addr)
+                .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+            std_sock
+                .set_reuse_port(reuse_port)
+                .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+            std_sock.bind(<span class="kw-2">&amp;</span>addr.into()).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+            mio::net::UdpSocket::from_std(std_sock.into())
+        };
+        <span class="attr">#[cfg(windows)]
+        </span><span class="kw">let </span>socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
 
         <span class="attr">#[allow(unused_mut)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>ret = LocalUdpSocket {
