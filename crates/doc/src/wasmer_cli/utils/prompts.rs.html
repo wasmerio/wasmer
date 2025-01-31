@@ -262,6 +262,31 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Select};
@@ -284,6 +309,31 @@
         <span class="kw">if </span>!val.is_empty() {
             <span class="kw">break </span><span class="prelude-val">Ok</span>(val.to_string());
         }
+    }
+}
+
+<span class="doccomment">/// Ask a user for an application name.
+///
+/// Will continue looping until the user provides a valid name that contains
+/// neither dots nor spaces. Returns an error if there are issues with
+/// the input interaction.
+</span><span class="kw">pub fn </span>prompt_for_app_ident(message: <span class="kw-2">&amp;</span>str, default: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;String, anyhow::Error&gt; {
+    <span class="kw">loop </span>{
+        <span class="kw">let </span>theme = ColorfulTheme::default();
+        <span class="kw">let </span>diag = dialoguer::Input::with_theme(<span class="kw-2">&amp;</span>theme)
+            .with_prompt(message)
+            .with_initial_text(default.unwrap_or_default());
+
+        <span class="kw">let </span>raw: String = diag.interact_text()<span class="question-mark">?</span>;
+        <span class="kw">let </span>val = raw.trim();
+        <span class="kw">if </span>val.is_empty() {
+            <span class="kw">continue</span>;
+        }
+        <span class="kw">if </span>val.contains(<span class="string">'.'</span>) || val.contains(<span class="string">' '</span>) {
+            <span class="macro">eprintln!</span>(<span class="string">"The name must not contain dots or spaces. Please try again."</span>);
+            <span class="kw">continue</span>;
+        }
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(val.to_string());
     }
 }
 
