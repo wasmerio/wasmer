@@ -8,7 +8,7 @@ use std::{
 
 use futures::future::BoxFuture;
 use rand::Rng;
-use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
+use virtual_fs::{FileSystem, FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
@@ -1125,18 +1125,17 @@ impl WasiEnv {
                         }
                     }
                     WasiFsRoot::Backing(fs) => {
+                        // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
+                        // usage will be very high.
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        if let Err(e) = f
-                            .copy_reference(Box::new(StaticFile::new(atom.clone())))
-                            .await
-                        {
+                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
                             tracing::warn!(
                                 error = &e as &dyn std::error::Error,
                                 "Unable to copy file reference",
                             );
                         }
                         let mut f = fs.new_open_options().create(true).write(true).open(path2)?;
-                        if let Err(e) = f.copy_reference(Box::new(StaticFile::new(atom))).await {
+                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
                             tracing::warn!(
                                 error = &e as &dyn std::error::Error,
                                 "Unable to copy file reference",

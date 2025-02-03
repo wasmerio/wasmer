@@ -342,6 +342,38 @@ impl VirtualFile for FileHandle {
         })
     }
 
+    fn copy_from_owned_buffer(&mut self, src: &OwnedBuffer) -> BoxFuture<'_, std::io::Result<()>> {
+        let inner = self.filesystem.inner.clone();
+        let src = src.clone();
+        Box::pin(async move {
+            let mut fs = inner.write().unwrap();
+            let inode = fs.storage.get_mut(self.inode);
+            match inode {
+                Some(inode) => {
+                    let metadata = Metadata {
+                        ft: crate::FileType {
+                            file: true,
+                            ..Default::default()
+                        },
+                        accessed: 1,
+                        created: 1,
+                        modified: 1,
+                        len: src.len() as u64,
+                    };
+
+                    *inode = Node::ReadOnlyFile(ReadOnlyFileNode {
+                        inode: inode.inode(),
+                        name: inode.name().to_string_lossy().to_string().into(),
+                        file: ReadOnlyFile { buffer: src },
+                        metadata,
+                    });
+                    Ok(())
+                }
+                None => Err(std::io::ErrorKind::InvalidInput.into()),
+            }
+        })
+    }
+
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         if !self.readable {
             return Poll::Ready(Err(io::Error::new(
