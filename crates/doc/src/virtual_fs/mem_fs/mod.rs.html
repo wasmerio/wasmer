@@ -168,6 +168,8 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>file;
 <span class="kw">mod </span>file_opener;
 <span class="kw">mod </span>filesystem;
@@ -224,7 +226,9 @@
     metadata: Metadata,
 }
 
-<span class="attr">#[derive(Debug)]
+<span class="comment">// FIXME: this is broken!!! A `VirtualFile` stores its own offset,
+// so a file stored this way can only be read once!
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>CustomFileNode {
     inode: Inode,
     name: OsString,

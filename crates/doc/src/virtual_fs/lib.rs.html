@@ -746,6 +746,20 @@
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
@@ -753,6 +767,7 @@
 </span><span class="kw">extern crate </span>pretty_assertions;
 
 <span class="kw">use </span>futures::future::BoxFuture;
+<span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::any::Any;
 <span class="kw">use </span>std::ffi::OsString;
 <span class="kw">use </span>std::fmt;
@@ -1141,6 +1156,19 @@
     ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, std::io::Result&lt;()&gt;&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">let </span>bytes_written = tokio::io::copy(<span class="kw-2">&amp;mut </span>src, <span class="self">self</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">"Copying file into host filesystem"</span>);
+            <span class="prelude-val">Ok</span>(())
+        })
+    }
+
+    <span class="doccomment">/// This method will copy a file from a source to this destination where
+    /// the default is to do a straight byte copy however file system implementors
+    /// may optimize this to cheaply clone and store the OwnedBuffer directly
+    </span><span class="kw">fn </span>copy_from_owned_buffer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: <span class="kw-2">&amp;</span>OwnedBuffer) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, std::io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>src = src.clone();
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>bytes = src.as_slice();
+            <span class="kw">let </span>bytes_written = tokio::io::copy(<span class="kw-2">&amp;mut </span>bytes, <span class="self">self</span>).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">"Copying file into host filesystem"</span>);
             <span class="prelude-val">Ok</span>(())
         })

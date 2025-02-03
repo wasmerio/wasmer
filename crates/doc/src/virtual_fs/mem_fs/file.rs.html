@@ -1573,6 +1573,38 @@
 <a href="#1573" id="1573">1573</a>
 <a href="#1574" id="1574">1574</a>
 <a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the `FileHandle` and `File`
 //! implementations. They aren't exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
@@ -1908,6 +1940,38 @@
                         inode: inode.inode(),
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
+                        metadata,
+                    });
+                    <span class="prelude-val">Ok</span>(())
+                }
+                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(std::io::ErrorKind::InvalidInput.into()),
+            }
+        })
+    }
+
+    <span class="kw">fn </span>copy_from_owned_buffer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: <span class="kw-2">&amp;</span>OwnedBuffer) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, std::io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.filesystem.inner.clone();
+        <span class="kw">let </span>src = src.clone();
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>fs = inner.write().unwrap();
+            <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
+            <span class="kw">match </span>inode {
+                <span class="prelude-val">Some</span>(inode) =&gt; {
+                    <span class="kw">let </span>metadata = Metadata {
+                        ft: <span class="kw">crate</span>::FileType {
+                            file: <span class="bool-val">true</span>,
+                            ..Default::default()
+                        },
+                        accessed: <span class="number">1</span>,
+                        created: <span class="number">1</span>,
+                        modified: <span class="number">1</span>,
+                        len: src.len() <span class="kw">as </span>u64,
+                    };
+
+                    <span class="kw-2">*</span>inode = Node::ReadOnlyFile(ReadOnlyFileNode {
+                        inode: inode.inode(),
+                        name: inode.name().to_string_lossy().to_string().into(),
+                        file: ReadOnlyFile { buffer: src },
                         metadata,
                     });
                     <span class="prelude-val">Ok</span>(())

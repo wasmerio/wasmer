@@ -862,6 +862,9 @@
 <a href="#862" id="862">862</a>
 <a href="#863" id="863">863</a>
 <a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
@@ -1106,7 +1109,10 @@
     /// [`NotFound`]: SpawnError::NotFound
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>is_not_found(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::NotFound { .. } | <span class="self">Self</span>::MissingEntrypoint { .. })
+        <span class="macro">matches!</span>(
+            <span class="self">self</span>,
+            <span class="self">Self</span>::NotFound { .. } | <span class="self">Self</span>::MissingEntrypoint { .. } | <span class="self">Self</span>::BinaryNotFound { .. }
+        )
     }
 }
 
