@@ -54,7 +54,7 @@ struct ArcFileNode {
     metadata: Metadata,
 }
 
-// TODO: this is broken!!! A `VirtualFile` stores its own offset,
+// FIXME: this is broken!!! A `VirtualFile` stores its own offset,
 // so a file stored this way can only be read once!
 #[derive(Debug)]
 struct CustomFileNode {
