@@ -331,9 +331,9 @@ impl FuncTranslator {
             .unwrap();
 
         // -- Uncomment to enable dumping intermediate LLVM objects
-        module
-            .print_to_file(format!("{}/obj.ll", std::env!("LLVM_EH_TESTS_DUMP_DIR")))
-            .unwrap();
+        //module
+        //    .print_to_file(format!("{}/obj.ll", std::env!("LLVM_EH_TESTS_DUMP_DIR")))
+        //    .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -371,22 +371,22 @@ impl FuncTranslator {
             .unwrap();
 
         // -- Uncomment to enable dumping intermediate LLVM objects
-        unsafe {
-            let mut x = COUNTER.lock().unwrap();
-            let old = *x;
-            *x += 1;
+        //unsafe {
+        //    let mut x = COUNTER.lock().unwrap();
+        //    let old = *x;
+        //    *x += 1;
 
-            target_machine
-                .write_to_file(
-                    &module,
-                    FileType::Assembly,
-                    std::path::Path::new(&format!(
-                        "{}/obj_{old}.asm",
-                        std::env!("LLVM_EH_TESTS_DUMP_DIR")
-                    )),
-                )
-                .unwrap();
-        }
+        //    target_machine
+        //        .write_to_file(
+        //            &module,
+        //            FileType::Assembly,
+        //            std::path::Path::new(&format!(
+        //                "{}/obj_{old}.asm",
+        //                std::env!("LLVM_EH_TESTS_DUMP_DIR")
+        //            )),
+        //        )
+        //        .unwrap();
+        //}
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
