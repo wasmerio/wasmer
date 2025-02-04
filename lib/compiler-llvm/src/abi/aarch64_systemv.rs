@@ -157,6 +157,25 @@ impl Abi for Aarch64SystemV {
                     vmctx_attributes(0),
                 )
             }
+            [t1, t2]
+                if matches!(t1, Type::I32 | Type::I64 | Type::F32 | Type::F64)
+                    && matches!(t2, Type::FuncRef | Type::ExternRef | Type::ExceptionRef) =>
+            {
+                let t1 = type_to_llvm(intrinsics, *t1).unwrap();
+                let t2 = type_to_llvm(intrinsics, *t2).unwrap();
+                (
+                    context
+                        .struct_type(&[t1.as_basic_type_enum(), t2.as_basic_type_enum()], false)
+                        .fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                .as_slice(),
+                            false,
+                        ),
+                    vmctx_attributes(0),
+                )
+            }
             _ => {
                 let sig_returns_bitwidths = sig
                     .results()

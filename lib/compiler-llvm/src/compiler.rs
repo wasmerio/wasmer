@@ -11,8 +11,9 @@ use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashSet;
 use std::sync::Arc;
-use wasmer_compiler::types::function::{Compilation, Dwarf};
+use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
+use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
     types::{
         relocation::RelocationTarget,
@@ -24,9 +25,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, SignatureIndex};
-use wasmer_vm::libcalls::function_pointer;
-
-//use std::sync::Mutex;
+use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
@@ -265,7 +264,8 @@ impl Compiler for LLVMCompiler {
         let mut compact_unwind_section_bytes = vec![];
         let mut compact_unwind_section_relocations = vec![];
 
-        let mut got_targets = HashSet::new();
+        let mut got_targets: HashSet<wasmer_compiler::types::relocation::RelocationTarget> =
+            HashSet::from_iter(vec![RelocationTarget::LibCall(LibCall::EHPersonality)]);
 
         let functions = function_body_inputs
             .iter()
@@ -305,21 +305,11 @@ impl Compiler for LLVMCompiler {
                                 SectionIndex::from_u32(first_section + index.as_u32()),
                             )
                         }
+
+                        if reloc.kind.needs_got() {
+                            got_targets.insert(reloc.reloc_target);
+                        }
                     }
-
-                    compiled_function
-                        .compiled_function
-                        .relocations
-                        .iter()
-                        .filter(|v| v.kind.needs_got())
-                        .for_each(|v| _ = got_targets.insert(v.reloc_target));
-
-                    compiled_function
-                        .custom_sections
-                        .iter()
-                        .flat_map(|v| v.1.relocations.iter())
-                        .filter(|v| v.kind.needs_got())
-                        .for_each(|v| _ = got_targets.insert(v.reloc_target));
 
                     if compiled_function
                         .eh_frame_section_indices
@@ -364,13 +354,19 @@ impl Compiler for LLVMCompiler {
                             SectionIndex::from_u32(first_section + index.as_u32()),
                         )
                     }
+
+                    if reloc.kind.needs_got() {
+                        got_targets.insert(reloc.reloc_target);
+                    }
                 }
                 compiled_function.compiled_function
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let debug = if !eh_frame_section_bytes.is_empty() {
-            let debug = Dwarf::new(SectionIndex::from_u32(module_custom_sections.len() as u32));
+        let mut unwind_info = UnwindInfo::default();
+
+        if !eh_frame_section_bytes.is_empty() {
+            let eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
             // Do not terminate dwarf info with a zero-length CIE.
             // Because more info will be added later
             // in lib/object/src/module.rs emit_compilation
@@ -379,30 +375,18 @@ impl Compiler for LLVMCompiler {
                 bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
                 relocations: eh_frame_section_relocations,
             });
+            unwind_info.eh_frame = Some(eh_frame_idx);
+        }
 
-            Some(debug)
-        } else {
-            None
-        };
-
-        //println!("compact_unwind_bytes: {compact_unwind_section_bytes:?}");
-
-        let debug = if !compact_unwind_section_bytes.is_empty() {
-            let section_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
+        if !compact_unwind_section_bytes.is_empty() {
+            let cu_index = SectionIndex::from_u32(module_custom_sections.len() as u32);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
                 bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
                 relocations: compact_unwind_section_relocations,
             });
-            if let Some(mut dbg) = debug {
-                dbg.compact_unwind = Some(section_idx);
-                Some(dbg)
-            } else {
-                Some(Dwarf::new_cu(section_idx))
-            }
-        } else {
-            debug
-        };
+            unwind_info.compact_unwind = Some(cu_index);
+        }
 
         let function_call_trampolines = module
             .signatures
@@ -437,29 +421,45 @@ impl Compiler for LLVMCompiler {
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
 
-        let got = if !got_targets.is_empty() {
-            let mut got_data = vec![];
-            let mut map = std::collections::HashMap::new();
-            for (i, reloc) in got_targets.into_iter().enumerate() {
-                match reloc {
-                    RelocationTarget::LibCall(c) => got_data.push(function_pointer(c)),
-                    RelocationTarget::LocalFunc(_) => todo!(),
-                    RelocationTarget::CustomSection(_) => todo!(),
-                }
+        let mut got = wasmer_compiler::types::function::GOT::empty();
 
-                map.insert(reloc, i);
+        if !got_targets.is_empty() {
+            let pointer_width = target
+                .triple()
+                .pointer_width()
+                .map_err(|_| CompileError::Codegen("Could not get pointer width".to_string()))?;
+
+            let got_entry_size = match pointer_width {
+                target_lexicon::PointerWidth::U64 => 8,
+                target_lexicon::PointerWidth::U32 => 4,
+                target_lexicon::PointerWidth::U16 => todo!(),
+            };
+
+            let got_entry_reloc_kind = match pointer_width {
+                target_lexicon::PointerWidth::U64 => RelocationKind::Abs8,
+                target_lexicon::PointerWidth::U32 => RelocationKind::Abs4,
+                target_lexicon::PointerWidth::U16 => todo!(),
+            };
+
+            let got_data: Vec<u8> = vec![0; got_targets.len() * got_entry_size];
+            let mut got_relocs = vec![];
+
+            for (i, target) in got_targets.into_iter().enumerate() {
+                got_relocs.push(wasmer_compiler::types::relocation::Relocation {
+                    kind: got_entry_reloc_kind,
+                    reloc_target: target,
+                    offset: (i * got_entry_size) as u32,
+                    addend: 0,
+                });
             }
-            let got_data: Vec<u8> = got_data.into_iter().flat_map(|v| v.to_ne_bytes()).collect();
-            let index = SectionIndex::from_u32(module_custom_sections.len() as u32);
+
+            let got_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
                 bytes: SectionBody::new_with_vec(got_data),
-                relocations: vec![],
+                relocations: got_relocs,
             });
-
-            Some(wasmer_compiler::types::function::GOT { index, map })
-        } else {
-            None
+            got.index = Some(got_idx);
         };
 
         tracing::trace!("Finished compling the module!");
@@ -468,7 +468,7 @@ impl Compiler for LLVMCompiler {
             custom_sections: module_custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            debug,
+            unwind_info,
             got,
         })
     }

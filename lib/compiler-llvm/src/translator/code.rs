@@ -25,6 +25,9 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::BinaryFormat;
 
+static mut COUNTER: std::sync::LazyLock<std::sync::Mutex<usize>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(0));
+
 use crate::{
     abi::{get_abi, Abi},
     config::{CompiledKind, LLVM},
@@ -50,7 +53,7 @@ use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
 const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_function";
 const FUNCTION_SECTION_MACHO: &str = "__TEXT";
-const FUNCTION_SEGMENT_MACHO: &str = "__text";
+const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 
 pub struct FuncTranslator {
     ctx: Context,
@@ -328,9 +331,9 @@ impl FuncTranslator {
             .unwrap();
 
         // -- Uncomment to enable dumping intermediate LLVM objects
-        //module
-        //    .print_to_file(format!("{}/obj.ll", std::env!("LLVM_EH_TESTS_DUMP_DIR")))
-        //    .unwrap();
+        module
+            .print_to_file(format!("{}/obj.ll", std::env!("LLVM_EH_TESTS_DUMP_DIR")))
+            .unwrap();
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -368,13 +371,22 @@ impl FuncTranslator {
             .unwrap();
 
         // -- Uncomment to enable dumping intermediate LLVM objects
-        //target_machine
-        //    .write_to_file(
-        //        &module,
-        //        FileType::Assembly,
-        //        std::path::Path::new(&format!("{}/obj.asm", std::env!("LLVM_EH_TESTS_DUMP_DIR"))),
-        //    )
-        //    .unwrap();
+        unsafe {
+            let mut x = COUNTER.lock().unwrap();
+            let old = *x;
+            *x += 1;
+
+            target_machine
+                .write_to_file(
+                    &module,
+                    FileType::Assembly,
+                    std::path::Path::new(&format!(
+                        "{}/obj_{old}.asm",
+                        std::env!("LLVM_EH_TESTS_DUMP_DIR")
+                    )),
+                )
+                .unwrap();
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
@@ -1451,7 +1463,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         tag_glbl.set_linkage(Linkage::External);
         tag_glbl.set_constant(true);
-        tag_glbl.set_section(Some("__DATA"));
+        tag_glbl.set_section(Some(&format!(
+            "{},_wasmer_ehi_{tag}",
+            FUNCTION_SECTION_MACHO
+        )));
 
         let tag_glbl = tag_glbl.as_basic_value_enum();
 

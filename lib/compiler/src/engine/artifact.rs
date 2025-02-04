@@ -12,7 +12,7 @@ use crate::{
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
     types::{
-        function::GOT,
+        relocation::{RelocationLike, RelocationTarget},
         section::CustomSectionLike,
         target::{CpuFeature, Target},
     },
@@ -329,24 +329,40 @@ impl Artifact {
             )?,
         };
 
-        let got_info: Option<(usize, GOT)> = match &artifact {
+        let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
             ArtifactBuildVariant::Plain(ref p) => {
-                if let Some(got) = p.get_got_ref() {
-                    let got = got.clone();
-                    let body = p.get_custom_sections_ref()[got.index].bytes.as_ptr() as usize;
-                    Some((body, got))
+                if let Some(got) = p.get_got_ref().index {
+                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
+                        .iter()
+                        .map(|v| (v.reloc_target, v.offset))
+                        .collect();
+                    let got_base = custom_sections[got].0 as usize;
+                    Box::new(move |t: RelocationTarget| {
+                        relocs
+                            .iter()
+                            .find(|(v, _)| v == &t)
+                            .map(|(_, o)| got_base + (*o as usize))
+                    })
                 } else {
-                    None
+                    Box::new(|_: RelocationTarget| None)
                 }
             }
 
             ArtifactBuildVariant::Archived(ref p) => {
-                if let Some(got) = p.get_got_ref() {
-                    let got = got.clone();
-                    let body = p.get_custom_sections_ref()[got.index].bytes().as_ptr() as usize;
-                    Some((body, got))
+                if let Some(got) = p.get_got_ref().index {
+                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
+                        .iter()
+                        .map(|v| (v.reloc_target(), v.offset))
+                        .collect();
+                    let got_base = custom_sections[got].0 as usize;
+                    Box::new(move |t: RelocationTarget| {
+                        relocs
+                            .iter()
+                            .find(|(v, _)| v == &t)
+                            .map(|(_, o)| got_base + (o.to_native() as usize))
+                    })
                 } else {
-                    None
+                    Box::new(|_: RelocationTarget| None)
                 }
             }
         };
@@ -364,7 +380,7 @@ impl Artifact {
                     .map(|(k, v)| (k, v.iter())),
                 p.get_libcall_trampolines(),
                 p.get_libcall_trampoline_len(),
-                got_info,
+                &get_got_address,
             ),
             ArtifactBuildVariant::Archived(a) => link_module(
                 module_info,
@@ -378,7 +394,7 @@ impl Artifact {
                     .map(|(k, v)| (k, v.iter())),
                 a.get_libcall_trampolines(),
                 a.get_libcall_trampoline_len(),
-                got_info,
+                &get_got_address,
             ),
         };
 
@@ -392,51 +408,76 @@ impl Artifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        let debug_ref = match &artifact {
-            // Why clone? See comment at the top of ./lib/types/src/indexes.rs.
-            ArtifactBuildVariant::Plain(p) => p.get_debug_ref().cloned(),
-            ArtifactBuildVariant::Archived(a) => a.get_debug_ref(),
+        let eh_frame = match &artifact {
+            ArtifactBuildVariant::Plain(p) => p
+                .get_unwind_info()
+                .eh_frame
+                .map(|v| p.get_custom_sections_ref()[v].bytes.as_slice()),
+            ArtifactBuildVariant::Archived(a) => a
+                .get_unwind_info()
+                .eh_frame
+                .map(|v| a.get_custom_sections_ref()[v].bytes()),
         };
 
-        let eh_frame = match debug_ref.as_ref().and_then(|v| v.eh_frame) {
-            Some(eh_frame) => {
-                let eh_frame_section_size = match &artifact {
-                    ArtifactBuildVariant::Plain(p) => {
-                        p.get_custom_sections_ref()[eh_frame].bytes.len()
-                    }
-                    ArtifactBuildVariant::Archived(a) => {
-                        a.get_custom_sections_ref()[eh_frame].bytes.len()
-                    }
-                };
-                let eh_frame_section_pointer = custom_sections[eh_frame];
-                Some(unsafe {
-                    std::slice::from_raw_parts(*eh_frame_section_pointer, eh_frame_section_size)
+        let compact_unwind = match &artifact {
+            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().compact_unwind.map(|v| unsafe {
+                std::slice::from_raw_parts(
+                    custom_sections[v].0,
+                    p.get_custom_sections_ref()[v].bytes.len(),
+                )
+            }),
+            ArtifactBuildVariant::Archived(a) => {
+                a.get_unwind_info().compact_unwind.map(|v| unsafe {
+                    std::slice::from_raw_parts(
+                        custom_sections[v].0,
+                        a.get_custom_sections_ref()[v].bytes.len(),
+                    )
                 })
             }
-            None => None,
         };
 
-        let compact_unwind = match debug_ref.and_then(|v| v.compact_unwind) {
-            Some(cu) => {
-                let cu_section_size = match &artifact {
-                    ArtifactBuildVariant::Plain(p) => p.get_custom_sections_ref()[cu].bytes.len(),
-                    ArtifactBuildVariant::Archived(a) => {
-                        a.get_custom_sections_ref()[cu].bytes.len()
-                    }
-                };
-                let cu_section_pointer = custom_sections[cu];
-                Some((cu_section_pointer, cu_section_size))
-            }
-            None => None,
-        };
+        //let got_idx = match &artifact {
+        //    ArtifactBuildVariant::Plain(p) => p.get_got_ref().index,
+        //    ArtifactBuildVariant::Archived(a) => a.get_got_ref().index,
+        //};
+
+        //if let Some(idx) = got_idx {
+        //    let data = custom_sections[idx].0;
+        //    let data = data.cast::<*const usize>();
+        //    let len = match &artifact {
+        //        ArtifactBuildVariant::Plain(p) => p.get_custom_sections_ref()[idx].bytes.len(),
+        //        ArtifactBuildVariant::Archived(a) => a.get_custom_sections_ref()[idx].bytes.len(),
+        //    } / size_of::<usize>();
+
+        //    let relocs: Vec<_> = match &artifact {
+        //        ArtifactBuildVariant::Plain(p) => p.get_custom_section_relocations_ref()[idx]
+        //            .iter()
+        //            .map(|v| v.reloc_target())
+        //            .collect(),
+        //        ArtifactBuildVariant::Archived(a) => a.get_custom_section_relocations_ref()[idx]
+        //            .iter()
+        //            .map(|v| v.reloc_target())
+        //            .collect(),
+        //    };
+
+        //    let entries = unsafe { std::slice::from_raw_parts(data, len) };
+        //    for (i, entry) in entries.iter().enumerate() {
+        //        println!("entry: {entry:?} => {:?}", relocs[i]);
+        //    }
+        //};
 
         // This needs to be called before publishind the `eh_frame`.
-        engine_inner.register_compact_unwind(compact_unwind)?;
+        engine_inner.register_compact_unwind(
+            compact_unwind,
+            get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
+        )?;
 
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
 
         engine_inner.publish_eh_frame(eh_frame)?;
+
+        drop(get_got_address);
 
         let finished_function_lengths = finished_functions
             .values()

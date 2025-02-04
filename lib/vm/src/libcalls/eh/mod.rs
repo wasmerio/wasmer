@@ -95,12 +95,20 @@ pub unsafe extern "C" fn wasmer_eh_personality(
         }
 
         let wasmer_exc = (*uw_exc).cause.downcast_ref::<WasmerException>();
-        let wasmer_exc = wasmer_exc.unwrap();
+        let wasmer_exc = match wasmer_exc {
+            Some(e) => e,
+            None => {
+                return uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND;
+            }
+        };
 
         let eh_action = match find_eh_action(context, wasmer_exc.tag) {
             Ok(action) => action,
-            Err(_) => return uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR,
+            Err(_) => {
+                return uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR;
+            }
         };
+
         if actions as i32 & uw::_Unwind_Action__UA_SEARCH_PHASE as i32 != 0 {
             match eh_action {
                 EHAction::None | EHAction::Cleanup(_) => {
@@ -158,6 +166,6 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context, tag: u64) -> Result<
             get_data_start: &|| uw::_Unwind_GetDataRelBase(context) as *const _,
             tag,
         };
-        eh::find_eh_action(lsda, &eh_context)
+        dbg!(eh::find_eh_action(lsda, &eh_context))
     }
 }

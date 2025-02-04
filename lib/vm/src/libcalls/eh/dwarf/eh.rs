@@ -73,42 +73,75 @@ pub const USING_SJLJ_EXCEPTIONS: bool = cfg!(all(
     target_arch = "arm"
 ));
 
+macro_rules! log {
+    ($e: expr) => {
+        // todo: remove me
+        if false {
+            eprintln!($e)
+        }
+
+    };
+
+    ($($e: expr),*) => {
+        // todo: remove me
+        if false {
+            eprintln!($($e),*)
+        }
+
+    };
+}
+
 pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result<EHAction, ()> {
     if lsda.is_null() {
         return Ok(EHAction::None);
     }
+
+    log!("(pers) Analysing LSDA at {lsda:?}");
 
     let func_start = context.func_start;
     let mut reader = DwarfReader::new(lsda);
 
     let lpad_base = unsafe {
         let lp_start_encoding = reader.read::<u8>();
+
+        log!("(pers) Read LP start encoding {lp_start_encoding:?}");
         // base address for landing pad offsets
         if lp_start_encoding != DW_EH_PE_omit {
             read_encoded_pointer(&mut reader, context, lp_start_encoding)?
         } else {
+            log!("(pers) (is omit)");
             func_start
         }
     };
+    log!("(pers) read landingpad base: {lpad_base:?}");
 
     let ttype_encoding = unsafe { reader.read::<u8>() };
+    log!("(pers) read ttype encoding: {ttype_encoding:?}");
 
     // If no value for type_table_encoding was given it means that there's no
     // type_table, therefore we can't possibly use this lpad.
     if ttype_encoding == DW_EH_PE_omit {
+        log!("(pers) ttype is omit, returning None");
         return Ok(EHAction::None);
     }
 
     let class_info = unsafe {
         let offset = reader.read_uleb128();
+        log!("(pers) read class_info offset {offset:?}");
         reader.ptr.wrapping_add(offset as _)
     };
+    log!("(pers) read class_info sits at offset {class_info:?}");
 
     let call_site_encoding = unsafe { reader.read::<u8>() };
+    log!("(pers) read call_site_encoding is {call_site_encoding:?}");
+
     let action_table = unsafe {
         let call_site_table_length = reader.read_uleb128();
+        log!("(pers) read call_site has length {call_site_table_length:?}");
         reader.ptr.wrapping_add(call_site_table_length as usize)
     };
+
+    log!("(pers) action table sits at offset {action_table:?}");
     let ip = context.ip;
 
     if !USING_SJLJ_EXCEPTIONS {
@@ -120,6 +153,11 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                 let cs_len = read_encoded_offset(&mut reader, call_site_encoding)?;
                 let cs_lpad = read_encoded_offset(&mut reader, call_site_encoding)?;
                 let cs_action_entry = reader.read_uleb128();
+
+                log!("(pers) read cs_start is {cs_start:?}");
+                log!("(pers) read cs_len is {cs_len:?}");
+                log!("(pers) read cs_lpad is {cs_lpad:?}");
+                log!("(pers) read cs_ae is {cs_action_entry:?}");
                 // Callsite table is sorted by cs_start, so if we've passed the ip, we
                 // may stop searching.
                 if ip < func_start.wrapping_add(cs_start) {
@@ -127,22 +165,36 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                 }
 
                 if ip < func_start.wrapping_add(cs_start + cs_len) {
+                    log!(
+                        "(pers) found a matching call site: {func_start:?} <= {ip:?} <= {:?}",
+                        func_start.wrapping_add(cs_start + cs_len)
+                    );
                     if cs_lpad == 0 {
                         return Ok(EHAction::None);
                     } else {
                         let lpad = lpad_base.wrapping_add(cs_lpad);
 
+                        log!("(pers) lpad sits at {lpad:?}");
+
                         if cs_action_entry == 0 {
                             return Ok(EHAction::Cleanup(lpad));
                         }
+
+                        log!("(pers) read cs_action_entry: {cs_action_entry}");
+                        log!("(pers) action_table: {action_table:?}");
 
                         // Convert 1-based byte offset into
                         let mut action: *const u8 =
                             action_table.wrapping_add((cs_action_entry - 1) as usize);
 
+                        log!("(pers) first action at: {action:?}");
+
                         loop {
                             let mut reader = DwarfReader::new(action);
                             let ttype_index = reader.read_sleb128();
+                            log!(
+                                "(pers) ttype_index for action #{cs_action_entry}: {ttype_index:?}"
+                            );
 
                             if ttype_index > 0 {
                                 if class_info.is_null() {
@@ -160,7 +212,10 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                         _ => panic!(),
                                     };
 
+                                    log!("(pers) new_ttype_index for action #{cs_action_entry}: {new_ttype_index:?}");
+
                                     let i = class_info.wrapping_sub(new_ttype_index as usize);
+                                    log!("(pers) reading ttype info from {i:?}");
                                     read_encoded_pointer(
                                         &mut DwarfReader::new(i),
                                         context,
@@ -280,20 +335,37 @@ unsafe fn read_encoded_pointer(
         return Err(());
     }
 
+    log!("(pers) About to read encoded pointer at {:?}", reader.ptr);
+
     let base_ptr = match encoding & 0x70 {
-        DW_EH_PE_absptr => core::ptr::null(),
+        DW_EH_PE_absptr => {
+            log!("(pers) encoding is: DW_EH_PE_absptr ({DW_EH_PE_absptr})");
+            core::ptr::null()
+        }
         // relative to address of the encoded value, despite the name
-        DW_EH_PE_pcrel => reader.ptr,
+        DW_EH_PE_pcrel => {
+            log!("(pers) encoding is: DW_EH_PE_pcrel ({DW_EH_PE_pcrel})");
+            reader.ptr
+        }
         DW_EH_PE_funcrel => {
+            log!("(pers) encoding is: DW_EH_PE_funcrel ({DW_EH_PE_funcrel})");
             if context.func_start.is_null() {
                 return Err(());
             }
             context.func_start
         }
-        DW_EH_PE_textrel => (*context.get_text_start)(),
-        DW_EH_PE_datarel => (*context.get_data_start)(),
+        DW_EH_PE_textrel => {
+            log!("(pers) encoding is: DW_EH_PE_textrel ({DW_EH_PE_textrel})");
+            (*context.get_text_start)()
+        }
+        DW_EH_PE_datarel => {
+            log!("(pers) encoding is: DW_EH_PE_textrel ({DW_EH_PE_datarel})");
+
+            (*context.get_data_start)()
+        }
         // aligned means the value is aligned to the size of a pointer
         DW_EH_PE_aligned => {
+            log!("(pers) encoding is: DW_EH_PE_textrel ({DW_EH_PE_aligned})");
             reader.ptr = {
                 let this = reader.ptr;
                 let addr = round_up(
@@ -326,13 +398,19 @@ unsafe fn read_encoded_pointer(
         }
         unsafe { reader.read::<*const u8>() }
     } else {
+        log!("(pers) since base_ptr is not null, we must an offset");
         let offset = unsafe { read_encoded_offset(reader, encoding & 0x0F)? };
+        log!("(pers) read offset is {offset:x?}");
         base_ptr.wrapping_add(offset)
     };
 
+    log!("(pers) about to read from {ptr:?}");
+
     if encoding & DW_EH_PE_indirect != 0 {
-        ptr = unsafe { *(ptr.cast::<*const u8>()) };
+        ptr = unsafe { ptr.cast::<*const u8>().read_unaligned() };
     }
+
+    log!("(pers) returning ptr value {ptr:?}");
 
     Ok(ptr)
 }

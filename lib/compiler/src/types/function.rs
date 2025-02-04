@@ -9,11 +9,9 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use std::collections::HashMap;
-
 use super::{
     address_map::FunctionAddressMap,
-    relocation::{Relocation, RelocationTarget},
+    relocation::Relocation,
     section::{CustomSection, SectionIndex},
     unwind::{
         ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo,
@@ -130,9 +128,9 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone, Default)]
 #[rkyv(derive(Debug), compare(PartialEq))]
-pub struct Dwarf {
+pub struct UnwindInfo {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// [Learn
     /// more](https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html).
@@ -140,26 +138,7 @@ pub struct Dwarf {
     pub compact_unwind: Option<SectionIndex>,
 }
 
-/// The GOT - Global Offset Table - for this Compilation.
-///
-/// The GOT is but a list of pointers to objects (functions, data, sections..); in our context the
-/// GOT is represented simply as a custom section.
-///
-/// This data structure holds the index of the related custom section and a map between
-/// [`RelocationTarget`] and the entry number in the GOT; that is, for a relocation target `r` one
-/// can find its address in the got as `r_addr = custom_sections[GOT_index][GOT_map[r]]`.
-#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
-#[rkyv(derive(Debug))]
-pub struct GOT {
-    /// The section index in the [`Compilation`] that corresponds to the GOT.
-    pub index: SectionIndex,
-    /// The map between relocation targets and their index in the GOT.
-    pub map: HashMap<RelocationTarget, usize>,
-}
-
-impl Dwarf {
+impl UnwindInfo {
     /// Creates a `Dwarf` struct with the corresponding indices for its sections
     pub fn new(eh_frame: SectionIndex) -> Self {
         Self {
@@ -176,6 +155,24 @@ impl Dwarf {
     }
 }
 
+/// The GOT - Global Offset Table - for this Compilation.
+///
+/// The GOT is but a list of pointers to objects (functions, data, sections..); in our context the
+/// GOT is represented simply as a custom section.
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone, Default)]
+#[rkyv(derive(Debug))]
+pub struct GOT {
+    /// The section index in the [`Compilation`] that corresponds to the GOT.
+    pub index: Option<SectionIndex>,
+}
+
+impl GOT {
+    pub fn empty() -> Self {
+        Self { index: None }
+    }
+}
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
@@ -220,9 +217,9 @@ pub struct Compilation {
     /// Note: Dynamic function trampolines are only compiled for imported function types.
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
 
-    /// Section ids corresponding to the Dwarf debug info
-    pub debug: Option<Dwarf>,
+    /// Section ids corresponding to the unwind information.
+    pub unwind_info: UnwindInfo,
 
-    /// An optional reference to the [`GOT`].
-    pub got: Option<GOT>,
+    /// A reference to the [`GOT`] instance for the compilation.
+    pub got: GOT,
 }

@@ -3,7 +3,6 @@
 use crate::{
     get_libcall_trampoline,
     types::{
-        function::GOT,
         relocation::{RelocationKind, RelocationLike, RelocationTarget},
         section::SectionIndex,
     },
@@ -26,37 +25,43 @@ fn apply_relocation(
     libcall_trampolines_sec_idx: SectionIndex,
     libcall_trampoline_len: usize,
     riscv_pcrel_hi20s: &mut HashMap<usize, u32>,
-    got_info: &Option<(usize, GOT)>,
+    get_got_address: &Box<dyn Fn(RelocationTarget) -> Option<usize>>,
 ) {
     let reloc_target = r.reloc_target();
-    let target_func_address: usize = match reloc_target {
-        RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
-        RelocationTarget::LibCall(libcall) => {
-            // Use the direct target of the libcall if the relocation supports
-            // a full 64-bit address. Otherwise use a trampoline.
-            if matches!(
-                r.kind(),
-                RelocationKind::Abs8
-                    | RelocationKind::X86PCRel8
-                    | RelocationKind::MachoArm64RelocUnsigned
-                    | RelocationKind::MachoX86_64RelocUnsigned
-                    | RelocationKind::MachoArm64RelocGotLoadPage21
-                    | RelocationKind::MachoArm64RelocGotLoadPageoff12
-                    | RelocationKind::MachoArm64RelocPointerToGot
-            ) {
-                function_pointer(libcall)
-            //} else if matches!(r.kind(), RelocationKind::MachoArm64RelocPointerToGot) {
-            //    Box::leak(Box::new(function_pointer(libcall))) as *mut _ as usize
-            } else {
-                get_libcall_trampoline(
-                    libcall,
-                    allocated_sections[libcall_trampolines_sec_idx].0 as usize,
-                    libcall_trampoline_len,
-                )
-            }
+    let target_func_address: usize = if r.kind().needs_got() {
+        if let Some(got_address) = get_got_address(reloc_target) {
+            //println!("{reloc_target:?}, {:?}", r.kind());
+            got_address
+        } else {
+            panic!("No GOT entry for reloc target {reloc_target:?}")
         }
-        RelocationTarget::CustomSection(custom_section) => {
-            *allocated_sections[custom_section] as usize
+    } else {
+        match reloc_target {
+            RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
+            RelocationTarget::LibCall(libcall) => {
+                // Use the direct target of the libcall if the relocation supports
+                // a full 64-bit address. Otherwise use a trampoline.
+                if matches!(
+                    r.kind(),
+                    RelocationKind::Abs8
+                        | RelocationKind::X86PCRel8
+                        | RelocationKind::MachoArm64RelocUnsigned
+                        | RelocationKind::MachoX86_64RelocUnsigned
+                ) {
+                    function_pointer(libcall)
+                //} else if matches!(r.kind(), RelocationKind::MachoArm64RelocPointerToGot) {
+                //    Box::leak(Box::new(function_pointer(libcall))) as *mut _ as usize
+                } else {
+                    get_libcall_trampoline(
+                        libcall,
+                        allocated_sections[libcall_trampolines_sec_idx].0 as usize,
+                        libcall_trampoline_len,
+                    )
+                }
+            }
+            RelocationTarget::CustomSection(custom_section) => {
+                *allocated_sections[custom_section] as usize
+            }
         }
     };
 
@@ -178,7 +183,7 @@ fn apply_relocation(
                 | read_unaligned((reloc_address + 4) as *mut u32);
             write_unaligned((reloc_address + 4) as *mut u32, reloc_delta2);
         },
-        RelocationKind::Aarch64AdrPrelPgHi21 | RelocationKind::MachoArm64RelocGotLoadPage21 => unsafe {
+        RelocationKind::Aarch64AdrPrelPgHi21 => unsafe {
             let (reloc_address, delta) = r.for_address(body, target_func_address as u64);
 
             let delta = delta as isize;
@@ -236,22 +241,43 @@ fn apply_relocation(
                 | (read_unaligned(reloc_address as *mut u32) & 0xFFC003FF);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
-        RelocationKind::MachoArm64RelocGotLoadPageoff12 => unsafe {
-            // Hacky: we replace the `ldr` instruction with an `add` instruction, as we already
-            // know the absolute address of a function, and we don't need any GOT.
-            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            let ldr = read_unaligned(reloc_address as *mut u32);
-            let xn = ldr & 0xFFFFF;
-
-            let new_op = 0x91000000 | (reloc_delta as u32) << 10 | (xn << 5) | xn;
-            write_unaligned(reloc_address as *mut u32, new_op);
-        },
         RelocationKind::MachoArm64RelocSubtractor | RelocationKind::MachoX86_64RelocSubtractor => unsafe {
             let (reloc_address, reloc_sub) = r.for_address(body, target_func_address as u64);
             macho_aarch64_subtractor_addresses.insert(reloc_address);
             write_unaligned(reloc_address as *mut u64, reloc_sub);
         },
 
+        RelocationKind::MachoArm64RelocGotLoadPage21
+        | RelocationKind::MachoArm64RelocPage21
+        | RelocationKind::MachoArm64RelocTlvpLoadPage21 => unsafe {
+            let (reloc_address, _) = r.for_address(body, target_func_address as u64);
+            let target_func_page = target_func_address & !0xfff;
+            let reloc_at_page = reloc_address & !0xfff;
+            let pcrel = (target_func_page as isize)
+                .checked_sub(reloc_at_page as isize)
+                .unwrap();
+            assert!(
+                (-1 << 32) <= (pcrel as i64) && (pcrel as i64) < (1 << 32),
+                "can't reach GOT page with ±4GB `adrp` instruction"
+            );
+            let val = pcrel >> 12;
+
+            let immlo = ((val as u32) & 0b11) << 29;
+            let immhi = (((val as u32) >> 2) & &0x7ffff) << 5;
+            let mask = !((0x7ffff << 5) | (0b11 << 29));
+            let op = read_unaligned(reloc_address as *mut u32);
+            write_unaligned(reloc_address as *mut u32, (op & mask) | immlo | immhi);
+        },
+        RelocationKind::MachoArm64RelocGotLoadPageoff12
+        | RelocationKind::MachoArm64RelocPageoff12 => unsafe {
+            let (reloc_address, _) = r.for_address(body, target_func_address as u64);
+            assert_eq!(target_func_address & 0b111, 0);
+            let val = target_func_address >> 3;
+            let imm9 = ((val & 0x1ff) << 10) as u32;
+            let mask = !(0x1ff << 10);
+            let op = read_unaligned(reloc_address as *mut u32);
+            write_unaligned(reloc_address as *mut u32, (op & mask) | imm9);
+        },
         RelocationKind::MachoArm64RelocUnsigned | RelocationKind::MachoX86_64RelocUnsigned => unsafe {
             let (reloc_address, mut reloc_delta) = r.for_address(body, target_func_address as u64);
 
@@ -263,22 +289,12 @@ fn apply_relocation(
         },
 
         RelocationKind::MachoArm64RelocPointerToGot => unsafe {
-            if let Some(got) = got_info {
-                let base = got.0;
-                let base = base as *const usize;
+            //let (reloc_address, what) = r.for_address(body, target_func_address as u64);
+            //write_unaligned(reloc_address as *mut i32, what as i32);
 
-                if let Some(reloc_idx) = got.1.map.get(&reloc_target) {
-                    let got_address = base.wrapping_add(*reloc_idx);
-
-                    let (reloc_address, _reloc_delta) = r.for_address(body, got_address as u64);
-
-                    write_unaligned(reloc_address as *mut u64, got_address as u64);
-                } else {
-                    panic!("Missing GOT info for reloc target {reloc_target:?}");
-                }
-            } else {
-                panic!("Missing GOT info for reloc target {reloc_target:?}");
-            }
+            let at = body + r.offset() as usize;
+            let pcrel = i32::try_from((target_func_address as isize) - (at as isize)).unwrap();
+            write_unaligned(at as *mut i32, pcrel);
         },
         kind => panic!(
             "Relocation kind unsupported in the current architecture {}",
@@ -308,7 +324,7 @@ pub fn link_module<'a>(
     >,
     libcall_trampolines: SectionIndex,
     trampoline_len: usize,
-    got_info: Option<(usize, GOT)>,
+    get_got_address: &'a Box<dyn Fn(RelocationTarget) -> Option<usize>>,
 ) {
     let mut riscv_pcrel_hi20s: HashMap<usize, u32> = HashMap::new();
 
@@ -323,7 +339,7 @@ pub fn link_module<'a>(
                 libcall_trampolines,
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
-                &got_info,
+                &get_got_address,
             );
         }
     }
@@ -338,7 +354,7 @@ pub fn link_module<'a>(
                 libcall_trampolines,
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
-                &got_info,
+                &get_got_address,
             );
         }
     }

@@ -151,7 +151,7 @@ pub fn emit_compilation(
         .map(|(_, section)| section.relocations.clone())
         .collect::<PrimaryMap<SectionIndex, _>>();
 
-    let debug_index = compilation.debug.map(|d| d.eh_frame);
+    let debug_index = compilation.unwind_info.eh_frame;
 
     let align = match triple.architecture {
         Architecture::X86_64 => 1,
@@ -165,7 +165,7 @@ pub fn emit_compilation(
         .custom_sections
         .into_iter()
         .map(|(section_index, custom_section)| {
-            if debug_index.map_or(false, |d| d == Some(section_index)) {
+            if debug_index.map_or(false, |d| d == section_index) {
                 // If this is the debug section
                 let segment = obj.segment_name(StandardSegment::Debug).to_vec();
                 let section_id =
@@ -279,7 +279,7 @@ pub fn emit_compilation(
     }
 
     for (section_index, relocations) in custom_section_relocations.into_iter() {
-        if !debug_index.map_or(false, |d| d == Some(section_index)) {
+        if !debug_index.map_or(false, |d| d == section_index) {
             // Skip DWARF relocations just yet
             let (section_id, symbol_id) = custom_section_ids.get(section_index).unwrap();
             all_relocations.push((*section_id, *symbol_id, relocations));

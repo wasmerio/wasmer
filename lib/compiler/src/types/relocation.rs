@@ -336,7 +336,9 @@ pub trait RelocationLike {
                     .wrapping_add(reloc_addend as u64);
                 (reloc_address, reloc_delta_u32)
             }
-            RelocationKind::Aarch64AdrPrelPgHi21 | RelocationKind::MachoArm64RelocGotLoadPage21 => {
+            RelocationKind::Aarch64AdrPrelPgHi21
+            | RelocationKind::MachoArm64RelocGotLoadPage21
+            | RelocationKind::MachoArm64RelocPage21 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let target_page =
@@ -345,7 +347,7 @@ pub trait RelocationLike {
                 (reloc_address, target_page.wrapping_sub(pc_page) as u64)
             }
             RelocationKind::MachoArm64RelocGotLoadPageoff12
-            | RelocationKind::MachoArm64RelocPointerToGot => {
+            | RelocationKind::MachoArm64RelocPageoff12 => {
                 let reloc_address = start + self.offset() as usize;
                 let reloc_addend = self.addend() as isize;
                 let target_offset =
@@ -390,6 +392,12 @@ pub trait RelocationLike {
                     .wrapping_sub((target_func_address & 0x800) << 21);
                 reloc_delta = reloc_delta.wrapping_add((reloc_delta & 0x80000000) << 1);
                 (reloc_address, reloc_delta)
+            }
+            RelocationKind::MachoArm64RelocPointerToGot => {
+                let reloc_address = start + self.offset() as usize;
+                let reloc_delta =
+                    (target_func_address as isize).wrapping_sub(reloc_address as isize);
+                (reloc_address, reloc_delta as u64)
             }
             _ => panic!("Relocation kind unsupported"),
         }

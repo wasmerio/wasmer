@@ -50,7 +50,7 @@ pub fn wpreftype_to_type(ty: wasmparser::RefType) -> WasmResult<Type> {
         Ok(Type::ExternRef)
     } else if ty.is_func_ref() {
         Ok(Type::FuncRef)
-    } else if ty == wasmparser::RefType::EXNREF {
+    } else if ty == wasmparser::RefType::EXNREF || ty == wasmparser::RefType::EXN {
         // no `.is_exnref` yet
         Ok(Type::ExceptionRef)
     } else {

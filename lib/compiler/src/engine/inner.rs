@@ -467,13 +467,14 @@ impl EngineInner {
     /// Register macos-specific exception handling information associated with the code.
     pub(crate) fn register_compact_unwind(
         &mut self,
-        compact_unwind: Option<(SectionBodyPtr, usize)>,
+        compact_unwind: Option<&[u8]>,
+        eh_personality_addr_in_got: Option<usize>,
     ) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()
             .unwind_registry_mut()
-            .register_compact_unwind(compact_unwind)
+            .register_compact_unwind(compact_unwind, eh_personality_addr_in_got)
             .map_err(|e| {
                 CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
             })?;
