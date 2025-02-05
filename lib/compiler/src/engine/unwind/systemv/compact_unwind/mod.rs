@@ -256,13 +256,9 @@ impl CompactUnwindManager {
 
         unsafe {
             /* xxx: Must find a better way to find a dso_base */
-            _ = libc::dladdr(
-                self.compact_unwind_entries
-                    .first()
-                    .unwrap()
-                    .personality_addr as *const _,
-                &mut info as *mut _,
-            );
+            if let Some(personality) = self.personalities.first() {
+                _ = libc::dladdr(*personality as *const _, &mut info as *mut _);
+            }
 
             if info.dli_fbase.is_null() {
                 _ = libc::dladdr(
@@ -459,9 +455,7 @@ impl CompactUnwindManager {
             + self.personalities.len() * Self::PERSONALITY_ENTRY_SIZE)
             as u32;
 
-        let index_count =
-            ((size_of::<CompactUnwindEntry>() + Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE - 1)
-                / Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE) as u32;
+        let index_count = (self.num_second_level_pages + 1) as u32;
 
         // The unwind section version.
         self.write(Self::UNWIND_SECTION_VERSION)?;
@@ -532,8 +526,18 @@ impl CompactUnwindManager {
 
             if entry_idx % Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE == 0 {
                 let fn_delta = entry.function_addr.wrapping_sub(self.dso_base);
-                let second_level_page_offset = section_offset_to_second_level_pages
-                    + (entry_idx / Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE);
+                let num_second_level_page = entry_idx / Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE;
+                let mut second_level_page_offset = section_offset_to_second_level_pages;
+                // How many entries have we seen before?
+                if num_second_level_page != 0 {
+                    second_level_page_offset += num_second_level_page
+                        * (Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE
+                            * Self::SECOND_LEVEL_PAGE_ENTRY_SIZE);
+                    // How many page headers have we seen before?
+                    second_level_page_offset +=
+                        num_second_level_page * Self::SECOND_LEVEL_PAGE_HEADER_SIZE;
+                }
+
                 let lsda_offset =
                     section_offset_to_lsdas + num_previous_lsdas * Self::LSDA_ENTRY_SIZE;
                 self.write(fn_delta as u32)?;
