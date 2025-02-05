@@ -25,8 +25,8 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::BinaryFormat;
 
-static mut COUNTER: std::sync::LazyLock<std::sync::Mutex<usize>> =
-    std::sync::LazyLock::new(|| std::sync::Mutex::new(0));
+//static mut COUNTER: std::sync::LazyLock<std::sync::Mutex<usize>> =
+//    std::sync::LazyLock::new(|| std::sync::Mutex::new(0));
 
 use crate::{
     abi::{get_abi, Abi},
