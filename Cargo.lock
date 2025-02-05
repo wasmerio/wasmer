@@ -6914,7 +6914,7 @@ dependencies = [
  "itertools 0.10.5",
  "lazy_static",
  "libc",
- "object 0.30.4",
+ "object 0.32.2",
  "phf",
  "rayon",
  "regex",
