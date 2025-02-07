@@ -341,6 +341,11 @@ path = "examples/memory.rs"
 required-features = ["backend"]
 
 [[example]]
+name = "memory-grow"
+path = "examples/memory_grow.rs"
+required-features = ["backend"]
+
+[[example]]
 name = "instance"
 path = "examples/instance.rs"
 required-features = ["backend"]
