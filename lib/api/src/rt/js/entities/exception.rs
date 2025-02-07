@@ -1,9 +1,12 @@
 //! Data types, functions and traits for `sys` runtime's `Tag` implementation.
-use wasmer_types::{TagType, Type};
-
-use crate::{js::vm::VMException, AsStoreMut, AsStoreRef, Tag, Value};
 
 use super::store::StoreHandle;
+use crate::{
+    js::vm::{VMException, VMExceptionRef},
+    AsStoreMut, AsStoreRef, Tag, Value,
+};
+use std::any::Any;
+use wasmer_types::{TagType, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `tag` in the `v8` runtime.

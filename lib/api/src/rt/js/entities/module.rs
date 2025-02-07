@@ -364,6 +364,7 @@ impl Module {
                 ExternType::Global(_) => "global",
                 ExternType::Memory(_) => "memory",
                 ExternType::Table(_) => "table",
+                ExternType::Tag(_) => "tag",
             };
             if expected_kind != kind.as_str() {
                 return Err(format!("The provided type hint for the export {} is {} which doesn't match the expected kind: {}", i, kind.as_str(), expected_kind));
