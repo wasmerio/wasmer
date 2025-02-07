@@ -25,7 +25,7 @@ fn apply_relocation(
     libcall_trampolines_sec_idx: SectionIndex,
     libcall_trampoline_len: usize,
     riscv_pcrel_hi20s: &mut HashMap<usize, u32>,
-    get_got_address: &Box<dyn Fn(RelocationTarget) -> Option<usize>>,
+    get_got_address: &dyn Fn(RelocationTarget) -> Option<usize>,
 ) {
     let reloc_target = r.reloc_target();
 
@@ -266,7 +266,7 @@ fn apply_relocation(
             let val = pcrel >> 12;
 
             let immlo = ((val as u32) & 0b11) << 29;
-            let immhi = (((val as u32) >> 2) & &0x7ffff) << 5;
+            let immhi = (((val as u32) >> 2) & 0x7ffff) << 5;
             let mask = !((0x7ffff << 5) | (0b11 << 29));
             let op = read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, (op & mask) | immlo | immhi);
@@ -357,7 +357,7 @@ pub fn link_module<'a>(
     >,
     libcall_trampolines: SectionIndex,
     trampoline_len: usize,
-    get_got_address: &'a Box<dyn Fn(RelocationTarget) -> Option<usize>>,
+    get_got_address: &'a dyn Fn(RelocationTarget) -> Option<usize>,
 ) {
     let mut riscv_pcrel_hi20s: HashMap<usize, u32> = HashMap::new();
 
@@ -372,7 +372,7 @@ pub fn link_module<'a>(
                 libcall_trampolines,
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
-                &get_got_address,
+                get_got_address,
             );
         }
     }
@@ -387,7 +387,7 @@ pub fn link_module<'a>(
                 libcall_trampolines,
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
-                &get_got_address,
+                get_got_address,
             );
         }
     }

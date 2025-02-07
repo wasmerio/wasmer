@@ -96,7 +96,7 @@ impl ToBytes for u16 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CompactUnwindManager {
     unwind_info_section: Vec<u8>,
     compact_unwind_entries: Vec<CompactUnwindEntry>,
@@ -105,20 +105,6 @@ pub struct CompactUnwindManager {
     personalities: Vec<usize>,
     dso_base: usize,
     maybe_eh_personality_addr_in_got: Option<usize>,
-}
-
-impl Default for CompactUnwindManager {
-    fn default() -> Self {
-        Self {
-            unwind_info_section: Vec::new(),
-            compact_unwind_entries: Default::default(),
-            num_second_level_pages: Default::default(),
-            num_lsdas: Default::default(),
-            personalities: Default::default(),
-            dso_base: 0,
-            maybe_eh_personality_addr_in_got: None,
-        }
-    }
 }
 
 static mut UNWIND_INFO: LazyLock<Mutex<Option<UnwindInfo>>> = LazyLock::new(|| Mutex::new(None));
@@ -137,7 +123,7 @@ unsafe extern "C" fn find_dynamic_unwind_sections(
     info: *mut UnwDynamicUnwindSections,
 ) -> u32 {
     unsafe {
-        if let Some(uw_info) = UNWIND_INFO.try_lock().ok() {
+        if let Ok(uw_info) = UNWIND_INFO.try_lock() {
             if uw_info.is_none() {
                 (*info).compact_unwind_section = 0;
                 (*info).compact_unwind_section_length = 0;
@@ -150,27 +136,13 @@ unsafe extern "C" fn find_dynamic_unwind_sections(
 
             let uw_info = uw_info.as_ref().unwrap();
 
-            //println!(
-            //    "looking for addr: {:p}, cu_section at: {:p}",
-            //    addr as *const u8, *compact_unwind_section as *const u8
-            //);
-
-            //eprintln!(
-            //    "looking for addr: {addr:x}, uw_info: {:#x?}, personality addr: {:?}",
-            //    uw_info,
-            //    wasmer_vm::libcalls::wasmer_eh_personality as *const u8
-            //);
-
             for (range, u) in uw_info.iter() {
-                //eprintln!("one of our ranges contains addr: {:x}", addr);
                 if range.contains(&addr) {
                     (*info).compact_unwind_section = u.section_ptr as _;
                     (*info).compact_unwind_section_length = u.section_len as _;
                     (*info).dwarf_section = 0;
                     (*info).dwarf_section_length = 0;
                     (*info).dso_base = u.dso_base as u64;
-
-                    //eprintln!("*info: {:x?}", *info);
 
                     return 1;
                 }
@@ -184,7 +156,7 @@ unsafe extern "C" fn find_dynamic_unwind_sections(
     (*info).dwarf_section_length = 0;
     (*info).dso_base = 0;
 
-    return 0;
+    0
 }
 
 impl CompactUnwindManager {
@@ -197,9 +169,9 @@ impl CompactUnwindManager {
     const SECOND_LEVEL_PAGE_SIZE: usize = 4096;
     const SECOND_LEVEL_PAGE_HEADER_SIZE: usize = 8;
     const SECOND_LEVEL_PAGE_ENTRY_SIZE: usize = 8;
-    const NUM_RECORDS_PER_SECOND_LEVEL_PAGE: usize = (CompactUnwindManager::SECOND_LEVEL_PAGE_SIZE
-        - CompactUnwindManager::SECOND_LEVEL_PAGE_HEADER_SIZE)
-        / CompactUnwindManager::SECOND_LEVEL_PAGE_ENTRY_SIZE;
+    const NUM_RECORDS_PER_SECOND_LEVEL_PAGE: usize = (Self::SECOND_LEVEL_PAGE_SIZE
+        - Self::SECOND_LEVEL_PAGE_HEADER_SIZE)
+        / Self::SECOND_LEVEL_PAGE_ENTRY_SIZE;
 
     /// Analyze a `__compact_unwind` section, adding its entries to the manager.
     pub unsafe fn read_compact_unwind_section(
@@ -321,18 +293,12 @@ impl CompactUnwindManager {
                     _ = uw_info.insert(map);
                 }
             }
-
-            //println!("Finalized; this is {:#?}", self);
-            //println!("uwinfo: {UNWIND_INFO:#x?}");
         }
-
-        //UNWIND_INFO.get_or_init(move || Mutex::new(uw_info));
 
         Ok(())
     }
 
     fn process_compact_unwind_entries(&mut self) -> CUResult<()> {
-        //eprintln!("Processing entries...");
         for entry in self.compact_unwind_entries.iter_mut() {
             if entry.personality_addr != 0 {
                 let p_idx: u32 = if let Some(p_idx) = self
@@ -374,11 +340,6 @@ impl CompactUnwindManager {
     }
 
     unsafe fn write_unwind_info(&mut self) -> CUResult<()> {
-        //        let mut writer = ByteWriter::new(
-        //            self.unwind_info_section as *mut u8,
-        //            (self.unwind_info_section as *mut u8).byte_add(self.unwind_info_section_len) as usize,
-        //        );
-        //
         self.write_header()?;
         self.write_personalities()?;
         self.write_indices()?;
@@ -413,7 +374,7 @@ impl CompactUnwindManager {
     }
 
     #[inline(always)]
-    fn write<'a, T: ToBytes>(&'a mut self, value: T) -> CUResult<()> {
+    fn write<T: ToBytes>(&mut self, value: T) -> CUResult<()> {
         let bytes = value.to_bytes();
         let capacity = self.unwind_info_section.capacity();
         let len = self.unwind_info_section.len();
@@ -495,14 +456,7 @@ impl CompactUnwindManager {
                     ));
                 };
             let delta = (personality_pointer - self.dso_base) as u32;
-            //eprintln!(
-            //    "self got: {:x?}, {:?}",
-            //    self.maybe_got_ptr, self.maybe_got_info
-            //);
-            //eprintln!(
-            //    "personality_pointer: {:p}, delta: {:x}, dso_base: {:p}",
-            //    personality_pointer as *const u8, delta, self.dso_base as *const u8,
-            //);
+
             self.write(delta)?;
         }
 

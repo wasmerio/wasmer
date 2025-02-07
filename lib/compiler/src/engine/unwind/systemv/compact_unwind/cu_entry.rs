@@ -66,12 +66,11 @@ impl CompactUnwindEntry {
 
     pub fn is_dwarf(&self) -> bool {
         const DWARFMODE: u32 = 0x04000000;
-        return (self.compact_encoding & CompactUnwindEntry::ENCODING_MODE_MASK) == DWARFMODE;
+        (self.compact_encoding & Self::ENCODING_MODE_MASK) == DWARFMODE
     }
 
     pub fn cannot_be_merged(&self) -> bool {
         const STACK_INDIRECT_MODE: u32 = 0x03000000;
-        return (self.compact_encoding & CompactUnwindEntry::ENCODING_MODE_MASK)
-            == STACK_INDIRECT_MODE;
+        (self.compact_encoding & Self::ENCODING_MODE_MASK) == STACK_INDIRECT_MODE
     }
 }
