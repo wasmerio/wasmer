@@ -26,11 +26,11 @@ pub fn from_binaryreadererror_compileerror(original: BinaryReaderError) -> Compi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasmparser::{BinaryReader, WasmFeatures};
+    use wasmparser::BinaryReader;
 
     #[test]
     fn can_convert_binary_reader_error_to_wasm_error() {
-        let mut reader = BinaryReader::new(b"\0\0\0\0", 0, WasmFeatures::default());
+        let mut reader = BinaryReader::new(b"\0\0\0\0", 0);
         let binary_reader_error = reader.read_bytes(10).unwrap_err();
         match from_binaryreadererror_wasmerror(binary_reader_error) {
             WasmError::InvalidWebAssembly { message, offset } => {
@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn can_convert_binary_reader_error_to_compile_error() {
-        let mut reader = BinaryReader::new(b"\0\0\0\0", 0, WasmFeatures::default());
+        let mut reader = BinaryReader::new(b"\0\0\0\0", 0);
         let binary_reader_error = reader.read_bytes(10).unwrap_err();
         match from_binaryreadererror_compileerror(binary_reader_error) {
             CompileError::Wasm(WasmError::InvalidWebAssembly { message, offset }) => {
