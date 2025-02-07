@@ -62,6 +62,12 @@ const UNWIND_DATA_REG: (i32, i32) = (0, 1); // RAX, RDX
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 const UNWIND_DATA_REG: (i32, i32) = (0, 1); // R0, R1 / X0, X1
 
+#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
+const UNWIND_DATA_REG: (i32, i32) = (10, 11); // x10, x11
+
+#[cfg(target_arch = "loongarch64")]
+const UNWIND_DATA_REG: (i32, i32) = (4, 5); // a0, a1
+
 #[repr(C)]
 #[derive(Debug)]
 struct InnerException {
