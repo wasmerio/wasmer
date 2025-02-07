@@ -204,6 +204,7 @@ impl UnwindRegistry {
         #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         {
             _ = compact_unwind;
+            _ = eh_personality_addr_in_got;
         }
         Ok(())
     }
