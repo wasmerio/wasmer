@@ -25,9 +25,6 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::BinaryFormat;
 
-//static mut COUNTER: std::sync::LazyLock<std::sync::Mutex<usize>> =
-//    std::sync::LazyLock::new(|| std::sync::Mutex::new(0));
-
 use crate::{
     abi::{get_abi, Abi},
     config::{CompiledKind, LLVM},
@@ -122,7 +119,7 @@ impl FuncTranslator {
 
         // TODO: pointer width
         let offsets = VMOffsets::new(8, wasm_module);
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
         let (func_type, func_attrs) =
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, Some(&offsets), wasm_fn_type)?;
@@ -258,6 +255,16 @@ impl FuncTranslator {
                 .target_machine
                 .get_target_data()
                 .get_pointer_byte_size(None),
+            section_name: match self.binary_fmt {
+                BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
+                BinaryFormat::Macho => FUNCTION_SECTION_MACHO.to_string(),
+                _ => {
+                    return Err(CompileError::UnsupportedTarget(format!(
+                        "Unsupported binary format: {:?}",
+                        self.binary_fmt
+                    )))
+                }
+            },
         };
 
         fcg.ctx.add_func(
@@ -281,15 +288,6 @@ impl FuncTranslator {
         }
 
         let mut passes = vec![];
-
-        // -- Uncomment to enable dumping intermediate LLVM objects
-        //
-        //module
-        //    .print_to_file(format!(
-        //        "{}/obj_unv.ll",
-        //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
-        //    ))
-        //    .unwrap();
 
         if config.enable_verifier {
             passes.push("verify");
@@ -330,11 +328,6 @@ impl FuncTranslator {
             )
             .unwrap();
 
-        // -- Uncomment to enable dumping intermediate LLVM objects
-        //module
-        //    .print_to_file(format!("{}/obj.ll", std::env!("LLVM_EH_TESTS_DUMP_DIR")))
-        //    .unwrap();
-
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
@@ -369,24 +362,6 @@ impl FuncTranslator {
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
-
-        // -- Uncomment to enable dumping intermediate LLVM objects
-        //unsafe {
-        //    let mut x = COUNTER.lock().unwrap();
-        //    let old = *x;
-        //    *x += 1;
-
-        //    target_machine
-        //        .write_to_file(
-        //            &module,
-        //            FileType::Assembly,
-        //            std::path::Path::new(&format!(
-        //                "{}/obj_{old}.asm",
-        //                std::env!("LLVM_EH_TESTS_DUMP_DIR")
-        //            )),
-        //        )
-        //        .unwrap();
-        //}
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
@@ -1463,10 +1438,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         tag_glbl.set_linkage(Linkage::External);
         tag_glbl.set_constant(true);
-        tag_glbl.set_section(Some(&format!(
-            "{},_wasmer_ehi_{tag}",
-            FUNCTION_SECTION_MACHO
-        )));
+        // Why set this to a specific section? On macOS it would land on a specifc read only data
+        // section. GOT-based relocations will probably be generated with a non-zero addend, making
+        // some EH-related intricacies not working.
+        //
+        // The general idea is that each tag has its own section, so the GOT-based relocation can
+        // have a zero addend, i.e. the data of the tag is the first (and only) value in a specific
+        // section we can target in relocations.
+        tag_glbl.set_section(Some(&format!("{},_eh_ti_{tag}", self.section_name)));
 
         let tag_glbl = tag_glbl.as_basic_value_enum();
 
@@ -1627,6 +1606,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     tags_cache: HashMap<u32, BasicValueEnum<'ctx>>,
     exception_types_cache: HashMap<u32, inkwell::types::StructType<'ctx>>,
     ptr_size: u32,
+    section_name: String,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {

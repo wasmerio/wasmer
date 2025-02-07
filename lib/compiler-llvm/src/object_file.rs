@@ -3,7 +3,6 @@ use target_lexicon::BinaryFormat;
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-//use std::io::Write;
 use std::num::TryFromIntError;
 
 use wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
@@ -84,7 +83,7 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_delete_exception" => LibCall::DeleteException,
     "wasmer_vm_read_exception" => LibCall::ReadException,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
-    "__gxx_personality_v0" => LibCall::EHPersonality,
+    "wasmer_eh_personality" => LibCall::EHPersonality,
 };
 
 static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
@@ -138,6 +137,10 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_delete_exception" => LibCall::DeleteException,
     "_wasmer_vm_read_exception" => LibCall::ReadException,
     "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
+    // will generate things differently than "normal", wreaking havoc.
+    //
+    // todo: find out if it is a bug in LLVM or it is expected.
     "___gxx_personality_v0" => LibCall::EHPersonality,
 };
 
@@ -151,17 +154,6 @@ pub fn load_object_file<F>(
 where
     F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
 {
-    // -- Uncomment to enable dumping intermediate LLVM objects
-    //let mut fs = std::fs::OpenOptions::new()
-    //    .write(true)
-    //    .create(true)
-    //    .open(format!(
-    //        "{}/obj_{root_section}.o",
-    //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
-    //    ))
-    //    .unwrap();
-    //fs.write_all(contents).unwrap();
-
     let obj = object::File::parse(contents).map_err(map_object_err)?;
 
     let libcalls = match binary_fmt {
@@ -227,42 +219,20 @@ where
 
     for section in obj.sections() {
         let index = section.index();
-        //println!(
-        //    "section kind: {:?}, section name: {:?}",
-        //    section.kind(),
-        //    section.name()
-        //);
         if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
             || section.name().unwrap_or_default() == "__eh_frame"
         {
             worklist.push(index);
-
-            //visited.insert(index);
             eh_frame_section_indices.push(index);
+
             // This allocates a custom section index for the ELF section.
             elf_section_to_target(index);
         } else if section.name().unwrap_or_default() == "__compact_unwind" {
             worklist.push(index);
             compact_unwind_section_indices.push(index);
+
             elf_section_to_target(index);
         }
-        //       } else if section.name().unwrap_or_default() == "__gcc_except_tab"
-        //           || section.name().unwrap_or_default() == ".gcc_except_tab"
-        //       {
-        //           worklist.push(index);
-        //           elf_section_to_target(index);
-        //       } else if section.name().unwrap_or_default() == "__wasmer_eh_type_info" {
-        //           worklist.push(index);
-        //           visited.insert(index);
-        //           eh_frame_section_indices.push(index);
-        //           elf_section_to_target(index);
-        //       }
-
-        //if section.name().unwrap_or_default() == "__got" {
-        //    got_index = Some(section.index());
-        //    worklist.push(index);
-        //    elf_section_to_target(index);
-        //}
     }
 
     while let Some(section_index) = worklist.pop() {
@@ -270,15 +240,6 @@ where
             .section_by_index(section_index)
             .map_err(map_object_err)?;
         let relocs = sec.relocations();
-        //println!(
-        //    "analysing section: {:?}; it has relocs: {:?}",
-        //    sec.name(),
-        //    sec.relocations().into_iter().collect::<Vec<_>>()
-        //);
-
-        //if sec.name().unwrap_or_default() == "__wasmer_eh_type_info" {
-        //    eprintln!("eh: {:?}", sec.data());
-        //}
         for (offset, reloc) in relocs {
             let mut addend = reloc.addend();
             let target = match reloc.target() {
@@ -322,8 +283,48 @@ where
                     {
                         reloc_target
                     } else if let object::SymbolSection::Section(section_index) = symbol.section() {
-                        // TODO: Encode symbol address into addend, I think this is a bit hacky.
-                        addend = addend.wrapping_add(symbol.address() as i64);
+                        if matches!(
+                            reloc.kind(),
+                            object::RelocationKind::MachO {
+                                value: object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
+                                relative: false
+                            } | object::RelocationKind::MachO {
+                                value: object::macho::ARM64_RELOC_POINTER_TO_GOT,
+                                relative: true
+                            } | object::RelocationKind::MachO {
+                                value: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
+                                relative: true
+                            }
+                        ) {
+                            // (caveat: this comment comes from a point in time after the `addend`
+                            // math in the else branch)
+                            //
+                            // (caveat2: this is mach-o + aarch64 only)
+                            //
+                            // The tampering with the addend in the else branch causes some
+                            // problems with GOT-based relocs, as a non-zero addend has no meaning
+                            // when dealing with GOT entries, for our use-case.
+                            //
+                            // However, for some reasons, it happens that we conceptually need to
+                            // have relocations that pretty much mean "the contents of this GOT
+                            // entry plus a non-zero addend". When in this case, we will later
+                            // perform what is known as "GOT relaxation", i.e. we can change the
+                            // `ldr` opcode to an `add`.
+                            //
+                            // For this to make sense we need to fix the addend to be the delta
+                            // between the section whose address is an entry of the GOT and the
+                            // symbol that is the target of the relocation.
+
+                            let symbol_sec = obj
+                                .section_by_index(section_index)
+                                .map_err(map_object_err)?;
+
+                            addend = addend
+                                .wrapping_add((symbol.address() - symbol_sec.address()) as i64);
+                        } else {
+                            // TODO: Encode symbol address into addend, I think this is a bit hacky.
+                            addend = addend.wrapping_add(symbol.address() as i64);
+                        }
 
                         if section_index == root_section_index {
                             root_section_reloc_target
@@ -619,21 +620,6 @@ where
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
 
-    //let got = if let Some(index) = got_index {
-    //    Some(section_to_custom_section.get(&index).map_or_else(
-    //        || {
-    //            Err(CompileError::Codegen(format!(
-    //                "got section with index={:?} was never loaded",
-    //                index
-    //            )))
-    //        },
-    //        |idx| Ok(*idx),
-    //    )?)
-    //} else {
-    //    None
-    //};
-
-    //println!("cus: {section_to_custom_section:?}");
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
@@ -670,10 +656,6 @@ where
             .to_vec(),
         unwind_info: None,
     };
-
-    //println!("eh_frame_section_indices: {eh_frame_section_indices:?}");
-    //println!("compact_unwind_section_indices: {compact_unwind_section_indices:?}");
-    //println!("custom_sections: {custom_sections:#?}");
 
     let address_map = FunctionAddressMap {
         instructions: vec![InstructionAddressMap {

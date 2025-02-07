@@ -69,7 +69,7 @@ impl FuncTrampoline {
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
 
         let (callee_ty, callee_attrs) =
             self.abi
@@ -220,7 +220,7 @@ impl FuncTrampoline {
         let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi

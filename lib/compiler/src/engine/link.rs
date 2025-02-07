@@ -28,9 +28,12 @@ fn apply_relocation(
     get_got_address: &Box<dyn Fn(RelocationTarget) -> Option<usize>>,
 ) {
     let reloc_target = r.reloc_target();
-    let target_func_address: usize = if r.kind().needs_got() {
+
+    //eprintln!("{reloc_target:?}, {:?} addend {:?}", r.kind(), r.addend());
+
+    let target_func_address: usize = if r.kind().needs_got() && r.addend() == 0 {
         if let Some(got_address) = get_got_address(reloc_target) {
-            //println!("{reloc_target:?}, {:?}", r.kind());
+            //eprintln!("uses GOT");
             got_address
         } else {
             panic!("No GOT entry for reloc target {reloc_target:?}")
@@ -268,8 +271,7 @@ fn apply_relocation(
             let op = read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, (op & mask) | immlo | immhi);
         },
-        RelocationKind::MachoArm64RelocGotLoadPageoff12
-        | RelocationKind::MachoArm64RelocPageoff12 => unsafe {
+        RelocationKind::MachoArm64RelocPageoff12 => unsafe {
             let (reloc_address, _) = r.for_address(body, target_func_address as u64);
             assert_eq!(target_func_address & 0b111, 0);
             let val = target_func_address >> 3;
@@ -277,6 +279,36 @@ fn apply_relocation(
             let mask = !(0x1ff << 10);
             let op = read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, (op & mask) | imm9);
+        },
+
+        RelocationKind::MachoArm64RelocGotLoadPageoff12 => unsafe {
+            if r.addend() == 0 {
+                let (reloc_address, _) = r.for_address(body, target_func_address as u64);
+                assert_eq!(target_func_address & 0b111, 0);
+                let val = target_func_address >> 3;
+                let imm9 = ((val & 0x1ff) << 10) as u32;
+                let mask = !(0x1ff << 10);
+                let op = read_unaligned(reloc_address as *mut u32);
+                write_unaligned(reloc_address as *mut u32, (op & mask) | imm9);
+            } else {
+                let fixup_ptr = body + r.offset() as usize;
+                let target_address: usize = target_func_address + r.addend() as usize;
+                eprintln!("(ldr-to-add) targeting address: {target_func_address:x} + {:x} = {target_address:x}", r.addend());
+
+                let raw_instr = read_unaligned(fixup_ptr as *mut u32);
+
+                assert_eq!(
+                    raw_instr & 0xfffffc00, 0xf9400000,
+                    "raw_instr isn't a 64-bit LDR immediate (bits: {raw_instr:032b}, hex: {raw_instr:x})"
+                );
+
+                let reg: u32 = raw_instr & 0b11111;
+
+                let mut fixup_ldr = 0x91000000 | (reg << 5) | reg;
+                fixup_ldr |= ((target_address & 0xfff) as u32) << 10;
+
+                write_unaligned(fixup_ptr as *mut u32, fixup_ldr);
+            }
         },
         RelocationKind::MachoArm64RelocUnsigned | RelocationKind::MachoX86_64RelocUnsigned => unsafe {
             let (reloc_address, mut reloc_delta) = r.for_address(body, target_func_address as u64);
@@ -294,6 +326,7 @@ fn apply_relocation(
 
             let at = body + r.offset() as usize;
             let pcrel = i32::try_from((target_func_address as isize) - (at as isize)).unwrap();
+            //eprintln!("MachoArm64RelocPointerToGot: Writing {pcrel:x?}");
             write_unaligned(at as *mut i32, pcrel);
         },
         kind => panic!(

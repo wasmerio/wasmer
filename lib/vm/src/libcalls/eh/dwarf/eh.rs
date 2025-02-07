@@ -76,7 +76,7 @@ pub const USING_SJLJ_EXCEPTIONS: bool = cfg!(all(
 macro_rules! log {
     ($e: expr) => {
         // todo: remove me
-        if false {
+        if true {
             eprintln!($e)
         }
 
@@ -84,7 +84,7 @@ macro_rules! log {
 
     ($($e: expr),*) => {
         // todo: remove me
-        if false {
+        if true {
             eprintln!($($e),*)
         }
 
@@ -228,7 +228,8 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                     return Ok(EHAction::Catch { lpad, tag: 0 });
                                 }
 
-                                let tag = *std::mem::transmute::<*const u8, *const u64>(tag_ptr);
+                                let tag = std::mem::transmute::<*const u8, *const u64>(tag_ptr)
+                                    .read_unaligned();
 
                                 if context.tag == tag {
                                     return Ok(EHAction::Catch { lpad, tag });

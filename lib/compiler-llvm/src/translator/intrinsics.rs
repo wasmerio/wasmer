@@ -268,6 +268,7 @@ impl<'ctx> Intrinsics<'ctx> {
         module: &Module<'ctx>,
         context: &'ctx Context,
         target_data: &TargetData,
+        binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
@@ -688,7 +689,13 @@ impl<'ctx> Intrinsics<'ctx> {
             trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
             debug_trap: module.add_function("llvm.debugtrap", void_ty.fn_type(&[], false), None),
             personality: module.add_function(
-                "__gxx_personality_v0",
+                if matches!(binary_fmt, target_lexicon::BinaryFormat::Macho) {
+                    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
+                    // will generate things differently than "normal", wreaking havoc.
+                    "__gxx_personality_v0"
+                } else {
+                    "wasmer_eh_personality"
+                },
                 i32_ty.fn_type(
                     &[
                         i32_ty.into(),
