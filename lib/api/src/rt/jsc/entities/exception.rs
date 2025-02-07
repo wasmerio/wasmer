@@ -3,7 +3,10 @@ use std::any::Any;
 
 use wasmer_types::{TagType, Type};
 
-use crate::{jsc::vm::VMException, AsStoreMut, AsStoreRef, Tag, Value};
+use crate::{
+    jsc::vm::{VMException, VMExceptionRef},
+    AsStoreMut, AsStoreRef, Tag, Value,
+};
 
 use super::store::StoreHandle;
 
