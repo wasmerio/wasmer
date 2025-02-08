@@ -925,7 +925,7 @@
         <span class="comment">// Wasm linear memories are never allowed to grow beyond what is
         // indexable. If the memory has no maximum, enforce the greatest
         // limit here.
-        </span><span class="kw">if </span>new_pages &gt;= Pages::max_value() {
+        </span><span class="kw">if </span>new_pages &gt; Pages::max_value() {
             <span class="comment">// Linear memory size would exceed the index range.
             </span><span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::CouldNotGrow {
                 current: <span class="self">self</span>.size,
