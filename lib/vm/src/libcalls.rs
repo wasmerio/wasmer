@@ -671,19 +671,7 @@ pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
 /// Calls libunwind to perform unwinding magic.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
-    //println!("Throwing exception with tag {tag}");
-    let exception = Box::new(UwExceptionWrapper::new(tag, data_ptr, data_size));
-    let exception_param = Box::into_raw(exception) as *mut libunwind::_Unwind_Exception;
-
-    match libunwind::_Unwind_RaiseException(exception_param) {
-        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-            raise_lib_trap(Trap::lib(TrapCode::UncaughtException))
-        }
-        c => {
-            dbg!(c);
-            unreachable!()
-        }
-    }
+    eh::throw(tag, data_ptr, data_size)
 }
 
 /// Implementation for throwing an exception.
@@ -693,26 +681,7 @@ pub unsafe extern "C-unwind" fn wasmer_vm_throw(tag: u64, data_ptr: usize, data_
 /// Calls libunwind to perform unwinding magic.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_rethrow(exc: *mut UwExceptionWrapper) -> ! {
-    if exc.is_null() {
-        panic!();
-    }
-
-    //if let Some(w) = (*exc).cause.downcast_ref::<WasmerException>() {
-    //    println!("rethrowing {w:?}");
-    //} else {
-    //    println!("rethrown is not wasmer");
-    //}
-
-    match libunwind::_Unwind_Resume_or_Rethrow(std::mem::transmute::<
-        *mut UwExceptionWrapper,
-        *mut libunwind::_Unwind_Exception,
-    >(exc))
-    {
-        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-            raise_lib_trap(Trap::lib(TrapCode::UncaughtException))
-        }
-        _ => unreachable!(),
-    }
+    eh::rethrow(exc)
 }
 
 /// (debug) Print an usize.

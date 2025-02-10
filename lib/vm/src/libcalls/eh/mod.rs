@@ -36,6 +36,16 @@ cfg_if::cfg_if! {
         pub fn wasmer_eh_personality() {
             panic!()
         }
+
+        pub  fn throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
+            panic!()
+        }
+
+        pub fn rethrow(exc: *mut UwExceptionWrapper) -> ! {
+            panic!()
+        }
+
+
     } else if #[cfg(any(
         all(target_family = "windows", target_env = "gnu"),
         target_family = "unix",

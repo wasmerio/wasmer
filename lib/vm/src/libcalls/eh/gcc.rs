@@ -167,3 +167,35 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context, tag: u64) -> Result<
         dbg!(eh::find_eh_action(lsda, &eh_context))
     }
 }
+
+pub unsafe fn throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
+    let exception = Box::new(UwExceptionWrapper::new(tag, data_ptr, data_size));
+    let exception_param = Box::into_raw(exception) as *mut libunwind::_Unwind_Exception;
+
+    match uw::_Unwind_RaiseException(exception_param) {
+        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
+            crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+        }
+        c => {
+            dbg!(c);
+            unreachable!()
+        }
+    }
+}
+
+pub unsafe fn rethrow(exc: *mut UwExceptionWrapper) -> ! {
+    if exc.is_null() {
+        panic!();
+    }
+
+    match uw::_Unwind_Resume_or_Rethrow(std::mem::transmute::<
+        *mut UwExceptionWrapper,
+        *mut libunwind::_Unwind_Exception,
+    >(exc))
+    {
+        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
+            crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+        }
+        _ => unreachable!(),
+    }
+}
