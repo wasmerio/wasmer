@@ -13,7 +13,6 @@ use crate::{
     serialize::{MetadataHeader, SerializableModule},
     types::{
         relocation::{RelocationLike, RelocationTarget},
-        section::CustomSectionLike,
         target::{CpuFeature, Target},
     },
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
@@ -409,27 +408,31 @@ impl Artifact {
         };
 
         let eh_frame = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p
-                .get_unwind_info()
-                .eh_frame
-                .map(|v| p.get_custom_sections_ref()[v].bytes.as_slice()),
-            ArtifactBuildVariant::Archived(a) => a
-                .get_unwind_info()
-                .eh_frame
-                .map(|v| a.get_custom_sections_ref()[v].bytes()),
+            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().eh_frame.map(|v| unsafe {
+                std::slice::from_raw_parts(
+                    *custom_sections[v],
+                    p.get_custom_sections_ref()[v].bytes.len(),
+                )
+            }),
+            ArtifactBuildVariant::Archived(a) => a.get_unwind_info().eh_frame.map(|v| unsafe {
+                std::slice::from_raw_parts(
+                    *custom_sections[v],
+                    a.get_custom_sections_ref()[v].bytes.len(),
+                )
+            }),
         };
 
         let compact_unwind = match &artifact {
             ArtifactBuildVariant::Plain(p) => p.get_unwind_info().compact_unwind.map(|v| unsafe {
                 std::slice::from_raw_parts(
-                    custom_sections[v].0,
+                    *custom_sections[v],
                     p.get_custom_sections_ref()[v].bytes.len(),
                 )
             }),
             ArtifactBuildVariant::Archived(a) => {
                 a.get_unwind_info().compact_unwind.map(|v| unsafe {
                     std::slice::from_raw_parts(
-                        custom_sections[v].0,
+                        *custom_sections[v],
                         a.get_custom_sections_ref()[v].bytes.len(),
                     )
                 })
