@@ -8,7 +8,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `tag` in the `v8` runtime.
-pub struct Tag {
+pub(crate) struct Tag {
     pub(crate) handle: VMTag,
 }
 

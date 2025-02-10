@@ -12,7 +12,7 @@ use super::store::StoreHandle;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `tag` in the `v8` runtime.
-pub struct Exception {
+pub(crate) struct Exception {
     pub(crate) handle: VMException,
 }
 

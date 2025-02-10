@@ -11,7 +11,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `exception` in the `sys` runtime.
-pub struct Exception {
+pub(crate) struct Exception {
     pub(crate) handle: VMException,
 }
 

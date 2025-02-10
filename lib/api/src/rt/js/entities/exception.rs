@@ -10,7 +10,7 @@ use wasmer_types::{TagType, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `tag` in the `v8` runtime.
-pub struct Exception {
+pub(crate) struct Exception {
     pub(crate) handle: VMException,
 }
 
