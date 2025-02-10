@@ -16,8 +16,6 @@
 
 use core::{mem, ptr};
 
-use crate::libcalls::eh::InnerException;
-
 use super::DwarfReader;
 
 pub const DW_EH_PE_omit: u8 = 0xFF;
