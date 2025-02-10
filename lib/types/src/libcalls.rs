@@ -206,7 +206,7 @@ impl LibCall {
             Self::ImportedMemory32AtomicNotify => "wasmer_vm_imported_memory32_atomic_notify",
             Self::Throw => "wasmer_vm_throw",
             Self::Rethrow => "wasmer_vm_rethrow",
-            Self::EHPersonality => "__gxx_personality_v0",
+            Self::EHPersonality => "wasmer_eh_personality",
             Self::AllocException => "wasmer_vm_alloc_exception",
             Self::DeleteException => "wasmer_vm_delete_exception",
             Self::ReadException => "wasmer_vm_read_exception",
