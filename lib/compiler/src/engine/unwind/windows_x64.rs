@@ -90,10 +90,14 @@ impl UnwindRegistry {
 
     pub(crate) fn register_compact_unwind(
         &mut self,
-        _compact_unwind: Option<&[u8]>,
+        compact_unwind: Option<&[u8]>,
         _eh_personality_addr_in_got: Option<usize>,
     ) -> Result<(), String> {
-        return Err("Cannot register compact_unwind frames on Windows platforms".to_string());
+        if compact_unwind.is_some() {
+            return Err("Cannot register compact_unwind frames on Windows platforms".to_string());
+        }
+
+        Ok(())
     }
 }
 
