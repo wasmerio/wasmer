@@ -264,8 +264,14 @@ impl Compiler for LLVMCompiler {
         let mut compact_unwind_section_bytes = vec![];
         let mut compact_unwind_section_relocations = vec![];
 
-        let mut got_targets: HashSet<wasmer_compiler::types::relocation::RelocationTarget> =
-            HashSet::from_iter(vec![RelocationTarget::LibCall(LibCall::EHPersonality)]);
+        let mut got_targets: HashSet<wasmer_compiler::types::relocation::RelocationTarget> = if matches!(
+            target.triple().binary_format,
+            target_lexicon::BinaryFormat::Macho
+        ) {
+            HashSet::from_iter(vec![RelocationTarget::LibCall(LibCall::EHPersonality)])
+        } else {
+            HashSet::default()
+        };
 
         let functions = function_body_inputs
             .iter()
