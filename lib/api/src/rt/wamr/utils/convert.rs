@@ -86,7 +86,7 @@ impl IntoWasmerValue for wasm_val_t {
             bindings::wasm_valkind_enum_WASM_EXTERNREF => {
                 panic!("ExternRefs are not currently supported through wasm_c_api")
             }
-            _ => unreachable!("wamr kind has no matching wasmer_types::Type"),
+            _ => panic!("wamr kind {} has no matching type", self.kind),
         }
     }
 }
