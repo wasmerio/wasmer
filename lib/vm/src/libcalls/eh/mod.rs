@@ -5,8 +5,36 @@ mod dwarf;
 cfg_if::cfg_if! {
     if #[cfg(any(target_env = "msvc", target_family = "wasm"))] {
         // We have yet to figure this out.
-        fn wasmer_eh_personality() {
-            core::intrinsics::abort()
+        #[repr(C)]
+        pub struct UwExceptionWrapper {
+            pub _uwe: (),
+            pub cause: Box<dyn std::any::Any + Send>,
+        }
+
+        impl UwExceptionWrapper {
+            pub fn new(tag: u64, data_ptr: usize, data_size: u64) -> Self {
+                Self {
+                    _uwe: (),
+                    cause: Box::new(WasmerException {
+                        tag,
+                        data_ptr,
+                        data_size,
+                    }),
+                }
+            }
+        }
+
+        #[repr(C)]
+        #[derive(Debug, thiserror::Error, Clone)]
+        #[error("Uncaught exception in wasm code!")]
+        pub struct WasmerException {
+            pub tag: u64,
+            pub data_ptr: usize,
+            pub data_size: u64,
+        }
+
+        pub fn wasmer_eh_personality() {
+            panic!()
         }
     } else if #[cfg(any(
         all(target_family = "windows", target_env = "gnu"),
