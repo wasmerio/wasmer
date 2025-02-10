@@ -303,7 +303,7 @@ impl std::fmt::Display for Value {
                 Self::I64(v) => v.to_string(),
                 Self::F32(v) => v.to_string(),
                 Self::F64(v) => v.to_string(),
-                Self::ExceptionRef(_) => "exceptionref".to_string(),
+                Self::ExceptionRef(_) => "exnref".to_string(),
                 Self::ExternRef(_) => "externref".to_string(),
                 Self::FuncRef(_) => "funcref".to_string(),
                 Self::V128(v) => v.to_string(),
