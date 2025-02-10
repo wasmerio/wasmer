@@ -255,16 +255,7 @@ impl FuncTranslator {
                 .target_machine
                 .get_target_data()
                 .get_pointer_byte_size(None),
-            section_name: match self.binary_fmt {
-                BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
-                BinaryFormat::Macho => FUNCTION_SECTION_MACHO.to_string(),
-                _ => {
-                    return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {:?}",
-                        self.binary_fmt
-                    )))
-                }
-            },
+            binary_fmt: self.binary_fmt,
         };
 
         fcg.ctx.add_func(
@@ -1445,7 +1436,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         // The general idea is that each tag has its own section, so the GOT-based relocation can
         // have a zero addend, i.e. the data of the tag is the first (and only) value in a specific
         // section we can target in relocations.
-        tag_glbl.set_section(Some(&format!("{},_eh_ti_{tag}", self.section_name)));
+        if matches!(self.binary_fmt, target_lexicon::BinaryFormat::Macho) {
+            tag_glbl.set_section(Some(&format!("{},_eh_ti_{tag}", FUNCTION_SECTION_MACHO)));
+        }
 
         let tag_glbl = tag_glbl.as_basic_value_enum();
 
@@ -1606,7 +1599,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     tags_cache: HashMap<u32, BasicValueEnum<'ctx>>,
     exception_types_cache: HashMap<u32, inkwell::types::StructType<'ctx>>,
     ptr_size: u32,
-    section_name: String,
+    binary_fmt: target_lexicon::BinaryFormat,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
