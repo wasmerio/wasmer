@@ -29,7 +29,7 @@ impl Exception {
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 /// A WebAssembly `extern ref` in `v8`.
-pub struct ExceptionRef;
+pub(crate) struct ExceptionRef;
 
 impl ExceptionRef {
     pub fn new<T>(_store: &mut impl AsStoreMut, _value: T) -> Self

@@ -27,7 +27,7 @@ impl Exception {
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 /// A WebAssembly `exnref` in `js`.
-pub struct ExceptionRef;
+pub(crate) struct ExceptionRef;
 
 impl ExceptionRef {
     pub fn new<T>(_store: &mut impl AsStoreMut, _value: T) -> Self
