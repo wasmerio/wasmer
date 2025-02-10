@@ -87,6 +87,14 @@ impl UnwindRegistry {
 
         Ok(())
     }
+
+    pub(crate) fn register_compact_unwind(
+        &mut self,
+        _compact_unwind: Option<&[u8]>,
+        _eh_personality_addr_in_got: Option<usize>,
+    ) -> Result<(), String> {
+        return Err("Cannot register compact_unwind frames on Windows platforms".to_string());
+    }
 }
 
 impl Drop for UnwindRegistry {
