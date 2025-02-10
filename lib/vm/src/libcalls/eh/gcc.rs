@@ -21,7 +21,7 @@ impl UwExceptionWrapper {
             _uwe: uw::_Unwind_Exception {
                 exception_class: WASMER_EXCEPTION_CLASS,
                 exception_cleanup: None,
-                private_1: core::ptr::null::<u8>() as usize as u64,
+                private_1: core::ptr::null::<u8>() as usize as _,
                 private_2: 0,
             },
             canary: &CANARY,
@@ -126,14 +126,15 @@ pub unsafe extern "C" fn wasmer_eh_personality(
                     uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND
                 }
                 EHAction::Cleanup(lpad) => {
-                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, uw_exc as u64);
+                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, uw_exc as _);
                     uw::_Unwind_SetGR(context, UNWIND_DATA_REG.1, 0);
                     uw::_Unwind_SetIP(context, lpad as usize as _);
                     uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
                 }
                 EHAction::Catch { lpad, tag } | EHAction::Filter { lpad, tag } => {
-                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, uw_exc as u64);
-                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.1, tag);
+                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, uw_exc as _);
+                    #[allow(trivial_numeric_casts)]
+                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.1, tag as _);
                     uw::_Unwind_SetIP(context, lpad as usize as _);
                     uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
                 }
