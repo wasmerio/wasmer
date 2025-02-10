@@ -44,6 +44,8 @@ pub(crate) enum WasmExternType {
     Global(WasmGlobalType),
     Table(WasmTableType),
     Memory(WasmMemoryType),
+    // No support for eh in the C-API yet.
+    #[allow(unused)]
     Tag(WasmTagType),
 }
 
