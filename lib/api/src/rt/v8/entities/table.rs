@@ -94,7 +94,7 @@ impl Table {
             }
 
             let kind = match self.ty(store).ty {
-                wasmer_types::Type::ExternRef => wasm_valkind_enum_WASM_ANYREF,
+                wasmer_types::Type::ExternRef => wasm_valkind_enum_WASM_EXTERNREF,
                 wasmer_types::Type::FuncRef => wasm_valkind_enum_WASM_FUNCREF,
                 ty => panic!("unsupported table type: {ty:?}"),
             } as u8;

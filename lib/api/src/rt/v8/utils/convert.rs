@@ -1,3 +1,5 @@
+use wasmer_types::Type;
+
 /// Utilities to convert between `v8` and `wasmer` values
 use crate::{
     v8::{
@@ -6,7 +8,6 @@ use crate::{
     },
     Function, RuntimeFunction, Value,
 };
-use wasmer_types::Type;
 
 pub trait IntoCApiValue {
     /// Consume [`self`] to produce a [`wasm_val_t`].
@@ -45,13 +46,13 @@ impl IntoCApiValue for Value {
                 },
             },
             Value::ExternRef(_) => panic!(
-                "Creating host values from guest ExternRefs is not currently supported in v8."
+                "Creating host values from guest ExternRefs is not currently supported in V8."
             ),
-            Value::ExceptionRef(_) => panic!(
-                "Creating host values from guest ExceptionRefs is not currently supported in v8."
-            ),
+            Value::ExceptionRef(_) => {
+                panic!("Creating host values from guest V128s is not currently supported in V8.")
+            }
             Value::V128(_) => {
-                panic!("Creating host values from guest V128s is not currently supported in v8.")
+                panic!("Creating host values from guest V128s is not currently supported in V8.")
             }
         }
     }
@@ -74,13 +75,10 @@ impl IntoWasmerValue for wasm_val_t {
                     handle: unsafe { self.of.ref_ as _ },
                 }),
             ))),
-            bindings::wasm_valkind_enum_WASM_ANYREF => {
+            bindings::wasm_valkind_enum_WASM_EXTERNREF => {
                 panic!("ExternRefs are not currently supported through wasm_c_api")
             }
-
-            _ => {
-                panic!("v8 currently does not support V128 values")
-            }
+            _ => unreachable!("v8 kind {} has no matching wasmer type", self.kind),
         }
     }
 }
@@ -97,9 +95,9 @@ impl IntoWasmerType for wasm_valkind_t {
             bindings::wasm_valkind_enum_WASM_I64 => Type::I64,
             bindings::wasm_valkind_enum_WASM_F32 => Type::F32,
             bindings::wasm_valkind_enum_WASM_F64 => Type::F64,
-            bindings::wasm_valkind_enum_WASM_ANYREF => Type::ExternRef,
+            bindings::wasm_valkind_enum_WASM_EXTERNREF => Type::ExternRef,
             bindings::wasm_valkind_enum_WASM_FUNCREF => Type::FuncRef,
-            _ => unreachable!("v8 kind {self:?} has no matching wasmer_types::Type"),
+            _ => unreachable!("v8 kind {self:?} has no matching wasmer type"),
         }
     }
 }
@@ -117,8 +115,8 @@ impl IntoCApiType for Type {
             Type::F32 => bindings::wasm_valkind_enum_WASM_F32 as _,
             Type::F64 => bindings::wasm_valkind_enum_WASM_F64 as _,
             Type::FuncRef => bindings::wasm_valkind_enum_WASM_FUNCREF as _,
-            Type::ExternRef => bindings::wasm_valkind_enum_WASM_ANYREF as _,
-            Type::V128 => panic!("v8 currently does not support V128 values"),
+            Type::ExternRef => bindings::wasm_valkind_enum_WASM_EXTERNREF as _,
+            Type::V128 => panic!("v8 currently does not support V128 types"),
             Type::ExceptionRef => panic!("v8 currently does not support exnrefs"),
         }
     }

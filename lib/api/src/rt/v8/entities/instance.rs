@@ -25,13 +25,18 @@ impl InstanceHandle {
         let externs: Vec<_> = externs.into_iter().map(|v| v.into_v8()).collect();
 
         let instance = unsafe {
-            let ptr = externs.as_ptr();
+            let mut imports = unsafe {
+                let mut vec = Default::default();
+                wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
+                vec
+            };
+
             std::mem::forget(externs);
 
             wasm_instance_new(
                 store,
                 wasm_module_obtain(store, module),
-                ptr as *const *const _,
+                &mut imports,
                 &mut trap,
             )
         };

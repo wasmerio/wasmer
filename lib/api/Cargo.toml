@@ -45,8 +45,6 @@ wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl", optional = tru
 	"prefix-symbols",
 ] }
 
-
-seq-macro = { version = "0.3.5", optional = true }
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
@@ -141,7 +139,7 @@ wamr = ["wasm-c-api", "std", "wat", "dep:which", "dep:zip"]
 wamr-default = ["wamr", "wat"]
 wasmi = ["wasm-c-api", "std", "wat", "dep:wasmi_c_api"]
 wasmi-default = ["wamr", "wat"]
-v8 = ["wasm-c-api", "std", "wat", "dep:seq-macro", "dep:which", "dep:xz"]
+v8 = ["wasm-c-api", "std", "wat", "dep:which", "dep:xz"]
 v8-default = ["wamr", "wat"]
 wasm-c-api = ["wasm-types-polyfill"]
 
