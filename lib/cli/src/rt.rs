@@ -410,6 +410,7 @@ impl RuntimeOptions {
                             Type::V128 => "v".to_string(),
                             Type::ExternRef => "e".to_string(),
                             Type::FuncRef => "r".to_string(),
+                            Type::ExceptionRef => "x".to_string(),
                         })
                         .collect::<Vec<_>>()
                         .join("")

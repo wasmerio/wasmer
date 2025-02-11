@@ -9,14 +9,14 @@ use std::vec::Vec;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{
     ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, MemoryIndex,
-    MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, Type,
+    MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, TagIndex, TagType, Type,
 };
 
 use wasmparser::{
     self, BinaryReaderError, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
     GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Parser, Payload, TableSectionReader, TypeRef,
-    TypeSectionReader,
+    MemoryType as WPMemoryType, NameSectionReader, Parser, Payload, TableSectionReader,
+    TagType as WPTagType, TypeRef, TypeSectionReader,
 };
 
 pub type WasmResult<T> = Result<T, String>;
@@ -195,6 +195,16 @@ impl ModuleInfoPolyfill {
         Ok(())
     }
 
+    pub(crate) fn reserve_tags(&mut self, num: u32) -> WasmResult<()> {
+        self.info.tags.reserve_exact(usize::try_from(num).unwrap());
+        Ok(())
+    }
+
+    pub(crate) fn declare_tag(&mut self, tag: SignatureIndex) -> WasmResult<()> {
+        self.info.tags.push(tag);
+        Ok(())
+    }
+
     pub(crate) fn reserve_exports(&mut self, num: u32) -> WasmResult<()> {
         self.info.exports.reserve(usize::try_from(num).unwrap());
         Ok(())
@@ -235,6 +245,10 @@ impl ModuleInfoPolyfill {
         name: &str,
     ) -> WasmResult<()> {
         self.declare_export(ExportIndex::Global(global_index), name)
+    }
+
+    pub(crate) fn declare_tag_export(&mut self, tag_index: TagIndex, name: &str) -> WasmResult<()> {
+        self.declare_export(ExportIndex::Tag(tag_index), name)
     }
 
     pub(crate) fn declare_module_name(&mut self, name: &str) -> WasmResult<()> {
@@ -282,6 +296,10 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
                 parse_export_section(exports, &mut module_info)?;
             }
 
+            Payload::TagSection(tags) => {
+                parse_tag_section(tags, &mut module_info)?;
+            }
+
             Payload::CustomSection(sectionreader) => {
                 // We still add the custom section data, but also read it as name section reader
                 let name = sectionreader.name();
@@ -290,7 +308,6 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
                         NameSectionReader::new(wasmparser::BinaryReader::new(
                             sectionreader.data(),
                             sectionreader.data_offset(),
-                            wasmparser::WasmFeatures::default(),
                         )),
                         &mut module_info,
                     )?;
@@ -524,6 +541,21 @@ pub fn parse_global_section(
     Ok(())
 }
 
+/// Parses the Tag section of the wasm module.
+fn parse_tag_section(
+    tags: wasmparser::SectionLimited<wasmparser::TagType>,
+    module_info: &mut ModuleInfoPolyfill,
+) -> WasmResult<()> {
+    module_info.reserve_tags(tags.count())?;
+
+    for entry in tags {
+        let WPTagType { func_type_idx, .. } = entry.map_err(transform_err)?;
+        module_info.declare_tag(SignatureIndex::from_u32(func_type_idx))?;
+    }
+
+    Ok(())
+}
+
 /// Parses the Export section of the wasm module.
 pub fn parse_export_section(
     exports: ExportSectionReader<'_>,
@@ -555,9 +587,7 @@ pub fn parse_export_section(
             ExternalKind::Global => {
                 module_info.declare_global_export(GlobalIndex::new(index), name)?
             }
-            ExternalKind::Tag => {
-                unimplemented!("exception handling not implemented yet")
-            }
+            ExternalKind::Tag => module_info.declare_tag_export(TagIndex::new(index), name)?,
         }
     }
     Ok(())

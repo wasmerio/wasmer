@@ -5,12 +5,13 @@ use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
+    TagType,
 };
 
 use wasmer_vm::{
     FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
     VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport,
+    VMTableImport, VMTagImport,
 };
 
 /// Get an `ExternType` given a import index.
@@ -32,12 +33,23 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
             let global = module.globals[*index];
             ExternType::Global(global)
         }
+        ImportIndex::Tag(index) => {
+            let func = module.signatures[module.tags[*index]].clone();
+            ExternType::Tag(TagType::from_fn_type(
+                wasmer_types::TagKind::Exception,
+                func,
+            ))
+        }
     }
 }
 
 /// Get an `ExternType` given an export (and Engine signatures in case is a function).
 fn get_extern_type(context: &StoreObjects, extern_: &VMExtern) -> ExternType {
     match extern_ {
+        VMExtern::Tag(f) => ExternType::Tag(wasmer_types::TagType::from_fn_type(
+            wasmer_types::TagKind::Exception,
+            f.get(context).signature.clone(),
+        )),
         VMExtern::Function(f) => ExternType::Function(f.get(context).signature.clone()),
         VMExtern::Table(t) => ExternType::Table(*t.get(context).ty()),
         VMExtern::Memory(m) => ExternType::Memory(m.get(context).ty()),
@@ -71,6 +83,7 @@ pub fn resolve_imports(
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
+    let mut tag_imports = PrimaryMap::with_capacity(module.num_imported_tags);
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
 
@@ -197,6 +210,9 @@ pub fn resolve_imports(
                     handle,
                 });
             }
+            VMExtern::Tag(handle) => {
+                tag_imports.push(VMTagImport { handle });
+            }
         }
     }
 
@@ -204,6 +220,7 @@ pub fn resolve_imports(
         function_imports,
         table_imports,
         memory_imports,
+        tag_imports,
         global_imports,
     ))
 }

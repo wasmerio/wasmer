@@ -17,9 +17,10 @@ use crate::vmcontext::{
     memory32_atomic_check32, memory32_atomic_check64, memory_copy, memory_fill,
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTagImport,
+    VMTrampoline,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
+use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody, VMTag};
 use crate::{LinearMemory, NotifyLocation};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
@@ -37,8 +38,9 @@ use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
-    MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
+    MemoryError, MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
+    TagIndex, VMOffsets,
 };
 
 /// A WebAssembly instance.
@@ -67,6 +69,9 @@ pub(crate) struct Instance {
 
     /// WebAssembly global data.
     globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
+
+    /// WebAssembly global data.
+    tags: BoxedSlice<LocalTagIndex, InternalStoreHandle<VMTag>>,
 
     /// Pointers to functions in executable memory.
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -181,6 +186,17 @@ impl Instance {
     /// Return a pointer to the `VMGlobalImport`s.
     fn imported_globals_ptr(&self) -> *mut VMGlobalImport {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_imported_globals_begin()) }
+    }
+
+    /// Return the indexed `VMTagImport`.
+    fn imported_tag(&self, index: TagIndex) -> &VMTagImport {
+        let index = usize::try_from(index.as_u32()).unwrap();
+        unsafe { &*self.imported_tags_ptr().add(index) }
+    }
+
+    /// Return a pointer to the `VMTagImport`s.
+    fn imported_tags_ptr(&self) -> *mut VMTagImport {
+        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_imported_tags_begin()) }
     }
 
     /// Return the indexed `VMTableDefinition`.
@@ -1021,6 +1037,7 @@ impl VMInstance {
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
         finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
         finished_tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
+        finished_tags: BoxedSlice<LocalTagIndex, InternalStoreHandle<VMTag>>,
         finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -1051,6 +1068,7 @@ impl VMInstance {
                 offsets,
                 memories: finished_memories,
                 tables: finished_tables,
+                tags: finished_tags,
                 globals: finished_globals,
                 functions: finished_functions,
                 function_call_trampolines: finished_function_call_trampolines,
@@ -1252,6 +1270,16 @@ impl VMInstance {
                     import.handle
                 };
                 VMExtern::Global(handle)
+            }
+
+            ExportIndex::Tag(index) => {
+                let handle = if let Some(def_index) = instance.module.local_tag_index(index) {
+                    instance.tags[def_index]
+                } else {
+                    let import = instance.imported_tag(index);
+                    import.handle
+                };
+                VMExtern::Tag(handle)
             }
         }
     }

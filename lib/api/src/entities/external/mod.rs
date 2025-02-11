@@ -1,7 +1,11 @@
+pub(crate) mod extref;
+pub use extref::*;
+
 use wasmer_types::ExternType;
 
 use crate::{
     vm::VMExtern, AsStoreMut, AsStoreRef, ExportError, Exportable, Function, Global, Memory, Table,
+    Tag,
 };
 
 /// Trait convert a VMExtern to a Extern
@@ -17,14 +21,16 @@ pub trait VMExternToExtern {
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub enum Extern {
-    /// A external [`Function`].
+    /// An external [`Function`].
     Function(Function),
-    /// A external [`Global`].
+    /// An external [`Global`].
     Global(Global),
-    /// A external [`Table`].
+    /// An external [`Table`].
     Table(Table),
-    /// A external [`Memory`].
+    /// An external [`Memory`].
     Memory(Memory),
+    /// An external [`Memory`].
+    Tag(Tag),
 }
 
 impl Extern {
@@ -35,6 +41,7 @@ impl Extern {
             Self::Memory(ft) => ExternType::Memory(ft.ty(store)),
             Self::Table(tt) => ExternType::Table(tt.ty(store)),
             Self::Global(gt) => ExternType::Global(gt.ty(store)),
+            Self::Tag(tt) => ExternType::Tag(tt.ty(store)),
         }
     }
 
@@ -48,6 +55,7 @@ impl Extern {
         match self {
             Self::Function(f) => f.is_from_store(store),
             Self::Global(g) => g.is_from_store(store),
+            Self::Tag(t) => t.is_from_store(store),
             Self::Memory(m) => m.is_from_store(store),
             Self::Table(t) => t.is_from_store(store),
         }
@@ -58,6 +66,7 @@ impl Extern {
         match self {
             Self::Function(f) => f.to_vm_extern(),
             Self::Global(g) => g.to_vm_extern(),
+            Self::Tag(t) => t.to_vm_extern(),
             Self::Memory(m) => m.to_vm_extern(),
             Self::Table(t) => t.to_vm_extern(),
         }
@@ -79,6 +88,7 @@ impl std::fmt::Debug for Extern {
             match self {
                 Self::Function(_) => "Function(...)",
                 Self::Global(_) => "Global(...)",
+                Self::Tag(_) => "Tag(...)",
                 Self::Memory(_) => "Memory(...)",
                 Self::Table(_) => "Table(...)",
             }
@@ -95,6 +105,12 @@ impl From<Function> for Extern {
 impl From<Global> for Extern {
     fn from(r: Global) -> Self {
         Self::Global(r)
+    }
+}
+
+impl From<Tag> for Extern {
+    fn from(r: Tag) -> Self {
+        Self::Tag(r)
     }
 }
 

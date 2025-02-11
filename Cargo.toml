@@ -102,8 +102,11 @@ hyper = "1"
 reqwest = { version = "0.12.0", default-features = false }
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmparser = { version = "0.216.0", default-features = false, features = [
+wasmparser = { version = "0.224.0", default-features = false, features = [
 	"validate",
+	"features",
+	"component-model",
+	"simd",
 ] }
 rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
@@ -121,7 +124,7 @@ pretty_assertions = "1.4.0"
 base64 = "0.22.0"
 time = "0.3.36"
 target-lexicon = { version = "0.12.2", default-features = false }
-object = "0.32.0"
+object = { version = "0.32.0", default-features = true }
 derive_more = { version = "1", features = ["debug"] }
 
 [build-dependencies]
@@ -155,7 +158,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
-reqwest = {workspace = true, features = ["blocking", "rustls-tls"]}
+reqwest = { workspace = true, features = ["blocking", "rustls-tls"] }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile

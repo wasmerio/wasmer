@@ -94,6 +94,12 @@ impl Global {
                     //     VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
                     // )
                 }
+                Type::ExceptionRef => {
+                    unimplemented!();
+                    // Self::ExternRef(
+                    //     VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
+                    // )
+                }
             };
             Value::from_raw(store, ty.ty, raw)
         }

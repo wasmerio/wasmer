@@ -2277,6 +2277,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::ArrayAtomicRmwCmpxchg { .. } => {
             return Err(wasm_unsupported!("Array atomics not supported yet!"))
         }
+        Operator::ContNew { .. } => todo!(),
+        Operator::ContBind { .. } => todo!(),
+        Operator::Suspend { .. } => todo!(),
+        Operator::Resume { .. } => todo!(),
+        Operator::ResumeThrow { .. } => todo!(),
+        Operator::Switch { .. } => todo!(),
+        Operator::I64Add128 => todo!(),
+        Operator::I64Sub128 => todo!(),
+        Operator::I64MulWideS => todo!(),
+        Operator::I64MulWideU => todo!(),
+        _ => todo!(),
     };
     Ok(())
 }

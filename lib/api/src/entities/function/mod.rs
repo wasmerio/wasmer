@@ -211,7 +211,7 @@ impl Function {
         self.ty(store).results().len()
     }
 
-    /// Call the `Function` function.
+    /// Call the function.
     ///
     /// Depending on where the Function is defined, it will call it.
     /// 1. If the function is defined inside a WebAssembly, it will call the trampoline

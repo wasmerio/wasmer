@@ -36,6 +36,8 @@ pub enum Type {
     ExternRef, /* = 128 */
     /// A reference to a Wasm function.
     FuncRef,
+    /// A reference to a Wasm exception.
+    ExceptionRef,
 }
 
 impl Type {
@@ -50,7 +52,7 @@ impl Type {
 
     /// Returns true if `Type` matches either of the reference types.
     pub fn is_ref(self) -> bool {
-        matches!(self, Self::ExternRef | Self::FuncRef)
+        matches!(self, Self::ExternRef | Self::FuncRef | Self::ExceptionRef)
     }
 }
 
@@ -128,6 +130,8 @@ pub enum ExternType {
     Table(TableType),
     /// This external type is the type of a WebAssembly memory.
     Memory(MemoryType),
+    /// This external type is the type of a WebAssembly tag.
+    Tag(TagType),
 }
 
 fn is_global_compatible(exported: GlobalType, imported: GlobalType) -> bool {
@@ -234,6 +238,7 @@ impl ExternType {
             (Self::Global(a), Self::Global(b)) => is_global_compatible(*a, *b),
             (Self::Table(a), Self::Table(b)) => is_table_compatible(a, b, runtime_size),
             (Self::Memory(a), Self::Memory(b)) => is_memory_compatible(a, b, runtime_size),
+            (Self::Tag(a), Self::Tag(b)) => a == b,
             // The rest of possibilities, are not compatible
             _ => false,
         }
@@ -443,6 +448,75 @@ pub enum GlobalInit {
     RefNullConst,
     /// A `ref.func <index>`.
     RefFunc(FunctionIndex),
+}
+
+// Tag Types
+
+/// The kind of a [`Tag`].
+///
+/// Currently, tags can only express exceptions.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug))]
+pub enum TagKind {
+    /// This tag's event is an exception.
+    Exception,
+}
+
+/// The signature of a tag that is either implemented
+/// in a Wasm module or exposed to Wasm by the host.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug))]
+pub struct TagType {
+    /// The kind of the tag.
+    pub kind: TagKind,
+    /// The type of the tag.
+    pub ty: FunctionType,
+}
+
+impl TagType {
+    /// Creates a new [`TagType`] with the given kind, parameter and return types.
+    pub fn new<Params, Returns>(kind: TagKind, params: Params, returns: Returns) -> Self
+    where
+        Params: Into<Box<[Type]>>,
+        Returns: Into<Box<[Type]>>,
+    {
+        let ty = FunctionType::new(params.into(), returns.into());
+
+        Self::from_fn_type(kind, ty)
+    }
+
+    /// Return types.
+    pub fn results(&self) -> &[Type] {
+        self.ty.results()
+    }
+
+    /// Parameter types.
+    pub fn params(&self) -> &[Type] {
+        self.ty.params()
+    }
+
+    /// Create a new [`TagType`] with the given kind and the associated type.
+    pub fn from_fn_type(kind: TagKind, ty: FunctionType) -> Self {
+        Self { kind, ty }
+    }
+}
+
+impl fmt::Display for TagType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "({:?}) {:?} -> {:?}",
+            self.kind,
+            self.params(),
+            self.results()
+        )
+    }
 }
 
 // Table Types

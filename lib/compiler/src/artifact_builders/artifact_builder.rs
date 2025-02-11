@@ -15,7 +15,7 @@ use crate::{
         SerializableModule,
     },
     types::{
-        function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        function::{CompiledFunctionFrameInfo, FunctionBody, UnwindInfo, GOT},
         module::CompileModuleInfo,
         relocation::Relocation,
         section::{CustomSection, SectionIndex},
@@ -25,7 +25,7 @@ use crate::{
 };
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
-use rkyv::{option::ArchivedOption, rancor::Error as RkyvError};
+use rkyv::rancor::Error as RkyvError;
 use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
@@ -140,9 +140,10 @@ impl ArtifactBuild {
             dynamic_function_trampolines: compilation.dynamic_function_trampolines,
             custom_sections,
             custom_section_relocations,
-            debug: compilation.debug,
+            unwind_info: compilation.unwind_info,
             libcall_trampolines,
             libcall_trampoline_len,
+            got: compilation.got,
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -198,9 +199,14 @@ impl ArtifactBuild {
         self.serializable.compilation.libcall_trampoline_len as usize
     }
 
-    /// Get Debug optional Dwarf ref
-    pub fn get_debug_ref(&self) -> Option<&Dwarf> {
-        self.serializable.compilation.debug.as_ref()
+    /// Get a reference to the [`UnwindInfo`].
+    pub fn get_unwind_info(&self) -> &UnwindInfo {
+        &self.serializable.compilation.unwind_info
+    }
+
+    /// Get a reference to the [`GOT`].
+    pub fn get_got_ref(&self) -> &GOT {
+        &self.serializable.compilation.got
     }
 
     /// Get Function Relocations ref
@@ -413,14 +419,18 @@ impl ArtifactBuildFromArchive {
             .to_native() as usize
     }
 
-    /// Get Debug optional Dwarf ref
-    pub fn get_debug_ref(&self) -> Option<Dwarf> {
-        match self.cell.borrow_dependent().compilation.debug {
-            ArchivedOption::Some(ref x) => {
-                Some(rkyv::deserialize::<_, rkyv::rancor::Error>(x).unwrap())
-            }
-            ArchivedOption::None => None,
-        }
+    /// Get an unarchived [`UnwindInfo`].
+    pub fn get_unwind_info(&self) -> UnwindInfo {
+        rkyv::deserialize::<_, rkyv::rancor::Error>(
+            &self.cell.borrow_dependent().compilation.unwind_info,
+        )
+        .unwrap()
+    }
+
+    /// Get an unarchived [`GOT`].
+    pub fn get_got_ref(&self) -> GOT {
+        rkyv::deserialize::<_, rkyv::rancor::Error>(&self.cell.borrow_dependent().compilation.got)
+            .unwrap()
     }
 
     /// Get Function Relocations ref

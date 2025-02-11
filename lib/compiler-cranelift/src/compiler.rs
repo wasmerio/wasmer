@@ -29,7 +29,9 @@ use std::sync::Arc;
 
 use wasmer_compiler::{
     types::{
-        function::{Compilation, CompiledFunction, CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        function::{
+            Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
+        },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
@@ -350,8 +352,10 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .unzip();
 
+        let mut unwind_info = UnwindInfo::default();
+
         #[cfg(feature = "unwind")]
-        let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
+        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
             for fde in fdes.into_iter().flatten() {
                 dwarf_frametable.add_fde(cie_id, fde);
             }
@@ -360,12 +364,8 @@ impl Compiler for CraneliftCompiler {
 
             let eh_frame_section = eh_frame.0.into_section();
             custom_sections.push(eh_frame_section);
-            Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
-        } else {
-            None
+            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
         };
-        #[cfg(not(feature = "unwind"))]
-        let dwarf = None;
 
         // function call trampolines (only for local functions, by signature)
         #[cfg(not(feature = "rayon"))]
@@ -419,12 +419,15 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
+        let got = wasmer_compiler::types::function::GOT::empty();
+
         Ok(Compilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            debug: dwarf,
+            unwind_info,
+            got,
         })
     }
 }

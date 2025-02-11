@@ -15,17 +15,20 @@ version.workspace = true
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=5.0.5-rc1", features = [
-    "translator", "compiler"
+	"translator",
+	"compiler",
 ] }
 wasmer-vm = { path = "../vm", version = "=5.0.5-rc1" }
 wasmer-types = { path = "../types", version = "=5.0.5-rc1" }
 target-lexicon = { version = "0.12.2", default-features = false }
 smallvec = "1.6"
-object = { version = "0.30.3", default-features = false, features = ["read"] }
+object = { workspace = true, features = ["read"] }
 libc.workspace = true
 byteorder = "1"
 itertools = "0.10"
 rayon = "1.5"
+phf = { version = "0.11.2", features = ["macros"] }
+tracing = { version = "0.1", default-features = false, features = ["log"] }
 
 [dependencies.inkwell]
 package = "inkwell"

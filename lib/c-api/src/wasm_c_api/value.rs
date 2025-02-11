@@ -97,9 +97,11 @@ impl std::fmt::Debug for wasm_val_t {
             Ok(wasm_valkind_enum::WASM_EXTERNREF) => {
                 ds.field("anyref", &unsafe { self.of.wref });
             }
-
             Ok(wasm_valkind_enum::WASM_FUNCREF) => {
                 ds.field("funcref", &unsafe { self.of.wref });
+            }
+            Ok(wasm_valkind_enum::WASM_EXNREF) => {
+                ds.field("exnref", &unsafe { self.of.wref });
             }
             Err(_) => {
                 ds.field("value", &"Invalid value type");
@@ -152,6 +154,7 @@ pub unsafe extern "C" fn wasm_val_copy(
             },
             wasm_valkind_enum::WASM_EXTERNREF => wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
+            wasm_valkind_enum::WASM_EXNREF => wasm_val_inner { wref: val.of.wref },
         }
     }); otherwise ());
 }
@@ -188,6 +191,7 @@ impl TryFrom<wasm_valkind_t> for wasm_valkind_enum {
             3 => wasm_valkind_enum::WASM_F64,
             128 => wasm_valkind_enum::WASM_EXTERNREF,
             129 => wasm_valkind_enum::WASM_FUNCREF,
+            130 => wasm_valkind_enum::WASM_EXNREF,
             _ => return Err("valkind value out of bounds"),
         })
     }
@@ -214,6 +218,7 @@ impl TryFrom<&wasm_val_t> for Value {
                 return Err("EXTERNREF not supported at this time")
             }
             wasm_valkind_enum::WASM_FUNCREF => return Err("FUNCREF not supported at this time"),
+            wasm_valkind_enum::WASM_EXNREF => return Err("EXNREF not supported at this time"),
         })
     }
 }

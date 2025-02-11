@@ -120,7 +120,7 @@ pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 /// The custom sections for a Compilation.
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 
-/// The DWARF information for this Compilation.
+/// The unwinding information for this Compilation.
 ///
 /// It is used for retrieving the unwind information once an exception
 /// happens.
@@ -128,22 +128,51 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone, Default)]
 #[rkyv(derive(Debug), compare(PartialEq))]
-pub struct Dwarf {
+pub struct UnwindInfo {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// [Learn
     /// more](https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html).
-    pub eh_frame: SectionIndex,
+    pub eh_frame: Option<SectionIndex>,
+    pub compact_unwind: Option<SectionIndex>,
 }
 
-impl Dwarf {
+impl UnwindInfo {
     /// Creates a `Dwarf` struct with the corresponding indices for its sections
     pub fn new(eh_frame: SectionIndex) -> Self {
-        Self { eh_frame }
+        Self {
+            eh_frame: Some(eh_frame),
+            compact_unwind: None,
+        }
+    }
+
+    pub fn new_cu(compact_unwind: SectionIndex) -> Self {
+        Self {
+            eh_frame: None,
+            compact_unwind: Some(compact_unwind),
+        }
     }
 }
 
+/// The GOT - Global Offset Table - for this Compilation.
+///
+/// The GOT is but a list of pointers to objects (functions, data, sections..); in our context the
+/// GOT is represented simply as a custom section.
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone, Default)]
+#[rkyv(derive(Debug))]
+pub struct GOT {
+    /// The section index in the [`Compilation`] that corresponds to the GOT.
+    pub index: Option<SectionIndex>,
+}
+
+impl GOT {
+    pub fn empty() -> Self {
+        Self { index: None }
+    }
+}
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
@@ -188,6 +217,9 @@ pub struct Compilation {
     /// Note: Dynamic function trampolines are only compiled for imported function types.
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
 
-    /// Section ids corresponding to the Dwarf debug info
-    pub debug: Option<Dwarf>,
+    /// Section ids corresponding to the unwind information.
+    pub unwind_info: UnwindInfo,
+
+    /// A reference to the [`GOT`] instance for the compilation.
+    pub got: GOT,
 }

@@ -20,8 +20,8 @@ pub fn spectest_importobject(store: &mut Store) -> Imports {
 
     let global_i32 = Global::new(store, Value::I32(666));
     let global_i64 = Global::new(store, Value::I64(666));
-    let global_f32 = Global::new(store, Value::F32(f32::from_bits(0x4426_8000)));
-    let global_f64 = Global::new(store, Value::F64(f64::from_bits(0x4084_d000_0000_0000)));
+    let global_f32 = Global::new(store, Value::F32(666.6));
+    let global_f64 = Global::new(store, Value::F64(666.6));
 
     let ty = TableType::new(Type::FuncRef, 10, Some(20));
     let table = Table::new(store, ty, Value::FuncRef(None)).unwrap();

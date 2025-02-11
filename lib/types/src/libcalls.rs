@@ -21,7 +21,7 @@ use std::fmt;
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[rkyv(derive(Debug), compare(PartialEq))]
+#[rkyv(derive(Debug, Hash, PartialEq, Eq), compare(PartialEq))]
 #[repr(u16)]
 pub enum LibCall {
     /// ceil.f32
@@ -135,6 +135,27 @@ pub enum LibCall {
 
     /// memory.atomic.botify for imported memories
     ImportedMemory32AtomicNotify,
+
+    /// throw
+    Throw,
+
+    /// rethrow
+    Rethrow,
+
+    /// alloc_exception
+    AllocException,
+
+    /// delete_exception
+    DeleteException,
+
+    /// read_exception
+    ReadException,
+
+    /// The personality function
+    EHPersonality,
+
+    /// debug_usize
+    DebugUsize,
 }
 
 impl LibCall {
@@ -183,6 +204,13 @@ impl LibCall {
             Self::ImportedMemory32AtomicWait64 => "wasmer_vm_imported_memory32_atomic_wait64",
             Self::Memory32AtomicNotify => "wasmer_vm_memory32_atomic_notify",
             Self::ImportedMemory32AtomicNotify => "wasmer_vm_imported_memory32_atomic_notify",
+            Self::Throw => "wasmer_vm_throw",
+            Self::Rethrow => "wasmer_vm_rethrow",
+            Self::EHPersonality => "wasmer_eh_personality",
+            Self::AllocException => "wasmer_vm_alloc_exception",
+            Self::DeleteException => "wasmer_vm_delete_exception",
+            Self::ReadException => "wasmer_vm_read_exception",
+            Self::DebugUsize => "wasmer_vm_dbg_usize",
         }
     }
 }

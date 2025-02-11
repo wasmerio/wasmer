@@ -87,7 +87,7 @@ impl Abi for X86_64SystemV {
                 Type::I32 | Type::F32 => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
             })
             .collect::<Vec<i32>>();
 
@@ -406,7 +406,7 @@ impl Abi for X86_64SystemV {
                         Type::I32 | Type::F32 => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
@@ -532,7 +532,7 @@ impl Abi for X86_64SystemV {
                 Type::I32 | Type::F32 => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef => 64, /* pointer */
+                Type::ExternRef | Type::FuncRef | Type::ExceptionRef => 64, /* pointer */
             })
             .collect::<Vec<i32>>();
 

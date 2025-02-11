@@ -391,6 +391,7 @@ macro_rules! define_vm_like {
 define_vm_like!(Extern);
 define_vm_like!(ExternFunction);
 define_vm_like!(ExternGlobal);
+define_vm_like!(ExternTag);
 define_vm_like!(ExternMemory);
 define_vm_like!(ExternTable);
 //define_vm_like!(ExternObj, Debug);
@@ -403,9 +404,12 @@ define_vm_like!(Trampoline);
 //define_vm_like!(Config);
 define_vm_like!(Function, Debug);
 define_vm_like!(Global, Debug);
+define_vm_like!(Tag, Debug);
+define_vm_like!(Exception, Debug);
 define_vm_like!(Memory, Debug);
 define_vm_like!(SharedMemory);
 define_vm_like!(Table, Debug);
 
+define_vm_like!(ExceptionRef);
 define_vm_like!(ExternRef);
 define_vm_like!(FuncRef);

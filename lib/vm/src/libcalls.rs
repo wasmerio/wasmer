@@ -37,6 +37,12 @@
 
 #![allow(missing_docs)] // For some reason lint fails saying that `LibCall` is not documented, when it actually is
 
+use std::panic;
+mod eh;
+pub use eh::wasmer_eh_personality;
+use eh::UwExceptionWrapper;
+pub(crate) use eh::WasmerException;
+
 use crate::probestack::PROBESTACK;
 use crate::table::{RawTableElement, TableElement};
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
@@ -658,6 +664,74 @@ pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
     raise_lib_trap(trap)
 }
 
+/// Implementation for throwing an exception.
+///
+/// # Safety
+///
+/// Calls libunwind to perform unwinding magic.
+#[no_mangle]
+pub unsafe extern "C-unwind" fn wasmer_vm_throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
+    eh::throw(tag, data_ptr, data_size)
+}
+
+/// Implementation for throwing an exception.
+///
+/// # Safety
+///
+/// Calls libunwind to perform unwinding magic.
+#[no_mangle]
+pub unsafe extern "C-unwind" fn wasmer_vm_rethrow(exc: *mut UwExceptionWrapper) -> ! {
+    eh::rethrow(exc)
+}
+
+/// (debug) Print an usize.
+#[no_mangle]
+pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
+    #[allow(clippy::print_stdout)]
+    {
+        println!("wasmer_vm_dbg_usize: {value}");
+    }
+}
+
+/// Implementation for allocating an exception.
+#[no_mangle]
+pub extern "C-unwind" fn wasmer_vm_alloc_exception(size: usize) -> u64 {
+    Vec::<u8>::with_capacity(size).leak().as_ptr() as usize as u64
+}
+
+/// Implementation for deleting the data of an exception.
+///
+/// # Safety
+///
+/// `exception` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C-unwind" fn wasmer_vm_delete_exception(exception: *mut WasmerException) {
+    if !exception.is_null() {
+        let size = (*exception).data_size as usize;
+        let data = Vec::<u8>::from_raw_parts((*exception).data_ptr as *mut u8, size, size);
+        std::mem::drop(data);
+    }
+}
+
+/// Implementation for reading a [`WasmerException`] from a [`UwExceptionWrapper`].
+/// # Safety
+///
+/// `exception` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C-unwind" fn wasmer_vm_read_exception(
+    exception: *const UwExceptionWrapper,
+) -> *const WasmerException {
+    if !exception.is_null() {
+        if let Some(w) = (*exception).cause.downcast_ref() {
+            w as *const WasmerException
+        } else {
+            panic!()
+        }
+    } else {
+        std::ptr::null()
+    }
+}
+
 /// Probestack check
 ///
 /// # Safety
@@ -855,5 +929,12 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::ImportedMemory32AtomicWait64 => wasmer_vm_imported_memory32_atomic_wait64 as usize,
         LibCall::Memory32AtomicNotify => wasmer_vm_memory32_atomic_notify as usize,
         LibCall::ImportedMemory32AtomicNotify => wasmer_vm_imported_memory32_atomic_notify as usize,
+        LibCall::Throw => wasmer_vm_throw as usize,
+        LibCall::Rethrow => wasmer_vm_rethrow as usize,
+        LibCall::EHPersonality => wasmer_eh_personality as usize,
+        LibCall::AllocException => wasmer_vm_alloc_exception as usize,
+        LibCall::DeleteException => wasmer_vm_delete_exception as usize,
+        LibCall::ReadException => wasmer_vm_read_exception as usize,
+        LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
     }
 }

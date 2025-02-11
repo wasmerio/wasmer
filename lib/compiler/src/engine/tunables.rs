@@ -3,10 +3,10 @@ use crate::types::target::{PointerWidth, Target};
 use std::ptr::NonNull;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, Pages, TableIndex, TableType,
+    FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
+    MemoryIndex, MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind,
 };
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
+use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects, VMTag};
 use wasmer_vm::{MemoryStyle, TableStyle};
 use wasmer_vm::{VMConfig, VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
@@ -55,6 +55,11 @@ pub trait Tunables {
     /// Create a global with an unset value.
     fn create_global(&self, ty: GlobalType) -> Result<VMGlobal, String> {
         Ok(VMGlobal::new(ty))
+    }
+
+    /// Create a new tag.
+    fn create_tag(&self, kind: TagKind, ty: FunctionType) -> Result<VMTag, String> {
+        Ok(VMTag::new(kind, ty))
     }
 
     /// Allocate memory for just the memories of the current module.
@@ -122,6 +127,35 @@ pub trait Tunables {
             ));
         }
         Ok(tables)
+    }
+
+    /// Allocate memory for just the tags of the current module,
+    /// with initializers applied.
+    #[allow(clippy::result_large_err)]
+    fn create_tags(
+        &self,
+        context: &mut StoreObjects,
+        module: &ModuleInfo,
+    ) -> Result<PrimaryMap<LocalTagIndex, InternalStoreHandle<VMTag>>, LinkError> {
+        let num_imports = module.num_imported_tags;
+        let mut vmctx_tags = PrimaryMap::with_capacity(module.tags.len() - num_imports);
+
+        for &tag_type in module.tags.values().skip(num_imports) {
+            let sig_ty = if let Some(sig_ty) = module.signatures.get(tag_type) {
+                sig_ty
+            } else {
+                return Err(LinkError::Resource(format!(
+                    "Could not find matching signature for tag index {tag_type:?}"
+                )));
+            };
+            vmctx_tags.push(InternalStoreHandle::new(
+                context,
+                self.create_tag(wasmer_types::TagKind::Exception, sig_ty.clone())
+                    .map_err(LinkError::Resource)?,
+            ));
+        }
+
+        Ok(vmctx_tags)
     }
 
     /// Allocate memory for just the globals of the current module,

@@ -17,6 +17,11 @@ pub use super::error::Trap;
 
 pub(crate) type VMExtern = *mut wasm_extern_t;
 
+// No EH for now.
+pub(crate) type VMException = ();
+pub(crate) type VMTag = ();
+pub(crate) type VMExternTag = ();
+
 pub(crate) type VMFunction = *mut wasm_func_t;
 pub(crate) type VMFunctionBody = ();
 pub(crate) type VMFunctionCallback = *mut ::std::os::raw::c_void;
@@ -87,6 +92,22 @@ impl crate::VMExternToExtern for VMExtern {
                 unimplemented!()
             }
         }
+    }
+}
+
+pub struct VMExceptionRef(*mut wasm_ref_t);
+impl VMExceptionRef {
+    /// Converts the `VMExceptionRef` into a `RawValue`.
+    pub fn into_raw(self) -> RawValue {
+        unimplemented!()
+    }
+
+    /// Extracts a `VMExceptionRef` from a `RawValue`.
+    ///
+    /// # Safety
+    /// `raw` must be a valid `VMExceptionRef` instance.
+    pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
+        unimplemented!();
     }
 }
 

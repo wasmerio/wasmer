@@ -49,7 +49,7 @@ pub fn js_value_to_wasmer(ty: &Type, js_val: &JsValue) -> Value {
             let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
             Value::V128(big_num)
         }
-        Type::ExternRef | Type::FuncRef => unimplemented!(
+        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => unimplemented!(
             "The type `{:?}` is not yet supported in the JS Function API",
             ty
         ),
@@ -83,7 +83,12 @@ impl AsJs for Value {
             Self::V128(v) => JsValue::from(*v),
             Self::FuncRef(Some(func)) => func.as_js().handle.function.clone().into(),
             Self::FuncRef(None) => JsValue::null(),
-            Self::ExternRef(_) => unimplemented!(),
+            Self::ExternRef(_) => {
+                unimplemented!("ExternRefs are not yet supported in the JS Function API",)
+            }
+            Self::ExceptionRef(_) => {
+                unimplemented!("ExceptionRefs are not yet supported in the JS Function API",)
+            }
         }
     }
 
@@ -186,6 +191,7 @@ impl AsJs for Extern {
             Self::Function(function) => function.as_js().handle.function.clone().into(),
             Self::Table(table) => table.as_js().handle.table.clone().into(),
             Self::Global(global) => global.as_js().handle.global.clone().into(),
+            Self::Tag(_) => unimplemented!("Tags are not yet supported in the JS Function API"),
         }
     }
 
@@ -210,6 +216,9 @@ impl AsJs for Extern {
             )?)),
             ExternType::Table(table_type) => {
                 Ok(Self::Table(Table::from_jsvalue(store, table_type, val)?))
+            }
+            ExternType::Tag(_) => {
+                unimplemented!("Tags are not yet supported in the JS Function API")
             }
         }
     }

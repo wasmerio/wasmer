@@ -49,8 +49,8 @@ pub fn jsc_value_to_wasmer(context: &JSContext, ty: &Type, js_val: &JSValue) -> 
             };
             Value::V128(number)
         }
-        Type::ExternRef | Type::FuncRef => unimplemented!(
-            "The type `{:?}` is not yet supported in the JS Function API",
+        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => unimplemented!(
+            "The type `{:?}` is not yet supported in the JSC Function API",
             ty
         ),
     }
@@ -74,7 +74,12 @@ impl AsJsc for Value {
             Self::V128(v) => JSValue::number(&context, *v as _),
             Self::FuncRef(Some(func)) => func.as_jsc().handle.function.clone().to_jsvalue(),
             Self::FuncRef(None) => JSValue::null(&context),
-            Self::ExternRef(_) => unimplemented!(),
+            Self::ExternRef(_) => {
+                unimplemented!("ExternRefs are not yet supported in the JSC Function API",)
+            }
+            Self::ExceptionRef(_) => {
+                unimplemented!("ExceptionRefs are not yet supported in the JSC Function API",)
+            }
         }
     }
 
@@ -98,6 +103,7 @@ impl AsJsc for Extern {
             Self::Function(function) => function.as_jsc().handle.function.clone().to_jsvalue(),
             Self::Table(table) => table.as_jsc().handle.table.clone().to_jsvalue(),
             Self::Global(global) => global.as_jsc().handle.global.clone().to_jsvalue(),
+            Self::Tag(_) => unimplemented!("Tags are not yet supported in the JS Function API"),
         }
     }
 
@@ -151,6 +157,9 @@ impl AsJsc for Extern {
                         table_type.clone(),
                     )),
                 )))
+            }
+            ExternType::Tag(tag) => {
+                panic!("EH not supported in `jsc` rt")
             }
         }
     }
