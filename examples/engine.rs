@@ -13,7 +13,7 @@
 //! You can run the example directly by executing in Wasmer root:
 //!
 //! ```shell
-//! cargo run --example engine-universal --release --features "cranelift"
+//! cargo run --example engine --release --features "cranelift"
 //! ```
 //!
 //! Ready?
