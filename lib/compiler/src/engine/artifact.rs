@@ -514,7 +514,7 @@ impl Artifact {
 
         artifact
             .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
         if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_frame_info(frame_info);
         }
@@ -1077,7 +1077,7 @@ impl Artifact {
         use crate::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
 
         fn to_compile_error(err: impl std::error::Error) -> CompileError {
-            CompileError::Codegen(format!("{}", err))
+            CompileError::Codegen(format!("{err}"))
         }
 
         let target_triple = target.triple();

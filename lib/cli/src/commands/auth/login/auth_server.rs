@@ -27,7 +27,7 @@ pub(super) async fn setup_listener() -> Result<(TcpListener, String), anyhow::Er
     let addr = listener.local_addr()?;
     let port = addr.port();
 
-    let server_url = format!("http://localhost:{}", port);
+    let server_url = format!("http://localhost:{port}");
 
     Ok((listener, server_url))
 }

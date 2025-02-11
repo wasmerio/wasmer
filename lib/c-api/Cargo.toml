@@ -36,7 +36,6 @@ webc = { workspace = true, optional = true }
 virtual-fs = { version = "0.21.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
 cfg-if = "1.0"
-lazy_static = "1.4"
 libc.workspace = true
 thiserror = "1"
 typetag = { version = "0.1", optional = true }

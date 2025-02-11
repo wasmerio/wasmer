@@ -40,6 +40,7 @@ target-lexicon = { version = "0.12", features = ["std"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-compiler-singlepass = { version = "=5.0.5-rc1", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-cranelift = { version = "=5.0.5-rc1", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=5.0.5-rc1", path = "../compiler-llvm", optional = true }
 clap = { version = "4.4.0", features = ["derive", "env"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -49,6 +50,7 @@ wasmer-compiler-singlepass = { version = "=5.0.5-rc1", path = "../compiler-singl
 wasmer-compiler-cranelift = { version = "=5.0.5-rc1", path = "../compiler-cranelift", optional = true, default-features = false, features = [
 	"wasm",
 ] }
+wasmer-compiler-llvm = { version = "=5.0.5-rc1", path = "../compiler-llvm",  optional = true, default-features = false, features = [] }
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi, due to the anstream dependency not compiling.
 clap = { version = "4.4.0", default-features = false, features = [
@@ -75,6 +77,7 @@ cranelift = ["wasmer-compiler-cranelift", "compiler"]
 debug = ["fern", "log"]
 disable-all-logging = []
 jit = []
+llvm = ["wasmer-compiler-llvm"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

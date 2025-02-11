@@ -10,7 +10,7 @@ pub fn main() {
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
         .unwrap_or_default();
-    println!("cargo:rustc-env=WASMER_BUILD_GIT_HASH={}", git_hash);
+    println!("cargo:rustc-env=WASMER_BUILD_GIT_HASH={git_hash}");
 
     if git_hash.len() > 5 {
         println!(
@@ -23,5 +23,5 @@ pub fn main() {
 
     let utc: DateTime<Utc> = Utc::now();
     let date = utc.format("%Y-%m-%d").to_string();
-    println!("cargo:rustc-env=WASMER_BUILD_DATE={}", date);
+    println!("cargo:rustc-env=WASMER_BUILD_DATE={date}");
 }

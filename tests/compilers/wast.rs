@@ -17,7 +17,7 @@ use wasmer_wast::Wast;
 include!(concat!(env!("OUT_DIR"), "/generated_spectests.rs"));
 
 pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()> {
-    println!("Running wast `{}`", wast_path);
+    println!("Running wast `{wast_path}`");
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");

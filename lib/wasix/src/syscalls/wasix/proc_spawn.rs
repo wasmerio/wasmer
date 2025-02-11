@@ -53,7 +53,7 @@ pub fn proc_spawn<M: MemorySize>(
         .record("working_dir", working_dir.as_str());
 
     if chroot == Bool::True {
-        warn!("chroot is not currently supported",);
+        warn!("chroot is not currently supported");
         return Ok(Errno::Notsup);
     }
 

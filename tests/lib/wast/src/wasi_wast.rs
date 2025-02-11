@@ -155,9 +155,7 @@ impl<'a> WasiTest<'a> {
                 let stderr_str = get_stdio_output(&stderr_rx)?;
                 Err(e).with_context(|| {
                     format!(
-                        "failed to run WASI `_start` function: failed with stdout: \"{}\"\nstderr: \"{}\"",
-                        stdout_str,
-                        stderr_str,
+                        "failed to run WASI `_start` function: failed with stdout: \"{stdout_str}\"\nstderr: \"{stderr_str}\"",
                     )
                 })?;
             }
@@ -307,7 +305,7 @@ impl<'a> WasiTest<'a> {
 
                 for alias in &self.temp_dirs {
                     let temp_dir_name =
-                        PathBuf::from(format!("/.tmp_wasmer_wast_{}", temp_dir_index));
+                        PathBuf::from(format!("/.tmp_wasmer_wast_{temp_dir_index}"));
                     fs.create_dir(temp_dir_name.as_path())?;
                     builder.add_map_dir(alias, temp_dir_name)?;
                     temp_dir_index += 1;

@@ -82,13 +82,16 @@ impl CreateObj {
         );
         let compiler_type = self.rt.get_rt()?;
         match compiler_type {
-            crate::rt::RuntimeType::V8 | crate::rt::RuntimeType::Wamr => {
+            crate::rt::RuntimeType::V8
+            | crate::rt::RuntimeType::Wamr
+            | crate::rt::RuntimeType::Wasmi => {
                 anyhow::bail!("Cannot produce objects with {compiler_type}!")
             }
             crate::rt::RuntimeType::Headless => todo!(),
             _ => {}
         }
-        println!("Compiler: {}", compiler_type);
+        println!("Compiler: {compiler_type}", compiler_type);
+
         println!("Target: {}", target.triple());
 
         let atoms = if let Ok(webc) = from_disk(&input_path) {

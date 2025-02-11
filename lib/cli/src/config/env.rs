@@ -1,14 +1,12 @@
 use super::WasmerConfig;
 use anyhow::{Context, Error};
-use lazy_static::lazy_static;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use url::Url;
 use wasmer_backend_api::WasmerClient;
 
-lazy_static! {
-    pub static ref DEFAULT_WASMER_CLI_USER_AGENT: String =
-        format!("WasmerCLI-v{}", env!("CARGO_PKG_VERSION"));
-}
+pub static DEFAULT_WASMER_CLI_USER_AGENT: LazyLock<String> =
+    LazyLock::new(|| format!("WasmerCLI-v{}", env!("CARGO_PKG_VERSION")));
 
 /// Command-line flags for determining the local "Wasmer Environment".
 ///

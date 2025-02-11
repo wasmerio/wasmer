@@ -4,7 +4,7 @@ use super::wasi_version::*;
 use std::process::Command;
 
 fn install_toolchain(toolchain_name: &str) {
-    println!("Installing rustup toolchain: {}", toolchain_name);
+    println!("Installing rustup toolchain: {toolchain_name}");
     let rustup_out = Command::new("rustup")
         .arg("toolchain")
         .arg("install")

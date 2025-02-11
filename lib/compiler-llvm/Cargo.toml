@@ -44,7 +44,6 @@ features = [
 
 [build-dependencies]
 cc = "1.0"
-lazy_static = "1.4"
 regex = "1.5"
 semver = "1.0"
 rustc_version = "0.4"

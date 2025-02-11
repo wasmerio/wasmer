@@ -249,7 +249,6 @@ fn apply_relocation(
             macho_aarch64_subtractor_addresses.insert(reloc_address);
             write_unaligned(reloc_address as *mut u64, reloc_sub);
         },
-
         RelocationKind::MachoArm64RelocGotLoadPage21
         | RelocationKind::MachoArm64RelocPage21
         | RelocationKind::MachoArm64RelocTlvpLoadPage21 => unsafe {
@@ -329,10 +328,7 @@ fn apply_relocation(
             //eprintln!("MachoArm64RelocPointerToGot: Writing {pcrel:x?}");
             write_unaligned(at as *mut i32, pcrel);
         },
-        kind => panic!(
-            "Relocation kind unsupported in the current architecture {}",
-            kind
-        ),
+        kind => panic!("Relocation kind unsupported in the current architecture {kind}",),
     }
 }
 

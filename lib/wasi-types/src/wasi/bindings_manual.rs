@@ -155,7 +155,7 @@ impl std::fmt::Display for Sockoption {
             Self::Type => "Sockoption::Type",
             Self::Proto => "Sockoption::Proto",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

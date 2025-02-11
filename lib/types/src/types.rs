@@ -58,7 +58,7 @@ impl Type {
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -292,16 +292,16 @@ impl fmt::Display for FunctionType {
         let params = self
             .params
             .iter()
-            .map(|p| format!("{:?}", p))
+            .map(|p| format!("{p:?}"))
             .collect::<Vec<_>>()
             .join(", ");
         let results = self
             .results
             .iter()
-            .map(|p| format!("{:?}", p))
+            .map(|p| format!("{p:?}"))
             .collect::<Vec<_>>()
             .join(", ");
-        write!(f, "[{}] -> [{}]", params, results)
+        write!(f, "[{params}] -> [{results}]")
     }
 }
 

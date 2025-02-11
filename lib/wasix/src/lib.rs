@@ -223,7 +223,7 @@ impl std::fmt::Display for ExtendedFsError {
         write!(f, "fs error: {}", self.error)?;
 
         if let Some(msg) = &self.message {
-            write!(f, " | {}", msg)?;
+            write!(f, " | {msg}")?;
         }
 
         Ok(())
@@ -242,7 +242,10 @@ impl SpawnError {
     /// [`NotFound`]: SpawnError::NotFound
     #[must_use]
     pub fn is_not_found(&self) -> bool {
-        matches!(self, Self::NotFound { .. } | Self::MissingEntrypoint { .. })
+        matches!(
+            self,
+            Self::NotFound { .. } | Self::MissingEntrypoint { .. } | Self::BinaryNotFound { .. }
+        )
     }
 }
 

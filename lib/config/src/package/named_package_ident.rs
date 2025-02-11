@@ -121,7 +121,7 @@ impl NamedPackageIdent {
         };
 
         let reg = if !reg.starts_with("http://") && !reg.starts_with("https://") {
-            format!("https://{}", reg)
+            format!("https://{reg}")
         } else {
             reg.clone()
         };
@@ -144,7 +144,7 @@ impl NamedPackageIdent {
         if let Some(tag) = &self.tag {
             ident.push('@');
             // Writing to a string only fails on memory allocation errors.
-            write!(&mut ident, "{}", tag).unwrap();
+            write!(&mut ident, "{tag}").unwrap();
         }
         ident
     }
@@ -153,7 +153,7 @@ impl NamedPackageIdent {
         let mut out = String::new();
         if let Some(url) = &self.registry {
             // NOTE: writing to a String can only fail on allocation errors.
-            write!(&mut out, "{}", url).unwrap();
+            write!(&mut out, "{url}").unwrap();
 
             if !out.ends_with('/') {
                 out.push(':');
@@ -167,7 +167,7 @@ impl NamedPackageIdent {
         if let Some(tag) = &self.tag {
             out.push('@');
             // Writing to a string only fails on memory allocation errors.
-            write!(&mut out, "{}", tag).unwrap();
+            write!(&mut out, "{tag}").unwrap();
         }
 
         out

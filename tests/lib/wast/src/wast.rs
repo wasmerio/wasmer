@@ -198,7 +198,7 @@ impl Wast {
     fn assert_trap(&self, result: Result<Vec<Value>>, expected: &str) -> Result<()> {
         let actual = match result {
             Ok(values) => bail!("expected trap, got {:?}", values),
-            Err(t) => format!("{}", t),
+            Err(t) => format!("{t}"),
         };
         if self.matches_message_assert_trap(expected, &actual) {
             return Ok(());
@@ -259,7 +259,7 @@ impl Wast {
                     Ok(()) => bail!("expected module to fail to build"),
                     Err(e) => e,
                 };
-                let error_message = format!("{:?}", err);
+                let error_message = format!("{err:?}");
                 if !Self::matches_message_assert_invalid(message, &error_message) {
                     bail!(
                         "assert_invalid: expected \"{}\", got \"{}\"",
@@ -303,7 +303,7 @@ impl Wast {
                     Ok(()) => bail!("expected module to fail to link"),
                     Err(e) => e,
                 };
-                let error_message = format!("{:?}", err);
+                let error_message = format!("{err:?}");
                 if !Self::matches_message_assert_unlinkable(message, &error_message) {
                     bail!(
                         "assert_unlinkable: expected {}, got {}",
@@ -344,7 +344,7 @@ impl Wast {
         for directive in ast.directives {
             let sp = directive.span();
             if let Err(e) = self.run_directive(test, directive) {
-                let message = format!("{}", e);
+                let message = format!("{e}");
                 // If depends on an instance that doesn't exist
                 if message.contains("no previous instance found") {
                     continue;
@@ -415,7 +415,7 @@ impl Wast {
                 // We set the current to None to allow running other
                 // spectests when `fail_fast` is `false`.
                 self.current = None;
-                let error_message = format!("{}", e);
+                let error_message = format!("{e}");
                 self.current_is_allowed_failure = false;
                 for allowed_failure in self.allowed_instantiation_failures.iter() {
                     if error_message.contains(allowed_failure) {

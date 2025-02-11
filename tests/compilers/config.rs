@@ -96,10 +96,7 @@ impl Config {
             }
             #[allow(unreachable_patterns)]
             compiler => {
-                panic!(
-                    "The {:?} Compiler is not enabled. Enable it via the features",
-                    compiler
-                )
+                panic!("The {compiler:?} Compiler is not enabled. Enable it via the features")
             }
         }
     }

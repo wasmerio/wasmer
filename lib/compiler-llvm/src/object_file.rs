@@ -17,11 +17,11 @@ use wasmer_compiler::types::{
 use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
-    CompileError::Codegen(format!("int doesn't fit: {}", error))
+    CompileError::Codegen(format!("int doesn't fit: {error}"))
 }
 
 fn map_object_err(error: object::read::Error) -> CompileError {
-    CompileError::Codegen(format!("error parsing object file: {}", error))
+    CompileError::Codegen(format!("error parsing object file: {error}"))
 }
 
 #[derive(Debug)]
@@ -172,7 +172,7 @@ where
 
     let root_section_index = obj
         .section_by_name(root_section)
-        .ok_or_else(|| CompileError::Codegen(format!("no section named {}", root_section)))?
+        .ok_or_else(|| CompileError::Codegen(format!("no section named {root_section}")))?
         .index();
 
     let mut section_to_custom_section = HashMap::new();
@@ -270,8 +270,7 @@ where
                             }
                             _ => {
                                 return Err(CompileError::Codegen(format!(
-                                    "relocation targets unknown section {:?}",
-                                    reloc
+                                    "relocation targets unknown section {reloc:?}",
                                 )));
                             }
                         }
@@ -358,8 +357,7 @@ where
                     // addresses in them because none of the parts of the Wasm
                     // VM, nor the generated code are loaded at fixed addresses.
                     return Err(CompileError::Codegen(format!(
-                        "relocation targets absolute address {:?}",
-                        reloc
+                        "relocation targets absolute address {reloc:?}",
                     )));
                 }
 
@@ -371,8 +369,7 @@ where
                 // be added to account for any future variants.
                 t => {
                     return Err(CompileError::Codegen(format!(
-                        "relocation target is unknown `{:?}`",
-                        t
+                        "relocation target is unknown `{t:?}`",
                     )));
                 }
             };
@@ -528,8 +525,7 @@ where
                         object::macho::ARM64_RELOC_ADDEND => RelocationKind::MachoArm64RelocAddend,
                         _ => {
                             return Err(CompileError::Codegen(format!(
-                                "unknown relocation {:?}",
-                                reloc
+                                "unknown relocation {reloc:?}",
                             )))
                         }
                     }
@@ -572,8 +568,7 @@ where
                 }
                 _ => {
                     return Err(CompileError::Codegen(format!(
-                        "unknown relocation {:?}",
-                        reloc
+                        "unknown relocation {reloc:?}",
                     )));
                 }
             };
@@ -596,8 +591,7 @@ where
             section_to_custom_section.get(index).map_or_else(
                 || {
                     Err(CompileError::Codegen(format!(
-                        ".eh_frame section with index={:?} was never loaded",
-                        index
+                        ".eh_frame section with index={index:?} was never loaded",
                     )))
                 },
                 |idx| Ok(*idx),

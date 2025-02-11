@@ -103,9 +103,11 @@ impl VirtualNetworking for LocalNetworking {
     async fn bind_udp(
         &self,
         addr: SocketAddr,
-        _reuse_port: bool,
-        _reuse_addr: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        use socket2::{Domain, Socket, Type};
+
         if let Some(ruleset) = self.ruleset.as_ref() {
             if !ruleset.allows_socket(addr, Direction::Inbound) {
                 tracing::warn!(%addr, "bind_udp blocked by firewall rule");
@@ -113,6 +115,20 @@ impl VirtualNetworking for LocalNetworking {
             }
         }
 
+        #[cfg(not(windows))]
+        let socket = {
+            let std_sock =
+                Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_address(reuse_addr)
+                .map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_port(reuse_port)
+                .map_err(io_err_into_net_error)?;
+            std_sock.bind(&addr.into()).map_err(io_err_into_net_error)?;
+            mio::net::UdpSocket::from_std(std_sock.into())
+        };
+        #[cfg(windows)]
         let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
 
         #[allow(unused_mut)]

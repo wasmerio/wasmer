@@ -98,7 +98,7 @@ impl Mmap {
 
             let len = file.metadata().map_err(|e| e.to_string())?.len() as usize;
             if len < mapping_size {
-                std::fs::write(&backing_file_accessible, format!("{}", len).as_bytes()).ok();
+                std::fs::write(&backing_file_accessible, format!("{len}").as_bytes()).ok();
 
                 file.set_len(mapping_size as u64)
                     .map_err(|e| e.to_string())?;

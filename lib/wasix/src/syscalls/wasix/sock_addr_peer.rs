@@ -24,7 +24,7 @@ pub fn sock_addr_peer<M: MemorySize>(
         Rights::empty(),
         |socket, _| socket.addr_peer()
     ));
-    Span::current().record("addr", format!("{:?}", addr));
+    Span::current().record("addr", format!("{addr:?}"));
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

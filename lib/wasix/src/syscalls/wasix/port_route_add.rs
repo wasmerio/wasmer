@@ -17,10 +17,10 @@ pub fn port_route_add<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, cidr));
-    Span::current().record("cidr", format!("{:?}", cidr));
+    Span::current().record("cidr", format!("{cidr:?}"));
 
     let via_router = wasi_try_ok!(crate::net::read_ip(&memory, via_router));
-    Span::current().record("via_router", format!("{:?}", via_router));
+    Span::current().record("via_router", format!("{via_router:?}"));
 
     let preferred_until = wasi_try_mem_ok!(preferred_until.read(&memory));
     let preferred_until = match preferred_until.tag {

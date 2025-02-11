@@ -44,7 +44,7 @@ fn write_test(out: &mut Testsuite, testname: &str, body: &str) -> anyhow::Result
         "fn r#{}(config: crate::Config) -> anyhow::Result<()> {{",
         &testname
     )?;
-    writeln!(out.buffer, "{}", body)?;
+    writeln!(out.buffer, "{body}")?;
     writeln!(out.buffer, "}}")?;
     writeln!(out.buffer)?;
     Ok(())
@@ -58,7 +58,7 @@ pub fn test_directory(
     let path = path.as_ref();
     let mut dir_entries: Vec<_> = path
         .read_dir()
-        .context(format!("failed to read {:?}", path))?
+        .context(format!("failed to read {path:?}"))?
         .map(|r| r.expect("reading testsuite directory entry"))
         .filter_map(|dir_entry| processor(out, dir_entry.path()))
         .collect();

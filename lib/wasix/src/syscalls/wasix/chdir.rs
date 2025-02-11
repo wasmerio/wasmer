@@ -14,7 +14,7 @@ pub fn chdir<M: MemorySize>(
     let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path.as_str());
 
-    wasi_try_ok!(chdir_internal(&mut ctx, &path,));
+    wasi_try_ok!(chdir_internal(&mut ctx, &path));
     let env = ctx.data();
 
     #[cfg(feature = "journal")]

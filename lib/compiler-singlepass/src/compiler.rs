@@ -328,7 +328,7 @@ mod tests {
         let result = compiler.compile_module(&linux32, &info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
-            error => panic!("Unexpected error: {:?}", error),
+            error => panic!("Unexpected error: {error:?}"),
         };
 
         // Compile for win32
@@ -337,7 +337,7 @@ mod tests {
         let result = compiler.compile_module(&win32, &info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
-            error => panic!("Unexpected error: {:?}", error),
+            error => panic!("Unexpected error: {error:?}"),
         };
     }
 

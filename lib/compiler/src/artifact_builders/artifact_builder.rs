@@ -330,7 +330,7 @@ impl ArtifactBuildFromArchive {
             let module = module_builder(buffer)?;
             compile_info = MaybeUninit::new(
                 rkyv::deserialize::<_, RkyvError>(&module.compile_info)
-                    .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?,
+                    .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?,
             );
             ModuleFromArchive::from_serializable_module(module)
         })?;
@@ -447,7 +447,7 @@ impl ArtifactBuildFromArchive {
         rkyv::deserialize::<_, RkyvError>(
             &self.cell.borrow_dependent().compilation.function_frame_info,
         )
-        .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
+        .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))
     }
 }
 

@@ -37,7 +37,7 @@ mod tests {
                 assert_eq!(message, "unexpected end-of-file");
                 assert_eq!(offset, 0);
             }
-            err => panic!("Unexpected error: {:?}", err),
+            err => panic!("Unexpected error: {err:?}"),
         }
     }
 
@@ -50,7 +50,7 @@ mod tests {
                 assert_eq!(message, "unexpected end-of-file");
                 assert_eq!(offset, 0);
             }
-            err => panic!("Unexpected error: {:?}", err),
+            err => panic!("Unexpected error: {err:?}"),
         }
     }
 }

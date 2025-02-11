@@ -30,7 +30,7 @@ version.workspace = true
 # Shared dependencies.
 [dependencies]
 # - Mandatory shared dependencies.
-indexmap = { version = "1.6" }
+indexmap = { workspace = true }
 cfg-if = "1.0"
 thiserror = "1.0"
 more-asserts = "0.2"
@@ -47,7 +47,7 @@ wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl", optional = tru
 
 
 seq-macro = { version = "0.3.5", optional = true }
-loupe = { version = "0.1.3", optional = true, features = [
+loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
 ] }

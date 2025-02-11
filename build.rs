@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
                         with_test_module(wasitests, wasi_filesystem_test_name, |wasitests| {
                             test_directory(
                                 wasitests,
-                                format!("tests/wasi-wast/wasi/{}", wasi_version),
+                                format!("tests/wasi-wast/wasi/{wasi_version}"),
                                 |out, path| wasi_processor(out, path, wasi_filesystem_kind),
                             )
                         })?;

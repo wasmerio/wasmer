@@ -12,7 +12,7 @@ pub fn port_route_remove<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
-    Span::current().record("ip", format!("{:?}", ip));
+    Span::current().record("ip", format!("{ip:?}"));
 
     wasi_try_ok!(port_route_remove_internal(&mut ctx, ip)?);
 

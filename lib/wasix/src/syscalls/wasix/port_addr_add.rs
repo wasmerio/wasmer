@@ -18,7 +18,7 @@ pub fn port_addr_add<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, ip));
-    Span::current().record("ip", format!("{:?}", cidr));
+    Span::current().record("ip", format!("{cidr:?}"));
 
     wasi_try_ok!(port_addr_add_internal(&mut ctx, cidr)?);
 

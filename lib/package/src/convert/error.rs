@@ -29,7 +29,7 @@ impl std::fmt::Display for ConversionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "could not convert manifest: {}", self.message)?;
         if let Some(cause) = &self.cause {
-            write!(f, " (cause: {})", cause)?;
+            write!(f, " (cause: {cause})")?;
         }
 
         Ok(())

@@ -4092,7 +4092,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let targets = targets
                     .targets()
                     .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| CompileError::Codegen(format!("BrTable read_table: {:?}", e)))?;
+                    .map_err(|e| CompileError::Codegen(format!("BrTable read_table: {e:?}")))?;
                 let cond = self.pop_value_released()?;
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
@@ -4115,8 +4115,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     if !frame.loop_like && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
                             return Err(CompileError::Codegen(format!(
-                                "BrTable: incorrect frame.returns for {:?}",
-                                target
+                                "BrTable: incorrect frame.returns for {target:?}",
                             )));
                         }
 
@@ -6620,8 +6619,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
-                    "not yet implemented: {:?}",
-                    op
+                    "not yet implemented: {op:?}"
                 )));
             }
         }

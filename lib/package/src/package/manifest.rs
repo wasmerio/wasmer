@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::{Path, PathBuf},
 };
 
@@ -227,7 +227,7 @@ fn transform_package_annotations_shared(
 }
 
 fn transform_dependencies(
-    original_dependencies: &HashMap<String, VersionReq>,
+    original_dependencies: &IndexMap<String, VersionReq>,
 ) -> Result<IndexMap<String, UrlOrManifest>, ManifestError> {
     let mut dependencies = IndexMap::new();
 
@@ -663,7 +663,7 @@ fn toml_to_cbor_value(val: &toml::value::Value) -> ciborium::Value {
         toml::Value::Integer(i) => ciborium::Value::Integer(ciborium::value::Integer::from(*i)),
         toml::Value::Float(f) => ciborium::Value::Float(*f),
         toml::Value::Boolean(b) => ciborium::Value::Bool(*b),
-        toml::Value::Datetime(d) => ciborium::Value::Text(format!("{}", d)),
+        toml::Value::Datetime(d) => ciborium::Value::Text(format!("{d}")),
         toml::Value::Array(sq) => {
             ciborium::Value::Array(sq.iter().map(toml_to_cbor_value).collect())
         }

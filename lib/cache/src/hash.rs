@@ -46,8 +46,7 @@ impl FromStr for Hash {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes = hex::decode(s).map_err(|e| {
             DeserializeError::Generic(format!(
-                "Could not decode prehashed key as hexadecimal: {}",
-                e
+                "Could not decode prehashed key as hexadecimal: {e}",
             ))
         })?;
         if bytes.len() != 32 {
@@ -56,7 +55,7 @@ impl FromStr for Hash {
             ));
         }
         Ok(Self(bytes[0..32].try_into().map_err(|e| {
-            DeserializeError::Generic(format!("Could not get first 32 bytes: {}", e))
+            DeserializeError::Generic(format!("Could not get first 32 bytes: {e}"))
         })?))
     }
 }

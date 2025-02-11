@@ -84,7 +84,7 @@ impl Compile {
                 warning!("the output file has no extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
             }
         }
-        println!("Compiler: {}", compiler_type);
+        println!("Compiler: {compiler_type}");
         println!("Target: {}", target.triple());
 
         let module = Module::from_file(&store, &self.path)?;

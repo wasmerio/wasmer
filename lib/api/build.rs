@@ -260,6 +260,47 @@ fn build_v8() {
 
     println!("cargo:rustc-link-search=native={}", out_dir);
 
+    println!("cargo:rustc-link-lib=static=wee8");
+    println!("cargo:rustc-link-lib=v8_initializers");
+    println!("cargo:rustc-link-lib=v8_libbase");
+    println!("cargo:rustc-link-lib=v8_base_without_compiler");
+    println!("cargo:rustc-link-lib=v8_compiler");
+    println!("cargo:rustc-link-lib=v8_libplatform");
+    println!("cargo:rustc-link-lib=v8_libsampler");
+    println!("cargo:rustc-link-lib=v8_snapshot");
+    println!("cargo:rustc-link-lib=v8_torque_generated");
+
+    if cfg!(any(target_os = "linux")) {
+        println!("cargo:rustc-link-lib=stdc++");
+    } else if cfg!(target_os = "windows") {
+        /* do nothing */
+        println!("cargo:rustc-link-lib=winmm");
+        println!("cargo:rustc-link-lib=dbghelp");
+        println!("cargo:rustc-link-lib=shlwapi");
+    } else {
+        println!("cargo:rustc-link-lib=c++");
+    }
+
+    let bindings = bindgen::Builder::default()
+        .header(v8_dir.join("wasm.h").to_str().unwrap())
+        .derive_default(true)
+        .derive_debug(true)
+        .generate()
+        .expect("Unable to generate bindings for `v8`!");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings");
+
+    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
+    let mut archive = tar::Archive::new(tar);
+
+    archive.unpack(out_dir.clone()).unwrap();
+
+    println!("cargo:rustc-link-search=native={}", out_dir);
+
     println!("cargo:rustc-link-lib=v8_initializers");
     println!("cargo:rustc-link-lib=v8_libbase");
     println!("cargo:rustc-link-lib=v8_base_without_compiler");

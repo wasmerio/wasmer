@@ -23,6 +23,31 @@ pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, 
     }
 }
 
+/// Ask a user for an application name.
+///
+/// Will continue looping until the user provides a valid name that contains
+/// neither dots nor spaces. Returns an error if there are issues with
+/// the input interaction.
+pub fn prompt_for_app_ident(message: &str, default: Option<&str>) -> Result<String, anyhow::Error> {
+    loop {
+        let theme = ColorfulTheme::default();
+        let diag = dialoguer::Input::with_theme(&theme)
+            .with_prompt(message)
+            .with_initial_text(default.unwrap_or_default());
+
+        let raw: String = diag.interact_text()?;
+        let val = raw.trim();
+        if val.is_empty() {
+            continue;
+        }
+        if val.contains('.') || val.contains(' ') {
+            eprintln!("The name must not contain dots or spaces. Please try again.");
+            continue;
+        }
+        return Ok(val.to_string());
+    }
+}
+
 /// Ask a user for a package name.
 ///
 /// Will continue looping until the user provides a valid name.

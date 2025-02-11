@@ -235,7 +235,7 @@ We recommend reading the following guide on how to contribute into a complex pro
 https://mitchellh.com/writing/contributing-to-complex-projects
 
 Check our docs on how to [build Wasmer from
-source](https://docs.wasmer.io/developers/build-from-source) or [test your changes](https://docs.wasmer.io/developers/testing).
+source](./docs/BUILD.md) or [test your changes](https://docs.wasmer.io/developers/testing).
 
 <!-- ## Bounties
 

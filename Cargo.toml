@@ -92,8 +92,9 @@ wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "7.0.0-rc.2" }
+webc = "7.1.0"
 shared-buffer = "0.1.4"
+loupe = "0.2.0"
 
 # Third-party crates
 dashmap = "6.0.1"
@@ -110,7 +111,7 @@ wasmparser = { version = "0.224.0", default-features = false, features = [
 ] }
 rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
-toml = { version = "0.5.9", features = ["preserve_order"] }
+toml = { version = "0.8", features = ["preserve_order"] }
 indexmap = "2"
 serde_yaml = { package = "serde_yml", version = "0.0.12" }
 libc = { version = "^0.2", default-features = false }
@@ -146,7 +147,6 @@ clap = { version = "=4.4.11" }
 clap_builder = { version = "=4.4.11" }
 clap_derive = { version = "=4.4.7" }
 clap_lex = { version = "=0.6.0" }
-lazy_static = "1.4"
 serial_test = { version = "2.0", default-features = false }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.6.0"
@@ -299,6 +299,11 @@ path = "examples/exports_memory.rs"
 required-features = ["backend"]
 
 [[example]]
+name = "funcref"
+path = "examples/funcref.rs"
+required-features = ["backend"]
+
+[[example]]
 name = "imported-function"
 path = "examples/imports_function.rs"
 required-features = ["backend"]
@@ -336,6 +341,11 @@ required-features = ["backend"]
 [[example]]
 name = "memory"
 path = "examples/memory.rs"
+required-features = ["backend"]
+
+[[example]]
+name = "memory-grow"
+path = "examples/memory_grow.rs"
 required-features = ["backend"]
 
 [[example]]

@@ -162,13 +162,13 @@ pub(super) async fn upload(
     let res = client
         .put(&session_uri)
         .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
-        .header(reqwest::header::CONTENT_LENGTH, format!("{}", total_bytes))
+        .header(reqwest::header::CONTENT_LENGTH, format!("{total_bytes}"))
         .body(Body::wrap_stream(stream));
 
     res.send()
         .await
         .map(|response| response.error_for_status())
-        .map_err(|e| anyhow::anyhow!("error uploading package to {session_uri}: {e}",))??;
+        .map_err(|e| anyhow::anyhow!("error uploading package to {session_uri}: {e}"))??;
 
     Ok(session_uri)
 }

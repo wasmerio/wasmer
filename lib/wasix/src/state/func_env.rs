@@ -379,8 +379,7 @@ impl WasiFunctionEnv {
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                        "journal failed to save the module initialization event - {}",
-                        err
+                        "journal failed to save the module initialization event - {err}"
                     )))
                 })?;
             } else {
@@ -392,8 +391,7 @@ impl WasiFunctionEnv {
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                        "journal failed to save clear ethereal event - {}",
-                        err
+                        "journal failed to save clear ethereal event - {err}",
                     )))
                 })?;
             }

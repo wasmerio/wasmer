@@ -101,7 +101,7 @@ impl Argus {
     ) -> anyhow::Result<()> {
         info!("downloading package from {} to file {:?}", url, path);
         static APP_USER_AGENT: &str =
-            concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+            concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
         let mut dir_path = path.clone();
         dir_path.pop();

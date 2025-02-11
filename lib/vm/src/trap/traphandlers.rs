@@ -23,7 +23,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
-use std::sync::Once;
+use std::sync::{LazyLock, Once};
 use wasmer_types::TrapCode;
 
 /// Configuration for the runtime VM
@@ -236,7 +236,7 @@ cfg_if::cfg_if! {
                 libc::SIGBUS => &PREV_SIGBUS,
                 libc::SIGFPE => &PREV_SIGFPE,
                 libc::SIGILL => &PREV_SIGILL,
-                _ => panic!("unknown signal: {}", signum),
+                _ => panic!("unknown signal: {signum}"),
             };
             // We try to get the fault address associated to this signal
             let maybe_fault_address = match signum {
@@ -941,9 +941,9 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     // system calls. We therefore keep a cache of pre-allocated stacks which
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
-    lazy_static::lazy_static! {
-        static ref STACK_POOL: crossbeam_queue::SegQueue<DefaultStack> = crossbeam_queue::SegQueue::new();
-    }
+    static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
+        LazyLock::new(crossbeam_queue::SegQueue::new);
+
     let stack = STACK_POOL
         .pop()
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());

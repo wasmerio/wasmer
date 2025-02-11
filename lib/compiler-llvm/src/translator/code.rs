@@ -102,8 +102,8 @@ impl FuncTranslator {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
         let module_name = match wasm_module.name.as_ref() {
-            None => format!("<anonymous module> function {}", function_name),
-            Some(module_name) => format!("module {} function {}", module_name, function_name),
+            None => format!("<anonymous module> function {function_name}"),
+            Some(module_name) => format!("module {module_name} function {function_name}"),
         };
         let module = self.ctx.create_module(module_name.as_str());
 
@@ -2273,7 +2273,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     self.module,
                     self.intrinsics,
-                    format!("local {}", local_index),
+                    format!("local {local_index}"),
                     v.as_instruction_value().unwrap(),
                 );
                 self.state.push1(v);
@@ -2286,7 +2286,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     self.module,
                     self.intrinsics,
-                    format!("local {}", local_index),
+                    format!("local {local_index}"),
                     store,
                 );
             }
@@ -2298,7 +2298,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     self.module,
                     self.intrinsics,
-                    format!("local {}", local_index),
+                    format!("local {local_index}"),
                     store,
                 );
             }
@@ -12634,8 +12634,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
-                    "Operator {:?} unimplemented",
-                    op
+                    "Operator {op:?} unimplemented",
                 )));
             }
         }

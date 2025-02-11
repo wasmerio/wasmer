@@ -357,9 +357,9 @@ where
 
             if fd_guards.len() > 10 {
                 let small_list: Vec<_> = fd_guards.iter().take(10).collect();
-                tracing::Span::current().record("fd_guards", format!("{:?}...", small_list));
+                tracing::Span::current().record("fd_guards", format!("{small_list:?}..."));
             } else {
-                tracing::Span::current().record("fd_guards", format!("{:?}", fd_guards));
+                tracing::Span::current().record("fd_guards", format!("{fd_guards:?}"));
             }
 
             fd_guards
@@ -391,7 +391,7 @@ where
         |ctx: &FunctionEnvMut<'a, WasiEnv>| {
             // The timeout has triggered so lets add that event
             if clock_subs.is_empty() {
-                tracing::warn!("triggered_timeout (without any clock subscriptions)",);
+                tracing::warn!("triggered_timeout (without any clock subscriptions)");
             }
             let mut evts = Vec::new();
             for (clock_info, userdata) in clock_subs {

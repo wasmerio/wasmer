@@ -248,12 +248,9 @@ impl Console {
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             InlineWaker::block_on(async {
-                virtual_fs::AsyncWriteExt::write_all(
-                    &mut stderr,
-                    format!("{}\r\n", err).as_bytes(),
-                )
-                .await
-                .ok();
+                virtual_fs::AsyncWriteExt::write_all(&mut stderr, format!("{err}\r\n").as_bytes())
+                    .await
+                    .ok();
             });
             tracing::debug!("failed to load used dependency - {}", err);
             return Err(SpawnError::BadRequest);

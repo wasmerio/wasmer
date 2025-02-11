@@ -371,25 +371,25 @@ impl std::fmt::Display for GlobalIdParseError {
 
         match &self.kind {
             ErrorKind::UnknownPrefix(p) => {
-                write!(f, "unknown type prefix '{}'", p)
+                write!(f, "unknown type prefix '{p}'")
             }
             ErrorKind::Decode(s) => {
-                write!(f, "decode error: {}", s)
+                write!(f, "decode error: {s}")
             }
             ErrorKind::MissingScope => {
                 write!(f, "missing scope value")
             }
             ErrorKind::UnknownScope(x) => {
-                write!(f, "unknown scope value {}", x)
+                write!(f, "unknown scope value {x}")
             }
             ErrorKind::MissingVersion => {
                 write!(f, "missing version value")
             }
             ErrorKind::UnknownVersion(v) => {
-                write!(f, "unknown version value {}", v)
+                write!(f, "unknown version value {v}")
             }
             ErrorKind::UnknownNodeType(t) => {
-                write!(f, "unknown node type '{}'", t)
+                write!(f, "unknown node type '{t}'")
             }
             ErrorKind::MissingPrefix => write!(f, "missing prefix"),
             ErrorKind::PrefixTypeMismatch => write!(f, "prefix type mismatch"),
@@ -412,7 +412,7 @@ mod tests {
             kind: NodeKind::DeployApp,
             database_id: 123,
         };
-        assert_eq!(Ok(x1), GlobalId::parse_prefixed(&x1.encode_prefixed()),);
+        assert_eq!(Ok(x1), GlobalId::parse_prefixed(&x1.encode_prefixed()));
         assert_eq!(Ok(x1), GlobalId::parse_url(&x1.encode_url()));
 
         assert_eq!(
@@ -450,12 +450,12 @@ mod tests {
 
     #[test]
     fn test_global_id_parse_values() {
-        assert_eq!(GlobalId::parse_values(&[]), Err(ErrorKind::MissingScope),);
+        assert_eq!(GlobalId::parse_values(&[]), Err(ErrorKind::MissingScope));
         assert_eq!(
             GlobalId::parse_values(&[2]),
             Err(ErrorKind::UnknownScope(2)),
         );
-        assert_eq!(GlobalId::parse_values(&[1]), Err(ErrorKind::MissingVersion),);
+        assert_eq!(GlobalId::parse_values(&[1]), Err(ErrorKind::MissingVersion));
         assert_eq!(
             GlobalId::parse_values(&[1, 999]),
             Err(ErrorKind::UnknownVersion(999)),

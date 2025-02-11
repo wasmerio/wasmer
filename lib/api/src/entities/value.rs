@@ -278,17 +278,17 @@ impl Value {
 impl std::fmt::Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::I32(v) => write!(f, "I32({:?})", v),
-            Self::I64(v) => write!(f, "I64({:?})", v),
-            Self::F32(v) => write!(f, "F32({:?})", v),
-            Self::F64(v) => write!(f, "F64({:?})", v),
+            Self::I32(v) => write!(f, "I32({v:?})"),
+            Self::I64(v) => write!(f, "I64({v:?})"),
+            Self::F32(v) => write!(f, "F32({v:?})"),
+            Self::F64(v) => write!(f, "F64({v:?})"),
             Self::ExceptionRef(None) => write!(f, "Null ExceptionRef"),
-            Self::ExceptionRef(Some(v)) => write!(f, "ExceptionRef({:?})", v),
+            Self::ExceptionRef(Some(v)) => write!(f, "ExceptionRef({v:?})"),
             Self::ExternRef(None) => write!(f, "Null ExternRef"),
-            Self::ExternRef(Some(v)) => write!(f, "ExternRef({:?})", v),
+            Self::ExternRef(Some(v)) => write!(f, "ExternRef({v:?})"),
             Self::FuncRef(None) => write!(f, "Null FuncRef"),
-            Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
-            Self::V128(v) => write!(f, "V128({:?})", v),
+            Self::FuncRef(Some(v)) => write!(f, "FuncRef({v:?})"),
+            Self::V128(v) => write!(f, "V128({v:?})"),
         }
     }
 }

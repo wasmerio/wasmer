@@ -113,7 +113,7 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
         OptionTag::Some => Some(Duration::from_nanos(timeout.u)),
         _ => None,
     };
-    Span::current().record("timeout", format!("{:?}", timeout));
+    Span::current().record("timeout", format!("{timeout:?}"));
 
     let state = env.state.clone();
     let futex_idx: u64 = futex_ptr.offset().into();
