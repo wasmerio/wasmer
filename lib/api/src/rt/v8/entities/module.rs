@@ -33,18 +33,23 @@ impl ModuleHandle {
 
         let store = crate::store::Store::new(engine.as_engine_ref().engine().clone());
 
-        let inner = unsafe {
-            wasm_module_share(wasm_module_new(
-                store.inner.store.as_v8().inner,
-                &bytes as *const _,
-            ))
-        };
-        let store = std::sync::Mutex::new(store);
+        let inner = unsafe { wasm_module_new(store.inner.store.as_v8().inner, &bytes as *const _) };
 
         if inner.is_null() {
-            return Err(CompileError::Validate(format!("module is null")));
+            return Err(CompileError::Validate(format!(
+                "Failed to create V8 module: null module reference returned from V8"
+            )));
         }
 
+        let inner = unsafe { wasm_module_share(inner) };
+
+        if inner.is_null() {
+            return Err(CompileError::Validate(format!(
+                "Failed to create V8 module: null module reference returned from V8"
+            )));
+        }
+
+        let store = std::sync::Mutex::new(store);
         Ok(ModuleHandle { inner, store })
     }
 }

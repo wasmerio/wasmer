@@ -32,6 +32,7 @@ impl Table {
                 Some(v) => v,
                 None => 0,
             },
+            shared: false,
         }));
 
         unsafe { wasm_tabletype_new(valtype, limits) }
