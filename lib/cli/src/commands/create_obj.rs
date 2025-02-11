@@ -90,7 +90,7 @@ impl CreateObj {
             crate::rt::RuntimeType::Headless => todo!(),
             _ => {}
         }
-        println!("Compiler: {compiler_type}", compiler_type);
+        println!("Compiler: {compiler_type}");
 
         println!("Target: {}", target.triple());
 

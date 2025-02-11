@@ -75,8 +75,7 @@ impl FuncTranslator {
                 BinaryFormat::Macho => FUNCTION_SEGMENT_MACHO.to_string(),
                 _ => {
                     return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {:?}",
-                        binary_fmt
+                        "Unsupported binary format: {binary_fmt:?}"
                     )))
                 }
             },
@@ -1437,7 +1436,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         // have a zero addend, i.e. the data of the tag is the first (and only) value in a specific
         // section we can target in relocations.
         if matches!(self.binary_fmt, target_lexicon::BinaryFormat::Macho) {
-            tag_glbl.set_section(Some(&format!("{},_eh_ti_{tag}", FUNCTION_SECTION_MACHO)));
+            tag_glbl.set_section(Some(&format!("{FUNCTION_SECTION_MACHO},_eh_ti_{tag}")));
         }
 
         let tag_glbl = tag_glbl.as_basic_value_enum();

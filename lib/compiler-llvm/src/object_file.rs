@@ -560,8 +560,7 @@ where
                         object::macho::X86_64_RELOC_TLV => RelocationKind::MachoX86_64RelocTlv,
                         _ => {
                             return Err(CompileError::Codegen(format!(
-                                "unknown relocation {:?}",
-                                reloc
+                                "unknown relocation {reloc:?}"
                             )))
                         }
                     }
@@ -605,8 +604,7 @@ where
             section_to_custom_section.get(index).map_or_else(
                 || {
                     Err(CompileError::Codegen(format!(
-                        "_compact_unwind section with index={:?} was never loaded",
-                        index
+                        "_compact_unwind section with index={index:?} was never loaded",
                     )))
                 },
                 |idx| Ok(*idx),

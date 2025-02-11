@@ -47,8 +47,7 @@ impl RuntimeModule {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
-                "Error when converting wat: {}",
-                e
+                "Error when converting wat: {e}",
             )))
         })?;
         Self::from_binary(engine, bytes.as_ref())

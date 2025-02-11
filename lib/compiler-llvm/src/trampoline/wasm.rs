@@ -46,8 +46,7 @@ impl FuncTrampoline {
                 BinaryFormat::Macho => FUNCTION_SECTION_MACHO.to_string(),
                 _ => {
                     return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {:?}",
-                        binary_fmt
+                        "Unsupported binary format: {binary_fmt:?}",
                     )))
                 }
             },
