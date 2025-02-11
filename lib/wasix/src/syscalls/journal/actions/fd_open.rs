@@ -12,6 +12,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         fs_rights_base: Rights,
         fs_rights_inheriting: Rights,
         fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
     ) -> Result<(), WasiRuntimeError> {
         tracing::trace!(%fd, %dirfd, %dirflags,  "Replay journal - FdOpen {}", path);
         JournalEffector::apply_path_open(
@@ -24,6 +25,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
             fs_rights_base,
             fs_rights_inheriting,
             fs_flags,
+            fd_flags,
         )
         .map_err(anyhow_err_to_runtime_err)?;
         Ok(())

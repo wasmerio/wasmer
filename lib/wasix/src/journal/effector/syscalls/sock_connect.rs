@@ -74,7 +74,15 @@ impl JournalEffector {
         let rights = Rights::all_socket();
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), 0, inode, fd)
+            .with_fd(
+                rights,
+                rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                0,
+                inode,
+                fd,
+            )
             .map_err(|err| {
                 anyhow::format_err!(
                     "journal restore error: failed to create remote connected socket - {}",

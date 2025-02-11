@@ -72,12 +72,7 @@ impl FdList {
 
                 self.fds[free] = Some(fd);
 
-                self.first_free = self
-                    .fds
-                    .iter()
-                    .skip(free + 1)
-                    .position(|fd| fd.is_none())
-                    .map(|idx| idx + free + 1);
+                self.first_free = self.first_free_after(free as WasiFd + 1);
 
                 free as WasiFd
             }
@@ -86,6 +81,58 @@ impl FdList {
                 (self.fds.len() - 1) as WasiFd
             }
         }
+    }
+
+    pub fn insert_first_free_after(&mut self, fd: Fd, after: WasiFd) -> WasiFd {
+        match self.first_free {
+            // We're shorter than `after`, need to extend the list regardless of whether we have holes
+            _ if self.fds.len() < after as usize => {
+                if !self.insert(true, after, fd) {
+                    panic!("Internal error in FdList - expected {after} to be unonccupied since the list wasn't long enough");
+                }
+                after
+            }
+
+            // First free hole is suitable, we can insert there
+            Some(free) if free >= after as usize => self.insert_first_free(fd),
+
+            // No holes, and we're longer than `after`, so insert at the end
+            None if self.fds.len() >= after as usize => self.insert_first_free(fd),
+
+            // Keeping the compiler happy
+            None => unreachable!("Both None cases were handled before"),
+
+            // If there's a hole but its index is too low, we need to search
+            Some(_) => {
+                // This is handled by insert or insert_first_free in every other case, but not this one
+                fd.inode.acquire_handle();
+
+                match self.first_free_after(after) {
+                    // Found a suitable hole, and it's guaranteed to not be the first since
+                    // that's checked in the previous Some case, so filling it has no effect
+                    // on self.first_free
+                    Some(free) => {
+                        self.fds[free] = Some(fd);
+                        free as WasiFd
+                    }
+
+                    // No holes - insert at the end
+                    None => {
+                        self.fds.push(Some(fd));
+                        (self.fds.len() - 1) as WasiFd
+                    }
+                }
+            }
+        }
+    }
+
+    fn first_free_after(&self, after: WasiFd) -> Option<usize> {
+        let after = after as usize;
+        self.fds
+            .iter()
+            .skip(after)
+            .position(|fd| fd.is_none())
+            .map(|idx| idx + after)
     }
 
     pub fn insert(&mut self, exclusive: bool, idx: WasiFd, fd: Fd) -> bool {
@@ -106,8 +153,12 @@ impl FdList {
             self.fds.resize(idx + 1, None);
         }
 
-        if self.fds[idx].is_some() && exclusive {
-            return false;
+        if let Some(ref prev_fd) = self.fds[idx] {
+            if exclusive {
+                return false;
+            } else {
+                prev_fd.inode.drop_one_handle();
+            }
         }
 
         fd.inode.acquire_handle();
@@ -241,7 +292,7 @@ mod tests {
     };
 
     use assert_panic::assert_panic;
-    use wasmer_wasix_types::wasi::{Fdflags, Rights};
+    use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Rights};
 
     use crate::fs::{fd::FdInner, Inode, InodeGuard, InodeVal, Kind};
 
@@ -266,6 +317,7 @@ mod tests {
                 rights: Rights::empty(),
                 rights_inheriting: Rights::empty(),
                 flags: Fdflags::from_bits_preserve(n),
+                fd_flags: Fdflagsext::empty(),
             },
         }
     }
@@ -444,6 +496,80 @@ mod tests {
         assert_eq!(l.last_fd(), Some(5));
         assert_eq!(l.next_free_fd(), 2);
         assert_eq!(l.first_free, Some(2));
+    }
+
+    #[test]
+    fn insert_first_free_after_beyond_end_of_empty_list() {
+        let mut l = FdList::new();
+        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 1));
+    }
+
+    #[test]
+    fn insert_first_free_after_beyond_end_of_non_empty_list() {
+        let mut l = FdList::new();
+        l.insert(false, 0, useless_fd(0));
+        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 1));
+    }
+
+    #[test]
+    fn insert_first_free_after_beyond_end_of_non_empty_list_with_hole() {
+        let mut l = FdList::new();
+        l.insert(false, 0, useless_fd(0));
+        l.insert(false, 2, useless_fd(2));
+        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 1));
+    }
+
+    #[test]
+    fn insert_first_free_after_behind_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.remove(2).unwrap();
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 1), 2);
+        assert!(is_useless_fd(l.get(2).unwrap(), 5));
+    }
+
+    #[test]
+    fn insert_first_free_after_behind_end_without_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 4);
+        assert!(is_useless_fd(l.get(4).unwrap(), 5));
+    }
+
+    #[test]
+    fn insert_first_free_after_between_hole_and_end_without_other_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.insert_first_free(useless_fd(4));
+        l.remove(1).unwrap();
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 5));
+    }
+
+    #[test]
+    fn insert_first_free_after_between_hole_and_end_with_other_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.insert_first_free(useless_fd(4));
+        l.remove(1).unwrap();
+        l.remove(3).unwrap();
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 3);
+        assert!(is_useless_fd(l.get(3).unwrap(), 5));
     }
 
     #[test]

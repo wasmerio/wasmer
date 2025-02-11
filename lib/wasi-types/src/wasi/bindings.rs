@@ -674,6 +674,22 @@ impl core::fmt::Debug for Advice {
     }
 }
 wai_bindgen_rust::bitflags::bitflags! {
+    // Actual file descriptor flags. Note, WASI's fdflags actually represent
+    // file table flags, not fd flags... Hence the weird name.
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+    pub struct Fdflagsext : u16 {
+        #[doc = " Close this file in the child process when spawning one."]
+        const CLOEXEC = 1 << 0;
+    }
+}
+impl Fdflagsext {
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
+    pub fn from_bits_preserve(bits: u16) -> Self {
+        Self { bits }
+    }
+}
+wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " File descriptor flags."]
     #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Fdflags : u16 {
@@ -2737,6 +2753,12 @@ unsafe impl wasmer::FromToNativeWasmType for Advice {
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for Fdflagsext {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
