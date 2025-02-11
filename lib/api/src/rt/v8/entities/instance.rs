@@ -50,6 +50,7 @@ impl InstanceHandle {
     }
 
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
+        check_isolate(store);
         let mut exports = unsafe {
             let mut vec = Default::default();
             wasm_instance_exports(self.0, &mut vec);
@@ -114,6 +115,7 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
+        check_isolate(store);
         let store_ref = store.as_store_ref();
         let externs: Vec<VMExtern> = externs
             .iter()

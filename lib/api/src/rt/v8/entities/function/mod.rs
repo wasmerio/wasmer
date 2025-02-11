@@ -85,6 +85,8 @@ impl Function {
             + Send
             + Sync,
     {
+        check_isolate(store);
+
         let fn_ty: FunctionType = ty.into();
         let params = fn_ty.params();
 
@@ -162,6 +164,8 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
+
+        check_isolate(store);
         let mut param_types = Args::wasm_types()
             .into_iter()
             .map(|param| {
@@ -237,6 +241,7 @@ impl Function {
         Rets: WasmTypeList,
         T: Send + 'static,
     {
+        check_isolate(store);
         let mut param_types = Args::wasm_types()
             .into_iter()
             .map(|param| {
@@ -306,6 +311,7 @@ impl Function {
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
+        check_isolate(_store);
         let type_ = unsafe { wasm_func_type(self.handle) };
         let params: *const wasm_valtype_vec_t = unsafe { wasm_functype_params(type_) };
         let returns: *const wasm_valtype_vec_t = unsafe { wasm_functype_results(type_) };
@@ -345,6 +351,7 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        check_isolate(store);
         // unimplemented!();
         let store_mut = store.as_store_mut();
         // let wasm_func_param_arity(self.handle)

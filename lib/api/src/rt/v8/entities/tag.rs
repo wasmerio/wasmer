@@ -57,6 +57,7 @@ impl Tag {
     }
 
     pub fn ty(&self, store: &impl AsStoreRef) -> TagType {
+        check_isolate(store);
         let type_ = unsafe { wasm_tag_type(self.handle) };
         let params: *const wasm_valtype_vec_t = unsafe { wasm_tagtype_params(type_) };
 
