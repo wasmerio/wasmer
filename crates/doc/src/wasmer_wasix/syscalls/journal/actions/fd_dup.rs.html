@@ -24,6 +24,7 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'c</span>&gt; JournalSyscallPlayer&lt;<span class="lifetime">'a</span>, <span class="lifetime">'c</span>&gt; {
@@ -32,6 +33,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         original_fd: u32,
         copied_fd: u32,
+        cloexec: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="macro">tracing::trace!</span>(%original_fd, %copied_fd, <span class="string">"Replay journal - FdDuplicate"</span>);
         <span class="self">self</span>.real_fd.insert(copied_fd);
@@ -45,7 +47,7 @@
         <span class="kw">if </span><span class="self">self</span>.stderr_fds.contains(<span class="kw-2">&amp;</span>original_fd) {
             <span class="self">self</span>.stderr_fds.insert(copied_fd);
         }
-        JournalEffector::apply_fd_duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, original_fd, copied_fd)
+        JournalEffector::apply_fd_duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, original_fd, copied_fd, cloexec)
             .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }

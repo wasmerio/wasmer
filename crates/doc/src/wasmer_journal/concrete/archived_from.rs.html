@@ -1172,6 +1172,48 @@
 <a href="#1172" id="1172">1172</a>
 <a href="#1173" id="1173">1173</a>
 <a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::time::SystemTime;
 <span class="kw">use </span>wasmer_wasix_types::wasi;
@@ -1913,6 +1955,31 @@
                 ),
                 fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags.to_native()),
             },
+            ArchivedJournalEntry::OpenFileDescriptorV2(
+                ArchivedJournalEntryOpenFileDescriptorV2 {
+                    fd,
+                    dirfd,
+                    dirflags,
+                    path,
+                    o_flags,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
+                },
+            ) =&gt; <span class="self">Self</span>::OpenFileDescriptorV2 {
+                fd: fd.to_native(),
+                dirfd: dirfd.to_native(),
+                dirflags: dirflags.to_native(),
+                path: String::from_utf8_lossy(path.as_ref()),
+                o_flags: wasi::Oflags::from_bits_truncate(o_flags.to_native()),
+                fs_rights_base: wasi::Rights::from_bits_truncate(fs_rights_base.to_native()),
+                fs_rights_inheriting: wasi::Rights::from_bits_truncate(
+                    fs_rights_inheriting.to_native(),
+                ),
+                fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags.to_native()),
+                fd_flags: wasi::Fdflagsext::from_bits_truncate(fd_flags.to_native()),
+            },
             ArchivedJournalEntry::CloseFileDescriptorV1(
                 ArchivedJournalEntryCloseFileDescriptorV1 { fd },
             ) =&gt; <span class="self">Self</span>::CloseFileDescriptorV1 { fd: fd.to_native() },
@@ -1971,6 +2038,17 @@
                 original_fd: old_fd.to_native(),
                 copied_fd: new_fd.to_native(),
             },
+            ArchivedJournalEntry::DuplicateFileDescriptorV2(
+                ArchivedJournalEntryDuplicateFileDescriptorV2 {
+                    original_fd: old_fd,
+                    copied_fd: new_fd,
+                    cloexec,
+                },
+            ) =&gt; <span class="self">Self</span>::DuplicateFileDescriptorV2 {
+                original_fd: old_fd.to_native(),
+                copied_fd: new_fd.to_native(),
+                cloexec: <span class="kw-2">*</span>cloexec,
+            },
             ArchivedJournalEntry::CreateDirectoryV1(ArchivedJournalEntryCreateDirectoryV1 {
                 fd,
                 path,
@@ -2011,6 +2089,12 @@
             ) =&gt; <span class="self">Self</span>::FileDescriptorSetSizeV1 {
                 fd: fd.to_native(),
                 st_size: st_size.to_native(),
+            },
+            ArchivedJournalEntry::FileDescriptorSetFdFlagsV1(
+                ArchivedJournalEntryFileDescriptorSetFdFlagsV1 { fd, flags },
+            ) =&gt; <span class="self">Self</span>::FileDescriptorSetFdFlagsV1 {
+                fd: fd.to_native(),
+                flags: wasi::Fdflagsext::from_bits_truncate(flags.to_native()),
             },
             ArchivedJournalEntry::FileDescriptorSetFlagsV1(
                 ArchivedJournalEntryFileDescriptorSetFlagsV1 { fd, flags },

@@ -101,6 +101,7 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
 </pre></div><pre class="rust"><code><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>std::{borrow::Cow, ops::Range, sync::MutexGuard, time::SystemTime};
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>anyhow::bail;
@@ -110,8 +111,8 @@
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>wasmer_wasix_types::{
     types::__wasi_ciovec_t,
     wasi::{
-        Advice, EpollCtl, EpollEventCtl, Errno, ExitCode, Fd, Fdflags, Filesize, Fstflags,
-        LookupFlags, Oflags, Rights, Snapshot0Clockid, Timestamp, Whence,
+        Advice, EpollCtl, EpollEventCtl, Errno, ExitCode, Fd, Fdflags, Fdflagsext, Filesize,
+        Fstflags, LookupFlags, Oflags, Rights, Snapshot0Clockid, Timestamp, Whence,
     },
 };
 
@@ -140,6 +141,7 @@
     <span class="kw">mod </span>fd_pipe;
     <span class="kw">mod </span>fd_renumber;
     <span class="kw">mod </span>fd_seek;
+    <span class="kw">mod </span>fd_set_fdflags;
     <span class="kw">mod </span>fd_set_flags;
     <span class="kw">mod </span>fd_set_rights;
     <span class="kw">mod </span>fd_set_size;

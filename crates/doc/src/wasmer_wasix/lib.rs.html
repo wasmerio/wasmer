@@ -865,6 +865,14 @@
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
@@ -1391,6 +1399,9 @@
         <span class="string">"fd_readdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory32&gt;),
         <span class="string">"fd_renumber" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
         <span class="string">"fd_dup" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup::&lt;Memory32&gt;),
+        <span class="string">"fd_dup2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup2::&lt;Memory32&gt;),
+        <span class="string">"fd_fdflags_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdflags_get::&lt;Memory32&gt;),
+        <span class="string">"fd_fdflags_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdflags_set),
         <span class="string">"fd_event" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_event::&lt;Memory32&gt;),
         <span class="string">"fd_seek" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory32&gt;),
         <span class="string">"fd_sync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
@@ -1402,6 +1413,7 @@
         <span class="string">"path_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory32&gt;),
         <span class="string">"path_link" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory32&gt;),
         <span class="string">"path_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory32&gt;),
+        <span class="string">"path_open2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open2::&lt;Memory32&gt;),
         <span class="string">"path_readlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory32&gt;),
         <span class="string">"path_remove_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory32&gt;),
         <span class="string">"path_rename" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
@@ -1514,6 +1526,9 @@
         <span class="string">"fd_readdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_readdir::&lt;Memory64&gt;),
         <span class="string">"fd_renumber" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_renumber),
         <span class="string">"fd_dup" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup::&lt;Memory64&gt;),
+        <span class="string">"fd_dup2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_dup2::&lt;Memory64&gt;),
+        <span class="string">"fd_fdflags_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdflags_get::&lt;Memory64&gt;),
+        <span class="string">"fd_fdflags_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_fdflags_set),
         <span class="string">"fd_event" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_event::&lt;Memory64&gt;),
         <span class="string">"fd_seek" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_seek::&lt;Memory64&gt;),
         <span class="string">"fd_sync" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_sync),
@@ -1525,6 +1540,7 @@
         <span class="string">"path_filestat_set_times" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_filestat_set_times::&lt;Memory64&gt;),
         <span class="string">"path_link" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_link::&lt;Memory64&gt;),
         <span class="string">"path_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open::&lt;Memory64&gt;),
+        <span class="string">"path_open2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_open2::&lt;Memory64&gt;),
         <span class="string">"path_readlink" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_readlink::&lt;Memory64&gt;),
         <span class="string">"path_remove_directory" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_remove_directory::&lt;Memory64&gt;),
         <span class="string">"path_rename" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory64&gt;),

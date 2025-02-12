@@ -55,12 +55,12 @@
         to: Fd,
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>ret = <span class="kw">crate</span>::syscalls::fd_renumber_internal(ctx, from, to);
-        <span class="kw">if </span>ret != Errno::Success {
+        <span class="kw">if </span>!<span class="macro">matches!</span>(ret, <span class="prelude-val">Ok</span>(Errno::Success)) {
             <span class="macro">bail!</span>(
                 <span class="string">"journal restore error: failed to renumber descriptor (from={}, to={}) - {}"</span>,
                 from,
                 to,
-                ret
+                ret.unwrap_or(Errno::Unknown)
             );
         }
         <span class="prelude-val">Ok</span>(())

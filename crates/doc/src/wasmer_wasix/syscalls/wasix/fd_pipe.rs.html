@@ -93,6 +93,32 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -167,23 +193,49 @@
     <span class="kw">let </span>fd1 = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd1 {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1, fd)
+            .with_fd(
+                rights,
+                rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                <span class="number">0</span>,
+                inode1,
+                fd,
+            )
             .map(|<span class="kw">_</span>| fd)<span class="question-mark">?
     </span>} <span class="kw">else </span>{
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1)<span class="question-mark">?
+        state.fs.create_fd(
+            rights,
+            rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            <span class="number">0</span>,
+            inode1,
+        )<span class="question-mark">?
     </span>};
 
     <span class="kw">let </span>fd2 = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd2 {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2, fd)
+            .with_fd(
+                rights,
+                rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                <span class="number">0</span>,
+                inode2,
+                fd,
+            )
             .map(|<span class="kw">_</span>| fd)<span class="question-mark">?
     </span>} <span class="kw">else </span>{
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2)<span class="question-mark">?
+        state.fs.create_fd(
+            rights,
+            rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            <span class="number">0</span>,
+            inode2,
+        )<span class="question-mark">?
     </span>};
 
     <span class="prelude-val">Ok</span>((fd1, fd2))

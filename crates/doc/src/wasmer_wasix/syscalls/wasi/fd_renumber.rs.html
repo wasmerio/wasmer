@@ -57,6 +57,19 @@
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -73,7 +86,7 @@
     from: WasiFd,
     to: WasiFd,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="kw">let </span>ret = fd_renumber_internal(<span class="kw-2">&amp;mut </span>ctx, from, to);
+    <span class="kw">let </span>ret = fd_renumber_internal(<span class="kw-2">&amp;mut </span>ctx, from, to)<span class="question-mark">?</span>;
     <span class="kw">let </span>env = ctx.data();
 
     <span class="kw">if </span>ret == Errno::Success {
@@ -85,6 +98,7 @@
             })<span class="question-mark">?</span>;
         }
     }
+
     <span class="prelude-val">Ok</span>(ret)
 }
 
@@ -92,28 +106,40 @@
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     from: WasiFd,
     to: WasiFd,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">if </span>from == to {
-        <span class="kw">return </span>Errno::Success;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
     }
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
+    <span class="kw">if </span>state.fs.get_fd(to).is_ok() {
+        <span class="macro">wasi_try_ok!</span>(__asyncify_light(env, <span class="prelude-val">None</span>, state.fs.flush(to))<span class="question-mark">?</span>);
+        <span class="macro">wasi_try_ok!</span>(state.fs.close_fd(to));
+    }
+
     <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(fd_map.get(from).ok_or(Errno::Badf));
+    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(fd_map.get(from).ok_or(Errno::Badf));
 
     <span class="kw">let </span>new_fd_entry = Fd {
         <span class="comment">// TODO: verify this is correct
         </span>inner: FdInner {
             offset: fd_entry.inner.offset.clone(),
             rights: fd_entry.inner.rights_inheriting,
+            fd_flags: {
+                <span class="kw">let </span><span class="kw-2">mut </span>f = fd_entry.inner.fd_flags;
+                f.set(Fdflagsext::CLOEXEC, <span class="bool-val">false</span>);
+                f
+            },
             ..fd_entry.inner
         },
         inode: fd_entry.inode.clone(),
         ..<span class="kw-2">*</span>fd_entry
     };
-    fd_map.insert(<span class="bool-val">false</span>, to, new_fd_entry);
 
-    Errno::Success
+    <span class="comment">// Exclusive insert because we expect `to` to be empty after closing it above
+    </span>fd_map.insert(<span class="bool-val">true</span>, to, new_fd_entry);
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div></section></main></body></html>

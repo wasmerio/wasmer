@@ -3717,6 +3717,28 @@
 <a href="#3717" id="3717">3717</a>
 <a href="#3718" id="3718">3718</a>
 <a href="#3719" id="3719">3719</a>
+<a href="#3720" id="3720">3720</a>
+<a href="#3721" id="3721">3721</a>
+<a href="#3722" id="3722">3722</a>
+<a href="#3723" id="3723">3723</a>
+<a href="#3724" id="3724">3724</a>
+<a href="#3725" id="3725">3725</a>
+<a href="#3726" id="3726">3726</a>
+<a href="#3727" id="3727">3727</a>
+<a href="#3728" id="3728">3728</a>
+<a href="#3729" id="3729">3729</a>
+<a href="#3730" id="3730">3730</a>
+<a href="#3731" id="3731">3731</a>
+<a href="#3732" id="3732">3732</a>
+<a href="#3733" id="3733">3733</a>
+<a href="#3734" id="3734">3734</a>
+<a href="#3735" id="3735">3735</a>
+<a href="#3736" id="3736">3736</a>
+<a href="#3737" id="3737">3737</a>
+<a href="#3738" id="3738">3738</a>
+<a href="#3739" id="3739">3739</a>
+<a href="#3740" id="3740">3740</a>
+<a href="#3741" id="3741">3741</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -4390,6 +4412,22 @@
             Advice::Noreuse =&gt; f.debug_tuple(<span class="string">"Advice::Noreuse"</span>).finish(),
             Advice::Unknown =&gt; f.debug_tuple(<span class="string">"Advice::Unknown"</span>).finish(),
         }
+    }
+}
+<span class="macro">wai_bindgen_rust::bitflags::bitflags!</span> {
+    <span class="comment">// Actual file descriptor flags. Note, WASI's fdflags actually represent
+    // file table flags, not fd flags... Hence the weird name.
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+    </span><span class="kw">pub struct </span>Fdflagsext : u16 {
+        <span class="attr">#[doc = <span class="string">" Close this file in the child process when spawning one."</span>]
+        </span><span class="kw">const </span>CLOEXEC = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
+    }
+}
+<span class="kw">impl </span>Fdflagsext {
+    <span class="attr">#[doc = <span class="string">" Convert from a raw integer, preserving any unknown bits. See"</span>]
+    #[doc = <span class="string">" &lt;https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321&gt;"</span>]
+    </span><span class="kw">pub fn </span>from_bits_preserve(bits: u16) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ bits }
     }
 }
 <span class="macro">wai_bindgen_rust::bitflags::bitflags!</span> {
@@ -6456,6 +6494,12 @@
     <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>wasmer::AsStoreRef) -&gt; bool {
         <span class="bool-val">false
     </span>}
+}
+
+<span class="comment">// TODO: if necessary, must be implemented in wit-bindgen
+</span><span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>Fdflagsext {
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
 <span class="comment">// TODO: if necessary, must be implemented in wit-bindgen

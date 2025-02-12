@@ -74,6 +74,19 @@
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
@@ -140,12 +153,25 @@
     <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode, fd)
+            .with_fd(
+                rights,
+                rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                <span class="number">0</span>,
+                inode,
+                fd,
+            )
             .map(|<span class="kw">_</span>| fd)
     } <span class="kw">else </span>{
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode)
+        state.fs.create_fd(
+            rights,
+            rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            <span class="number">0</span>,
+            inode,
+        )
     });
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(fd))

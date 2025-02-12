@@ -1530,6 +1530,15 @@
 <a href="#1530" id="1530">1530</a>
 <a href="#1531" id="1531">1531</a>
 <a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     ops::{DerefMut, Range},
@@ -2078,6 +2087,9 @@
             }
             JournalEntry::OpenFileDescriptorV1 {
                 fd, o_flags, path, ..
+            }
+            | JournalEntry::OpenFileDescriptorV2 {
+                fd, o_flags, path, ..
             } =&gt; {
                 <span class="comment">// Creating a file and erasing anything that was there before means
                 // the entire create branch that exists before this one can be ignored
@@ -2139,6 +2151,7 @@
             }
             <span class="comment">// Seeks to a particular position within
             </span>JournalEntry::FileDescriptorSeekV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetFdFlagsV1 { fd, .. }
             | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. } =&gt; {
                 <span class="comment">// If its stdio then we need to create the descriptor if its not there already
                 </span><span class="kw">if </span><span class="kw-2">*</span>fd &lt;= <span class="number">3 </span>&amp;&amp; !state.stdio_descriptors.contains_key(fd) {
@@ -2189,6 +2202,11 @@
             </span>JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
+            }
+            | JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                ..
             } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.get(original_fd).cloned() {
                     state.suspect_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);

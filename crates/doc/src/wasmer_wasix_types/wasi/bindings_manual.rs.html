@@ -372,6 +372,25 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::wasi::bindings::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>Rights {
@@ -540,6 +559,25 @@
     <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
         <span class="self">self</span>.bits() <span class="kw">as </span>i32
     }
+
+    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::from_bits_truncate(n <span class="kw">as </span>u16)
+    }
+
+    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>wasmer::AsStoreRef) -&gt; bool {
+        <span class="comment">// TODO: find correct implementation
+        </span><span class="bool-val">false
+    </span>}
+}
+
+<span class="comment">// TODO: if necessary, must be implemented in wit-bindgen
+</span><span class="kw">unsafe impl </span>wasmer::FromToNativeWasmType <span class="kw">for </span>Fdflagsext {
+    <span class="kw">type </span>Native = i32;
+
+    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+        <span class="self">self</span>.bits() <span class="kw">as </span>i32
+    }
+
     <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::from_bits_truncate(n <span class="kw">as </span>u16)
     }

@@ -278,6 +278,11 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer::FromToNativeWasmType;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -379,6 +384,11 @@
             }
         }
     };
+
+    __asyncify_light(ctx.data(), <span class="prelude-val">None</span>, <span class="kw">async </span>{
+        ctx.data().state.fs.close_cloexec_fds().<span class="kw">await</span>;
+        <span class="prelude-val">Ok</span>(())
+    });
 
     <span class="kw">let </span>new_store = ctx.data().runtime.new_store();
 

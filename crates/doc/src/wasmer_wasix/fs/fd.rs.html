@@ -233,6 +233,7 @@
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -247,7 +248,7 @@
 <span class="kw">use </span>std::sync::Mutex <span class="kw">as </span>StdMutex;
 <span class="kw">use </span>tokio::sync::{watch, Mutex <span class="kw">as </span>AsyncMutex};
 <span class="kw">use </span>virtual_fs::{Pipe, VirtualFile};
-<span class="kw">use </span>wasmer_wasix_types::wasi::{EpollType, Fd <span class="kw">as </span>WasiFd, Fdflags, Filestat, Rights};
+<span class="kw">use </span>wasmer_wasix_types::wasi::{EpollType, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
 
 <span class="kw">use crate</span>::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
 
@@ -277,9 +278,10 @@
 </span><span class="kw">pub struct </span>FdInner {
     <span class="kw">pub </span>rights: Rights,
     <span class="kw">pub </span>rights_inheriting: Rights,
-    <span class="kw">pub </span>flags: Fdflags,
-    <span class="kw">pub </span>offset: Arc&lt;AtomicU64&gt;,
-}
+    <span class="kw">pub </span>flags: Fdflags,         <span class="comment">// This is file table related flags, not fd flags
+    </span><span class="kw">pub </span>offset: Arc&lt;AtomicU64&gt;, <span class="comment">// This also belongs in the file table
+    </span><span class="kw">pub </span>fd_flags: Fdflagsext,   <span class="comment">// This is the actual FD flags that belongs here
+</span>}
 
 <span class="kw">impl </span>Fd {
     <span class="doccomment">/// This [`Fd`] can be used with read system calls.

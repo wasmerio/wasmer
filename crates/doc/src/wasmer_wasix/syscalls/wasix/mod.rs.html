@@ -139,16 +139,28 @@
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>callback_signal;
 <span class="kw">mod </span>chdir;
 <span class="kw">mod </span>epoll_create;
 <span class="kw">mod </span>epoll_ctl;
 <span class="kw">mod </span>epoll_wait;
+<span class="kw">mod </span>fd_dup2;
+<span class="kw">mod </span>fd_fdflags_get;
+<span class="kw">mod </span>fd_fdflags_set;
 <span class="kw">mod </span>fd_pipe;
 <span class="kw">mod </span>futex_wait;
 <span class="kw">mod </span>futex_wake;
 <span class="kw">mod </span>futex_wake_all;
 <span class="kw">mod </span>getcwd;
+<span class="kw">mod </span>path_open2;
 <span class="kw">mod </span>port_addr_add;
 <span class="kw">mod </span>port_addr_clear;
 <span class="kw">mod </span>port_addr_list;
@@ -214,11 +226,15 @@
 <span class="kw">pub use </span>epoll_create::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>epoll_ctl::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>epoll_wait::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>fd_dup2::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>fd_fdflags_get::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>fd_fdflags_set::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>fd_pipe::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>futex_wait::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>futex_wake::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>futex_wake_all::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>getcwd::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>path_open2::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>port_addr_add::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>port_addr_clear::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>port_addr_list::<span class="kw-2">*</span>;

@@ -177,6 +177,8 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -347,10 +349,12 @@
     <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd {
         state
             .fs
-            .with_fd(rights, rights, new_flags, <span class="number">0</span>, inode, fd)
+            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), <span class="number">0</span>, inode, fd)
             .map(|<span class="kw">_</span>| fd)
     } <span class="kw">else </span>{
-        state.fs.create_fd(rights, rights, new_flags, <span class="number">0</span>, inode)
+        state
+            .fs
+            .create_fd(rights, rights, new_flags, Fdflagsext::empty(), <span class="number">0</span>, inode)
     });
     Span::current().record(<span class="string">"fd"</span>, fd);
 

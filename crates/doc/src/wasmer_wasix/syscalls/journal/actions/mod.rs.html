@@ -44,6 +44,7 @@
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
 <a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>close_thread;
 <span class="kw">mod </span>fd_advise;
 <span class="kw">mod </span>fd_allocate;
@@ -52,6 +53,7 @@
 <span class="kw">mod </span>fd_open;
 <span class="kw">mod </span>fd_renumber;
 <span class="kw">mod </span>fd_seek;
+<span class="kw">mod </span>fd_set_fdflags;
 <span class="kw">mod </span>fd_set_flags;
 <span class="kw">mod </span>fd_set_rights;
 <span class="kw">mod </span>fd_set_size;
@@ -82,10 +84,10 @@
 <span class="kw">use </span>wasmer_wasix_types::wasi::Advice;
 <span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Fd;
-<span class="kw">use </span>wasmer_wasix_types::wasi::Fdflags;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Filesize;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Tty;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Whence;
+<span class="kw">use </span>wasmer_wasix_types::wasi::{Fdflags, Fdflagsext};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Fstflags, LookupFlags, Timestamp};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Oflags, Rights};
 <span class="kw">use </span>wasmer_wasix_types::wasix::ThreadStartType;

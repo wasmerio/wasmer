@@ -101,6 +101,8 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
 
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Addressfamily, SockProto, Socktype};
@@ -193,7 +195,9 @@
         }
 
         <span class="kw">let </span>rights = Rights::all_socket();
-        <span class="kw">let </span>ret = state.fs.with_fd(rights, rights, new_flags, <span class="number">0</span>, inode, fd);
+        <span class="kw">let </span>ret = state
+            .fs
+            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), <span class="number">0</span>, inode, fd);
         ret.map_err(|err| {
             <span class="macro">anyhow::format_err!</span>(
                 <span class="string">"journal restore error: failed to create remote accepted socket - {}"</span>,

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["path_open2","path_open_internal"]};

@@ -116,6 +116,19 @@
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{net::socket::SocketProperties, syscalls::<span class="kw-2">*</span>};
 
@@ -223,12 +236,25 @@
     <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode, fd)
+            .with_fd(
+                rights,
+                rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                <span class="number">0</span>,
+                inode,
+                fd,
+            )
             .map(|<span class="kw">_</span>| fd)
     } <span class="kw">else </span>{
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode)
+        state.fs.create_fd(
+            rights,
+            rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            <span class="number">0</span>,
+            inode,
+        )
     });
     Span::current().record(<span class="string">"sock"</span>, fd);
 
