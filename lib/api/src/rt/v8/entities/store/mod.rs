@@ -47,7 +47,7 @@ impl Store {
 
 impl Drop for Store {
     fn drop(&mut self) {
-        // unsafe { wasm_store_delete(self.inner) }
+        unsafe { wasm_store_delete(self.inner) }
     }
 }
 

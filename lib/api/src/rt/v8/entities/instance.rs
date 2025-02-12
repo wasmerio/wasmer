@@ -123,7 +123,7 @@ impl Instance {
             .collect::<Vec<_>>();
         let instance = InstanceHandle::new(
             store_ref.inner.store.as_v8().inner,
-            module.as_v8().handle.inner,
+            module.as_v8().handle.v8_shared_module_handle,
             externs,
         )?;
         let exports = instance.get_exports(store, module);
