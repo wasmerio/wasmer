@@ -315,7 +315,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
                             if raise_sigpipe {
                                 env.process.signal_process(Signal::Sigpipe);
-                                wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+                                wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
                                 return Ok(Err(Errno::Pipe));
                             }
                         }
