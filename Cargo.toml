@@ -106,7 +106,6 @@ memoffset = "0.9.0"
 wasmparser = { version = "0.224.0", default-features = false, features = [
 	"validate",
 	"features",
-	"component-model",
 	"simd",
 ] }
 rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }

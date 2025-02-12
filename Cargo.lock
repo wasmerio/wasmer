@@ -7475,7 +7475,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f17a5917c2ddd3819e84c661fae0d6ba29d7b9c1f0e96c708c65a9c4188e11"
 dependencies = [
  "bitflags 2.8.0",
- "semver 1.0.25",
 ]
 
 [[package]]

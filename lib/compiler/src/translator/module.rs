@@ -83,20 +83,6 @@ pub fn translate_module<'data>(
                 environ.reserve_passive_data(count)?;
             }
 
-            Payload::InstanceSection(_)
-            | Payload::ComponentSection { .. }
-            | Payload::CoreTypeSection(_)
-            | Payload::ComponentTypeSection(_)
-            | Payload::ComponentInstanceSection(_)
-            | Payload::ComponentAliasSection(_)
-            | Payload::ComponentCanonicalSection(_)
-            | Payload::ComponentStartSection { .. }
-            | Payload::ComponentImportSection(_)
-            | Payload::ComponentExportSection(_)
-            | Payload::ModuleSection { .. } => {
-                unimplemented!("module linking not implemented. It will only be implemented if/when browsers support it")
-            }
-
             Payload::TagSection(t) => parse_tag_section(t, environ)?,
 
             Payload::CustomSection(sectionreader) => {
