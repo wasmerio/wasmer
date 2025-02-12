@@ -546,6 +546,9 @@ impl WritableJournal for CompactingJournalTx {
             }
             JournalEntry::OpenFileDescriptorV1 {
                 fd, o_flags, path, ..
+            }
+            | JournalEntry::OpenFileDescriptorV2 {
+                fd, o_flags, path, ..
             } => {
                 // Creating a file and erasing anything that was there before means
                 // the entire create branch that exists before this one can be ignored
@@ -607,6 +610,7 @@ impl WritableJournal for CompactingJournalTx {
             }
             // Seeks to a particular position within
             JournalEntry::FileDescriptorSeekV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetFdFlagsV1 { fd, .. }
             | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. } => {
                 // If its stdio then we need to create the descriptor if its not there already
                 if *fd <= 3 && !state.stdio_descriptors.contains_key(fd) {
@@ -657,6 +661,11 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
+            }
+            | JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                ..
             } => {
                 if let Some(lookup) = state.suspect_descriptors.get(original_fd).cloned() {
                     state.suspect_descriptors.insert(*copied_fd, lookup);

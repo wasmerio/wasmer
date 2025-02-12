@@ -121,7 +121,10 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::CloseFileDescriptorV1 { fd } => write!(f, "fd-close (fd={fd})"),
             JournalEntry::OpenFileDescriptorV1 {
                 fd, path, o_flags, ..
-            } => {
+            }
+            | JournalEntry::OpenFileDescriptorV2 {
+                fd, path, o_flags, ..
+            }=> {
                 if o_flags.contains(wasi::Oflags::CREATE) {
                     if o_flags.contains(wasi::Oflags::TRUNC) {
                         write!(f, "fd-create-new (fd={fd}, path={path})")
@@ -143,6 +146,11 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 original_fd,
                 copied_fd,
             } => write!(f, "fd-duplicate (original={original_fd}, copied={copied_fd})"),
+            JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                cloexec
+            } => write!(f, "fd-duplicate (original={original_fd}, copied={copied_fd}, cloexec={cloexec})"),
             JournalEntry::CreateDirectoryV1 { fd, path } => {
                 write!(f, "path-create-dir (fd={fd}, path={path})")
             }
@@ -161,6 +169,9 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 st_mtim,
                 ..
             } => write!(f, "fd-set-times (fd={fd}, atime={st_atim}, mtime={st_mtim})"),
+            JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags } => {
+                write!(f, "fd-set-fd-flags (fd={fd}, flags={flags:?})")
+            }
             JournalEntry::FileDescriptorSetFlagsV1 { fd, flags } => {
                 write!(f, "fd-set-flags (fd={fd}, flags={flags:?})")
             }

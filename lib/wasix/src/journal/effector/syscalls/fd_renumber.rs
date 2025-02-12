@@ -21,12 +21,12 @@ impl JournalEffector {
         to: Fd,
     ) -> anyhow::Result<()> {
         let ret = crate::syscalls::fd_renumber_internal(ctx, from, to);
-        if ret != Errno::Success {
+        if !matches!(ret, Ok(Errno::Success)) {
             bail!(
                 "journal restore error: failed to renumber descriptor (from={}, to={}) - {}",
                 from,
                 to,
-                ret
+                ret.unwrap_or(Errno::Unknown)
             );
         }
         Ok(())
