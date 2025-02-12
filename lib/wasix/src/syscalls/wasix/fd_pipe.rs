@@ -72,23 +72,49 @@ pub fn fd_pipe_internal(
     let fd1 = if let Some(fd) = with_fd1 {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), 0, inode1, fd)
+            .with_fd(
+                rights,
+                rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                0,
+                inode1,
+                fd,
+            )
             .map(|_| fd)?
     } else {
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), 0, inode1)?
+        state.fs.create_fd(
+            rights,
+            rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            0,
+            inode1,
+        )?
     };
 
     let fd2 = if let Some(fd) = with_fd2 {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), 0, inode2, fd)
+            .with_fd(
+                rights,
+                rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                0,
+                inode2,
+                fd,
+            )
             .map(|_| fd)?
     } else {
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), 0, inode2)?
+        state.fs.create_fd(
+            rights,
+            rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            0,
+            inode2,
+        )?
     };
 
     Ok((fd1, fd2))

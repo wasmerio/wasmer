@@ -7,8 +7,8 @@ pub(super) use wasmer_types::MemorySize;
 pub(super) use wasmer_wasix_types::{
     types::__wasi_ciovec_t,
     wasi::{
-        Advice, EpollCtl, EpollEventCtl, Errno, ExitCode, Fd, Fdflags, Filesize, Fstflags,
-        LookupFlags, Oflags, Rights, Snapshot0Clockid, Timestamp, Whence,
+        Advice, EpollCtl, EpollEventCtl, Errno, ExitCode, Fd, Fdflags, Fdflagsext, Filesize,
+        Fstflags, LookupFlags, Oflags, Rights, Snapshot0Clockid, Timestamp, Whence,
     },
 };
 
@@ -37,6 +37,7 @@ mod syscalls {
     mod fd_pipe;
     mod fd_renumber;
     mod fd_seek;
+    mod fd_set_fdflags;
     mod fd_set_flags;
     mod fd_set_rights;
     mod fd_set_size;

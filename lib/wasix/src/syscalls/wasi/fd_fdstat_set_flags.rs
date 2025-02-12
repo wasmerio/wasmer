@@ -54,34 +54,3 @@ pub(crate) fn fd_fdstat_set_flags_internal(
     fd_entry.flags = flags;
     Ok(Errno::Success)
 }
-
-struct MyStruct {
-    field1: i32,
-    field2: String,
-}
-
-impl MyStruct {
-    fn get_mutable_ref(&mut self) -> &mut MyStruct {
-        self
-    }
-}
-
-fn main_() {
-    let mut my_struct = MyStruct {
-        field1: 10,
-        field2: String::from("Hello"),
-    };
-
-    let my_struct_ref = my_struct.get_mutable_ref();
-    my_struct_ref.field1 = 20;
-    my_struct_ref.field2 = String::from("World");
-    *my_struct_ref = MyStruct {
-        field1: 20,
-        field2: "abx".to_owned(),
-    };
-
-    println!(
-        "field1: {}, field2: {}",
-        my_struct_ref.field1, my_struct_ref.field2
-    );
-}

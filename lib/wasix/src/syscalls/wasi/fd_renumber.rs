@@ -14,7 +14,7 @@ pub fn fd_renumber(
     from: WasiFd,
     to: WasiFd,
 ) -> Result<Errno, WasiError> {
-    let ret = fd_renumber_internal(&mut ctx, from, to);
+    let ret = fd_renumber_internal(&mut ctx, from, to)?;
     let env = ctx.data();
 
     if ret == Errno::Success {
@@ -26,6 +26,7 @@ pub fn fd_renumber(
             })?;
         }
     }
+
     Ok(ret)
 }
 
@@ -33,27 +34,39 @@ pub(crate) fn fd_renumber_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     from: WasiFd,
     to: WasiFd,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     if from == to {
-        return Errno::Success;
+        return Ok(Errno::Success);
     }
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
+    if state.fs.get_fd(to).is_ok() {
+        wasi_try_ok!(__asyncify_light(env, None, state.fs.flush(to))?);
+        wasi_try_ok!(state.fs.close_fd(to));
+    }
+
     let mut fd_map = state.fs.fd_map.write().unwrap();
-    let fd_entry = wasi_try!(fd_map.get(from).ok_or(Errno::Badf));
+    let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
 
     let new_fd_entry = Fd {
         // TODO: verify this is correct
         inner: FdInner {
             offset: fd_entry.inner.offset.clone(),
             rights: fd_entry.inner.rights_inheriting,
+            fd_flags: {
+                let mut f = fd_entry.inner.fd_flags;
+                f.set(Fdflagsext::CLOEXEC, false);
+                f
+            },
             ..fd_entry.inner
         },
         inode: fd_entry.inode.clone(),
         ..*fd_entry
     };
-    fd_map.insert(false, to, new_fd_entry);
 
-    Errno::Success
+    // Exclusive insert because we expect `to` to be empty after closing it above
+    fd_map.insert(true, to, new_fd_entry);
+
+    Ok(Errno::Success)
 }

@@ -168,10 +168,12 @@ pub(crate) fn sock_accept_internal(
     let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
         state
             .fs
-            .with_fd(rights, rights, new_flags, 0, inode, fd)
+            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode, fd)
             .map(|_| fd)
     } else {
-        state.fs.create_fd(rights, rights, new_flags, 0, inode)
+        state
+            .fs
+            .create_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode)
     });
     Span::current().record("fd", fd);
 

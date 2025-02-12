@@ -108,6 +108,31 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
+                    Fdflagsext::empty(),
+                )?;
+            }
+            JournalEntry::OpenFileDescriptorV2 {
+                fd,
+                dirfd,
+                dirflags,
+                path,
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+                fd_flags,
+            } => {
+                self.real_fd.insert(fd);
+                self.action_fd_open(
+                    fd,
+                    dirfd,
+                    dirflags,
+                    path,
+                    o_flags,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
                 )?;
             }
             JournalEntry::RemoveDirectoryV1 { fd, path } => {
@@ -159,7 +184,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 copied_fd,
             } => {
                 if self.real_fd.contains(&original_fd) {
-                    self.action_fd_dup(original_fd, copied_fd)?;
+                    self.action_fd_dup(original_fd, copied_fd, false)?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%original_fd, %copied_fd, "Differ(ether) journal - FdDuplicate");
                     differ_ethereal.push(JournalEntry::DuplicateFileDescriptorV1 {
@@ -167,7 +192,25 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                         copied_fd,
                     });
                 } else {
-                    self.action_fd_dup(original_fd, copied_fd)?;
+                    self.action_fd_dup(original_fd, copied_fd, false)?;
+                }
+            }
+            JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                cloexec,
+            } => {
+                if self.real_fd.contains(&original_fd) {
+                    self.action_fd_dup(original_fd, copied_fd, cloexec)?;
+                } else if let Some(differ_ethereal) = differ_ethereal {
+                    tracing::trace!(%original_fd, %copied_fd, "Differ(ether) journal - FdDuplicate");
+                    differ_ethereal.push(JournalEntry::DuplicateFileDescriptorV2 {
+                        original_fd,
+                        copied_fd,
+                        cloexec,
+                    });
+                } else {
+                    self.action_fd_dup(original_fd, copied_fd, cloexec)?;
                 }
             }
             JournalEntry::CreateDirectoryV1 { fd, path } => {
@@ -227,6 +270,16 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                     differ_ethereal.push(JournalEntry::FileDescriptorSetSizeV1 { fd, st_size });
                 } else {
                     self.action_fd_set_size(fd, st_size)?;
+                }
+            }
+            JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags } => {
+                if self.real_fd.contains(&fd) {
+                    self.action_fd_set_fdflags(fd, flags)?;
+                } else if let Some(differ_ethereal) = differ_ethereal {
+                    tracing::trace!(%fd, ?flags, "Differ(ether) journal - FdSetFlags");
+                    differ_ethereal.push(JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags });
+                } else {
+                    self.action_fd_set_fdflags(fd, flags)?;
                 }
             }
             JournalEntry::FileDescriptorSetFlagsV1 { fd, flags } => {

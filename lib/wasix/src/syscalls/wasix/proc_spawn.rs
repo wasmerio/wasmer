@@ -135,6 +135,11 @@ pub fn proc_spawn_internal(
         }
     }
 
+    __asyncify_light(ctx.data(), None, async {
+        ctx.data().state.fs.close_cloexec_fds().await;
+        Ok(())
+    });
+
     // Change the current directory
     if let Some(working_dir) = working_dir {
         child_env.state.fs.set_current_dir(working_dir.as_str());
@@ -165,6 +170,7 @@ pub fn proc_spawn_internal(
                         rights,
                         rights,
                         Fdflags::empty(),
+                        Fdflagsext::empty(),
                         0,
                         inode1,
                     )?;
@@ -172,6 +178,7 @@ pub fn proc_spawn_internal(
                         rights,
                         rights,
                         Fdflags::empty(),
+                        Fdflagsext::empty(),
                         0,
                         inode2,
                         Some(fd),

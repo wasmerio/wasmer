@@ -38,8 +38,8 @@ use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
-        Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Prestat,
-        PrestatEnum, Rights, Socktype,
+        Errno, Fd as WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize, Filestat, Filetype,
+        Preopentype, Prestat, PrestatEnum, Rights, Socktype,
     },
 };
 
@@ -560,7 +560,41 @@ impl WasiFs {
     }
 
     /// Closes all the file handles.
-    #[allow(clippy::await_holding_lock)]
+    pub async fn close_cloexec_fds(&self) {
+        let to_close = {
+            if let Ok(map) = self.fd_map.read() {
+                map.iter()
+                    .filter_map(|(k, v)| {
+                        if v.inner.fd_flags.contains(Fdflagsext::CLOEXEC)
+                            && !v.is_stdio
+                            && !v.inode.is_preopened
+                        {
+                            Some(k)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<HashSet<_>>()
+            } else {
+                HashSet::new()
+            }
+        };
+
+        let _ = tokio::join!(async {
+            for fd in &to_close {
+                self.flush(*fd).await.ok();
+                self.close_fd(*fd).ok();
+            }
+        });
+
+        if let Ok(mut map) = self.fd_map.write() {
+            for fd in &to_close {
+                map.remove(*fd);
+            }
+        }
+    }
+
+    /// Closes all the file handles.
     pub async fn close_all(&self) {
         let mut to_close = {
             if let Ok(map) = self.fd_map.read() {
@@ -680,6 +714,7 @@ impl WasiFs {
     ///   unlikely in pratice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
     ///   for what the newer, safer WASI FS APIs should look like.
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn open_dir_all(
         &mut self,
         inodes: &WasiInodes,
@@ -688,6 +723,7 @@ impl WasiFs {
         rights: Rights,
         rights_inheriting: Rights,
         flags: Fdflags,
+        fd_flags: Fdflagsext,
     ) -> Result<WasiFd, FsError> {
         // TODO: check permissions here? probably not, but this should be
         // an explicit choice, so justify it in a comment when we remove this one
@@ -743,6 +779,7 @@ impl WasiFs {
             rights,
             rights_inheriting,
             flags,
+            fd_flags,
             Fd::READ | Fd::WRITE,
             cur_inode,
         )
@@ -764,6 +801,7 @@ impl WasiFs {
         rights: Rights,
         rights_inheriting: Rights,
         flags: Fdflags,
+        fd_flags: Fdflagsext,
     ) -> Result<WasiFd, FsError> {
         // TODO: check permissions here? probably not, but this should be
         // an explicit choice, so justify it in a comment when we remove this one
@@ -803,7 +841,14 @@ impl WasiFs {
 
                 // Here, we clone the inode so we can use it to overwrite the fd field below.
                 let real_fd = self
-                    .create_fd(rights, rights_inheriting, flags, open_flags, inode.clone())
+                    .create_fd(
+                        rights,
+                        rights_inheriting,
+                        flags,
+                        fd_flags,
+                        open_flags,
+                        inode.clone(),
+                    )
                     .map_err(fs_error_from_wasi_err)?;
 
                 {
@@ -1377,6 +1422,7 @@ impl WasiFs {
                     rights_inheriting: ALL_RIGHTS,
                     flags: Fdflags::empty(),
                     offset: Arc::new(AtomicU64::new(0)),
+                    fd_flags: Fdflagsext::empty(),
                 },
                 open_flags: 0,
                 inode: self.root_inode.clone(),
@@ -1610,14 +1656,16 @@ impl WasiFs {
         &self,
         rights: Rights,
         rights_inheriting: Rights,
-        flags: Fdflags,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
         open_flags: u16,
         inode: InodeGuard,
     ) -> Result<WasiFd, Errno> {
         self.create_fd_ext(
             rights,
             rights_inheriting,
-            flags,
+            fs_flags,
+            fd_flags,
             open_flags,
             inode,
             None,
@@ -1625,11 +1673,13 @@ impl WasiFs {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn with_fd(
         &self,
         rights: Rights,
         rights_inheriting: Rights,
-        flags: Fdflags,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
         open_flags: u16,
         inode: InodeGuard,
         idx: WasiFd,
@@ -1637,7 +1687,8 @@ impl WasiFs {
         self.create_fd_ext(
             rights,
             rights_inheriting,
-            flags,
+            fs_flags,
+            fd_flags,
             open_flags,
             inode,
             Some(idx),
@@ -1651,7 +1702,8 @@ impl WasiFs {
         &self,
         rights: Rights,
         rights_inheriting: Rights,
-        flags: Fdflags,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
         open_flags: u16,
         inode: InodeGuard,
         idx: Option<WasiFd>,
@@ -1665,8 +1717,9 @@ impl WasiFs {
             inner: FdInner {
                 rights,
                 rights_inheriting,
-                flags,
+                flags: fs_flags,
                 offset: Arc::new(AtomicU64::new(0)),
+                fd_flags,
             },
             open_flags,
             inode,
@@ -1688,18 +1741,38 @@ impl WasiFs {
     }
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
+        self.clone_fd_ext(fd, 0, None)
+    }
+
+    pub fn clone_fd_ext(
+        &self,
+        fd: WasiFd,
+        min_result_fd: WasiFd,
+        cloexec: Option<bool>,
+    ) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
-        Ok(self.fd_map.write().unwrap().insert_first_free(Fd {
-            inner: FdInner {
-                rights: fd.inner.rights,
-                rights_inheriting: fd.inner.rights_inheriting,
-                flags: fd.inner.flags,
-                offset: fd.inner.offset.clone(),
+        Ok(self.fd_map.write().unwrap().insert_first_free_after(
+            Fd {
+                inner: FdInner {
+                    rights: fd.inner.rights,
+                    rights_inheriting: fd.inner.rights_inheriting,
+                    flags: fd.inner.flags,
+                    offset: fd.inner.offset.clone(),
+                    fd_flags: match cloexec {
+                        None => fd.inner.fd_flags,
+                        Some(cloexec) => {
+                            let mut f = fd.inner.fd_flags;
+                            f.set(Fdflagsext::CLOEXEC, cloexec);
+                            f
+                        }
+                    },
+                },
+                open_flags: fd.open_flags,
+                inode: fd.inode,
+                is_stdio: fd.is_stdio,
             },
-            open_flags: fd.open_flags,
-            inode: fd.inode,
-            is_stdio: fd.is_stdio,
-        }))
+            min_result_fd,
+        ))
     }
 
     /// Low level function to remove an inode, that is it deletes the WASI FS's
@@ -1778,6 +1851,7 @@ impl WasiFs {
                 root_rights,
                 root_rights,
                 Fdflags::empty(),
+                Fdflagsext::empty(),
                 Fd::READ,
                 self.root_inode.clone(),
             )
@@ -1819,7 +1893,14 @@ impl WasiFs {
                 })?;
             let fd_flags = Fd::READ;
             let fd = self
-                .create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
+                .create_fd(
+                    rights,
+                    rights,
+                    Fdflags::empty(),
+                    Fdflagsext::empty(),
+                    fd_flags,
+                    inode.clone(),
+                )
                 .map_err(|e| format!("Could not open fd for file {preopen_name:?}: {e}"))?;
             {
                 let mut guard = self.root_inode.write();
@@ -1930,7 +2011,14 @@ impl WasiFs {
                 fd_flags
             };
             let fd = self
-                .create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
+                .create_fd(
+                    rights,
+                    rights,
+                    Fdflags::empty(),
+                    Fdflagsext::empty(),
+                    fd_flags,
+                    inode.clone(),
+                )
                 .map_err(|e| format!("Could not open fd for file {path:?}: {e}"))?;
             {
                 let mut guard = self.root_inode.write();
@@ -1990,6 +2078,7 @@ impl WasiFs {
                     rights_inheriting: Rights::empty(),
                     flags: fd_flags,
                     offset: Arc::new(AtomicU64::new(0)),
+                    fd_flags: Fdflagsext::empty(),
                 },
                 // since we're not calling open on this, we don't need open flags
                 open_flags: 0,

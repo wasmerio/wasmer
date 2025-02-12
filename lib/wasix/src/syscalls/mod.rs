@@ -86,11 +86,11 @@ pub use windows::*;
 pub(crate) use self::types::{
     wasi::{
         Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
-        Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat,
-        Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, Rights, Snapshot0Clockid,
-        Sockoption, Sockstatus, Socktype, StackSnapshot, StdioMode as WasiStdioMode,
-        Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser,
-        TlVal, Tty, Whence,
+        Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
+        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, Rights,
+        Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
+        StdioMode as WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
+        Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     *,
 };
@@ -1529,28 +1529,6 @@ pub(crate) fn _prepare_wasi(
         *guard = envs;
 
         drop(guard)
-    }
-
-    // Close any files after the STDERR that are not preopened
-    let close_fds = {
-        let preopen_fds = {
-            let preopen_fds = wasi_env.state.fs.preopen_fds.read().unwrap();
-            preopen_fds.iter().copied().collect::<HashSet<_>>()
-        };
-        let mut fd_map = wasi_env.state.fs.fd_map.read().unwrap();
-        fd_map
-            .keys()
-            .filter_map(|a| match a {
-                a if a <= __WASI_STDERR_FILENO => None,
-                a if preopen_fds.contains(&a) => None,
-                a => Some(a),
-            })
-            .collect::<Vec<_>>()
-    };
-
-    // Now close all these files
-    for fd in close_fds {
-        let _ = wasi_env.state.fs.close_fd(fd);
     }
 }
 
