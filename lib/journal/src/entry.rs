@@ -260,8 +260,8 @@ pub enum JournalEntry<'a> {
         line_feeds: bool,
     },
     CreatePipeV1 {
-        fd1: Fd,
-        fd2: Fd,
+        read_fd: Fd,
+        write_fd: Fd,
     },
     CreateEventV1 {
         initial_val: u64,
@@ -618,7 +618,9 @@ impl<'a> JournalEntry<'a> {
                 event,
             },
             Self::TtySetV1 { tty, line_feeds } => JournalEntry::TtySetV1 { tty, line_feeds },
-            Self::CreatePipeV1 { fd1, fd2 } => JournalEntry::CreatePipeV1 { fd1, fd2 },
+            Self::CreatePipeV1 { read_fd, write_fd } => {
+                JournalEntry::CreatePipeV1 { read_fd, write_fd }
+            }
             Self::CreateEventV1 {
                 initial_val,
                 flags,

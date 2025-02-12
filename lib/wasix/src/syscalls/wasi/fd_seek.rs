@@ -121,7 +121,8 @@ pub(crate) fn fd_seek_internal(
                 Kind::Dir { .. }
                 | Kind::Root { .. }
                 | Kind::Socket { .. }
-                | Kind::Pipe { .. }
+                | Kind::PipeRx { .. }
+                | Kind::PipeTx { .. }
                 | Kind::EventNotifications { .. }
                 | Kind::Epoll { .. } => {
                     // TODO: check this

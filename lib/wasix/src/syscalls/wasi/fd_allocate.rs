@@ -58,7 +58,8 @@ pub(crate) fn fd_allocate_internal(
                 }
             }
             Kind::Socket { .. } => return Err(Errno::Badf),
-            Kind::Pipe { .. } => return Err(Errno::Badf),
+            Kind::PipeRx { .. } => return Err(Errno::Badf),
+            Kind::PipeTx { .. } => return Err(Errno::Badf),
             Kind::Buffer { buffer } => {
                 buffer.resize(new_size as usize, 0);
             }

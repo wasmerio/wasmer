@@ -151,22 +151,31 @@ pub fn proc_spawn_internal(
     // Replace the STDIO
     let (stdin, stdout, stderr) = {
         let (child_state, child_inodes) = child_env.get_wasi_state_and_inodes();
-        let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, Errno> {
+        let mut conv_stdio_mode = |mode: WasiStdioMode,
+                                   fd: WasiFd,
+                                   pipe_towards_child: bool|
+         -> Result<OptionFd, Errno> {
             match mode {
                 WasiStdioMode::Piped => {
-                    let (pipe1, pipe2) = Pipe::channel();
-                    let inode1 = child_state.fs.create_inode_with_default_stat(
+                    let (tx, rx) = Pipe::new().split();
+                    let read_inode = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
-                        Kind::Pipe { pipe: pipe1 },
+                        Kind::PipeRx { rx },
                         false,
                         "pipe".into(),
                     );
-                    let inode2 = child_state.fs.create_inode_with_default_stat(
+                    let write_inode = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
-                        Kind::Pipe { pipe: pipe2 },
+                        Kind::PipeTx { tx },
                         false,
                         "pipe".into(),
                     );
+
+                    let (parent_end, child_end) = if pipe_towards_child {
+                        (write_inode, read_inode)
+                    } else {
+                        (read_inode, write_inode)
+                    };
 
                     let rights = crate::net::socket::all_socket_rights();
                     let pipe = ctx.data().state.fs.create_fd(
@@ -175,7 +184,7 @@ pub fn proc_spawn_internal(
                         Fdflags::empty(),
                         Fdflagsext::empty(),
                         0,
-                        inode1,
+                        parent_end,
                     )?;
                     child_state.fs.create_fd_ext(
                         rights,
@@ -183,7 +192,7 @@ pub fn proc_spawn_internal(
                         Fdflags::empty(),
                         Fdflagsext::empty(),
                         0,
-                        inode2,
+                        child_end,
                         Some(fd),
                         false,
                     )?;
@@ -207,15 +216,17 @@ pub fn proc_spawn_internal(
                 }
             }
         };
-        let stdin = match conv_stdio_mode(stdin, 0) {
+        // TODO: proc_spawn isn't used in WASIX at the time of writing
+        // this code, so the implementation isn't tested at all
+        let stdin = match conv_stdio_mode(stdin, 0, true) {
             Ok(a) => a,
             Err(err) => return Ok(Err(err)),
         };
-        let stdout = match conv_stdio_mode(stdout, 1) {
+        let stdout = match conv_stdio_mode(stdout, 1, false) {
             Ok(a) => a,
             Err(err) => return Ok(Err(err)),
         };
-        let stderr = match conv_stdio_mode(stderr, 2) {
+        let stderr = match conv_stdio_mode(stderr, 2, false) {
             Ok(a) => a,
             Err(err) => return Ok(Err(err)),
         };

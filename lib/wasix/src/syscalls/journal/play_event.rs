@@ -376,13 +376,13 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 JournalEffector::apply_chdir(&mut self.ctx, &path)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
-            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
                 if let Some(differ_ethereal) = differ_ethereal {
-                    tracing::trace!(%fd1, %fd2,  "Differ(ether) journal - CreatePipe");
-                    differ_ethereal.push(JournalEntry::CreatePipeV1 { fd1, fd2 });
+                    tracing::trace!(%read_fd, %write_fd,  "Differ(ether) journal - CreatePipe");
+                    differ_ethereal.push(JournalEntry::CreatePipeV1 { read_fd, write_fd });
                 } else {
-                    tracing::trace!(%fd1, %fd2,  "Replay journal - CreatePipe");
-                    JournalEffector::apply_fd_pipe(&mut self.ctx, fd1, fd2)
+                    tracing::trace!(%read_fd, %write_fd,  "Replay journal - CreatePipe");
+                    JournalEffector::apply_fd_pipe(&mut self.ctx, read_fd, write_fd)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
             }

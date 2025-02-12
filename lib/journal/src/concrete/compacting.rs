@@ -742,10 +742,10 @@ impl WritableJournal for CompactingJournalTx {
                 }
             }
             // Pipes that remain open at the end will be added
-            JournalEntry::CreatePipeV1 { fd1, fd2, .. } => {
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
                 let lookup = state.insert_new_sub_events(event_index);
-                state.open_pipes.insert(*fd1, lookup);
-                state.open_pipes.insert(*fd2, lookup);
+                state.open_pipes.insert(*read_fd, lookup);
+                state.open_pipes.insert(*write_fd, lookup);
             }
             // Epoll events
             JournalEntry::EpollCreateV1 { fd } => {

@@ -205,8 +205,8 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 write!(f, "epoll-ctl (epfd={epfd}, op={op:?}, fd={fd})")
             }
             JournalEntry::TtySetV1 { tty, line_feeds } => write!(f, "tty-set (echo={}, buffering={}, feeds={})", tty.echo, tty.line_buffered, line_feeds),
-            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
-                write!(f, "fd-pipe (fd1={fd1}, fd2={fd2})")
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
+                write!(f, "fd-pipe (read_fd={read_fd}, write_fd={write_fd})")
             }
             JournalEntry::CreateEventV1 {
                 initial_val, fd, ..

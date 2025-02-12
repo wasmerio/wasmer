@@ -63,7 +63,8 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
             Kind::Buffer { .. }
             | Kind::Symlink { .. }
             | Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Ok(Errno::Inval),
         }

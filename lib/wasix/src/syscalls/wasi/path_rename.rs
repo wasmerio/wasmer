@@ -106,7 +106,8 @@ pub fn path_rename_internal(
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Ok(Errno::Inval),
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
@@ -124,7 +125,8 @@ pub fn path_rename_internal(
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => {
                 return Ok(Errno::Inval);
@@ -190,7 +192,8 @@ pub fn path_rename_internal(
             Kind::Buffer { .. }
             | Kind::Symlink { .. }
             | Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
             | Kind::Epoll { .. }
             | Kind::EventNotifications { .. } => {}
             Kind::Root { .. } => unreachable!("The root can not be moved"),

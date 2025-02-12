@@ -282,7 +282,8 @@ pub(crate) fn path_open_internal(
                 }
             }
             Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => {}
             Kind::Symlink {

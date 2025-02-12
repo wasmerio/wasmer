@@ -34,9 +34,9 @@ pub unsafe fn restore_snapshot(
     tracing::trace!("replaying stdout");
     for (offset, data, is_64bit) in runner.stdout {
         if is_64bit {
-            JournalEffector::apply_fd_write::<Memory64>(&runner.ctx, 1, offset, data)
+            JournalEffector::apply_fd_write::<Memory64>(&mut runner.ctx, 1, offset, data)
         } else {
-            JournalEffector::apply_fd_write::<Memory32>(&runner.ctx, 1, offset, data)
+            JournalEffector::apply_fd_write::<Memory32>(&mut runner.ctx, 1, offset, data)
         }
         .map_err(anyhow_err_to_runtime_err)?;
     }
@@ -44,9 +44,9 @@ pub unsafe fn restore_snapshot(
     tracing::trace!("replaying stdout");
     for (offset, data, is_64bit) in runner.stderr {
         if is_64bit {
-            JournalEffector::apply_fd_write::<Memory64>(&runner.ctx, 2, offset, data)
+            JournalEffector::apply_fd_write::<Memory64>(&mut runner.ctx, 2, offset, data)
         } else {
-            JournalEffector::apply_fd_write::<Memory32>(&runner.ctx, 2, offset, data)
+            JournalEffector::apply_fd_write::<Memory32>(&mut runner.ctx, 2, offset, data)
         }
         .map_err(anyhow_err_to_runtime_err)?;
     }

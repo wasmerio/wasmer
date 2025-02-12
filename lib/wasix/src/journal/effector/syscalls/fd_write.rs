@@ -46,7 +46,7 @@ impl JournalEffector {
     }
 
     pub fn apply_fd_write<M: MemorySize>(
-        ctx: &FunctionEnvMut<'_, WasiEnv>,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
         offset: u64,
         data: Cow<'_, [u8]>,

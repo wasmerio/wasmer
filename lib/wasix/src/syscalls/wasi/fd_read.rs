@@ -280,9 +280,9 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                         }
                     }
                 }
-                Kind::Pipe { pipe } => {
-                    let mut pipe = pipe.clone();
-
+                Kind::PipeTx { .. } => return Ok(Err(Errno::Badf)),
+                Kind::PipeRx { rx } => {
+                    let mut rx = rx.clone();
                     drop(guard);
 
                     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
@@ -308,14 +308,14 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                     .map_err(mem_error_to_wasi)?;
 
                                 let local_read = match nonblocking {
-                                    true => match pipe.try_read(buf.as_mut()) {
+                                    true => match rx.try_read(buf.as_mut()) {
                                         Some(amt) => amt,
                                         None => {
                                             return Err(Errno::Again);
                                         }
                                     },
                                     false => {
-                                        virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut())
+                                        virtual_fs::AsyncReadExt::read(&mut rx, buf.as_mut())
                                             .await?
                                     }
                                 };

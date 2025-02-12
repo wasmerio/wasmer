@@ -717,8 +717,8 @@ impl<'a> JournalEntry<'a> {
                 },
                 serializer,
             ),
-            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
-                serialize_using(&JournalEntryCreatePipeV1 { fd1, fd2 }, serializer)
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
+                serialize_using(&JournalEntryCreatePipeV1 { read_fd, write_fd }, serializer)
             }
             JournalEntry::CreateEventV1 {
                 initial_val,
@@ -1384,8 +1384,8 @@ pub struct JournalEntryTtySetV1 {
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug), attr(repr(align(8))))]
 pub struct JournalEntryCreatePipeV1 {
-    pub fd1: u32,
-    pub fd2: u32,
+    pub read_fd: u32,
+    pub write_fd: u32,
 }
 
 #[repr(C)]

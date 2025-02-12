@@ -710,6 +710,7 @@ impl WasiEnv {
                         || sig == Signal::Sigquit
                         || sig == Signal::Sigkill
                         || sig == Signal::Sigabrt
+                        || sig == Signal::Sigpipe
                     {
                         let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
                         return Err(WasiError::Exit(exit_code));

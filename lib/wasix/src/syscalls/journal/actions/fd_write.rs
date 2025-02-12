@@ -20,9 +20,9 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         }
 
         if is_64bit {
-            JournalEffector::apply_fd_write::<Memory64>(&self.ctx, fd, offset, data)
+            JournalEffector::apply_fd_write::<Memory64>(&mut self.ctx, fd, offset, data)
         } else {
-            JournalEffector::apply_fd_write::<Memory32>(&self.ctx, fd, offset, data)
+            JournalEffector::apply_fd_write::<Memory32>(&mut self.ctx, fd, offset, data)
         }
         .map_err(anyhow_err_to_runtime_err)?;
         Ok(())

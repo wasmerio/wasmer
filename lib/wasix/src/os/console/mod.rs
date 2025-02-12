@@ -343,8 +343,8 @@ mod tests {
         // Pass some arguments.
         let cmd = "sharrattj/dash -s stdin";
 
-        let (mut stdin_tx, stdin_rx) = Pipe::channel();
-        let (stdout_tx, mut stdout_rx) = Pipe::channel();
+        let (mut stdin_tx, stdin_rx) = Pipe::new().split();
+        let (stdout_tx, mut stdout_rx) = Pipe::new().split();
 
         let (mut handle, _proc) = Console::new(cmd, Arc::new(rt))
             .with_env(env)

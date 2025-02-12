@@ -57,7 +57,8 @@ pub(crate) fn fd_filestat_set_size_internal(
                 buffer.resize(st_size as usize, 0);
             }
             Kind::Socket { .. } => return Err(Errno::Badf),
-            Kind::Pipe { .. } => return Err(Errno::Badf),
+            Kind::PipeRx { .. } => return Err(Errno::Badf),
+            Kind::PipeTx { .. } => return Err(Errno::Badf),
             Kind::Symlink { .. } => return Err(Errno::Badf),
             Kind::EventNotifications { .. } | Kind::Epoll { .. } => return Err(Errno::Badf),
             Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
