@@ -588,17 +588,17 @@ test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 test-v8: test-v8-api
 
 test-v8-api:
-	CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
+	CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features="v8-default" --no-default-features
 
 test-wamr: test-wamr-api
 
 test-wamr-api:
-	cargo nextest run --package=wasmer --release --features=wamr --no-default-features
+	cargo nextest run --package=wasmer --release --features="wamr-default" --no-default-features
 
 test-wasmi: test-wasmi-api
 
 test-wasmi-api:
-	cargo nextest run --package=wasmer --release --features=wasmi --no-default-features
+	cargo nextest run --package=wasmer --release --features="wasmi-default" --no-default-features
 
 test-js: test-js-api test-js-wasi
 
