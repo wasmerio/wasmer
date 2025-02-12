@@ -164,7 +164,6 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-
         check_isolate(store);
         let mut param_types = Args::wasm_types()
             .into_iter()
