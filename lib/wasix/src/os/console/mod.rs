@@ -343,8 +343,8 @@ mod tests {
         // Pass some arguments.
         let cmd = "sharrattj/dash -s stdin";
 
-        let (mut stdin_tx, stdin_rx) = Pipe::new().split();
-        let (stdout_tx, mut stdout_rx) = Pipe::new().split();
+        let (mut stdin_tx, stdin_rx) = Pipe::channel();
+        let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
         let (mut handle, _proc) = Console::new(cmd, Arc::new(rt))
             .with_env(env)
@@ -361,7 +361,6 @@ mod tests {
                 )
                 .await?;
 
-                stdin_tx.close();
                 std::mem::drop(stdin_tx);
 
                 let res = handle.wait_finished().await?;
