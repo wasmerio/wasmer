@@ -714,6 +714,7 @@ impl WasiFs {
     ///   unlikely in pratice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
     ///   for what the newer, safer WASI FS APIs should look like.
     #[allow(dead_code)]
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn open_dir_all(
         &mut self,
         inodes: &WasiInodes,
@@ -1672,6 +1673,7 @@ impl WasiFs {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn with_fd(
         &self,
         rights: Rights,
