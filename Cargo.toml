@@ -168,9 +168,16 @@ default = ["wat", "wast", "cache", "wasi", "engine", "middlewares"]
 # That means: that is able to execute modules
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
+
+# Enable the WAMR backend (using it as default only if it is the only backend enabled)
 wamr = ["wasmer/wamr"]
+
+# Enable the V8 backend (using it as default only if it is the only backend enabled)
 v8 = ["wasmer/v8"]
+
+# Enable the wasmi backend (using it as default only if it is the only backend enabled)
 wasmi = ["wasmer/wasmi"]
+
 engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]

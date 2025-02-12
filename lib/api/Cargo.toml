@@ -135,12 +135,22 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 
 # - Engines.
 engine = ["sys"]
-wamr = ["wasm-c-api", "std", "wat", "dep:which", "dep:zip"]
+
+# --- Enable the WAMR backend and use it as default backend.
 wamr-default = ["wamr", "wat"]
-wasmi = ["wasm-c-api", "std", "wat", "dep:wasmi_c_api"]
-wasmi-default = ["wamr", "wat"]
-v8 = ["wasm-c-api", "std", "wat", "dep:which", "dep:xz"]
-v8-default = ["wamr", "wat"]
+# --- Enable the WAMR backend and use it as defaul backend only if it is the only one enabled.
+wamr = ["wasm-c-api", "std", "dep:which", "dep:zip"]
+
+# --- Enable the wasmi backend and use it as default backend.
+wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api"]
+# --- Enable the wasmi backend and use it as defaul backend only if it is the only one enabled.
+wasmi-default = ["wasmi", "wat"]
+
+# --- Enable the v8 backend and use it as default backend.
+v8 = ["wasm-c-api", "std", "dep:which", "dep:xz"]
+# --- Enable the v8 backend and use it as defaul backend only if it is the only one enabled.
+v8-default = ["v8", "wat"]
+
 wasm-c-api = ["wasm-types-polyfill"]
 
 # - Deprecated features.

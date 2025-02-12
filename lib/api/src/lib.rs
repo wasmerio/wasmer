@@ -506,12 +506,12 @@ pub use wasmer_derive::ValueType;
         )
     ),
     all(
-        feature = "v8-default",
+        feature = "wasmi-default",
         any(
             feature = "sys-default",
             feature = "js-default",
             feature = "jsc-default",
-            feature = "wasmi-default",
+            feature = "v8-default",
             feature = "wamr-default"
         )
     )
