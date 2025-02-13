@@ -321,7 +321,7 @@ jobs:
         #  run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
 
       - name: Test v8 API 
-        if: ${{ matrix.build-what.key == 'v8'
+        if: ${{ matrix.build-what.key == 'v8' }}
         run: ${{ matrix.build-what.build-cmd }}
 
   test_build_docs_rs:
