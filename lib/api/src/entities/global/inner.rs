@@ -78,13 +78,13 @@ impl BackendGlobal {
                 crate::backend::wasmi::global::Global::from_value(store, val, mutability)?,
             )),
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => Ok(Self::V8(crate::backend::v8::global::Global::from_value(
-                store, val, mutability,
-            )?)),
+            crate::BackendStore::V8(_) => Ok(Self::V8(
+                crate::backend::v8::global::Global::from_value(store, val, mutability)?,
+            )),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => Ok(Self::Js(crate::backend::js::global::Global::from_value(
-                store, val, mutability,
-            )?)),
+            crate::BackendStore::Js(_) => Ok(Self::Js(
+                crate::backend::js::global::Global::from_value(store, val, mutability)?,
+            )),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::global::Global::from_value(store, val, mutability)?,
@@ -196,13 +196,13 @@ impl BackendGlobal {
                 crate::backend::wasmi::global::Global::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => Self::V8(crate::backend::v8::global::Global::from_vm_extern(
-                store, vm_extern,
-            )),
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::global::Global::from_vm_extern(store, vm_extern),
+            ),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => Self::Js(crate::backend::js::global::Global::from_vm_extern(
-                store, vm_extern,
-            )),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::global::Global::from_vm_extern(store, vm_extern),
+            ),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::global::Global::from_vm_extern(store, vm_extern),

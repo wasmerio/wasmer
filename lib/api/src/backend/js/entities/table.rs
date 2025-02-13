@@ -1,7 +1,7 @@
 use crate::{
     js::vm::{VMFunction, VMTable},
     vm::{VMExtern, VMExternTable},
-    AsStoreMut, AsStoreRef, RuntimeError, BackendTable, Value,
+    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
 };
 use js_sys::Function;
 use wasmer_types::{FunctionType, TableType};

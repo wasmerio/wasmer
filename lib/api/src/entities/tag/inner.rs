@@ -24,7 +24,9 @@ impl BackendTag {
     pub fn new<P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, params: P) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(crate::backend::sys::tag::Tag::new(store, params)),
+            crate::BackendStore::Sys(_) => {
+                Self::Sys(crate::backend::sys::tag::Tag::new(store, params))
+            }
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => {
                 Self::Wamr(crate::backend::wamr::tag::Tag::new(store, params))
@@ -38,9 +40,13 @@ impl BackendTag {
                 Self::V8(crate::backend::v8::entities::tag::Tag::new(store, params))
             }
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => Self::Js(crate::backend::js::tag::Tag::new(store, params)),
+            crate::BackendStore::Js(_) => {
+                Self::Js(crate::backend::js::tag::Tag::new(store, params))
+            }
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(crate::backend::jsc::tag::Tag::new(store, params)),
+            crate::BackendStore::Jsc(_) => {
+                Self::Jsc(crate::backend::jsc::tag::Tag::new(store, params))
+            }
         }
     }
 
@@ -56,17 +62,17 @@ impl BackendTag {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => {
-                Self::Sys(crate::backend::sys::tag::Tag::from_vm_extern(store, vm_extern))
-            }
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::tag::Tag::from_vm_extern(store, vm_extern),
+            ),
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
-                Self::Wamr(crate::backend::wamr::tag::Tag::from_vm_extern(store, vm_extern))
-            }
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::tag::Tag::from_vm_extern(store, vm_extern),
+            ),
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
-                Self::Wasmi(crate::backend::wasmi::tag::Tag::from_vm_extern(store, vm_extern))
-            }
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::tag::Tag::from_vm_extern(store, vm_extern),
+            ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(
                 crate::backend::v8::entities::tag::Tag::from_vm_extern(store, vm_extern),

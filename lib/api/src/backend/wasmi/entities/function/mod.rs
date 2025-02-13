@@ -13,9 +13,9 @@ use crate::{
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
         vm::{VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment},
     },
-    AsStoreMut, AsStoreRef, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult,
-    NativeWasmType, NativeWasmTypeInto, RuntimeError, BackendFunction, BackendFunctionEnvMut,
-    BackendTrap, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
+    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
+    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
 };
 
 use super::{super::error::Trap, store::StoreHandle};

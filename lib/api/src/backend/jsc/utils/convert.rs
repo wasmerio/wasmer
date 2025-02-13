@@ -122,10 +122,12 @@ impl AsJsc for Extern {
                 let obj_val = val.to_object(&context).unwrap();
                 Ok(Self::Function(Function::from_vm_extern(
                     store,
-                    crate::vm::VMExternFunction::Jsc(crate::backend::jsc::vm::VMExternFunction::new(
-                        obj_val,
-                        function_type.clone(),
-                    )),
+                    crate::vm::VMExternFunction::Jsc(
+                        crate::backend::jsc::vm::VMExternFunction::new(
+                            obj_val,
+                            function_type.clone(),
+                        ),
+                    ),
                 )))
             }
             ExternType::Global(global_type) => {

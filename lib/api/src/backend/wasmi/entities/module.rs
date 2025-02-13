@@ -2,8 +2,10 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    backend::wasmi::bindings::{wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t},
-    AsEngineRef, IntoBytes, BackendModule,
+    backend::wasmi::bindings::{
+        wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t,
+    },
+    AsEngineRef, BackendModule, IntoBytes,
 };
 
 use bytes::Bytes;

@@ -14,10 +14,10 @@ use crate::{
         vm::{function::VMFunction, VMFuncRef, VMFunctionCallback},
     },
     vm::{VMExtern, VMExternFunction},
-    AsStoreMut, AsStoreRef, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction,
-    HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError,
-    BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut, StoreMut, Value, WasmTypeList,
-    WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
+    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult,
+    NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
+    WithoutEnv,
 };
 
 use std::panic::{self, AssertUnwindSafe};

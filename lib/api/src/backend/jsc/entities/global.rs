@@ -7,7 +7,7 @@ use crate::{
         vm::VMGlobal,
     },
     vm::VMExtern,
-    AsStoreMut, AsStoreRef, RuntimeError, BackendGlobal, Value,
+    AsStoreMut, AsStoreRef, BackendGlobal, RuntimeError, Value,
 };
 
 use super::store::StoreObject;
@@ -23,7 +23,9 @@ pub struct Global {
 
 impl Global {
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::Jsc(crate::backend::jsc::vm::VMExtern::Global(self.handle.clone()))
+        VMExtern::Jsc(crate::backend::jsc::vm::VMExtern::Global(
+            self.handle.clone(),
+        ))
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].

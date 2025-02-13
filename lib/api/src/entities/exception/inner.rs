@@ -21,13 +21,13 @@ impl BackendException {
     pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(crate::backend::sys::exception::Exception::new(
-                store, tag, payload,
-            )),
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::exception::Exception::new(store, tag, payload),
+            ),
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Self::Wamr(crate::backend::wamr::exception::Exception::new(
-                store, tag, payload,
-            )),
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::exception::Exception::new(store, tag, payload),
+            ),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => Self::Wasmi(
                 crate::backend::wasmi::exception::Exception::new(store, tag, payload),
@@ -41,9 +41,9 @@ impl BackendException {
                 store, tag, payload,
             )),
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(crate::backend::jsc::exception::Exception::new(
-                store, tag, payload,
-            )),
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::exception::Exception::new(store, tag, payload),
+            ),
         }
     }
 

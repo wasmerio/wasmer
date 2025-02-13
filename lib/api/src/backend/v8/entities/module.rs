@@ -2,8 +2,8 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    backend::v8::bindings::*, v8::utils::convert::IntoWasmerExternType, AsEngineRef, IntoBytes,
-    BackendModule, Store,
+    backend::v8::bindings::*, v8::utils::convert::IntoWasmerExternType, AsEngineRef, BackendModule,
+    IntoBytes, Store,
 };
 
 use bytes::Bytes;

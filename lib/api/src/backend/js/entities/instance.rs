@@ -5,7 +5,7 @@ use crate::{
         utils::{convert::AsJs, js_handle::JsHandle},
         vm::VMInstance,
     },
-    AsStoreMut, Exports, Extern, Imports, InstantiationError, Module, BackendInstance,
+    AsStoreMut, BackendInstance, Exports, Extern, Imports, InstantiationError, Module,
 };
 
 #[derive(Clone, PartialEq, Eq)]

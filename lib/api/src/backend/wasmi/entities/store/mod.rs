@@ -1,7 +1,7 @@
 //! Data types, functions and traits for `wasmi`'s `Store` implementation.
 use crate::{
-    engine::{AsEngineRef, Engine, EngineRef},
     backend::wasmi::bindings::{wasm_store_delete, wasm_store_new, wasm_store_t},
+    engine::{AsEngineRef, Engine, EngineRef},
     AsStoreRef, BackendStore, StoreRef,
 };
 

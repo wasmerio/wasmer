@@ -1,6 +1,6 @@
 use crate::{
     jsc::{utils::convert::AsJsc, vm::VMInstance},
-    AsStoreMut, Exports, Extern, Imports, InstantiationError, Module, BackendInstance,
+    AsStoreMut, BackendInstance, Exports, Extern, Imports, InstantiationError, Module,
 };
 
 use super::engine::IntoJSC;

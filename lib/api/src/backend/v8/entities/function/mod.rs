@@ -12,9 +12,9 @@ use crate::{
         vm::{VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment},
     },
     vm::{VMExtern, VMExternFunction},
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, FromToNativeWasmType,
-    FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError,
-    BackendTrap, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
+    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
+    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
 };
 
 use super::{super::error::Trap, check_isolate, store::StoreHandle};

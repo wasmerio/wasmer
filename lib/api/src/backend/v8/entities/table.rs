@@ -8,7 +8,7 @@ use crate::{
         vm::VMTable,
     },
     vm::{VMExtern, VMExternTable},
-    AsStoreMut, AsStoreRef, RuntimeError, BackendTable, Value,
+    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
 };
 
 use super::check_isolate;

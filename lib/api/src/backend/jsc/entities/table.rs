@@ -4,7 +4,7 @@ use wasmer_types::TableType;
 use crate::{
     jsc::vm::{VMExternTable, VMTable},
     vm::VMExtern,
-    AsStoreMut, AsStoreRef, RuntimeError, BackendTable, Value,
+    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +64,9 @@ impl Table {
     }
 
     pub fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::Jsc(crate::backend::jsc::vm::VMExtern::Table(self.handle.clone()))
+        VMExtern::Jsc(crate::backend::jsc::vm::VMExtern::Table(
+            self.handle.clone(),
+        ))
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> TableType {

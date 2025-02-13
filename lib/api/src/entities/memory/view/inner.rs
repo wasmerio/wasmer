@@ -2,7 +2,7 @@ use std::{mem::MaybeUninit, ops::Range};
 use wasmer_types::Pages;
 
 use crate::{
-    buffer::{MemoryBuffer, BackendMemoryBuffer},
+    buffer::{BackendMemoryBuffer, MemoryBuffer},
     macros::backend::{gen_rt_ty, match_rt},
     AsStoreRef, Memory, MemoryAccessError,
 };
@@ -21,24 +21,30 @@ impl<'a> BackendMemoryView<'a> {
         match &store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => {
-                return Self::Sys(crate::backend::sys::entities::memory::view::MemoryView::new(
-                    memory.as_sys(),
-                    store,
-                ))
+                return Self::Sys(
+                    crate::backend::sys::entities::memory::view::MemoryView::new(
+                        memory.as_sys(),
+                        store,
+                    ),
+                )
             }
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(s) => {
-                return Self::Wamr(crate::backend::wamr::entities::memory::view::MemoryView::new(
-                    memory.as_wamr(),
-                    store,
-                ))
+                return Self::Wamr(
+                    crate::backend::wamr::entities::memory::view::MemoryView::new(
+                        memory.as_wamr(),
+                        store,
+                    ),
+                )
             }
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(s) => {
-                return Self::Wasmi(crate::backend::wasmi::entities::memory::view::MemoryView::new(
-                    memory.as_wasmi(),
-                    store,
-                ))
+                return Self::Wasmi(
+                    crate::backend::wasmi::entities::memory::view::MemoryView::new(
+                        memory.as_wasmi(),
+                        store,
+                    ),
+                )
             }
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => {
@@ -56,10 +62,12 @@ impl<'a> BackendMemoryView<'a> {
             }
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(s) => {
-                return Self::Jsc(crate::backend::jsc::entities::memory::view::MemoryView::new(
-                    memory.as_jsc(),
-                    store,
-                ))
+                return Self::Jsc(
+                    crate::backend::jsc::entities::memory::view::MemoryView::new(
+                        memory.as_jsc(),
+                        store,
+                    ),
+                )
             }
         }
     }

@@ -2,8 +2,8 @@
 use std::sync::Arc;
 
 use crate::{
-    backend::v8::bindings::*, v8::error::Trap, vm::VMExtern, AsStoreMut, AsStoreRef, Exports, Extern,
-    Imports, InstantiationError, Module,
+    backend::v8::bindings::*, v8::error::Trap, vm::VMExtern, AsStoreMut, AsStoreRef, Exports,
+    Extern, Imports, InstantiationError, Module,
 };
 
 use super::check_isolate;

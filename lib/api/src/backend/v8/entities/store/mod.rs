@@ -2,8 +2,8 @@
 use std::thread::ThreadId;
 
 use crate::{
-    engine::{AsEngineRef, Engine, EngineRef},
     backend::v8::bindings::{wasm_store_delete, wasm_store_new, wasm_store_t},
+    engine::{AsEngineRef, Engine, EngineRef},
     AsStoreRef, BackendStore, StoreRef,
 };
 

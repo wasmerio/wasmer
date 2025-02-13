@@ -3,9 +3,9 @@
 use self::utils::normalize_atom_name;
 use super::CliCommand;
 use crate::{
+    backend::RuntimeOptions,
     common::{normalize_path, HashAlgorithm},
     config::WasmerEnv,
-    backend::RuntimeOptions,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;

@@ -307,11 +307,13 @@ impl NativeWasmTypeInto for Option<Function> {
             }
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => {
-                crate::backend::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::V8)
+                crate::backend::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+                    .map(VMFuncRef::V8)
             }
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => {
-                crate::backend::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Js)
+                crate::backend::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+                    .map(VMFuncRef::Js)
             }
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => {

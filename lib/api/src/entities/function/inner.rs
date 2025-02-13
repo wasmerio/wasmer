@@ -102,27 +102,39 @@ impl BackendFunction {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::entities::function::Function::new_with_env(store, env, ty, func),
+                crate::backend::sys::entities::function::Function::new_with_env(
+                    store, env, ty, func,
+                ),
             ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => Self::Wamr(
-                crate::backend::wamr::entities::function::Function::new_with_env(store, env, ty, func),
+                crate::backend::wamr::entities::function::Function::new_with_env(
+                    store, env, ty, func,
+                ),
             ),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => Self::Wasmi(
-                crate::backend::wasmi::entities::function::Function::new_with_env(store, env, ty, func),
+                crate::backend::wasmi::entities::function::Function::new_with_env(
+                    store, env, ty, func,
+                ),
             ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(
-                crate::backend::v8::entities::function::Function::new_with_env(store, env, ty, func),
+                crate::backend::v8::entities::function::Function::new_with_env(
+                    store, env, ty, func,
+                ),
             ),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(
-                crate::backend::js::entities::function::Function::new_with_env(store, env, ty, func),
+                crate::backend::js::entities::function::Function::new_with_env(
+                    store, env, ty, func,
+                ),
             ),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::function::Function::new_with_env(store, env, ty, func),
+                crate::backend::jsc::entities::function::Function::new_with_env(
+                    store, env, ty, func,
+                ),
             ),
         }
     }
@@ -137,9 +149,9 @@ impl BackendFunction {
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::entities::function::Function::new_typed(store, func),
-            ),
+            crate::BackendStore::Sys(_) => {
+                Self::Sys(crate::backend::sys::entities::function::Function::new_typed(store, func))
+            }
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => Self::Wamr(
                 crate::backend::wamr::entities::function::Function::new_typed(store, func),
@@ -159,9 +171,9 @@ impl BackendFunction {
             ),
 
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::function::Function::new_typed(store, func),
-            ),
+            crate::BackendStore::Jsc(_) => {
+                Self::Jsc(crate::backend::jsc::entities::function::Function::new_typed(store, func))
+            }
         }
     }
 
@@ -197,11 +209,15 @@ impl BackendFunction {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
-                crate::backend::sys::entities::function::Function::new_typed_with_env(store, env, func),
+                crate::backend::sys::entities::function::Function::new_typed_with_env(
+                    store, env, func,
+                ),
             ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(s) => Self::Wamr(
-                crate::backend::wamr::entities::function::Function::new_typed_with_env(store, env, func),
+                crate::backend::wamr::entities::function::Function::new_typed_with_env(
+                    store, env, func,
+                ),
             ),
 
             #[cfg(feature = "wasmi")]
@@ -212,15 +228,21 @@ impl BackendFunction {
             ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => Self::V8(
-                crate::backend::v8::entities::function::Function::new_typed_with_env(store, env, func),
+                crate::backend::v8::entities::function::Function::new_typed_with_env(
+                    store, env, func,
+                ),
             ),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(s) => Self::Js(
-                crate::backend::js::entities::function::Function::new_typed_with_env(store, env, func),
+                crate::backend::js::entities::function::Function::new_typed_with_env(
+                    store, env, func,
+                ),
             ),
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(s) => Self::Jsc(
-                crate::backend::jsc::entities::function::Function::new_typed_with_env(store, env, func),
+                crate::backend::jsc::entities::function::Function::new_typed_with_env(
+                    store, env, func,
+                ),
             ),
         }
     }
@@ -542,11 +564,15 @@ impl BackendFunction {
             ),
             #[cfg(feature = "wamr")]
             crate::BackendStore::Wamr(_) => Self::Wamr(
-                crate::backend::wamr::entities::function::Function::from_vm_extern(store, vm_extern),
+                crate::backend::wamr::entities::function::Function::from_vm_extern(
+                    store, vm_extern,
+                ),
             ),
             #[cfg(feature = "wasmi")]
             crate::BackendStore::Wasmi(_) => Self::Wasmi(
-                crate::backend::wasmi::entities::function::Function::from_vm_extern(store, vm_extern),
+                crate::backend::wasmi::entities::function::Function::from_vm_extern(
+                    store, vm_extern,
+                ),
             ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(

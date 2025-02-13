@@ -11,7 +11,7 @@ pub use store_ref::*;
 mod obj;
 pub use obj::*;
 
-use crate::{AsEngineRef, Engine, EngineRef, BackendEngine};
+use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
 pub(crate) use inner::*;
 use wasmer_types::StoreId;
 

@@ -10,8 +10,8 @@ use wasmer_types::{
 
 use crate::{
     jsc::{utils::convert::AsJsc, vm::VMInstance},
-    AsEngineRef, AsStoreMut, AsStoreRef, Imports, InstantiationError, IntoBytes, RuntimeError,
-    BackendModule,
+    AsEngineRef, AsStoreMut, AsStoreRef, BackendModule, Imports, InstantiationError, IntoBytes,
+    RuntimeError,
 };
 
 use super::engine::IntoJSC;

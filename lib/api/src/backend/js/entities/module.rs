@@ -15,8 +15,8 @@ use crate::{
         utils::{convert::AsJs as _, js_handle::JsHandle},
         vm::VMInstance,
     },
-    AsEngineRef, AsStoreMut, Extern, Imports, InstantiationError, IntoBytes, RuntimeError,
-    BackendModule,
+    AsEngineRef, AsStoreMut, BackendModule, Extern, Imports, InstantiationError, IntoBytes,
+    RuntimeError,
 };
 
 /// WebAssembly in the browser doesn't yet output the descriptor/types

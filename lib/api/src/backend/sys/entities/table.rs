@@ -1,10 +1,10 @@
 //! Data types, functions and traits for `sys` runtime's `Table` implementation.
 use crate::{
+    backend::sys::entities::engine::NativeEngineExt,
     entities::store::{AsStoreMut, AsStoreRef},
     error::RuntimeError,
-    backend::sys::entities::engine::NativeEngineExt,
     vm::{VMExtern, VMExternTable},
-    ExternRef, Function, BackendTable, Value,
+    BackendTable, ExternRef, Function, Value,
 };
 use wasmer_types::TableType;
 use wasmer_vm::{StoreHandle, TableElement, Trap, VMTable};

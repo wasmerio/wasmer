@@ -5,7 +5,7 @@ use super::{
     bindings::*, entities::function::env::FunctionEnv, function::Function, global::Global,
     memory::Memory, table::Table,
 };
-use crate::{AsStoreMut, Extern, BackendFunction, BackendGlobal, BackendMemory, BackendTable};
+use crate::{AsStoreMut, BackendFunction, BackendGlobal, BackendMemory, BackendTable, Extern};
 use wasmer_types::RawValue;
 
 pub use super::error::Trap;

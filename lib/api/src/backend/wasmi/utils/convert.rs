@@ -7,7 +7,7 @@ use crate::{
         },
         function,
     },
-    Function, BackendFunction, Value,
+    BackendFunction, Function, Value,
 };
 use wasmer_types::Type;
 

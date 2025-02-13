@@ -9,7 +9,7 @@ use crate::{
     shared::SharedMemory,
     v8::{bindings::*, vm::VMMemory},
     vm::{VMExtern, VMExternMemory},
-    AsStoreMut, AsStoreRef, MemoryAccessError, BackendMemory,
+    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
 };
 
 pub(crate) mod view;

@@ -76,7 +76,9 @@ impl Memory {
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::Jsc(crate::backend::jsc::vm::VMExtern::Memory(self.handle.clone()))
+        VMExtern::Jsc(crate::backend::jsc::vm::VMExtern::Memory(
+            self.handle.clone(),
+        ))
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {

@@ -8,7 +8,7 @@ use crate::{
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
         vm::VMTable,
     },
-    AsStoreMut, AsStoreRef, RuntimeError, BackendKind, BackendTable, Value,
+    AsStoreMut, AsStoreRef, BackendKind, BackendTable, RuntimeError, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

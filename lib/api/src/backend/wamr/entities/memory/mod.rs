@@ -17,7 +17,7 @@ use crate::{
         },
         vm::VMMemory,
     },
-    AsStoreMut, AsStoreRef, MemoryAccessError, BackendMemory,
+    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
 };
 
 pub(crate) mod view;

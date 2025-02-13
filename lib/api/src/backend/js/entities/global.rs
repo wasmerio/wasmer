@@ -4,7 +4,7 @@ use wasmer_types::{GlobalType, Mutability, RawValue, Type};
 use crate::{
     js::{utils::polyfill::Global as JsGlobal, vm::VMGlobal},
     vm::{VMExtern, VMExternGlobal},
-    AsStoreMut, AsStoreRef, RuntimeError, BackendGlobal, Value,
+    AsStoreMut, AsStoreRef, BackendGlobal, RuntimeError, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

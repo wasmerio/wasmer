@@ -57,8 +57,8 @@ use webc::metadata::Manifest;
 use webc::Container;
 
 use crate::{
-    commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
-    logging::Output, backend::RuntimeOptions,
+    backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
+    error::PrettyError, logging::Output,
 };
 
 const TICK: Duration = Duration::from_millis(250);

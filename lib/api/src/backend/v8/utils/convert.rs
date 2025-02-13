@@ -6,7 +6,7 @@ use crate::{
         bindings::{self, *},
         function,
     },
-    Function, BackendFunction, Value,
+    BackendFunction, Function, Value,
 };
 
 pub trait IntoCApiValue {

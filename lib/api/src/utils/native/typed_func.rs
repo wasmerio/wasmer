@@ -8,8 +8,8 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
 use crate::{
-    store::AsStoreRef, AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto,
-    RuntimeError, BackendStore, WasmTypeList,
+    store::AsStoreRef, AsStoreMut, BackendStore, FromToNativeWasmType, Function,
+    NativeWasmTypeInto, RuntimeError, WasmTypeList,
 };
 use std::marker::PhantomData;
 use wasmer_types::RawValue;

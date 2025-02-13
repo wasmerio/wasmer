@@ -10,8 +10,8 @@ use wasmer_types::{
 };
 
 use crate::{
-    engine::AsEngineRef, error::InstantiationError, backend::sys::entities::engine::NativeEngineExt,
-    vm::VMInstance, AsStoreMut, AsStoreRef, IntoBytes, BackendModule,
+    backend::sys::entities::engine::NativeEngineExt, engine::AsEngineRef,
+    error::InstantiationError, vm::VMInstance, AsStoreMut, AsStoreRef, BackendModule, IntoBytes,
 };
 
 #[derive(Clone, PartialEq, Eq)]
