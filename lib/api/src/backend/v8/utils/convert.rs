@@ -213,7 +213,7 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                     ExternType::Table(wasmer_types::TableType {
                         ty: valtype.into_wt(),
                         minimum: limits.min,
-                        maximum: if limits.max == 0 || limits.max == u32::MAX  {
+                        maximum: if limits.max == 0 || limits.max == u32::MAX {
                             None
                         } else {
                             Some(limits.max)
