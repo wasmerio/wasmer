@@ -229,15 +229,18 @@ fn build_v8() {
             env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
             env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default().as_str(),
         ) {
-            ("macos", "aarch64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7/wee8-darwin-aarch64.tar.xz",
-            ("macos", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7/wee8-darwin-amd64.tar.xz",
-            ("linux", "x86_64", "gnu") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7/wee8-linux-amd64.tar.xz",
-            ("linux", "x86_64", "musl") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7/wee8-linux-musl.tar.xz",
-            ("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7/wee8-windows-amd64.tar.xz",
+            ("macos", "aarch64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-darwin-aarch64.tar.xz",
+            ("macos", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-darwin-amd64.tar.xz",
+            ("linux", "x86_64", "gnu") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-linux-amd64.tar.xz",
+            ("linux", "x86_64", "musl") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-linux-amd64-musl.tar.xz",
+            // Not supported in 6.0.0-alpha1
+            //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
             (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
         };
 
     let out_dir = env::var("OUT_DIR").unwrap();
+    let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
 
     let tar = ureq::get(url).call().expect("failed to download v8");
 
@@ -257,63 +260,11 @@ fn build_v8() {
     let mut archive = tar::Archive::new(tar);
 
     archive.unpack(out_dir.clone()).unwrap();
-
     println!("cargo:rustc-link-search=native={}", out_dir);
-
-    println!("cargo:rustc-link-lib=static=wee8");
-    println!("cargo:rustc-link-lib=v8_initializers");
-    println!("cargo:rustc-link-lib=v8_libbase");
-    println!("cargo:rustc-link-lib=v8_base_without_compiler");
-    println!("cargo:rustc-link-lib=v8_compiler");
-    println!("cargo:rustc-link-lib=v8_libplatform");
-    println!("cargo:rustc-link-lib=v8_libsampler");
-    println!("cargo:rustc-link-lib=v8_snapshot");
-    println!("cargo:rustc-link-lib=v8_torque_generated");
-
-    if cfg!(any(target_os = "linux")) {
-        println!("cargo:rustc-link-lib=stdc++");
-    } else if cfg!(target_os = "windows") {
-        /* do nothing */
-        println!("cargo:rustc-link-lib=winmm");
-        println!("cargo:rustc-link-lib=dbghelp");
-        println!("cargo:rustc-link-lib=shlwapi");
-    } else {
-        println!("cargo:rustc-link-lib=c++");
-    }
-
-    let bindings = bindgen::Builder::default()
-        .header(v8_dir.join("wasm.h").to_str().unwrap())
-        .derive_default(true)
-        .derive_debug(true)
-        .generate()
-        .expect("Unable to generate bindings for `v8`!");
-
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings");
-
-    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
-    let mut archive = tar::Archive::new(tar);
-
-    archive.unpack(out_dir.clone()).unwrap();
-
-    println!("cargo:rustc-link-search=native={}", out_dir);
-
-    println!("cargo:rustc-link-lib=v8_initializers");
-    println!("cargo:rustc-link-lib=v8_libbase");
-    println!("cargo:rustc-link-lib=v8_base_without_compiler");
-    println!("cargo:rustc-link-lib=v8_compiler");
-    println!("cargo:rustc-link-lib=v8_libplatform");
-    println!("cargo:rustc-link-lib=v8_libsampler");
-    println!("cargo:rustc-link-lib=v8_snapshot");
-    println!("cargo:rustc-link-lib=v8_torque_generated");
 
     if cfg!(any(target_os = "linux",)) {
         println!("cargo:rustc-link-lib=stdc++");
     } else if cfg!(target_os = "windows") {
-        /* do nothing */
         println!("cargo:rustc-link-lib=winmm");
         println!("cargo:rustc-link-lib=dbghelp");
         println!("cargo:rustc-link-lib=shlwapi");
@@ -345,8 +296,7 @@ fn build_v8() {
         }
     }
 
-    let header_path =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("third-party/wee8/wasm.h");
+    let header_path = v8_header_path.join("wasm.h");
     let bindings = bindgen::Builder::default()
         .header(header_path.display().to_string())
         .derive_default(true)
@@ -396,7 +346,7 @@ fn build_v8() {
             .collect();
         let output = dbg!(std::process::Command::new(objcopy)
             .args(syms)
-            .arg(out_path.join("libwee8.a").display().to_string())
+            .arg(out_path.join("obj").join("libwee8.a").display().to_string())
             .arg(out_path.join("libwee8prefixed.a").display().to_string()))
         .output()
         .unwrap();
