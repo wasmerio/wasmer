@@ -5,10 +5,10 @@ use std::{env, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use wasmer::*;
+use wasmer::sys::*;
 use wasmer_package::utils::from_disk;
 
-use crate::store::CompilerOptions;
+use crate::backend::RuntimeOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
@@ -55,7 +55,7 @@ pub struct CreateObj {
     cpu_features: Vec<CpuFeature>,
 
     #[clap(flatten)]
-    compiler: CompilerOptions,
+    rt: RuntimeOptions,
 }
 
 impl CreateObj {
@@ -80,15 +80,25 @@ impl CreateObj {
             &target_triple,
             &self.cpu_features,
         );
-        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let compiler_type = self.rt.get_rt()?;
+        match compiler_type {
+            crate::backend::BackendType::V8
+            | crate::backend::BackendType::Wamr
+            | crate::backend::BackendType::Wasmi => {
+                anyhow::bail!("Cannot produce objects with {compiler_type}!")
+            }
+            crate::backend::BackendType::Headless => todo!(),
+            _ => {}
+        }
         println!("Compiler: {compiler_type}");
+
         println!("Target: {}", target.triple());
 
         let atoms = if let Ok(webc) = from_disk(&input_path) {
             crate::commands::create_exe::compile_pirita_into_directory(
                 &webc,
                 &output_directory_path,
-                &self.compiler,
+                &self.rt,
                 &self.cpu_features,
                 &target_triple,
                 &prefix,
@@ -99,7 +109,7 @@ impl CreateObj {
             crate::commands::create_exe::prepare_directory_from_single_wasm_file(
                 &input_path,
                 &output_directory_path,
-                &self.compiler,
+                &self.rt,
                 &target_triple,
                 &self.cpu_features,
                 &prefix,

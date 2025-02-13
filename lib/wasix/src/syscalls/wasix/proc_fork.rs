@@ -200,7 +200,7 @@ pub fn proc_fork<M: MemorySize>(
             tasks_outer
                 .task_wasm(
                     TaskWasm::new(Box::new(run), child_env, module, false)
-                        .with_globals(&snapshot)
+                        .with_globals(snapshot)
                         .with_memory(spawn_type),
                 )
                 .map_err(|err| {

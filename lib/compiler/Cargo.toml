@@ -27,7 +27,6 @@ loupe = { workspace = true, optional = true, features = [
 	"enable-indexmap",
 ] }
 
-
 backtrace = "0.3"
 memmap2 = "0.6"
 more-asserts = "0.2"
@@ -52,6 +51,9 @@ region = { version = "3.0" }
 windows-sys = { version = "0.59", features = [
 	"Win32_System_Diagnostics_Debug",
 ] }
+
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+macho-unwind-info = "0.5.0"
 
 [features]
 default = ["std"]

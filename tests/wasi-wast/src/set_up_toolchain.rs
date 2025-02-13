@@ -17,7 +17,7 @@ fn install_toolchain(toolchain_name: &str) {
     let rustup_out = Command::new("rustup")
         .arg("target")
         .arg("add")
-        .arg("wasm32-wasi")
+        .arg("wasm32-wasip1")
         .arg("--toolchain")
         .arg(toolchain_name)
         .output()

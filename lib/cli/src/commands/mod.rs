@@ -479,36 +479,29 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
     println!("host: {}", target_lexicon::HOST);
 
-    let mut compilers = Vec::<&'static str>::new();
+    let mut runtimes = Vec::<&'static str>::new();
     if cfg!(feature = "singlepass") {
-        compilers.push("singlepass");
+        runtimes.push("singlepass");
     }
     if cfg!(feature = "cranelift") {
-        compilers.push("cranelift");
+        runtimes.push("cranelift");
     }
     if cfg!(feature = "llvm") {
-        compilers.push("llvm");
+        runtimes.push("llvm");
     }
-    println!("compiler: {}", compilers.join(","));
-
-    let mut interpreters = Vec::<&'static str>::new();
 
     if cfg!(feature = "wamr") {
-        interpreters.push("wamr");
+        runtimes.push("wamr");
     }
 
     if cfg!(feature = "wasmi") {
-        // Can't use two different c_api backends together as of now, but maybe we'll support more
-        // interepreters.
-        interpreters.push("wasmi");
+        runtimes.push("wasmi");
     }
 
     if cfg!(feature = "v8") {
-        // Can't use c_api backends together as of now, but maybe we'll support more
-        // interepreters.
-        interpreters.push("v8");
+        runtimes.push("v8");
     }
 
-    println!("c_api backend: {}", interpreters.join(","));
+    println!("runtimes: {}", runtimes.join(", "));
     Ok(())
 }

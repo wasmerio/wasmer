@@ -70,7 +70,6 @@ impl BinFactory {
     pub fn spawn<'a>(
         &'a self,
         name: String,
-        store: wasmer::Store,
         env: WasiEnv,
     ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
         Box::pin(async move {
@@ -111,7 +110,7 @@ impl BinFactory {
 
                     env.prepare_spawn(cmd);
 
-                    spawn_exec(pkg, name.as_str(), store, env, &self.runtime).await
+                    spawn_exec(pkg, name.as_str(), env, &self.runtime).await
                 }
             }
         })
@@ -121,15 +120,12 @@ impl BinFactory {
         &self,
         name: String,
         parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
-        store: &mut Option<wasmer::Store>,
         builder: &mut Option<WasiEnv>,
     ) -> Result<TaskJoinHandle, SpawnError> {
         // We check for built in commands
         if let Some(parent_ctx) = parent_ctx {
             if self.commands.exists(name.as_str()) {
-                return self
-                    .commands
-                    .exec(parent_ctx, name.as_str(), store, builder);
+                return self.commands.exec(parent_ctx, name.as_str(), builder);
             }
         } else if self.commands.exists(name.as_str()) {
             tracing::warn!("builtin command without a parent ctx - {}", name);

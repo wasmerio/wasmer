@@ -3,7 +3,10 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, PhiValue},
 };
 use smallvec::SmallVec;
-use std::ops::{BitAnd, BitOr, BitOrAssign};
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::{BitAnd, BitOr, BitOrAssign},
+};
 use wasmer_types::CompileError;
 
 #[derive(Debug)]
@@ -31,6 +34,13 @@ pub enum ControlFrame<'ctx> {
         stack_size_snapshot: usize,
         if_else_state: IfElseState,
     },
+    Landingpad {
+        can_throw: BasicBlock<'ctx>,
+        next: BasicBlock<'ctx>,
+        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        stack_size_snapshot: usize,
+    },
 }
 
 #[derive(Debug)]
@@ -44,13 +54,16 @@ impl<'ctx> ControlFrame<'ctx> {
         match self {
             ControlFrame::Block { ref next, .. }
             | ControlFrame::Loop { ref next, .. }
+            | ControlFrame::Landingpad { ref next, .. }
             | ControlFrame::IfElse { ref next, .. } => next,
         }
     }
 
     pub fn br_dest(&self) -> &BasicBlock<'ctx> {
         match self {
-            ControlFrame::Block { ref next, .. } | ControlFrame::IfElse { ref next, .. } => next,
+            ControlFrame::Block { ref next, .. }
+            | ControlFrame::IfElse { ref next, .. }
+            | ControlFrame::Landingpad { ref next, .. } => next,
             ControlFrame::Loop { ref body, .. } => body,
         }
     }
@@ -60,17 +73,18 @@ impl<'ctx> ControlFrame<'ctx> {
             ControlFrame::Block { ref phis, .. } | ControlFrame::Loop { ref phis, .. } => {
                 phis.as_slice()
             }
-            ControlFrame::IfElse { ref next_phis, .. } => next_phis.as_slice(),
+            ControlFrame::IfElse { ref next_phis, .. }
+            | ControlFrame::Landingpad { ref next_phis, .. } => next_phis.as_slice(),
         }
     }
 
     /// PHI nodes for stack values in the loop body.
     pub fn loop_body_phis(&self) -> &[PhiValue<'ctx>] {
         match self {
-            ControlFrame::Block { .. } | ControlFrame::IfElse { .. } => &[],
             ControlFrame::Loop {
                 ref loop_body_phis, ..
             } => loop_body_phis.as_slice(),
+            _ => &[],
         }
     }
 
@@ -207,10 +221,19 @@ impl BitAnd for ExtraInfo {
 }
 
 #[derive(Debug)]
+struct Landingpad<'ctx> {
+    // The catch block tied to this landingpad.
+    pub catch_block: BasicBlock<'ctx>,
+    // The tags that this landingpad can catch.
+    pub tags: Vec<u32>,
+}
+
+#[derive(Debug)]
 pub struct State<'ctx> {
     pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
     control_stack: Vec<ControlFrame<'ctx>>,
-
+    landingpads: VecDeque<Landingpad<'ctx>>,
+    landingpads_scope: HashMap<u32, VecDeque<BasicBlock<'ctx>>>,
     pub reachable: bool,
 }
 
@@ -220,6 +243,8 @@ impl<'ctx> State<'ctx> {
             stack: vec![],
             control_stack: vec![],
             reachable: true,
+            landingpads: VecDeque::new(),
+            landingpads_scope: HashMap::new(),
         }
     }
 
@@ -238,6 +263,10 @@ impl<'ctx> State<'ctx> {
                 ..
             }
             | ControlFrame::IfElse {
+                stack_size_snapshot,
+                ..
+            }
+            | ControlFrame::Landingpad {
                 stack_size_snapshot,
                 ..
             } => *stack_size_snapshot,
@@ -440,5 +469,63 @@ impl<'ctx> State<'ctx> {
             stack_size_snapshot: self.stack.len(),
             if_else_state: IfElseState::If,
         });
+    }
+
+    pub fn push_landingpad(
+        &mut self,
+        catch_block: BasicBlock<'ctx>,
+        can_throw: BasicBlock<'ctx>,
+        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        next: BasicBlock<'ctx>,
+        next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        tags: &[u32],
+    ) {
+        for tag in tags {
+            if let Some(ref mut v) = self.landingpads_scope.get_mut(tag) {
+                v.push_back(catch_block);
+            } else {
+                self.landingpads_scope
+                    .insert(*tag, VecDeque::from(vec![catch_block]));
+            }
+        }
+
+        self.control_stack.push(ControlFrame::Landingpad {
+            can_throw,
+            can_throw_phis,
+            next,
+            next_phis,
+            stack_size_snapshot: self.stack.len(),
+        });
+
+        self.landingpads.push_back(Landingpad {
+            catch_block,
+            tags: tags.to_vec(),
+        })
+    }
+
+    pub(crate) fn get_landingpad(&mut self) -> Option<BasicBlock<'ctx>> {
+        self.landingpads.back().map(|v| v.catch_block)
+    }
+
+    pub(crate) fn get_landingpad_for_tag(&mut self, tag: u32) -> Option<BasicBlock<'ctx>> {
+        // Check if we have a matching landingpad in scope.
+        if let Some(v) = self.landingpads_scope.get(&tag) {
+            v.back().cloned()
+        } else {
+            self.landingpads.back().map(|v| v.catch_block)
+        }
+    }
+
+    pub(crate) fn pop_landingpad(&mut self) -> bool {
+        if let Some(lpad) = self.landingpads.pop_back() {
+            for tag in lpad.tags {
+                if let Some(ref mut v) = self.landingpads_scope.get_mut(&tag) {
+                    v.pop_back();
+                }
+            }
+            true
+        } else {
+            false
+        }
     }
 }

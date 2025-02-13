@@ -9,9 +9,9 @@ use crate::instance::Instance;
 use crate::memory::VMMemory;
 use crate::store::InternalStoreHandle;
 use crate::trap::{Trap, TrapCode};
-use crate::VMFunctionBody;
 use crate::VMTable;
 use crate::{VMBuiltinFunctionIndex, VMFunction};
+use crate::{VMFunctionBody, VMTag};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, Ordering};
@@ -256,6 +256,50 @@ mod test_vmmemory_import {
         );
     }
 }
+
+/// The fields compiled code needs to access to utilize a WebAssembly tag
+/// variable imported from another instance.
+#[derive(Clone)]
+#[repr(C)]
+pub struct VMTagImport {
+    /// A handle to the `Tag` that owns the tag description.
+    pub handle: InternalStoreHandle<VMTag>,
+}
+
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. Additionally, all operations
+/// on `from` are thread-safe through the use of a mutex in [`VMTag`].
+unsafe impl Send for VMTagImport {}
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And because it's `Clone`, there's
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+unsafe impl Sync for VMTagImport {}
+
+//#[cfg(test)]
+//mod test_vmtag_import {
+//    use super::VMTagImport;
+//    use crate::VMOffsets;
+//    use memoffset::offset_of;
+//    use std::mem::size_of;
+//    use wasmer_types::ModuleInfo;
+//
+//    #[test]
+//    fn check_vmtag_import_offsets() {
+//        let module = ModuleInfo::new();
+//        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+//        assert_eq!(
+//            size_of::<VMTagImport>(),
+//            usize::from(offsets.size_of_vmtag_import())
+//        );
+//        assert_eq!(
+//            offset_of!(VMTagImport, handle),
+//            usize::from(offsets.vmtag_import_definition())
+//        );
+//    }
+//}
 
 /// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
@@ -710,6 +754,20 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_memory32_atomic_notify as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index().index() as usize] =
             wasmer_vm_imported_memory32_atomic_notify as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_throw_index().index() as usize] =
+            wasmer_vm_throw as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_rethrow_index().index() as usize] =
+            wasmer_vm_rethrow as usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_imported_alloc_exception_index().index() as usize] =
+            wasmer_vm_alloc_exception as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_delete_exception_index().index() as usize] =
+            wasmer_vm_delete_exception as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_read_exception_index().index() as usize] =
+            wasmer_vm_read_exception as usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() as usize] =
+            wasmer_vm_dbg_usize as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

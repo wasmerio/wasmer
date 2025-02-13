@@ -25,7 +25,6 @@ use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
-    _store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
@@ -330,7 +329,14 @@ fn call_module(
     };
 
     let code = if let Err(err) = &ret {
-        err.as_exit_code().unwrap_or_else(|| Errno::Noexec.into())
+        match err.as_exit_code() {
+            Some(s) => s,
+            None => {
+                error!("{err}");
+                eprintln!("{err}");
+                Errno::Noexec.into()
+            }
+        }
     } else {
         Errno::Success.into()
     };

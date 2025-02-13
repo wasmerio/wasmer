@@ -16,6 +16,7 @@ use inkwell::{
     AddressSpace, DLLStorageClass,
 };
 use std::{cmp, convert::TryInto};
+use target_lexicon::BinaryFormat;
 use wasmer_compiler::types::{function::FunctionBody, relocation::RelocationTarget};
 use wasmer_types::{CompileError, FunctionType as FuncType, LocalFunctionIndex};
 
@@ -23,18 +24,34 @@ pub struct FuncTrampoline {
     ctx: Context,
     target_machine: TargetMachine,
     abi: Box<dyn Abi>,
+    binary_fmt: BinaryFormat,
+    func_section: String,
 }
 
-const FUNCTION_SECTION: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
+const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
+const FUNCTION_SECTION_MACHO: &str = "wasmer_trmpl"; // Needs to be between 1 and 16 chars
 
 impl FuncTrampoline {
-    pub fn new(target_machine: TargetMachine) -> Self {
+    pub fn new(
+        target_machine: TargetMachine,
+        binary_fmt: BinaryFormat,
+    ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
-        Self {
+        Ok(Self {
             ctx: Context::create(),
             target_machine,
             abi,
-        }
+            func_section: match binary_fmt {
+                BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
+                BinaryFormat::Macho => FUNCTION_SECTION_MACHO.to_string(),
+                _ => {
+                    return Err(CompileError::UnsupportedTarget(format!(
+                        "Unsupported binary format: {binary_fmt:?}",
+                    )))
+                }
+            },
+            binary_fmt,
+        })
     }
 
     pub fn trampoline_to_module(
@@ -51,7 +68,7 @@ impl FuncTrampoline {
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
 
         let (callee_ty, callee_attrs) =
             self.abi
@@ -68,13 +85,15 @@ impl FuncTrampoline {
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         trampoline_func
             .as_global_value()
-            .set_section(Some(FUNCTION_SECTION));
+            .set_section(Some(&self.func_section));
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);
         trampoline_func
             .as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
+        trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
+        trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         self.generate_trampoline(
             trampoline_func,
             ty,
@@ -107,6 +126,13 @@ impl FuncTrampoline {
             callbacks.postopt_ir(&function, &module);
         }
 
+        // -- Uncomment to enable dumping intermediate LLVM objects
+        //module
+        //    .print_to_file(format!(
+        //        "{}/obj_trmpl.ll",
+        //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
+        //    ))
+        //    .unwrap();
         Ok(module)
     }
 
@@ -133,23 +159,27 @@ impl FuncTrampoline {
             compiled_function,
             custom_sections,
             eh_frame_section_indices,
+            mut compact_unwind_section_indices,
+            ..
         } = load_object_file(
             mem_buf_slice,
-            FUNCTION_SECTION,
+            &self.func_section,
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
             |name: &str| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {name}",
                 )))
             },
+            self.binary_fmt,
         )?;
         let mut all_sections_are_eh_sections = true;
-        if eh_frame_section_indices.len() != custom_sections.len() {
+        let mut unwind_section_indices = eh_frame_section_indices;
+        unwind_section_indices.append(&mut compact_unwind_section_indices);
+        if unwind_section_indices.len() != custom_sections.len() {
             all_sections_are_eh_sections = false;
         } else {
-            let mut eh_frame_section_indices = eh_frame_section_indices;
-            eh_frame_section_indices.sort_unstable();
-            for (idx, section_idx) in eh_frame_section_indices.iter().enumerate() {
+            unwind_section_indices.sort_unstable();
+            for (idx, section_idx) in unwind_section_indices.iter().enumerate() {
                 if idx as u32 != section_idx.as_u32() {
                     all_sections_are_eh_sections = false;
                     break;
@@ -188,7 +218,7 @@ impl FuncTrampoline {
         let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi
@@ -199,7 +229,7 @@ impl FuncTrampoline {
         }
         trampoline_func
             .as_global_value()
-            .set_section(Some(FUNCTION_SECTION));
+            .set_section(Some(&self.func_section));
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);
@@ -257,23 +287,28 @@ impl FuncTrampoline {
             compiled_function,
             custom_sections,
             eh_frame_section_indices,
+            mut compact_unwind_section_indices,
+            ..
         } = load_object_file(
             mem_buf_slice,
-            FUNCTION_SECTION,
+            &self.func_section,
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
             |name: &str| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {name}",
                 )))
             },
+            self.binary_fmt,
         )?;
         let mut all_sections_are_eh_sections = true;
-        if eh_frame_section_indices.len() != custom_sections.len() {
+        let mut unwind_section_indices = eh_frame_section_indices;
+        unwind_section_indices.append(&mut compact_unwind_section_indices);
+
+        if unwind_section_indices.len() != custom_sections.len() {
             all_sections_are_eh_sections = false;
         } else {
-            let mut eh_frame_section_indices = eh_frame_section_indices;
-            eh_frame_section_indices.sort_unstable();
-            for (idx, section_idx) in eh_frame_section_indices.iter().enumerate() {
+            unwind_section_indices.sort_unstable();
+            for (idx, section_idx) in unwind_section_indices.iter().enumerate() {
                 if idx as u32 != section_idx.as_u32() {
                     all_sections_are_eh_sections = false;
                     break;

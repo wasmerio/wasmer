@@ -79,8 +79,8 @@ pub mod entity;
 pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    SignatureIndex, TableIndex,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
+    MemoryIndex, SignatureIndex, TableIndex, Tag, TagIndex,
 };
 pub use crate::initializers::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, DataInitializer,
@@ -95,7 +95,7 @@ pub use crate::units::{
 };
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
-    Mutability, TableType, Type, V128,
+    Mutability, TableType, TagKind, TagType, Type, V128,
 };
 pub use value::{RawValue, ValueType};
 

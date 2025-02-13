@@ -14,7 +14,7 @@ use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
 use wasmer_types::MetadataHeader;
 use webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
-use crate::store::CompilerOptions;
+use crate::backend::RuntimeOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer gen-c-header` subcommand
@@ -83,7 +83,12 @@ impl GenCHeader {
             &target_triple,
             &self.cpu_features,
         );
-        let (engine, _) = CompilerOptions::default().get_engine_for_target(target.clone())?;
+        let engine = RuntimeOptions::default().get_compiler_engine_for_target(target.clone())?;
+        if !engine.is_sys() {
+            anyhow::bail!("Cannot use this engine to generate c-headers! Please, use one of `cranelift`, `llvm` or `singlepass`.");
+        }
+        let engine = engine.into_sys();
+
         let engine_inner = engine.inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();

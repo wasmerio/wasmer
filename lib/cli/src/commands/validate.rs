@@ -4,8 +4,7 @@ use anyhow::{bail, Context, Result};
 use clap::Parser;
 use wasmer::*;
 
-use crate::store::StoreOptions;
-
+use crate::backend::RuntimeOptions;
 #[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
 pub struct Validate {
@@ -14,7 +13,7 @@ pub struct Validate {
     path: PathBuf,
 
     #[clap(flatten)]
-    store: StoreOptions,
+    rt: RuntimeOptions,
 }
 
 impl Validate {
@@ -24,7 +23,7 @@ impl Validate {
             .context(format!("failed to validate `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, _compiler_type) = self.store.get_store()?;
+        let store = self.rt.get_store()?;
 
         let module_contents = std::fs::read(&self.path)?;
         if !is_wasm(&module_contents) {

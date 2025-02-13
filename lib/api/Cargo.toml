@@ -40,12 +40,17 @@ tracing = { version = "0.1" }
 wat = { version = "1.216.0", optional = true }
 rustc-demangle = "0.1"
 shared-buffer = { workspace = true }
-wasmi_c_api = { version = "0.38.0", package = "wasmi_c_api_impl", optional = true }
-seq-macro = { version = "0.3.5", optional = true }
+
+wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl", optional = true, features = [
+	"prefix-symbols",
+] }
+
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
 ] }
+paste = "1.0.15"
+derive_more = { version = "1.0.0", features = ["from", "debug"] }
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -130,9 +135,22 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 
 # - Engines.
 engine = ["sys"]
-wamr = ["wasm-c-api", "std", "wat", "dep:zip"]
-wasmi = ["wasm-c-api", "std", "wat", "dep:wasmi_c_api"]
-v8 = ["wasm-c-api", "std", "wat", "dep:seq-macro", "dep:xz"]
+
+# --- Enable the WAMR backend and use it as default backend.
+wamr-default = ["wamr", "wat"]
+# --- Enable the WAMR backend and use it as defaul backend only if it is the only one enabled.
+wamr = ["wasm-c-api", "std", "dep:which", "dep:zip"]
+
+# --- Enable the wasmi backend and use it as default backend.
+wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api"]
+# --- Enable the wasmi backend and use it as defaul backend only if it is the only one enabled.
+wasmi-default = ["wasmi", "wat"]
+
+# --- Enable the v8 backend and use it as default backend.
+v8 = ["wasm-c-api", "std", "dep:which", "dep:xz"]
+# --- Enable the v8 backend and use it as defaul backend only if it is the only one enabled.
+v8-default = ["v8", "wat"]
+
 wasm-c-api = ["wasm-types-polyfill"]
 
 # - Deprecated features.
@@ -145,7 +163,7 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 wasm-types-polyfill = ["wasmparser"]
 
 jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
-
+jsc-default = ["jsc"]
 js-serializable-module = []
 
 # Optional
@@ -164,6 +182,7 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 cmake = "0.1.50"
 tar = "0.4.42"
 ureq = "2.10.1"
+which = { version = "7.0.0", optional = true }
 xz = { version = "0.1.0", optional = true }
 zip = { version = "2.2.0", optional = true }
 

@@ -1031,12 +1031,12 @@ license = "MIT"
 
 [[module]]
 name = "mod"
-source = "target/wasm32-wasi/release/mod.wasm"
+source = "target/wasm32-wasip1/release/mod.wasm"
 interfaces = {"wasi" = "0.0.0-unstable"}
 
 [[module]]
 name = "mod-with-exports"
-source = "target/wasm32-wasi/release/mod-with-exports.wasm"
+source = "target/wasm32-wasip1/release/mod-with-exports.wasm"
 bindings = { wit-exports = "exports.wit", wit-bindgen = "0.0.0" }
 
 [[command]]
@@ -1054,7 +1054,7 @@ module = "mod"
             modules[1],
             Module {
                 name: "mod-with-exports".to_string(),
-                source: PathBuf::from("target/wasm32-wasi/release/mod-with-exports.wasm"),
+                source: PathBuf::from("target/wasm32-wasip1/release/mod-with-exports.wasm"),
                 abi: Abi::None,
                 kind: None,
                 interfaces: None,

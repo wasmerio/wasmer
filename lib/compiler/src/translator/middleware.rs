@@ -6,7 +6,7 @@ use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::{Deref, Range};
 use wasmer_types::{LocalFunctionIndex, MiddlewareError, ModuleInfo, WasmResult};
-use wasmparser::{BinaryReader, Operator, ValType, WasmFeatures};
+use wasmparser::{BinaryReader, Operator, ValType};
 
 use super::error::from_binaryreadererror_wasmerror;
 use crate::translator::environ::FunctionBinaryReader;
@@ -116,7 +116,7 @@ impl<'a: 'b, 'b> Extend<&'b Operator<'a>> for MiddlewareReaderState<'a> {
 impl<'a> MiddlewareBinaryReader<'a> {
     /// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.
     pub fn new_with_offset(data: &'a [u8], original_offset: usize) -> Self {
-        let inner = BinaryReader::new(data, original_offset, WasmFeatures::default());
+        let inner = BinaryReader::new(data, original_offset);
         Self {
             state: MiddlewareReaderState {
                 inner,

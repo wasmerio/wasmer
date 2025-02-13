@@ -1,5 +1,8 @@
 # Compilers
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
+singlepass spec::exception_handling # Singlepass doesn't support EH yet (no one asked for this feature)
+cranelift spec::exception_handling # Cranelift doesn't support EH yet (no one asked for this feature)
+windows spec::exception_handling # No EH support on Windows yet
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass

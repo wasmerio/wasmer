@@ -149,7 +149,7 @@ pub fn emit_compilation(
         .map(|(_, section)| section.relocations.clone())
         .collect::<PrimaryMap<SectionIndex, _>>();
 
-    let debug_index = compilation.debug.map(|d| d.eh_frame);
+    let debug_index = compilation.unwind_info.eh_frame;
 
     let align = match triple.architecture {
         Architecture::X86_64 => 1,

@@ -23,10 +23,10 @@ use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
+use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
-    Value,
+    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type,
+    TypedFunction, Value,
 };
 
 #[cfg(feature = "compiler")]
@@ -57,8 +57,8 @@ use webc::metadata::Manifest;
 use webc::Container;
 
 use crate::{
-    commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
-    logging::Output, store::StoreOptions,
+    backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
+    error::PrettyError, logging::Output,
 };
 
 const TICK: Duration = Duration::from_millis(250);
@@ -69,7 +69,7 @@ pub struct Run {
     #[clap(flatten)]
     env: WasmerEnv,
     #[clap(flatten)]
-    store: StoreOptions,
+    rt: RuntimeOptions,
     #[clap(flatten)]
     wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
@@ -115,11 +115,6 @@ impl Run {
             .build()?;
         let handle = runtime.handle().clone();
 
-        #[cfg(feature = "sys")]
-        if self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
-        }
-
         // Check for the preferred webc version.
         // Default to v3.
         let webc_version_var = std::env::var("WASMER_WEBC_VERSION");
@@ -132,18 +127,21 @@ impl Run {
         };
 
         let _guard = handle.enter();
-        let (store, _) = self.store.get_store()?;
+
+        let mut engine = self.rt.get_engine()?;
+        let be_kind = engine.get_backend_kind();
+        tracing::info!("Executing on backend {be_kind:?}");
 
         #[cfg(feature = "sys")]
-        let engine = {
-            let mut engine = store.engine().clone();
+        if engine.is_sys() {
+            if self.stack_size.is_some() {
+                wasmer_vm::set_stack_size(self.stack_size.unwrap());
+            }
             let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
             engine.set_hash_algorithm(Some(hash_algorithm));
+        }
 
-            engine
-        };
-        #[cfg(not(feature = "sys"))]
-        let engine = store.engine().clone();
+        let engine = engine.clone();
 
         let runtime = self.wasi.prepare_runtime(
             engine,
@@ -178,7 +176,7 @@ impl Run {
                     module,
                     module_hash,
                     path,
-                } => self.execute_wasm(&path, &module, module_hash, store, runtime.clone()),
+                } => self.execute_wasm(&path, &module, module_hash, runtime.clone()),
                 ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime.clone()),
             }
         };
@@ -203,13 +201,12 @@ impl Run {
         path: &Path,
         module: &Module,
         module_hash: ModuleHash,
-        mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            self.execute_wasi_module(path, module, module_hash, runtime, store)
+            self.execute_wasi_module(path, module, module_hash, runtime)
         } else {
-            self.execute_pure_wasm_module(module, &mut store)
+            self.execute_pure_wasm_module(module)
         }
     }
 
@@ -360,9 +357,12 @@ impl Run {
     }
 
     #[tracing::instrument(skip_all)]
-    fn execute_pure_wasm_module(&self, module: &Module, store: &mut Store) -> Result<(), Error> {
+    fn execute_pure_wasm_module(&self, module: &Module) -> Result<(), Error> {
+        /// The rest of the execution happens in the main thread, so we can create the
+        /// store here.
+        let mut store = self.rt.get_store()?;
         let imports = Imports::default();
-        let instance = Instance::new(store, module, &imports)
+        let instance = Instance::new(&mut store, module, &imports)
             .context("Unable to instantiate the WebAssembly module")?;
 
         let entry_function  = match &self.invoke {
@@ -377,7 +377,7 @@ impl Run {
             }
         };
 
-        let return_values = invoke_function(&instance, store, entry_function, &self.args)?;
+        let return_values = invoke_function(&instance, &mut store, entry_function, &self.args)?;
 
         println!(
             "{}",
@@ -448,7 +448,6 @@ impl Run {
         module: &Module,
         module_hash: ModuleHash,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        mut store: Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
@@ -498,10 +497,10 @@ impl Run {
                 bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
             }
         };
-        let store = StoreOptions::default();
+        let rt = RuntimeOptions::default();
         Ok(Run {
             env: WasmerEnv::default(),
-            store,
+            rt,
             wasi: Wasi::for_binfmt_interpreter()?,
             wcgi: WcgiOptions::default(),
             stack_size: None,

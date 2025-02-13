@@ -133,22 +133,20 @@ pub fn proc_exec2<M: MemorySize>(
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
             let tasks = wasi_env.tasks().clone();
 
-            let mut new_store = Some(new_store);
             let mut config = Some(wasi_env);
 
-            match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut config) {
+            match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut config) {
                 Ok(a) => {}
                 Err(err) => {
                     if !err.is_not_found() {
                         error!("builtin failed - {}", err);
                     }
 
-                    let new_store = new_store.take().unwrap();
                     let env = config.take().unwrap();
 
                     let name_inner = name.clone();
                     __asyncify_light(ctx.data(), None, async {
-                        let ret = bin_factory.spawn(name_inner, new_store, env).await;
+                        let ret = bin_factory.spawn(name_inner, env).await;
                         match ret {
                             Ok(ret) => {
                                 trace!(%child_pid, "spawned sub-process");
@@ -225,26 +223,19 @@ pub fn proc_exec2<M: MemorySize>(
         // Create the process and drop the context
         let bin_factory = Box::new(ctx.data().bin_factory.clone());
 
-        let mut new_store = Some(new_store);
         let mut builder = Some(wasi_env);
 
-        let process = match bin_factory.try_built_in(
-            name.clone(),
-            Some(&ctx),
-            &mut new_store,
-            &mut builder,
-        ) {
+        let process = match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut builder) {
             Ok(a) => Ok(a),
             Err(err) => {
                 if !err.is_not_found() {
                     error!("builtin failed - {}", err);
                 }
 
-                let new_store = new_store.take().unwrap();
                 let env = builder.take().unwrap();
 
                 // Spawn a new process with this current execution environment
-                InlineWaker::block_on(bin_factory.spawn(name, new_store, env))
+                InlineWaker::block_on(bin_factory.spawn(name, env))
             }
         };
 

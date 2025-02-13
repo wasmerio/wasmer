@@ -22,7 +22,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     types::{
-        function::{Compilation, CompiledFunction, Dwarf, FunctionBody},
+        function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
         target::{Architecture, CallingConvention, CpuFeature, OperatingSystem, Target},
@@ -236,8 +236,11 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
+        #[allow(unused_mut)]
+        let mut unwind_info = UnwindInfo::default();
+
         #[cfg(feature = "unwind")]
-        let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
+        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
             for fde in fdes.into_iter().flatten() {
                 match fde {
                     UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
@@ -248,19 +251,18 @@ impl Compiler for SinglepassCompiler {
 
             let eh_frame_section = eh_frame.0.into_section();
             custom_sections.push(eh_frame_section);
-            Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
-        } else {
-            None
+            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
         };
-        #[cfg(not(feature = "unwind"))]
-        let dwarf = None;
+
+        let got = wasmer_compiler::types::function::GOT::empty();
 
         Ok(Compilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            debug: dwarf,
+            unwind_info,
+            got,
         })
     }
 

@@ -8,8 +8,8 @@ use crate::entity::{EntityRef, PrimaryMap};
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, ModuleHash,
-    SignatureIndex, TableIndex, TableInitializer, TableType,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex, MemoryIndex, MemoryType,
+    ModuleHash, SignatureIndex, TableIndex, TableInitializer, TableType, TagIndex, TagType,
 };
 
 use indexmap::IndexMap;
@@ -165,6 +165,9 @@ pub struct ModuleInfo {
     /// WebAssembly global variables (imported and local).
     pub globals: PrimaryMap<GlobalIndex, GlobalType>,
 
+    /// WebAssembly tag variables (imported and local).
+    pub tags: PrimaryMap<TagIndex, SignatureIndex>,
+
     /// Custom sections in the module.
     pub custom_sections: IndexMap<String, CustomSectionIndex>,
 
@@ -179,6 +182,9 @@ pub struct ModuleInfo {
 
     /// Number of imported memories in the module.
     pub num_imported_memories: usize,
+
+    /// Number of imported tags in the module.
+    pub num_imported_tags: usize,
 
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
@@ -203,10 +209,12 @@ pub struct ArchivableModuleInfo {
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
     globals: PrimaryMap<GlobalIndex, GlobalType>,
+    tags: PrimaryMap<TagIndex, SignatureIndex>,
     custom_sections: IndexMap<String, CustomSectionIndex>,
     custom_sections_data: PrimaryMap<CustomSectionIndex, Box<[u8]>>,
     num_imported_functions: usize,
     num_imported_tables: usize,
+    num_imported_tags: usize,
     num_imported_memories: usize,
     num_imported_globals: usize,
 }
@@ -229,10 +237,12 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             tables: it.tables,
             memories: it.memories,
             globals: it.globals,
+            tags: it.tags,
             custom_sections: it.custom_sections,
             custom_sections_data: it.custom_sections_data,
             num_imported_functions: it.num_imported_functions,
             num_imported_tables: it.num_imported_tables,
+            num_imported_tags: it.num_imported_tags,
             num_imported_memories: it.num_imported_memories,
             num_imported_globals: it.num_imported_globals,
         }
@@ -258,10 +268,12 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             tables: it.tables,
             memories: it.memories,
             globals: it.globals,
+            tags: it.tags,
             custom_sections: it.custom_sections,
             custom_sections_data: it.custom_sections_data,
             num_imported_functions: it.num_imported_functions,
             num_imported_tables: it.num_imported_tables,
+            num_imported_tags: it.num_imported_tags,
             num_imported_memories: it.num_imported_memories,
             num_imported_globals: it.num_imported_globals,
         }
@@ -320,10 +332,12 @@ impl PartialEq for ModuleInfo {
             && self.tables == other.tables
             && self.memories == other.memories
             && self.globals == other.globals
+            && self.tags == other.tags
             && self.custom_sections == other.custom_sections
             && self.custom_sections_data == other.custom_sections_data
             && self.num_imported_functions == other.num_imported_functions
             && self.num_imported_tables == other.num_imported_tables
+            && self.num_imported_tags == other.num_imported_tags
             && self.num_imported_memories == other.num_imported_memories
             && self.num_imported_globals == other.num_imported_globals
     }
@@ -363,7 +377,7 @@ impl ModuleInfo {
     }
 
     /// Get the export types of the module
-    pub fn exports(&'_ self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
+    pub fn exports(&'_ self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + '_>> {
         let iter = self.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
@@ -383,14 +397,23 @@ impl ModuleInfo {
                     let global_type = self.globals.get(*i).unwrap();
                     ExternType::Global(*global_type)
                 }
+                ExportIndex::Tag(i) => {
+                    let signature = self.tags.get(*i).unwrap();
+                    let tag_type = self.signatures.get(*signature).unwrap();
+
+                    ExternType::Tag(TagType {
+                        kind: crate::types::TagKind::Exception,
+                        ty: tag_type.clone(),
+                    })
+                }
             };
             ExportType::new(name, extern_type)
         });
-        ExportsIterator::new(iter, self.exports.len())
+        ExportsIterator::new(Box::new(iter), self.exports.len())
     }
 
     /// Get the import types of the module
-    pub fn imports(&'_ self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
+    pub fn imports(&'_ self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + '_>> {
         let iter =
             self.imports
                 .iter()
@@ -413,22 +436,35 @@ impl ModuleInfo {
                             let global_type = self.globals.get(*i).unwrap();
                             ExternType::Global(*global_type)
                         }
+                        ImportIndex::Tag(i) => {
+                            let tag_type = self.tags.get(*i).unwrap();
+                            let func_type = self.signatures.get(*tag_type).unwrap();
+                            ExternType::Tag(TagType::from_fn_type(
+                                crate::TagKind::Exception,
+                                func_type.clone(),
+                            ))
+                        }
                     };
                     ImportType::new(module, field, extern_type)
                 });
-        ImportsIterator::new(iter, self.imports.len())
+        ImportsIterator::new(Box::new(iter), self.imports.len())
     }
 
     /// Get the custom sections of the module given a `name`.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        self.custom_sections
-            .iter()
-            .filter_map(move |(section_name, section_index)| {
-                if name != section_name {
-                    return None;
-                }
-                Some(self.custom_sections_data[*section_index].clone())
-            })
+    pub fn custom_sections<'a>(
+        &'a self,
+        name: &'a str,
+    ) -> Box<impl Iterator<Item = Box<[u8]>> + 'a> {
+        Box::new(
+            self.custom_sections
+                .iter()
+                .filter_map(move |(section_name, section_index)| {
+                    if name != section_name {
+                        return None;
+                    }
+                    Some(self.custom_sections_data[*section_index].clone())
+                }),
+        )
     }
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
@@ -504,6 +540,24 @@ impl ModuleInfo {
     /// Test whether the given global index is for an imported global.
     pub fn is_imported_global(&self, index: GlobalIndex) -> bool {
         index.index() < self.num_imported_globals
+    }
+
+    /// Convert a `LocalTagIndex` into a `TagIndex`.
+    pub fn tag_index(&self, local_tag: LocalTagIndex) -> TagIndex {
+        TagIndex::new(self.num_imported_tags + local_tag.index())
+    }
+
+    /// Convert a `TagIndex` into a `LocalTagIndex`. Returns None if the
+    /// index is an imported tag.
+    pub fn local_tag_index(&self, tag: TagIndex) -> Option<LocalTagIndex> {
+        tag.index()
+            .checked_sub(self.num_imported_tags)
+            .map(LocalTagIndex::new)
+    }
+
+    /// Test whether the given tag index is for an imported tag.
+    pub fn is_imported_tag(&self, index: TagIndex) -> bool {
+        index.index() < self.num_imported_tags
     }
 
     /// Get the Module name

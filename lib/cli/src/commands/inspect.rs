@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 
+use crate::backend::RuntimeOptions;
 use anyhow::{Context, Result};
 use bytesize::ByteSize;
 use clap::Parser;
 use wasmer::*;
-
-use crate::store::StoreOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
@@ -15,7 +14,7 @@ pub struct Inspect {
     path: PathBuf,
 
     #[clap(flatten)]
-    store: StoreOptions,
+    rt: RuntimeOptions,
 }
 
 impl Inspect {
@@ -26,7 +25,7 @@ impl Inspect {
     }
 
     fn inner_execute(&self) -> Result<()> {
-        let (store, _compiler_type) = self.store.get_store()?;
+        let store = self.rt.get_store()?;
 
         let module_contents = std::fs::read(&self.path)?;
         let iswasm = is_wasm(&module_contents);

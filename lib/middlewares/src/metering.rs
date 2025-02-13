@@ -13,8 +13,9 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use wasmer::wasmparser::{BlockType as WpTypeOrFuncType, Operator};
 use wasmer::{
-    AsStoreMut, ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance,
-    LocalFunctionIndex, MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
+    sys::{FunctionMiddleware, MiddlewareError, MiddlewareReaderState, ModuleMiddleware},
+    AsStoreMut, ExportIndex, GlobalInit, GlobalType, Instance, LocalFunctionIndex, Mutability,
+    Type,
 };
 use wasmer_types::{GlobalIndex, ModuleInfo};
 
@@ -59,7 +60,7 @@ impl fmt::Debug for MeteringGlobalIndexes {
 ///
 /// ```rust
 /// use std::sync::Arc;
-/// use wasmer::{wasmparser::Operator, CompilerConfig};
+/// use wasmer::{wasmparser::Operator, sys::CompilerConfig};
 /// use wasmer_middlewares::Metering;
 ///
 /// fn create_metering_middleware(compiler_config: &mut dyn CompilerConfig) {
@@ -395,7 +396,11 @@ mod tests {
 
     use std::sync::Arc;
     use wasmer::sys::EngineBuilder;
-    use wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, TypedFunction};
+    use wasmer::{
+        imports,
+        sys::{CompilerConfig, Cranelift},
+        wat2wasm, Module, Store, TypedFunction,
+    };
 
     fn cost_function(operator: &Operator) -> u64 {
         match operator {

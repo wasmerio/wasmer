@@ -35,7 +35,7 @@ use wasmer_types::entity_impl;
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
+#[rkyv(derive(Debug, Hash, PartialEq, Eq), compare(PartialEq, PartialOrd))]
 pub struct SectionIndex(u32);
 
 entity_impl!(SectionIndex);

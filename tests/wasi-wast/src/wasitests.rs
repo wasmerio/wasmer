@@ -159,7 +159,7 @@ fn compile_wasm_for_version(
 
     command
         .arg(format!("+{}", version.get_compiler_toolchain()))
-        .arg("--target=wasm32-wasi")
+        .arg("--target=wasm32-wasip1")
         .arg("-C")
         .arg("opt-level=z")
         .arg(&temp_wasi_rs_file_name)

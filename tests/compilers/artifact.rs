@@ -1,5 +1,7 @@
 use std::{fs, path::PathBuf};
+
 use wasmer::{Engine, Module};
+use wasmer_types::Features;
 
 #[test]
 fn artifact_serialization_roundtrip() {
@@ -24,8 +26,13 @@ fn artifact_serialization_roundtrip() {
 #[ignore = "Please enable it when tests fail, so we can generate new versions of the .wasmu files"]
 fn artifact_serialization_build() {
     use std::str::FromStr;
-    use wasmer::sys::{get_default_compiler_config, Features, NativeEngineExt};
-    use wasmer::{CpuFeature, Target, Triple};
+    use wasmer::{
+        sys::{
+            engine::{get_default_compiler_config, NativeEngineExt},
+            CpuFeature, Target, Triple,
+        },
+        Engine, Module,
+    };
 
     let file_names = ["bash.wasm", "cowsay.wasm", "python-3.11.3.wasm"];
     let operating_systems = ["linux", "windows"];

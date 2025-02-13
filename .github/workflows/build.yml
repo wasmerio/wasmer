@@ -258,7 +258,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-12' && !matrix.llvm_url
+        if: matrix.os == 'macos-13' && !matrix.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM

@@ -253,7 +253,7 @@ pub struct wasm_engine_t {
 }
 
 #[cfg(feature = "compiler")]
-use wasmer_api::CompilerConfig;
+use wasmer_api::sys::CompilerConfig;
 
 #[cfg(feature = "compiler")]
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {

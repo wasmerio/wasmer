@@ -252,6 +252,7 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::V128 => WpType::V128,
         Type::ExternRef => WpType::Ref(WpRefType::new(true, WpHeapType::EXTERN).unwrap()),
         Type::FuncRef => WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
+        Type::ExceptionRef => todo!(),
     }
 }
 

@@ -17,7 +17,7 @@ wasmer = { path = "../../../lib/api", version = "=5.0.5-rc1", default-features =
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.21.0" }
 
 anyhow = "1.0"
-wast = "216.0.0"
+wast = "221.0.2"
 serde = "1"
 tempfile = "3.6.0"
 thiserror = "1.0"

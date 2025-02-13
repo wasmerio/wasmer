@@ -383,7 +383,7 @@ check-wasmer:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
 
 check-wasmer-wasm:
-	$(CARGO_BINARY) check --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,cranelift --bin wasmer-compiler --locked
+	$(CARGO_BINARY) check --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasip1 --features singlepass,cranelift --bin wasmer-compiler --locked
 
 check-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml  \
@@ -414,7 +414,7 @@ bench:
 	$(CARGO_BINARY) bench $(CARGO_TARGET_FLAG) $(compiler_features)
 
 build-wasmer-wasm:
-	$(CARGO_BINARY) build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,cranelift --bin wasmer-compiler --locked
+	$(CARGO_BINARY) build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasip1 --features singlepass,cranelift --bin wasmer-compiler --locked
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
@@ -552,12 +552,12 @@ build-capi-headless-ios:
 
 # test compilers
 test-stage-0-wast:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked --jobs=1
 
 # test packages
 test-stage-1-test-all:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --locked
-	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --locked
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --locked --jobs=1
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --locked --jobs=1
 test-stage-2-test-compiler-cranelift-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std --locked
 test-stage-3-test-compiler-singlepass-nostd:
@@ -588,17 +588,17 @@ test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 test-v8: test-v8-api
 
 test-v8-api:
-	CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
+	cargo nextest run --package=wasmer --release --features="v8-default" --no-default-features
 
 test-wamr: test-wamr-api
 
 test-wamr-api:
-	cargo nextest run --package=wasmer --release --features=wamr --no-default-features
+	cargo nextest run --package=wasmer --release --features="wamr-default" --no-default-features
 
 test-wasmi: test-wasmi-api
 
 test-wasmi-api:
-	cargo nextest run --package=wasmer --release --features=wasmi --no-default-features
+	cargo nextest run --package=wasmer --release --features="wasmi-default" --no-default-features
 
 test-js: test-js-api test-js-wasi
 
@@ -672,20 +672,20 @@ test-wasix: build-wasmer
 
 test-integration-cli: build-wasmer build-capi package-capi-headless package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
-	rustup target add wasm32-wasi
+	rustup target add wasm32-wasip1
 	WASMER_DIR=`pwd`/package $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli --locked
 
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci: require-nextest
-	rustup target add wasm32-wasi
+	rustup target add wasm32-wasip1
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
 
 test-integration-cli-wamr-ci: require-nextest build-wasmer-wamr
-	rustup target add wasm32-wasi
+	rustup target add wasm32-wasip1
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
 
 test-integration-cli-wasmi-ci: require-nextest build-wasmer-wasmi
-	rustup target add wasm32-wasi
+	rustup target add wasm32-wasip1
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
 
 

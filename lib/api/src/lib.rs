@@ -9,7 +9,12 @@
     rustdoc::broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
-#![allow(clippy::new_without_default, ambiguous_wide_pointer_comparisons)]
+#![allow(
+    clippy::new_without_default,
+    ambiguous_wide_pointer_comparisons,
+    unreachable_patterns,
+    unused
+)]
 #![warn(
     clippy::float_arithmetic,
     clippy::mut_mut,
@@ -23,7 +28,7 @@
 //! [`Wasmer`](https://wasmer.io/) is the most popular
 //! [WebAssembly](https://webassembly.org/) runtime for Rust. It supports
 //! JIT (Just In Time) and AOT (Ahead Of Time) compilation as well as
-//! pluggable compilers suited to your needs.
+//! pluggable compilers suited to your needs and interpreters.
 //!
 //! It's designed to be safe and secure, and runnable in any kind of environment.
 //!
@@ -73,6 +78,10 @@
 //!     compilation-time and runtime performance, useful for development,
 //!   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
 //!     code with the fastest runtime speed, ideal for production.
+//!
+//! * **Interpreters** - Wasmer supports interpeters such as [`wamr`] and [`wasmi`].
+//!
+//! * **Other runtimes** - Wasmer supports [`v8`].
 //!
 //! * **Headless mode** — Once a WebAssembly module has been compiled, it
 //!   is possible to serialize it in a file for example, and later execute
@@ -239,30 +248,40 @@
 //! The engine is a system that uses a compiler to make a WebAssembly
 //! module executable.
 //!
-//! ## Compilers
+//! ## Runtimes
 //!
-//! A compiler is a system that handles the details of making a Wasm
-//! module executable. For example, by generating native machine code
-//! for each Wasm function.
+//! A runtime is a system that handles the details of making a Wasm module executable. We support
+//! multiple kinds of runtimes: compilers, which generate native machine code for each Wasm
+//! function and interpreter, in which no native machine code is generated and can be used on
+//! platforms where JIT compilation is not allowed, such as iOS.
 //!
 //! # Cargo Features
-//!
-//! This crate comes in 2 flavors:
 //!
 //! 1. `sys`
 #![cfg_attr(feature = "sys", doc = "(enabled),")]
 #![cfg_attr(not(feature = "sys"), doc = "(disabled),")]
 //!    where `wasmer` will be compiled to a native executable
 //!    which provides compilers, engines, a full VM etc.
-//! 2. `js`
+//!    By default, the `singlepass` and `cranelift` backends are enabled.
+//!
+//! 2. `v8`
+#![cfg_attr(feature = "v8", doc = "(enabled),")]
+#![cfg_attr(not(feature = "v8"), doc = "(disabled),")]
+//!   where `wasmer` will be compiled to a native executable
+//!   where the `v8` runtime is used for execution.
+//!
+//! 3. `wamr`
+#![cfg_attr(feature = "wamr", doc = "(enabled),")]
+#![cfg_attr(not(feature = "wamr"), doc = "(disabled),")]
+//!   where `wasmer` will be compiled to a native executable
+//!   where `wamr` (in interpreter mode) is used for execution.
+//!
+//! 4. `js`
 #![cfg_attr(feature = "js", doc = "(enabled),")]
 #![cfg_attr(not(feature = "js"), doc = "(disabled),")]
 //!    where `wasmer` will be compiled to WebAssembly to run in a
 //!    JavaScript host (see [Using Wasmer in a JavaScript
 //!    environment](#using-wasmer-in-a-javascript-environment)).
-//!
-//! Consequently, we can group the features by the `sys` or `js`
-//! features.
 //!
 #![cfg_attr(
     feature = "sys",
@@ -300,6 +319,10 @@
 #![cfg_attr(feature = "compiler", doc = "(enabled),")]
 #![cfg_attr(not(feature = "compiler"), doc = "(disabled),")]
 //!   enables compilation with the wasmer engine.
+//!
+//! Notice that the `sys`, `wamr` and `v8` features are composable together,
+//! so a single build of Wasmer using `llvm`, `cranelift`, `singlepass`, `wamr`, and `v8`
+//! (or any combination of them) is possible.
 //!
 #![cfg_attr(
     feature = "js",
@@ -385,155 +408,112 @@
 //! [`wasmer-wasix`]: https://docs.rs/wasmer-wasix/
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
+//! [`v8`]: https://v8.dev/
+//! [`wamr`]: https://github.com/bytecodealliance/wasm-micro-runtime
+//! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
-#[cfg(all(
-    not(feature = "sys"),
-    not(feature = "js"),
-    not(feature = "jsc"),
-    not(feature = "wasm-c-api")
-))]
+#[cfg(not(any(
+    feature = "sys",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+)))]
 compile_error!(
-    "One of: `sys`, `js`, `jsc` or `wasm-c-api` features must be enabled. Please, pick one."
+    "One of: `sys`, `js`, `jsc` `wamr`, `wasmi` or `v8` features must be enabled. Please, pick one."
 );
 
-#[cfg(all(feature = "sys", feature = "js"))]
-compile_error!(
-    "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
-);
+mod utils;
+pub use utils::*;
 
-#[cfg(all(feature = "js", feature = "jsc"))]
-compile_error!(
-    "Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one."
-);
+mod entities;
+pub use entities::memory::{location::MemoryLocation, MemoryView};
+pub use entities::*;
 
-#[cfg(all(feature = "js", feature = "wasm-c-api"))]
-compile_error!(
-    "Cannot have both `js` and `wasm-c-api` features enabled at the same time. Please, pick one."
-);
+mod error;
+pub use error::*;
 
-#[cfg(all(feature = "jsc", feature = "wasm-c-api"))]
-compile_error!(
-    "Cannot have both `jsc` and `wasm-c-api` features enabled at the same time. Please, pick one."
-);
+mod backend;
+pub use backend::*;
+mod vm;
 
-#[cfg(all(feature = "sys", feature = "jsc"))]
-compile_error!(
-    "Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one."
-);
-
-#[cfg(all(feature = "sys", feature = "wasm-c-api"))]
-compile_error!(
-    "Cannot have both `sys` and `wasm-c-api` features enabled at the same time. Please, pick one."
-);
-
-#[cfg(all(feature = "sys", target_arch = "wasm32"))]
-compile_error!("The `sys` feature must be enabled only for non-`wasm32` target.");
-
-#[cfg(all(feature = "jsc", target_arch = "wasm32"))]
-compile_error!("The `jsc` feature must be enabled only for non-`wasm32` target.");
-
-#[cfg(all(feature = "js", not(target_arch = "wasm32")))]
-compile_error!(
-    "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
-);
-
-mod access;
-mod engine;
-mod errors;
-mod exports;
-mod extern_ref;
-mod externals;
-mod function_env;
-mod imports;
-mod instance;
-mod into_bytes;
-mod mem_access;
-mod module;
-mod native_type;
-mod ptr;
-mod store;
-mod typed_function;
-mod value;
-pub mod vm;
-
-#[cfg(any(feature = "wasm-types-polyfill", feature = "jsc"))]
-mod module_info_polyfill;
-
-#[cfg(feature = "sys")]
-/// The `sys` engine.
-pub mod sys;
-#[cfg(feature = "sys")]
-/// Re-export `sys` definitions.
-pub use sys::*;
-
-#[cfg(feature = "js")]
-/// The `js` engine.
-mod js;
-#[cfg(feature = "js")]
-/// Re-export `js` definitions.
-pub use js::*;
-
-#[cfg(feature = "jsc")]
-/// The `jsc` engine.
-mod jsc;
-#[cfg(feature = "jsc")]
-/// Re-export `jsc` definitions.
-pub use jsc::*;
-
-#[cfg(feature = "wasm-c-api")]
-/// The `c-api` engine.
-mod c_api;
-#[cfg(feature = "wasm-c-api")]
-/// Re-export `c-api` definitions.
-#[allow(unused_imports)]
-pub use c_api::*;
-
-pub use crate::externals::{
-    Extern, Function, Global, HostFunction, Memory, MemoryLocation, MemoryView, SharedMemory, Table,
-};
-pub use access::WasmSliceAccess;
-pub use engine::{AsEngineRef, Engine, EngineRef};
-pub use errors::{AtomicsError, InstantiationError, LinkError, RuntimeError};
-pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
-pub use extern_ref::ExternRef;
-pub use function_env::{FunctionEnv, FunctionEnvMut};
-pub use imports::Imports;
-pub use instance::Instance;
-pub use into_bytes::IntoBytes;
-pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
-pub use module::{IoCompileError, Module};
-pub use native_type::{FromToNativeWasmType, NativeWasmTypeInto, WasmTypeList};
-pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use store::{
-    AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreObjects, StoreRef,
-};
-#[cfg(feature = "sys")]
-pub use store::{TrapHandlerFn, Tunables};
-#[cfg(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"))]
-pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
-pub use typed_function::TypedFunction;
-pub use value::Value;
-
-// Reexport from other modules
-
-pub use wasmer_derive::ValueType;
-
-#[cfg(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"))]
-pub use wasmer_compiler::types::target::{CpuFeature, Target};
-
-// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use wasmer_types::{
     is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
-    FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryType,
-    MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
-    TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
+    MemoryType, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
+    TableStyle, TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
     WASM_PAGE_SIZE,
 };
-#[cfg(feature = "wat")]
-pub use wat::parse_bytes as wat2wasm;
 
 #[cfg(feature = "wasmparser")]
 pub use wasmparser;
 
-/// Version number of this crate.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(feature = "wat")]
+pub use wat::parse_bytes as wat2wasm;
+
+pub use wasmer_derive::ValueType;
+
+#[cfg(any(
+    all(
+        feature = "sys-default",
+        any(
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "wamr-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "js-default",
+        any(
+            feature = "sys-default",
+            feature = "jsc-default",
+            feature = "wamr-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "jsc-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "wamr-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "wamr-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "v8-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "v8-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "wasmi-default",
+            feature = "wasmi-default"
+        )
+    ),
+    all(
+        feature = "wasmi-default",
+        any(
+            feature = "sys-default",
+            feature = "js-default",
+            feature = "jsc-default",
+            feature = "v8-default",
+            feature = "wamr-default"
+        )
+    )
+))]
+compile_error!("Multiple *-default features selected. Please, pick one only!");

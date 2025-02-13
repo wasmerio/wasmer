@@ -8,7 +8,7 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex,
+    ModuleInfo, SignatureIndex, TableIndex, TagIndex,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -136,13 +136,45 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_memory_atomic_notify_index() -> Self {
         Self(28)
     }
+
     /// Returns an index for wasm's imported `memory.atomic.notify` builtin function.
     pub const fn get_imported_memory_atomic_notify_index() -> Self {
         Self(29)
     }
+
+    /// Returns an index for wasm's imported `throw` builtin function.
+    pub const fn get_imported_throw_index() -> Self {
+        Self(30)
+    }
+
+    /// Returns an index for wasm's imported `rethrow` builtin function.
+    pub const fn get_imported_rethrow_index() -> Self {
+        Self(31)
+    }
+
+    /// Returns an index for wasm's imported `alloc_exception` builtin function.
+    pub const fn get_imported_alloc_exception_index() -> Self {
+        Self(32)
+    }
+
+    /// Returns an index for wasm's imported `delete_exception` builtin function.
+    pub const fn get_imported_delete_exception_index() -> Self {
+        Self(33)
+    }
+
+    /// Returns an index for wasm's imported `read_exception` builtin function.
+    pub const fn get_imported_read_exception_index() -> Self {
+        Self(34)
+    }
+
+    /// Returns an index for wasm's imported `debug_usize` builtin function.
+    pub const fn get_imported_debug_usize_index() -> Self {
+        Self(35)
+    }
+
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        30
+        36
     }
 
     /// Return the index as an u32 number.
@@ -180,6 +212,8 @@ pub struct VMOffsets {
     num_imported_tables: u32,
     /// The number of imported memories in the module.
     num_imported_memories: u32,
+    /// The number of imported tags in the module.
+    num_imported_tags: u32,
     /// The number of imported globals in the module.
     num_imported_globals: u32,
     /// The number of defined tables in the module.
@@ -193,6 +227,7 @@ pub struct VMOffsets {
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
+    vmctx_imported_tags_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
     vmctx_memories_begin: u32,
@@ -214,6 +249,7 @@ impl VMOffsets {
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
+            num_imported_tags: cast_to_u32(module.num_imported_tags),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
@@ -222,6 +258,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
+            vmctx_imported_tags_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -248,6 +285,7 @@ impl VMOffsets {
             num_imported_functions: 0,
             num_imported_tables: 0,
             num_imported_memories: 0,
+            num_imported_tags: 0,
             num_imported_globals: 0,
             num_local_tables: 0,
             num_local_memories: 0,
@@ -256,6 +294,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
+            vmctx_imported_tags_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -312,11 +351,19 @@ impl VMOffsets {
             self.num_imported_tables,
             u32::from(self.size_of_vmtable_import()),
         );
-        self.vmctx_imported_globals_begin = offset_by_aligned(
+
+        self.vmctx_imported_tags_begin = offset_by_aligned(
             self.vmctx_imported_memories_begin,
             self.num_imported_memories,
             u32::from(self.size_of_vmmemory_import()),
         );
+
+        self.vmctx_imported_globals_begin = offset_by_aligned(
+            self.vmctx_imported_tags_begin,
+            self.num_imported_tags,
+            u32::from(self.size_of_vmtag_import()),
+        );
+
         self.vmctx_tables_begin = offset_by_aligned(
             self.vmctx_imported_globals_begin,
             self.num_imported_globals,
@@ -589,6 +636,15 @@ impl VMOffsets {
     }
 }
 
+/// Offsets for `VMTag` imports.
+impl VMOffsets {
+    /// Return the size of `VMTagImport`.
+    #[allow(clippy::identity_op)]
+    pub const fn size_of_vmtag_import(&self) -> u8 {
+        1 * self.pointer_size
+    }
+}
+
 /// Offsets for `VMContext`.
 impl VMOffsets {
     /// The offset of the `signature_ids` array.
@@ -616,6 +672,11 @@ impl VMOffsets {
     /// The offset of the `globals` array.
     pub fn vmctx_imported_globals_begin(&self) -> u32 {
         self.vmctx_imported_globals_begin
+    }
+
+    /// The offset of the `globals` array.
+    pub fn vmctx_imported_tags_begin(&self) -> u32 {
+        self.vmctx_imported_tags_begin
     }
 
     /// The offset of the `tables` array.
@@ -668,6 +729,12 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin
             + index.as_u32() * u32::from(self.size_of_vmmemory_import())
+    }
+
+    /// Return the offset to `VMTagImport` index `index`.
+    pub fn vmctx_vmtag_import(&self, index: TagIndex) -> u32 {
+        assert_lt!(index.as_u32(), self.num_imported_tags);
+        self.vmctx_imported_tags_begin + index.as_u32() * u32::from(self.size_of_vmtag_import())
     }
 
     /// Return the offset to `VMGlobalImport` index `index`.

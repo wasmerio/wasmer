@@ -207,8 +207,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - name: rustup target add wasm32-wasi
-        run: rustup target add wasm32-wasi
+      - name: rustup target add wasm32-wasip1
+        run: rustup target add wasm32-wasip1
       - name: make build-wasmer-wasm
         run: make build-wasmer-wasm
 
@@ -257,16 +257,16 @@ jobs:
         metadata: [
           {
             build: linux-x64,
-            os: ubuntu-22.04,
+            os: ubuntu-24.04,
           },
           {
             build: macos-arm,
             os: macos-14,
           },
-          {
-            build: windows-x64,
-            os: windows-2022,
-          }
+          #{
+          #  build: windows-x64,
+          #  os: windows-2022,
+          #}
         ]
     container: ${{ matrix.metadata.container }}
     steps:
@@ -283,17 +283,19 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
 
-      - name: Install `ninja`, clang` and `mold` on Ubuntu
+      - name: Install `ninja`, clang`, `binutils` and `mold` on Ubuntu
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
-          sudo apt-get update -y && sudo apt-get install ninja-build clang mold -y
+          sudo apt-get update -y && sudo apt-get install ninja-build clang mold binutils -y
 
-      - name: Install `ninja` on macOS
+      - name: Install `ninja` and (brew's) `llvm` on macOS
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
         run: |
-          brew install ninja
+          brew install ninja llvm@18
+          echo "/opt/homebrew/opt/llvm@18/bin" >> $GITHUB_PATH
+          ls -laR /opt/homebrew/opt/llvm@18/bin/
 
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')
@@ -308,15 +310,15 @@ jobs:
 
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
-        run: ${{ matrix.build-what.build-cmd }}
+        run: echo $GITHUB_PATH && ${{ matrix.build-what.build-cmd }}
 
       - name: Test wasmi API 
         if: ${{ matrix.build-what.key == 'wasmi' }}
         run: ${{ matrix.build-what.build-cmd }}
 
-      - name: Test v8 API (Linux + mold) 
+      - name: Test v8 API (Linux + clang) 
         if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
-        run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
+        run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld" CARGO_TERM_VERBOSE=true ${{ matrix.build-what.build-cmd }}
 
       - name: Test v8 API 
         if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
@@ -814,7 +816,7 @@ jobs:
         run: |
           brew install automake
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
-          brew install gnu-tar
+          brew install gnu-tar zstd
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
         if: matrix.metadata.os == 'macos-13'
       - name: Install Rust
@@ -828,6 +830,7 @@ jobs:
         if: matrix.metadata.os == 'macos-13' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
+          echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
@@ -897,7 +900,7 @@ jobs:
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
-            os: macos-13
+            os: macos-14
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl

@@ -5,7 +5,7 @@ pub mod metering;
 
 use super::super::engine::wasm_config_t;
 use std::sync::Arc;
-use wasmer_api::ModuleMiddleware;
+use wasmer_api::sys::ModuleMiddleware;
 
 #[cfg(all(feature = "middlewares", not(feature = "compiler")))]
 compile_error!("The `middlewares` feature requires the `compiler` feature to be turned on");

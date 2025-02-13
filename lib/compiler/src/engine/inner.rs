@@ -434,7 +434,6 @@ impl EngineInner {
                 )
             })
             .collect::<PrimaryMap<SectionIndex, _>>();
-
         Ok((
             allocated_functions_result,
             allocated_function_call_trampolines,
@@ -457,6 +456,24 @@ impl EngineInner {
             .unwrap()
             .unwind_registry_mut()
             .publish(eh_frame)
+            .map_err(|e| {
+                CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
+            })?;
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Register macos-specific exception handling information associated with the code.
+    pub(crate) fn register_compact_unwind(
+        &mut self,
+        compact_unwind: Option<&[u8]>,
+        eh_personality_addr_in_got: Option<usize>,
+    ) -> Result<(), CompileError> {
+        self.code_memory
+            .last_mut()
+            .unwrap()
+            .unwind_registry_mut()
+            .register_compact_unwind(compact_unwind, eh_personality_addr_in_got)
             .map_err(|e| {
                 CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
             })?;

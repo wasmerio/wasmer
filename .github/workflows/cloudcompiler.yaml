@@ -24,19 +24,19 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
-      - name: Install wasm32-wasi target
+      - name: Install wasm32-wasip1 target
         shell: bash
         run: |
-          rustup target add wasm32-wasi
+          rustup target add wasm32-wasip1
       - name: Setup Wasmer
         uses: wasmerio/setup-wasmer@v1
       - name: Build cloudcompiler.wasm
         shell: bash
         run: |
           make build-wasmer-wasm &&
-          mkdir target/wasm32-wasi/release/cloudcompiler
-          cp target/wasm32-wasi/release/wasmer-compiler.wasm target/wasm32-wasi/release/cloudcompiler/cloudcompiler.wasm &&
-          cat << EOF > target/wasm32-wasi/release/cloudcompiler/wasmer.toml
+          mkdir target/wasm32-wasip1/release/cloudcompiler
+          cp target/wasm32-wasip1/release/wasmer-compiler.wasm target/wasm32-wasip1/release/cloudcompiler/cloudcompiler.wasm &&
+          cat << EOF > target/wasm32-wasip1/release/cloudcompiler/wasmer.toml
           [package]
           name = "${{ secrets.WAPM_DEV_USERNAME }}/cloudcompiler"
           version = "0.1.0"
@@ -61,18 +61,18 @@ jobs:
           echo $(git tag | tail -n1) > ./version.txt
           v=$(git describe --tags --abbrev=0) && \
           echo "version = ${v}" &&
-          sed -i "s/version = \".*\"/version = \"${v}\"/g" target/wasm32-wasi/release/cloudcompiler/wasmer.toml \
+          sed -i "s/version = \".*\"/version = \"${v}\"/g" target/wasm32-wasip1/release/cloudcompiler/wasmer.toml \
       - name: Build cloudcompiler.wasm
         shell: bash
         run: |
           git tag &&
-          cat target/wasm32-wasi/release/cloudcompiler/wasmer.toml &&
+          cat target/wasm32-wasip1/release/cloudcompiler/wasmer.toml &&
           echo "ls" &&
-          ls target/wasm32-wasi/release/cloudcompiler
+          ls target/wasm32-wasip1/release/cloudcompiler
       - name: Publish to WAPM
         uses: wasmerio/wapm-publish@v1
         with:
           registry: https://registry.wapm.dev
-          directory: target/wasm32-wasi/release/cloudcompiler
+          directory: target/wasm32-wasip1/release/cloudcompiler
           username: ${{ secrets.WAPM_DEV_USERNAME }}
           password: ${{ secrets.WAPM_DEV_PASSWORD }}

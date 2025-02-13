@@ -3,9 +3,9 @@
 use self::utils::normalize_atom_name;
 use super::CliCommand;
 use crate::{
+    backend::RuntimeOptions,
     common::{normalize_path, HashAlgorithm},
     config::WasmerEnv,
-    store::CompilerOptions,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
@@ -17,7 +17,10 @@ use std::{
     process::{Command, Stdio},
 };
 use tar::Archive;
-use wasmer::{sys::Artifact, *};
+use wasmer::{
+    sys::{engine::NativeEngineExt, *},
+    *,
+};
 use wasmer_compiler::{
     object::{emit_serialized, get_object_for_target},
     types::symbols::ModuleMetadataSymbolRegistry,
@@ -96,7 +99,7 @@ pub struct CreateExe {
     cross_compile: CrossCompile,
 
     #[clap(flatten)]
-    compiler: CompilerOptions,
+    compiler: RuntimeOptions,
 
     /// Hashing algorithm to be used for module hash
     #[clap(long, value_enum)]
@@ -231,9 +234,9 @@ impl CliCommand for CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let compiler_type = self.compiler.get_rt()?;
+        let mut engine = self.compiler.get_engine()?;
 
-        let mut engine = store.engine().clone();
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
@@ -279,6 +282,8 @@ impl CliCommand for CreateExe {
                 self.debug_dir.is_some(),
             )
         }?;
+
+        let store = self.compiler.get_store()?;
 
         get_module_infos(&store, &tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
@@ -362,7 +367,7 @@ pub enum AllowMultiWasm {
 pub(super) fn compile_pirita_into_directory(
     pirita: &Container,
     target_dir: &Path,
-    compiler: &CompilerOptions,
+    compiler: &RuntimeOptions,
     cpu_features: &[CpuFeature],
     triple: &Triple,
     prefixes: &[String],
@@ -804,7 +809,7 @@ fn test_split_prefix() {
 fn compile_atoms(
     atoms: &[(String, Vec<u8>)],
     output_dir: &Path,
-    compiler: &CompilerOptions,
+    compiler: &RuntimeOptions,
     target: &Target,
     prefixes: &PrefixMapCompilation,
     debug: bool,
@@ -829,8 +834,8 @@ fn compile_atoms(
             }
             continue;
         }
-        let (engine, _) = compiler.get_engine_for_target(target.clone())?;
-        let engine_inner = engine.inner();
+        let engine = compiler.get_compiler_engine_for_target(target.clone())?;
+        let engine_inner = engine.as_sys().inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
         let tunables = engine.tunables();
@@ -948,7 +953,7 @@ fn write_volume_obj(
 pub(super) fn prepare_directory_from_single_wasm_file(
     wasm_file: &Path,
     target_dir: &Path,
-    compiler: &CompilerOptions,
+    compiler: &RuntimeOptions,
     triple: &Triple,
     cpu_features: &[CpuFeature],
     prefix: &[String],
@@ -2196,7 +2201,7 @@ mod http_fetch {
     pub(super) fn download_release(
         env: &WasmerEnv,
         mut release: serde_json::Value,
-        target_triple: wasmer::Triple,
+        target_triple: wasmer::sys::Triple,
     ) -> Result<std::path::PathBuf> {
         // Test if file has been already downloaded
         if let Ok(mut cache_path) = super::utils::get_libwasmer_cache_path(env) {

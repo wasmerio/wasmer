@@ -2,9 +2,12 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use wasmer::*;
+use wasmer::{
+    sys::{engine::NativeEngineExt, *},
+    *,
+};
 
-use crate::{common::HashAlgorithm, store::StoreOptions, warning};
+use crate::{backend::RuntimeOptions, common::HashAlgorithm, warning};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand
@@ -22,7 +25,7 @@ pub struct Compile {
     target_triple: Option<Triple>,
 
     #[clap(flatten)]
-    store: StoreOptions,
+    rt: RuntimeOptions,
 
     #[clap(short = 'm')]
     cpu_features: Vec<CpuFeature>,
@@ -57,7 +60,8 @@ impl Compile {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (mut store, compiler_type) = self.store.get_store_for_target(target.clone())?;
+        let compiler_type = self.rt.get_rt()?;
+        let mut store = self.rt.get_store_for_target(target.clone())?;
 
         let engine = store.engine_mut();
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
