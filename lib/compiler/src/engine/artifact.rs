@@ -439,36 +439,6 @@ impl Artifact {
             }
         };
 
-        //let got_idx = match &artifact {
-        //    ArtifactBuildVariant::Plain(p) => p.get_got_ref().index,
-        //    ArtifactBuildVariant::Archived(a) => a.get_got_ref().index,
-        //};
-
-        //if let Some(idx) = got_idx {
-        //    let data = custom_sections[idx].0;
-        //    let data = data.cast::<*const usize>();
-        //    let len = match &artifact {
-        //        ArtifactBuildVariant::Plain(p) => p.get_custom_sections_ref()[idx].bytes.len(),
-        //        ArtifactBuildVariant::Archived(a) => a.get_custom_sections_ref()[idx].bytes.len(),
-        //    } / size_of::<usize>();
-
-        //    let relocs: Vec<_> = match &artifact {
-        //        ArtifactBuildVariant::Plain(p) => p.get_custom_section_relocations_ref()[idx]
-        //            .iter()
-        //            .map(|v| v.reloc_target())
-        //            .collect(),
-        //        ArtifactBuildVariant::Archived(a) => a.get_custom_section_relocations_ref()[idx]
-        //            .iter()
-        //            .map(|v| v.reloc_target())
-        //            .collect(),
-        //    };
-
-        //    let entries = unsafe { std::slice::from_raw_parts(data, len) };
-        //    for (i, entry) in entries.iter().enumerate() {
-        //        println!("entry: {entry:?} => {:?}", relocs[i]);
-        //    }
-        //};
-
         // This needs to be called before publishind the `eh_frame`.
         engine_inner.register_compact_unwind(
             compact_unwind,

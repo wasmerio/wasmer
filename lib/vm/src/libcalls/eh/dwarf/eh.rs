@@ -71,18 +71,17 @@ pub const USING_SJLJ_EXCEPTIONS: bool = cfg!(all(
     target_arch = "arm"
 ));
 
+/* change to true to enable logging from the personality function */
 macro_rules! log {
     ($e: expr) => {
-        // todo: remove me
-        if true {
+        if false {
             eprintln!($e)
         }
 
     };
 
     ($($e: expr),*) => {
-        // todo: remove me
-        if true {
+        if false {
             eprintln!($($e),*)
         }
 

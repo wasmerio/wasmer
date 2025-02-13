@@ -164,7 +164,7 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context, tag: u64) -> Result<
             get_data_start: &|| uw::_Unwind_GetDataRelBase(context) as *const _,
             tag,
         };
-        dbg!(eh::find_eh_action(lsda, &eh_context))
+        eh::find_eh_action(lsda, &eh_context)
     }
 }
 
@@ -176,8 +176,7 @@ pub unsafe fn throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
         libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
             crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
         }
-        c => {
-            dbg!(c);
+        _ => {
             unreachable!()
         }
     }

@@ -180,9 +180,6 @@ impl CompactUnwindManager {
         len: usize,
         eh_personality_addr_in_got: Option<usize>,
     ) -> Result<(), String> {
-        //println!("Reading compact_unwind sections; this is {:#?}", self);
-        //println!("uwinfo: {UNWIND_INFO:#x?}");
-
         if eh_personality_addr_in_got.is_none() {
             return Err(
                 "Cannot register compact_unwind entries without a personality function!".into(),
@@ -194,14 +191,11 @@ impl CompactUnwindManager {
                 compact_unwind_section_ptr.wrapping_add(offset),
                 len,
             );
-            //eprintln!("Recording entry {entry:?}");
             self.compact_unwind_entries.push(entry);
             offset += size_of::<CompactUnwindEntry>();
         }
 
         self.maybe_eh_personality_addr_in_got = eh_personality_addr_in_got;
-        //println!("Read compact unwind sections; this is {:#?}", self);
-        //println!("uwinfo: {UNWIND_INFO:#x?}");
 
         Ok(())
     }
@@ -212,7 +206,6 @@ impl CompactUnwindManager {
         // can re-analyse the entries applying the modifications we need to operate, now that we
         // know the actual addresses.
         self.process_compact_unwind_entries()?;
-        //println!("My entries are: {:#?}", self.compact_unwind_entries);
         self.merge_records();
 
         if self.compact_unwind_entries.is_empty() {
@@ -252,15 +245,11 @@ impl CompactUnwindManager {
             .collect();
 
         let data: &'static mut [u8] = self.unwind_info_section.clone().leak();
-        //println!("data: {data:#x?}");
         let section_ptr = data.as_ptr() as usize;
-        //println!("generated UW pointer at: 0x{section_ptr:x}");
         let section_len = data.len();
         let dso_base = self.dso_base;
 
         unsafe {
-            //println!("About to finalize; this is {:#?}", self);
-            //println!("uwinfo: {UNWIND_INFO:#x?}");
             let mut uw_info = UNWIND_INFO.lock().map_err(|_| {
                 CompileError::Codegen("Failed to acquire lock for UnwindInfo!".into())
             })?;

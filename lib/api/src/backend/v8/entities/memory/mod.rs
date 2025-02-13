@@ -66,7 +66,7 @@ impl Memory {
         let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(memory_type) };
 
         MemoryType {
-            shared: unsafe { dbg!((*limits).shared) },
+            shared: unsafe { (*limits).shared },
             minimum: unsafe { wasmer_types::Pages((*limits).min) },
             maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
         }

@@ -163,7 +163,7 @@ impl<'a> WasiTest<'a> {
 
         if let Some(expected_stdout) = &self.assert_stdout {
             let stdout_str = get_stdio_output(&stdout_rx)?;
-            dbg!(&expected_stdout, &stdout_str);
+            //dbg!(&expected_stdout, &stdout_str);
             assert_eq!(stdout_str, expected_stdout.expected);
         }
 

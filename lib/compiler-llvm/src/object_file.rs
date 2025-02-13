@@ -253,17 +253,7 @@ where
                                     root_section_reloc_target
                                 } else {
                                     if visited.insert(section_index) {
-                                        //let name = obj.section_by_index(section_index);
-                                        //let name = name.unwrap();
-                                        //let name = name.name().unwrap_or_default();
-                                        //println!("Adding section: {:?}", name);
                                         worklist.push(section_index);
-
-                                        //if name == ".gcc_except_table"
-                                        //    || name == "__wasmer_eh_type_info"
-                                        //{
-                                        //    //eh_frame_section_indices.push(section_index);
-                                        //}
                                     }
                                     elf_section_to_target(section_index)
                                 }

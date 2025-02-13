@@ -29,11 +29,8 @@ fn apply_relocation(
 ) {
     let reloc_target = r.reloc_target();
 
-    //eprintln!("{reloc_target:?}, {:?} addend {:?}", r.kind(), r.addend());
-
     let target_func_address: usize = if r.kind().needs_got() && r.addend() == 0 {
         if let Some(got_address) = get_got_address(reloc_target) {
-            //eprintln!("uses GOT");
             got_address
         } else {
             panic!("No GOT entry for reloc target {reloc_target:?}")
@@ -52,8 +49,6 @@ fn apply_relocation(
                         | RelocationKind::MachoX86_64RelocUnsigned
                 ) {
                     function_pointer(libcall)
-                //} else if matches!(r.kind(), RelocationKind::MachoArm64RelocPointerToGot) {
-                //    Box::leak(Box::new(function_pointer(libcall))) as *mut _ as usize
                 } else {
                     get_libcall_trampoline(
                         libcall,
@@ -292,7 +287,6 @@ fn apply_relocation(
             } else {
                 let fixup_ptr = body + r.offset() as usize;
                 let target_address: usize = target_func_address + r.addend() as usize;
-                eprintln!("(ldr-to-add) targeting address: {target_func_address:x} + {:x} = {target_address:x}", r.addend());
 
                 let raw_instr = read_unaligned(fixup_ptr as *mut u32);
 
@@ -320,12 +314,8 @@ fn apply_relocation(
         },
 
         RelocationKind::MachoArm64RelocPointerToGot => unsafe {
-            //let (reloc_address, what) = r.for_address(body, target_func_address as u64);
-            //write_unaligned(reloc_address as *mut i32, what as i32);
-
             let at = body + r.offset() as usize;
             let pcrel = i32::try_from((target_func_address as isize) - (at as isize)).unwrap();
-            //eprintln!("MachoArm64RelocPointerToGot: Writing {pcrel:x?}");
             write_unaligned(at as *mut i32, pcrel);
         },
         kind => panic!("Relocation kind unsupported in the current architecture {kind}",),
