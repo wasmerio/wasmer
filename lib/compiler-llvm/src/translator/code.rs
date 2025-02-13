@@ -1473,7 +1473,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     fn encode_tag(&self, tag: u32) -> usize {
         let size = self.ptr_size;
         if size == 4 {
-            (tag + 2099) as usize
+            // Add 1 to the tag value so that we don't have tags with value `0`; this is because
+            // the catches in the landingpad match on the value of the tag, and a value of 0 means
+            // catch_all
+            (tag + 1) as usize
         } else if size == 8 {
             let mut base = vec![b'w', b'a', b's', b'm'];
             base.append(&mut tag.to_be_bytes().to_vec());

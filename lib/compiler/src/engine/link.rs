@@ -29,6 +29,10 @@ fn apply_relocation(
 ) {
     let reloc_target = r.reloc_target();
 
+    // Note: if the relocation needs GOT and its addend is not zero we will relax the
+    // relocation and, instead of making it use the GOT entry, we will fixup the assembly to
+    // use the final pointer directly, without any indirection. Also, see the comment in
+    // compiler-llvm/src/object_file.rs:288.
     let target_func_address: usize = if r.kind().needs_got() && r.addend() == 0 {
         if let Some(got_address) = get_got_address(reloc_target) {
             got_address
@@ -276,6 +280,9 @@ fn apply_relocation(
         },
 
         RelocationKind::MachoArm64RelocGotLoadPageoff12 => unsafe {
+            // See comment at the top of the function. TLDR: if addend != 0 we can't really use the
+            // GOT entry. We fixup this relocation to use a `add` rather than a `ldr` instruction,
+            // skipping the indirection from the GOT. 
             if r.addend() == 0 {
                 let (reloc_address, _) = r.for_address(body, target_func_address as u64);
                 assert_eq!(target_func_address & 0b111, 0);
