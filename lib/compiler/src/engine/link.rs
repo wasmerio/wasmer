@@ -282,7 +282,7 @@ fn apply_relocation(
         RelocationKind::MachoArm64RelocGotLoadPageoff12 => unsafe {
             // See comment at the top of the function. TLDR: if addend != 0 we can't really use the
             // GOT entry. We fixup this relocation to use a `add` rather than a `ldr` instruction,
-            // skipping the indirection from the GOT. 
+            // skipping the indirection from the GOT.
             if r.addend() == 0 {
                 let (reloc_address, _) = r.for_address(body, target_func_address as u64);
                 assert_eq!(target_func_address & 0b111, 0);
