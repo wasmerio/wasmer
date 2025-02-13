@@ -26,6 +26,7 @@ impl RuntimeMemory {
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
+    #[inline]
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -56,6 +57,7 @@ impl RuntimeMemory {
     }
 
     /// Create a memory object from an existing memory and attaches it to the store
+    #[inline]
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         match new_store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -116,6 +118,7 @@ impl RuntimeMemory {
     ///
     /// assert_eq!(m.ty(&mut store), mt);
     /// ```
+    #[inline]
     pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
         match_rt!(on self => s {
             s.ty(store)
@@ -154,6 +157,7 @@ impl RuntimeMemory {
     /// // This results in an error: `MemoryError::CouldNotGrow`.
     /// let s = m.grow(&mut store, 1).unwrap();
     /// ```
+    #[inline]
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -172,6 +176,7 @@ impl RuntimeMemory {
     /// # Note
     ///
     /// If the memory is already big enough for the min size this function does nothing.
+    #[inline]
     pub fn grow_at_least(
         &self,
         store: &mut impl AsStoreMut,
@@ -183,6 +188,7 @@ impl RuntimeMemory {
     }
 
     /// Resets the memory back to zero length
+    #[inline]
     pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
         match_rt!(on self => s {
             s.reset(store)
@@ -191,6 +197,7 @@ impl RuntimeMemory {
 
     /// Attempts to duplicate this memory (if its clonable) in a new store
     /// (copied memory)
+    #[inline]
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
@@ -235,6 +242,7 @@ impl RuntimeMemory {
         }
     }
 
+    #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -265,6 +273,7 @@ impl RuntimeMemory {
     }
 
     /// Checks whether this `Memory` can be used with the given context.
+    #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match_rt!(on self => s {
             s.is_from_store(store)
@@ -277,6 +286,7 @@ impl RuntimeMemory {
     /// # Errors
     ///
     /// Fails if the underlying memory is not clonable.
+    #[inline]
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         match self {
             #[cfg(feature = "sys")]
@@ -296,6 +306,7 @@ impl RuntimeMemory {
 
     /// Attempts to clone this memory (if its clonable) in a new store
     /// (cloned memory will be shared between those that clone it)
+    #[inline]
     pub fn share_in_store(
         &self,
         store: &impl AsStoreRef,
@@ -342,6 +353,7 @@ impl RuntimeMemory {
     /// backend supports shared memory operations.
     ///
     /// See [`SharedMemory`] and its methods for more information.
+    #[inline]
     pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
         if !self.ty(store).shared {
             return None;
@@ -353,6 +365,7 @@ impl RuntimeMemory {
     }
 
     /// Create a [`VMExtern`] from self.
+    #[inline]
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         match_rt!(on self => s {
             s.to_vm_extern()

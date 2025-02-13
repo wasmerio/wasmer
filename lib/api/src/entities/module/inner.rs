@@ -43,6 +43,7 @@ gen_rt_ty!(Module
 );
 
 impl RuntimeModule {
+    #[inline]
     pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
@@ -54,6 +55,7 @@ impl RuntimeModule {
     }
 
     /// Creates a new WebAssembly module from a file path.
+    #[inline]
     pub fn from_file(
         engine: &impl AsEngineRef,
         file: impl AsRef<Path>,
@@ -74,6 +76,7 @@ impl RuntimeModule {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
+    #[inline]
     pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
         match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
@@ -116,6 +119,7 @@ impl RuntimeModule {
     /// This can speed up compilation time a bit, but it should be only used
     /// in environments where the WebAssembly modules are trusted and validated
     /// beforehand.
+    #[inline]
     pub unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
         binary: &[u8],
@@ -157,6 +161,7 @@ impl RuntimeModule {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
+    #[inline]
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
         match engine.as_engine_ref().inner.rt {
             #[cfg(feature = "sys")]
@@ -207,6 +212,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
         match_rt!(on self => s {
             s.serialize()
@@ -227,6 +233,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
         fs::write(path, serialized)?;
@@ -264,6 +271,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
@@ -322,6 +330,7 @@ impl RuntimeModule {
     /// into memory.
     /// The loaded bytes must be trusted to contain a valid artifact previously
     /// built with [`Self::serialize`].
+    #[inline]
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
@@ -372,6 +381,7 @@ impl RuntimeModule {
     /// # Safety
     ///
     /// See [`Self::deserialize`].
+    #[inline]
     pub unsafe fn deserialize_from_file(
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
@@ -424,6 +434,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub unsafe fn deserialize_from_file_unchecked(
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
@@ -486,6 +497,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub fn name(&self) -> Option<&str> {
         match_rt!(on self => s {
             s.name()
@@ -513,6 +525,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub fn set_name(&mut self, name: &str) -> bool {
         match_rt!(on self => s {
             s.set_name(name)
@@ -543,6 +556,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub fn imports(&self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + '_>> {
         match_rt!(on self => s {
             s.imports()
@@ -572,6 +586,7 @@ impl RuntimeModule {
     /// # Ok(())
     /// # }
     /// ```
+    #[inline]
     pub fn exports(&self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + '_>> {
         match_rt!(on self => s {
             s.exports()
@@ -585,6 +600,7 @@ impl RuntimeModule {
     /// Following the WebAssembly spec, one name can have multiple
     /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
+    #[inline]
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         match_rt!(on self => s {
             s.custom_sections(name)
@@ -597,6 +613,7 @@ impl RuntimeModule {
     ///
     /// However, the usage is highly discouraged.
     #[doc(hidden)]
+    #[inline]
     pub fn info(&self) -> &ModuleInfo {
         match_rt!(on self => s {
             s.info()

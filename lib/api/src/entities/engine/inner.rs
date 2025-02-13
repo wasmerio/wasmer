@@ -14,6 +14,7 @@ gen_rt_ty!(Engine @derives Debug, Clone);
 
 impl RuntimeEngine {
     /// Returns the [`crate::Runtime`] kind this engine belongs to.
+    #[inline]
     pub fn get_rt_kind(&self) -> crate::RuntimeKind {
         match self {
             #[cfg(feature = "sys")]
@@ -32,6 +33,7 @@ impl RuntimeEngine {
     }
 
     /// Returns the deterministic id of this engine.
+    #[inline]
     pub fn deterministic_id(&self) -> &str {
         match_rt!(on self  => s {
             s.deterministic_id()
@@ -52,6 +54,7 @@ impl RuntimeEngine {
     ///
     /// # Safety
     /// See [`Artifact::deserialize_unchecked`].
+    #[inline]
     pub(crate) unsafe fn deserialize_unchecked(
         &self,
         bytes: impl IntoBytes,
@@ -73,6 +76,7 @@ impl RuntimeEngine {
     /// Not every implementer supports serializing and deserializing modules.
     /// Currently, only the `sys` engines support it, and only when the target
     /// architecture is not `wasm32`.
+    #[inline]
     pub(crate) unsafe fn deserialize(
         &self,
         bytes: impl IntoBytes,
@@ -99,6 +103,7 @@ impl RuntimeEngine {
     ///
     /// # Safety
     /// See [`Artifact::deserialize_unchecked`].
+    #[inline]
     pub(crate) unsafe fn deserialize_from_file_unchecked(
         &self,
         file_ref: &Path,
@@ -122,6 +127,7 @@ impl RuntimeEngine {
     ///
     /// # Safety
     /// See [`Artifact::deserialize`].
+    #[inline]
     pub(crate) unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
@@ -138,6 +144,7 @@ impl RuntimeEngine {
 
 impl Default for RuntimeEngine {
     #[allow(unreachable_code)]
+    #[inline]
     fn default() -> Self {
         #[cfg(feature = "sys-default")]
         {

@@ -33,6 +33,7 @@ pub enum StoreObjects {
 impl StoreObjects {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine.
+    #[inline]
     pub fn same(a: &Self, b: &Self) -> bool {
         match (a, b) {
             #[cfg(feature = "sys")]
@@ -56,12 +57,14 @@ impl StoreObjects {
     }
 
     /// Returns the ID of this store
+    #[inline]
     pub fn id(&self) -> StoreId {
         match_rt!(on self => s {
             s.id()
         })
     }
 
+    #[inline]
     pub(crate) fn from_store_ref(store: &RuntimeStore) -> Self {
         match store {
             #[cfg(feature = "sys")]
@@ -80,6 +83,7 @@ impl StoreObjects {
     }
 
     /// Return a vector of all globals and converted to u128
+    #[inline]
     pub fn as_u128_globals(&self) -> Vec<u128> {
         match_rt!(on self => s {
             s.as_u128_globals()
@@ -89,6 +93,7 @@ impl StoreObjects {
     /// Set a global, at index idx. Will panic if idx is out of range
     /// Safety: the caller should check taht the raw value is compatible
     /// with destination VMGlobal type
+    #[inline]
     pub fn set_global_unchecked(&self, idx: usize, val: u128) {
         match_rt!(on self => s {
             s.set_global_unchecked(idx, val)

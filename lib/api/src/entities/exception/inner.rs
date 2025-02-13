@@ -17,6 +17,7 @@ gen_rt_ty!(Exception
 
 impl RuntimeException {
     /// Create a new exception with the given tag type and payload.
+    #[inline]
     pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -47,6 +48,7 @@ impl RuntimeException {
     }
 
     /// Checks whether this `Exception` can be used with the given store.
+    #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         todo!()
     }

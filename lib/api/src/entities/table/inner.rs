@@ -27,6 +27,7 @@ impl RuntimeTable {
     /// All the elements in the table will be set to the `init` value.
     ///
     /// This function will construct the table using the store `BaseTunables`.
+    #[inline]
     pub fn new(
         store: &mut impl AsStoreMut,
         ty: TableType,
@@ -61,6 +62,7 @@ impl RuntimeTable {
     }
 
     /// Returns the [`TableType`] of the table.
+    #[inline]
     pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
         match_rt!(on self => s {
             s.ty(store)
@@ -68,6 +70,7 @@ impl RuntimeTable {
     }
 
     /// Retrieves an element of the table at the provided `index`.
+    #[inline]
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         match_rt!(on self => s {
             s.get(store, index)
@@ -75,6 +78,7 @@ impl RuntimeTable {
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
+    #[inline]
     pub fn set(
         &self,
         store: &mut impl AsStoreMut,
@@ -87,6 +91,7 @@ impl RuntimeTable {
     }
 
     /// Retrieves the size of the `Table` (in elements)
+    #[inline]
     pub fn size(&self, store: &impl AsStoreRef) -> u32 {
         match_rt!(on self => s {
             s.size(store)
@@ -102,6 +107,7 @@ impl RuntimeTable {
     /// # Errors
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
+    #[inline]
     pub fn grow(
         &self,
         store: &mut impl AsStoreMut,
@@ -120,6 +126,7 @@ impl RuntimeTable {
     ///
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
+    #[inline]
     pub fn copy(
         store: &mut impl AsStoreMut,
         dst_table: &Self,
@@ -187,6 +194,7 @@ impl RuntimeTable {
         }
     }
 
+    #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, ext: VMExternTable) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -217,12 +225,14 @@ impl RuntimeTable {
     }
 
     /// Checks whether this `Table` can be used with the given context.
+    #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match_rt!(on self => s {
             s.is_from_store(store)
         })
     }
 
+    #[inline]
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         match_rt!(on self => s {
             s.to_vm_extern()

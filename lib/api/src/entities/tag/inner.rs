@@ -20,6 +20,7 @@ gen_rt_ty!(Tag
 impl RuntimeTag {
     /// Create a new tag with event of type P -> [], that is a function that takes parameters `P`
     /// and has no return value.
+    #[inline]
     pub fn new<P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, params: P) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -44,12 +45,14 @@ impl RuntimeTag {
     }
 
     /// Returns the [`TagType`] of the tag.
+    #[inline]
     pub fn ty(&self, store: &impl AsStoreRef) -> TagType {
         match_rt!(on self => f {
             f.ty(store)
         })
     }
 
+    #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -80,6 +83,7 @@ impl RuntimeTag {
     }
 
     /// Checks whether this tag can be used with the given context.
+    #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match_rt!(on self => f {
             f.is_from_store(store)
@@ -87,6 +91,7 @@ impl RuntimeTag {
     }
 
     /// Create a [`VMExtern`] from self.
+    #[inline]
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         match_rt!(on self => f {
             f.to_vm_extern()

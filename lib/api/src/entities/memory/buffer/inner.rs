@@ -13,6 +13,7 @@ gen_rt_ty!(MemoryBuffer<'a>
 
 impl<'a> RuntimeMemoryBuffer<'a> {
     #[allow(unused)]
+    #[inline]
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
         match_rt!(on self => s {
             s.read(offset, buf)
@@ -20,6 +21,7 @@ impl<'a> RuntimeMemoryBuffer<'a> {
     }
 
     #[allow(unused)]
+    #[inline]
     pub(crate) fn read_uninit<'b>(
         &self,
         offset: u64,
@@ -31,12 +33,14 @@ impl<'a> RuntimeMemoryBuffer<'a> {
     }
 
     #[allow(unused)]
+    #[inline]
     pub(crate) fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
         match_rt!(on self => s {
             s.write(offset, data)
         })
     }
 
+    #[inline]
     pub(crate) fn len(&self) -> usize {
         match self {
             #[cfg(feature = "sys")]
@@ -59,6 +63,7 @@ impl<'a> RuntimeMemoryBuffer<'a> {
         }
     }
 
+    #[inline]
     pub(crate) fn base(&self) -> *mut u8 {
         match self {
             #[cfg(feature = "sys")]

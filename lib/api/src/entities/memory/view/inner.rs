@@ -16,6 +16,7 @@ use crate::{
 gen_rt_ty!(MemoryView<'a> @derives Debug, derive_more::From ; @path memory::view);
 
 impl<'a> RuntimeMemoryView<'a> {
+    #[inline]
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         match &store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
@@ -68,6 +69,7 @@ impl<'a> RuntimeMemoryView<'a> {
     // This used by wasmer-c-api, but should be treated
     // as deprecated and not used in future code.
     #[doc(hidden)]
+    #[inline]
     pub fn data_ptr(&self) -> *mut u8 {
         match_rt!(on self => s {
             s.data_ptr()
@@ -75,6 +77,7 @@ impl<'a> RuntimeMemoryView<'a> {
     }
 
     /// Returns the size (in bytes) of the `Memory`.
+    #[inline]
     pub fn data_size(&self) -> u64 {
         match_rt!(on self => s {
             s.data_size()
@@ -89,6 +92,7 @@ impl<'a> RuntimeMemoryView<'a> {
     /// modify the memory contents in any way including by calling a wasm
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
+    #[inline]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
         match_rt!(on self => s {
             s.data_unchecked()
@@ -106,6 +110,7 @@ impl<'a> RuntimeMemoryView<'a> {
     /// by resizing this Memory.
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
+    #[inline]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         match_rt!(on self => s {
             s.data_unchecked_mut()
@@ -124,6 +129,7 @@ impl<'a> RuntimeMemoryView<'a> {
     ///
     /// assert_eq!(m.view(&mut store).size(), Pages(1));
     /// ```
+    #[inline]
     pub fn size(&self) -> Pages {
         match_rt!(on self => s {
             s.size()
@@ -155,6 +161,7 @@ impl<'a> RuntimeMemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
+    #[inline]
     pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
         match_rt!(on self => s {
             s.read(offset, buf)
@@ -165,6 +172,7 @@ impl<'a> RuntimeMemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
+    #[inline]
     pub fn read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError> {
         match_rt!(on self => s {
             s.read_u8(offset)
@@ -181,6 +189,7 @@ impl<'a> RuntimeMemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
+    #[inline]
     pub fn read_uninit<'b>(
         &self,
         offset: u64,
@@ -198,6 +207,7 @@ impl<'a> RuntimeMemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
+    #[inline]
     pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
         match_rt!(on self => s {
             s.write(offset, data)
@@ -208,6 +218,7 @@ impl<'a> RuntimeMemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
+    #[inline]
     pub fn write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError> {
         match_rt!(on self => s {
             s.write_u8(offset, val)
@@ -215,11 +226,13 @@ impl<'a> RuntimeMemoryView<'a> {
     }
 
     /// Copies the memory and returns it as a vector of bytes
+    #[inline]
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
         self.copy_range_to_vec(0..self.data_size())
     }
 
     /// Copies a range of the memory and returns it as a vector of bytes
+    #[inline]
     pub fn copy_range_to_vec(&self, range: Range<u64>) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
         let mut offset = range.start;
@@ -236,6 +249,7 @@ impl<'a> RuntimeMemoryView<'a> {
     }
 
     /// Copies the memory to another new memory object
+    #[inline]
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
         let mut offset = 0;
         let mut chunk = [0u8; 40960];

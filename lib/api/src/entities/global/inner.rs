@@ -33,6 +33,7 @@ impl RuntimeGlobal {
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// assert_eq!(g.ty(&mut store).mutability, Mutability::Const);
     /// ```
+    #[inline]
     pub fn new(store: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(store, val, Mutability::Const).unwrap()
     }
@@ -50,11 +51,13 @@ impl RuntimeGlobal {
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// assert_eq!(g.ty(&mut store).mutability, Mutability::Var);
     /// ```
+    #[inline]
     pub fn new_mut(store: &mut impl AsStoreMut, val: Value) -> Self {
         Self::from_value(store, val, Mutability::Var).unwrap()
     }
 
     /// Create a global with the initial [`Value`] and the provided [`Mutability`].
+    #[inline]
     pub(crate) fn from_value(
         store: &mut impl AsStoreMut,
         val: Value,
@@ -103,6 +106,7 @@ impl RuntimeGlobal {
     /// assert_eq!(c.ty(&mut store), GlobalType::new(Type::I32, Mutability::Const));
     /// assert_eq!(v.ty(&mut store), GlobalType::new(Type::I64, Mutability::Var));
     /// ```
+    #[inline]
     pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
         match_rt!(on self => g {
             g.ty(store)
@@ -121,6 +125,7 @@ impl RuntimeGlobal {
     ///
     /// assert_eq!(g.get(&mut store), Value::I32(1));
     /// ```
+    #[inline]
     pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
         match_rt!(on self => g {
             g.get(store)
@@ -168,12 +173,14 @@ impl RuntimeGlobal {
     /// // This results in an error: `RuntimeError`.
     /// g.set(&mut store, Value::I64(2)).unwrap();
     /// ```
+    #[inline]
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
         match_rt!(on self => s {
             s.set(store, val)
         })
     }
 
+    #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -204,6 +211,7 @@ impl RuntimeGlobal {
     }
 
     /// Checks whether this global can be used with the given context.
+    #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match_rt!(on self => s {
             s.is_from_store(store)
@@ -211,6 +219,7 @@ impl RuntimeGlobal {
     }
 
     /// Create a [`VMExtern`] from self.
+    #[inline]
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         match_rt!(on self => s {
             s.to_vm_extern()

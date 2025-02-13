@@ -35,6 +35,7 @@ impl RuntimeFunction {
     ///
     /// If you know the signature of the host function at compile time,
     /// consider using [`Function::new_typed`] for less runtime overhead.
+    #[inline]
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
@@ -84,6 +85,7 @@ impl RuntimeFunction {
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
+    #[inline]
     pub fn new_with_env<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -126,6 +128,7 @@ impl RuntimeFunction {
     }
 
     /// Creates a new host `Function` from a native function.
+    #[inline]
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
@@ -180,6 +183,7 @@ impl RuntimeFunction {
     ///
     /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     /// ```
+    #[inline]
     pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -239,6 +243,7 @@ impl RuntimeFunction {
     /// assert_eq!(f.ty(&mut store).params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty(&mut store).results(), vec![Type::I32]);
     /// ```
+    #[inline]
     pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
         match_rt!(on self => f {
             f.ty(store)
@@ -262,6 +267,7 @@ impl RuntimeFunction {
     ///
     /// assert_eq!(f.param_arity(&mut store), 2);
     /// ```
+    #[inline]
     pub fn param_arity(&self, store: &impl AsStoreRef) -> usize {
         self.ty(store).params().len()
     }
@@ -283,6 +289,7 @@ impl RuntimeFunction {
     ///
     /// assert_eq!(f.result_arity(&mut store), 1);
     /// ```
+    #[inline]
     pub fn result_arity(&self, store: &impl AsStoreRef) -> usize {
         self.ty(store).params().len()
     }
@@ -318,6 +325,7 @@ impl RuntimeFunction {
     ///
     /// assert_eq!(sum.call(&mut store, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
+    #[inline]
     pub fn call(
         &self,
         store: &mut impl AsStoreMut,
@@ -330,6 +338,7 @@ impl RuntimeFunction {
 
     #[doc(hidden)]
     #[allow(missing_docs)]
+    #[inline]
     pub fn call_raw(
         &self,
         store: &mut impl AsStoreMut,
@@ -340,6 +349,7 @@ impl RuntimeFunction {
         })
     }
 
+    #[inline]
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
         match self {
             #[cfg(feature = "sys")]
@@ -357,6 +367,7 @@ impl RuntimeFunction {
         }
     }
 
+    #[inline]
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -485,6 +496,7 @@ impl RuntimeFunction {
     /// // This results in an error: `RuntimeError`
     /// let sum_typed: TypedFunction<(i32, i32), i64> = sum.typed(&mut store).unwrap();
     /// ```
+    #[inline]
     pub fn typed<Args, Rets>(
         &self,
         store: &impl AsStoreRef,
@@ -552,12 +564,14 @@ impl RuntimeFunction {
     }
 
     /// Checks whether this `Function` can be used with the given store.
+    #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match_rt!(on self => f {
             f.is_from_store(store)
         })
     }
 
+    #[inline]
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         match_rt!(on self => f {
             f.to_vm_extern()

@@ -9,6 +9,7 @@ gen_rt_ty!(ExternRef @derives derive_more::From, Debug, Clone ; @path external);
 
 impl RuntimeExternRef {
     /// Make a new extern reference
+    #[inline]
     pub fn new<T>(store: &mut impl AsStoreMut, value: T) -> Self
     where
         T: Any + Send + Sync + 'static + Sized,
@@ -42,6 +43,7 @@ impl RuntimeExternRef {
     }
 
     /// Try to downcast to the given value.
+    #[inline]
     pub fn downcast<'a, T>(&self, store: &'a impl AsStoreRef) -> Option<&'a T>
     where
         T: Any + Send + Sync + 'static + Sized,
@@ -52,6 +54,7 @@ impl RuntimeExternRef {
     }
 
     /// Create a [`VMExternRef`] from [`Self`].
+    #[inline]
     pub(crate) fn vm_externref(&self) -> VMExternRef {
         match self {
             #[cfg(feature = "sys")]
@@ -70,6 +73,7 @@ impl RuntimeExternRef {
     }
 
     /// Create an instance of [`Self`] from a [`VMExternRef`].
+    #[inline]
     pub(crate) unsafe fn from_vm_externref(
         store: &mut impl AsStoreMut,
         vm_externref: VMExternRef,
@@ -127,6 +131,7 @@ impl RuntimeExternRef {
     ///
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
+    #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         match_rt!(on self => r {
             r.is_from_store(store)

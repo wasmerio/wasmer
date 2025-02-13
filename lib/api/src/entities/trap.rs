@@ -65,6 +65,7 @@ impl RuntimeTrap {
         panic!("No runtime enabled!")
     }
     /// Attempts to downcast the `Trap` to a concrete type.
+    #[inline]
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
         match_rt!(on self => s {
             s.downcast::<T>().map_err(Into::into)
@@ -72,6 +73,7 @@ impl RuntimeTrap {
     }
 
     /// Attempts to downcast the `Trap` to a concrete type.
+    #[inline]
     pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
         match_rt!(on self => s {
             s.downcast_ref::<T>()
@@ -79,6 +81,7 @@ impl RuntimeTrap {
     }
 
     /// Returns true if the `Trap` is the same as T
+    #[inline]
     pub fn is<T: Error + 'static>(&self) -> bool {
         match_rt!(on self => s {
             s.is::<T>()

@@ -41,12 +41,14 @@ pub type OnCalledHandler = Box<
 gen_rt_ty!(Store @derives derive_more::From, Debug; @path store);
 
 impl RuntimeStore {
+    #[inline]
     pub(crate) fn engine(&self) -> &Engine {
         match_rt!(on self => s {
             s.engine()
         })
     }
 
+    #[inline]
     pub(crate) fn engine_mut(&mut self) -> &mut Engine {
         match_rt!(on self => s {
             s.engine_mut()
@@ -55,6 +57,7 @@ impl RuntimeStore {
 }
 
 impl AsEngineRef for RuntimeStore {
+    #[inline]
     fn as_engine_ref(&self) -> crate::EngineRef<'_> {
         match_rt!(on self => s {
             s.as_engine_ref()
