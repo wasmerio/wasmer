@@ -213,7 +213,7 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                     ExternType::Table(wasmer_types::TableType {
                         ty: valtype.into_wt(),
                         minimum: limits.min,
-                        maximum: if limits.max == 0 {
+                        maximum: if limits.max == 0 || limits.max == u32::MAX  {
                             None
                         } else {
                             Some(limits.max)
@@ -225,7 +225,7 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                     let limits = *wasm_memorytype_limits(memorytype);
                     ExternType::Memory(wasmer_types::MemoryType {
                         minimum: wasmer_types::Pages(limits.min),
-                        maximum: if limits.max == 0 {
+                        maximum: if limits.max == 0 || limits.max == u32::MAX {
                             None
                         } else {
                             Some(wasmer_types::Pages(limits.max))
