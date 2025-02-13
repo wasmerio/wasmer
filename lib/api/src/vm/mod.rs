@@ -12,31 +12,31 @@ macro_rules! define_vm_like {
         #[repr(C)]
         pub enum [<VM $name>] {
             #[cfg(feature = "sys")]
-            Sys(crate::rt::sys::vm::[<VM $name>]),
+            Sys(crate::backend::sys::vm::[<VM $name>]),
 
             #[cfg(feature = "wamr")]
-            Wamr(crate::rt::wamr::vm::[<VM $name>]),
+            Wamr(crate::backend::wamr::vm::[<VM $name>]),
 
 
             #[cfg(feature = "wasmi")]
-            Wasmi(crate::rt::wasmi::vm::[<VM $name>]),
+            Wasmi(crate::backend::wasmi::vm::[<VM $name>]),
 
 
             #[cfg(feature = "v8")]
-            V8(crate::rt::v8::vm::[<VM $name>]),
+            V8(crate::backend::v8::vm::[<VM $name>]),
 
             #[cfg(feature = "js")]
-            Js(crate::rt::js::vm::[<VM $name>]),
+            Js(crate::backend::js::vm::[<VM $name>]),
 
             #[cfg(feature = "jsc")]
-            Jsc(crate::rt::jsc::vm::[<VM $name>]),
+            Jsc(crate::backend::jsc::vm::[<VM $name>]),
 
         }
 
         impl [<VM $name>] {
             #[cfg(feature = "sys")]
             /// Consume `self` into a `sys` VM kind.
-            pub fn into_sys(self) -> crate::rt::sys::vm::[<VM $name>] {
+            pub fn into_sys(self) -> crate::backend::sys::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Sys(s) => s,
                     _ => panic!("Not a `sys` value!")
@@ -45,7 +45,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "sys")]
             /// Convert a reference to [`self`] into a reference to the same `sys` VM kind.
-            pub fn as_sys(&self) -> &crate::rt::sys::vm::[<VM $name>] {
+            pub fn as_sys(&self) -> &crate::backend::sys::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Sys(s) => s,
                     _ => panic!("Not a `sys` value!")
@@ -54,7 +54,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "sys")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `sys` VM kind.
-            pub fn as_sys_mut(&mut self) -> &mut crate::rt::sys::vm::[<VM $name>] {
+            pub fn as_sys_mut(&mut self) -> &mut crate::backend::sys::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Sys(s) => s,
                     _ => panic!("Not a `sys` value!")
@@ -63,7 +63,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wamr")]
             /// Consume `self` into a `wamr` VM kind.
-            pub fn into_wamr(self) -> crate::rt::wamr::vm::[<VM $name>] {
+            pub fn into_wamr(self) -> crate::backend::wamr::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wamr(s) => s,
                     _ => panic!("Not a `wamr` value!")
@@ -72,7 +72,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wamr")]
             /// Convert a reference to [`self`] into a reference to the same `wamr` VM kind.
-            pub fn as_wamr(&self) -> &crate::rt::wamr::vm::[<VM $name>] {
+            pub fn as_wamr(&self) -> &crate::backend::wamr::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wamr(s) => s,
                     _ => panic!("Not a `wamr` value!")
@@ -81,7 +81,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wamr")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `wamr` VM kind.
-            pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::vm::[<VM $name>] {
+            pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wamr(s) => s,
                     _ => panic!("Not a `wamr` value!")
@@ -90,7 +90,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wasmi")]
             /// Consume `self` into a `wasmi` VM kind.
-            pub fn into_wasmi(self) -> crate::rt::wasmi::vm::[<VM $name>] {
+            pub fn into_wasmi(self) -> crate::backend::wasmi::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wasmi(s) => s,
                     _ => panic!("Not a `wasmi` value!")
@@ -99,7 +99,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wasmi")]
             /// Convert a reference to [`self`] into a reference to the same `wasmi` VM kind.
-            pub fn as_wasmi(&self) -> &crate::rt::wasmi::vm::[<VM $name>] {
+            pub fn as_wasmi(&self) -> &crate::backend::wasmi::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wasmi(s) => s,
                     _ => panic!("Not a `wasmi` value!")
@@ -108,7 +108,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wasmi")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `wasmi` VM kind.
-            pub fn as_wasmi_mut(&mut self) -> &mut crate::rt::wasmi::vm::[<VM $name>] {
+            pub fn as_wasmi_mut(&mut self) -> &mut crate::backend::wasmi::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wasmi(s) => s,
                     _ => panic!("Not a `wasmi` value!")
@@ -117,7 +117,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "v8")]
             /// Consume `self` into a `v8` VM kind.
-            pub fn into_v8(self) -> crate::rt::v8::vm::[<VM $name>] {
+            pub fn into_v8(self) -> crate::backend::v8::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::V8(s) => s,
                     _ => panic!("Not a `v8` value!")
@@ -126,7 +126,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "v8")]
             /// Convert a reference to [`self`] into a reference to the same `v8` VM kind.
-            pub fn as_v8(&self) -> &crate::rt::v8::vm::[<VM $name>] {
+            pub fn as_v8(&self) -> &crate::backend::v8::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::V8(s) => s,
                     _ => panic!("Not a `v8` value!")
@@ -135,7 +135,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "v8")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `v8` VM kind.
-            pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::vm::[<VM $name>] {
+            pub fn as_v8_mut(&mut self) -> &mut crate::backend::v8::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::V8(s) => s,
                     _ => panic!("Not a `v8` value!")
@@ -144,7 +144,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "js")]
             /// Consume `self` into a `js` VM kind.
-            pub fn into_js(self) -> crate::rt::js::vm::[<VM $name>] {
+            pub fn into_js(self) -> crate::backend::js::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Js(s) => s,
                     _ => panic!("Not a `js` value!")
@@ -153,7 +153,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "js")]
             /// Convert a reference to [`self`] into a reference to the same `js` VM kind.
-            pub fn as_js(&self) -> &crate::rt::js::vm::[<VM $name>] {
+            pub fn as_js(&self) -> &crate::backend::js::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Js(s) => s,
                     _ => panic!("Not a `js` value!")
@@ -162,7 +162,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "js")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `js` VM kind.
-            pub fn as_js_mut(&mut self) -> &mut crate::rt::js::vm::[<VM $name>] {
+            pub fn as_js_mut(&mut self) -> &mut crate::backend::js::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Js(s) => s,
                     _ => panic!("Not a `js` value!")
@@ -171,7 +171,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "jsc")]
             /// Consume `self` into a `jsc` VM kind.
-            pub fn into_jsc(self) -> crate::rt::jsc::vm::[<VM $name>] {
+            pub fn into_jsc(self) -> crate::backend::jsc::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Jsc(s) => s,
                     _ => panic!("Not a `jsc` value!")
@@ -180,7 +180,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "jsc")]
             /// Convert a reference to [`self`] into a reference to the same `jsc` VM kind.
-            pub fn as_jsc(&self) -> &crate::rt::jsc::vm::[<VM $name>] {
+            pub fn as_jsc(&self) -> &crate::backend::jsc::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Jsc(s) => s,
                     _ => panic!("Not a `jsc` value!")
@@ -189,7 +189,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "jsc")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `jsc` VM kind.
-            pub fn as_jsc_mut(&mut self) -> &mut crate::rt::jsc::vm::[<VM $name>] {
+            pub fn as_jsc_mut(&mut self) -> &mut crate::backend::jsc::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Jsc(s) => s,
                     _ => panic!("Not a `jsc` value!")
@@ -206,23 +206,23 @@ macro_rules! define_vm_like {
         #[repr(C)]
         pub enum [<VM $name>] {
             #[cfg(feature = "sys")]
-            Sys(crate::rt::sys::vm::[<VM $name>]),
+            Sys(crate::backend::sys::vm::[<VM $name>]),
             #[cfg(feature = "wamr")]
-            Wamr(crate::rt::wamr::vm::[<VM $name>]),
+            Wamr(crate::backend::wamr::vm::[<VM $name>]),
             #[cfg(feature = "wasmi")]
-            Wasmi(crate::rt::wasmi::vm::[<VM $name>]),
+            Wasmi(crate::backend::wasmi::vm::[<VM $name>]),
             #[cfg(feature = "v8")]
-            V8(crate::rt::v8::vm::[<VM $name>]),
+            V8(crate::backend::v8::vm::[<VM $name>]),
             #[cfg(feature = "js")]
-            Js(crate::rt::js::vm::[<VM $name>]),
+            Js(crate::backend::js::vm::[<VM $name>]),
             #[cfg(feature = "jsc")]
-            Jsc(crate::rt::jsc::vm::[<VM $name>]),
+            Jsc(crate::backend::jsc::vm::[<VM $name>]),
         }
 
         impl [<VM $name>] {
             #[cfg(feature = "sys")]
             /// Consume `self` into a `sys` VM kind.
-            pub fn into_sys(self) -> crate::rt::sys::vm::[<VM $name>] {
+            pub fn into_sys(self) -> crate::backend::sys::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Sys(s) => s,
                     _ => panic!("Not a `sys` value!")
@@ -231,7 +231,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "sys")]
             /// Convert a reference to [`self`] into a reference to the same `sys` VM kind.
-            pub fn as_sys(&self) -> &crate::rt::sys::vm::[<VM $name>] {
+            pub fn as_sys(&self) -> &crate::backend::sys::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Sys(s) => s,
                     _ => panic!("Not a `sys` value!")
@@ -240,7 +240,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "sys")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `sys` VM kind.
-            pub fn as_sys_mut(&mut self) -> &mut crate::rt::sys::vm::[<VM $name>] {
+            pub fn as_sys_mut(&mut self) -> &mut crate::backend::sys::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Sys(s) => s,
                     _ => panic!("Not a `sys` value!")
@@ -249,7 +249,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wamr")]
             /// Consume `self` into a `wamr` VM kind.
-            pub fn into_wamr(self) -> crate::rt::wamr::vm::[<VM $name>] {
+            pub fn into_wamr(self) -> crate::backend::wamr::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wamr(s) => s,
                     _ => panic!("Not a `wamr` value!")
@@ -258,7 +258,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wamr")]
             /// Convert a reference to [`self`] into a reference to the same `wamr` VM kind.
-            pub fn as_wamr(&self) -> &crate::rt::wamr::vm::[<VM $name>] {
+            pub fn as_wamr(&self) -> &crate::backend::wamr::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wamr(s) => s,
                     _ => panic!("Not a `wamr` value!")
@@ -267,7 +267,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wamr")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `wamr` VM kind.
-            pub fn as_wamr_mut(&mut self) -> &mut crate::rt::wamr::vm::[<VM $name>] {
+            pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wamr(s) => s,
                     _ => panic!("Not a `wamr` value!")
@@ -276,7 +276,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wasmi")]
             /// Consume `self` into a `wasmi` VM kind.
-            pub fn into_wasmi(self) -> crate::rt::wasmi::vm::[<VM $name>] {
+            pub fn into_wasmi(self) -> crate::backend::wasmi::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wasmi(s) => s,
                     _ => panic!("Not a `wasmi` value!")
@@ -285,7 +285,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wasmi")]
             /// Convert a reference to [`self`] into a reference to the same `wasmi` VM kind.
-            pub fn as_wasmi(&self) -> &crate::rt::wasmi::vm::[<VM $name>] {
+            pub fn as_wasmi(&self) -> &crate::backend::wasmi::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wasmi(s) => s,
                     _ => panic!("Not a `wasmi` value!")
@@ -294,7 +294,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "wasmi")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `wasmi` VM kind.
-            pub fn as_wasmi_mut(&mut self) -> &mut crate::rt::wasmi::vm::[<VM $name>] {
+            pub fn as_wasmi_mut(&mut self) -> &mut crate::backend::wasmi::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Wasmi(s) => s,
                     _ => panic!("Not a `wasmi` value!")
@@ -304,7 +304,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "js")]
             /// Consume `self` into a `js` VM kind.
-            pub fn into_js(self) -> crate::rt::js::vm::[<VM $name>] {
+            pub fn into_js(self) -> crate::backend::js::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Js(s) => s,
                     _ => panic!("Not a `js` value!")
@@ -313,7 +313,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "js")]
             /// Convert a reference to [`self`] into a reference to the same `js` VM kind.
-            pub fn as_js(&self) -> &crate::rt::js::vm::[<VM $name>] {
+            pub fn as_js(&self) -> &crate::backend::js::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Js(s) => s,
                     _ => panic!("Not a `js` value!")
@@ -322,7 +322,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "js")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `js` VM kind.
-            pub fn as_js_mut(&mut self) -> &mut crate::rt::js::vm::[<VM $name>] {
+            pub fn as_js_mut(&mut self) -> &mut crate::backend::js::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Js(s) => s,
                     _ => panic!("Not a `js` value!")
@@ -331,7 +331,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "jsc")]
             /// Consume `self` into a `jsc` VM kind.
-            pub fn into_jsc(self) -> crate::rt::jsc::vm::[<VM $name>] {
+            pub fn into_jsc(self) -> crate::backend::jsc::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Jsc(s) => s,
                     _ => panic!("Not a `jsc` value!")
@@ -340,7 +340,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "jsc")]
             /// Convert a reference to [`self`] into a reference to the same `jsc` VM kind.
-            pub fn as_jsc(&self) -> &crate::rt::jsc::vm::[<VM $name>] {
+            pub fn as_jsc(&self) -> &crate::backend::jsc::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Jsc(s) => s,
                     _ => panic!("Not a `jsc` value!")
@@ -349,7 +349,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "jsc")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `jsc` VM kind.
-            pub fn as_jsc_mut(&mut self) -> &mut crate::rt::jsc::vm::[<VM $name>] {
+            pub fn as_jsc_mut(&mut self) -> &mut crate::backend::jsc::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::Jsc(s) => s,
                     _ => panic!("Not a `jsc` value!")
@@ -359,7 +359,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "v8")]
             /// Consume `self` into a `v8` VM kind.
-            pub fn into_v8(self) -> crate::rt::v8::vm::[<VM $name>] {
+            pub fn into_v8(self) -> crate::backend::v8::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::V8(s) => s,
                     _ => panic!("Not a `v8` value!")
@@ -368,7 +368,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "v8")]
             /// Convert a reference to [`self`] into a reference to the same `v8` VM kind.
-            pub fn as_v8(&self) -> &crate::rt::v8::vm::[<VM $name>] {
+            pub fn as_v8(&self) -> &crate::backend::v8::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::V8(s) => s,
                     _ => panic!("Not a `v8` value!")
@@ -377,7 +377,7 @@ macro_rules! define_vm_like {
 
             #[cfg(feature = "v8")]
             /// Convert a mutable reference to [`self`] into a mutable reference to the same `v8` VM kind.
-            pub fn as_v8_mut(&mut self) -> &mut crate::rt::v8::vm::[<VM $name>] {
+            pub fn as_v8_mut(&mut self) -> &mut crate::backend::v8::vm::[<VM $name>] {
                 match self {
                     [<VM $name>]::V8(s) => s,
                     _ => panic!("Not a `v8` value!")

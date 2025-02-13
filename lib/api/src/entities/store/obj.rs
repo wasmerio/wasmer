@@ -1,33 +1,33 @@
 use wasmer_types::StoreId;
 
-use crate::{macros::rt::match_rt, RuntimeStore};
+use crate::{macros::backend::match_rt, BackendStore};
 
 /// Set of objects managed by a context.
 #[derive(Debug)]
 pub enum StoreObjects {
     #[cfg(feature = "sys")]
     /// Store objects for the `sys` runtime.
-    Sys(crate::rt::sys::store::StoreObjects),
+    Sys(crate::backend::sys::store::StoreObjects),
 
     #[cfg(feature = "wamr")]
     /// Store objects for the `wamr` runtime.
-    Wamr(crate::rt::wamr::store::StoreObjects),
+    Wamr(crate::backend::wamr::store::StoreObjects),
 
     #[cfg(feature = "wasmi")]
     /// Store objects for the `wasmi` runtime.
-    Wasmi(crate::rt::wasmi::store::StoreObjects),
+    Wasmi(crate::backend::wasmi::store::StoreObjects),
 
     #[cfg(feature = "v8")]
     /// Store objects for the `v8` runtime.
-    V8(crate::rt::v8::store::StoreObjects),
+    V8(crate::backend::v8::store::StoreObjects),
 
     #[cfg(feature = "js")]
     /// Store objects for the `js` runtime.
-    Js(crate::rt::js::store::StoreObjects),
+    Js(crate::backend::js::store::StoreObjects),
 
     #[cfg(feature = "jsc")]
     /// Store objects for the `jsc` runtime.
-    Jsc(crate::rt::jsc::store::StoreObjects),
+    Jsc(crate::backend::jsc::store::StoreObjects),
 }
 
 impl StoreObjects {
@@ -65,20 +65,20 @@ impl StoreObjects {
     }
 
     #[inline]
-    pub(crate) fn from_store_ref(store: &RuntimeStore) -> Self {
+    pub(crate) fn from_store_ref(store: &BackendStore) -> Self {
         match store {
             #[cfg(feature = "sys")]
-            RuntimeStore::Sys(_) => Self::Sys(Default::default()),
+            BackendStore::Sys(_) => Self::Sys(Default::default()),
             #[cfg(feature = "wamr")]
-            RuntimeStore::Wamr(_) => Self::Wamr(Default::default()),
+            BackendStore::Wamr(_) => Self::Wamr(Default::default()),
             #[cfg(feature = "wasmi")]
-            RuntimeStore::Wasmi(_) => Self::Wasmi(Default::default()),
+            BackendStore::Wasmi(_) => Self::Wasmi(Default::default()),
             #[cfg(feature = "v8")]
-            RuntimeStore::V8(_) => Self::V8(Default::default()),
+            BackendStore::V8(_) => Self::V8(Default::default()),
             #[cfg(feature = "js")]
-            RuntimeStore::Js(_) => Self::Js(Default::default()),
+            BackendStore::Js(_) => Self::Js(Default::default()),
             #[cfg(feature = "jsc")]
-            RuntimeStore::Jsc(_) => Self::Jsc(Default::default()),
+            BackendStore::Jsc(_) => Self::Jsc(Default::default()),
         }
     }
 

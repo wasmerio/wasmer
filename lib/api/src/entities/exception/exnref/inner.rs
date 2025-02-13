@@ -1,13 +1,13 @@
 use std::any::Any;
 
 use crate::entities::store::{AsStoreMut, AsStoreRef};
-use crate::macros::rt::{gen_rt_ty, match_rt};
+use crate::macros::backend::{gen_rt_ty, match_rt};
 use crate::vm::VMExceptionRef;
 use crate::StoreRef;
 
 gen_rt_ty!(ExceptionRef @derives derive_more::From, Debug, Clone ; @path exception);
 
-impl RuntimeExceptionRef {
+impl BackendExceptionRef {
     /// Make a new extern reference
     pub fn new<T>(store: &mut impl AsStoreMut, value: T) -> Self
     where
@@ -15,28 +15,28 @@ impl RuntimeExceptionRef {
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => Self::Sys(
-                crate::rt::sys::entities::exception::ExceptionRef::new(store, value),
+            crate::BackendStore::Sys(s) => Self::Sys(
+                crate::backend::sys::entities::exception::ExceptionRef::new(store, value),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => Self::Wamr(
-                crate::rt::wamr::entities::exception::ExceptionRef::new(store, value),
+            crate::BackendStore::Wamr(s) => Self::Wamr(
+                crate::backend::wamr::entities::exception::ExceptionRef::new(store, value),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
-                crate::rt::wasmi::entities::exception::ExceptionRef::new(store, value),
+            crate::BackendStore::Wasmi(s) => Self::Wasmi(
+                crate::backend::wasmi::entities::exception::ExceptionRef::new(store, value),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => Self::V8(
-                crate::rt::v8::entities::exception::ExceptionRef::new(store, value),
+            crate::BackendStore::V8(s) => Self::V8(
+                crate::backend::v8::entities::exception::ExceptionRef::new(store, value),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(s) => Self::Js(
-                crate::rt::js::entities::exception::ExceptionRef::new(store, value),
+            crate::BackendStore::Js(s) => Self::Js(
+                crate::backend::js::entities::exception::ExceptionRef::new(store, value),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(s) => Self::Jsc(
-                crate::rt::jsc::entities::exception::ExceptionRef::new(store, value),
+            crate::BackendStore::Jsc(s) => Self::Jsc(
+                crate::backend::jsc::entities::exception::ExceptionRef::new(store, value),
             ),
         }
     }
@@ -76,43 +76,43 @@ impl RuntimeExceptionRef {
     ) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(
-                crate::rt::sys::entities::exception::ExceptionRef::from_vm_exceptionref(
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::exception::ExceptionRef::from_vm_exceptionref(
                     store,
                     vm_externref.into_sys(),
                 ),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::entities::exception::ExceptionRef::from_vm_exceptionref(
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::entities::exception::ExceptionRef::from_vm_exceptionref(
                     store,
                     vm_externref.into_wamr(),
                 ),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::entities::exception::ExceptionRef::from_vm_exceptionref(
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::entities::exception::ExceptionRef::from_vm_exceptionref(
                     store,
                     vm_externref.into_wasmi(),
                 ),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Self::V8(
-                crate::rt::v8::entities::exception::ExceptionRef::from_vm_exceptionref(
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::entities::exception::ExceptionRef::from_vm_exceptionref(
                     store,
                     vm_externref.into_v8(),
                 ),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(
-                crate::rt::js::entities::exception::ExceptionRef::from_vm_exceptionref(
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::exception::ExceptionRef::from_vm_exceptionref(
                     store,
                     vm_externref.into_js(),
                 ),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::entities::exception::ExceptionRef::from_vm_exceptionref(
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::entities::exception::ExceptionRef::from_vm_exceptionref(
                     store,
                     vm_externref.into_jsc(),
                 ),

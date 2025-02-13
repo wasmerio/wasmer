@@ -9,7 +9,7 @@ pub(crate) use inner::*;
 
 #[derive(Debug, Clone, derive_more::From)]
 /// An opaque reference to some data. This reference can be passed through Wasm.
-pub struct ExternRef(pub(crate) RuntimeExternRef);
+pub struct ExternRef(pub(crate) BackendExternRef);
 
 impl ExternRef {
     /// Make a new extern reference
@@ -17,7 +17,7 @@ impl ExternRef {
     where
         T: Any + Send + Sync + 'static + Sized,
     {
-        Self(RuntimeExternRef::new(store, value))
+        Self(BackendExternRef::new(store, value))
     }
 
     /// Try to downcast to the given value.
@@ -38,7 +38,7 @@ impl ExternRef {
         store: &mut impl AsStoreMut,
         vm_externref: VMExternRef,
     ) -> Self {
-        Self(RuntimeExternRef::from_vm_externref(store, vm_externref))
+        Self(BackendExternRef::from_vm_externref(store, vm_externref))
     }
 
     /// Checks whether this `ExternRef` can be used with the given context.

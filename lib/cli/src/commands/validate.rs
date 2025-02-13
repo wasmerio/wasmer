@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use clap::Parser;
 use wasmer::*;
 
-use crate::rt::RuntimeOptions;
+use crate::backend::RuntimeOptions;
 #[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
 pub struct Validate {

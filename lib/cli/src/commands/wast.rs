@@ -6,7 +6,7 @@ use clap::Parser;
 use wasmer::sys::engine::NativeEngineExt;
 use wasmer_wast::Wast as WastSpectest;
 
-use crate::{common::HashAlgorithm, rt::RuntimeOptions};
+use crate::{common::HashAlgorithm, backend::RuntimeOptions};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer wast` subcommand

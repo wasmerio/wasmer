@@ -15,7 +15,7 @@ use wasmer_types::{
     ModuleInfo, SerializeError,
 };
 
-use crate::{macros::rt::match_rt, utils::IntoBytes, AsEngineRef};
+use crate::{macros::backend::match_rt, utils::IntoBytes, AsEngineRef};
 
 /// IO errors that can happen while compiling a [`Module`].
 #[derive(Error, Debug)]
@@ -38,7 +38,7 @@ pub enum IoCompileError {
 /// contents rather than a deep copy.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Clone, PartialEq, Eq, derive_more::From)]
-pub struct Module(pub(crate) RuntimeModule);
+pub struct Module(pub(crate) BackendModule);
 
 impl Module {
     /// Creates a new WebAssembly Module given the configuration
@@ -141,7 +141,7 @@ impl Module {
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        RuntimeModule::from_binary(engine, binary).map(Self)
+        BackendModule::from_binary(engine, binary).map(Self)
     }
 
     /// Creates a new WebAssembly module from a Wasm binary,
@@ -156,7 +156,7 @@ impl Module {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        RuntimeModule::from_binary_unchecked(engine, binary).map(Self)
+        BackendModule::from_binary_unchecked(engine, binary).map(Self)
     }
 
     /// Validates a new WebAssembly Module given the configuration
@@ -166,7 +166,7 @@ impl Module {
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        RuntimeModule::validate(engine, binary)?;
+        BackendModule::validate(engine, binary)?;
         Ok(())
     }
 
@@ -248,7 +248,7 @@ impl Module {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        RuntimeModule::deserialize_unchecked(engine, bytes).map(Self)
+        BackendModule::deserialize_unchecked(engine, bytes).map(Self)
     }
 
     /// Deserializes a serialized Module binary into a `Module`.
@@ -280,7 +280,7 @@ impl Module {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        RuntimeModule::deserialize_unchecked(engine, bytes).map(Self)
+        BackendModule::deserialize_unchecked(engine, bytes).map(Self)
     }
 
     /// Deserializes a serialized Module located in a `Path` into a `Module`.
@@ -304,7 +304,7 @@ impl Module {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        RuntimeModule::deserialize_from_file(engine, path).map(Self)
+        BackendModule::deserialize_from_file(engine, path).map(Self)
     }
 
     /// Deserializes a serialized Module located in a `Path` into a `Module`.
@@ -330,7 +330,7 @@ impl Module {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        RuntimeModule::deserialize_from_file_unchecked(engine, path).map(Self)
+        BackendModule::deserialize_from_file_unchecked(engine, path).map(Self)
     }
 
     /// Returns the name of the current module.

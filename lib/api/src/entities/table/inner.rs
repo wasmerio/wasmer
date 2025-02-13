@@ -2,8 +2,8 @@ use wasmer_types::TableType;
 
 use crate::{
     error::RuntimeError,
-    macros::rt::{gen_rt_ty, match_rt},
-    store::RuntimeStore,
+    macros::backend::{gen_rt_ty, match_rt},
+    store::BackendStore,
     vm::{VMExtern, VMExternTable},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, Value,
 };
@@ -21,7 +21,7 @@ gen_rt_ty!(Table
     @derives Debug, Clone, PartialEq, Eq, derive_more::From
 );
 
-impl RuntimeTable {
+impl BackendTable {
     /// Creates a new table with the provided [`TableType`] definition.
     ///
     /// All the elements in the table will be set to the `init` value.
@@ -35,27 +35,27 @@ impl RuntimeTable {
     ) -> Result<Self, RuntimeError> {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            RuntimeStore::Sys(_) => Ok(Self::Sys(crate::rt::sys::entities::table::Table::new(
+            BackendStore::Sys(_) => Ok(Self::Sys(crate::backend::sys::entities::table::Table::new(
                 store, ty, init,
             )?)),
             #[cfg(feature = "wamr")]
-            RuntimeStore::Wamr(_) => Ok(Self::Wamr(crate::rt::wamr::entities::table::Table::new(
+            BackendStore::Wamr(_) => Ok(Self::Wamr(crate::backend::wamr::entities::table::Table::new(
                 store, ty, init,
             )?)),
             #[cfg(feature = "wasmi")]
-            RuntimeStore::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::table::Table::new(store, ty, init)?,
+            BackendStore::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::table::Table::new(store, ty, init)?,
             )),
             #[cfg(feature = "v8")]
-            RuntimeStore::V8(_) => Ok(Self::V8(crate::rt::v8::entities::table::Table::new(
+            BackendStore::V8(_) => Ok(Self::V8(crate::backend::v8::entities::table::Table::new(
                 store, ty, init,
             )?)),
             #[cfg(feature = "js")]
-            RuntimeStore::Js(_) => Ok(Self::Js(crate::rt::js::entities::table::Table::new(
+            BackendStore::Js(_) => Ok(Self::Js(crate::backend::js::entities::table::Table::new(
                 store, ty, init,
             )?)),
             #[cfg(feature = "jsc")]
-            RuntimeStore::Jsc(_) => Ok(Self::Jsc(crate::rt::jsc::entities::table::Table::new(
+            BackendStore::Jsc(_) => Ok(Self::Jsc(crate::backend::jsc::entities::table::Table::new(
                 store, ty, init,
             )?)),
         }
@@ -137,7 +137,7 @@ impl RuntimeTable {
     ) -> Result<(), RuntimeError> {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            RuntimeStore::Sys(_) => crate::rt::sys::entities::table::Table::copy(
+            BackendStore::Sys(_) => crate::backend::sys::entities::table::Table::copy(
                 store,
                 dst_table.as_sys(),
                 dst_index,
@@ -146,7 +146,7 @@ impl RuntimeTable {
                 len,
             ),
             #[cfg(feature = "wamr")]
-            RuntimeStore::Wamr(_) => crate::rt::wamr::entities::table::Table::copy(
+            BackendStore::Wamr(_) => crate::backend::wamr::entities::table::Table::copy(
                 store,
                 dst_table.as_wamr(),
                 dst_index,
@@ -155,7 +155,7 @@ impl RuntimeTable {
                 len,
             ),
             #[cfg(feature = "wasmi")]
-            RuntimeStore::Wasmi(_) => crate::rt::wasmi::entities::table::Table::copy(
+            BackendStore::Wasmi(_) => crate::backend::wasmi::entities::table::Table::copy(
                 store,
                 dst_table.as_wasmi(),
                 dst_index,
@@ -165,7 +165,7 @@ impl RuntimeTable {
             ),
 
             #[cfg(feature = "v8")]
-            RuntimeStore::V8(_) => crate::rt::v8::entities::table::Table::copy(
+            BackendStore::V8(_) => crate::backend::v8::entities::table::Table::copy(
                 store,
                 dst_table.as_v8(),
                 dst_index,
@@ -174,7 +174,7 @@ impl RuntimeTable {
                 len,
             ),
             #[cfg(feature = "js")]
-            RuntimeStore::Js(_) => crate::rt::js::entities::table::Table::copy(
+            BackendStore::Js(_) => crate::backend::js::entities::table::Table::copy(
                 store,
                 dst_table.as_js(),
                 dst_index,
@@ -183,7 +183,7 @@ impl RuntimeTable {
                 len,
             ),
             #[cfg(feature = "jsc")]
-            RuntimeStore::Jsc(_) => crate::rt::jsc::entities::table::Table::copy(
+            BackendStore::Jsc(_) => crate::backend::jsc::entities::table::Table::copy(
                 store,
                 dst_table.as_jsc(),
                 dst_index,
@@ -198,28 +198,28 @@ impl RuntimeTable {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, ext: VMExternTable) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            RuntimeStore::Sys(_) => Self::Sys(
-                crate::rt::sys::entities::table::Table::from_vm_extern(store, ext),
+            BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::table::Table::from_vm_extern(store, ext),
             ),
             #[cfg(feature = "wamr")]
-            RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::entities::table::Table::from_vm_extern(store, ext),
+            BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::entities::table::Table::from_vm_extern(store, ext),
             ),
             #[cfg(feature = "wasmi")]
-            RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::entities::table::Table::from_vm_extern(store, ext),
+            BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::entities::table::Table::from_vm_extern(store, ext),
             ),
             #[cfg(feature = "v8")]
-            RuntimeStore::V8(_) => Self::V8(crate::rt::v8::entities::table::Table::from_vm_extern(
+            BackendStore::V8(_) => Self::V8(crate::backend::v8::entities::table::Table::from_vm_extern(
                 store, ext,
             )),
             #[cfg(feature = "js")]
-            RuntimeStore::Js(_) => Self::Js(crate::rt::js::entities::table::Table::from_vm_extern(
+            BackendStore::Js(_) => Self::Js(crate::backend::js::entities::table::Table::from_vm_extern(
                 store, ext,
             )),
             #[cfg(feature = "jsc")]
-            RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::entities::table::Table::from_vm_extern(store, ext),
+            BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::entities::table::Table::from_vm_extern(store, ext),
             ),
         }
     }

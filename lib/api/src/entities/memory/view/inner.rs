@@ -2,8 +2,8 @@ use std::{mem::MaybeUninit, ops::Range};
 use wasmer_types::Pages;
 
 use crate::{
-    buffer::{MemoryBuffer, RuntimeMemoryBuffer},
-    macros::rt::{gen_rt_ty, match_rt},
+    buffer::{MemoryBuffer, BackendMemoryBuffer},
+    macros::backend::{gen_rt_ty, match_rt},
     AsStoreRef, Memory, MemoryAccessError,
 };
 
@@ -15,48 +15,48 @@ use crate::{
 /// created using the Memory.view() method.
 gen_rt_ty!(MemoryView<'a> @derives Debug, derive_more::From ; @path memory::view);
 
-impl<'a> RuntimeMemoryView<'a> {
+impl<'a> BackendMemoryView<'a> {
     #[inline]
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         match &store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => {
-                return Self::Sys(crate::rt::sys::entities::memory::view::MemoryView::new(
+            crate::BackendStore::Sys(s) => {
+                return Self::Sys(crate::backend::sys::entities::memory::view::MemoryView::new(
                     memory.as_sys(),
                     store,
                 ))
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => {
-                return Self::Wamr(crate::rt::wamr::entities::memory::view::MemoryView::new(
+            crate::BackendStore::Wamr(s) => {
+                return Self::Wamr(crate::backend::wamr::entities::memory::view::MemoryView::new(
                     memory.as_wamr(),
                     store,
                 ))
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(s) => {
-                return Self::Wasmi(crate::rt::wasmi::entities::memory::view::MemoryView::new(
+            crate::BackendStore::Wasmi(s) => {
+                return Self::Wasmi(crate::backend::wasmi::entities::memory::view::MemoryView::new(
                     memory.as_wasmi(),
                     store,
                 ))
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => {
-                return Self::V8(crate::rt::v8::entities::memory::view::MemoryView::new(
+            crate::BackendStore::V8(s) => {
+                return Self::V8(crate::backend::v8::entities::memory::view::MemoryView::new(
                     memory.as_v8(),
                     store,
                 ))
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(s) => {
-                return Self::Js(crate::rt::js::entities::memory::view::MemoryView::new(
+            crate::BackendStore::Js(s) => {
+                return Self::Js(crate::backend::js::entities::memory::view::MemoryView::new(
                     memory.as_js(),
                     store,
                 ))
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(s) => {
-                return Self::Jsc(crate::rt::jsc::entities::memory::view::MemoryView::new(
+            crate::BackendStore::Jsc(s) => {
+                return Self::Jsc(crate::backend::jsc::entities::memory::view::MemoryView::new(
                     memory.as_jsc(),
                     store,
                 ))
@@ -140,17 +140,17 @@ impl<'a> RuntimeMemoryView<'a> {
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => MemoryBuffer(RuntimeMemoryBuffer::Sys(s.buffer())),
+            Self::Sys(s) => MemoryBuffer(BackendMemoryBuffer::Sys(s.buffer())),
             #[cfg(feature = "wamr")]
-            Self::Wamr(s) => MemoryBuffer(RuntimeMemoryBuffer::Wamr(s.buffer())),
+            Self::Wamr(s) => MemoryBuffer(BackendMemoryBuffer::Wamr(s.buffer())),
             #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => MemoryBuffer(RuntimeMemoryBuffer::Wasmi(s.buffer())),
+            Self::Wasmi(s) => MemoryBuffer(BackendMemoryBuffer::Wasmi(s.buffer())),
             #[cfg(feature = "v8")]
-            Self::V8(s) => MemoryBuffer(RuntimeMemoryBuffer::V8(s.buffer())),
+            Self::V8(s) => MemoryBuffer(BackendMemoryBuffer::V8(s.buffer())),
             #[cfg(feature = "js")]
-            Self::Js(s) => MemoryBuffer(RuntimeMemoryBuffer::Js(s.buffer())),
+            Self::Js(s) => MemoryBuffer(BackendMemoryBuffer::Js(s.buffer())),
             #[cfg(feature = "jsc")]
-            Self::Jsc(s) => MemoryBuffer(RuntimeMemoryBuffer::Jsc(s.buffer())),
+            Self::Jsc(s) => MemoryBuffer(BackendMemoryBuffer::Jsc(s.buffer())),
         }
     }
 

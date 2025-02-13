@@ -58,7 +58,7 @@ use webc::Container;
 
 use crate::{
     commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
-    logging::Output, rt::RuntimeOptions,
+    logging::Output, backend::RuntimeOptions,
 };
 
 const TICK: Duration = Duration::from_millis(250);
@@ -129,8 +129,8 @@ impl Run {
         let _guard = handle.enter();
 
         let mut engine = self.rt.get_engine()?;
-        let rt_kind = engine.get_rt_kind();
-        tracing::info!("Executing on runtime {rt_kind:?}");
+        let be_kind = engine.get_backend_kind();
+        tracing::info!("Executing on backend {be_kind:?}");
 
         #[cfg(feature = "sys")]
         if engine.is_sys() {

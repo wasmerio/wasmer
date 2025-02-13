@@ -1,33 +1,34 @@
 use crate::{
-    macros::rt::match_rt, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
+    macros::backend::match_rt, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut,
+    StoreRef,
 };
 use std::{any::Any, marker::PhantomData};
 
 #[derive(Debug, derive_more::From)]
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
-pub enum RuntimeFunctionEnv<T> {
+pub enum BackendFunctionEnv<T> {
     #[cfg(feature = "sys")]
     /// The function environment for the `sys` runtime.
-    Sys(crate::rt::sys::function::env::FunctionEnv<T>),
+    Sys(crate::backend::sys::function::env::FunctionEnv<T>),
     #[cfg(feature = "wamr")]
     /// The function environment for the `wamr` runtime.
-    Wamr(crate::rt::wamr::function::env::FunctionEnv<T>),
+    Wamr(crate::backend::wamr::function::env::FunctionEnv<T>),
     #[cfg(feature = "wasmi")]
     /// The function environment for the `wasmi` runtime.
-    Wasmi(crate::rt::wasmi::function::env::FunctionEnv<T>),
+    Wasmi(crate::backend::wasmi::function::env::FunctionEnv<T>),
     #[cfg(feature = "v8")]
     /// The function environment for the `v8` runtime.
-    V8(crate::rt::v8::function::env::FunctionEnv<T>),
+    V8(crate::backend::v8::function::env::FunctionEnv<T>),
     #[cfg(feature = "js")]
     /// The function environment for the `js` runtime.
-    Js(crate::rt::js::function::env::FunctionEnv<T>),
+    Js(crate::backend::js::function::env::FunctionEnv<T>),
     #[cfg(feature = "jsc")]
     /// The function environment for the `jsc` runtime.
-    Jsc(crate::rt::jsc::function::env::FunctionEnv<T>),
+    Jsc(crate::backend::jsc::function::env::FunctionEnv<T>),
 }
 
-impl<T> Clone for RuntimeFunctionEnv<T> {
+impl<T> Clone for BackendFunctionEnv<T> {
     fn clone(&self) -> Self {
         match self {
             #[cfg(feature = "sys")]
@@ -47,7 +48,7 @@ impl<T> Clone for RuntimeFunctionEnv<T> {
     }
 }
 
-impl<T> RuntimeFunctionEnv<T> {
+impl<T> BackendFunctionEnv<T> {
     /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
     where
@@ -55,31 +56,31 @@ impl<T> RuntimeFunctionEnv<T> {
     {
         match store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(
-                crate::rt::sys::function::env::FunctionEnv::new(store, value),
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::function::env::FunctionEnv::new(store, value),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::function::env::FunctionEnv::new(store, value),
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::function::env::FunctionEnv::new(store, value),
             ),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::function::env::FunctionEnv::new(store, value),
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::function::env::FunctionEnv::new(store, value),
             ),
 
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                Self::V8(crate::rt::v8::function::env::FunctionEnv::new(store, value))
-            }
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::function::env::FunctionEnv::new(store, value),
+            ),
 
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
-                Self::Js(crate::rt::js::function::env::FunctionEnv::new(store, value))
-            }
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::function::env::FunctionEnv::new(store, value),
+            ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::function::env::FunctionEnv::new(store, value),
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::function::env::FunctionEnv::new(store, value),
             ),
         }
     }
@@ -122,31 +123,31 @@ impl<T> RuntimeFunctionEnv<T> {
 
 /// A temporary handle to a [`FunctionEnv`].
 #[derive(derive_more::From)]
-pub enum RuntimeFunctionEnvMut<'a, T: 'a> {
+pub enum BackendFunctionEnvMut<'a, T: 'a> {
     #[cfg(feature = "sys")]
     /// The function environment for the `sys` runtime.
-    Sys(crate::rt::sys::function::env::FunctionEnvMut<'a, T>),
+    Sys(crate::backend::sys::function::env::FunctionEnvMut<'a, T>),
     #[cfg(feature = "wamr")]
     /// The function environment for the `wamr` runtime.
-    Wamr(crate::rt::wamr::function::env::FunctionEnvMut<'a, T>),
+    Wamr(crate::backend::wamr::function::env::FunctionEnvMut<'a, T>),
 
     #[cfg(feature = "wasmi")]
     /// The function environment for the `wasmi` runtime.
-    Wasmi(crate::rt::wasmi::function::env::FunctionEnvMut<'a, T>),
+    Wasmi(crate::backend::wasmi::function::env::FunctionEnvMut<'a, T>),
     #[cfg(feature = "v8")]
     /// The function environment for the `v8` runtime.
-    V8(crate::rt::v8::function::env::FunctionEnvMut<'a, T>),
+    V8(crate::backend::v8::function::env::FunctionEnvMut<'a, T>),
 
     #[cfg(feature = "js")]
     /// The function environment for the `js` runtime.
-    Js(crate::rt::js::function::env::FunctionEnvMut<'a, T>),
+    Js(crate::backend::js::function::env::FunctionEnvMut<'a, T>),
 
     #[cfg(feature = "jsc")]
     /// The function environment for the `jsc` runtime.
-    Jsc(crate::rt::jsc::function::env::FunctionEnvMut<'a, T>),
+    Jsc(crate::backend::jsc::function::env::FunctionEnvMut<'a, T>),
 }
 
-impl<T: Send + 'static> RuntimeFunctionEnvMut<'_, T> {
+impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this function environement.
     pub fn data(&self) -> &T {
         match_rt!(on self => f {
@@ -165,17 +166,17 @@ impl<T: Send + 'static> RuntimeFunctionEnvMut<'_, T> {
     pub fn as_ref(&self) -> FunctionEnv<T> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(ref f) => RuntimeFunctionEnv::Sys(f.as_ref()).into(),
+            Self::Sys(ref f) => BackendFunctionEnv::Sys(f.as_ref()).into(),
             #[cfg(feature = "wamr")]
-            Self::Wamr(ref f) => RuntimeFunctionEnv::Wamr(f.as_ref()).into(),
+            Self::Wamr(ref f) => BackendFunctionEnv::Wamr(f.as_ref()).into(),
             #[cfg(feature = "wasmi")]
-            Self::Wasmi(ref f) => RuntimeFunctionEnv::Wasmi(f.as_ref()).into(),
+            Self::Wasmi(ref f) => BackendFunctionEnv::Wasmi(f.as_ref()).into(),
             #[cfg(feature = "v8")]
-            Self::V8(ref f) => RuntimeFunctionEnv::V8(f.as_ref()).into(),
+            Self::V8(ref f) => BackendFunctionEnv::V8(f.as_ref()).into(),
             #[cfg(feature = "js")]
-            Self::Js(ref f) => RuntimeFunctionEnv::Js(f.as_ref()).into(),
+            Self::Js(ref f) => BackendFunctionEnv::Js(f.as_ref()).into(),
             #[cfg(feature = "jsc")]
-            Self::Jsc(ref f) => RuntimeFunctionEnv::Jsc(f.as_ref()).into(),
+            Self::Jsc(ref f) => BackendFunctionEnv::Jsc(f.as_ref()).into(),
         }
     }
 
@@ -183,17 +184,17 @@ impl<T: Send + 'static> RuntimeFunctionEnvMut<'_, T> {
     pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(ref mut f) => RuntimeFunctionEnvMut::Sys(f.as_mut()).into(),
+            Self::Sys(ref mut f) => BackendFunctionEnvMut::Sys(f.as_mut()).into(),
             #[cfg(feature = "wamr")]
-            Self::Wamr(ref mut f) => RuntimeFunctionEnvMut::Wamr(f.as_mut()).into(),
+            Self::Wamr(ref mut f) => BackendFunctionEnvMut::Wamr(f.as_mut()).into(),
             #[cfg(feature = "wasmi")]
-            Self::Wasmi(ref mut f) => RuntimeFunctionEnvMut::Wasmi(f.as_mut()).into(),
+            Self::Wasmi(ref mut f) => BackendFunctionEnvMut::Wasmi(f.as_mut()).into(),
             #[cfg(feature = "v8")]
-            Self::V8(ref mut f) => RuntimeFunctionEnvMut::V8(f.as_mut()).into(),
+            Self::V8(ref mut f) => BackendFunctionEnvMut::V8(f.as_mut()).into(),
             #[cfg(feature = "js")]
-            Self::Js(ref mut f) => RuntimeFunctionEnvMut::Js(f.as_mut()).into(),
+            Self::Js(ref mut f) => BackendFunctionEnvMut::Js(f.as_mut()).into(),
             #[cfg(feature = "jsc")]
-            Self::Jsc(ref mut f) => RuntimeFunctionEnvMut::Jsc(f.as_mut()).into(),
+            Self::Jsc(ref mut f) => BackendFunctionEnvMut::Jsc(f.as_mut()).into(),
         }
     }
 
@@ -205,7 +206,7 @@ impl<T: Send + 'static> RuntimeFunctionEnvMut<'_, T> {
     }
 }
 
-impl<T> AsStoreRef for RuntimeFunctionEnvMut<'_, T> {
+impl<T> AsStoreRef for BackendFunctionEnvMut<'_, T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         match_rt!(on &self => f {
             f.as_store_ref()
@@ -213,7 +214,7 @@ impl<T> AsStoreRef for RuntimeFunctionEnvMut<'_, T> {
     }
 }
 
-impl<T> AsStoreMut for RuntimeFunctionEnvMut<'_, T> {
+impl<T> AsStoreMut for BackendFunctionEnvMut<'_, T> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         match_rt!(on self => s {
             s.as_store_mut()
@@ -227,7 +228,7 @@ impl<T> AsStoreMut for RuntimeFunctionEnvMut<'_, T> {
     }
 }
 
-impl<'a, T> std::fmt::Debug for RuntimeFunctionEnvMut<'a, T>
+impl<'a, T> std::fmt::Debug for BackendFunctionEnvMut<'a, T>
 where
     T: Send + std::fmt::Debug + 'static,
 {

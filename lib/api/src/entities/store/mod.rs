@@ -11,7 +11,7 @@ pub use store_ref::*;
 mod obj;
 pub use obj::*;
 
-use crate::{AsEngineRef, Engine, EngineRef, RuntimeEngine};
+use crate::{AsEngineRef, Engine, EngineRef, BackendEngine};
 pub(crate) use inner::*;
 use wasmer_types::StoreId;
 
@@ -37,30 +37,30 @@ impl Store {
     pub fn new(engine: impl Into<Engine>) -> Self {
         let engine: Engine = engine.into();
 
-        let store = match engine.rt {
+        let store = match engine.be {
             #[cfg(feature = "sys")]
-            RuntimeEngine::Sys(_) => {
-                RuntimeStore::Sys(crate::rt::sys::entities::store::Store::new(engine))
+            BackendEngine::Sys(_) => {
+                BackendStore::Sys(crate::backend::sys::entities::store::Store::new(engine))
             }
             #[cfg(feature = "wamr")]
-            RuntimeEngine::Wamr(_) => {
-                RuntimeStore::Wamr(crate::rt::wamr::entities::store::Store::new(engine))
+            BackendEngine::Wamr(_) => {
+                BackendStore::Wamr(crate::backend::wamr::entities::store::Store::new(engine))
             }
             #[cfg(feature = "wasmi")]
-            RuntimeEngine::Wasmi(_) => {
-                RuntimeStore::Wasmi(crate::rt::wasmi::entities::store::Store::new(engine))
+            BackendEngine::Wasmi(_) => {
+                BackendStore::Wasmi(crate::backend::wasmi::entities::store::Store::new(engine))
             }
             #[cfg(feature = "v8")]
-            RuntimeEngine::V8(_) => {
-                RuntimeStore::V8(crate::rt::v8::entities::store::Store::new(engine))
+            BackendEngine::V8(_) => {
+                BackendStore::V8(crate::backend::v8::entities::store::Store::new(engine))
             }
             #[cfg(feature = "js")]
-            RuntimeEngine::Js(_) => {
-                RuntimeStore::Js(crate::rt::js::entities::store::Store::new(engine))
+            BackendEngine::Js(_) => {
+                BackendStore::Js(crate::backend::js::entities::store::Store::new(engine))
             }
             #[cfg(feature = "jsc")]
-            RuntimeEngine::Jsc(_) => {
-                RuntimeStore::Jsc(crate::rt::jsc::entities::store::Store::new(engine))
+            BackendEngine::Jsc(_) => {
+                BackendStore::Jsc(crate::backend::jsc::entities::store::Store::new(engine))
             }
         };
 
@@ -81,9 +81,9 @@ impl Store {
     /// Not every implementor allows changing the trap handler. In those store that
     /// don't allow it, this function has no effect.
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
-        use crate::rt::sys::entities::store::NativeStoreExt;
+        use crate::backend::sys::entities::store::NativeStoreExt;
         #[allow(irrefutable_let_patterns)]
-        if let RuntimeStore::Sys(ref mut s) = self.inner.store {
+        if let BackendStore::Sys(ref mut s) = self.inner.store {
             s.set_trap_handler(handler)
         }
     }

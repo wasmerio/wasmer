@@ -38,7 +38,7 @@ use crate::{
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct Function(pub(crate) RuntimeFunction);
+pub struct Function(pub(crate) BackendFunction);
 
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -50,7 +50,7 @@ impl Function {
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
-        Self(RuntimeFunction::new(store, ty, func))
+        Self(BackendFunction::new(store, ty, func))
     }
 
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -103,7 +103,7 @@ impl Function {
             + Send
             + Sync,
     {
-        Self(RuntimeFunction::new_with_env(store, env, ty, func))
+        Self(BackendFunction::new_with_env(store, env, ty, func))
     }
 
     /// Creates a new host `Function` from a native function.
@@ -113,7 +113,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        Self(RuntimeFunction::new_typed(store, func))
+        Self(BackendFunction::new_typed(store, func))
     }
 
     /// Creates a new host `Function` with an environment from a typed function.
@@ -144,7 +144,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        Self(RuntimeFunction::new_typed_with_env(store, env, func))
+        Self(BackendFunction::new_typed_with_env(store, env, func))
     }
 
     /// Returns the [`FunctionType`] of the `Function`.
@@ -265,7 +265,7 @@ impl Function {
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        Self(RuntimeFunction::from_vm_funcref(store, funcref))
+        Self(BackendFunction::from_vm_funcref(store, funcref))
     }
 
     /// Transform this WebAssembly function into a typed function.
@@ -361,7 +361,7 @@ impl Function {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
-        Self(RuntimeFunction::from_vm_extern(store, vm_extern))
+        Self(BackendFunction::from_vm_extern(store, vm_extern))
     }
 
     /// Checks whether this `Function` can be used with the given store.

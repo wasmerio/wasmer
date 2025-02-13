@@ -122,117 +122,117 @@ impl Value {
             Type::V128 => Self::V128(raw.u128),
             Type::FuncRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
-                crate::RuntimeStore::Sys(_) => Self::FuncRef(
-                    crate::rt::sys::vm::VMFuncRef::from_raw(raw)
+                crate::BackendStore::Sys(_) => Self::FuncRef(
+                    crate::backend::sys::vm::VMFuncRef::from_raw(raw)
                         .map(VMFuncRef::Sys)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
                 #[cfg(feature = "wamr")]
-                crate::RuntimeStore::Wamr(_) => Self::FuncRef(
-                    crate::rt::wamr::vm::VMFuncRef::from_raw(raw)
+                crate::BackendStore::Wamr(_) => Self::FuncRef(
+                    crate::backend::wamr::vm::VMFuncRef::from_raw(raw)
                         .map(VMFuncRef::Wamr)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
                 #[cfg(feature = "wasmi")]
-                crate::RuntimeStore::Wasmi(_) => Self::FuncRef(
-                    crate::rt::wasmi::vm::VMFuncRef::from_raw(raw)
+                crate::BackendStore::Wasmi(_) => Self::FuncRef(
+                    crate::backend::wasmi::vm::VMFuncRef::from_raw(raw)
                         .map(VMFuncRef::Wasmi)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
 
                 #[cfg(feature = "v8")]
-                crate::RuntimeStore::V8(_) => Self::FuncRef(
-                    crate::rt::v8::vm::VMFuncRef::from_raw(raw)
+                crate::BackendStore::V8(_) => Self::FuncRef(
+                    crate::backend::v8::vm::VMFuncRef::from_raw(raw)
                         .map(VMFuncRef::V8)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
                 #[cfg(feature = "js")]
-                crate::RuntimeStore::Js(_) => Self::FuncRef(
-                    crate::rt::js::vm::VMFuncRef::from_raw(raw)
+                crate::BackendStore::Js(_) => Self::FuncRef(
+                    crate::backend::js::vm::VMFuncRef::from_raw(raw)
                         .map(VMFuncRef::Js)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
                 #[cfg(feature = "jsc")]
-                crate::RuntimeStore::Jsc(_) => Self::FuncRef(
-                    crate::rt::jsc::vm::VMFuncRef::from_raw(raw)
+                crate::BackendStore::Jsc(_) => Self::FuncRef(
+                    crate::backend::jsc::vm::VMFuncRef::from_raw(raw)
                         .map(VMFuncRef::Jsc)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
             },
             Type::ExternRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
-                crate::RuntimeStore::Sys(_) => Self::ExternRef(
-                    crate::rt::sys::vm::VMExternRef::from_raw(raw)
+                crate::BackendStore::Sys(_) => Self::ExternRef(
+                    crate::backend::sys::vm::VMExternRef::from_raw(raw)
                         .map(VMExternRef::Sys)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
                 #[cfg(feature = "wamr")]
-                crate::RuntimeStore::Wamr(_) => Self::ExternRef(
-                    crate::rt::wamr::vm::VMExternRef::from_raw(raw)
+                crate::BackendStore::Wamr(_) => Self::ExternRef(
+                    crate::backend::wamr::vm::VMExternRef::from_raw(raw)
                         .map(VMExternRef::Wamr)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
                 #[cfg(feature = "wasmi")]
-                crate::RuntimeStore::Wasmi(_) => Self::ExternRef(
-                    crate::rt::wasmi::vm::VMExternRef::from_raw(raw)
+                crate::BackendStore::Wasmi(_) => Self::ExternRef(
+                    crate::backend::wasmi::vm::VMExternRef::from_raw(raw)
                         .map(VMExternRef::Wasmi)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
 
                 #[cfg(feature = "v8")]
-                crate::RuntimeStore::V8(_) => Self::ExternRef(
-                    crate::rt::v8::vm::VMExternRef::from_raw(raw)
+                crate::BackendStore::V8(_) => Self::ExternRef(
+                    crate::backend::v8::vm::VMExternRef::from_raw(raw)
                         .map(VMExternRef::V8)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
                 #[cfg(feature = "js")]
-                crate::RuntimeStore::Js(_) => Self::ExternRef(
-                    crate::rt::js::vm::VMExternRef::from_raw(raw)
+                crate::BackendStore::Js(_) => Self::ExternRef(
+                    crate::backend::js::vm::VMExternRef::from_raw(raw)
                         .map(VMExternRef::Js)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
                 #[cfg(feature = "jsc")]
-                crate::RuntimeStore::Jsc(_) => Self::ExternRef(
-                    crate::rt::jsc::vm::VMExternRef::from_raw(raw)
+                crate::BackendStore::Jsc(_) => Self::ExternRef(
+                    crate::backend::jsc::vm::VMExternRef::from_raw(raw)
                         .map(VMExternRef::Jsc)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
             },
             Type::ExceptionRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
-                crate::RuntimeStore::Sys(_) => Self::ExceptionRef(
-                    crate::rt::sys::vm::VMExceptionRef::from_raw(raw)
+                crate::BackendStore::Sys(_) => Self::ExceptionRef(
+                    crate::backend::sys::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Sys)
                         .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
                 ),
                 #[cfg(feature = "wamr")]
-                crate::RuntimeStore::Wamr(_) => Self::ExceptionRef(
-                    crate::rt::wamr::vm::VMExceptionRef::from_raw(raw)
+                crate::BackendStore::Wamr(_) => Self::ExceptionRef(
+                    crate::backend::wamr::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Wamr)
                         .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
                 ),
                 #[cfg(feature = "wasmi")]
-                crate::RuntimeStore::Wasmi(_) => Self::ExceptionRef(
-                    crate::rt::wasmi::vm::VMExceptionRef::from_raw(raw)
+                crate::BackendStore::Wasmi(_) => Self::ExceptionRef(
+                    crate::backend::wasmi::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Wasmi)
                         .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
                 ),
 
                 #[cfg(feature = "v8")]
-                crate::RuntimeStore::V8(_) => Self::ExceptionRef(
-                    crate::rt::v8::vm::VMExceptionRef::from_raw(raw)
+                crate::BackendStore::V8(_) => Self::ExceptionRef(
+                    crate::backend::v8::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::V8)
                         .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
                 ),
                 #[cfg(feature = "js")]
-                crate::RuntimeStore::Js(_) => Self::ExceptionRef(
-                    crate::rt::js::vm::VMExceptionRef::from_raw(raw)
+                crate::BackendStore::Js(_) => Self::ExceptionRef(
+                    crate::backend::js::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Js)
                         .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
                 ),
                 #[cfg(feature = "jsc")]
-                crate::RuntimeStore::Jsc(_) => Self::ExceptionRef(
-                    crate::rt::jsc::vm::VMExceptionRef::from_raw(raw)
+                crate::BackendStore::Jsc(_) => Self::ExceptionRef(
+                    crate::backend::jsc::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Jsc)
                         .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
                 ),

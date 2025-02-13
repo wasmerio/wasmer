@@ -14,7 +14,7 @@ use crate::{
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#tag-instances>
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct Tag(pub(crate) RuntimeTag);
+pub struct Tag(pub(crate) BackendTag);
 
 impl Tag {
     /// Create a new tag with event of type P -> [], that is a function that takes parameters `P`
@@ -29,7 +29,7 @@ impl Tag {
     // external API easier to use, while having the internal types in place to allow the needed
     // changes.
     pub fn new<P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, params: P) -> Self {
-        Self(RuntimeTag::new(store, params))
+        Self(BackendTag::new(store, params))
     }
 
     /// Returns the [`TagType`] of the tag.
@@ -38,7 +38,7 @@ impl Tag {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
-        Self(RuntimeTag::from_vm_extern(store, vm_extern))
+        Self(BackendTag::from_vm_extern(store, vm_extern))
     }
 
     /// Checks whether this tag can be used with the given context.

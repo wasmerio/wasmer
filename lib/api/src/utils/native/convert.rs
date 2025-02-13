@@ -198,32 +198,32 @@ impl NativeWasmTypeInto for Option<ExternRef> {
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => {
+            crate::BackendStore::Sys(_) => {
                 wasmer_vm::VMExternRef::from_raw(RawValue { externref: abi }).map(VMExternRef::Sys)
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
-                crate::rt::wamr::vm::VMExternRef::from_raw(RawValue { externref: abi })
+            crate::BackendStore::Wamr(_) => {
+                crate::backend::wamr::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Wamr)
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                crate::rt::wasmi::vm::VMExternRef::from_raw(RawValue { externref: abi })
+            crate::BackendStore::Wasmi(_) => {
+                crate::backend::wasmi::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Wasmi)
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                crate::rt::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
+            crate::BackendStore::V8(_) => {
+                crate::backend::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::V8)
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
-                crate::rt::js::vm::VMExternRef::from_raw(RawValue { externref: abi })
+            crate::BackendStore::Js(_) => {
+                crate::backend::js::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Js)
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => {
-                crate::rt::jsc::vm::VMExternRef::from_raw(RawValue { externref: abi })
+            crate::BackendStore::Jsc(_) => {
+                crate::backend::jsc::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Jsc)
             }
         }
@@ -244,28 +244,28 @@ impl NativeWasmTypeInto for Option<ExternRef> {
     unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => {
+            crate::BackendStore::Sys(_) => {
                 wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
-                crate::rt::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
+            crate::BackendStore::Wamr(_) => {
+                crate::backend::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                crate::rt::wasmi::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wasmi)
+            crate::BackendStore::Wasmi(_) => {
+                crate::backend::wasmi::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wasmi)
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                crate::rt::v8::vm::VMExternRef::from_raw(raw).map(VMExternRef::V8)
+            crate::BackendStore::V8(_) => {
+                crate::backend::v8::vm::VMExternRef::from_raw(raw).map(VMExternRef::V8)
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
-                crate::rt::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
+            crate::BackendStore::Js(_) => {
+                crate::backend::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => {
-                crate::rt::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
+            crate::BackendStore::Jsc(_) => {
+                crate::backend::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
             }
         }
         .map(|e| ExternRef::from_vm_externref(store, e))
@@ -292,30 +292,30 @@ impl NativeWasmTypeInto for Option<Function> {
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => {
+            crate::BackendStore::Sys(_) => {
                 wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
-                crate::rt::wamr::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+            crate::BackendStore::Wamr(_) => {
+                crate::backend::wamr::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Wamr)
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                crate::rt::wasmi::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+            crate::BackendStore::Wasmi(_) => {
+                crate::backend::wasmi::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Wasmi)
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                crate::rt::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::V8)
+            crate::BackendStore::V8(_) => {
+                crate::backend::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::V8)
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
-                crate::rt::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Js)
+            crate::BackendStore::Js(_) => {
+                crate::backend::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Js)
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => {
-                crate::rt::jsc::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
+            crate::BackendStore::Jsc(_) => {
+                crate::backend::jsc::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Jsc)
             }
         }
@@ -338,26 +338,26 @@ impl NativeWasmTypeInto for Option<Function> {
     unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys),
+            crate::BackendStore::Sys(_) => wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
-                crate::rt::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
+            crate::BackendStore::Wamr(_) => {
+                crate::backend::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                crate::rt::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
+            crate::BackendStore::Wasmi(_) => {
+                crate::backend::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                crate::rt::v8::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::V8)
+            crate::BackendStore::V8(_) => {
+                crate::backend::v8::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::V8)
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
-                crate::rt::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js)
+            crate::BackendStore::Js(_) => {
+                crate::backend::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js)
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => {
-                crate::rt::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc)
+            crate::BackendStore::Jsc(_) => {
+                crate::backend::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc)
             }
         }
         .map(|f| Function::from_vm_funcref(store, f))

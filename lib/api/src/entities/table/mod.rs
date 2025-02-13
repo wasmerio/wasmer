@@ -5,7 +5,7 @@ pub(crate) use inner::*;
 
 use crate::{
     error::RuntimeError,
-    store::RuntimeStore,
+    store::BackendStore,
     vm::{VMExtern, VMExternTable},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, Value,
 };
@@ -21,7 +21,7 @@ use crate::{
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct Table(pub(crate) RuntimeTable);
+pub struct Table(pub(crate) BackendTable);
 
 impl Table {
     /// Creates a new table with the provided [`TableType`] definition.
@@ -34,7 +34,7 @@ impl Table {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        RuntimeTable::new(store, ty, init).map(Self)
+        BackendTable::new(store, ty, init).map(Self)
     }
 
     /// Returns the [`TableType`] of the table.
@@ -95,11 +95,11 @@ impl Table {
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
-        RuntimeTable::copy(store, &dst_table.0, dst_index, &src_table.0, src_index, len)
+        BackendTable::copy(store, &dst_table.0, dst_index, &src_table.0, src_index, len)
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, ext: VMExternTable) -> Self {
-        Self(RuntimeTable::from_vm_extern(store, ext))
+        Self(BackendTable::from_vm_extern(store, ext))
     }
 
     /// Checks whether this `Table` can be used with the given context.

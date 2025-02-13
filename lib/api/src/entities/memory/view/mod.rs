@@ -13,11 +13,11 @@ pub(crate) use inner::*;
 /// After a memory is grown a view must not be used anymore. Views are
 /// created using the Memory.view() method.
 #[derive(Debug, derive_more::From)]
-pub struct MemoryView<'a>(pub(crate) RuntimeMemoryView<'a>);
+pub struct MemoryView<'a>(pub(crate) BackendMemoryView<'a>);
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        Self(RuntimeMemoryView::new(memory, store))
+        Self(BackendMemoryView::new(memory, store))
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.

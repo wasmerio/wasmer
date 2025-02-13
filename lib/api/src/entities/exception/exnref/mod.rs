@@ -9,7 +9,7 @@ pub(crate) use inner::*;
 
 #[derive(Debug, Clone, derive_more::From)]
 /// An opaque reference to some data. This reference can be passed through Wasm.
-pub struct ExceptionRef(pub(crate) RuntimeExceptionRef);
+pub struct ExceptionRef(pub(crate) BackendExceptionRef);
 
 impl ExceptionRef {
     /// Make a new extern reference
@@ -17,7 +17,7 @@ impl ExceptionRef {
     where
         T: Any + Send + Sync + 'static + Sized,
     {
-        Self(RuntimeExceptionRef::new(store, value))
+        Self(BackendExceptionRef::new(store, value))
     }
 
     /// Try to downcast to the given value.
@@ -38,7 +38,7 @@ impl ExceptionRef {
         store: &mut impl AsStoreMut,
         vm_externref: VMExceptionRef,
     ) -> Self {
-        Self(RuntimeExceptionRef::from_vm_exceptionref(
+        Self(BackendExceptionRef::from_vm_exceptionref(
             store,
             vm_externref,
         ))

@@ -2,7 +2,7 @@ use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
     error::RuntimeError,
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternFunction, VMFuncRef},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
     HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
@@ -30,7 +30,7 @@ gen_rt_ty!(Function
     @derives Debug, Clone, PartialEq, Eq
 );
 
-impl RuntimeFunction {
+impl BackendFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
@@ -101,28 +101,28 @@ impl RuntimeFunction {
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(
-                crate::rt::sys::entities::function::Function::new_with_env(store, env, ty, func),
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::function::Function::new_with_env(store, env, ty, func),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::entities::function::Function::new_with_env(store, env, ty, func),
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::entities::function::Function::new_with_env(store, env, ty, func),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::entities::function::Function::new_with_env(store, env, ty, func),
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::entities::function::Function::new_with_env(store, env, ty, func),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Self::V8(
-                crate::rt::v8::entities::function::Function::new_with_env(store, env, ty, func),
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::entities::function::Function::new_with_env(store, env, ty, func),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(
-                crate::rt::js::entities::function::Function::new_with_env(store, env, ty, func),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_with_env(store, env, ty, func),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::entities::function::Function::new_with_env(store, env, ty, func),
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::entities::function::Function::new_with_env(store, env, ty, func),
             ),
         }
     }
@@ -137,30 +137,30 @@ impl RuntimeFunction {
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(
-                crate::rt::sys::entities::function::Function::new_typed(store, func),
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::function::Function::new_typed(store, func),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::entities::function::Function::new_typed(store, func),
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::entities::function::Function::new_typed(store, func),
             ),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::entities::function::Function::new_typed(store, func),
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::entities::function::Function::new_typed(store, func),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Self::V8(
-                crate::rt::v8::entities::function::Function::new_typed(store, func),
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::entities::function::Function::new_typed(store, func),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(
-                crate::rt::js::entities::function::Function::new_typed(store, func),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_typed(store, func),
             ),
 
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::entities::function::Function::new_typed(store, func),
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::entities::function::Function::new_typed(store, func),
             ),
         }
     }
@@ -196,31 +196,31 @@ impl RuntimeFunction {
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => Self::Sys(
-                crate::rt::sys::entities::function::Function::new_typed_with_env(store, env, func),
+            crate::BackendStore::Sys(s) => Self::Sys(
+                crate::backend::sys::entities::function::Function::new_typed_with_env(store, env, func),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => Self::Wamr(
-                crate::rt::wamr::entities::function::Function::new_typed_with_env(store, env, func),
+            crate::BackendStore::Wamr(s) => Self::Wamr(
+                crate::backend::wamr::entities::function::Function::new_typed_with_env(store, env, func),
             ),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
-                crate::rt::wasmi::entities::function::Function::new_typed_with_env(
+            crate::BackendStore::Wasmi(s) => Self::Wasmi(
+                crate::backend::wasmi::entities::function::Function::new_typed_with_env(
                     store, env, func,
                 ),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => Self::V8(
-                crate::rt::v8::entities::function::Function::new_typed_with_env(store, env, func),
+            crate::BackendStore::V8(s) => Self::V8(
+                crate::backend::v8::entities::function::Function::new_typed_with_env(store, env, func),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(s) => Self::Js(
-                crate::rt::js::entities::function::Function::new_typed_with_env(store, env, func),
+            crate::BackendStore::Js(s) => Self::Js(
+                crate::backend::js::entities::function::Function::new_typed_with_env(store, env, func),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(s) => Self::Jsc(
-                crate::rt::jsc::entities::function::Function::new_typed_with_env(store, env, func),
+            crate::BackendStore::Jsc(s) => Self::Jsc(
+                crate::backend::jsc::entities::function::Function::new_typed_with_env(store, env, func),
             ),
         }
     }
@@ -371,43 +371,43 @@ impl RuntimeFunction {
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => Self::Sys(
-                crate::rt::sys::entities::function::Function::from_vm_funcref(
+            crate::BackendStore::Sys(s) => Self::Sys(
+                crate::backend::sys::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_sys(),
                 ),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => Self::Wamr(
-                crate::rt::wamr::entities::function::Function::from_vm_funcref(
+            crate::BackendStore::Wamr(s) => Self::Wamr(
+                crate::backend::wamr::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_wamr(),
                 ),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
-                crate::rt::wasmi::entities::function::Function::from_vm_funcref(
+            crate::BackendStore::Wasmi(s) => Self::Wasmi(
+                crate::backend::wasmi::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_wasmi(),
                 ),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => Self::V8(
-                crate::rt::v8::entities::function::Function::from_vm_funcref(
+            crate::BackendStore::V8(s) => Self::V8(
+                crate::backend::v8::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_v8(),
                 ),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(s) => Self::Js(
-                crate::rt::js::entities::function::Function::from_vm_funcref(
+            crate::BackendStore::Js(s) => Self::Js(
+                crate::backend::js::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_js(),
                 ),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(s) => Self::Jsc(
-                crate::rt::jsc::entities::function::Function::from_vm_funcref(
+            crate::BackendStore::Jsc(s) => Self::Jsc(
+                crate::backend::jsc::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_jsc(),
                 ),
@@ -537,28 +537,28 @@ impl RuntimeFunction {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(
-                crate::rt::sys::entities::function::Function::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::entities::function::Function::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::entities::function::Function::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Self::V8(
-                crate::rt::v8::entities::function::Function::from_vm_extern(store, vm_extern),
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(
-                crate::rt::js::entities::function::Function::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::entities::function::Function::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
         }
     }
@@ -579,7 +579,7 @@ impl RuntimeFunction {
     }
 }
 
-impl<'a> Exportable<'a> for RuntimeFunction {
+impl<'a> Exportable<'a> for BackendFunction {
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Function(func) => Ok(&func.0),

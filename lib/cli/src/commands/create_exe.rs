@@ -5,7 +5,7 @@ use super::CliCommand;
 use crate::{
     common::{normalize_path, HashAlgorithm},
     config::WasmerEnv,
-    rt::RuntimeOptions,
+    backend::RuntimeOptions,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;

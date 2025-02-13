@@ -1,7 +1,7 @@
 use wasmer_types::{TagType, Type};
 
 use crate::{
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern,
 };
@@ -17,30 +17,30 @@ gen_rt_ty!(Tag
     @derives Debug, Clone, PartialEq, Eq, derive_more::From
 );
 
-impl RuntimeTag {
+impl BackendTag {
     /// Create a new tag with event of type P -> [], that is a function that takes parameters `P`
     /// and has no return value.
     #[inline]
     pub fn new<P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, params: P) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(crate::rt::sys::tag::Tag::new(store, params)),
+            crate::BackendStore::Sys(_) => Self::Sys(crate::backend::sys::tag::Tag::new(store, params)),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
-                Self::Wamr(crate::rt::wamr::tag::Tag::new(store, params))
+            crate::BackendStore::Wamr(_) => {
+                Self::Wamr(crate::backend::wamr::tag::Tag::new(store, params))
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                Self::Wasmi(crate::rt::wasmi::tag::Tag::new(store, params))
+            crate::BackendStore::Wasmi(_) => {
+                Self::Wasmi(crate::backend::wasmi::tag::Tag::new(store, params))
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                Self::V8(crate::rt::v8::entities::tag::Tag::new(store, params))
+            crate::BackendStore::V8(_) => {
+                Self::V8(crate::backend::v8::entities::tag::Tag::new(store, params))
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(crate::rt::js::tag::Tag::new(store, params)),
+            crate::BackendStore::Js(_) => Self::Js(crate::backend::js::tag::Tag::new(store, params)),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(crate::rt::jsc::tag::Tag::new(store, params)),
+            crate::BackendStore::Jsc(_) => Self::Jsc(crate::backend::jsc::tag::Tag::new(store, params)),
         }
     }
 
@@ -56,28 +56,28 @@ impl RuntimeTag {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => {
-                Self::Sys(crate::rt::sys::tag::Tag::from_vm_extern(store, vm_extern))
+            crate::BackendStore::Sys(_) => {
+                Self::Sys(crate::backend::sys::tag::Tag::from_vm_extern(store, vm_extern))
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
-                Self::Wamr(crate::rt::wamr::tag::Tag::from_vm_extern(store, vm_extern))
+            crate::BackendStore::Wamr(_) => {
+                Self::Wamr(crate::backend::wamr::tag::Tag::from_vm_extern(store, vm_extern))
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                Self::Wasmi(crate::rt::wasmi::tag::Tag::from_vm_extern(store, vm_extern))
+            crate::BackendStore::Wasmi(_) => {
+                Self::Wasmi(crate::backend::wasmi::tag::Tag::from_vm_extern(store, vm_extern))
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Self::V8(
-                crate::rt::v8::entities::tag::Tag::from_vm_extern(store, vm_extern),
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::entities::tag::Tag::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(
-                crate::rt::js::entities::tag::Tag::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::tag::Tag::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::entities::tag::Tag::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::entities::tag::Tag::from_vm_extern(store, vm_extern),
             ),
         }
     }
@@ -99,7 +99,7 @@ impl RuntimeTag {
     }
 }
 
-impl<'a> Exportable<'a> for RuntimeTag {
+impl<'a> Exportable<'a> for BackendTag {
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Tag(func) => Ok(&func.0),

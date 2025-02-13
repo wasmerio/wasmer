@@ -1,5 +1,5 @@
 use crate::{
-    error::InstantiationError, exports::Exports, imports::Imports, macros::rt::gen_rt_ty,
+    error::InstantiationError, exports::Exports, imports::Imports, macros::backend::gen_rt_ty,
     module::Module, store::AsStoreMut, Extern,
 };
 
@@ -13,7 +13,7 @@ use crate::{
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone, PartialEq, Eq)]
 pub struct Instance {
-    pub(crate) _inner: RuntimeInstance,
+    pub(crate) _inner: BackendInstance,
     pub(crate) module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -58,36 +58,37 @@ impl Instance {
     ) -> Result<Self, InstantiationError> {
         let (_inner, exports) = match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => {
-                let (i, e) = crate::rt::sys::instance::Instance::new(store, module, imports)?;
-                (crate::RuntimeInstance::Sys(i), e)
+            crate::BackendStore::Sys(_) => {
+                let (i, e) = crate::backend::sys::instance::Instance::new(store, module, imports)?;
+                (crate::BackendInstance::Sys(i), e)
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
-                let (i, e) = crate::rt::wamr::instance::Instance::new(store, module, imports)?;
+            crate::BackendStore::Wamr(_) => {
+                let (i, e) = crate::backend::wamr::instance::Instance::new(store, module, imports)?;
 
-                (crate::RuntimeInstance::Wamr(i), e)
+                (crate::BackendInstance::Wamr(i), e)
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                let (i, e) = crate::rt::wasmi::instance::Instance::new(store, module, imports)?;
+            crate::BackendStore::Wasmi(_) => {
+                let (i, e) =
+                    crate::backend::wasmi::instance::Instance::new(store, module, imports)?;
 
-                (crate::RuntimeInstance::Wasmi(i), e)
+                (crate::BackendInstance::Wasmi(i), e)
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                let (i, e) = crate::rt::v8::instance::Instance::new(store, module, imports)?;
-                (crate::RuntimeInstance::V8(i), e)
+            crate::BackendStore::V8(_) => {
+                let (i, e) = crate::backend::v8::instance::Instance::new(store, module, imports)?;
+                (crate::BackendInstance::V8(i), e)
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
-                let (i, e) = crate::rt::js::instance::Instance::new(store, module, imports)?;
-                (crate::RuntimeInstance::Js(i), e)
+            crate::BackendStore::Js(_) => {
+                let (i, e) = crate::backend::js::instance::Instance::new(store, module, imports)?;
+                (crate::BackendInstance::Js(i), e)
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => {
-                let (i, e) = crate::rt::jsc::instance::Instance::new(store, module, imports)?;
-                (crate::RuntimeInstance::Jsc(i), e)
+            crate::BackendStore::Jsc(_) => {
+                let (i, e) = crate::backend::jsc::instance::Instance::new(store, module, imports)?;
+                (crate::BackendInstance::Jsc(i), e)
             }
         };
 
@@ -116,42 +117,43 @@ impl Instance {
     ) -> Result<Self, InstantiationError> {
         let (_inner, exports) = match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => {
+            crate::BackendStore::Sys(_) => {
                 let (i, e) =
-                    crate::rt::sys::instance::Instance::new_by_index(store, module, externs)?;
-                (crate::RuntimeInstance::Sys(i), e)
+                    crate::backend::sys::instance::Instance::new_by_index(store, module, externs)?;
+                (crate::BackendInstance::Sys(i), e)
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => {
+            crate::BackendStore::Wamr(_) => {
                 let (i, e) =
-                    crate::rt::wamr::instance::Instance::new_by_index(store, module, externs)?;
+                    crate::backend::wamr::instance::Instance::new_by_index(store, module, externs)?;
 
-                (crate::RuntimeInstance::Wamr(i), e)
+                (crate::BackendInstance::Wamr(i), e)
             }
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => {
-                let (i, e) =
-                    crate::rt::wasmi::instance::Instance::new_by_index(store, module, externs)?;
+            crate::BackendStore::Wasmi(_) => {
+                let (i, e) = crate::backend::wasmi::instance::Instance::new_by_index(
+                    store, module, externs,
+                )?;
 
-                (crate::RuntimeInstance::Wasmi(i), e)
+                (crate::BackendInstance::Wasmi(i), e)
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
+            crate::BackendStore::V8(_) => {
                 let (i, e) =
-                    crate::rt::v8::instance::Instance::new_by_index(store, module, externs)?;
-                (crate::RuntimeInstance::V8(i), e)
+                    crate::backend::v8::instance::Instance::new_by_index(store, module, externs)?;
+                (crate::BackendInstance::V8(i), e)
             }
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
+            crate::BackendStore::Js(_) => {
                 let (i, e) =
-                    crate::rt::js::instance::Instance::new_by_index(store, module, externs)?;
-                (crate::RuntimeInstance::Js(i), e)
+                    crate::backend::js::instance::Instance::new_by_index(store, module, externs)?;
+                (crate::BackendInstance::Js(i), e)
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => {
+            crate::BackendStore::Jsc(_) => {
                 let (i, e) =
-                    crate::rt::jsc::instance::Instance::new_by_index(store, module, externs)?;
-                (crate::RuntimeInstance::Jsc(i), e)
+                    crate::backend::jsc::instance::Instance::new_by_index(store, module, externs)?;
+                (crate::BackendInstance::Jsc(i), e)
             }
         };
 

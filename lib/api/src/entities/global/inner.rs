@@ -1,6 +1,6 @@
 use crate::{
     error::RuntimeError,
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef},
     value::Value,
     vm::{VMExtern, VMExternGlobal},
@@ -19,7 +19,7 @@ gen_rt_ty!(Global
     @derives Debug, Clone, PartialEq, Eq, derive_more::From
 );
 
-impl RuntimeGlobal {
+impl BackendGlobal {
     /// Create a new global with the initial [`Value`].
     ///
     /// # Example
@@ -65,29 +65,29 @@ impl RuntimeGlobal {
     ) -> Result<Self, RuntimeError> {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Ok(Self::Sys(
-                crate::rt::sys::global::Global::from_value(store, val, mutability)?,
+            crate::BackendStore::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::global::Global::from_value(store, val, mutability)?,
             )),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Ok(Self::Wamr(
-                crate::rt::wamr::global::Global::from_value(store, val, mutability)?,
+            crate::BackendStore::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::global::Global::from_value(store, val, mutability)?,
             )),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::global::Global::from_value(store, val, mutability)?,
+            crate::BackendStore::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::global::Global::from_value(store, val, mutability)?,
             )),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Ok(Self::V8(crate::rt::v8::global::Global::from_value(
+            crate::BackendStore::V8(_) => Ok(Self::V8(crate::backend::v8::global::Global::from_value(
                 store, val, mutability,
             )?)),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Ok(Self::Js(crate::rt::js::global::Global::from_value(
+            crate::BackendStore::Js(_) => Ok(Self::Js(crate::backend::js::global::Global::from_value(
                 store, val, mutability,
             )?)),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Ok(Self::Jsc(
-                crate::rt::jsc::global::Global::from_value(store, val, mutability)?,
+            crate::BackendStore::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::global::Global::from_value(store, val, mutability)?,
             )),
         }
     }
@@ -184,28 +184,28 @@ impl RuntimeGlobal {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(
-                crate::rt::sys::global::Global::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::global::Global::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::global::Global::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::global::Global::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::global::Global::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::global::Global::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Self::V8(crate::rt::v8::global::Global::from_vm_extern(
+            crate::BackendStore::V8(_) => Self::V8(crate::backend::v8::global::Global::from_vm_extern(
                 store, vm_extern,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(crate::rt::js::global::Global::from_vm_extern(
+            crate::BackendStore::Js(_) => Self::Js(crate::backend::js::global::Global::from_vm_extern(
                 store, vm_extern,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(
-                crate::rt::jsc::global::Global::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::global::Global::from_vm_extern(store, vm_extern),
             ),
         }
     }

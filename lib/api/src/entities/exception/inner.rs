@@ -1,5 +1,5 @@
 use crate::{
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, Tag, Value,
 };
@@ -15,33 +15,33 @@ gen_rt_ty!(Exception
     @derives Debug, Clone, PartialEq, Eq, derive_more::From
 );
 
-impl RuntimeException {
+impl BackendException {
     /// Create a new exception with the given tag type and payload.
     #[inline]
     pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => Self::Sys(crate::rt::sys::exception::Exception::new(
+            crate::BackendStore::Sys(_) => Self::Sys(crate::backend::sys::exception::Exception::new(
                 store, tag, payload,
             )),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(crate::rt::wamr::exception::Exception::new(
+            crate::BackendStore::Wamr(_) => Self::Wamr(crate::backend::wamr::exception::Exception::new(
                 store, tag, payload,
             )),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::exception::Exception::new(store, tag, payload),
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::exception::Exception::new(store, tag, payload),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => Self::V8(crate::rt::v8::exception::Exception::new(
+            crate::BackendStore::V8(_) => Self::V8(crate::backend::v8::exception::Exception::new(
                 store, tag, payload,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => Self::Js(crate::rt::js::exception::Exception::new(
+            crate::BackendStore::Js(_) => Self::Js(crate::backend::js::exception::Exception::new(
                 store, tag, payload,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => Self::Jsc(crate::rt::jsc::exception::Exception::new(
+            crate::BackendStore::Jsc(_) => Self::Jsc(crate::backend::jsc::exception::Exception::new(
                 store, tag, payload,
             )),
         }

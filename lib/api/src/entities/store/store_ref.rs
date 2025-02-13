@@ -34,7 +34,7 @@ impl<'a> StoreRef<'a> {
     #[cfg(feature = "sys")]
     #[inline]
     pub fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
-        use crate::rt::sys::entities::store::NativeStoreExt;
+        use crate::backend::sys::entities::store::NativeStoreExt;
         self.inner.store.as_sys().signal_handler()
     }
 }

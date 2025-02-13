@@ -3,7 +3,7 @@ use crate::{
         engine::{AsEngineRef, Engine},
         store::{StoreMut, StoreObjects},
     },
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     AsStoreMut,
 };
 
@@ -15,7 +15,7 @@ use wasmer_vm::TrapHandlerFn;
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    pub(crate) store: RuntimeStore,
+    pub(crate) store: BackendStore,
     pub(crate) on_called: Option<OnCalledHandler>,
 }
 
@@ -40,7 +40,7 @@ pub type OnCalledHandler = Box<
 
 gen_rt_ty!(Store @derives derive_more::From, Debug; @path store);
 
-impl RuntimeStore {
+impl BackendStore {
     #[inline]
     pub(crate) fn engine(&self) -> &Engine {
         match_rt!(on self => s {
@@ -56,7 +56,7 @@ impl RuntimeStore {
     }
 }
 
-impl AsEngineRef for RuntimeStore {
+impl AsEngineRef for BackendStore {
     #[inline]
     fn as_engine_ref(&self) -> crate::EngineRef<'_> {
         match_rt!(on self => s {

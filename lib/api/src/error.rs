@@ -2,7 +2,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_types::{FrameInfo, ImportError, TrapCode};
 
-use crate::RuntimeTrap as Trap;
+use crate::BackendTrap as Trap;
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).

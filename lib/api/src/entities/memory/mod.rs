@@ -31,7 +31,7 @@ pub use view::*;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct Memory(pub(crate) RuntimeMemory);
+pub struct Memory(pub(crate) BackendMemory);
 
 impl Memory {
     /// Creates a new host [`Memory`] from the provided [`MemoryType`].
@@ -48,12 +48,12 @@ impl Memory {
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        RuntimeMemory::new(store, ty).map(Self)
+        BackendMemory::new(store, ty).map(Self)
     }
 
     /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        Self(RuntimeMemory::new_from_existing(new_store, memory))
+        Self(BackendMemory::new_from_existing(new_store, memory))
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -151,7 +151,7 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
-        Self(RuntimeMemory::from_vm_extern(store, vm_extern))
+        Self(BackendMemory::from_vm_extern(store, vm_extern))
     }
 
     /// Checks whether this `Memory` can be used with the given context.

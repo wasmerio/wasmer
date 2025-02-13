@@ -434,8 +434,8 @@ pub use entities::*;
 mod error;
 pub use error::*;
 
-mod rt;
-pub use rt::*;
+mod backend;
+pub use backend::*;
 mod vm;
 
 pub use wasmer_types::{

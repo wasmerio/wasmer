@@ -2,7 +2,7 @@ use super::{shared::SharedMemory, view::*};
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternMemory, VMMemory},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
 };
@@ -12,7 +12,7 @@ gen_rt_ty!(Memory
     @derives Debug, Clone, PartialEq, Eq, derive_more::From
 );
 
-impl RuntimeMemory {
+impl BackendMemory {
     /// Creates a new host [`Memory`] from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store
@@ -30,28 +30,28 @@ impl RuntimeMemory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => Ok(Self::Sys(
-                crate::rt::sys::entities::memory::Memory::new(store, ty)?,
+            crate::BackendStore::Sys(s) => Ok(Self::Sys(
+                crate::backend::sys::entities::memory::Memory::new(store, ty)?,
             )),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => Ok(Self::Wamr(
-                crate::rt::wamr::entities::memory::Memory::new(store, ty)?,
+            crate::BackendStore::Wamr(s) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::memory::Memory::new(store, ty)?,
             )),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(s) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::memory::Memory::new(store, ty)?,
+            crate::BackendStore::Wasmi(s) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::memory::Memory::new(store, ty)?,
             )),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => Ok(Self::V8(
-                crate::rt::v8::entities::memory::Memory::new(store, ty)?,
+            crate::BackendStore::V8(s) => Ok(Self::V8(
+                crate::backend::v8::entities::memory::Memory::new(store, ty)?,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(s) => Ok(Self::Js(
-                crate::rt::js::entities::memory::Memory::new(store, ty)?,
+            crate::BackendStore::Js(s) => Ok(Self::Js(
+                crate::backend::js::entities::memory::Memory::new(store, ty)?,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(s) => Ok(Self::Jsc(
-                crate::rt::jsc::entities::memory::Memory::new(store, ty)?,
+            crate::BackendStore::Jsc(s) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::memory::Memory::new(store, ty)?,
             )),
         }
     }
@@ -61,47 +61,47 @@ impl RuntimeMemory {
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         match new_store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(_) => {
-                Self::Sys(crate::rt::sys::entities::memory::Memory::new_from_existing(
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.into_sys(),
-                ))
-            }
+                ),
+            ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(_) => Self::Wamr(
-                crate::rt::wamr::entities::memory::Memory::new_from_existing(
+            crate::BackendStore::Wamr(_) => Self::Wamr(
+                crate::backend::wamr::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.into_wamr(),
                 ),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(_) => Self::Wasmi(
-                crate::rt::wasmi::entities::memory::Memory::new_from_existing(
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+                crate::backend::wasmi::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.into_wasmi(),
                 ),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(_) => {
-                Self::V8(crate::rt::v8::entities::memory::Memory::new_from_existing(
+            crate::BackendStore::V8(_) => Self::V8(
+                crate::backend::v8::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.into_v8(),
-                ))
-            }
+                ),
+            ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(_) => {
-                Self::Js(crate::rt::js::entities::memory::Memory::new_from_existing(
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.into_js(),
-                ))
-            }
+                ),
+            ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(_) => {
-                Self::Jsc(crate::rt::jsc::entities::memory::Memory::new_from_existing(
+            crate::BackendStore::Jsc(_) => Self::Jsc(
+                crate::backend::jsc::entities::memory::Memory::new_from_existing(
                     new_store,
                     memory.into_jsc(),
-                ))
-            }
+                ),
+            ),
         }
     }
 
@@ -215,7 +215,7 @@ impl RuntimeMemory {
             Self::Sys(s) => s.try_copy(store).map(|new_memory| {
                 Self::new_from_existing(
                     new_store,
-                    VMMemory::Sys(crate::rt::sys::vm::VMMemory(new_memory)),
+                    VMMemory::Sys(crate::backend::sys::vm::VMMemory(new_memory)),
                 )
             }),
             #[cfg(feature = "wamr")]
@@ -246,28 +246,28 @@ impl RuntimeMemory {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::RuntimeStore::Sys(s) => Self::Sys(
-                crate::rt::sys::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Sys(s) => Self::Sys(
+                crate::backend::sys::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "wamr")]
-            crate::RuntimeStore::Wamr(s) => Self::Wamr(
-                crate::rt::wamr::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Wamr(s) => Self::Wamr(
+                crate::backend::wamr::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "wasmi")]
-            crate::RuntimeStore::Wasmi(s) => Self::Wasmi(
-                crate::rt::wasmi::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Wasmi(s) => Self::Wasmi(
+                crate::backend::wasmi::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "v8")]
-            crate::RuntimeStore::V8(s) => Self::V8(
-                crate::rt::v8::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            crate::BackendStore::V8(s) => Self::V8(
+                crate::backend::v8::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "js")]
-            crate::RuntimeStore::Js(s) => Self::Js(
-                crate::rt::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Js(s) => Self::Js(
+                crate::backend::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
             #[cfg(feature = "jsc")]
-            crate::RuntimeStore::Jsc(s) => Self::Jsc(
-                crate::rt::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
+            crate::BackendStore::Jsc(s) => Self::Jsc(
+                crate::backend::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
         }
     }

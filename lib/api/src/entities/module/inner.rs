@@ -13,7 +13,7 @@ use wasmer_types::{
 };
 
 use crate::{
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     utils::IntoBytes,
     AsEngineRef,
 };
@@ -42,7 +42,7 @@ gen_rt_ty!(Module
     @derives Clone, PartialEq, Eq, derive_more::From
 );
 
-impl RuntimeModule {
+impl BackendModule {
     #[inline]
     pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
@@ -78,35 +78,35 @@ impl RuntimeModule {
     /// this crate).
     #[inline]
     pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        match engine.as_engine_ref().inner.rt {
+        match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
-                crate::rt::sys::entities::module::Module::from_binary(engine, binary)?,
+            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::entities::module::Module::from_binary(engine, binary)?,
             )),
 
             #[cfg(feature = "wamr")]
-            crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::rt::wamr::entities::module::Module::from_binary(engine, binary)?,
+            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::module::Module::from_binary(engine, binary)?,
             )),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::module::Module::from_binary(engine, binary)?,
+            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::module::Module::from_binary(engine, binary)?,
             )),
 
             #[cfg(feature = "v8")]
-            crate::RuntimeEngine::V8(_) => Ok(Self::V8(
-                crate::rt::v8::entities::module::Module::from_binary(engine, binary)?,
+            crate::BackendEngine::V8(_) => Ok(Self::V8(
+                crate::backend::v8::entities::module::Module::from_binary(engine, binary)?,
             )),
 
             #[cfg(feature = "js")]
-            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
-                crate::rt::js::entities::module::Module::from_binary(engine, binary)?,
+            crate::BackendEngine::Js(_) => Ok(Self::Js(
+                crate::backend::js::entities::module::Module::from_binary(engine, binary)?,
             )),
 
             #[cfg(feature = "jsc")]
-            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::rt::jsc::entities::module::Module::from_binary(engine, binary)?,
+            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::module::Module::from_binary(engine, binary)?,
             )),
         }
     }
@@ -124,33 +124,45 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        match engine.as_engine_ref().inner.rt {
+        match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
-                crate::rt::sys::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::entities::module::Module::from_binary_unchecked(
+                    engine, binary,
+                )?,
             )),
 
             #[cfg(feature = "wamr")]
-            crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::rt::wamr::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::module::Module::from_binary_unchecked(
+                    engine, binary,
+                )?,
             )),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::module::Module::from_binary_unchecked(
+                    engine, binary,
+                )?,
             )),
 
             #[cfg(feature = "v8")]
-            crate::RuntimeEngine::V8(_) => Ok(Self::V8(
-                crate::rt::v8::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            crate::BackendEngine::V8(_) => Ok(Self::V8(
+                crate::backend::v8::entities::module::Module::from_binary_unchecked(
+                    engine, binary,
+                )?,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
-                crate::rt::js::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            crate::BackendEngine::Js(_) => Ok(Self::Js(
+                crate::backend::js::entities::module::Module::from_binary_unchecked(
+                    engine, binary,
+                )?,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::rt::jsc::entities::module::Module::from_binary_unchecked(engine, binary)?,
+            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::module::Module::from_binary_unchecked(
+                    engine, binary,
+                )?,
             )),
         }
     }
@@ -163,31 +175,31 @@ impl RuntimeModule {
     /// validation of the Module.
     #[inline]
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        match engine.as_engine_ref().inner.rt {
+        match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::RuntimeEngine::Sys(_) => {
-                crate::rt::sys::entities::module::Module::validate(engine, binary)?
+            crate::BackendEngine::Sys(_) => {
+                crate::backend::sys::entities::module::Module::validate(engine, binary)?
             }
             #[cfg(feature = "wamr")]
-            crate::RuntimeEngine::Wamr(_) => {
-                crate::rt::wamr::entities::module::Module::validate(engine, binary)?
+            crate::BackendEngine::Wamr(_) => {
+                crate::backend::wamr::entities::module::Module::validate(engine, binary)?
             }
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeEngine::Wasmi(_) => {
-                crate::rt::wasmi::entities::module::Module::validate(engine, binary)?
+            crate::BackendEngine::Wasmi(_) => {
+                crate::backend::wasmi::entities::module::Module::validate(engine, binary)?
             }
             #[cfg(feature = "v8")]
-            crate::RuntimeEngine::V8(_) => {
-                crate::rt::v8::entities::module::Module::validate(engine, binary)?
+            crate::BackendEngine::V8(_) => {
+                crate::backend::v8::entities::module::Module::validate(engine, binary)?
             }
             #[cfg(feature = "js")]
-            crate::RuntimeEngine::Js(_) => {
-                crate::rt::js::entities::module::Module::validate(engine, binary)?
+            crate::BackendEngine::Js(_) => {
+                crate::backend::js::entities::module::Module::validate(engine, binary)?
             }
             #[cfg(feature = "jsc")]
-            crate::RuntimeEngine::Jsc(_) => {
-                crate::rt::jsc::entities::module::Module::validate(engine, binary)?
+            crate::BackendEngine::Jsc(_) => {
+                crate::backend::jsc::entities::module::Module::validate(engine, binary)?
             }
         }
         Ok(())
@@ -276,31 +288,39 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.rt {
+        match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
-                crate::rt::sys::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::entities::module::Module::deserialize_unchecked(
+                    engine, bytes,
+                )?,
             )),
             #[cfg(feature = "wamr")]
-            crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::rt::wamr::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::module::Module::deserialize_unchecked(
+                    engine, bytes,
+                )?,
             )),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::module::Module::deserialize_unchecked(
+                    engine, bytes,
+                )?,
             )),
             #[cfg(feature = "v8")]
-            crate::RuntimeEngine::V8(_) => Ok(Self::V8(
-                crate::rt::v8::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            crate::BackendEngine::V8(_) => Ok(Self::V8(
+                crate::backend::v8::entities::module::Module::deserialize_unchecked(engine, bytes)?,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
-                crate::rt::js::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            crate::BackendEngine::Js(_) => Ok(Self::Js(
+                crate::backend::js::entities::module::Module::deserialize_unchecked(engine, bytes)?,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::rt::jsc::entities::module::Module::deserialize_unchecked(engine, bytes)?,
+            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::module::Module::deserialize_unchecked(
+                    engine, bytes,
+                )?,
             )),
         }
     }
@@ -335,31 +355,31 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.rt {
+        match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
-                crate::rt::sys::entities::module::Module::deserialize(engine, bytes)?,
+            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::entities::module::Module::deserialize(engine, bytes)?,
             )),
             #[cfg(feature = "wamr")]
-            crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::rt::wamr::entities::module::Module::deserialize(engine, bytes)?,
+            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::module::Module::deserialize(engine, bytes)?,
             )),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::module::Module::deserialize(engine, bytes)?,
+            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::module::Module::deserialize(engine, bytes)?,
             )),
             #[cfg(feature = "v8")]
-            crate::RuntimeEngine::V8(_) => Ok(Self::V8(
-                crate::rt::v8::entities::module::Module::deserialize(engine, bytes)?,
+            crate::BackendEngine::V8(_) => Ok(Self::V8(
+                crate::backend::v8::entities::module::Module::deserialize(engine, bytes)?,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
-                crate::rt::js::entities::module::Module::deserialize(engine, bytes)?,
+            crate::BackendEngine::Js(_) => Ok(Self::Js(
+                crate::backend::js::entities::module::Module::deserialize(engine, bytes)?,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::rt::jsc::entities::module::Module::deserialize(engine, bytes)?,
+            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::module::Module::deserialize(engine, bytes)?,
             )),
         }
     }
@@ -386,31 +406,35 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.rt {
+        match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
-                crate::rt::sys::entities::module::Module::deserialize_from_file(engine, path)?,
+            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
             #[cfg(feature = "wamr")]
-            crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::rt::wamr::entities::module::Module::deserialize_from_file(engine, path)?,
+            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::module::Module::deserialize_from_file(
+                    engine, path,
+                )?,
             )),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::module::Module::deserialize_from_file(engine, path)?,
+            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::module::Module::deserialize_from_file(
+                    engine, path,
+                )?,
             )),
             #[cfg(feature = "v8")]
-            crate::RuntimeEngine::V8(_) => Ok(Self::V8(
-                crate::rt::v8::entities::module::Module::deserialize_from_file(engine, path)?,
+            crate::BackendEngine::V8(_) => Ok(Self::V8(
+                crate::backend::v8::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
-                crate::rt::js::entities::module::Module::deserialize_from_file(engine, path)?,
+            crate::BackendEngine::Js(_) => Ok(Self::Js(
+                crate::backend::js::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::rt::jsc::entities::module::Module::deserialize_from_file(engine, path)?,
+            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
         }
     }
@@ -439,41 +463,41 @@ impl RuntimeModule {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.rt {
+        match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
-            crate::RuntimeEngine::Sys(_) => Ok(Self::Sys(
-                crate::rt::sys::entities::module::Module::deserialize_from_file_unchecked(
+            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::entities::module::Module::deserialize_from_file_unchecked(
                     engine, path,
                 )?,
             )),
             #[cfg(feature = "wamr")]
-            crate::RuntimeEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::rt::wamr::entities::module::Module::deserialize_from_file_unchecked(
+            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::module::Module::deserialize_from_file_unchecked(
                     engine, path,
                 )?,
             )),
 
             #[cfg(feature = "wasmi")]
-            crate::RuntimeEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::rt::wasmi::entities::module::Module::deserialize_from_file_unchecked(
+            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::module::Module::deserialize_from_file_unchecked(
                     engine, path,
                 )?,
             )),
             #[cfg(feature = "v8")]
-            crate::RuntimeEngine::V8(_) => Ok(Self::V8(
-                crate::rt::v8::entities::module::Module::deserialize_from_file_unchecked(
+            crate::BackendEngine::V8(_) => Ok(Self::V8(
+                crate::backend::v8::entities::module::Module::deserialize_from_file_unchecked(
                     engine, path,
                 )?,
             )),
             #[cfg(feature = "js")]
-            crate::RuntimeEngine::Js(_) => Ok(Self::Js(
-                crate::rt::js::entities::module::Module::deserialize_from_file_unchecked(
+            crate::BackendEngine::Js(_) => Ok(Self::Js(
+                crate::backend::js::entities::module::Module::deserialize_from_file_unchecked(
                     engine, path,
                 )?,
             )),
             #[cfg(feature = "jsc")]
-            crate::RuntimeEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::rt::jsc::entities::module::Module::deserialize_from_file_unchecked(
+            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::module::Module::deserialize_from_file_unchecked(
                     engine, path,
                 )?,
             )),
@@ -621,9 +645,9 @@ impl RuntimeModule {
     }
 }
 
-impl std::fmt::Debug for RuntimeModule {
+impl std::fmt::Debug for BackendModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RuntimeModule")
+        f.debug_struct("BackendModule")
             .field("name", &self.name())
             .finish()
     }

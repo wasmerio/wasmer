@@ -18,12 +18,12 @@ use crate::{
 /// Spec: <https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md#exceptions>
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct Exception(pub(crate) RuntimeException);
+pub struct Exception(pub(crate) BackendException);
 
 impl Exception {
     /// Create a new exception with the given tag type and payload.
     pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
-        Self(RuntimeException::new(store, tag, payload))
+        Self(BackendException::new(store, tag, payload))
     }
 
     /// Checks whether this `Exception` comes from the given store.

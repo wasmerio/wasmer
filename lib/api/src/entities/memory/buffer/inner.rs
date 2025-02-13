@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     MemoryAccessError,
 };
 
@@ -11,7 +11,7 @@ gen_rt_ty!(MemoryBuffer<'a>
     @path memory
 );
 
-impl<'a> RuntimeMemoryBuffer<'a> {
+impl<'a> BackendMemoryBuffer<'a> {
     #[allow(unused)]
     #[inline]
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {

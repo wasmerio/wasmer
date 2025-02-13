@@ -6,29 +6,29 @@ use wasmer_types::DeserializeError;
 use wasmer_compiler::Artifact;
 
 use crate::{
-    macros::rt::{gen_rt_ty, match_rt},
+    macros::backend::{gen_rt_ty, match_rt},
     IntoBytes, Store,
 };
 
 gen_rt_ty!(Engine @derives Debug, Clone);
 
-impl RuntimeEngine {
+impl BackendEngine {
     /// Returns the [`crate::Runtime`] kind this engine belongs to.
     #[inline]
-    pub fn get_rt_kind(&self) -> crate::RuntimeKind {
+    pub fn get_be_kind(&self) -> crate::BackendKind {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(_) => crate::RuntimeKind::Sys,
+            Self::Sys(_) => crate::BackendKind::Sys,
             #[cfg(feature = "v8")]
-            Self::V8(_) => crate::RuntimeKind::V8,
+            Self::V8(_) => crate::BackendKind::V8,
             #[cfg(feature = "wamr")]
-            Self::Wamr(_) => crate::RuntimeKind::Wamr,
+            Self::Wamr(_) => crate::BackendKind::Wamr,
             #[cfg(feature = "wasmi")]
-            Self::Wasmi(_) => crate::RuntimeKind::Wasmi,
+            Self::Wasmi(_) => crate::BackendKind::Wasmi,
             #[cfg(feature = "js")]
-            Self::Js(_) => crate::RuntimeKind::Js,
+            Self::Js(_) => crate::BackendKind::Js,
             #[cfg(feature = "jsc")]
-            Self::Jsc(_) => crate::RuntimeKind::Jsc,
+            Self::Jsc(_) => crate::BackendKind::Jsc,
         }
     }
 
@@ -142,68 +142,68 @@ impl RuntimeEngine {
     }
 }
 
-impl Default for RuntimeEngine {
+impl Default for BackendEngine {
     #[allow(unreachable_code)]
     #[inline]
     fn default() -> Self {
         #[cfg(feature = "sys-default")]
         {
-            return Self::Sys(crate::rt::sys::entities::engine::default_engine());
+            return Self::Sys(crate::backend::sys::entities::engine::default_engine());
         }
 
         #[cfg(feature = "wamr-default")]
         {
-            return Self::Wamr(crate::rt::wamr::entities::engine::default_engine());
+            return Self::Wamr(crate::backend::wamr::entities::engine::default_engine());
         }
 
         #[cfg(feature = "wasmi-default")]
         {
-            return Self::Wasmi(crate::rt::wasmi::entities::engine::default_engine());
+            return Self::Wasmi(crate::backend::wasmi::entities::engine::default_engine());
         }
 
         #[cfg(feature = "v8-default")]
         {
-            return Self::V8(crate::rt::v8::entities::engine::default_engine());
+            return Self::V8(crate::backend::v8::entities::engine::default_engine());
         }
 
         #[cfg(feature = "js-default")]
         {
-            return Self::Js(crate::rt::js::entities::engine::default_engine());
+            return Self::Js(crate::backend::js::entities::engine::default_engine());
         }
 
         #[cfg(feature = "jsc-default")]
         {
-            return Self::Jsc(crate::rt::jsc::entities::engine::default_engine());
+            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
         }
 
         #[cfg(feature = "sys")]
         {
-            return Self::Sys(crate::rt::sys::entities::engine::default_engine());
+            return Self::Sys(crate::backend::sys::entities::engine::default_engine());
         }
 
         #[cfg(feature = "wamr")]
         {
-            return Self::Wamr(crate::rt::wamr::entities::engine::default_engine());
+            return Self::Wamr(crate::backend::wamr::entities::engine::default_engine());
         }
 
         #[cfg(feature = "wasmi")]
         {
-            return Self::Wasmi(crate::rt::wasmi::entities::engine::default_engine());
+            return Self::Wasmi(crate::backend::wasmi::entities::engine::default_engine());
         }
 
         #[cfg(feature = "v8")]
         {
-            return Self::V8(crate::rt::v8::entities::engine::default_engine());
+            return Self::V8(crate::backend::v8::entities::engine::default_engine());
         }
 
         #[cfg(feature = "js")]
         {
-            return Self::Js(crate::rt::js::entities::engine::default_engine());
+            return Self::Js(crate::backend::js::entities::engine::default_engine());
         }
 
         #[cfg(feature = "jsc")]
         {
-            return Self::Jsc(crate::rt::jsc::entities::engine::default_engine());
+            return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
         }
 
         panic!("No runtime enabled!")

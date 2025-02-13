@@ -1,13 +1,13 @@
 pub(crate) mod inner;
 pub(crate) use inner::*;
 
-use crate::{macros::rt::match_rt, AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+use crate::{macros::backend::match_rt, AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 #[derive(Debug, derive_more::From)]
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
-pub struct FunctionEnv<T>(pub(crate) RuntimeFunctionEnv<T>);
+pub struct FunctionEnv<T>(pub(crate) BackendFunctionEnv<T>);
 
 impl<T> Clone for FunctionEnv<T> {
     fn clone(&self) -> Self {
@@ -21,7 +21,7 @@ impl<T> FunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        Self(RuntimeFunctionEnv::new(store, value))
+        Self(BackendFunctionEnv::new(store, value))
     }
 
     //#[allow(dead_code)] // This function is only used in js
@@ -56,7 +56,7 @@ impl<T> FunctionEnv<T> {
 
 /// A temporary handle to a [`FunctionEnv`].
 #[derive(derive_more::From)]
-pub struct FunctionEnvMut<'a, T: 'a>(pub(crate) RuntimeFunctionEnvMut<'a, T>);
+pub struct FunctionEnvMut<'a, T: 'a>(pub(crate) BackendFunctionEnvMut<'a, T>);
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this function environement.

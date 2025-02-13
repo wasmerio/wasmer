@@ -18,7 +18,7 @@ pub(crate) use inner::*;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct Global(pub(crate) RuntimeGlobal);
+pub struct Global(pub(crate) BackendGlobal);
 
 impl Global {
     /// Create a new global with the initial [`Value`].
@@ -35,7 +35,7 @@ impl Global {
     /// assert_eq!(g.ty(&mut store).mutability, Mutability::Const);
     /// ```
     pub fn new(store: &mut impl AsStoreMut, val: Value) -> Self {
-        Self(RuntimeGlobal::new(store, val))
+        Self(BackendGlobal::new(store, val))
     }
 
     /// Create a mutable global with the initial [`Value`].
@@ -52,7 +52,7 @@ impl Global {
     /// assert_eq!(g.ty(&mut store).mutability, Mutability::Var);
     /// ```
     pub fn new_mut(store: &mut impl AsStoreMut, val: Value) -> Self {
-        Self(RuntimeGlobal::new_mut(store, val))
+        Self(BackendGlobal::new_mut(store, val))
     }
 
     /// Create a global with the initial [`Value`] and the provided [`Mutability`].
@@ -61,7 +61,7 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        RuntimeGlobal::from_value(store, val, mutability).map(Self)
+        BackendGlobal::from_value(store, val, mutability).map(Self)
     }
 
     /// Returns the [`GlobalType`] of the global.
@@ -144,7 +144,7 @@ impl Global {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
-        Self(RuntimeGlobal::from_vm_extern(store, vm_extern))
+        Self(BackendGlobal::from_vm_extern(store, vm_extern))
     }
 
     /// Checks whether this global can be used with the given context.

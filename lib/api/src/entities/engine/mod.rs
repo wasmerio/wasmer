@@ -15,7 +15,7 @@ mod engine_ref;
 
 /// The actual (private) definition of the engines.
 mod inner;
-pub(crate) use inner::RuntimeEngine;
+pub(crate) use inner::BackendEngine;
 
 pub use engine_ref::*;
 
@@ -28,14 +28,14 @@ pub struct EngineId(u64);
 /// ..).
 #[derive(Debug, Clone)]
 pub struct Engine {
-    pub(crate) rt: RuntimeEngine,
+    pub(crate) be: BackendEngine,
     pub(crate) id: u64,
 }
 
 impl Default for Engine {
     fn default() -> Self {
         Self {
-            rt: Default::default(),
+            be: Default::default(),
             id: Self::atomic_next_engine_id(),
         }
     }
@@ -48,14 +48,14 @@ impl Engine {
         ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
-    /// Returns the [`crate::RuntimeKind`] kind this engine belongs to.
-    pub fn get_rt_kind(&self) -> crate::RuntimeKind {
-        self.rt.get_rt_kind()
+    /// Returns the [`crate::BackendKind`] kind this engine belongs to.
+    pub fn get_backend_kind(&self) -> crate::BackendKind {
+        self.be.get_be_kind()
     }
 
     /// Returns the deterministic id of this engine.
     pub fn deterministic_id(&self) -> &str {
-        self.rt.deterministic_id()
+        self.be.deterministic_id()
     }
 
     /// Returns the unique id of this engine.
@@ -81,7 +81,7 @@ impl Engine {
         &self,
         bytes: impl IntoBytes,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        self.rt.deserialize_unchecked(bytes)
+        self.be.deserialize_unchecked(bytes)
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -93,7 +93,7 @@ impl Engine {
     /// Currently, only the `sys` engines support it, and only when the target
     /// architecture is not `wasm32`.
     unsafe fn deserialize(&self, bytes: impl IntoBytes) -> Result<Arc<Artifact>, DeserializeError> {
-        self.rt.deserialize(bytes)
+        self.be.deserialize(bytes)
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -113,7 +113,7 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        self.rt.deserialize_from_file_unchecked(file_ref)
+        self.be.deserialize_from_file_unchecked(file_ref)
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -130,6 +130,6 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        self.rt.deserialize_from_file_unchecked(file_ref)
+        self.be.deserialize_from_file_unchecked(file_ref)
     }
 }

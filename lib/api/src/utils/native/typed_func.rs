@@ -9,7 +9,7 @@
 //! ```
 use crate::{
     store::AsStoreRef, AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto,
-    RuntimeError, RuntimeStore, WasmTypeList,
+    RuntimeError, BackendStore, WasmTypeList,
 };
 use std::marker::PhantomData;
 use wasmer_types::RawValue;
@@ -63,17 +63,17 @@ macro_rules! impl_native_traits {
                 )*
                 match store.as_store_mut().inner.store {
                     #[cfg(feature = "sys")]
-                    RuntimeStore::Sys(_) => self.call_sys(store, $([<p_ $x>]),*),
+                    BackendStore::Sys(_) => self.call_sys(store, $([<p_ $x>]),*),
                     #[cfg(feature = "wamr")]
-                    RuntimeStore::Wamr(_) => self.call_wamr(store, $([<p_ $x>]),*),
+                    BackendStore::Wamr(_) => self.call_wamr(store, $([<p_ $x>]),*),
                     #[cfg(feature = "wasmi")]
-                    RuntimeStore::Wasmi(_) => self.call_wasmi(store, $([<p_ $x>]),*),
+                    BackendStore::Wasmi(_) => self.call_wasmi(store, $([<p_ $x>]),*),
                     #[cfg(feature = "v8")]
-                    RuntimeStore::V8(_) => self.call_v8(store, $([<p_ $x>]),*),
+                    BackendStore::V8(_) => self.call_v8(store, $([<p_ $x>]),*),
                     #[cfg(feature = "js")]
-                    RuntimeStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),
+                    BackendStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),
                     #[cfg(feature = "jsc")]
-                    RuntimeStore::Jsc(_) => self.call_jsc(store, $([<p_ $x>]),*),
+                    BackendStore::Jsc(_) => self.call_jsc(store, $([<p_ $x>]),*),
 
                 }
             }
@@ -85,17 +85,17 @@ macro_rules! impl_native_traits {
             pub fn call_raw(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
                 match store.as_store_mut().inner.store {
                     #[cfg(feature = "sys")]
-                    RuntimeStore::Sys(_) => self.call_raw_sys(store, params_list),
+                    BackendStore::Sys(_) => self.call_raw_sys(store, params_list),
                     #[cfg(feature = "wamr")]
-                    RuntimeStore::Wamr(_) => self.call_raw_wamr(store, params_list),
+                    BackendStore::Wamr(_) => self.call_raw_wamr(store, params_list),
                     #[cfg(feature = "wasmi")]
-                    RuntimeStore::Wasmi(_) => self.call_raw_wasmi(store, params_list),
+                    BackendStore::Wasmi(_) => self.call_raw_wasmi(store, params_list),
                     #[cfg(feature = "v8")]
-                    RuntimeStore::V8(_) => self.call_raw_v8(store, params_list),
+                    BackendStore::V8(_) => self.call_raw_v8(store, params_list),
                     #[cfg(feature = "js")]
-                    RuntimeStore::Js(_) => self.call_raw_js(store, params_list),
+                    BackendStore::Js(_) => self.call_raw_js(store, params_list),
                     #[cfg(feature = "jsc")]
-                    RuntimeStore::Jsc(_) => self.call_raw_jsc(store, params_list),
+                    BackendStore::Jsc(_) => self.call_raw_jsc(store, params_list),
                 }
             }
         }

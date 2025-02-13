@@ -7,7 +7,7 @@ pub(crate) use inner::*;
 
 /// Underlying buffer for a memory.
 #[derive(Debug, Copy, Clone, derive_more::From)]
-pub(crate) struct MemoryBuffer<'a>(pub(crate) RuntimeMemoryBuffer<'a>);
+pub(crate) struct MemoryBuffer<'a>(pub(crate) BackendMemoryBuffer<'a>);
 
 impl<'a> MemoryBuffer<'a> {
     #[allow(unused)]

@@ -7,7 +7,7 @@ use wasmer::{
     *,
 };
 
-use crate::{common::HashAlgorithm, rt::RuntimeOptions, warning};
+use crate::{common::HashAlgorithm, backend::RuntimeOptions, warning};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand
