@@ -30,9 +30,9 @@ pub async fn spawn_exec(
 ) -> Result<TaskJoinHandle, SpawnError> {
     spawn_union_fs(&env, &binary).await?;
 
-    let wasm = spawn_load_wasm(&env, &binary, name).await?;
+    let wasm = spawn_load_wasm(&binary, name).await?;
 
-    let module = spawn_load_module(&env, name, wasm, runtime).await?;
+    let module = spawn_load_module(name, wasm, runtime).await?;
 
     // Free the space used by the binary, since we don't need it
     // any longer
@@ -48,13 +48,12 @@ pub async fn spawn_exec_wasm(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    let module = spawn_load_module(&env, name, wasm, runtime).await?;
+    let module = spawn_load_module(name, wasm, runtime).await?;
 
     spawn_exec_module(module, env, runtime)
 }
 
 pub async fn spawn_load_wasm<'a>(
-    env: &WasiEnv,
     binary: &'a BinaryPackage,
     name: &str,
 ) -> Result<&'a [u8], SpawnError> {
@@ -68,7 +67,6 @@ pub async fn spawn_load_wasm<'a>(
           pkg=%binary.id,
           "Unable to spawn a command because its package has no entrypoint",
         );
-        env.on_exit(Some(Errno::Noexec.into())).await;
         return Err(SpawnError::MissingEntrypoint {
             package_id: binary.id.clone(),
         });
@@ -77,7 +75,6 @@ pub async fn spawn_load_wasm<'a>(
 }
 
 pub async fn spawn_load_module(
-    env: &WasiEnv,
     name: &str,
     wasm: &[u8],
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
@@ -90,7 +87,6 @@ pub async fn spawn_load_module(
                 error = &err as &dyn std::error::Error,
                 "Failed to compile the module",
             );
-            env.on_exit(Some(Errno::Noexec.into())).await;
             Err(err)
         }
     }

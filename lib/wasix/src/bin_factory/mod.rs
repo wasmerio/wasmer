@@ -11,7 +11,6 @@ use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
-use wasmer_wasix_types::wasi::Errno;
 
 mod binary_package;
 mod exec;
@@ -80,9 +79,6 @@ impl BinFactory {
                 .ok_or_else(|| SpawnError::BinaryNotFound {
                     binary: name.clone(),
                 });
-            if res.is_err() {
-                env.on_exit(Some(Errno::Noent.into())).await;
-            }
             let executable = res?;
 
             // Execute
@@ -102,7 +98,6 @@ impl BinFactory {
                           pkg=%pkg.id,
                           "Unable to spawn a command because its package has no entrypoint",
                         );
-                        env.on_exit(Some(Errno::Noexec.into())).await;
                         return Err(SpawnError::MissingEntrypoint {
                             package_id: pkg.id.clone(),
                         });
