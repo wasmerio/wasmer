@@ -385,7 +385,6 @@ pub extern "C" fn wasm_engine_new_with_config(
     //#[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
     //return return_with_error("Wasmer has not been compiled with the `compiler` feature.");
 
-
     cfg_if! {
         if #[cfg(feature = "compiler")] {
             #[allow(unused_mut)]
