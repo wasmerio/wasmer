@@ -302,8 +302,45 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
+    VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
+    VMTable, VMTag,
 };
 <span class="kw">use </span>core::slice::Iter;
 <span class="kw">use </span>std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
@@ -312,8 +349,11 @@
 <span class="doccomment">/// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
 </span><span class="kw">pub trait </span>StoreObject: Sized {
-    <span class="kw">fn </span>list(ctx: <span class="kw-2">&amp;</span>StoreObjects) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>&gt;;
-    <span class="kw">fn </span>list_mut(ctx: <span class="kw-2">&amp;mut </span>StoreObjects) -&gt; <span class="kw-2">&amp;mut </span>Vec&lt;<span class="self">Self</span>&gt;;
+    <span class="doccomment">/// List the objects in the store.
+    </span><span class="kw">fn </span>list(ctx: <span class="kw-2">&amp;</span>StoreObjects) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>&gt;;
+
+    <span class="doccomment">/// List the objects in the store, mutably.
+    </span><span class="kw">fn </span>list_mut(ctx: <span class="kw-2">&amp;mut </span>StoreObjects) -&gt; <span class="kw-2">&amp;mut </span>Vec&lt;<span class="self">Self</span>&gt;;
 }
 <span class="macro">macro_rules!</span> impl_context_object {
     ($(<span class="macro-nonterminal">$field</span>:ident =&gt; <span class="macro-nonterminal">$ty</span>:ty,)<span class="kw-2">*</span>) =&gt; {
@@ -336,6 +376,8 @@
     instances =&gt; VMInstance,
     memories =&gt; VMMemory,
     extern_objs =&gt; VMExternObj,
+    exceptions =&gt; VMExceptionObj,
+    tags =&gt; VMTag,
     function_environments =&gt; VMFunctionEnvironment,
 }
 
@@ -349,10 +391,40 @@
     functions: Vec&lt;VMFunction&gt;,
     instances: Vec&lt;VMInstance&gt;,
     extern_objs: Vec&lt;VMExternObj&gt;,
+    exceptions: Vec&lt;VMExceptionObj&gt;,
+    tags: Vec&lt;VMTag&gt;,
     function_environments: Vec&lt;VMFunctionEnvironment&gt;,
 }
 
 <span class="kw">impl </span>StoreObjects {
+    <span class="doccomment">/// Create a new instance of [`Self`]
+    </span><span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">pub fn </span>new(
+        id: StoreId,
+        memories: Vec&lt;VMMemory&gt;,
+        tables: Vec&lt;VMTable&gt;,
+        globals: Vec&lt;VMGlobal&gt;,
+        functions: Vec&lt;VMFunction&gt;,
+        instances: Vec&lt;VMInstance&gt;,
+        extern_objs: Vec&lt;VMExternObj&gt;,
+        exceptions: Vec&lt;VMExceptionObj&gt;,
+        tags: Vec&lt;VMTag&gt;,
+        function_environments: Vec&lt;VMFunctionEnvironment&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            id,
+            memories,
+            tables,
+            globals,
+            functions,
+            instances,
+            extern_objs,
+            function_environments,
+            exceptions,
+            tags,
+        }
+    }
+
     <span class="doccomment">/// Returns the ID of this context.
     </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StoreId {
         <span class="self">self</span>.id

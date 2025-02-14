@@ -935,8 +935,8 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_stdout) = <span class="kw-2">&amp;</span><span class="self">self</span>.assert_stdout {
             <span class="kw">let </span>stdout_str = get_stdio_output(<span class="kw-2">&amp;</span>stdout_rx)<span class="question-mark">?</span>;
-            <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>expected_stdout, <span class="kw-2">&amp;</span>stdout_str);
-            <span class="macro">assert_eq!</span>(stdout_str, expected_stdout.expected);
+            <span class="comment">//dbg!(&amp;expected_stdout, &amp;stdout_str);
+            </span><span class="macro">assert_eq!</span>(stdout_str, expected_stdout.expected);
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_stderr) = <span class="kw-2">&amp;</span><span class="self">self</span>.assert_stderr {

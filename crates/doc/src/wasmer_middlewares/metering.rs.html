@@ -614,6 +614,11 @@
 <a href="#614" id="614">614</a>
 <a href="#615" id="615">615</a>
 <a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! `metering` is a middleware for tracking how many operators are
 //! executed in total and putting a limit on the total number of
 //! operators executed. The WebAssembly instance execution is stopped
@@ -629,8 +634,9 @@
 <span class="kw">use </span>std::sync::{Arc, Mutex};
 <span class="kw">use </span>wasmer::wasmparser::{BlockType <span class="kw">as </span>WpTypeOrFuncType, Operator};
 <span class="kw">use </span>wasmer::{
-    AsStoreMut, ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance,
-    LocalFunctionIndex, MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
+    sys::{FunctionMiddleware, MiddlewareError, MiddlewareReaderState, ModuleMiddleware},
+    AsStoreMut, ExportIndex, GlobalInit, GlobalType, Instance, LocalFunctionIndex, Mutability,
+    Type,
 };
 <span class="kw">use </span>wasmer_types::{GlobalIndex, ModuleInfo};
 
@@ -675,7 +681,7 @@
 ///
 /// ```rust
 /// use std::sync::Arc;
-/// use wasmer::{wasmparser::Operator, CompilerConfig};
+/// use wasmer::{wasmparser::Operator, sys::CompilerConfig};
 /// use wasmer_middlewares::Metering;
 ///
 /// fn create_metering_middleware(compiler_config: &amp;mut dyn CompilerConfig) {
@@ -1011,7 +1017,11 @@
 
     <span class="kw">use </span>std::sync::Arc;
     <span class="kw">use </span>wasmer::sys::EngineBuilder;
-    <span class="kw">use </span>wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, TypedFunction};
+    <span class="kw">use </span>wasmer::{
+        imports,
+        sys::{CompilerConfig, Cranelift},
+        wat2wasm, Module, Store, TypedFunction,
+    };
 
     <span class="kw">fn </span>cost_function(operator: <span class="kw-2">&amp;</span>Operator) -&gt; u64 {
         <span class="kw">match </span>operator {

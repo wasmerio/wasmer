@@ -252,6 +252,11 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::types::{wasm_ref_t, wasm_valkind_enum};
 <span class="kw">use </span>std::convert::{TryFrom, TryInto};
 <span class="kw">use </span>wasmer_api::Value;
@@ -351,9 +356,11 @@
             <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_EXTERNREF) =&gt; {
                 ds.field(<span class="string">"anyref"</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.wref });
             }
-
             <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_FUNCREF) =&gt; {
                 ds.field(<span class="string">"funcref"</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.wref });
+            }
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_EXNREF) =&gt; {
+                ds.field(<span class="string">"exnref"</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.wref });
             }
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                 ds.field(<span class="string">"value"</span>, <span class="kw-2">&amp;</span><span class="string">"Invalid value type"</span>);
@@ -406,6 +413,7 @@
             },
             wasm_valkind_enum::WASM_EXTERNREF =&gt; wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF =&gt; wasm_val_inner { wref: val.of.wref },
+            wasm_valkind_enum::WASM_EXNREF =&gt; wasm_val_inner { wref: val.of.wref },
         }
     }); otherwise ());
 }
@@ -442,6 +450,7 @@
             <span class="number">3 </span>=&gt; wasm_valkind_enum::WASM_F64,
             <span class="number">128 </span>=&gt; wasm_valkind_enum::WASM_EXTERNREF,
             <span class="number">129 </span>=&gt; wasm_valkind_enum::WASM_FUNCREF,
+            <span class="number">130 </span>=&gt; wasm_valkind_enum::WASM_EXNREF,
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"valkind value out of bounds"</span>),
         })
     }
@@ -468,6 +477,7 @@
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"EXTERNREF not supported at this time"</span>)
             }
             wasm_valkind_enum::WASM_FUNCREF =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"FUNCREF not supported at this time"</span>),
+            wasm_valkind_enum::WASM_EXNREF =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"EXNREF not supported at this time"</span>),
         })
     }
 }

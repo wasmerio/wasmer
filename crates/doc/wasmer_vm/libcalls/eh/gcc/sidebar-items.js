@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["UNWIND_DATA_REG","WASMER_EXCEPTION_CLASS"],"fn":["find_eh_action","rethrow","throw","wasmer_eh_personality"],"static":["CANARY"],"struct":["UwExceptionWrapper","WasmerException"]};

@@ -531,6 +531,23 @@
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -554,15 +571,15 @@
 <span class="kw">use </span>wasmer_types::entity::EntityRef;
 <span class="kw">use </span>wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
-    MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
+    MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, TagIndex, Type, V128,
 };
 <span class="kw">use </span>wasmer_types::{WasmError, WasmResult};
 <span class="kw">use </span>wasmparser::{
     <span class="self">self</span>, Data, DataKind, DataSectionReader, Element, ElementItems, ElementKind,
     ElementSectionReader, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
     GlobalSectionReader, GlobalType <span class="kw">as </span>WPGlobalType, ImportSectionReader, MemorySectionReader,
-    MemoryType <span class="kw">as </span>WPMemoryType, NameSectionReader, Operator, TableSectionReader, TypeRef,
-    TypeSectionReader,
+    MemoryType <span class="kw">as </span>WPMemoryType, NameSectionReader, Operator, TableSectionReader,
+    TagType <span class="kw">as </span>WPTagType, TypeRef, TypeSectionReader,
 };
 
 <span class="doccomment">/// Helper function translating wasmparser types to Wasm Type.
@@ -583,6 +600,9 @@
         <span class="prelude-val">Ok</span>(Type::ExternRef)
     } <span class="kw">else if </span>ty.is_func_ref() {
         <span class="prelude-val">Ok</span>(Type::FuncRef)
+    } <span class="kw">else if </span>ty == wasmparser::RefType::EXNREF || ty == wasmparser::RefType::EXN {
+        <span class="comment">// no `.is_exnref` yet
+        </span><span class="prelude-val">Ok</span>(Type::ExceptionRef)
     } <span class="kw">else </span>{
         <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"unsupported reference type: {:?}"</span>, ty))
     }
@@ -594,6 +614,7 @@
         wasmparser::HeapType::Abstract { ty, .. } =&gt; <span class="kw">match </span>ty {
             wasmparser::AbstractHeapType::Func =&gt; <span class="prelude-val">Ok</span>(Type::FuncRef),
             wasmparser::AbstractHeapType::Extern =&gt; <span class="prelude-val">Ok</span>(Type::ExternRef),
+            wasmparser::AbstractHeapType::Exn =&gt; <span class="prelude-val">Ok</span>(Type::ExceptionRef),
             other =&gt; <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"unsupported reference type: {other:?}"</span>)),
         },
         other =&gt; <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"unsupported reference type: {other:?}"</span>)),
@@ -658,8 +679,8 @@
                     field_name,
                 )<span class="question-mark">?</span>;
             }
-            TypeRef::Tag(<span class="kw">_</span>) =&gt; {
-                <span class="macro">unimplemented!</span>(<span class="string">"exception handling not implemented yet"</span>)
+            TypeRef::Tag(t) =&gt; {
+                environ.declare_tag_import(t, module_name, field_name)<span class="question-mark">?</span>;
             }
             TypeRef::Memory(WPMemoryType {
                 shared,
@@ -777,6 +798,21 @@
     <span class="prelude-val">Ok</span>(())
 }
 
+<span class="doccomment">/// Parser the Tag section of the wasm module.
+</span><span class="kw">pub fn </span>parse_tag_section(
+    tags: wasmparser::SectionLimited&lt;wasmparser::TagType&gt;,
+    environ: <span class="kw-2">&amp;mut </span>ModuleEnvironment,
+) -&gt; WasmResult&lt;()&gt; {
+    environ.reserve_tags(tags.count())<span class="question-mark">?</span>;
+
+    <span class="kw">for </span>entry <span class="kw">in </span>tags {
+        <span class="kw">let </span>WPTagType { func_type_idx, .. } = entry.map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
+        environ.declare_tag(SignatureIndex::from_u32(func_type_idx))<span class="question-mark">?</span>;
+    }
+
+    <span class="prelude-val">Ok</span>(())
+}
+
 <span class="doccomment">/// Parses the Global section of the wasm module.
 </span><span class="kw">pub fn </span>parse_global_section(
     globals: GlobalSectionReader,
@@ -858,9 +894,7 @@
             ExternalKind::Global =&gt; {
                 environ.declare_global_export(GlobalIndex::new(index), field)<span class="question-mark">?
             </span>}
-            ExternalKind::Tag =&gt; {
-                <span class="macro">unimplemented!</span>(<span class="string">"exception handling not implemented yet"</span>)
-            }
+            ExternalKind::Tag =&gt; environ.declare_tag_export(TagIndex::new(index), field)<span class="question-mark">?</span>,
         }
     }
 

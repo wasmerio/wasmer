@@ -207,6 +207,23 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Custom resolution for external references.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::LinkError;
@@ -214,12 +231,13 @@
 <span class="kw">use </span>wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 <span class="kw">use </span>wasmer_types::{
     ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
+    TagType,
 };
 
 <span class="kw">use </span>wasmer_vm::{
     FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
     VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport,
+    VMTableImport, VMTagImport,
 };
 
 <span class="doccomment">/// Get an `ExternType` given a import index.
@@ -241,12 +259,23 @@
             <span class="kw">let </span>global = module.globals[<span class="kw-2">*</span>index];
             ExternType::Global(global)
         }
+        ImportIndex::Tag(index) =&gt; {
+            <span class="kw">let </span>func = module.signatures[module.tags[<span class="kw-2">*</span>index]].clone();
+            ExternType::Tag(TagType::from_fn_type(
+                wasmer_types::TagKind::Exception,
+                func,
+            ))
+        }
     }
 }
 
 <span class="doccomment">/// Get an `ExternType` given an export (and Engine signatures in case is a function).
 </span><span class="kw">fn </span>get_extern_type(context: <span class="kw-2">&amp;</span>StoreObjects, extern_: <span class="kw-2">&amp;</span>VMExtern) -&gt; ExternType {
     <span class="kw">match </span>extern_ {
+        VMExtern::Tag(f) =&gt; ExternType::Tag(wasmer_types::TagType::from_fn_type(
+            wasmer_types::TagKind::Exception,
+            f.get(context).signature.clone(),
+        )),
         VMExtern::Function(f) =&gt; ExternType::Function(f.get(context).signature.clone()),
         VMExtern::Table(t) =&gt; ExternType::Table(<span class="kw-2">*</span>t.get(context).ty()),
         VMExtern::Memory(m) =&gt; ExternType::Memory(m.get(context).ty()),
@@ -280,6 +309,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Imports, LinkError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
     <span class="kw">let </span><span class="kw-2">mut </span>table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
+    <span class="kw">let </span><span class="kw-2">mut </span>tag_imports = PrimaryMap::with_capacity(module.num_imported_tags);
     <span class="kw">let </span><span class="kw-2">mut </span>memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     <span class="kw">let </span><span class="kw-2">mut </span>global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
 
@@ -406,6 +436,9 @@
                     handle,
                 });
             }
+            VMExtern::Tag(handle) =&gt; {
+                tag_imports.push(VMTagImport { handle });
+            }
         }
     }
 
@@ -413,6 +446,7 @@
         function_imports,
         table_imports,
         memory_imports,
+        tag_imports,
         global_imports,
     ))
 }

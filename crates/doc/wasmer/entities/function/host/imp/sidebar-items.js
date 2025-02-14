@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["count_idents","impl_host_function"]};

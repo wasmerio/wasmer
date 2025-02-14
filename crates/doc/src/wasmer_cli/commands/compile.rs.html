@@ -93,13 +93,20 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer::{
+    sys::{engine::NativeEngineExt, <span class="kw-2">*</span>},
+    <span class="kw-2">*</span>,
+};
 
-<span class="kw">use crate</span>::{common::HashAlgorithm, store::StoreOptions, warning};
+<span class="kw">use crate</span>::{backend::RuntimeOptions, common::HashAlgorithm, warning};
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer compile` subcommand
@@ -117,7 +124,7 @@
     </span>target_triple: <span class="prelude-ty">Option</span>&lt;Triple&gt;,
 
     <span class="attr">#[clap(flatten)]
-    </span>store: StoreOptions,
+    </span>rt: RuntimeOptions,
 
     <span class="attr">#[clap(short = <span class="string">'m'</span>)]
     </span>cpu_features: Vec&lt;CpuFeature&gt;,
@@ -152,7 +159,8 @@
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        <span class="kw">let </span>(<span class="kw-2">mut </span>store, compiler_type) = <span class="self">self</span>.store.get_store_for_target(target.clone())<span class="question-mark">?</span>;
+        <span class="kw">let </span>compiler_type = <span class="self">self</span>.rt.get_rt()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.rt.get_store_for_target(target.clone())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>engine = store.engine_mut();
         <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();

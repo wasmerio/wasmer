@@ -95,6 +95,9 @@
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::value::wasm_valkind_t;
 <span class="kw">use </span>std::convert::TryInto;
 <span class="kw">use </span>wasmer_api::Type;
@@ -109,6 +112,7 @@
     WASM_F64 = <span class="number">3</span>,
     WASM_EXTERNREF = <span class="number">128</span>,
     WASM_FUNCREF = <span class="number">129</span>,
+    WASM_EXNREF = <span class="number">130</span>,
 }
 
 <span class="kw">impl </span>From&lt;Type&gt; <span class="kw">for </span>wasm_valkind_enum {
@@ -121,6 +125,7 @@
             Type::V128 =&gt; <span class="macro">todo!</span>(<span class="string">"no v128 type in Wasm C API yet!"</span>),
             Type::ExternRef =&gt; <span class="self">Self</span>::WASM_EXTERNREF,
             Type::FuncRef =&gt; <span class="self">Self</span>::WASM_FUNCREF,
+            Type::ExceptionRef =&gt; <span class="self">Self</span>::WASM_EXNREF,
         }
     }
 }
@@ -135,6 +140,7 @@
             WASM_F64 =&gt; Type::F64,
             WASM_EXTERNREF =&gt; Type::ExternRef,
             WASM_FUNCREF =&gt; Type::FuncRef,
+            WASM_EXNREF =&gt; Type::ExternRef,
         }
     }
 }

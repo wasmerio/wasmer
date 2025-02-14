@@ -1214,6 +1214,13 @@
 <a href="#1214" id="1214">1214</a>
 <a href="#1215" id="1215">1215</a>
 <a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::time::SystemTime;
 <span class="kw">use </span>wasmer_wasix_types::wasi;
@@ -2203,12 +2210,13 @@
                 },
                 line_feeds: <span class="kw-2">*</span>line_feeds,
             },
-            ArchivedJournalEntry::CreatePipeV1(ArchivedJournalEntryCreatePipeV1 { fd1, fd2 }) =&gt; {
-                <span class="self">Self</span>::CreatePipeV1 {
-                    fd1: fd1.to_native(),
-                    fd2: fd2.to_native(),
-                }
-            }
+            ArchivedJournalEntry::CreatePipeV1(ArchivedJournalEntryCreatePipeV1 {
+                read_fd,
+                write_fd,
+            }) =&gt; <span class="self">Self</span>::CreatePipeV1 {
+                read_fd: read_fd.to_native(),
+                write_fd: write_fd.to_native(),
+            },
             ArchivedJournalEntry::PortAddAddrV1(ArchivedJournalEntryPortAddAddrV1 { cidr }) =&gt; {
                 <span class="self">Self</span>::PortAddAddrV1 {
                     cidr: JournalIpCidrV1 {
@@ -2268,6 +2276,12 @@
                 pt: (pt.to_native()).try_into().unwrap_or(wasi::SockProto::Max),
                 fd: fd.to_native(),
             },
+            ArchivedJournalEntry::SocketPairV1(ArchivedJournalEntrySocketPairV1 { fd1, fd2 }) =&gt; {
+                <span class="self">Self</span>::SocketPairV1 {
+                    fd1: fd1.to_native(),
+                    fd2: fd2.to_native(),
+                }
+            }
             ArchivedJournalEntry::SocketListenV1(ArchivedJournalEntrySocketListenV1 {
                 fd,
                 backlog,

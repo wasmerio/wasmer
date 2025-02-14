@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["inner","obj","store_ref"],"struct":["Store"]};

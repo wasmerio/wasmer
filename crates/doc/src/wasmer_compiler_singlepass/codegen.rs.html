@@ -6754,6 +6754,7 @@
 <a href="#6754" id="6754">6754</a>
 <a href="#6755" id="6755">6755</a>
 <a href="#6756" id="6756">6756</a>
+<a href="#6757" id="6757">6757</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
 
@@ -7008,6 +7009,7 @@
         Type::V128 =&gt; WpType::V128,
         Type::ExternRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::EXTERN).unwrap()),
         Type::FuncRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::FUNC).unwrap()),
+        Type::ExceptionRef =&gt; <span class="macro">todo!</span>(),
     }
 }
 

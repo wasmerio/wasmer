@@ -234,6 +234,18 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::AsyncReadExt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -395,7 +407,20 @@
                                 env = ctx.data();
                                 data
                             }
-                            Kind::Pipe { <span class="kw-2">ref mut </span>pipe, .. } =&gt; {
+                            Kind::PipeRx { <span class="kw-2">ref mut </span>rx } =&gt; {
+                                <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                                    <span class="comment">// TODO: optimize with MaybeUninit
+                                    </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
+                                    <span class="kw">let </span>amt = virtual_fs::AsyncReadExt::read(rx, <span class="kw-2">&amp;mut </span>buf[..])
+                                        .<span class="kw">await
+                                        </span>.map_err(map_io_err)<span class="question-mark">?</span>;
+                                    buf.truncate(amt);
+                                    <span class="prelude-val">Ok</span>(buf)
+                                })<span class="question-mark">?</span>);
+                                env = ctx.data();
+                                data
+                            }
+                            Kind::DuplexPipe { <span class="kw-2">ref mut </span>pipe } =&gt; {
                                 <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
                                     <span class="comment">// TODO: optimize with MaybeUninit
                                     </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
@@ -408,14 +433,13 @@
                                 env = ctx.data();
                                 data
                             }
-                            Kind::Epoll { .. } =&gt; {
+                            Kind::PipeTx { .. }
+                            | Kind::Epoll { .. }
+                            | Kind::EventNotifications { .. } =&gt; {
                                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
                             }
                             Kind::Dir { .. } | Kind::Root { .. } =&gt; {
                                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Isdir));
-                            }
-                            Kind::EventNotifications { .. } =&gt; {
-                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
                             }
                             Kind::Symlink { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">"Symlinks in wasi::fd_read"</span>),
                             Kind::Buffer { buffer } =&gt; {

@@ -506,6 +506,16 @@
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
@@ -523,7 +533,7 @@
         SerializableModule,
     },
     types::{
-        function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        function::{CompiledFunctionFrameInfo, FunctionBody, UnwindInfo, GOT},
         module::CompileModuleInfo,
         relocation::Relocation,
         section::{CustomSection, SectionIndex},
@@ -533,7 +543,7 @@
 };
 <span class="kw">use </span>core::mem::MaybeUninit;
 <span class="kw">use </span>enumset::EnumSet;
-<span class="kw">use </span>rkyv::{option::ArchivedOption, rancor::Error <span class="kw">as </span>RkyvError};
+<span class="kw">use </span>rkyv::rancor::Error <span class="kw">as </span>RkyvError;
 <span class="kw">use </span>self_cell::self_cell;
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::sync::Arc;
@@ -648,9 +658,10 @@
             dynamic_function_trampolines: compilation.dynamic_function_trampolines,
             custom_sections,
             custom_section_relocations,
-            debug: compilation.debug,
+            unwind_info: compilation.unwind_info,
             libcall_trampolines,
             libcall_trampoline_len,
+            got: compilation.got,
         };
         <span class="kw">let </span>serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -706,9 +717,14 @@
         <span class="self">self</span>.serializable.compilation.libcall_trampoline_len <span class="kw">as </span>usize
     }
 
-    <span class="doccomment">/// Get Debug optional Dwarf ref
-    </span><span class="kw">pub fn </span>get_debug_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Dwarf&gt; {
-        <span class="self">self</span>.serializable.compilation.debug.as_ref()
+    <span class="doccomment">/// Get a reference to the [`UnwindInfo`].
+    </span><span class="kw">pub fn </span>get_unwind_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>UnwindInfo {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.unwind_info
+    }
+
+    <span class="doccomment">/// Get a reference to the [`GOT`].
+    </span><span class="kw">pub fn </span>get_got_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>GOT {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.got
     }
 
     <span class="doccomment">/// Get Function Relocations ref
@@ -921,14 +937,18 @@
             .to_native() <span class="kw">as </span>usize
     }
 
-    <span class="doccomment">/// Get Debug optional Dwarf ref
-    </span><span class="kw">pub fn </span>get_debug_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Dwarf&gt; {
-        <span class="kw">match </span><span class="self">self</span>.cell.borrow_dependent().compilation.debug {
-            ArchivedOption::Some(<span class="kw-2">ref </span>x) =&gt; {
-                <span class="prelude-val">Some</span>(rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(x).unwrap())
-            }
-            ArchivedOption::None =&gt; <span class="prelude-val">None</span>,
-        }
+    <span class="doccomment">/// Get an unarchived [`UnwindInfo`].
+    </span><span class="kw">pub fn </span>get_unwind_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UnwindInfo {
+        rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.cell.borrow_dependent().compilation.unwind_info,
+        )
+        .unwrap()
+    }
+
+    <span class="doccomment">/// Get an unarchived [`GOT`].
+    </span><span class="kw">pub fn </span>get_got_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; GOT {
+        rkyv::deserialize::&lt;<span class="kw">_</span>, rkyv::rancor::Error&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.cell.borrow_dependent().compilation.got)
+            .unwrap()
     }
 
     <span class="doccomment">/// Get Function Relocations ref

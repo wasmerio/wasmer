@@ -118,7 +118,6 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -128,21 +127,21 @@
 /// Creates ta pipe that feeds data between two file handles
 /// Output:
 /// - `Fd`
-///     First file handle that represents one end of the pipe
+///     First file handle that represents the read end of the pipe
 /// - `Fd`
-///     Second file handle that represents the other end of the pipe
+///     Second file handle that represents the write end of the pipe
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(fd1 = field::Empty, fd2 = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_pipe&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-    ro_fd1: WasmPtr&lt;WasiFd, M&gt;,
-    ro_fd2: WasmPtr&lt;WasiFd, M&gt;,
+    ro_read_fd: WasmPtr&lt;WasiFd, M&gt;,
+    ro_write_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="kw">let </span>(fd1, fd2) = <span class="macro">wasi_try_ok!</span>(fd_pipe_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
+    <span class="kw">let </span>(read_fd, write_fd) = <span class="macro">wasi_try_ok!</span>(fd_pipe_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
     <span class="kw">let </span>env = ctx.data();
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">if </span>env.enable_journal {
-        JournalEffector::save_fd_pipe(<span class="kw-2">&amp;mut </span>ctx, fd1, fd2).map_err(|err| {
+        JournalEffector::save_fd_pipe(<span class="kw-2">&amp;mut </span>ctx, read_fd, write_fd).map_err(|err| {
             <span class="macro">tracing::error!</span>(<span class="string">"failed to save create pipe event - {}"</span>, err);
             WasiError::Exit(ExitCode::from(Errno::Fault))
         })<span class="question-mark">?</span>;
@@ -151,93 +150,92 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
-    Span::current().record(<span class="string">"fd1"</span>, fd1).record(<span class="string">"fd2"</span>, fd2);
+    Span::current()
+        .record(<span class="string">"read_fd"</span>, read_fd)
+        .record(<span class="string">"write_fd"</span>, write_fd);
 
-    <span class="macro">wasi_try_mem_ok!</span>(ro_fd1.write(<span class="kw-2">&amp;</span>memory, fd1));
-    <span class="macro">wasi_try_mem_ok!</span>(ro_fd2.write(<span class="kw-2">&amp;</span>memory, fd2));
+    <span class="macro">wasi_try_mem_ok!</span>(ro_read_fd.write(<span class="kw-2">&amp;</span>memory, read_fd));
+    <span class="macro">wasi_try_mem_ok!</span>(ro_write_fd.write(<span class="kw-2">&amp;</span>memory, write_fd));
 
     <span class="prelude-val">Ok</span>(Errno::Success)
 }
 
 <span class="kw">pub fn </span>fd_pipe_internal(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-    with_fd1: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
-    with_fd2: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
+    with_read_fd: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
+    with_write_fd: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFd, WasiFd), Errno&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span>(pipe1, pipe2) = Pipe::channel();
+    <span class="kw">let </span>(tx, rx) = Pipe::new().split();
 
-    <span class="kw">let </span>inode1 = state.fs.create_inode_with_default_stat(
-        inodes,
-        Kind::Pipe { pipe: pipe1 },
-        <span class="bool-val">false</span>,
-        <span class="string">"pipe"</span>.to_string().into(),
-    );
-    <span class="kw">let </span>inode2 = state.fs.create_inode_with_default_stat(
-        inodes,
-        Kind::Pipe { pipe: pipe2 },
-        <span class="bool-val">false</span>,
-        <span class="string">"pipe"</span>.to_string().into(),
-    );
+    <span class="kw">let </span>rx_inode =
+        state
+            .fs
+            .create_inode_with_default_stat(inodes, Kind::PipeRx { rx }, <span class="bool-val">false</span>, <span class="string">"pipe"</span>.into());
+    <span class="kw">let </span>tx_inode =
+        state
+            .fs
+            .create_inode_with_default_stat(inodes, Kind::PipeTx { tx }, <span class="bool-val">false</span>, <span class="string">"pipe"</span>.into());
 
-    <span class="kw">let </span>rights = Rights::FD_READ
-        | Rights::FD_WRITE
-        | Rights::FD_SYNC
+    <span class="kw">let </span>rights = Rights::FD_SYNC
         | Rights::FD_DATASYNC
         | Rights::POLL_FD_READWRITE
         | Rights::SOCK_SEND
         | Rights::FD_FDSTAT_SET_FLAGS
         | Rights::FD_FILESTAT_GET;
 
-    <span class="kw">let </span>fd1 = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd1 {
+    <span class="kw">let </span>read_rights = rights | Rights::FD_READ;
+    <span class="kw">let </span>write_rights = rights | Rights::FD_WRITE;
+
+    <span class="kw">let </span>read_fd = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_read_fd {
         state
             .fs
             .with_fd(
-                rights,
-                rights,
+                read_rights,
+                read_rights,
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 <span class="number">0</span>,
-                inode1,
+                rx_inode,
                 fd,
             )
-            .map(|<span class="kw">_</span>| fd)<span class="question-mark">?
+            .map(|()| fd)<span class="question-mark">?
     </span>} <span class="kw">else </span>{
         state.fs.create_fd(
-            rights,
-            rights,
+            read_rights,
+            read_rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             <span class="number">0</span>,
-            inode1,
+            rx_inode,
         )<span class="question-mark">?
     </span>};
 
-    <span class="kw">let </span>fd2 = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd2 {
+    <span class="kw">let </span>write_fd = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_write_fd {
         state
             .fs
             .with_fd(
-                rights,
-                rights,
+                write_rights,
+                write_rights,
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 <span class="number">0</span>,
-                inode2,
+                tx_inode,
                 fd,
             )
-            .map(|<span class="kw">_</span>| fd)<span class="question-mark">?
+            .map(|()| fd)<span class="question-mark">?
     </span>} <span class="kw">else </span>{
         state.fs.create_fd(
-            rights,
-            rights,
+            write_rights,
+            write_rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             <span class="number">0</span>,
-            inode2,
+            tx_inode,
         )<span class="question-mark">?
     </span>};
 
-    <span class="prelude-val">Ok</span>((fd1, fd2))
+    <span class="prelude-val">Ok</span>((read_fd, write_fd))
 }
 </code></pre></div></section></main></body></html>

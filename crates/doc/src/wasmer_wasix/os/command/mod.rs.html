@@ -104,13 +104,11 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>builtins;
 
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
-<span class="kw">use </span>wasmer::{FunctionEnvMut, Store};
+<span class="kw">use </span>wasmer::FunctionEnvMut;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
 <span class="kw">use crate</span>::{
@@ -135,7 +133,6 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
         path: <span class="kw-2">&amp;</span>str,
-        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         config: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt;;
 }
@@ -194,12 +191,11 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
         path: <span class="kw-2">&amp;</span>str,
-        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         builder: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
         <span class="kw">let </span>path = path.to_string();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = <span class="self">self</span>.commands.get(<span class="kw-2">&amp;</span>path) {
-            cmd.exec(parent_ctx, path.as_str(), store, builder)
+            cmd.exec(parent_ctx, path.as_str(), builder)
         } <span class="kw">else </span>{
             <span class="kw">unsafe </span>{
                 InlineWaker::block_on(stderr_write(

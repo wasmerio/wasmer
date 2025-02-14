@@ -71,6 +71,8 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -136,7 +138,9 @@
             Kind::Buffer { .. }
             | Kind::Symlink { .. }
             | Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
+            | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
         }

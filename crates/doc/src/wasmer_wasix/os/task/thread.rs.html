@@ -640,6 +640,7 @@
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{
@@ -960,6 +961,7 @@
     </span><span class="kw">pub fn </span>set_or_get_exit_code_for_signal(<span class="kw-2">&amp;</span><span class="self">self</span>, sig: Signal) -&gt; ExitCode {
         <span class="kw">let </span>default_exitcode: ExitCode = <span class="kw">match </span>sig {
             Signal::Sigquit | Signal::Sigabrt =&gt; Errno::Success.into(),
+            Signal::Sigpipe =&gt; Errno::Pipe.into(),
             <span class="kw">_ </span>=&gt; Errno::Intr.into(),
         };
         <span class="comment">// This will only set the status code if its not already set

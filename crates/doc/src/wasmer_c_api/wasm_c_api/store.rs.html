@@ -86,7 +86,7 @@
     engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_engine_t&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_store_t&gt;&gt; {
     <span class="kw">let </span>engine = engine<span class="question-mark">?</span>;
-    <span class="kw">let </span>store = Store::new(<span class="kw-2">&amp;</span>engine.inner);
+    <span class="kw">let </span>store = Store::new(engine.inner.clone());
 
     <span class="prelude-val">Some</span>(Box::new(wasm_store_t {
         inner: StoreRef {

@@ -255,15 +255,18 @@
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific types for the
 //! `wasm_engine_t` and siblings.
 
-</span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-</span><span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::engine::wasmer_compiler_t;
-<span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::engine::{wasm_config_t, wasmer_engine_t};
+</span><span class="kw">use super</span>::{
+    <span class="kw">super</span>::engine::{wasm_config_t, wasmer_engine_t},
+    features::wasmer_features_t,
+};
 
-<span class="kw">use </span><span class="kw">super</span>::features::wasmer_features_t;
-<span class="kw">use </span><span class="kw">super</span>::target_lexicon::wasmer_target_t;
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+</span><span class="kw">use super</span>::{<span class="kw">super</span>::engine::wasmer_compiler_t, target_lexicon::wasmer_target_t};
 
 <span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the
 /// configuration to specify a particular target for the engine.
@@ -305,6 +308,7 @@
 /// # }
 /// ```
 </span><span class="attr">#[no_mangle]
+#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasm_config_set_target(config: <span class="kw-2">&amp;mut </span>wasm_config_t, target: Box&lt;wasmer_target_t&gt;) {
     config.target = <span class="prelude-val">Some</span>(target);
 }

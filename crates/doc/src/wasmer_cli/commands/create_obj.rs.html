@@ -169,6 +169,16 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 </span><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
@@ -176,10 +186,10 @@
 
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer::sys::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_package::utils::from_disk;
 
-<span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
+<span class="kw">use </span><span class="kw">crate</span>::backend::RuntimeOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer create-exe` subcommand
@@ -226,7 +236,7 @@
     </span>cpu_features: Vec&lt;CpuFeature&gt;,
 
     <span class="attr">#[clap(flatten)]
-    </span>compiler: CompilerOptions,
+    </span>rt: RuntimeOptions,
 }
 
 <span class="kw">impl </span>CreateObj {
@@ -251,15 +261,25 @@
             <span class="kw-2">&amp;</span>target_triple,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
         );
-        <span class="kw">let </span>(<span class="kw">_</span>, compiler_type) = <span class="self">self</span>.compiler.get_store_for_target(target.clone())<span class="question-mark">?</span>;
+        <span class="kw">let </span>compiler_type = <span class="self">self</span>.rt.get_rt()<span class="question-mark">?</span>;
+        <span class="kw">match </span>compiler_type {
+            <span class="kw">crate</span>::backend::BackendType::V8
+            | <span class="kw">crate</span>::backend::BackendType::Wamr
+            | <span class="kw">crate</span>::backend::BackendType::Wasmi =&gt; {
+                <span class="macro">anyhow::bail!</span>(<span class="string">"Cannot produce objects with {compiler_type}!"</span>)
+            }
+            <span class="kw">crate</span>::backend::BackendType::Headless =&gt; <span class="macro">todo!</span>(),
+            <span class="kw">_ </span>=&gt; {}
+        }
         <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
+
         <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
 
         <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(webc) = from_disk(<span class="kw-2">&amp;</span>input_path) {
             <span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory(
                 <span class="kw-2">&amp;</span>webc,
                 <span class="kw-2">&amp;</span>output_directory_path,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.rt,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
                 <span class="kw-2">&amp;</span>target_triple,
                 <span class="kw-2">&amp;</span>prefix,
@@ -270,7 +290,7 @@
             <span class="kw">crate</span>::commands::create_exe::prepare_directory_from_single_wasm_file(
                 <span class="kw-2">&amp;</span>input_path,
                 <span class="kw-2">&amp;</span>output_directory_path,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.rt,
                 <span class="kw-2">&amp;</span>target_triple,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
                 <span class="kw-2">&amp;</span>prefix,

@@ -793,6 +793,73 @@
 <a href="#793" id="793">793</a>
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -803,7 +870,7 @@
 
 </span><span class="kw">use crate</span>::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex,
+    ModuleInfo, SignatureIndex, TableIndex, TagIndex,
 };
 <span class="kw">use </span>more_asserts::assert_lt;
 <span class="kw">use </span>std::convert::TryFrom;
@@ -931,13 +998,45 @@
     </span><span class="kw">pub const fn </span>get_memory_atomic_notify_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">28</span>)
     }
+
     <span class="doccomment">/// Returns an index for wasm's imported `memory.atomic.notify` builtin function.
     </span><span class="kw">pub const fn </span>get_imported_memory_atomic_notify_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">29</span>)
     }
+
+    <span class="doccomment">/// Returns an index for wasm's imported `throw` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_throw_index() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">30</span>)
+    }
+
+    <span class="doccomment">/// Returns an index for wasm's imported `rethrow` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_rethrow_index() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">31</span>)
+    }
+
+    <span class="doccomment">/// Returns an index for wasm's imported `alloc_exception` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_alloc_exception_index() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">32</span>)
+    }
+
+    <span class="doccomment">/// Returns an index for wasm's imported `delete_exception` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_delete_exception_index() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">33</span>)
+    }
+
+    <span class="doccomment">/// Returns an index for wasm's imported `read_exception` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_read_exception_index() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">34</span>)
+    }
+
+    <span class="doccomment">/// Returns an index for wasm's imported `debug_usize` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_debug_usize_index() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">35</span>)
+    }
+
     <span class="doccomment">/// Returns the total number of builtin functions.
     </span><span class="kw">pub const fn </span>builtin_functions_total_number() -&gt; u32 {
-        <span class="number">30
+        <span class="number">36
     </span>}
 
     <span class="doccomment">/// Return the index as an u32 number.
@@ -975,6 +1074,8 @@
     </span>num_imported_tables: u32,
     <span class="doccomment">/// The number of imported memories in the module.
     </span>num_imported_memories: u32,
+    <span class="doccomment">/// The number of imported tags in the module.
+    </span>num_imported_tags: u32,
     <span class="doccomment">/// The number of imported globals in the module.
     </span>num_imported_globals: u32,
     <span class="doccomment">/// The number of defined tables in the module.
@@ -988,6 +1089,7 @@
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
+    vmctx_imported_tags_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
     vmctx_memories_begin: u32,
@@ -1009,6 +1111,7 @@
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
+            num_imported_tags: cast_to_u32(module.num_imported_tags),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
@@ -1017,6 +1120,7 @@
             vmctx_imported_functions_begin: <span class="number">0</span>,
             vmctx_imported_tables_begin: <span class="number">0</span>,
             vmctx_imported_memories_begin: <span class="number">0</span>,
+            vmctx_imported_tags_begin: <span class="number">0</span>,
             vmctx_imported_globals_begin: <span class="number">0</span>,
             vmctx_tables_begin: <span class="number">0</span>,
             vmctx_memories_begin: <span class="number">0</span>,
@@ -1043,6 +1147,7 @@
             num_imported_functions: <span class="number">0</span>,
             num_imported_tables: <span class="number">0</span>,
             num_imported_memories: <span class="number">0</span>,
+            num_imported_tags: <span class="number">0</span>,
             num_imported_globals: <span class="number">0</span>,
             num_local_tables: <span class="number">0</span>,
             num_local_memories: <span class="number">0</span>,
@@ -1051,6 +1156,7 @@
             vmctx_imported_functions_begin: <span class="number">0</span>,
             vmctx_imported_tables_begin: <span class="number">0</span>,
             vmctx_imported_memories_begin: <span class="number">0</span>,
+            vmctx_imported_tags_begin: <span class="number">0</span>,
             vmctx_imported_globals_begin: <span class="number">0</span>,
             vmctx_tables_begin: <span class="number">0</span>,
             vmctx_memories_begin: <span class="number">0</span>,
@@ -1107,11 +1213,19 @@
             <span class="self">self</span>.num_imported_tables,
             u32::from(<span class="self">self</span>.size_of_vmtable_import()),
         );
-        <span class="self">self</span>.vmctx_imported_globals_begin = offset_by_aligned(
+
+        <span class="self">self</span>.vmctx_imported_tags_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_imported_memories_begin,
             <span class="self">self</span>.num_imported_memories,
             u32::from(<span class="self">self</span>.size_of_vmmemory_import()),
         );
+
+        <span class="self">self</span>.vmctx_imported_globals_begin = offset_by_aligned(
+            <span class="self">self</span>.vmctx_imported_tags_begin,
+            <span class="self">self</span>.num_imported_tags,
+            u32::from(<span class="self">self</span>.size_of_vmtag_import()),
+        );
+
         <span class="self">self</span>.vmctx_tables_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_imported_globals_begin,
             <span class="self">self</span>.num_imported_globals,
@@ -1384,6 +1498,15 @@
     }
 }
 
+<span class="doccomment">/// Offsets for `VMTag` imports.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// Return the size of `VMTagImport`.
+    </span><span class="attr">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>size_of_vmtag_import(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
+    }
+}
+
 <span class="doccomment">/// Offsets for `VMContext`.
 </span><span class="kw">impl </span>VMOffsets {
     <span class="doccomment">/// The offset of the `signature_ids` array.
@@ -1411,6 +1534,11 @@
     <span class="doccomment">/// The offset of the `globals` array.
     </span><span class="kw">pub fn </span>vmctx_imported_globals_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
         <span class="self">self</span>.vmctx_imported_globals_begin
+    }
+
+    <span class="doccomment">/// The offset of the `globals` array.
+    </span><span class="kw">pub fn </span>vmctx_imported_tags_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_imported_tags_begin
     }
 
     <span class="doccomment">/// The offset of the `tables` array.
@@ -1463,6 +1591,12 @@
         <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_memories);
         <span class="self">self</span>.vmctx_imported_memories_begin
             + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmmemory_import())
+    }
+
+    <span class="doccomment">/// Return the offset to `VMTagImport` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmtag_import(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TagIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_tags);
+        <span class="self">self</span>.vmctx_imported_tags_begin + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmtag_import())
     }
 
     <span class="doccomment">/// Return the offset to `VMGlobalImport` index `index`.

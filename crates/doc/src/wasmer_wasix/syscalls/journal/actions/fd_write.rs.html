@@ -50,9 +50,9 @@
         }
 
         <span class="kw">if </span>is_64bit {
-            JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.ctx, fd, offset, data)
+            JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, fd, offset, data)
         } <span class="kw">else </span>{
-            JournalEffector::apply_fd_write::&lt;Memory32&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.ctx, fd, offset, data)
+            JournalEffector::apply_fd_write::&lt;Memory32&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, fd, offset, data)
         }
         .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())

@@ -173,6 +173,7 @@
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="comment">/*
  * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
  * on their own.
@@ -180,7 +181,7 @@
 </span><span class="attr">#![allow(missing_docs)]
 
 </span><span class="kw">use </span><span class="kw">crate</span>::types::{
-    function::{CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+    function::{CompiledFunctionFrameInfo, FunctionBody, UnwindInfo, GOT},
     module::CompileModuleInfo,
     relocation::Relocation,
     section::{CustomSection, SectionIndex},
@@ -210,7 +211,8 @@
     <span class="kw">pub </span>custom_sections: PrimaryMap&lt;SectionIndex, CustomSection&gt;,
     <span class="kw">pub </span>custom_section_relocations: PrimaryMap&lt;SectionIndex, Vec&lt;Relocation&gt;&gt;,
     <span class="comment">// The section indices corresponding to the Dwarf debug info
-    </span><span class="kw">pub </span>debug: <span class="prelude-ty">Option</span>&lt;Dwarf&gt;,
+    </span><span class="kw">pub </span>unwind_info: UnwindInfo,
+    <span class="kw">pub </span>got: GOT,
     <span class="comment">// Custom section containing libcall trampolines.
     </span><span class="kw">pub </span>libcall_trampolines: SectionIndex,
     <span class="comment">// Length of each libcall trampoline.

@@ -526,6 +526,23 @@
 <a href="#526" id="526">526</a>
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use crate</span>::{engine::builder::EngineBuilder, types::target::Target};
@@ -962,7 +979,6 @@
                 )
             })
             .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
-
         <span class="prelude-val">Ok</span>((
             allocated_functions_result,
             allocated_function_call_trampolines,
@@ -985,6 +1001,24 @@
             .unwrap()
             .unwind_registry_mut()
             .publish(eh_frame)
+            .map_err(|e| {
+                CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {e}"</span>))
+            })<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+    </span><span class="doccomment">/// Register macos-specific exception handling information associated with the code.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_compact_unwind(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        compact_unwind: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
+        eh_personality_addr_in_got: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        <span class="self">self</span>.code_memory
+            .last_mut()
+            .unwrap()
+            .unwind_registry_mut()
+            .register_compact_unwind(compact_unwind, eh_personality_addr_in_got)
             .map_err(|e| {
                 CompileError::Resource(<span class="macro">format!</span>(<span class="string">"Error while publishing the unwind code: {e}"</span>))
             })<span class="question-mark">?</span>;

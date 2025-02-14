@@ -459,6 +459,19 @@
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
 </span><span class="kw">pub mod </span>tokio;
@@ -490,6 +503,19 @@
     // has been copied, this makes sure its not modified until
     // its been properly copied
     </span>CopyMemory(Memory, StoreRef&lt;<span class="lifetime">'a</span>&gt;),
+}
+
+<span class="doccomment">/// Describes whether a new memory should be created (and, in case, its type) or if it was already
+/// created and the store it belongs to.
+///
+/// # Note
+///
+/// This type is necessary for now because we can't pass a [`wasmer::StoreRef`] between threads, so this
+/// conceptually is a Send-able [`SpawnMemoryType`].
+</span><span class="kw">pub enum </span>SpawnMemoryTypeOrStore {
+    New,
+    Type(wasmer::MemoryType),
+    StoreAndMemory(wasmer::Store, <span class="prelude-ty">Option</span>&lt;wasmer::Memory&gt;),
 }
 
 <span class="kw">pub type </span>WasmResumeTask = <span class="kw">dyn </span>FnOnce(WasiFunctionEnv, Store, Bytes) + Send + <span class="lifetime">'static</span>;
@@ -530,18 +556,18 @@
 </span><span class="kw">pub type </span>TaskWasmRecycle = <span class="kw">dyn </span>FnOnce(TaskWasmRecycleProperties) + Send + <span class="lifetime">'static</span>;
 
 <span class="doccomment">/// Represents a WASM task that will be executed on a dedicated thread
-</span><span class="kw">pub struct </span>TaskWasm&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+</span><span class="kw">pub struct </span>TaskWasm&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>run: Box&lt;TaskWasmRun&gt;,
     <span class="kw">pub </span>recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
     <span class="kw">pub </span>env: WasiEnv,
     <span class="kw">pub </span>module: Module,
-    <span class="kw">pub </span>globals: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'b </span>StoreSnapshot&gt;,
+    <span class="kw">pub </span>globals: <span class="prelude-ty">Option</span>&lt;StoreSnapshot&gt;,
     <span class="kw">pub </span>spawn_type: SpawnMemoryType&lt;<span class="lifetime">'a</span>&gt;,
     <span class="kw">pub </span>trigger: <span class="prelude-ty">Option</span>&lt;Box&lt;WasmResumeTrigger&gt;&gt;,
     <span class="kw">pub </span>update_layout: bool,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; TaskWasm&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TaskWasm&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub fn </span>new(run: Box&lt;TaskWasmRun&gt;, env: WasiEnv, module: Module, update_layout: bool) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>shared_memory = module.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
         <span class="self">Self </span>{
@@ -571,7 +597,7 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_globals(<span class="kw-2">mut </span><span class="self">self</span>, snapshot: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>StoreSnapshot) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_globals(<span class="kw-2">mut </span><span class="self">self</span>, snapshot: StoreSnapshot) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.globals.replace(snapshot);
         <span class="self">self
     </span>}
@@ -833,7 +859,7 @@
                 <span class="bool-val">false</span>,
             )
             .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))
-            .with_globals(<span class="kw-2">&amp;</span>snapshot)
+            .with_globals(snapshot)
             .with_trigger(Box::new(<span class="kw">move </span>|| {
                 Box::pin(<span class="kw">async move </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>poller = AsyncifyPollerOwned {

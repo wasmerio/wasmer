@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MemoryAccessError"],"mod":["access","ptr"],"struct":["Memory32","Memory64","WasmRef","WasmSlice","WasmSliceIter"],"trait":["MemorySize","ValueType"]};

@@ -73,8 +73,8 @@
 
     <span class="kw">let </span>global_i32 = Global::new(store, Value::I32(<span class="number">666</span>));
     <span class="kw">let </span>global_i64 = Global::new(store, Value::I64(<span class="number">666</span>));
-    <span class="kw">let </span>global_f32 = Global::new(store, Value::F32(f32::from_bits(<span class="number">0x4426_8000</span>)));
-    <span class="kw">let </span>global_f64 = Global::new(store, Value::F64(f64::from_bits(<span class="number">0x4084_d000_0000_0000</span>)));
+    <span class="kw">let </span>global_f32 = Global::new(store, Value::F32(<span class="number">666.6</span>));
+    <span class="kw">let </span>global_f64 = Global::new(store, Value::F64(<span class="number">666.6</span>));
 
     <span class="kw">let </span>ty = TableType::new(Type::FuncRef, <span class="number">10</span>, <span class="prelude-val">Some</span>(<span class="number">20</span>));
     <span class="kw">let </span>table = Table::new(store, ty, Value::FuncRef(<span class="prelude-val">None</span>)).unwrap();

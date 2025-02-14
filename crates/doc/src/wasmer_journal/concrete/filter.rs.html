@@ -425,6 +425,7 @@
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
 <a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     sync::atomic::{AtomicUsize, Ordering},
@@ -767,6 +768,7 @@
             | JournalEntry::PortRouteClearV1
             | JournalEntry::PortRouteDelV1 { .. }
             | JournalEntry::SocketOpenV1 { .. }
+            | JournalEntry::SocketPairV1 { .. }
             | JournalEntry::SocketListenV1 { .. }
             | JournalEntry::SocketBindV1 { .. }
             | JournalEntry::SocketConnectedV1 { .. }

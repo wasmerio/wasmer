@@ -211,9 +211,6 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{any::Any, path::PathBuf, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -223,7 +220,7 @@
     SpawnError,
 };
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
-<span class="kw">use </span>wasmer::{FunctionEnvMut, Store};
+<span class="kw">use </span>wasmer::FunctionEnvMut;
 <span class="kw">use </span>wasmer_package::utils::from_bytes;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
@@ -271,7 +268,6 @@ ARGS:
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;,
         name: <span class="kw-2">&amp;</span>str,
-        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         config: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
         what: <span class="prelude-ty">Option</span>&lt;String&gt;,
         <span class="kw-2">mut </span>args: Vec&lt;String&gt;,
@@ -287,7 +283,6 @@ ARGS:
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(what) = what {
-            <span class="kw">let </span>store = store.take().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>env = config.take().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
 
             <span class="comment">// Set the arguments of the environment by replacing the state
@@ -352,7 +347,7 @@ ARGS:
                     env.use_package_async(<span class="kw-2">&amp;</span>binary).<span class="kw">await</span>.unwrap();
 
                     <span class="comment">// Now run the module
-                    </span>spawn_exec(binary, name, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+                    </span>spawn_exec(binary, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
                 </span>}
                 Executable::Wasm(bytes) =&gt; spawn_exec_wasm(<span class="kw-2">&amp;</span>bytes, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await</span>,
             }
@@ -393,7 +388,6 @@ ARGS:
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
         name: <span class="kw-2">&amp;</span>str,
-        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         env: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
         <span class="comment">// Read the command we want to run
@@ -409,7 +403,7 @@ ARGS:
                 <span class="prelude-val">Some</span>(<span class="string">"run"</span>) =&gt; {
                     <span class="kw">let </span>what = args.next().map(|a| a.to_string());
                     <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
-                    <span class="self">self</span>.run(parent_ctx, name, store, env, what, args).<span class="kw">await
+                    <span class="self">self</span>.run(parent_ctx, name, env, what, args).<span class="kw">await
                 </span>}
                 <span class="prelude-val">Some</span>(<span class="string">"--help"</span>) | <span class="prelude-val">None </span>=&gt; {
                     <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP.as_bytes()) }
@@ -422,7 +416,7 @@ ARGS:
                 <span class="prelude-val">Some</span>(what) =&gt; {
                     <span class="kw">let </span>what = <span class="prelude-val">Some</span>(what.to_string());
                     <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
-                    <span class="self">self</span>.run(parent_ctx, name, store, env, what, args).<span class="kw">await
+                    <span class="self">self</span>.run(parent_ctx, name, env, what, args).<span class="kw">await
                 </span>}
             }
         };

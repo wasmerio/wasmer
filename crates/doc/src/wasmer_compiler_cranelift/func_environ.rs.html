@@ -1695,6 +1695,8 @@
 <a href="#1695" id="1695">1695</a>
 <a href="#1696" id="1696">1696</a>
 <a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -2937,7 +2939,9 @@
                 WasmerType::F32 =&gt; ir::types::F32,
                 WasmerType::F64 =&gt; ir::types::F64,
                 WasmerType::V128 =&gt; ir::types::I8X16,
-                WasmerType::FuncRef | WasmerType::ExternRef =&gt; <span class="self">self</span>.reference_type(),
+                WasmerType::FuncRef | WasmerType::ExternRef | WasmerType::ExceptionRef =&gt; {
+                    <span class="self">self</span>.reference_type()
+                }
             },
         })
     }

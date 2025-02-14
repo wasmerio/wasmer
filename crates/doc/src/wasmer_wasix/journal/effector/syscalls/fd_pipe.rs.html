@@ -26,18 +26,18 @@
 <span class="kw">impl </span>JournalEffector {
     <span class="kw">pub fn </span>save_fd_pipe(
         ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-        fd1: Fd,
-        fd2: Fd,
+        read_fd: Fd,
+        write_fd: Fd,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="self">Self</span>::save_event(ctx, JournalEntry::CreatePipeV1 { fd1, fd2 })
+        <span class="self">Self</span>::save_event(ctx, JournalEntry::CreatePipeV1 { read_fd, write_fd })
     }
 
     <span class="kw">pub fn </span>apply_fd_pipe(
         ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-        fd1: Fd,
-        fd2: Fd,
+        read_fd: Fd,
+        write_fd: Fd,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">crate</span>::syscalls::fd_pipe_internal(ctx, <span class="prelude-val">Some</span>(fd1), <span class="prelude-val">Some</span>(fd2)).map_err(|err| {
+        <span class="kw">crate</span>::syscalls::fd_pipe_internal(ctx, <span class="prelude-val">Some</span>(read_fd), <span class="prelude-val">Some</span>(write_fd)).map_err(|err| {
             <span class="macro">anyhow::format_err!</span>(<span class="string">"journal restore error: failed to create pipe - {}"</span>, err)
         })<span class="question-mark">?</span>;
 

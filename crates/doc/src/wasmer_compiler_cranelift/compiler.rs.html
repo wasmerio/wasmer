@@ -492,6 +492,9 @@
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.
 
 </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
@@ -523,7 +526,9 @@
 
 <span class="kw">use </span>wasmer_compiler::{
     types::{
-        function::{Compilation, CompiledFunction, CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        function::{
+            Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
+        },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
@@ -844,8 +849,10 @@
             </span>.into_iter()
             .unzip();
 
+        <span class="kw">let </span><span class="kw-2">mut </span>unwind_info = UnwindInfo::default();
+
         <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-        </span><span class="kw">let </span>dwarf = <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>dwarf_frametable, cie_id)) = dwarf_frametable {
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>dwarf_frametable, cie_id)) = dwarf_frametable {
             <span class="kw">for </span>fde <span class="kw">in </span>fdes.into_iter().flatten() {
                 dwarf_frametable.add_fde(cie_id, fde);
             }
@@ -854,12 +861,8 @@
 
             <span class="kw">let </span>eh_frame_section = eh_frame.<span class="number">0</span>.into_section();
             custom_sections.push(eh_frame_section);
-            <span class="prelude-val">Some</span>(Dwarf::new(SectionIndex::new(custom_sections.len() - <span class="number">1</span>)))
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-        <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
-        </span><span class="kw">let </span>dwarf = <span class="prelude-val">None</span>;
+            unwind_info.eh_frame = <span class="prelude-val">Some</span>(SectionIndex::new(custom_sections.len() - <span class="number">1</span>));
+        };
 
         <span class="comment">// function call trampolines (only for local functions, by signature)
         </span><span class="attr">#[cfg(not(feature = <span class="string">"rayon"</span>))]
@@ -913,12 +916,15 @@
             </span>.into_iter()
             .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
 
+        <span class="kw">let </span>got = wasmer_compiler::types::function::GOT::empty();
+
         <span class="prelude-val">Ok</span>(Compilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            debug: dwarf,
+            unwind_info,
+            got,
         })
     }
 }

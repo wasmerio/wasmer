@@ -142,6 +142,10 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.
 
 </span><span class="attr">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
@@ -158,7 +162,8 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-</span><span class="kw">mod </span>export;
+</span><span class="kw">mod </span>exception_ref;
+<span class="kw">mod </span>export;
 <span class="kw">mod </span>extern_ref;
 <span class="kw">mod </span>function_env;
 <span class="kw">mod </span>global;
@@ -178,6 +183,7 @@
 
 <span class="kw">use </span>std::ptr::NonNull;
 
+<span class="kw">pub use </span><span class="kw">crate</span>::exception_ref::{VMExceptionObj, VMExceptionRef};
 <span class="kw">pub use </span><span class="kw">crate</span>::export::<span class="kw-2">*</span>;
 <span class="kw">pub use </span><span class="kw">crate</span>::extern_ref::{VMExternObj, VMExternRef};
 <span class="kw">pub use </span><span class="kw">crate</span>::function_env::VMFunctionEnvironment;
@@ -199,8 +205,10 @@
 <span class="kw">pub use </span><span class="kw">crate</span>::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTagImport,
+    VMTrampoline,
 };
+<span class="kw">pub use </span>store::StoreObject;
 <span class="kw">pub use </span>wasmer_types::LibCall;
 <span class="kw">pub use </span>wasmer_types::MemoryError;
 <span class="kw">pub use </span>wasmer_types::MemoryStyle;

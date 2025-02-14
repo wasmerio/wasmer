@@ -576,6 +576,27 @@
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Buf;
 <span class="kw">use </span>rkyv::{
     api::high::HighSerializer,
@@ -990,7 +1011,10 @@
         <span class="comment">// Write some events to it
         </span><span class="kw">let </span>journal = LogFileJournal::from_file(file.as_file().try_clone().unwrap()).unwrap();
         journal
-            .write(JournalEntry::CreatePipeV1 { fd1: <span class="number">1</span>, fd2: <span class="number">2 </span>})
+            .write(JournalEntry::CreatePipeV1 {
+                read_fd: <span class="number">1</span>,
+                write_fd: <span class="number">2</span>,
+            })
             .unwrap();
         journal
             .write(JournalEntry::SetThreadV1 {
@@ -1019,7 +1043,13 @@
         <span class="kw">let </span>event4 = journal.read().unwrap().map(LogReadResult::into_inner);
 
         <span class="comment">// Check the events
-        </span><span class="macro">assert_eq!</span>(event1, <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 { fd1: <span class="number">1</span>, fd2: <span class="number">2 </span>}));
+        </span><span class="macro">assert_eq!</span>(
+            event1,
+            <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 {
+                read_fd: <span class="number">1</span>,
+                write_fd: <span class="number">2
+            </span>})
+        );
         <span class="macro">assert_eq!</span>(
             event2,
             <span class="prelude-val">Some</span>(JournalEntry::SetThreadV1 {
@@ -1059,8 +1089,8 @@
         <span class="comment">// Before we read it, we will throw in another event
         </span>journal
             .write(JournalEntry::CreatePipeV1 {
-                fd1: <span class="number">1234</span>,
-                fd2: <span class="number">5432</span>,
+                read_fd: <span class="number">1234</span>,
+                write_fd: <span class="number">5432</span>,
             })
             .unwrap();
 
@@ -1069,7 +1099,13 @@
         <span class="kw">let </span>event3 = journal.read().unwrap().map(LogReadResult::into_inner);
         <span class="kw">let </span>event4 = journal.read().unwrap().map(LogReadResult::into_inner);
         <span class="kw">let </span>event5 = journal.read().unwrap().map(LogReadResult::into_inner);
-        <span class="macro">assert_eq!</span>(event1, <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 { fd1: <span class="number">1</span>, fd2: <span class="number">2 </span>}));
+        <span class="macro">assert_eq!</span>(
+            event1,
+            <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 {
+                read_fd: <span class="number">1</span>,
+                write_fd: <span class="number">2
+            </span>})
+        );
         <span class="macro">assert_eq!</span>(
             event2,
             <span class="prelude-val">Some</span>(JournalEntry::SetThreadV1 {
@@ -1116,7 +1152,13 @@
         <span class="macro">tracing::info!</span>(<span class="string">"event5 {:?}"</span>, event5);
         <span class="macro">tracing::info!</span>(<span class="string">"event6 {:?}"</span>, event6);
 
-        <span class="macro">assert_eq!</span>(event1, <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 { fd1: <span class="number">1</span>, fd2: <span class="number">2 </span>}));
+        <span class="macro">assert_eq!</span>(
+            event1,
+            <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 {
+                read_fd: <span class="number">1</span>,
+                write_fd: <span class="number">2
+            </span>})
+        );
         <span class="macro">assert_eq!</span>(
             event2,
             <span class="prelude-val">Some</span>(JournalEntry::SetThreadV1 {
@@ -1147,8 +1189,8 @@
         <span class="macro">assert_eq!</span>(
             event5,
             <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 {
-                fd1: <span class="number">1234</span>,
-                fd2: <span class="number">5432</span>,
+                read_fd: <span class="number">1234</span>,
+                write_fd: <span class="number">5432</span>,
             })
         );
         <span class="macro">assert_eq!</span>(event6, <span class="prelude-val">None</span>);

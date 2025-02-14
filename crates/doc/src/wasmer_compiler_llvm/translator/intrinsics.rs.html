@@ -2022,6 +2022,70 @@
 <a href="#2022" id="2022">2022</a>
 <a href="#2023" id="2023">2023</a>
 <a href="#2024" id="2024">2024</a>
+<a href="#2025" id="2025">2025</a>
+<a href="#2026" id="2026">2026</a>
+<a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
+<a href="#2033" id="2033">2033</a>
+<a href="#2034" id="2034">2034</a>
+<a href="#2035" id="2035">2035</a>
+<a href="#2036" id="2036">2036</a>
+<a href="#2037" id="2037">2037</a>
+<a href="#2038" id="2038">2038</a>
+<a href="#2039" id="2039">2039</a>
+<a href="#2040" id="2040">2040</a>
+<a href="#2041" id="2041">2041</a>
+<a href="#2042" id="2042">2042</a>
+<a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
+<a href="#2050" id="2050">2050</a>
+<a href="#2051" id="2051">2051</a>
+<a href="#2052" id="2052">2052</a>
+<a href="#2053" id="2053">2053</a>
+<a href="#2054" id="2054">2054</a>
+<a href="#2055" id="2055">2055</a>
+<a href="#2056" id="2056">2056</a>
+<a href="#2057" id="2057">2057</a>
+<a href="#2058" id="2058">2058</a>
+<a href="#2059" id="2059">2059</a>
+<a href="#2060" id="2060">2060</a>
+<a href="#2061" id="2061">2061</a>
+<a href="#2062" id="2062">2062</a>
+<a href="#2063" id="2063">2063</a>
+<a href="#2064" id="2064">2064</a>
+<a href="#2065" id="2065">2065</a>
+<a href="#2066" id="2066">2066</a>
+<a href="#2067" id="2067">2067</a>
+<a href="#2068" id="2068">2068</a>
+<a href="#2069" id="2069">2069</a>
+<a href="#2070" id="2070">2070</a>
+<a href="#2071" id="2071">2071</a>
+<a href="#2072" id="2072">2072</a>
+<a href="#2073" id="2073">2073</a>
+<a href="#2074" id="2074">2074</a>
+<a href="#2075" id="2075">2075</a>
+<a href="#2076" id="2076">2076</a>
+<a href="#2077" id="2077">2077</a>
+<a href="#2078" id="2078">2078</a>
+<a href="#2079" id="2079">2079</a>
+<a href="#2080" id="2080">2080</a>
+<a href="#2081" id="2081">2081</a>
+<a href="#2082" id="2082">2082</a>
+<a href="#2083" id="2083">2083</a>
+<a href="#2084" id="2084">2084</a>
+<a href="#2085" id="2085">2085</a>
+<a href="#2086" id="2086">2086</a>
+<a href="#2087" id="2087">2087</a>
+<a href="#2088" id="2088">2088</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
@@ -2073,8 +2137,9 @@
         Type::F32 =&gt; <span class="prelude-val">Ok</span>(intrinsics.f32_ty.as_basic_type_enum()),
         Type::F64 =&gt; <span class="prelude-val">Ok</span>(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 =&gt; <span class="prelude-val">Ok</span>(intrinsics.i128_ty.as_basic_type_enum()),
-        Type::FuncRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum()),
-        Type::ExternRef =&gt; <span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum()),
+        Type::FuncRef | Type::ExceptionRef | Type::ExternRef =&gt; {
+            <span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum())
+        }
     }
 }
 
@@ -2177,6 +2242,8 @@
     <span class="kw">pub </span>personality: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>readonly: Attribute,
     <span class="kw">pub </span>stack_probe: Attribute,
+    <span class="kw">pub </span>uwtable: Attribute,
+    <span class="kw">pub </span>frame_pointer: Attribute,
 
     <span class="kw">pub </span>void_ty: VoidType&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>i1_ty: IntType&lt;<span class="lifetime">'ctx</span>&gt;,
@@ -2203,6 +2270,7 @@
     <span class="kw">pub </span>ptr_ty: PointerType&lt;<span class="lifetime">'ctx</span>&gt;,
 
     <span class="kw">pub </span>anyfunc_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>exc_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
 
     <span class="kw">pub </span>i1_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>i8_zero: IntValue&lt;<span class="lifetime">'ctx</span>&gt;,
@@ -2262,6 +2330,16 @@
 
     <span class="kw">pub </span>throw_trap: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
+    <span class="comment">// EH
+    </span><span class="kw">pub </span>throw: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>rethrow: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>alloc_exception: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>delete_exception: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>read_exception: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+
+    <span class="comment">// Debug
+    </span><span class="kw">pub </span>debug_ptr: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+
     <span class="comment">// VM builtins.
     </span><span class="kw">pub </span>vmfunction_import_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>vmfunction_import_body_element: u32,
@@ -2278,6 +2356,7 @@
         module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
         context: <span class="kw-2">&amp;</span><span class="lifetime">'ctx </span>Context,
         target_data: <span class="kw-2">&amp;</span>TargetData,
+        binary_fmt: <span class="kw-2">&amp;</span>target_lexicon::BinaryFormat,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>void_ty = context.void_type();
         <span class="kw">let </span>i1_ty = context.bool_type();
@@ -2698,14 +2777,30 @@
             trap: module.add_function(<span class="string">"llvm.trap"</span>, void_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>), <span class="prelude-val">None</span>),
             debug_trap: module.add_function(<span class="string">"llvm.debugtrap"</span>, void_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>), <span class="prelude-val">None</span>),
             personality: module.add_function(
-                <span class="string">"__gxx_personality_v0"</span>,
-                i32_ty.fn_type(<span class="kw-2">&amp;</span>[], <span class="bool-val">false</span>),
-                <span class="prelude-val">Some</span>(Linkage::External),
+                <span class="kw">if </span><span class="macro">matches!</span>(binary_fmt, target_lexicon::BinaryFormat::Macho) {
+                    <span class="comment">// Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
+                    // will generate things differently than "normal", wreaking havoc.
+                    </span><span class="string">"__gxx_personality_v0"
+                </span>} <span class="kw">else </span>{
+                    <span class="string">"wasmer_eh_personality"
+                </span>},
+                i32_ty.fn_type(
+                    <span class="kw-2">&amp;</span>[
+                        i32_ty.into(),
+                        i32_ty.into(),
+                        i64_ty.into(),
+                        ptr_ty.into(),
+                        ptr_ty.into(),
+                    ],
+                    <span class="bool-val">false</span>,
+                ),
+                <span class="prelude-val">None</span>,
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"readonly"</span>), <span class="number">0</span>),
             stack_probe: context.create_string_attribute(<span class="string">"probe-stack"</span>, <span class="string">"inline-asm"</span>),
-
+            uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"uwtable"</span>), <span class="number">1</span>),
+            frame_pointer: context.create_string_attribute(<span class="string">"frame-pointer"</span>, <span class="string">"non-leaf"</span>),
             void_ty,
             i1_ty,
             i2_ty,
@@ -2729,6 +2824,7 @@
             i32x8_ty,
 
             anyfunc_ty,
+            exc_ty: context.struct_type(<span class="kw-2">&amp;</span>[i32_ty.into(), ptr_ty.into(), i64_ty.into()], <span class="bool-val">false</span>),
             i1_zero,
             i8_zero,
             i32_zero,
@@ -2998,6 +3094,38 @@
             throw_trap: module.add_function(
                 <span class="string">"wasmer_vm_raise_trap"</span>,
                 void_ty.fn_type(<span class="kw-2">&amp;</span>[i32_ty_basic_md], <span class="bool-val">false</span>),
+                <span class="prelude-val">None</span>,
+            ),
+
+            throw: module.add_function(
+                <span class="string">"wasmer_vm_throw"</span>,
+                void_ty.fn_type(<span class="kw-2">&amp;</span>[i64_ty.into(), ptr_ty.into(), i64_ty.into()], <span class="bool-val">false</span>),
+                <span class="prelude-val">None</span>,
+            ),
+            rethrow: module.add_function(
+                <span class="string">"wasmer_vm_rethrow"</span>,
+                void_ty.fn_type(<span class="kw-2">&amp;</span>[ptr_ty.into()], <span class="bool-val">false</span>),
+                <span class="prelude-val">None</span>,
+            ),
+            alloc_exception: module.add_function(
+                <span class="string">"wasmer_vm_alloc_exception"</span>,
+                ptr_ty.fn_type(<span class="kw-2">&amp;</span>[i64_ty.into()], <span class="bool-val">false</span>),
+                <span class="prelude-val">None</span>,
+            ),
+            delete_exception: module.add_function(
+                <span class="string">"wasmer_vm_delete_exception"</span>,
+                void_ty.fn_type(<span class="kw-2">&amp;</span>[ptr_ty.into()], <span class="bool-val">false</span>),
+                <span class="prelude-val">None</span>,
+            ),
+            read_exception: module.add_function(
+                <span class="string">"wasmer_vm_read_exception"</span>,
+                ptr_ty.fn_type(<span class="kw-2">&amp;</span>[ptr_ty.into()], <span class="bool-val">false</span>),
+                <span class="prelude-val">None</span>,
+            ),
+
+            debug_ptr: module.add_function(
+                <span class="string">"wasmer_vm_dbg_usize"</span>,
+                void_ty.fn_type(<span class="kw-2">&amp;</span>[ptr_ty.into()], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             memory_wait32: module.add_function(

@@ -767,7 +767,7 @@
                 Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
                 Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
                 Type::V128 =&gt; <span class="number">128</span>,
-                Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+                Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
             </span>})
             .collect::&lt;Vec&lt;i32&gt;&gt;();
 
@@ -1086,7 +1086,7 @@
                         Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
                         Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
                         Type::V128 =&gt; <span class="number">128</span>,
-                        Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
                     </span>})
                     .collect::&lt;Vec&lt;i32&gt;&gt;();
 
@@ -1212,7 +1212,7 @@
                 Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
                 Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
                 Type::V128 =&gt; <span class="number">128</span>,
-                Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+                Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
             </span>})
             .collect::&lt;Vec&lt;i32&gt;&gt;();
 

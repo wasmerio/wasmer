@@ -205,7 +205,7 @@
 )]
 #[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 #[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
-#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
+#[rkyv(derive(Debug, Hash, PartialEq, Eq), compare(PartialEq, PartialOrd))]
 </span><span class="kw">pub struct </span>SectionIndex(u32);
 
 <span class="macro">entity_impl!</span>(SectionIndex);

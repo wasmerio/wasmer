@@ -703,6 +703,53 @@
 <a href="#703" id="703">703</a>
 <a href="#704" id="704">704</a>
 <a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::{DirectiveError, DirectiveErrors};
 <span class="kw">use </span><span class="kw">crate</span>::spectest::spectest_importobject;
 <span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
@@ -740,6 +787,9 @@
     <span class="doccomment">/// A flag indicating that assert_trap and assert_exhaustion should be skipped.
     /// See https://github.com/wasmerio/wasmer/issues/1550 for more info
     </span>disable_assert_trap_exhaustion: bool,
+
+    <span class="doccomment">/// A flag indicating that assert_exception should be skipped.
+    </span>disable_assert_exception: bool,
 }
 
 <span class="kw">impl </span>Wast {
@@ -755,6 +805,7 @@
             instances: HashMap::new(),
             fail_fast: <span class="bool-val">true</span>,
             disable_assert_trap_exhaustion: <span class="bool-val">false</span>,
+            disable_assert_exception: <span class="bool-val">false</span>,
         }
     }
 
@@ -775,6 +826,11 @@
     <span class="doccomment">/// Do not run any code in assert_trap or assert_exhaustion.
     </span><span class="kw">pub fn </span>disable_assert_and_exhaustion(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.disable_assert_trap_exhaustion = <span class="bool-val">true</span>;
+    }
+
+    <span class="doccomment">/// Do not run any code in assert_exception.
+    </span><span class="kw">pub fn </span>disable_assert_exception(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.disable_assert_exception = <span class="bool-val">true</span>;
     }
 
     <span class="doccomment">/// Construct a new instance of `Wast` with the spectests imports.
@@ -819,6 +875,7 @@
             .map(|v| <span class="kw">match </span>v {
                 WastArg::Core(v) =&gt; <span class="self">self</span>.runtime_value(v),
                 WastArg::Component(<span class="kw">_</span>) =&gt; <span class="macro">bail!</span>(<span class="string">"expected component function, found core"</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
             })
             .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
         <span class="self">self</span>.invoke(exec.module.map(|i| i.name()), exec.name, <span class="kw-2">&amp;</span>values)
@@ -838,6 +895,7 @@
                     }
                 }
                 wast::WastRet::Component(<span class="kw">_</span>) =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">"Components not supported yet!"</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
             }
 
             <span class="kw">if let </span>Value::V128(bits) = v {
@@ -850,7 +908,25 @@
                     );
                 }
             }
-            <span class="macro">bail!</span>(<span class="string">"expected {:?}, got {:?}"</span>, e, v)
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = v.f64() {
+                <span class="kw">if let </span>wast::WastRet::Core(WastRetCore::F64(wast::core::NanPattern::Value(f1))) = e
+                {
+                    <span class="kw">let </span>f = f64::from_bits(f1.bits);
+                    <span class="macro">bail!</span>(<span class="string">"expected {f:?} ({:?}), got {v:?} ({})"</span>, e, f.to_bits())
+                } <span class="kw">else </span>{
+                    <span class="macro">bail!</span>(<span class="string">"expected {:?}, got {:?} ({})"</span>, e, v, f.to_bits())
+                }
+            } <span class="kw">else if let </span><span class="prelude-val">Some</span>(f) = v.f32() {
+                <span class="kw">if let </span>wast::WastRet::Core(WastRetCore::F32(wast::core::NanPattern::Value(f1))) = e
+                {
+                    <span class="kw">let </span>f = f32::from_bits(f1.bits);
+                    <span class="macro">bail!</span>(<span class="string">"expected {f:?} ({:?}), got {v:?} ({})"</span>, e, f.to_bits())
+                } <span class="kw">else </span>{
+                    <span class="macro">bail!</span>(<span class="string">"expected {:?}, got {:?} ({})"</span>, e, v, f.to_bits())
+                }
+            } <span class="kw">else </span>{
+                <span class="macro">bail!</span>(<span class="string">"expected {:?}, got {:?}"</span>, e, v)
+            }
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -886,7 +962,8 @@
         <span class="kw">use </span>wast::WastDirective::<span class="kw-2">*</span>;
 
         <span class="kw">match </span>directive {
-            Wat(module) =&gt; <span class="self">self</span>.wat(module)<span class="question-mark">?</span>,
+            ModuleDefinition(module) =&gt; <span class="self">self</span>.wat(module)<span class="question-mark">?</span>,
+            Module(module) =&gt; <span class="self">self</span>.wat(module)<span class="question-mark">?</span>,
             Register {
                 span: <span class="kw">_</span>,
                 name,
@@ -943,9 +1020,12 @@
                     )
                 }
             }
-            AssertException { .. } =&gt; {
-                <span class="comment">// Do nothing for now
-            </span>}
+            AssertException { span: <span class="kw">_</span>, exec } =&gt; {
+                <span class="kw">if </span>!<span class="self">self</span>.disable_assert_exception {
+                    <span class="kw">let </span>result = <span class="self">self</span>.perform_execute(exec);
+                    <span class="self">self</span>.assert_exception(result)<span class="question-mark">?</span>;
+                }
+            }
             AssertMalformed {
                 module,
                 span: <span class="kw">_</span>,
@@ -986,6 +1066,12 @@
             }
             Thread(<span class="kw">_</span>) =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">"`thread` directives not implemented yet!"</span>),
             Wait { .. } =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">"`wait` directives not implemented yet!"</span>),
+            ModuleInstance { .. } =&gt; {
+                <span class="macro">anyhow::bail!</span>(<span class="string">"module instance directive not implemented yet!"</span>)
+            }
+            AssertSuspension { .. } =&gt; {
+                <span class="macro">anyhow::bail!</span>(<span class="string">"`assert suspension` directive not implemented yet!"</span>)
+            }
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -1203,6 +1289,7 @@
             // for this scenario
             </span>|| (expected == <span class="string">"unknown global" </span>&amp;&amp; actual.contains(<span class="string">"global.get of locally defined global"</span>))
             || (expected == <span class="string">"immutable global" </span>&amp;&amp; actual.contains(<span class="string">"global is immutable: cannot modify it with `global.set`"</span>))
+            || (expected.contains(<span class="string">"type mismatch: instruction requires"</span>) &amp;&amp; actual.contains(<span class="string">"instantiation failed with: Validation error: type mismatch: expected"</span>))
     }
 
     <span class="comment">// Checks if the `assert_trap` message matches the expected one
@@ -1212,6 +1299,13 @@
                 </span>.match_trap_messages
                 .get(expected)
                 .map_or(<span class="bool-val">false</span>, |alternative| actual.contains(alternative))
+    }
+
+    <span class="kw">fn </span>assert_exception(<span class="kw-2">&amp;</span><span class="self">self</span>, result: <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span>result.is_ok() {
+            <span class="macro">anyhow::bail!</span>(<span class="string">"Expected exception to be thrown, returned {result:?} instead"</span>);
+        }
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>val_matches(<span class="kw-2">&amp;</span><span class="self">self</span>, actual: <span class="kw-2">&amp;</span>Value, expected: <span class="kw-2">&amp;</span>WastRetCore) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
@@ -1241,7 +1335,7 @@
                 })),
             ) =&gt; <span class="bool-val">true</span>,
             (Value::ExternRef(<span class="prelude-val">None</span>), WastRetCore::RefExtern(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
-
+            (Value::ExceptionRef(<span class="prelude-val">None</span>), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
             (Value::ExternRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), WastRetCore::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
             (Value::ExternRef(<span class="prelude-val">Some</span>(extern_ref)), WastRetCore::RefExtern(num)) =&gt; {
                 <span class="kw">let </span>x = extern_ref.downcast::&lt;u32&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.store).cloned();

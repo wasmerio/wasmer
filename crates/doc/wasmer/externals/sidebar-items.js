@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Extern"],"mod":["function","global","memory","memory_view","table"],"trait":["VMExternToExtern"]};

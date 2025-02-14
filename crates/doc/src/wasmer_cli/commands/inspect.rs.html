@@ -70,15 +70,13 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
+<span class="kw">use </span><span class="kw">crate</span>::backend::RuntimeOptions;
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>bytesize::ByteSize;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
-
-<span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer validate` subcommand
@@ -88,7 +86,7 @@
     </span>path: PathBuf,
 
     <span class="attr">#[clap(flatten)]
-    </span>store: StoreOptions,
+    </span>rt: RuntimeOptions,
 }
 
 <span class="kw">impl </span>Inspect {
@@ -99,7 +97,7 @@
     }
 
     <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        <span class="kw">let </span>store = <span class="self">self</span>.rt.get_store()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>module_contents = std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;
         <span class="kw">let </span>iswasm = is_wasm(<span class="kw-2">&amp;</span>module_contents);

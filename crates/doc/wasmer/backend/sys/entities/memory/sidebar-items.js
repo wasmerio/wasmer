@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["volatile_memcpy_read","volatile_memcpy_write"],"mod":["view"],"struct":["Memory","MemoryBuffer"]};

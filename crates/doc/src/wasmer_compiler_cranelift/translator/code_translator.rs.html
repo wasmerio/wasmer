@@ -3414,6 +3414,17 @@
 <a href="#3414" id="3414">3414</a>
 <a href="#3415" id="3415">3415</a>
 <a href="#3416" id="3416">3416</a>
+<a href="#3417" id="3417">3417</a>
+<a href="#3418" id="3418">3418</a>
+<a href="#3419" id="3419">3419</a>
+<a href="#3420" id="3420">3420</a>
+<a href="#3421" id="3421">3421</a>
+<a href="#3422" id="3422">3422</a>
+<a href="#3423" id="3423">3423</a>
+<a href="#3424" id="3424">3424</a>
+<a href="#3425" id="3425">3425</a>
+<a href="#3426" id="3426">3426</a>
+<a href="#3427" id="3427">3427</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -5693,6 +5704,17 @@
         | Operator::ArrayAtomicRmwCmpxchg { .. } =&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">"Array atomics not supported yet!"</span>))
         }
+        Operator::ContNew { .. } =&gt; <span class="macro">todo!</span>(),
+        Operator::ContBind { .. } =&gt; <span class="macro">todo!</span>(),
+        Operator::Suspend { .. } =&gt; <span class="macro">todo!</span>(),
+        Operator::Resume { .. } =&gt; <span class="macro">todo!</span>(),
+        Operator::ResumeThrow { .. } =&gt; <span class="macro">todo!</span>(),
+        Operator::Switch { .. } =&gt; <span class="macro">todo!</span>(),
+        Operator::I64Add128 =&gt; <span class="macro">todo!</span>(),
+        Operator::I64Sub128 =&gt; <span class="macro">todo!</span>(),
+        Operator::I64MulWideS =&gt; <span class="macro">todo!</span>(),
+        Operator::I64MulWideU =&gt; <span class="macro">todo!</span>(),
+        <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(),
     };
     <span class="prelude-val">Ok</span>(())
 }

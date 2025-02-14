@@ -653,6 +653,60 @@
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -663,8 +717,8 @@
 <span class="kw">use crate</span>::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, ModuleHash,
-    SignatureIndex, TableIndex, TableInitializer, TableType,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex, MemoryIndex, MemoryType,
+    ModuleHash, SignatureIndex, TableIndex, TableInitializer, TableType, TagIndex, TagType,
 };
 
 <span class="kw">use </span>indexmap::IndexMap;
@@ -820,6 +874,9 @@
     <span class="doccomment">/// WebAssembly global variables (imported and local).
     </span><span class="kw">pub </span>globals: PrimaryMap&lt;GlobalIndex, GlobalType&gt;,
 
+    <span class="doccomment">/// WebAssembly tag variables (imported and local).
+    </span><span class="kw">pub </span>tags: PrimaryMap&lt;TagIndex, SignatureIndex&gt;,
+
     <span class="doccomment">/// Custom sections in the module.
     </span><span class="kw">pub </span>custom_sections: IndexMap&lt;String, CustomSectionIndex&gt;,
 
@@ -834,6 +891,9 @@
 
     <span class="doccomment">/// Number of imported memories in the module.
     </span><span class="kw">pub </span>num_imported_memories: usize,
+
+    <span class="doccomment">/// Number of imported tags in the module.
+    </span><span class="kw">pub </span>num_imported_tags: usize,
 
     <span class="doccomment">/// Number of imported globals in the module.
     </span><span class="kw">pub </span>num_imported_globals: usize,
@@ -858,10 +918,12 @@
     tables: PrimaryMap&lt;TableIndex, TableType&gt;,
     memories: PrimaryMap&lt;MemoryIndex, MemoryType&gt;,
     globals: PrimaryMap&lt;GlobalIndex, GlobalType&gt;,
+    tags: PrimaryMap&lt;TagIndex, SignatureIndex&gt;,
     custom_sections: IndexMap&lt;String, CustomSectionIndex&gt;,
     custom_sections_data: PrimaryMap&lt;CustomSectionIndex, Box&lt;[u8]&gt;&gt;,
     num_imported_functions: usize,
     num_imported_tables: usize,
+    num_imported_tags: usize,
     num_imported_memories: usize,
     num_imported_globals: usize,
 }
@@ -884,10 +946,12 @@
             tables: it.tables,
             memories: it.memories,
             globals: it.globals,
+            tags: it.tags,
             custom_sections: it.custom_sections,
             custom_sections_data: it.custom_sections_data,
             num_imported_functions: it.num_imported_functions,
             num_imported_tables: it.num_imported_tables,
+            num_imported_tags: it.num_imported_tags,
             num_imported_memories: it.num_imported_memories,
             num_imported_globals: it.num_imported_globals,
         }
@@ -913,10 +977,12 @@
             tables: it.tables,
             memories: it.memories,
             globals: it.globals,
+            tags: it.tags,
             custom_sections: it.custom_sections,
             custom_sections_data: it.custom_sections_data,
             num_imported_functions: it.num_imported_functions,
             num_imported_tables: it.num_imported_tables,
+            num_imported_tags: it.num_imported_tags,
             num_imported_memories: it.num_imported_memories,
             num_imported_globals: it.num_imported_globals,
         }
@@ -975,10 +1041,12 @@
             &amp;&amp; <span class="self">self</span>.tables == other.tables
             &amp;&amp; <span class="self">self</span>.memories == other.memories
             &amp;&amp; <span class="self">self</span>.globals == other.globals
+            &amp;&amp; <span class="self">self</span>.tags == other.tags
             &amp;&amp; <span class="self">self</span>.custom_sections == other.custom_sections
             &amp;&amp; <span class="self">self</span>.custom_sections_data == other.custom_sections_data
             &amp;&amp; <span class="self">self</span>.num_imported_functions == other.num_imported_functions
             &amp;&amp; <span class="self">self</span>.num_imported_tables == other.num_imported_tables
+            &amp;&amp; <span class="self">self</span>.num_imported_tags == other.num_imported_tags
             &amp;&amp; <span class="self">self</span>.num_imported_memories == other.num_imported_memories
             &amp;&amp; <span class="self">self</span>.num_imported_globals == other.num_imported_globals
     }
@@ -1018,7 +1086,7 @@
     }
 
     <span class="doccomment">/// Get the export types of the module
-    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; ExportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">'_</span>&gt; {
+    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; ExportsIterator&lt;Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">'_</span>&gt;&gt; {
         <span class="kw">let </span>iter = <span class="self">self</span>.exports.iter().map(<span class="kw">move </span>|(name, export_index)| {
             <span class="kw">let </span>extern_type = <span class="kw">match </span>export_index {
                 ExportIndex::Function(i) =&gt; {
@@ -1038,14 +1106,23 @@
                     <span class="kw">let </span>global_type = <span class="self">self</span>.globals.get(<span class="kw-2">*</span>i).unwrap();
                     ExternType::Global(<span class="kw-2">*</span>global_type)
                 }
+                ExportIndex::Tag(i) =&gt; {
+                    <span class="kw">let </span>signature = <span class="self">self</span>.tags.get(<span class="kw-2">*</span>i).unwrap();
+                    <span class="kw">let </span>tag_type = <span class="self">self</span>.signatures.get(<span class="kw-2">*</span>signature).unwrap();
+
+                    ExternType::Tag(TagType {
+                        kind: <span class="kw">crate</span>::types::TagKind::Exception,
+                        ty: tag_type.clone(),
+                    })
+                }
             };
             ExportType::new(name, extern_type)
         });
-        ExportsIterator::new(iter, <span class="self">self</span>.exports.len())
+        ExportsIterator::new(Box::new(iter), <span class="self">self</span>.exports.len())
     }
 
     <span class="doccomment">/// Get the import types of the module
-    </span><span class="kw">pub fn </span>imports(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">'_</span>&gt; {
+    </span><span class="kw">pub fn </span>imports(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; ImportsIterator&lt;Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">'_</span>&gt;&gt; {
         <span class="kw">let </span>iter =
             <span class="self">self</span>.imports
                 .iter()
@@ -1068,22 +1145,35 @@
                             <span class="kw">let </span>global_type = <span class="self">self</span>.globals.get(<span class="kw-2">*</span>i).unwrap();
                             ExternType::Global(<span class="kw-2">*</span>global_type)
                         }
+                        ImportIndex::Tag(i) =&gt; {
+                            <span class="kw">let </span>tag_type = <span class="self">self</span>.tags.get(<span class="kw-2">*</span>i).unwrap();
+                            <span class="kw">let </span>func_type = <span class="self">self</span>.signatures.get(<span class="kw-2">*</span>tag_type).unwrap();
+                            ExternType::Tag(TagType::from_fn_type(
+                                <span class="kw">crate</span>::TagKind::Exception,
+                                func_type.clone(),
+                            ))
+                        }
                     };
                     ImportType::new(module, field, extern_type)
                 });
-        ImportsIterator::new(iter, <span class="self">self</span>.imports.len())
+        ImportsIterator::new(Box::new(iter), <span class="self">self</span>.imports.len())
     }
 
     <span class="doccomment">/// Get the custom sections of the module given a `name`.
-    </span><span class="kw">pub fn </span>custom_sections&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">'a </span>{
-        <span class="self">self</span>.custom_sections
-            .iter()
-            .filter_map(<span class="kw">move </span>|(section_name, section_index)| {
-                <span class="kw">if </span>name != section_name {
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.custom_sections_data[<span class="kw-2">*</span>section_index].clone())
-            })
+    </span><span class="kw">pub fn </span>custom_sections&lt;<span class="lifetime">'a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+        name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+    ) -&gt; Box&lt;<span class="kw">impl </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        Box::new(
+            <span class="self">self</span>.custom_sections
+                .iter()
+                .filter_map(<span class="kw">move </span>|(section_name, section_index)| {
+                    <span class="kw">if </span>name != section_name {
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                    <span class="prelude-val">Some</span>(<span class="self">self</span>.custom_sections_data[<span class="kw-2">*</span>section_index].clone())
+                }),
+        )
     }
 
     <span class="doccomment">/// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
@@ -1159,6 +1249,24 @@
     <span class="doccomment">/// Test whether the given global index is for an imported global.
     </span><span class="kw">pub fn </span>is_imported_global(<span class="kw-2">&amp;</span><span class="self">self</span>, index: GlobalIndex) -&gt; bool {
         index.index() &lt; <span class="self">self</span>.num_imported_globals
+    }
+
+    <span class="doccomment">/// Convert a `LocalTagIndex` into a `TagIndex`.
+    </span><span class="kw">pub fn </span>tag_index(<span class="kw-2">&amp;</span><span class="self">self</span>, local_tag: LocalTagIndex) -&gt; TagIndex {
+        TagIndex::new(<span class="self">self</span>.num_imported_tags + local_tag.index())
+    }
+
+    <span class="doccomment">/// Convert a `TagIndex` into a `LocalTagIndex`. Returns None if the
+    /// index is an imported tag.
+    </span><span class="kw">pub fn </span>local_tag_index(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: TagIndex) -&gt; <span class="prelude-ty">Option</span>&lt;LocalTagIndex&gt; {
+        tag.index()
+            .checked_sub(<span class="self">self</span>.num_imported_tags)
+            .map(LocalTagIndex::new)
+    }
+
+    <span class="doccomment">/// Test whether the given tag index is for an imported tag.
+    </span><span class="kw">pub fn </span>is_imported_tag(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TagIndex) -&gt; bool {
+        index.index() &lt; <span class="self">self</span>.num_imported_tags
     }
 
     <span class="doccomment">/// Get the Module name

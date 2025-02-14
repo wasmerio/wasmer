@@ -45,7 +45,7 @@
 
 <span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::engine::wasm_config_t;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>wasmer_api::ModuleMiddleware;
+<span class="kw">use </span>wasmer_api::sys::ModuleMiddleware;
 
 <span class="attr">#[cfg(all(feature = <span class="string">"middlewares"</span>, not(feature = <span class="string">"compiler"</span>)))]
 </span><span class="macro">compile_error!</span>(<span class="string">"The `middlewares` feature requires the `compiler` feature to be turned on"</span>);

@@ -647,6 +647,25 @@
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
 <a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::abi::Abi;
 <span class="kw">use </span><span class="kw">crate</span>::error::{err, err_nt};
 <span class="kw">use </span><span class="kw">crate</span>::translator::intrinsics::{type_to_llvm, Intrinsics};
@@ -806,6 +825,25 @@
                     vmctx_attributes(<span class="number">0</span>),
                 )
             }
+            [t1, t2]
+                <span class="kw">if </span><span class="macro">matches!</span>(t1, Type::I32 | Type::I64 | Type::F32 | Type::F64)
+                    &amp;&amp; <span class="macro">matches!</span>(t2, Type::FuncRef | Type::ExternRef | Type::ExceptionRef) =&gt;
+            {
+                <span class="kw">let </span>t1 = type_to_llvm(intrinsics, <span class="kw-2">*</span>t1).unwrap();
+                <span class="kw">let </span>t2 = type_to_llvm(intrinsics, <span class="kw-2">*</span>t2).unwrap();
+                (
+                    context
+                        .struct_type(<span class="kw-2">&amp;</span>[t1.as_basic_type_enum(), t2.as_basic_type_enum()], <span class="bool-val">false</span>)
+                        .fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;BasicMetadataTypeEnum&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+                                </span>.as_slice(),
+                            <span class="bool-val">false</span>,
+                        ),
+                    vmctx_attributes(<span class="number">0</span>),
+                )
+            }
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">let </span>sig_returns_bitwidths = sig
                     .results()
@@ -814,7 +852,7 @@
                         Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
                         Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
                         Type::V128 =&gt; <span class="number">128</span>,
-                        Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
                     </span>})
                     .collect::&lt;Vec&lt;i32&gt;&gt;();
                 <span class="kw">match </span>sig_returns_bitwidths.as_slice() {
@@ -977,7 +1015,7 @@
                         <span class="macro">assert!</span>(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
                         <span class="prelude-val">Ok</span>(value)
                     }
-                    Type::ExternRef | Type::FuncRef =&gt; {
+                    Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; {
                         <span class="macro">assert!</span>(value.get_type() == intrinsics.ptr_ty.as_basic_type_enum());
                         <span class="prelude-val">Ok</span>(value)
                     }
@@ -1016,7 +1054,7 @@
                         Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
                         Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
                         Type::V128 =&gt; <span class="number">128</span>,
-                        Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+                        Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
                     </span>})
                     .collect::&lt;Vec&lt;i32&gt;&gt;();
 
@@ -1128,7 +1166,7 @@
                 Type::I32 | Type::F32 =&gt; <span class="number">32</span>,
                 Type::I64 | Type::F64 =&gt; <span class="number">64</span>,
                 Type::V128 =&gt; <span class="number">128</span>,
-                Type::ExternRef | Type::FuncRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
+                Type::ExternRef | Type::FuncRef | Type::ExceptionRef =&gt; <span class="number">64</span>, <span class="comment">/* pointer */
             </span>})
             .collect::&lt;Vec&lt;i32&gt;&gt;();
 

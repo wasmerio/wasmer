@@ -234,6 +234,13 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -247,7 +254,7 @@
 <span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>std::sync::Mutex <span class="kw">as </span>StdMutex;
 <span class="kw">use </span>tokio::sync::{watch, Mutex <span class="kw">as </span>AsyncMutex};
-<span class="kw">use </span>virtual_fs::{Pipe, VirtualFile};
+<span class="kw">use </span>virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{EpollType, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
 
 <span class="kw">use crate</span>::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
@@ -420,9 +427,16 @@
         </span>socket: InodeSocket,
     },
     <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip))]
-    </span>Pipe {
-        <span class="doccomment">/// Reference to the pipe
-        </span>pipe: Pipe,
+    </span>PipeTx {
+        tx: PipeTx,
+    },
+    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip))]
+    </span>PipeRx {
+        rx: PipeRx,
+    },
+    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip))]
+    </span>DuplexPipe {
+        pipe: Pipe,
     },
     Epoll {
         <span class="comment">// List of events we are polling on

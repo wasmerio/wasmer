@@ -304,6 +304,9 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -511,8 +514,8 @@
                 <span class="macro">write!</span>(f, <span class="string">"epoll-ctl (epfd={epfd}, op={op:?}, fd={fd})"</span>)
             }
             JournalEntry::TtySetV1 { tty, line_feeds } =&gt; <span class="macro">write!</span>(f, <span class="string">"tty-set (echo={}, buffering={}, feeds={})"</span>, tty.echo, tty.line_buffered, line_feeds),
-            JournalEntry::CreatePipeV1 { fd1, fd2 } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"fd-pipe (fd1={fd1}, fd2={fd2})"</span>)
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"fd-pipe (read_fd={read_fd}, write_fd={write_fd})"</span>)
             }
             JournalEntry::CreateEventV1 {
                 initial_val, fd, ..
@@ -539,6 +542,9 @@
             JournalEntry::PortRouteDelV1 { ip } =&gt; <span class="macro">write!</span>(f, <span class="string">"port-route-del (ip={ip})"</span>),
             JournalEntry::SocketOpenV1 { af, ty, pt, fd } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"sock-open (fd={fd}, af={af:?}, ty={ty:?}, pt={pt:?})"</span>)
+            }
+            JournalEntry::SocketPairV1 { fd1, fd2 } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"sock-pair (fd1={fd1}, fd2={fd2})"</span>)
             }
             JournalEntry::SocketListenV1 { fd, backlog } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"sock-listen (fd={fd}, backlog={backlog})"</span>)

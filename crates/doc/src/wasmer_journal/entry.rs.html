@@ -851,6 +851,14 @@
 <a href="#851" id="851">851</a>
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 <span class="kw">use </span>std::net::{Shutdown, SocketAddr};
@@ -1113,8 +1121,8 @@
         line_feeds: bool,
     },
     CreatePipeV1 {
-        fd1: Fd,
-        fd2: Fd,
+        read_fd: Fd,
+        write_fd: Fd,
     },
     CreateEventV1 {
         initial_val: u64,
@@ -1153,6 +1161,10 @@
         ty: Socktype,
         pt: SockProto,
         fd: Fd,
+    },
+    SocketPairV1 {
+        fd1: Fd,
+        fd2: Fd,
     },
     SocketListenV1 {
         fd: Fd,
@@ -1471,7 +1483,9 @@
                 event,
             },
             <span class="self">Self</span>::TtySetV1 { tty, line_feeds } =&gt; JournalEntry::TtySetV1 { tty, line_feeds },
-            <span class="self">Self</span>::CreatePipeV1 { fd1, fd2 } =&gt; JournalEntry::CreatePipeV1 { fd1, fd2 },
+            <span class="self">Self</span>::CreatePipeV1 { read_fd, write_fd } =&gt; {
+                JournalEntry::CreatePipeV1 { read_fd, write_fd }
+            }
             <span class="self">Self</span>::CreateEventV1 {
                 initial_val,
                 flags,
@@ -1510,6 +1524,7 @@
             <span class="self">Self</span>::PortRouteClearV1 =&gt; JournalEntry::PortRouteClearV1,
             <span class="self">Self</span>::PortRouteDelV1 { ip } =&gt; JournalEntry::PortRouteDelV1 { ip },
             <span class="self">Self</span>::SocketOpenV1 { af, ty, pt, fd } =&gt; JournalEntry::SocketOpenV1 { af, ty, pt, fd },
+            <span class="self">Self</span>::SocketPairV1 { fd1, fd2 } =&gt; JournalEntry::SocketPairV1 { fd1, fd2 },
             <span class="self">Self</span>::SocketListenV1 { fd, backlog } =&gt; JournalEntry::SocketListenV1 { fd, backlog },
             <span class="self">Self</span>::SocketBindV1 { fd, addr } =&gt; JournalEntry::SocketBindV1 { fd, addr },
             <span class="self">Self</span>::SocketConnectedV1 {
@@ -1685,6 +1700,7 @@
             JournalEntry::PortRouteClearV1 =&gt; base_size,
             JournalEntry::PortRouteDelV1 { .. } =&gt; base_size,
             JournalEntry::SocketOpenV1 { .. } =&gt; base_size,
+            JournalEntry::SocketPairV1 { .. } =&gt; base_size,
             JournalEntry::SocketListenV1 { .. } =&gt; base_size,
             JournalEntry::SocketBindV1 { .. } =&gt; base_size,
             JournalEntry::SocketConnectedV1 { .. } =&gt; base_size,

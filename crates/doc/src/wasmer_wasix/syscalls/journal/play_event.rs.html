@@ -819,6 +819,16 @@
 <a href="#819" id="819">819</a>
 <a href="#820" id="820">820</a>
 <a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::Range;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -1024,7 +1034,7 @@
                 <span class="kw">if </span><span class="self">self</span>.real_fd.contains(<span class="kw-2">&amp;</span>original_fd) {
                     <span class="self">self</span>.action_fd_dup(original_fd, copied_fd, cloexec)<span class="question-mark">?</span>;
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
-                    <span class="macro">tracing::trace!</span>(%original_fd, %copied_fd, <span class="string">"Differ(ether) journal - FdDuplicate"</span>);
+                    <span class="macro">tracing::trace!</span>(%original_fd, %copied_fd, %cloexec, <span class="string">"Differ(ether) journal - FdDuplicate"</span>);
                     differ_ethereal.push(JournalEntry::DuplicateFileDescriptorV2 {
                         original_fd,
                         copied_fd,
@@ -1097,7 +1107,7 @@
                 <span class="kw">if </span><span class="self">self</span>.real_fd.contains(<span class="kw-2">&amp;</span>fd) {
                     <span class="self">self</span>.action_fd_set_fdflags(fd, flags)<span class="question-mark">?</span>;
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
-                    <span class="macro">tracing::trace!</span>(%fd, <span class="question-mark">?</span>flags, <span class="string">"Differ(ether) journal - FdSetFlags"</span>);
+                    <span class="macro">tracing::trace!</span>(%fd, <span class="question-mark">?</span>flags, <span class="string">"Differ(ether) journal - FdSetFdFlags"</span>);
                     differ_ethereal.push(JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags });
                 } <span class="kw">else </span>{
                     <span class="self">self</span>.action_fd_set_fdflags(fd, flags)<span class="question-mark">?</span>;
@@ -1197,13 +1207,13 @@
                 JournalEffector::apply_chdir(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, <span class="kw-2">&amp;</span>path)
                     .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
             }
-            JournalEntry::CreatePipeV1 { fd1, fd2 } =&gt; {
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
-                    <span class="macro">tracing::trace!</span>(%fd1, %fd2,  <span class="string">"Differ(ether) journal - CreatePipe"</span>);
-                    differ_ethereal.push(JournalEntry::CreatePipeV1 { fd1, fd2 });
+                    <span class="macro">tracing::trace!</span>(%read_fd, %write_fd,  <span class="string">"Differ(ether) journal - CreatePipe"</span>);
+                    differ_ethereal.push(JournalEntry::CreatePipeV1 { read_fd, write_fd });
                 } <span class="kw">else </span>{
-                    <span class="macro">tracing::trace!</span>(%fd1, %fd2,  <span class="string">"Replay journal - CreatePipe"</span>);
-                    JournalEffector::apply_fd_pipe(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, fd1, fd2)
+                    <span class="macro">tracing::trace!</span>(%read_fd, %write_fd,  <span class="string">"Replay journal - CreatePipe"</span>);
+                    JournalEffector::apply_fd_pipe(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, read_fd, write_fd)
                         .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
                 }
             }
@@ -1317,6 +1327,16 @@
                 } <span class="kw">else </span>{
                     <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>af, <span class="question-mark">?</span>ty, <span class="question-mark">?</span>pt, %fd, <span class="string">"Replay journal - SocketOpen"</span>);
                     JournalEffector::apply_sock_open(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, af, ty, pt, fd)
+                        .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?
+                </span>}
+            }
+            JournalEntry::SocketPairV1 { fd1, fd2 } =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
+                    <span class="macro">tracing::trace!</span>(%fd1, %fd2, <span class="string">"Differ(ether) journal - SocketPair"</span>);
+                    differ_ethereal.push(JournalEntry::SocketPairV1 { fd1, fd2 });
+                } <span class="kw">else </span>{
+                    <span class="macro">tracing::trace!</span>(%fd1, %fd2, <span class="string">"Replay journal - SocketOpen"</span>);
+                    JournalEffector::apply_sock_pair(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, fd1, fd2)
                         .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?
                 </span>}
             }

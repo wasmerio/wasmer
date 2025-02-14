@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["imp","private"],"struct":["WithEnv","WithoutEnv"],"trait":["HostFunction"]};

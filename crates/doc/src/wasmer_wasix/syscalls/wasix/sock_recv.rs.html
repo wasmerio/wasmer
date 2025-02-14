@@ -193,7 +193,7 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(sock));
     <span class="kw">let </span>guard = fd_entry.inode.read();
-    <span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::Pipe { .. });
+    <span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::PipeRx { .. });
     drop(guard);
     <span class="kw">if </span>use_read {
         fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)

@@ -218,10 +218,6 @@
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     future::Future,
@@ -294,7 +290,6 @@
     <span class="kw">pub fn </span>spawn&lt;<span class="lifetime">'a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
         name: String,
-        store: wasmer::Store,
         env: WasiEnv,
     ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt;&gt; + <span class="lifetime">'a</span>&gt;&gt; {
         Box::pin(<span class="kw">async move </span>{
@@ -335,7 +330,7 @@
 
                     env.prepare_spawn(cmd);
 
-                    spawn_exec(pkg, name.as_str(), store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+                    spawn_exec(pkg, name.as_str(), env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
                 </span>}
             }
         })
@@ -345,15 +340,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         name: String,
         parent_ctx: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;&gt;,
-        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;wasmer::Store&gt;,
         builder: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
         <span class="comment">// We check for built in commands
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent_ctx) = parent_ctx {
             <span class="kw">if </span><span class="self">self</span>.commands.exists(name.as_str()) {
-                <span class="kw">return </span><span class="self">self
-                    </span>.commands
-                    .exec(parent_ctx, name.as_str(), store, builder);
+                <span class="kw">return </span><span class="self">self</span>.commands.exec(parent_ctx, name.as_str(), builder);
             }
         } <span class="kw">else if </span><span class="self">self</span>.commands.exists(name.as_str()) {
             <span class="macro">tracing::warn!</span>(<span class="string">"builtin command without a parent ctx - {}"</span>, name);

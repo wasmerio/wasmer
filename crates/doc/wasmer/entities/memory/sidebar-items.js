@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["buffer","inner","location","shared","view"],"struct":["Memory"]};

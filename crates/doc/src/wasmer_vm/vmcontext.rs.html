@@ -805,6 +805,64 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -816,9 +874,9 @@
 <span class="kw">use </span><span class="kw">crate</span>::memory::VMMemory;
 <span class="kw">use </span><span class="kw">crate</span>::store::InternalStoreHandle;
 <span class="kw">use </span><span class="kw">crate</span>::trap::{Trap, TrapCode};
-<span class="kw">use </span><span class="kw">crate</span>::VMFunctionBody;
 <span class="kw">use </span><span class="kw">crate</span>::VMTable;
 <span class="kw">use crate</span>::{VMBuiltinFunctionIndex, VMFunction};
+<span class="kw">use crate</span>::{VMFunctionBody, VMTag};
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
 <span class="kw">use </span>std::sync::atomic::{AtomicPtr, Ordering};
@@ -1064,7 +1122,51 @@
     }
 }
 
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly global
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly tag
+/// variable imported from another instance.
+</span><span class="attr">#[derive(Clone)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMTagImport {
+    <span class="doccomment">/// A handle to the `Tag` that owns the tag description.
+    </span><span class="kw">pub </span>handle: InternalStoreHandle&lt;VMTag&gt;,
+}
+
+<span class="doccomment">/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. Additionally, all operations
+/// on `from` are thread-safe through the use of a mutex in [`VMTag`].
+</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMTagImport {}
+<span class="doccomment">/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And because it's `Clone`, there's
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+</span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMTagImport {}
+
+<span class="comment">//#[cfg(test)]
+//mod test_vmtag_import {
+//    use super::VMTagImport;
+//    use crate::VMOffsets;
+//    use memoffset::offset_of;
+//    use std::mem::size_of;
+//    use wasmer_types::ModuleInfo;
+//
+//    #[test]
+//    fn check_vmtag_import_offsets() {
+//        let module = ModuleInfo::new();
+//        let offsets = VMOffsets::new(size_of::&lt;*mut u8&gt;() as u8, &amp;module);
+//        assert_eq!(
+//            size_of::&lt;VMTagImport&gt;(),
+//            usize::from(offsets.size_of_vmtag_import())
+//        );
+//        assert_eq!(
+//            offset_of!(VMTagImport, handle),
+//            usize::from(offsets.vmtag_import_definition())
+//        );
+//    }
+//}
+
+</span><span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
 </span><span class="attr">#[derive(Clone)]
 #[repr(C)]
@@ -1517,6 +1619,20 @@
             wasmer_vm_memory32_atomic_notify <span class="kw">as </span>usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index().index() <span class="kw">as </span>usize] =
             wasmer_vm_imported_memory32_atomic_notify <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_throw_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_throw <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_rethrow_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_rethrow <span class="kw">as </span>usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_imported_alloc_exception_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_alloc_exception <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_delete_exception_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_delete_exception <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_read_exception_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_read_exception <span class="kw">as </span>usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_dbg_usize <span class="kw">as </span>usize;
 
         <span class="macro">debug_assert!</span>(ptrs.iter().cloned().all(|p| p != <span class="number">0</span>));
 

@@ -139,9 +139,9 @@
     </span><span class="macro">tracing::trace!</span>(<span class="string">"replaying stdout"</span>);
     <span class="kw">for </span>(offset, data, is_64bit) <span class="kw">in </span>runner.stdout {
         <span class="kw">if </span>is_64bit {
-            JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;</span>runner.ctx, <span class="number">1</span>, offset, data)
+            JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;mut </span>runner.ctx, <span class="number">1</span>, offset, data)
         } <span class="kw">else </span>{
-            JournalEffector::apply_fd_write::&lt;Memory32&gt;(<span class="kw-2">&amp;</span>runner.ctx, <span class="number">1</span>, offset, data)
+            JournalEffector::apply_fd_write::&lt;Memory32&gt;(<span class="kw-2">&amp;mut </span>runner.ctx, <span class="number">1</span>, offset, data)
         }
         .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
     }
@@ -149,9 +149,9 @@
     <span class="macro">tracing::trace!</span>(<span class="string">"replaying stdout"</span>);
     <span class="kw">for </span>(offset, data, is_64bit) <span class="kw">in </span>runner.stderr {
         <span class="kw">if </span>is_64bit {
-            JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;</span>runner.ctx, <span class="number">2</span>, offset, data)
+            JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;mut </span>runner.ctx, <span class="number">2</span>, offset, data)
         } <span class="kw">else </span>{
-            JournalEffector::apply_fd_write::&lt;Memory32&gt;(<span class="kw-2">&amp;</span>runner.ctx, <span class="number">2</span>, offset, data)
+            JournalEffector::apply_fd_write::&lt;Memory32&gt;(<span class="kw-2">&amp;mut </span>runner.ctx, <span class="number">2</span>, offset, data)
         }
         .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
     }

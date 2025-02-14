@@ -505,13 +505,6 @@
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
@@ -993,37 +986,30 @@
     <span class="macro">println!</span>(<span class="string">"commit-date: {}"</span>, <span class="macro">env!</span>(<span class="string">"WASMER_BUILD_DATE"</span>));
     <span class="macro">println!</span>(<span class="string">"host: {}"</span>, target_lexicon::HOST);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>compilers = Vec::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::new();
     <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
-        compilers.push(<span class="string">"singlepass"</span>);
+        runtimes.push(<span class="string">"singlepass"</span>);
     }
     <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
-        compilers.push(<span class="string">"cranelift"</span>);
+        runtimes.push(<span class="string">"cranelift"</span>);
     }
     <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
-        compilers.push(<span class="string">"llvm"</span>);
+        runtimes.push(<span class="string">"llvm"</span>);
     }
-    <span class="macro">println!</span>(<span class="string">"compiler: {}"</span>, compilers.join(<span class="string">","</span>));
-
-    <span class="kw">let </span><span class="kw-2">mut </span>interpreters = Vec::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::new();
 
     <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wamr"</span>) {
-        interpreters.push(<span class="string">"wamr"</span>);
+        runtimes.push(<span class="string">"wamr"</span>);
     }
 
     <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"wasmi"</span>) {
-        <span class="comment">// Can't use two different c_api backends together as of now, but maybe we'll support more
-        // interepreters.
-        </span>interpreters.push(<span class="string">"wasmi"</span>);
+        runtimes.push(<span class="string">"wasmi"</span>);
     }
 
     <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
-        <span class="comment">// Can't use c_api backends together as of now, but maybe we'll support more
-        // interepreters.
-        </span>interpreters.push(<span class="string">"v8"</span>);
+        runtimes.push(<span class="string">"v8"</span>);
     }
 
-    <span class="macro">println!</span>(<span class="string">"c_api backend: {}"</span>, interpreters.join(<span class="string">","</span>));
+    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["obj"],"struct":["Store","StoreHandle","StoreObjects"],"trait":["NativeStoreExt"]};

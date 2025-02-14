@@ -111,18 +111,6 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -133,11 +121,11 @@
 <span class="kw">use </span><span class="kw">super</span>::sections::{
     parse_data_section, parse_element_section, parse_export_section, parse_function_section,
     parse_global_section, parse_import_section, parse_memory_section, parse_name_section,
-    parse_start_section, parse_table_section, parse_type_section,
+    parse_start_section, parse_table_section, parse_tag_section, parse_type_section,
 };
 <span class="kw">use </span><span class="kw">super</span>::state::ModuleTranslationState;
-<span class="kw">use </span>wasmer_types::WasmResult;
-<span class="kw">use </span>wasmparser::{BinaryReader, NameSectionReader, Parser, Payload, WasmFeatures};
+<span class="kw">use </span>wasmer_types::{WasmError, WasmResult};
+<span class="kw">use </span>wasmparser::{BinaryReader, NameSectionReader, Parser, Payload};
 
 <span class="doccomment">/// Translate a sequence of bytes forming a valid Wasm binary into a
 /// parsed ModuleInfo `ModuleTranslationState`.
@@ -208,23 +196,7 @@
                 environ.reserve_passive_data(count)<span class="question-mark">?</span>;
             }
 
-            Payload::InstanceSection(<span class="kw">_</span>)
-            | Payload::ComponentSection { .. }
-            | Payload::CoreTypeSection(<span class="kw">_</span>)
-            | Payload::ComponentTypeSection(<span class="kw">_</span>)
-            | Payload::ComponentInstanceSection(<span class="kw">_</span>)
-            | Payload::ComponentAliasSection(<span class="kw">_</span>)
-            | Payload::ComponentCanonicalSection(<span class="kw">_</span>)
-            | Payload::ComponentStartSection { .. }
-            | Payload::ComponentImportSection(<span class="kw">_</span>)
-            | Payload::ComponentExportSection(<span class="kw">_</span>)
-            | Payload::ModuleSection { .. } =&gt; {
-                <span class="macro">unimplemented!</span>(<span class="string">"module linking not implemented. It will only be implemented if/when browsers support it"</span>)
-            }
-
-            Payload::TagSection(<span class="kw">_</span>) =&gt; {
-                <span class="macro">unimplemented!</span>(<span class="string">"exception handling not implemented yet"</span>)
-            }
+            Payload::TagSection(t) =&gt; parse_tag_section(t, environ)<span class="question-mark">?</span>,
 
             Payload::CustomSection(sectionreader) =&gt; {
                 <span class="comment">// We still add the custom section data, but also read it as name section reader
@@ -235,7 +207,6 @@
                         NameSectionReader::new(BinaryReader::new(
                             sectionreader.data(),
                             sectionreader.data_offset(),
-                            WasmFeatures::default(),
                         )),
                         environ,
                     )<span class="question-mark">?</span>;
@@ -243,6 +214,11 @@
             }
 
             Payload::UnknownSection { .. } =&gt; <span class="macro">unreachable!</span>(),
+            k =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(<span class="macro">format!</span>(
+                    <span class="string">"Unsupported paylod kind: {k:?}"
+                </span>)))
+            }
         }
     }
 

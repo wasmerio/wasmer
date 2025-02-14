@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MemoryAccessError"],"struct":["WasmRef","WasmSlice","WasmSliceIter"]};

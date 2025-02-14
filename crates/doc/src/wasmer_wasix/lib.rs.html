@@ -873,6 +873,8 @@
 <a href="#873" id="873">873</a>
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
@@ -902,7 +904,7 @@
 
 <span class="attr">#[cfg(all(feature = <span class="string">"js"</span>, not(target_arch = <span class="string">"wasm32"</span>)))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">"The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
+    <span class="string">"The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasip1`)."
 </span>);
 
 <span class="attr">#[cfg(all(test, target_arch = <span class="string">"wasm32"</span>))]
@@ -1469,6 +1471,7 @@
         <span class="string">"sock_addr_local" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_local::&lt;Memory32&gt;),
         <span class="string">"sock_addr_peer" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_peer::&lt;Memory32&gt;),
         <span class="string">"sock_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_open::&lt;Memory32&gt;),
+        <span class="string">"sock_pair" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_pair::&lt;Memory32&gt;),
         <span class="string">"sock_set_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_flag),
         <span class="string">"sock_get_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_flag::&lt;Memory32&gt;),
         <span class="string">"sock_set_opt_time" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_time::&lt;Memory32&gt;),
@@ -1596,6 +1599,7 @@
         <span class="string">"sock_addr_local" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_local::&lt;Memory64&gt;),
         <span class="string">"sock_addr_peer" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_addr_peer::&lt;Memory64&gt;),
         <span class="string">"sock_open" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_open::&lt;Memory64&gt;),
+        <span class="string">"sock_pair" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_pair::&lt;Memory64&gt;),
         <span class="string">"sock_set_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_flag),
         <span class="string">"sock_get_opt_flag" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_get_opt_flag::&lt;Memory64&gt;),
         <span class="string">"sock_set_opt_time" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_set_opt_time::&lt;Memory64&gt;),

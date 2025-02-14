@@ -475,7 +475,7 @@
     tasks
         .task_wasm(
             TaskWasm::new(Box::new(run), thread_env, thread_module, <span class="bool-val">false</span>)
-                .with_globals(<span class="kw-2">&amp;</span>globals)
+                .with_globals(globals)
                 .with_memory(spawn_type),
         )
         .map_err(Into::&lt;Errno&gt;::into)<span class="question-mark">?</span>;

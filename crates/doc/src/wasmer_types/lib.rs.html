@@ -280,8 +280,8 @@
 <span class="kw">pub use </span><span class="kw">crate</span>::features::Features;
 <span class="kw">pub use </span><span class="kw">crate</span>::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    SignatureIndex, TableIndex,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
+    MemoryIndex, SignatureIndex, TableIndex, Tag, TagIndex,
 };
 <span class="kw">pub use </span><span class="kw">crate</span>::initializers::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, DataInitializer,
@@ -296,7 +296,7 @@
 };
 <span class="kw">pub use </span>types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
-    Mutability, TableType, Type, V128,
+    Mutability, TableType, TagKind, TagType, Type, V128,
 };
 <span class="kw">pub use </span>value::{RawValue, ValueType};
 

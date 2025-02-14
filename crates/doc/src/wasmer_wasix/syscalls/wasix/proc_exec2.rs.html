@@ -274,15 +274,6 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer::FromToNativeWasmType;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -418,22 +409,20 @@
             <span class="kw">let </span>bin_factory = Box::new(ctx.data().bin_factory.clone());
             <span class="kw">let </span>tasks = wasi_env.tasks().clone();
 
-            <span class="kw">let </span><span class="kw-2">mut </span>new_store = <span class="prelude-val">Some</span>(new_store);
             <span class="kw">let </span><span class="kw-2">mut </span>config = <span class="prelude-val">Some</span>(wasi_env);
 
-            <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>new_store, <span class="kw-2">&amp;mut </span>config) {
+            <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>config) {
                 <span class="prelude-val">Ok</span>(a) =&gt; {}
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="kw">if </span>!err.is_not_found() {
                         <span class="macro">error!</span>(<span class="string">"builtin failed - {}"</span>, err);
                     }
 
-                    <span class="kw">let </span>new_store = new_store.take().unwrap();
                     <span class="kw">let </span>env = config.take().unwrap();
 
                     <span class="kw">let </span>name_inner = name.clone();
                     __asyncify_light(ctx.data(), <span class="prelude-val">None</span>, <span class="kw">async </span>{
-                        <span class="kw">let </span>ret = bin_factory.spawn(name_inner, new_store, env).<span class="kw">await</span>;
+                        <span class="kw">let </span>ret = bin_factory.spawn(name_inner, env).<span class="kw">await</span>;
                         <span class="kw">match </span>ret {
                             <span class="prelude-val">Ok</span>(ret) =&gt; {
                                 <span class="macro">trace!</span>(%child_pid, <span class="string">"spawned sub-process"</span>);
@@ -510,26 +499,19 @@
         <span class="comment">// Create the process and drop the context
         </span><span class="kw">let </span>bin_factory = Box::new(ctx.data().bin_factory.clone());
 
-        <span class="kw">let </span><span class="kw-2">mut </span>new_store = <span class="prelude-val">Some</span>(new_store);
         <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="prelude-val">Some</span>(wasi_env);
 
-        <span class="kw">let </span>process = <span class="kw">match </span>bin_factory.try_built_in(
-            name.clone(),
-            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx),
-            <span class="kw-2">&amp;mut </span>new_store,
-            <span class="kw-2">&amp;mut </span>builder,
-        ) {
+        <span class="kw">let </span>process = <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>builder) {
             <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Ok</span>(a),
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="kw">if </span>!err.is_not_found() {
                     <span class="macro">error!</span>(<span class="string">"builtin failed - {}"</span>, err);
                 }
 
-                <span class="kw">let </span>new_store = new_store.take().unwrap();
                 <span class="kw">let </span>env = builder.take().unwrap();
 
                 <span class="comment">// Spawn a new process with this current execution environment
-                </span>InlineWaker::block_on(bin_factory.spawn(name, new_store, env))
+                </span>InlineWaker::block_on(bin_factory.spawn(name, env))
             }
         };
 

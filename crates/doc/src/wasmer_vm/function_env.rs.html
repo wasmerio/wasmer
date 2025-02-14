@@ -33,11 +33,13 @@
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::any::Any;
 
 <span class="doccomment">/// Underlying FunctionEnvironment used by a `VMFunction`.
 </span><span class="kw">pub struct </span>VMFunctionEnvironment {
-    contents: Box&lt;<span class="kw">dyn </span>Any + Send + <span class="lifetime">'static</span>&gt;,
+    <span class="doccomment">/// The contents of the environment.
+    </span><span class="kw">pub </span>contents: Box&lt;<span class="kw">dyn </span>Any + Send + <span class="lifetime">'static</span>&gt;,
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>VMFunctionEnvironment {

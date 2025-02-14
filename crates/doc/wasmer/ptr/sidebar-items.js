@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Memory32","Memory64","WasmPtr"],"trait":["MemorySize"],"type":["WasmPtr64"]};

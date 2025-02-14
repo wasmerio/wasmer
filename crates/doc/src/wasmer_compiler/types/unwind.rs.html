@@ -60,6 +60,7 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A `CompiledFunctionUnwindInfo` contains the function unwind information.
 //!
 //! The unwind information is used to determine which function
@@ -97,6 +98,7 @@
 </span><span class="kw">pub enum </span>CompiledFunctionUnwindInfoReference&lt;<span class="lifetime">'a</span>&gt; {
     WindowsX64(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]),
     Dwarf,
+    CompactUnwind,
 }
 
 <span class="doccomment">/// Any struct that acts like a `CompiledFunctionUnwindInfo`.

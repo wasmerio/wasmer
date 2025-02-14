@@ -684,6 +684,22 @@
 <a href="#684" id="684">684</a>
 <a href="#685" id="685">685</a>
 <a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -694,7 +710,7 @@
 };
 
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-<span class="kw">use </span>virtual_fs::{FsError, Pipe <span class="kw">as </span>VirtualPipe, VirtualFile};
+<span class="kw">use </span>virtual_fs::{FsError, PipeRx, PipeTx, VirtualFile};
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Eventtype,
     wasi::{<span class="self">self</span>, EpollType},
@@ -714,7 +730,8 @@
     File(Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;&gt;),
     EventNotifications(Arc&lt;NotificationInner&gt;),
     Socket { inner: Arc&lt;InodeSocketInner&gt; },
-    Pipe { pipe: Arc&lt;RwLock&lt;Box&lt;VirtualPipe&gt;&gt;&gt; },
+    PipeRx { rx: Arc&lt;RwLock&lt;Box&lt;PipeRx&gt;&gt;&gt; },
+    PipeTx { tx: Arc&lt;RwLock&lt;Box&lt;PipeTx&gt;&gt;&gt; },
 }
 
 <span class="kw">pub struct </span>InodeValFilePollGuard {
@@ -742,8 +759,11 @@
                 handle: <span class="prelude-val">Some</span>(handle),
                 ..
             } =&gt; InodeValFilePollGuardMode::File(handle.clone()),
-            Kind::Pipe { pipe, .. } =&gt; InodeValFilePollGuardMode::Pipe {
-                pipe: Arc::new(RwLock::new(Box::new(pipe.clone()))),
+            Kind::PipeRx { rx } =&gt; InodeValFilePollGuardMode::PipeRx {
+                rx: Arc::new(RwLock::new(Box::new(rx.clone()))),
+            },
+            Kind::PipeTx { tx } =&gt; InodeValFilePollGuardMode::PipeTx {
+                tx: Arc::new(RwLock::new(Box::new(tx.clone()))),
             },
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -793,8 +813,11 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">write!</span>(f, <span class="string">"guard-socket(fd={}), peb={})"</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb),
                 }
             }
-            InodeValFilePollGuardMode::Pipe { .. } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"guard-pipe(...)"</span>)
+            InodeValFilePollGuardMode::PipeRx { .. } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"guard-pipe-rx(...)"</span>)
+            }
+            InodeValFilePollGuardMode::PipeTx { .. } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"guard-pipe-tx(...)"</span>)
             }
         }
     }
@@ -834,8 +857,9 @@
             InodeValFilePollGuardMode::EventNotifications(inner) =&gt; {
                 inner.reset();
             }
-            InodeValFilePollGuardMode::Socket { .. } =&gt; {}
-            InodeValFilePollGuardMode::Pipe { .. } =&gt; {}
+            InodeValFilePollGuardMode::Socket { .. }
+            | InodeValFilePollGuardMode::PipeRx { .. }
+            | InodeValFilePollGuardMode::PipeTx { .. } =&gt; {}
         }
         <span class="self">self</span>.spent = <span class="bool-val">false</span>;
     }
@@ -886,11 +910,15 @@
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.protected.write().unwrap();
                     guard.poll_read_ready(cx)
                 }
-                InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
-                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
-                    pipe.poll_read_ready(cx)
+                InodeValFilePollGuardMode::PipeRx { rx } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = rx.write().unwrap();
+                    <span class="kw">let </span>rx = Pin::new(guard.as_mut());
+                    rx.poll_read_ready(cx)
                 }
+                InodeValFilePollGuardMode::PipeTx { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    <span class="string">"Cannot read from a pipe write end"</span>,
+                ))),
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
@@ -976,11 +1004,15 @@
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.protected.write().unwrap();
                     guard.poll_write_ready(cx)
                 }
-                InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
-                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
-                    pipe.poll_write_ready(cx)
+                InodeValFilePollGuardMode::PipeTx { tx } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = tx.write().unwrap();
+                    <span class="kw">let </span>tx = Pin::new(guard.as_mut());
+                    tx.poll_write_ready()
                 }
+                InodeValFilePollGuardMode::PipeRx { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    <span class="string">"Cannot write to a pipe read end"</span>,
+                ))),
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {

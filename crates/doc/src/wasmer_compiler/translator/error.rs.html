@@ -82,11 +82,11 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>wasmparser::{BinaryReader, WasmFeatures};
+    <span class="kw">use </span>wasmparser::BinaryReader;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>can_convert_binary_reader_error_to_wasm_error() {
-        <span class="kw">let </span><span class="kw-2">mut </span>reader = BinaryReader::new(<span class="string">b"\0\0\0\0"</span>, <span class="number">0</span>, WasmFeatures::default());
+        <span class="kw">let </span><span class="kw-2">mut </span>reader = BinaryReader::new(<span class="string">b"\0\0\0\0"</span>, <span class="number">0</span>);
         <span class="kw">let </span>binary_reader_error = reader.read_bytes(<span class="number">10</span>).unwrap_err();
         <span class="kw">match </span>from_binaryreadererror_wasmerror(binary_reader_error) {
             WasmError::InvalidWebAssembly { message, offset } =&gt; {
@@ -99,7 +99,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>can_convert_binary_reader_error_to_compile_error() {
-        <span class="kw">let </span><span class="kw-2">mut </span>reader = BinaryReader::new(<span class="string">b"\0\0\0\0"</span>, <span class="number">0</span>, WasmFeatures::default());
+        <span class="kw">let </span><span class="kw-2">mut </span>reader = BinaryReader::new(<span class="string">b"\0\0\0\0"</span>, <span class="number">0</span>);
         <span class="kw">let </span>binary_reader_error = reader.read_bytes(<span class="number">10</span>).unwrap_err();
         <span class="kw">match </span>from_binaryreadererror_compileerror(binary_reader_error) {
             CompileError::Wasm(WasmError::InvalidWebAssembly { message, offset }) =&gt; {

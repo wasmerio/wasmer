@@ -1539,6 +1539,11 @@
 <a href="#1539" id="1539">1539</a>
 <a href="#1540" id="1540">1540</a>
 <a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     ops::{DerefMut, Range},
@@ -2283,10 +2288,10 @@
                 }
             }
             <span class="comment">// Pipes that remain open at the end will be added
-            </span>JournalEntry::CreatePipeV1 { fd1, fd2, .. } =&gt; {
+            </span>JournalEntry::CreatePipeV1 { read_fd, write_fd } =&gt; {
                 <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
-                state.open_pipes.insert(<span class="kw-2">*</span>fd1, lookup);
-                state.open_pipes.insert(<span class="kw-2">*</span>fd2, lookup);
+                state.open_pipes.insert(<span class="kw-2">*</span>read_fd, lookup);
+                state.open_pipes.insert(<span class="kw-2">*</span>write_fd, lookup);
             }
             <span class="comment">// Epoll events
             </span>JournalEntry::EpollCreateV1 { fd } =&gt; {
@@ -2306,6 +2311,11 @@
             </span>JournalEntry::SocketAcceptedV1 { fd, .. } | JournalEntry::SocketOpenV1 { fd, .. } =&gt; {
                 <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
                 state.open_sockets.insert(<span class="kw-2">*</span>fd, lookup);
+            }
+            JournalEntry::SocketPairV1 { fd1, fd2 } =&gt; {
+                <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                state.open_sockets.insert(<span class="kw-2">*</span>fd1, lookup);
+                state.open_sockets.insert(<span class="kw-2">*</span>fd2, lookup);
             }
             JournalEntry::InitModuleV1 { .. } =&gt; {
                 state.clear_run_sub_events();

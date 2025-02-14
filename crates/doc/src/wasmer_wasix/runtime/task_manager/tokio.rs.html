@@ -274,15 +274,61 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
+<span class="kw">use </span><span class="kw">crate</span>::runtime::SpawnMemoryType;
+<span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 <span class="kw">use </span>futures::{future::BoxFuture, Future};
 <span class="kw">use </span>tokio::runtime::{Handle, Runtime};
+<span class="kw">use </span>wasmer::AsStoreMut;
 
-<span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
-
-<span class="kw">use super</span>::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
+<span class="kw">use super</span>::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>RuntimeOrHandle {
@@ -422,21 +468,58 @@
 
     <span class="doccomment">/// See [`VirtualTaskManager::task_wasm`].
     </span><span class="kw">fn </span>task_wasm(<span class="kw-2">&amp;</span><span class="self">self</span>, task: TaskWasm) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
-        <span class="comment">// Create the context on a new store
-        </span><span class="kw">let </span>run = task.run;
+        <span class="kw">let </span>run = task.run;
         <span class="kw">let </span>recycle = task.recycle;
-        <span class="kw">let </span>(ctx, <span class="kw-2">mut </span>store) = WasiFunctionEnv::new_with_store(
-            task.module,
-            task.env,
-            task.globals,
-            task.spawn_type,
-            task.update_layout,
-        )<span class="question-mark">?</span>;
+        <span class="kw">let </span>env = task.env;
 
-        <span class="comment">// If we have a trigger then we first need to run
-        // the poller to completion
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(trigger) = task.trigger {
+        <span class="kw">let </span>make_memory: SpawnMemoryTypeOrStore = <span class="kw">match </span>task.spawn_type {
+            SpawnMemoryType::CreateMemory =&gt; SpawnMemoryTypeOrStore::New,
+            SpawnMemoryType::CreateMemoryOfType(t) =&gt; SpawnMemoryTypeOrStore::Type(t),
+            SpawnMemoryType::ShareMemory(<span class="kw">_</span>, <span class="kw">_</span>) | SpawnMemoryType::CopyMemory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>store = env.runtime().new_store();
+                <span class="kw">let </span>memory = <span class="self">self</span>.build_memory(<span class="kw-2">&amp;mut </span>store.as_store_mut(), task.spawn_type)<span class="question-mark">?</span>;
+                SpawnMemoryTypeOrStore::StoreAndMemory(store, memory)
+            }
+        };
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(trigger) = task.trigger {
             <span class="macro">tracing::trace!</span>(<span class="string">"spawning task_wasm trigger in async pool"</span>);
+            <span class="comment">// In principle, we'd need to create this in the `pool.execute` function below, that is
+            //
+            // ```
+            // 227: pool.execute(move || {
+            // ...:      let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+            // ...:      ...
+            // ```
+            //
+            // However, in the loop spawned below we need to have a `FunctionEnvMut&lt;WasiEnv&gt;`, which
+            // must be created with a mutable reference to the store. We can't, however since
+            // ```
+            // pool.execute(move || {
+            //      let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+            //      ...
+            //      tx.send(store.as_store_mut())
+            // ```
+            // or
+            // ```
+            // pool.execute(move || {
+            //      let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+            //      ...
+            //      tx.send(ctx.env.clone().into_mut(&amp;mut store.as_store_mut()))
+            // ```
+            // Since the reference would outlive the owned value.
+            //
+            // So, we create the store (and memory, and instance) outside the execution thread (the
+            // pool's one), and let it fail for runtimes that don't support entities created in a
+            // thread that's not the one in which execution happens in; this until we can clone
+            // stores.
+            </span><span class="kw">let </span>(ctx, <span class="kw-2">mut </span>store) = WasiFunctionEnv::new_with_store(
+                task.module,
+                env,
+                task.globals,
+                make_memory,
+                task.update_layout,
+            )<span class="question-mark">?</span>;
 
             <span class="kw">let </span><span class="kw-2">mut </span>trigger = trigger();
             <span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
@@ -487,7 +570,14 @@
             <span class="comment">// Run the callback on a dedicated thread
             </span><span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
                 <span class="macro">tracing::trace!</span>(<span class="string">"task_wasm started in blocking thread"</span>);
-
+                <span class="kw">let </span>(ctx, store) = WasiFunctionEnv::new_with_store(
+                    task.module,
+                    env,
+                    task.globals,
+                    make_memory,
+                    task.update_layout,
+                )
+                .unwrap();
                 <span class="comment">// Invoke the callback
                 </span>run(TaskWasmRunProperties {
                     ctx,

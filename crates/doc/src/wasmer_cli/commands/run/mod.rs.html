@@ -986,7 +986,6 @@
 <a href="#986" id="986">986</a>
 <a href="#987" id="987">987</a>
 <a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1012,10 +1011,10 @@
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>url::Url;
 <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-</span><span class="kw">use </span>wasmer::NativeEngineExt;
+</span><span class="kw">use </span>wasmer::sys::NativeEngineExt;
 <span class="kw">use </span>wasmer::{
-    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
-    Value,
+    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type,
+    TypedFunction, Value,
 };
 
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
@@ -1046,8 +1045,8 @@
 <span class="kw">use </span>webc::Container;
 
 <span class="kw">use crate</span>::{
-    commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
-    logging::Output, store::StoreOptions,
+    backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
+    error::PrettyError, logging::Output,
 };
 
 <span class="kw">const </span>TICK: Duration = Duration::from_millis(<span class="number">250</span>);
@@ -1058,7 +1057,7 @@
     <span class="attr">#[clap(flatten)]
     </span>env: WasmerEnv,
     <span class="attr">#[clap(flatten)]
-    </span>store: StoreOptions,
+    </span>rt: RuntimeOptions,
     <span class="attr">#[clap(flatten)]
     </span>wasi: <span class="kw">crate</span>::commands::run::Wasi,
     <span class="attr">#[clap(flatten)]
@@ -1104,11 +1103,6 @@
             .build()<span class="question-mark">?</span>;
         <span class="kw">let </span>handle = runtime.handle().clone();
 
-        <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-        </span><span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
-            wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
-        }
-
         <span class="comment">// Check for the preferred webc version.
         // Default to v3.
         </span><span class="kw">let </span>webc_version_var = std::env::var(<span class="string">"WASMER_WEBC_VERSION"</span>);
@@ -1121,18 +1115,21 @@
         };
 
         <span class="kw">let </span>_guard = handle.enter();
-        <span class="kw">let </span>(store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>engine = <span class="self">self</span>.rt.get_engine()<span class="question-mark">?</span>;
+        <span class="kw">let </span>be_kind = engine.get_backend_kind();
+        <span class="macro">tracing::info!</span>(<span class="string">"Executing on backend {be_kind:?}"</span>);
 
         <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-        </span><span class="kw">let </span>engine = {
-            <span class="kw">let </span><span class="kw-2">mut </span>engine = store.engine().clone();
+        </span><span class="kw">if </span>engine.is_sys() {
+            <span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
+                wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
+            }
             <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
             engine.set_hash_algorithm(<span class="prelude-val">Some</span>(hash_algorithm));
+        }
 
-            engine
-        };
-        <span class="attr">#[cfg(not(feature = <span class="string">"sys"</span>))]
-        </span><span class="kw">let </span>engine = store.engine().clone();
+        <span class="kw">let </span>engine = engine.clone();
 
         <span class="kw">let </span>runtime = <span class="self">self</span>.wasi.prepare_runtime(
             engine,
@@ -1167,7 +1164,7 @@
                     module,
                     module_hash,
                     path,
-                } =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>module, module_hash, store, runtime.clone()),
+                } =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>module, module_hash, runtime.clone()),
                 ExecutableTarget::Package(pkg) =&gt; <span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>pkg, runtime.clone()),
             }
         };
@@ -1192,13 +1189,12 @@
         path: <span class="kw-2">&amp;</span>Path,
         module: <span class="kw-2">&amp;</span>Module,
         module_hash: ModuleHash,
-        <span class="kw-2">mut </span>store: Store,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">if </span>wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            <span class="self">self</span>.execute_wasi_module(path, module, module_hash, runtime, store)
+            <span class="self">self</span>.execute_wasi_module(path, module, module_hash, runtime)
         } <span class="kw">else </span>{
-            <span class="self">self</span>.execute_pure_wasm_module(module, <span class="kw-2">&amp;mut </span>store)
+            <span class="self">self</span>.execute_pure_wasm_module(module)
         }
     }
 
@@ -1349,9 +1345,12 @@
     }
 
     <span class="attr">#[tracing::instrument(skip_all)]
-    </span><span class="kw">fn </span>execute_pure_wasm_module(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    </span><span class="kw">fn </span>execute_pure_wasm_module(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="doccomment">/// The rest of the execution happens in the main thread, so we can create the
+        /// store here.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.rt.get_store()<span class="question-mark">?</span>;
         <span class="kw">let </span>imports = Imports::default();
-        <span class="kw">let </span>instance = Instance::new(store, module, <span class="kw-2">&amp;</span>imports)
+        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, module, <span class="kw-2">&amp;</span>imports)
             .context(<span class="string">"Unable to instantiate the WebAssembly module"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>entry_function  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.invoke {
@@ -1366,7 +1365,7 @@
             </span>}
         };
 
-        <span class="kw">let </span>return_values = invoke_function(<span class="kw-2">&amp;</span>instance, store, entry_function, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
+        <span class="kw">let </span>return_values = invoke_function(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;mut </span>store, entry_function, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
 
         <span class="macro">println!</span>(
             <span class="string">"{}"</span>,
@@ -1437,7 +1436,6 @@
         module: <span class="kw-2">&amp;</span>Module,
         module_hash: ModuleHash,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-        <span class="kw-2">mut </span>store: Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>program_name = wasm_path.display().to_string();
 
@@ -1487,10 +1485,10 @@
                 <span class="macro">bail!</span>(<span class="string">"Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})"</span>, argv);
             }
         };
-        <span class="kw">let </span>store = StoreOptions::default();
+        <span class="kw">let </span>rt = RuntimeOptions::default();
         <span class="prelude-val">Ok</span>(Run {
             env: WasmerEnv::default(),
-            store,
+            rt,
             wasi: Wasi::for_binfmt_interpreter()<span class="question-mark">?</span>,
             wcgi: WcgiOptions::default(),
             stack_size: <span class="prelude-val">None</span>,

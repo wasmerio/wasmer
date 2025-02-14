@@ -259,10 +259,10 @@
                 <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
                 state.open_sockets.insert(<span class="kw-2">*</span>fd);
             }
-            JournalEntry::CreatePipeV1 { fd1, fd2 } =&gt; {
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-                state.open_files.insert(<span class="kw-2">*</span>fd1);
-                state.open_files.insert(<span class="kw-2">*</span>fd2);
+                state.open_files.insert(<span class="kw-2">*</span>read_fd);
+                state.open_files.insert(<span class="kw-2">*</span>write_fd);
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();

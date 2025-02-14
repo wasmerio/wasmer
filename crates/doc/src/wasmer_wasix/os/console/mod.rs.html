@@ -403,8 +403,6 @@
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -682,8 +680,7 @@
 
         <span class="comment">// Build the config
         // Run the binary
-        </span><span class="kw">let </span>store = <span class="self">self</span>.runtime.new_store();
-        <span class="kw">let </span>process = InlineWaker::block_on(spawn_exec(pkg, prog, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>process = InlineWaker::block_on(spawn_exec(pkg, prog, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
 
         <span class="comment">// Return the process
         </span><span class="prelude-val">Ok</span>((process, wasi_process))
@@ -768,7 +765,6 @@
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 
-                stdin_tx.close();
                 std::mem::drop(stdin_tx);
 
                 <span class="kw">let </span>res = handle.wait_finished().<span class="kw">await</span><span class="question-mark">?</span>;

@@ -128,6 +128,8 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -249,7 +251,9 @@
             | Kind::Symlink { .. }
             | Kind::Buffer { .. }
             | Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
+            | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir),
         }

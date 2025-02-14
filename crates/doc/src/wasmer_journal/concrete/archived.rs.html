@@ -1930,6 +1930,23 @@
 <a href="#1930" id="1930">1930</a>
 <a href="#1931" id="1931">1931</a>
 <a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="kw">use </span>rkyv::rancor::Fallible;
 <span class="kw">use </span>rkyv::ser::{Allocator, Writer};
@@ -2021,6 +2038,7 @@
     OpenFileDescriptorV2 = <span class="number">61</span>,
     DuplicateFileDescriptorV2 = <span class="number">62</span>,
     FileDescriptorSetFdFlagsV1 = <span class="number">63</span>,
+    SocketPairV1 = <span class="number">64</span>,
 }
 
 <span class="kw">impl </span>JournalEntryRecordType {
@@ -2163,6 +2181,9 @@
             JournalEntryRecordType::SocketOpenV1 =&gt; {
                 ArchivedJournalEntry::SocketOpenV1(rkyv::access_unchecked(data))
             }
+            JournalEntryRecordType::SocketPairV1 =&gt; {
+                ArchivedJournalEntry::SocketPairV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::SocketListenV1 =&gt; {
                 ArchivedJournalEntry::SocketListenV1(rkyv::access_unchecked(data))
             }
@@ -2281,6 +2302,7 @@
             <span class="self">Self</span>::PortRouteClearV1 =&gt; JournalEntryRecordType::PortRouteClearV1,
             <span class="self">Self</span>::PortRouteDelV1 { .. } =&gt; JournalEntryRecordType::PortRouteDelV1,
             <span class="self">Self</span>::SocketOpenV1 { .. } =&gt; JournalEntryRecordType::SocketOpenV1,
+            <span class="self">Self</span>::SocketPairV1 { .. } =&gt; JournalEntryRecordType::SocketPairV1,
             <span class="self">Self</span>::SocketListenV1 { .. } =&gt; JournalEntryRecordType::SocketListenV1,
             <span class="self">Self</span>::SocketBindV1 { .. } =&gt; JournalEntryRecordType::SocketBindV1,
             <span class="self">Self</span>::SocketConnectedV1 { .. } =&gt; JournalEntryRecordType::SocketConnectedV1,
@@ -2649,8 +2671,8 @@
                 },
                 serializer,
             ),
-            JournalEntry::CreatePipeV1 { fd1, fd2 } =&gt; {
-                serialize_using(<span class="kw-2">&amp;</span>JournalEntryCreatePipeV1 { fd1, fd2 }, serializer)
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } =&gt; {
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntryCreatePipeV1 { read_fd, write_fd }, serializer)
             }
             JournalEntry::CreateEventV1 {
                 initial_val,
@@ -2715,6 +2737,9 @@
                 },
                 serializer,
             ),
+            JournalEntry::SocketPairV1 { fd1, fd2 } =&gt; {
+                serialize_using(<span class="kw-2">&amp;</span>JournalEntrySocketPairV1 { fd1, fd2 }, serializer)
+            }
             JournalEntry::SocketListenV1 { fd, backlog } =&gt; {
                 serialize_using(<span class="kw-2">&amp;</span>JournalEntrySocketListenV1 { fd, backlog }, serializer)
             }
@@ -2949,6 +2974,7 @@
     PortRouteClearV1,
     PortRouteDelV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntryPortRouteDelV1),
     SocketOpenV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketOpenV1),
+    SocketPairV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketPairV1),
     SocketListenV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketListenV1),
     SocketBindV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketBindV1),
     SocketConnectedV1(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedJournalEntrySocketConnectedV1),
@@ -3316,8 +3342,8 @@
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
 </span><span class="kw">pub struct </span>JournalEntryCreatePipeV1 {
-    <span class="kw">pub </span>fd1: u32,
-    <span class="kw">pub </span>fd2: u32,
+    <span class="kw">pub </span>read_fd: u32,
+    <span class="kw">pub </span>write_fd: u32,
 }
 
 <span class="attr">#[repr(C)]
@@ -3392,6 +3418,14 @@
     <span class="kw">pub </span>ty: JournalSocktypeV1,
     <span class="kw">pub </span>pt: u16,
     <span class="kw">pub </span>fd: u32,
+}
+
+<span class="attr">#[repr(align(<span class="number">8</span>))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug), attr(repr(align(<span class="number">8</span>))))]
+</span><span class="kw">pub struct </span>JournalEntrySocketPairV1 {
+    <span class="kw">pub </span>fd1: u32,
+    <span class="kw">pub </span>fd2: u32,
 }
 
 <span class="attr">#[repr(C)]

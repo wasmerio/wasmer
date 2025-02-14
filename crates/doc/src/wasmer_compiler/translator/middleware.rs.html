@@ -219,7 +219,7 @@
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::ops::{Deref, Range};
 <span class="kw">use </span>wasmer_types::{LocalFunctionIndex, MiddlewareError, ModuleInfo, WasmResult};
-<span class="kw">use </span>wasmparser::{BinaryReader, Operator, ValType, WasmFeatures};
+<span class="kw">use </span>wasmparser::{BinaryReader, Operator, ValType};
 
 <span class="kw">use </span><span class="kw">super</span>::error::from_binaryreadererror_wasmerror;
 <span class="kw">use </span><span class="kw">crate</span>::translator::environ::FunctionBinaryReader;
@@ -329,7 +329,7 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; MiddlewareBinaryReader&lt;<span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.
     </span><span class="kw">pub fn </span>new_with_offset(data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], original_offset: usize) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>inner = BinaryReader::new(data, original_offset, WasmFeatures::default());
+        <span class="kw">let </span>inner = BinaryReader::new(data, original_offset);
         <span class="self">Self </span>{
             state: MiddlewareReaderState {
                 inner,

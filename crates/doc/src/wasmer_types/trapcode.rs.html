@@ -168,6 +168,11 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -230,6 +235,9 @@
 
     <span class="doccomment">/// An atomic memory access was attempted with an unaligned pointer.
     </span>UnalignedAtomic = <span class="number">10</span>,
+
+    <span class="doccomment">/// An exception was thrown but it was left uncaught.
+    </span>UncaughtException = <span class="number">11</span>,
 }
 
 <span class="kw">impl </span>TrapCode {
@@ -247,6 +255,7 @@
             <span class="self">Self</span>::BadConversionToInteger =&gt; <span class="string">"invalid conversion to integer"</span>,
             <span class="self">Self</span>::UnreachableCodeReached =&gt; <span class="string">"unreachable"</span>,
             <span class="self">Self</span>::UnalignedAtomic =&gt; <span class="string">"unaligned atomic access"</span>,
+            <span class="self">Self</span>::UncaughtException =&gt; <span class="string">"uncaught exception"</span>,
         }
     }
 }
@@ -265,6 +274,7 @@
             <span class="self">Self</span>::BadConversionToInteger =&gt; <span class="string">"bad_toint"</span>,
             <span class="self">Self</span>::UnreachableCodeReached =&gt; <span class="string">"unreachable"</span>,
             <span class="self">Self</span>::UnalignedAtomic =&gt; <span class="string">"unalign_atom"</span>,
+            <span class="self">Self</span>::UncaughtException =&gt; <span class="string">"uncaught_exception"</span>,
         };
         f.write_str(identifier)
     }

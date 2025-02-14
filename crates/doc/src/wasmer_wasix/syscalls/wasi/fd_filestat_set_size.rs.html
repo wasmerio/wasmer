@@ -67,6 +67,9 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -125,10 +128,13 @@
             Kind::Buffer { buffer } =&gt; {
                 buffer.resize(st_size <span class="kw">as </span>usize, <span class="number">0</span>);
             }
-            Kind::Socket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
-            Kind::Pipe { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
-            Kind::Symlink { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
-            Kind::EventNotifications { .. } | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
+            Kind::Socket { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::Symlink { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
             Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Isdir),
         }
     }

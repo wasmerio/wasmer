@@ -2325,6 +2325,10 @@
 <a href="#2325" id="2325">2325</a>
 <a href="#2326" id="2326">2326</a>
 <a href="#2327" id="2327">2327</a>
+<a href="#2328" id="2328">2328</a>
+<a href="#2329" id="2329">2329</a>
+<a href="#2330" id="2330">2330</a>
+<a href="#2331" id="2331">2331</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
@@ -2513,6 +2517,8 @@
                 <span class="macro">trace!</span>(%file_ref_count, %ino, <span class="string">"dropping file handle"</span>);
                 drop(handle.take().unwrap());
             }
+            Kind::PipeRx { rx } =&gt; rx.close(),
+            Kind::PipeTx { tx } =&gt; tx.close(),
             <span class="kw">_ </span>=&gt; (),
         }
     }
@@ -3542,7 +3548,9 @@
                     }
                     Kind::File { .. }
                     | Kind::Socket { .. }
-                    | Kind::Pipe { .. }
+                    | Kind::PipeRx { .. }
+                    | Kind::PipeTx { .. }
+                    | Kind::DuplexPipe { .. }
                     | Kind::EventNotifications { .. }
                     | Kind::Epoll { .. } =&gt; {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);

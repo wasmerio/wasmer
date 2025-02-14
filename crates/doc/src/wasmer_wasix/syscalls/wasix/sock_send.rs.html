@@ -158,6 +158,7 @@
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -189,8 +190,9 @@
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(fd));
+    <span class="kw">let </span>enable_journal = env.enable_journal;
     <span class="kw">let </span>guard = fd_entry.inode.read();
-    <span class="kw">let </span>use_write = <span class="macro">matches!</span>(guard.deref(), Kind::Pipe { .. });
+    <span class="kw">let </span>use_write = <span class="macro">matches!</span>(guard.deref(), Kind::PipeTx { .. });
     drop(guard);
 
     <span class="kw">let </span>bytes_written = <span class="kw">if </span>use_write {
@@ -203,7 +205,7 @@
         };
 
         <span class="macro">wasi_try_ok!</span>(fd_write_internal::&lt;M&gt;(
-            <span class="kw-2">&amp;</span>ctx,
+            <span class="kw-2">&amp;mut </span>ctx,
             fd,
             FdWriteSource::Iovs {
                 iovs: si_data,
@@ -211,7 +213,7 @@
             },
             offset <span class="kw">as </span>u64,
             <span class="bool-val">true</span>,
-            env.enable_journal,
+            enable_journal
         )<span class="question-mark">?</span>)
     } <span class="kw">else </span>{
         <span class="macro">wasi_try_ok!</span>(sock_send_internal::&lt;M&gt;(

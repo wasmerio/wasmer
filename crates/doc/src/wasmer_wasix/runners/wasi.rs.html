@@ -566,8 +566,6 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -953,8 +951,6 @@
         }
 
         <span class="kw">let </span>env = env.build()<span class="question-mark">?</span>;
-        <span class="kw">let </span>store = runtime.new_store();
-
         <span class="kw">let </span>command_name = command_name.to_string();
         <span class="kw">let </span>tasks = runtime.task_manager().clone();
         <span class="kw">let </span>pkg = pkg.clone();
@@ -962,7 +958,7 @@
         <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
             <span class="kw">async move </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
-                    <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, store, env, <span class="kw-2">&amp;</span>runtime)
+                    <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, env, <span class="kw-2">&amp;</span>runtime)
                         .<span class="kw">await
                         </span>.context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
 

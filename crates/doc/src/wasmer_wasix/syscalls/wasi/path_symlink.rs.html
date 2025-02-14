@@ -133,6 +133,8 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -230,7 +232,9 @@
             }
             Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable),
             Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
+            | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } =&gt; {

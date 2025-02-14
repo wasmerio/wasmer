@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Artifact","Engine","EngineInner","EngineRef","Features"],"trait":["AsEngineRef","CompilerConfig","Tunables"]};

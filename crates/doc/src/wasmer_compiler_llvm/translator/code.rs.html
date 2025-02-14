@@ -12027,7 +12027,677 @@
 <a href="#12027" id="12027">12027</a>
 <a href="#12028" id="12028">12028</a>
 <a href="#12029" id="12029">12029</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::{
+<a href="#12030" id="12030">12030</a>
+<a href="#12031" id="12031">12031</a>
+<a href="#12032" id="12032">12032</a>
+<a href="#12033" id="12033">12033</a>
+<a href="#12034" id="12034">12034</a>
+<a href="#12035" id="12035">12035</a>
+<a href="#12036" id="12036">12036</a>
+<a href="#12037" id="12037">12037</a>
+<a href="#12038" id="12038">12038</a>
+<a href="#12039" id="12039">12039</a>
+<a href="#12040" id="12040">12040</a>
+<a href="#12041" id="12041">12041</a>
+<a href="#12042" id="12042">12042</a>
+<a href="#12043" id="12043">12043</a>
+<a href="#12044" id="12044">12044</a>
+<a href="#12045" id="12045">12045</a>
+<a href="#12046" id="12046">12046</a>
+<a href="#12047" id="12047">12047</a>
+<a href="#12048" id="12048">12048</a>
+<a href="#12049" id="12049">12049</a>
+<a href="#12050" id="12050">12050</a>
+<a href="#12051" id="12051">12051</a>
+<a href="#12052" id="12052">12052</a>
+<a href="#12053" id="12053">12053</a>
+<a href="#12054" id="12054">12054</a>
+<a href="#12055" id="12055">12055</a>
+<a href="#12056" id="12056">12056</a>
+<a href="#12057" id="12057">12057</a>
+<a href="#12058" id="12058">12058</a>
+<a href="#12059" id="12059">12059</a>
+<a href="#12060" id="12060">12060</a>
+<a href="#12061" id="12061">12061</a>
+<a href="#12062" id="12062">12062</a>
+<a href="#12063" id="12063">12063</a>
+<a href="#12064" id="12064">12064</a>
+<a href="#12065" id="12065">12065</a>
+<a href="#12066" id="12066">12066</a>
+<a href="#12067" id="12067">12067</a>
+<a href="#12068" id="12068">12068</a>
+<a href="#12069" id="12069">12069</a>
+<a href="#12070" id="12070">12070</a>
+<a href="#12071" id="12071">12071</a>
+<a href="#12072" id="12072">12072</a>
+<a href="#12073" id="12073">12073</a>
+<a href="#12074" id="12074">12074</a>
+<a href="#12075" id="12075">12075</a>
+<a href="#12076" id="12076">12076</a>
+<a href="#12077" id="12077">12077</a>
+<a href="#12078" id="12078">12078</a>
+<a href="#12079" id="12079">12079</a>
+<a href="#12080" id="12080">12080</a>
+<a href="#12081" id="12081">12081</a>
+<a href="#12082" id="12082">12082</a>
+<a href="#12083" id="12083">12083</a>
+<a href="#12084" id="12084">12084</a>
+<a href="#12085" id="12085">12085</a>
+<a href="#12086" id="12086">12086</a>
+<a href="#12087" id="12087">12087</a>
+<a href="#12088" id="12088">12088</a>
+<a href="#12089" id="12089">12089</a>
+<a href="#12090" id="12090">12090</a>
+<a href="#12091" id="12091">12091</a>
+<a href="#12092" id="12092">12092</a>
+<a href="#12093" id="12093">12093</a>
+<a href="#12094" id="12094">12094</a>
+<a href="#12095" id="12095">12095</a>
+<a href="#12096" id="12096">12096</a>
+<a href="#12097" id="12097">12097</a>
+<a href="#12098" id="12098">12098</a>
+<a href="#12099" id="12099">12099</a>
+<a href="#12100" id="12100">12100</a>
+<a href="#12101" id="12101">12101</a>
+<a href="#12102" id="12102">12102</a>
+<a href="#12103" id="12103">12103</a>
+<a href="#12104" id="12104">12104</a>
+<a href="#12105" id="12105">12105</a>
+<a href="#12106" id="12106">12106</a>
+<a href="#12107" id="12107">12107</a>
+<a href="#12108" id="12108">12108</a>
+<a href="#12109" id="12109">12109</a>
+<a href="#12110" id="12110">12110</a>
+<a href="#12111" id="12111">12111</a>
+<a href="#12112" id="12112">12112</a>
+<a href="#12113" id="12113">12113</a>
+<a href="#12114" id="12114">12114</a>
+<a href="#12115" id="12115">12115</a>
+<a href="#12116" id="12116">12116</a>
+<a href="#12117" id="12117">12117</a>
+<a href="#12118" id="12118">12118</a>
+<a href="#12119" id="12119">12119</a>
+<a href="#12120" id="12120">12120</a>
+<a href="#12121" id="12121">12121</a>
+<a href="#12122" id="12122">12122</a>
+<a href="#12123" id="12123">12123</a>
+<a href="#12124" id="12124">12124</a>
+<a href="#12125" id="12125">12125</a>
+<a href="#12126" id="12126">12126</a>
+<a href="#12127" id="12127">12127</a>
+<a href="#12128" id="12128">12128</a>
+<a href="#12129" id="12129">12129</a>
+<a href="#12130" id="12130">12130</a>
+<a href="#12131" id="12131">12131</a>
+<a href="#12132" id="12132">12132</a>
+<a href="#12133" id="12133">12133</a>
+<a href="#12134" id="12134">12134</a>
+<a href="#12135" id="12135">12135</a>
+<a href="#12136" id="12136">12136</a>
+<a href="#12137" id="12137">12137</a>
+<a href="#12138" id="12138">12138</a>
+<a href="#12139" id="12139">12139</a>
+<a href="#12140" id="12140">12140</a>
+<a href="#12141" id="12141">12141</a>
+<a href="#12142" id="12142">12142</a>
+<a href="#12143" id="12143">12143</a>
+<a href="#12144" id="12144">12144</a>
+<a href="#12145" id="12145">12145</a>
+<a href="#12146" id="12146">12146</a>
+<a href="#12147" id="12147">12147</a>
+<a href="#12148" id="12148">12148</a>
+<a href="#12149" id="12149">12149</a>
+<a href="#12150" id="12150">12150</a>
+<a href="#12151" id="12151">12151</a>
+<a href="#12152" id="12152">12152</a>
+<a href="#12153" id="12153">12153</a>
+<a href="#12154" id="12154">12154</a>
+<a href="#12155" id="12155">12155</a>
+<a href="#12156" id="12156">12156</a>
+<a href="#12157" id="12157">12157</a>
+<a href="#12158" id="12158">12158</a>
+<a href="#12159" id="12159">12159</a>
+<a href="#12160" id="12160">12160</a>
+<a href="#12161" id="12161">12161</a>
+<a href="#12162" id="12162">12162</a>
+<a href="#12163" id="12163">12163</a>
+<a href="#12164" id="12164">12164</a>
+<a href="#12165" id="12165">12165</a>
+<a href="#12166" id="12166">12166</a>
+<a href="#12167" id="12167">12167</a>
+<a href="#12168" id="12168">12168</a>
+<a href="#12169" id="12169">12169</a>
+<a href="#12170" id="12170">12170</a>
+<a href="#12171" id="12171">12171</a>
+<a href="#12172" id="12172">12172</a>
+<a href="#12173" id="12173">12173</a>
+<a href="#12174" id="12174">12174</a>
+<a href="#12175" id="12175">12175</a>
+<a href="#12176" id="12176">12176</a>
+<a href="#12177" id="12177">12177</a>
+<a href="#12178" id="12178">12178</a>
+<a href="#12179" id="12179">12179</a>
+<a href="#12180" id="12180">12180</a>
+<a href="#12181" id="12181">12181</a>
+<a href="#12182" id="12182">12182</a>
+<a href="#12183" id="12183">12183</a>
+<a href="#12184" id="12184">12184</a>
+<a href="#12185" id="12185">12185</a>
+<a href="#12186" id="12186">12186</a>
+<a href="#12187" id="12187">12187</a>
+<a href="#12188" id="12188">12188</a>
+<a href="#12189" id="12189">12189</a>
+<a href="#12190" id="12190">12190</a>
+<a href="#12191" id="12191">12191</a>
+<a href="#12192" id="12192">12192</a>
+<a href="#12193" id="12193">12193</a>
+<a href="#12194" id="12194">12194</a>
+<a href="#12195" id="12195">12195</a>
+<a href="#12196" id="12196">12196</a>
+<a href="#12197" id="12197">12197</a>
+<a href="#12198" id="12198">12198</a>
+<a href="#12199" id="12199">12199</a>
+<a href="#12200" id="12200">12200</a>
+<a href="#12201" id="12201">12201</a>
+<a href="#12202" id="12202">12202</a>
+<a href="#12203" id="12203">12203</a>
+<a href="#12204" id="12204">12204</a>
+<a href="#12205" id="12205">12205</a>
+<a href="#12206" id="12206">12206</a>
+<a href="#12207" id="12207">12207</a>
+<a href="#12208" id="12208">12208</a>
+<a href="#12209" id="12209">12209</a>
+<a href="#12210" id="12210">12210</a>
+<a href="#12211" id="12211">12211</a>
+<a href="#12212" id="12212">12212</a>
+<a href="#12213" id="12213">12213</a>
+<a href="#12214" id="12214">12214</a>
+<a href="#12215" id="12215">12215</a>
+<a href="#12216" id="12216">12216</a>
+<a href="#12217" id="12217">12217</a>
+<a href="#12218" id="12218">12218</a>
+<a href="#12219" id="12219">12219</a>
+<a href="#12220" id="12220">12220</a>
+<a href="#12221" id="12221">12221</a>
+<a href="#12222" id="12222">12222</a>
+<a href="#12223" id="12223">12223</a>
+<a href="#12224" id="12224">12224</a>
+<a href="#12225" id="12225">12225</a>
+<a href="#12226" id="12226">12226</a>
+<a href="#12227" id="12227">12227</a>
+<a href="#12228" id="12228">12228</a>
+<a href="#12229" id="12229">12229</a>
+<a href="#12230" id="12230">12230</a>
+<a href="#12231" id="12231">12231</a>
+<a href="#12232" id="12232">12232</a>
+<a href="#12233" id="12233">12233</a>
+<a href="#12234" id="12234">12234</a>
+<a href="#12235" id="12235">12235</a>
+<a href="#12236" id="12236">12236</a>
+<a href="#12237" id="12237">12237</a>
+<a href="#12238" id="12238">12238</a>
+<a href="#12239" id="12239">12239</a>
+<a href="#12240" id="12240">12240</a>
+<a href="#12241" id="12241">12241</a>
+<a href="#12242" id="12242">12242</a>
+<a href="#12243" id="12243">12243</a>
+<a href="#12244" id="12244">12244</a>
+<a href="#12245" id="12245">12245</a>
+<a href="#12246" id="12246">12246</a>
+<a href="#12247" id="12247">12247</a>
+<a href="#12248" id="12248">12248</a>
+<a href="#12249" id="12249">12249</a>
+<a href="#12250" id="12250">12250</a>
+<a href="#12251" id="12251">12251</a>
+<a href="#12252" id="12252">12252</a>
+<a href="#12253" id="12253">12253</a>
+<a href="#12254" id="12254">12254</a>
+<a href="#12255" id="12255">12255</a>
+<a href="#12256" id="12256">12256</a>
+<a href="#12257" id="12257">12257</a>
+<a href="#12258" id="12258">12258</a>
+<a href="#12259" id="12259">12259</a>
+<a href="#12260" id="12260">12260</a>
+<a href="#12261" id="12261">12261</a>
+<a href="#12262" id="12262">12262</a>
+<a href="#12263" id="12263">12263</a>
+<a href="#12264" id="12264">12264</a>
+<a href="#12265" id="12265">12265</a>
+<a href="#12266" id="12266">12266</a>
+<a href="#12267" id="12267">12267</a>
+<a href="#12268" id="12268">12268</a>
+<a href="#12269" id="12269">12269</a>
+<a href="#12270" id="12270">12270</a>
+<a href="#12271" id="12271">12271</a>
+<a href="#12272" id="12272">12272</a>
+<a href="#12273" id="12273">12273</a>
+<a href="#12274" id="12274">12274</a>
+<a href="#12275" id="12275">12275</a>
+<a href="#12276" id="12276">12276</a>
+<a href="#12277" id="12277">12277</a>
+<a href="#12278" id="12278">12278</a>
+<a href="#12279" id="12279">12279</a>
+<a href="#12280" id="12280">12280</a>
+<a href="#12281" id="12281">12281</a>
+<a href="#12282" id="12282">12282</a>
+<a href="#12283" id="12283">12283</a>
+<a href="#12284" id="12284">12284</a>
+<a href="#12285" id="12285">12285</a>
+<a href="#12286" id="12286">12286</a>
+<a href="#12287" id="12287">12287</a>
+<a href="#12288" id="12288">12288</a>
+<a href="#12289" id="12289">12289</a>
+<a href="#12290" id="12290">12290</a>
+<a href="#12291" id="12291">12291</a>
+<a href="#12292" id="12292">12292</a>
+<a href="#12293" id="12293">12293</a>
+<a href="#12294" id="12294">12294</a>
+<a href="#12295" id="12295">12295</a>
+<a href="#12296" id="12296">12296</a>
+<a href="#12297" id="12297">12297</a>
+<a href="#12298" id="12298">12298</a>
+<a href="#12299" id="12299">12299</a>
+<a href="#12300" id="12300">12300</a>
+<a href="#12301" id="12301">12301</a>
+<a href="#12302" id="12302">12302</a>
+<a href="#12303" id="12303">12303</a>
+<a href="#12304" id="12304">12304</a>
+<a href="#12305" id="12305">12305</a>
+<a href="#12306" id="12306">12306</a>
+<a href="#12307" id="12307">12307</a>
+<a href="#12308" id="12308">12308</a>
+<a href="#12309" id="12309">12309</a>
+<a href="#12310" id="12310">12310</a>
+<a href="#12311" id="12311">12311</a>
+<a href="#12312" id="12312">12312</a>
+<a href="#12313" id="12313">12313</a>
+<a href="#12314" id="12314">12314</a>
+<a href="#12315" id="12315">12315</a>
+<a href="#12316" id="12316">12316</a>
+<a href="#12317" id="12317">12317</a>
+<a href="#12318" id="12318">12318</a>
+<a href="#12319" id="12319">12319</a>
+<a href="#12320" id="12320">12320</a>
+<a href="#12321" id="12321">12321</a>
+<a href="#12322" id="12322">12322</a>
+<a href="#12323" id="12323">12323</a>
+<a href="#12324" id="12324">12324</a>
+<a href="#12325" id="12325">12325</a>
+<a href="#12326" id="12326">12326</a>
+<a href="#12327" id="12327">12327</a>
+<a href="#12328" id="12328">12328</a>
+<a href="#12329" id="12329">12329</a>
+<a href="#12330" id="12330">12330</a>
+<a href="#12331" id="12331">12331</a>
+<a href="#12332" id="12332">12332</a>
+<a href="#12333" id="12333">12333</a>
+<a href="#12334" id="12334">12334</a>
+<a href="#12335" id="12335">12335</a>
+<a href="#12336" id="12336">12336</a>
+<a href="#12337" id="12337">12337</a>
+<a href="#12338" id="12338">12338</a>
+<a href="#12339" id="12339">12339</a>
+<a href="#12340" id="12340">12340</a>
+<a href="#12341" id="12341">12341</a>
+<a href="#12342" id="12342">12342</a>
+<a href="#12343" id="12343">12343</a>
+<a href="#12344" id="12344">12344</a>
+<a href="#12345" id="12345">12345</a>
+<a href="#12346" id="12346">12346</a>
+<a href="#12347" id="12347">12347</a>
+<a href="#12348" id="12348">12348</a>
+<a href="#12349" id="12349">12349</a>
+<a href="#12350" id="12350">12350</a>
+<a href="#12351" id="12351">12351</a>
+<a href="#12352" id="12352">12352</a>
+<a href="#12353" id="12353">12353</a>
+<a href="#12354" id="12354">12354</a>
+<a href="#12355" id="12355">12355</a>
+<a href="#12356" id="12356">12356</a>
+<a href="#12357" id="12357">12357</a>
+<a href="#12358" id="12358">12358</a>
+<a href="#12359" id="12359">12359</a>
+<a href="#12360" id="12360">12360</a>
+<a href="#12361" id="12361">12361</a>
+<a href="#12362" id="12362">12362</a>
+<a href="#12363" id="12363">12363</a>
+<a href="#12364" id="12364">12364</a>
+<a href="#12365" id="12365">12365</a>
+<a href="#12366" id="12366">12366</a>
+<a href="#12367" id="12367">12367</a>
+<a href="#12368" id="12368">12368</a>
+<a href="#12369" id="12369">12369</a>
+<a href="#12370" id="12370">12370</a>
+<a href="#12371" id="12371">12371</a>
+<a href="#12372" id="12372">12372</a>
+<a href="#12373" id="12373">12373</a>
+<a href="#12374" id="12374">12374</a>
+<a href="#12375" id="12375">12375</a>
+<a href="#12376" id="12376">12376</a>
+<a href="#12377" id="12377">12377</a>
+<a href="#12378" id="12378">12378</a>
+<a href="#12379" id="12379">12379</a>
+<a href="#12380" id="12380">12380</a>
+<a href="#12381" id="12381">12381</a>
+<a href="#12382" id="12382">12382</a>
+<a href="#12383" id="12383">12383</a>
+<a href="#12384" id="12384">12384</a>
+<a href="#12385" id="12385">12385</a>
+<a href="#12386" id="12386">12386</a>
+<a href="#12387" id="12387">12387</a>
+<a href="#12388" id="12388">12388</a>
+<a href="#12389" id="12389">12389</a>
+<a href="#12390" id="12390">12390</a>
+<a href="#12391" id="12391">12391</a>
+<a href="#12392" id="12392">12392</a>
+<a href="#12393" id="12393">12393</a>
+<a href="#12394" id="12394">12394</a>
+<a href="#12395" id="12395">12395</a>
+<a href="#12396" id="12396">12396</a>
+<a href="#12397" id="12397">12397</a>
+<a href="#12398" id="12398">12398</a>
+<a href="#12399" id="12399">12399</a>
+<a href="#12400" id="12400">12400</a>
+<a href="#12401" id="12401">12401</a>
+<a href="#12402" id="12402">12402</a>
+<a href="#12403" id="12403">12403</a>
+<a href="#12404" id="12404">12404</a>
+<a href="#12405" id="12405">12405</a>
+<a href="#12406" id="12406">12406</a>
+<a href="#12407" id="12407">12407</a>
+<a href="#12408" id="12408">12408</a>
+<a href="#12409" id="12409">12409</a>
+<a href="#12410" id="12410">12410</a>
+<a href="#12411" id="12411">12411</a>
+<a href="#12412" id="12412">12412</a>
+<a href="#12413" id="12413">12413</a>
+<a href="#12414" id="12414">12414</a>
+<a href="#12415" id="12415">12415</a>
+<a href="#12416" id="12416">12416</a>
+<a href="#12417" id="12417">12417</a>
+<a href="#12418" id="12418">12418</a>
+<a href="#12419" id="12419">12419</a>
+<a href="#12420" id="12420">12420</a>
+<a href="#12421" id="12421">12421</a>
+<a href="#12422" id="12422">12422</a>
+<a href="#12423" id="12423">12423</a>
+<a href="#12424" id="12424">12424</a>
+<a href="#12425" id="12425">12425</a>
+<a href="#12426" id="12426">12426</a>
+<a href="#12427" id="12427">12427</a>
+<a href="#12428" id="12428">12428</a>
+<a href="#12429" id="12429">12429</a>
+<a href="#12430" id="12430">12430</a>
+<a href="#12431" id="12431">12431</a>
+<a href="#12432" id="12432">12432</a>
+<a href="#12433" id="12433">12433</a>
+<a href="#12434" id="12434">12434</a>
+<a href="#12435" id="12435">12435</a>
+<a href="#12436" id="12436">12436</a>
+<a href="#12437" id="12437">12437</a>
+<a href="#12438" id="12438">12438</a>
+<a href="#12439" id="12439">12439</a>
+<a href="#12440" id="12440">12440</a>
+<a href="#12441" id="12441">12441</a>
+<a href="#12442" id="12442">12442</a>
+<a href="#12443" id="12443">12443</a>
+<a href="#12444" id="12444">12444</a>
+<a href="#12445" id="12445">12445</a>
+<a href="#12446" id="12446">12446</a>
+<a href="#12447" id="12447">12447</a>
+<a href="#12448" id="12448">12448</a>
+<a href="#12449" id="12449">12449</a>
+<a href="#12450" id="12450">12450</a>
+<a href="#12451" id="12451">12451</a>
+<a href="#12452" id="12452">12452</a>
+<a href="#12453" id="12453">12453</a>
+<a href="#12454" id="12454">12454</a>
+<a href="#12455" id="12455">12455</a>
+<a href="#12456" id="12456">12456</a>
+<a href="#12457" id="12457">12457</a>
+<a href="#12458" id="12458">12458</a>
+<a href="#12459" id="12459">12459</a>
+<a href="#12460" id="12460">12460</a>
+<a href="#12461" id="12461">12461</a>
+<a href="#12462" id="12462">12462</a>
+<a href="#12463" id="12463">12463</a>
+<a href="#12464" id="12464">12464</a>
+<a href="#12465" id="12465">12465</a>
+<a href="#12466" id="12466">12466</a>
+<a href="#12467" id="12467">12467</a>
+<a href="#12468" id="12468">12468</a>
+<a href="#12469" id="12469">12469</a>
+<a href="#12470" id="12470">12470</a>
+<a href="#12471" id="12471">12471</a>
+<a href="#12472" id="12472">12472</a>
+<a href="#12473" id="12473">12473</a>
+<a href="#12474" id="12474">12474</a>
+<a href="#12475" id="12475">12475</a>
+<a href="#12476" id="12476">12476</a>
+<a href="#12477" id="12477">12477</a>
+<a href="#12478" id="12478">12478</a>
+<a href="#12479" id="12479">12479</a>
+<a href="#12480" id="12480">12480</a>
+<a href="#12481" id="12481">12481</a>
+<a href="#12482" id="12482">12482</a>
+<a href="#12483" id="12483">12483</a>
+<a href="#12484" id="12484">12484</a>
+<a href="#12485" id="12485">12485</a>
+<a href="#12486" id="12486">12486</a>
+<a href="#12487" id="12487">12487</a>
+<a href="#12488" id="12488">12488</a>
+<a href="#12489" id="12489">12489</a>
+<a href="#12490" id="12490">12490</a>
+<a href="#12491" id="12491">12491</a>
+<a href="#12492" id="12492">12492</a>
+<a href="#12493" id="12493">12493</a>
+<a href="#12494" id="12494">12494</a>
+<a href="#12495" id="12495">12495</a>
+<a href="#12496" id="12496">12496</a>
+<a href="#12497" id="12497">12497</a>
+<a href="#12498" id="12498">12498</a>
+<a href="#12499" id="12499">12499</a>
+<a href="#12500" id="12500">12500</a>
+<a href="#12501" id="12501">12501</a>
+<a href="#12502" id="12502">12502</a>
+<a href="#12503" id="12503">12503</a>
+<a href="#12504" id="12504">12504</a>
+<a href="#12505" id="12505">12505</a>
+<a href="#12506" id="12506">12506</a>
+<a href="#12507" id="12507">12507</a>
+<a href="#12508" id="12508">12508</a>
+<a href="#12509" id="12509">12509</a>
+<a href="#12510" id="12510">12510</a>
+<a href="#12511" id="12511">12511</a>
+<a href="#12512" id="12512">12512</a>
+<a href="#12513" id="12513">12513</a>
+<a href="#12514" id="12514">12514</a>
+<a href="#12515" id="12515">12515</a>
+<a href="#12516" id="12516">12516</a>
+<a href="#12517" id="12517">12517</a>
+<a href="#12518" id="12518">12518</a>
+<a href="#12519" id="12519">12519</a>
+<a href="#12520" id="12520">12520</a>
+<a href="#12521" id="12521">12521</a>
+<a href="#12522" id="12522">12522</a>
+<a href="#12523" id="12523">12523</a>
+<a href="#12524" id="12524">12524</a>
+<a href="#12525" id="12525">12525</a>
+<a href="#12526" id="12526">12526</a>
+<a href="#12527" id="12527">12527</a>
+<a href="#12528" id="12528">12528</a>
+<a href="#12529" id="12529">12529</a>
+<a href="#12530" id="12530">12530</a>
+<a href="#12531" id="12531">12531</a>
+<a href="#12532" id="12532">12532</a>
+<a href="#12533" id="12533">12533</a>
+<a href="#12534" id="12534">12534</a>
+<a href="#12535" id="12535">12535</a>
+<a href="#12536" id="12536">12536</a>
+<a href="#12537" id="12537">12537</a>
+<a href="#12538" id="12538">12538</a>
+<a href="#12539" id="12539">12539</a>
+<a href="#12540" id="12540">12540</a>
+<a href="#12541" id="12541">12541</a>
+<a href="#12542" id="12542">12542</a>
+<a href="#12543" id="12543">12543</a>
+<a href="#12544" id="12544">12544</a>
+<a href="#12545" id="12545">12545</a>
+<a href="#12546" id="12546">12546</a>
+<a href="#12547" id="12547">12547</a>
+<a href="#12548" id="12548">12548</a>
+<a href="#12549" id="12549">12549</a>
+<a href="#12550" id="12550">12550</a>
+<a href="#12551" id="12551">12551</a>
+<a href="#12552" id="12552">12552</a>
+<a href="#12553" id="12553">12553</a>
+<a href="#12554" id="12554">12554</a>
+<a href="#12555" id="12555">12555</a>
+<a href="#12556" id="12556">12556</a>
+<a href="#12557" id="12557">12557</a>
+<a href="#12558" id="12558">12558</a>
+<a href="#12559" id="12559">12559</a>
+<a href="#12560" id="12560">12560</a>
+<a href="#12561" id="12561">12561</a>
+<a href="#12562" id="12562">12562</a>
+<a href="#12563" id="12563">12563</a>
+<a href="#12564" id="12564">12564</a>
+<a href="#12565" id="12565">12565</a>
+<a href="#12566" id="12566">12566</a>
+<a href="#12567" id="12567">12567</a>
+<a href="#12568" id="12568">12568</a>
+<a href="#12569" id="12569">12569</a>
+<a href="#12570" id="12570">12570</a>
+<a href="#12571" id="12571">12571</a>
+<a href="#12572" id="12572">12572</a>
+<a href="#12573" id="12573">12573</a>
+<a href="#12574" id="12574">12574</a>
+<a href="#12575" id="12575">12575</a>
+<a href="#12576" id="12576">12576</a>
+<a href="#12577" id="12577">12577</a>
+<a href="#12578" id="12578">12578</a>
+<a href="#12579" id="12579">12579</a>
+<a href="#12580" id="12580">12580</a>
+<a href="#12581" id="12581">12581</a>
+<a href="#12582" id="12582">12582</a>
+<a href="#12583" id="12583">12583</a>
+<a href="#12584" id="12584">12584</a>
+<a href="#12585" id="12585">12585</a>
+<a href="#12586" id="12586">12586</a>
+<a href="#12587" id="12587">12587</a>
+<a href="#12588" id="12588">12588</a>
+<a href="#12589" id="12589">12589</a>
+<a href="#12590" id="12590">12590</a>
+<a href="#12591" id="12591">12591</a>
+<a href="#12592" id="12592">12592</a>
+<a href="#12593" id="12593">12593</a>
+<a href="#12594" id="12594">12594</a>
+<a href="#12595" id="12595">12595</a>
+<a href="#12596" id="12596">12596</a>
+<a href="#12597" id="12597">12597</a>
+<a href="#12598" id="12598">12598</a>
+<a href="#12599" id="12599">12599</a>
+<a href="#12600" id="12600">12600</a>
+<a href="#12601" id="12601">12601</a>
+<a href="#12602" id="12602">12602</a>
+<a href="#12603" id="12603">12603</a>
+<a href="#12604" id="12604">12604</a>
+<a href="#12605" id="12605">12605</a>
+<a href="#12606" id="12606">12606</a>
+<a href="#12607" id="12607">12607</a>
+<a href="#12608" id="12608">12608</a>
+<a href="#12609" id="12609">12609</a>
+<a href="#12610" id="12610">12610</a>
+<a href="#12611" id="12611">12611</a>
+<a href="#12612" id="12612">12612</a>
+<a href="#12613" id="12613">12613</a>
+<a href="#12614" id="12614">12614</a>
+<a href="#12615" id="12615">12615</a>
+<a href="#12616" id="12616">12616</a>
+<a href="#12617" id="12617">12617</a>
+<a href="#12618" id="12618">12618</a>
+<a href="#12619" id="12619">12619</a>
+<a href="#12620" id="12620">12620</a>
+<a href="#12621" id="12621">12621</a>
+<a href="#12622" id="12622">12622</a>
+<a href="#12623" id="12623">12623</a>
+<a href="#12624" id="12624">12624</a>
+<a href="#12625" id="12625">12625</a>
+<a href="#12626" id="12626">12626</a>
+<a href="#12627" id="12627">12627</a>
+<a href="#12628" id="12628">12628</a>
+<a href="#12629" id="12629">12629</a>
+<a href="#12630" id="12630">12630</a>
+<a href="#12631" id="12631">12631</a>
+<a href="#12632" id="12632">12632</a>
+<a href="#12633" id="12633">12633</a>
+<a href="#12634" id="12634">12634</a>
+<a href="#12635" id="12635">12635</a>
+<a href="#12636" id="12636">12636</a>
+<a href="#12637" id="12637">12637</a>
+<a href="#12638" id="12638">12638</a>
+<a href="#12639" id="12639">12639</a>
+<a href="#12640" id="12640">12640</a>
+<a href="#12641" id="12641">12641</a>
+<a href="#12642" id="12642">12642</a>
+<a href="#12643" id="12643">12643</a>
+<a href="#12644" id="12644">12644</a>
+<a href="#12645" id="12645">12645</a>
+<a href="#12646" id="12646">12646</a>
+<a href="#12647" id="12647">12647</a>
+<a href="#12648" id="12648">12648</a>
+<a href="#12649" id="12649">12649</a>
+<a href="#12650" id="12650">12650</a>
+<a href="#12651" id="12651">12651</a>
+<a href="#12652" id="12652">12652</a>
+<a href="#12653" id="12653">12653</a>
+<a href="#12654" id="12654">12654</a>
+<a href="#12655" id="12655">12655</a>
+<a href="#12656" id="12656">12656</a>
+<a href="#12657" id="12657">12657</a>
+<a href="#12658" id="12658">12658</a>
+<a href="#12659" id="12659">12659</a>
+<a href="#12660" id="12660">12660</a>
+<a href="#12661" id="12661">12661</a>
+<a href="#12662" id="12662">12662</a>
+<a href="#12663" id="12663">12663</a>
+<a href="#12664" id="12664">12664</a>
+<a href="#12665" id="12665">12665</a>
+<a href="#12666" id="12666">12666</a>
+<a href="#12667" id="12667">12667</a>
+<a href="#12668" id="12668">12668</a>
+<a href="#12669" id="12669">12669</a>
+<a href="#12670" id="12670">12670</a>
+<a href="#12671" id="12671">12671</a>
+<a href="#12672" id="12672">12672</a>
+<a href="#12673" id="12673">12673</a>
+<a href="#12674" id="12674">12674</a>
+<a href="#12675" id="12675">12675</a>
+<a href="#12676" id="12676">12676</a>
+<a href="#12677" id="12677">12677</a>
+<a href="#12678" id="12678">12678</a>
+<a href="#12679" id="12679">12679</a>
+<a href="#12680" id="12680">12680</a>
+<a href="#12681" id="12681">12681</a>
+<a href="#12682" id="12682">12682</a>
+<a href="#12683" id="12683">12683</a>
+<a href="#12684" id="12684">12684</a>
+<a href="#12685" id="12685">12685</a>
+<a href="#12686" id="12686">12686</a>
+<a href="#12687" id="12687">12687</a>
+<a href="#12688" id="12688">12688</a>
+<a href="#12689" id="12689">12689</a>
+<a href="#12690" id="12690">12690</a>
+<a href="#12691" id="12691">12691</a>
+<a href="#12692" id="12692">12692</a>
+<a href="#12693" id="12693">12693</a>
+<a href="#12694" id="12694">12694</a>
+<a href="#12695" id="12695">12695</a>
+<a href="#12696" id="12696">12696</a>
+<a href="#12697" id="12697">12697</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+
+<span class="kw">use super</span>::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
@@ -12043,21 +12713,20 @@
     targets::{FileType, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
-        BasicMetadataValueEnum, BasicValue, BasicValueEnum, FloatValue, FunctionValue,
+        AnyValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FloatValue, FunctionValue,
         InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue, VectorValue,
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
 };
+<span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>smallvec::SmallVec;
+<span class="kw">use </span>target_lexicon::BinaryFormat;
 
-<span class="kw">use </span><span class="kw">crate</span>::object_file::{load_object_file, CompiledFunction};
 <span class="kw">use crate</span>::{
     abi::{get_abi, Abi},
-    error::err,
-};
-<span class="kw">use crate</span>::{
     config::{CompiledKind, LLVM},
-    error::err_nt,
+    error::{err, err_nt},
+    object_file::{load_object_file, CompiledFunction},
 };
 <span class="kw">use </span>wasmer_compiler::{
     from_binaryreadererror_wasmerror,
@@ -12065,33 +12734,50 @@
         relocation::RelocationTarget,
         symbols::{Symbol, SymbolRegistry},
     },
-    wasmparser::{MemArg, Operator},
+    wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
     MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
-<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::{entity::PrimaryMap, TagIndex};
 <span class="kw">use </span>wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex, Type,
 };
 <span class="kw">use </span>wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
-<span class="kw">const </span>FUNCTION_SECTION: <span class="kw-2">&amp;</span>str = <span class="string">"__TEXT,wasmer_function"</span>;
+<span class="kw">const </span>FUNCTION_SECTION_ELF: <span class="kw-2">&amp;</span>str = <span class="string">"__TEXT,wasmer_function"</span>;
+<span class="kw">const </span>FUNCTION_SECTION_MACHO: <span class="kw-2">&amp;</span>str = <span class="string">"__TEXT"</span>;
+<span class="kw">const </span>FUNCTION_SEGMENT_MACHO: <span class="kw-2">&amp;</span>str = <span class="string">"wasmer_function"</span>;
 
 <span class="kw">pub struct </span>FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
     abi: Box&lt;<span class="kw">dyn </span>Abi&gt;,
+    binary_fmt: BinaryFormat,
+    func_section: String,
 }
 
 <span class="kw">impl </span>FuncTranslator {
-    <span class="kw">pub fn </span>new(target_machine: TargetMachine) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(
+        target_machine: TargetMachine,
+        binary_fmt: BinaryFormat,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
         <span class="kw">let </span>abi = get_abi(<span class="kw-2">&amp;</span>target_machine);
-        <span class="self">Self </span>{
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             ctx: Context::create(),
             target_machine,
             abi,
-        }
+            func_section: <span class="kw">match </span>binary_fmt {
+                BinaryFormat::Elf =&gt; FUNCTION_SECTION_ELF.to_string(),
+                BinaryFormat::Macho =&gt; FUNCTION_SEGMENT_MACHO.to_string(),
+                <span class="kw">_ </span>=&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(<span class="macro">format!</span>(
+                        <span class="string">"Unsupported binary format: {binary_fmt:?}"
+                    </span>)))
+                }
+            },
+            binary_fmt,
+        })
     }
 
     <span class="attr">#[allow(clippy::too_many_arguments)]
@@ -12129,7 +12815,7 @@
 
         <span class="comment">// TODO: pointer width
         </span><span class="kw">let </span>offsets = VMOffsets::new(<span class="number">8</span>, wasm_module);
-        <span class="kw">let </span>intrinsics = Intrinsics::declare(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span><span class="self">self</span>.ctx, <span class="kw-2">&amp;</span>target_data);
+        <span class="kw">let </span>intrinsics = Intrinsics::declare(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span><span class="self">self</span>.ctx, <span class="kw-2">&amp;</span>target_data, <span class="kw-2">&amp;</span><span class="self">self</span>.binary_fmt);
         <span class="kw">let </span>(func_type, func_attrs) =
             <span class="self">self</span>.abi
                 .func_type_to_llvm(<span class="kw-2">&amp;</span><span class="self">self</span>.ctx, <span class="kw-2">&amp;</span>intrinsics, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>offsets), wasm_fn_type)<span class="question-mark">?</span>;
@@ -12140,8 +12826,25 @@
         }
 
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
+        func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
+        func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
+
+        <span class="kw">let </span>section = <span class="kw">match </span><span class="self">self</span>.binary_fmt {
+            BinaryFormat::Elf =&gt; FUNCTION_SECTION_ELF.to_string(),
+            BinaryFormat::Macho =&gt; {
+                <span class="macro">format!</span>(<span class="string">"{FUNCTION_SECTION_MACHO},{FUNCTION_SEGMENT_MACHO}"</span>)
+            }
+            <span class="kw">_ </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(<span class="macro">format!</span>(
+                    <span class="string">"Unsupported binary format: {:?}"</span>,
+                    <span class="self">self</span>.binary_fmt
+                )))
+            }
+        };
+
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(<span class="prelude-val">Some</span>(FUNCTION_SECTION));
+        func.as_global_value().set_section(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>section));
+
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
@@ -12242,7 +12945,15 @@
             symbol_registry,
             abi: <span class="kw-2">&amp;*</span><span class="self">self</span>.abi,
             config,
+            exception_types_cache: HashMap::new(),
+            tags_cache: HashMap::new(),
+            ptr_size: <span class="self">self
+                </span>.target_machine
+                .get_target_data()
+                .get_pointer_byte_size(<span class="prelude-val">None</span>),
+            binary_fmt: <span class="self">self</span>.binary_fmt,
         };
+
         fcg.ctx.add_func(
             func_index,
             func.as_global_value().as_pointer_value(),
@@ -12346,19 +13057,29 @@
         <span class="kw">let </span>mem_buf_slice = memory_buffer.as_slice();
         load_object_file(
             mem_buf_slice,
-            FUNCTION_SECTION,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.func_section,
             RelocationTarget::LocalFunc(<span class="kw-2">*</span>local_func_index),
             |name: <span class="kw-2">&amp;</span>str| {
-                <span class="prelude-val">Ok</span>(
+                <span class="prelude-val">Ok</span>({
+                    <span class="kw">let </span>name = <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.binary_fmt, BinaryFormat::Macho) {
+                        <span class="kw">if </span>name.starts_with(<span class="string">"_"</span>) {
+                            name.replacen(<span class="string">"_"</span>, <span class="string">""</span>, <span class="number">1</span>)
+                        } <span class="kw">else </span>{
+                            name.to_string()
+                        }
+                    } <span class="kw">else </span>{
+                        name.to_string()
+                    };
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(Symbol::LocalFunction(local_func_index)) =
-                        symbol_registry.name_to_symbol(name)
+                        symbol_registry.name_to_symbol(<span class="kw-2">&amp;</span>name)
                     {
                         <span class="prelude-val">Some</span>(RelocationTarget::LocalFunc(local_func_index))
                     } <span class="kw">else </span>{
                         <span class="prelude-val">None
-                    </span>},
-                )
+                    </span>}
+                })
             },
+            <span class="self">self</span>.binary_fmt,
         )
     }
 }
@@ -13378,6 +14099,89 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="kw">fn </span>get_or_insert_global_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: u32) -&gt; BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = <span class="self">self</span>.tags_cache.get(<span class="kw-2">&amp;</span>tag) {
+            <span class="kw">return </span><span class="kw-2">*</span>tag;
+        }
+
+        <span class="kw">let </span>tag_ty = <span class="self">self
+            </span>.context
+            .struct_type(<span class="kw-2">&amp;</span>[<span class="self">self</span>.intrinsics.i64_ty.into()], <span class="bool-val">false</span>);
+        <span class="kw">let </span>tag_glbl = <span class="self">self</span>.module.add_global(
+            tag_ty,
+            <span class="prelude-val">Some</span>(AddressSpace::default()),
+            <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"__wasmer_eh_type_info_{tag}"</span>),
+        );
+        tag_glbl.set_initializer(
+            <span class="kw-2">&amp;</span>tag_ty
+                .const_named_struct(<span class="kw-2">&amp;</span>[<span class="self">self
+                    </span>.intrinsics
+                    .i64_ty
+                    .const_int(<span class="self">self</span>.encode_tag(tag) <span class="kw">as _</span>, <span class="bool-val">false</span>)
+                    .into()])
+                .as_basic_value_enum(),
+        );
+
+        tag_glbl.set_linkage(Linkage::External);
+        tag_glbl.set_constant(<span class="bool-val">true</span>);
+        <span class="comment">// Why set this to a specific section? On macOS it would land on a specifc read only data
+        // section. GOT-based relocations will probably be generated with a non-zero addend, making
+        // some EH-related intricacies not working.
+        //
+        // The general idea is that each tag has its own section, so the GOT-based relocation can
+        // have a zero addend, i.e. the data of the tag is the first (and only) value in a specific
+        // section we can target in relocations.
+        </span><span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.binary_fmt, target_lexicon::BinaryFormat::Macho) {
+            tag_glbl.set_section(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{FUNCTION_SECTION_MACHO},_eh_ti_{tag}"</span>)));
+        }
+
+        <span class="kw">let </span>tag_glbl = tag_glbl.as_basic_value_enum();
+
+        <span class="self">self</span>.tags_cache.insert(tag, tag_glbl);
+        tag_glbl
+    }
+
+    <span class="kw">fn </span>get_or_insert_exception_type(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        tag: u32,
+        signature: <span class="kw-2">&amp;</span>FunctionType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;inkwell::types::StructType&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(ty) = <span class="self">self</span>.exception_types_cache.get(<span class="kw-2">&amp;</span>tag) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="kw-2">*</span>ty);
+        }
+        <span class="kw">let </span>types = signature
+            .params()
+            .iter()
+            .map(|v| type_to_llvm(<span class="self">self</span>.intrinsics, <span class="kw-2">*</span>v))
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>ty = <span class="self">self</span>.context.struct_type(<span class="kw-2">&amp;</span>types, <span class="bool-val">false</span>);
+        <span class="self">self</span>.exception_types_cache.insert(tag, ty);
+        <span class="prelude-val">Ok</span>(ty)
+    }
+
+    <span class="comment">// Encode a tag - an u32 identifying an event - into a unique value that can be used in
+    // catch clauses.
+    //
+    // This is to avoid that the #0 tag is reinterpreted as nullptr in the catch clause of a
+    // landing pad.
+    </span><span class="attr">#[inline]
+    </span><span class="kw">fn </span>encode_tag(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: u32) -&gt; usize {
+        <span class="kw">let </span>size = <span class="self">self</span>.ptr_size;
+        <span class="kw">if </span>size == <span class="number">4 </span>{
+            <span class="comment">// Add 1 to the tag value so that we don't have tags with value `0`; this is because
+            // the catches in the landingpad match on the value of the tag, and a value of 0 means
+            // catch_all
+            </span>(tag + <span class="number">1</span>) <span class="kw">as </span>usize
+        } <span class="kw">else if </span>size == <span class="number">8 </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>base = <span class="macro">vec!</span>[<span class="string">b'w'</span>, <span class="string">b'a'</span>, <span class="string">b's'</span>, <span class="string">b'm'</span>];
+            base.append(<span class="kw-2">&amp;mut </span>tag.to_be_bytes().to_vec());
+            u64::from_be_bytes(base.try_into().unwrap()) <span class="kw">as </span>usize
+        } <span class="kw">else </span>{
+            <span class="macro">panic!</span>()
+        }
+    }
 }
 
 <span class="comment">/*
@@ -13491,10 +14295,28 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
     symbol_registry: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>SymbolRegistry,
     abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
     config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>LLVM,
+    tags_cache: HashMap&lt;u32, BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    exception_types_cache: HashMap&lt;u32, inkwell::types::StructType&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    ptr_size: u32,
+    binary_fmt: target_lexicon::BinaryFormat,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; LLVMFunctionCodeGenerator&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>translate_operator(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: Operator, _source_loc: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+    <span class="comment">//fn add_fn_to_got(&amp;mut self, func: &amp;FunctionValue&lt;'ctx&gt;, name: &amp;str) {
+    //    //let throw_intrinsic = self.intrinsics.throw.as_global_value().as_pointer_value();
+    //    if !self.got_cache.contains(name) {
+    //        let func_ptr = func.as_global_value().as_pointer_value();
+    //        let global =
+    //            self.module
+    //                .add_global(func_ptr.get_type(), Some(AddressSpace::from(1u16)), name);
+
+    //        global.set_initializer(&amp;func_ptr);
+    //        global.set_section(Some("__DATA_CONST,__got"));
+    //        self.got_cache.insert(name.to_string());
+    //    }
+    //}
+
+    </span><span class="kw">fn </span>translate_operator(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: Operator, _source_loc: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="comment">// TODO: remove this vmctx by moving everything into CtxType. Values
         // computed off vmctx usually benefit from caching.
         </span><span class="kw">let </span>vmctx = <span class="kw-2">&amp;</span><span class="self">self</span>.ctx.basic().into_pointer_value();
@@ -13912,7 +14734,9 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     }
                     <span class="self">self</span>.builder.position_at_end(<span class="kw-2">*</span>if_else);
                     <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>next));
-                }
+                } <span class="kw">else if let </span>ControlFrame::Landingpad { .. } = <span class="kw-2">&amp;</span>frame {
+                    <span class="self">self</span>.state.pop_landingpad();
+                };
 
                 <span class="self">self</span>.builder.position_at_end(<span class="kw-2">*</span>frame.code_after());
                 <span class="self">self</span>.state.reset_stack(<span class="kw-2">&amp;</span>frame);
@@ -14360,17 +15184,33 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     }
                 }
                 */
-                </span><span class="kw">let </span>call_site = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_call(
-                    llvm_func_type,
-                    func,
-                    params
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::&lt;Vec&lt;BasicMetadataValueEnum&gt;&gt;()
-                        .as_slice(),
-                    <span class="string">""</span>,
-                ));
+                </span><span class="kw">let </span>call_site = <span class="kw">if let </span><span class="prelude-val">Some</span>(lpad) = <span class="self">self</span>.state.get_landingpad() {
+                    <span class="kw">let </span>then_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"then_block"</span>);
+
+                    <span class="kw">let </span>ret = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_invoke(
+                        llvm_func_type,
+                        func,
+                        params.as_slice(),
+                        then_block,
+                        lpad,
+                        <span class="string">""</span>,
+                    ));
+
+                    <span class="self">self</span>.builder.position_at_end(then_block);
+                    ret
+                } <span class="kw">else </span>{
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_call(
+                        llvm_func_type,
+                        func,
+                        params
+                            .iter()
+                            .copied()
+                            .map(Into::into)
+                            .collect::&lt;Vec&lt;BasicMetadataValueEnum&gt;&gt;()
+                            .as_slice(),
+                        <span class="string">""</span>,
+                    ))
+                };
                 <span class="kw">for </span>(attr, attr_loc) <span class="kw">in </span>attrs {
                     call_site.add_attribute(attr_loc, attr);
                 }
@@ -14676,17 +15516,34 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     }
                 }
                 */
-                </span><span class="kw">let </span>call_site = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_call(
-                    llvm_func_type,
-                    typed_func_ptr,
-                    params
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::&lt;Vec&lt;BasicMetadataValueEnum&gt;&gt;()
-                        .as_slice(),
-                    <span class="string">"indirect_call"</span>,
-                ));
+
+                </span><span class="kw">let </span>call_site = <span class="kw">if let </span><span class="prelude-val">Some</span>(lpad) = <span class="self">self</span>.state.get_landingpad() {
+                    <span class="kw">let </span>then_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"then_block"</span>);
+
+                    <span class="kw">let </span>ret = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_invoke(
+                        llvm_func_type,
+                        typed_func_ptr,
+                        params.as_slice(),
+                        then_block,
+                        lpad,
+                        <span class="string">""</span>,
+                    ));
+
+                    <span class="self">self</span>.builder.position_at_end(then_block);
+                    ret
+                } <span class="kw">else </span>{
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_call(
+                        llvm_func_type,
+                        typed_func_ptr,
+                        params
+                            .iter()
+                            .copied()
+                            .map(Into::into)
+                            .collect::&lt;Vec&lt;BasicMetadataValueEnum&gt;&gt;()
+                            .as_slice(),
+                        <span class="string">"indirect_call"</span>,
+                    ))
+                };
                 <span class="kw">for </span>(attr, attr_loc) <span class="kw">in </span>llvm_func_attrs {
                     call_site.add_attribute(attr_loc, attr);
                 }
@@ -19985,7 +20842,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
             //     let res = self
             //         .builder
             //         .build_signed_int_to_float(v, self.intrinsics.f64x2_ty, "");
-            //     let res = err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
             //     self.state.push1(res);
             // }
             // Operator::F64x2ConvertI64x2U =&gt; {
@@ -19997,7 +20854,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
             //     let res = self
             //         .builder
             //         .build_unsigned_int_to_float(v, self.intrinsics.f64x2_ty, "");
-            //     let res = err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
             //     self.state.push1(res);
             // }
             </span>Operator::I32ReinterpretF32 =&gt; {
@@ -23994,6 +24851,485 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     <span class="string">""</span>,
                 ));
                 <span class="self">self</span>.state.push1(cnt.try_as_basic_value().left().unwrap());
+            }
+
+            Operator::TryTable { try_table } =&gt; {
+                <span class="kw">let </span>current_block = <span class="self">self
+                    </span>.builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen(<span class="string">"not currently in a block"</span>.to_string()))<span class="question-mark">?</span>;
+                <span class="kw">let </span>can_throw_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"try_begin"</span>);
+                <span class="kw">let </span>catch_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"catch"</span>);
+
+                <span class="kw">let </span>rethrow_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"rethrow"</span>);
+
+                <span class="self">self</span>.builder.position_at_end(current_block);
+
+                <span class="kw">let </span>end_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"try_end"</span>);
+
+                <span class="kw">let </span>end_phis = {
+                    <span class="self">self</span>.builder.position_at_end(end_block);
+
+                    <span class="kw">let </span>phis = <span class="self">self
+                        </span>.module_translation
+                        .blocktype_params_results(<span class="kw-2">&amp;</span>try_table.ty)<span class="question-mark">?
+                        </span>.<span class="number">1
+                        </span>.iter()
+                        .map(|<span class="kw-2">&amp;</span>wp_ty| {
+                            <span class="macro">err_nt!</span>(wptype_to_type(wp_ty)).and_then(|wasm_ty| {
+                                type_to_llvm(<span class="self">self</span>.intrinsics, wasm_ty)
+                                    .and_then(|ty| <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_phi(ty, <span class="string">""</span>)))
+                            })
+                        })
+                        .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+
+                    <span class="self">self</span>.builder.position_at_end(current_block);
+                    phis
+                };
+
+                <span class="self">self</span>.builder.position_at_end(current_block);
+                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(can_throw_block));
+                <span class="self">self</span>.builder.position_at_end(catch_block);
+
+                <span class="comment">// Collect unique catches. It is not a "hard" error on the wasm side,
+                // but LLVM will definitely complain about having the same identifier
+                // match two different branches in the switch below.
+                </span><span class="kw">let </span>catches: Vec&lt;<span class="kw">_</span>&gt; = try_table
+                    .catches
+                    .into_iter()
+                    .unique_by(|v| <span class="kw">match </span>v {
+                        Catch::One { label, .. }
+                        | Catch::OneRef { label, .. }
+                        | Catch::All { label }
+                        | Catch::AllRef { label } =&gt; <span class="kw-2">*</span>label,
+                    })
+                    .collect();
+
+                <span class="kw">let </span>block_param_types = <span class="self">self
+                    </span>.module_translation
+                    .blocktype_params_results(<span class="kw-2">&amp;</span>try_table.ty)<span class="question-mark">?
+                    </span>.<span class="number">0
+                    </span>.iter()
+                    .map(|<span class="kw-2">&amp;</span>wp_ty| {
+                        <span class="macro">err_nt!</span>(wptype_to_type(wp_ty))
+                            .and_then(|wasm_ty| type_to_llvm(<span class="self">self</span>.intrinsics, wasm_ty))
+                    })
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+
+                <span class="comment">// Build the landing pad.
+                </span><span class="kw">let </span>null = <span class="self">self</span>.intrinsics.ptr_ty.const_zero();
+                <span class="kw">let </span>exception_type = <span class="self">self</span>.context.struct_type(
+                    <span class="kw-2">&amp;</span>[<span class="self">self</span>.intrinsics.ptr_ty.into(), <span class="self">self</span>.intrinsics.i32_ty.into()],
+                    <span class="bool-val">false</span>,
+                );
+
+                <span class="kw">let </span><span class="kw-2">mut </span>tags = <span class="macro">vec!</span>[];
+                <span class="kw">let </span>clauses: Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt; = catches
+                    .iter()
+                    .map(|catch| <span class="kw">match </span>catch {
+                        Catch::All { .. } | Catch::AllRef { .. } =&gt; {
+                            tags.push(<span class="number">0</span>);
+                            <span class="prelude-val">Ok</span>(null.into())
+                        }
+                        Catch::One { tag, .. } | Catch::OneRef { tag, .. } =&gt; {
+                            <span class="comment">//let (int_tag, tag_ptr) = self.tag_to_catch_clause(*tag);
+                            //let tag_ptr = tag_ptr?;
+                            //tags.push(int_tag);
+                            //Ok(tag_ptr.into())
+                            </span>tags.push(<span class="kw-2">*</span>tag);
+                            <span class="prelude-val">Ok</span>(<span class="self">self</span>.get_or_insert_global_tag(<span class="kw-2">*</span>tag))
+                        }
+                    })
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>res = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_landing_pad(
+                    exception_type,
+                    <span class="self">self</span>.intrinsics.personality,
+                    <span class="kw-2">&amp;</span>clauses,
+                    <span class="bool-val">false</span>,
+                    <span class="string">"exc"</span>,
+                ));
+
+                <span class="kw">let </span>res = res.into_struct_value();
+
+                <span class="kw">let </span>uw_exc = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_value(res, <span class="number">0</span>, <span class="string">"exc"</span>));
+                <span class="kw">let </span>exc_ty = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_value(res, <span class="number">1</span>, <span class="string">"exc_ty"</span>));
+
+                <span class="comment">// The exception we get at this point is a wrapper around the [`WasmerException`]
+                // type. This is needed because when we create the exception to pass it to
+                // libunwind, the exception object needs to begin with a specific set of fields
+                // (those in `__Unwind_Exception`). During unwinding, libunwind uses some of these
+                // fields and we need to pass them back when rethrowing. This to say, we need to
+                // keep the original exception passed to us by libunwind to be able to rethrow it.
+                </span><span class="kw">let </span>uw_exc = uw_exc.into_pointer_value();
+                <span class="kw">let </span>exc = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
+                    <span class="self">self</span>.intrinsics.read_exception,
+                    <span class="kw-2">&amp;</span>[uw_exc.into()],
+                    <span class="string">"wasmer_exc_ptr"
+                </span>));
+
+                <span class="kw">let </span>exc = exc.as_any_value_enum().into_pointer_value();
+                <span class="kw">let </span>exc_ty = exc_ty.into_int_value();
+
+                <span class="kw">let </span><span class="kw-2">mut </span>catch_blocks = <span class="macro">vec!</span>[];
+                <span class="kw">for </span>catch <span class="kw">in </span>catches.iter() {
+                    <span class="kw">match </span>catch {
+                        Catch::All { label } =&gt; {
+                            <span class="kw">let </span>b = <span class="self">self
+                                </span>.context
+                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_all_clause"</span>);
+                            <span class="self">self</span>.builder.position_at_end(b);
+                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                            <span class="self">self</span>.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::One { tag, label } =&gt; {
+                            <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
+                            <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag_idx];
+                            <span class="kw">let </span>params = signature.params();
+
+                            <span class="kw">let </span>b = <span class="self">self
+                                </span>.context
+                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                            <span class="self">self</span>.builder.position_at_end(b);
+
+                            <span class="comment">// Get the type of the exception.
+                            </span><span class="kw">let </span>inner_exc_ty =
+                                <span class="self">self</span>.get_or_insert_exception_type(<span class="kw-2">*</span>tag, signature)<span class="question-mark">?</span>;
+
+                            <span class="comment">// Cast the outer exception - a pointer - to a pointer to a struct of
+                            // type WasmerException.
+                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                            //     exc,
+                            //     self.intrinsics.exc_ty,
+                            //     "wasmer_exc_ptr"
+                            // ));
+                            //
+                            // Not actually needed, since ptr is a single, unique type.
+
+                            // Points at the `data` field of the exception.
+                            </span><span class="kw">let </span>wasmer_exc_data_ptr_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                <span class="self">self</span>.intrinsics.exc_ty,
+                                exc,
+                                <span class="number">1</span>,
+                                <span class="string">"wasmer_exc_data_ptr"
+                            </span>));
+
+                            <span class="kw">let </span>wasmer_exc_data_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
+                                <span class="self">self</span>.intrinsics.ptr_ty,
+                                wasmer_exc_data_ptr_ptr,
+                                <span class="string">"wasmer_exc_data_ptr"
+                            </span>));
+
+                            <span class="kw">let </span>wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                            <span class="comment">// Read each value from the data ptr.
+                            </span><span class="kw">let </span>values = params
+                                .iter()
+                                .enumerate()
+                                .map(|(i, v)| {
+                                    <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"value{i}"</span>);
+                                    <span class="kw">let </span>ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                        inner_exc_ty,
+                                        wasmer_exc_data_ptr,
+                                        i <span class="kw">as </span>u32,
+                                        <span class="kw-2">&amp;</span>(name.clone() + <span class="string">"ptr"</span>)
+                                    ));
+                                    <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_load(
+                                        type_to_llvm(<span class="self">self</span>.intrinsics, <span class="kw-2">*</span>v)<span class="question-mark">?</span>,
+                                        ptr,
+                                        <span class="kw-2">&amp;</span>name,
+                                    ))
+                                })
+                                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
+
+                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                            <span class="comment">// todo: check that the types are compatible
+
+                            </span><span class="kw">for </span>(phi, value) <span class="kw">in </span>frame.phis().iter().zip(values.iter()) {
+                                phi.add_incoming(<span class="kw-2">&amp;</span>[(value, b)])
+                            }
+
+                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                            <span class="self">self</span>.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::OneRef { label, tag } =&gt; {
+                            <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
+                            <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag_idx];
+                            <span class="kw">let </span>params = signature.params();
+
+                            <span class="kw">let </span>b = <span class="self">self
+                                </span>.context
+                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                            <span class="self">self</span>.builder.position_at_end(b);
+
+                            <span class="comment">// Get the type of the exception.
+                            </span><span class="kw">let </span>inner_exc_ty =
+                                <span class="self">self</span>.get_or_insert_exception_type(<span class="kw-2">*</span>tag, signature)<span class="question-mark">?</span>;
+
+                            <span class="comment">// Cast the outer exception - a pointer - to a pointer to a struct of
+                            // type WasmerException.
+                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                            //     exc,
+                            //     self.intrinsics.exc_ty,
+                            //     "wasmer_exc_ptr"
+                            // ));
+                            //
+                            // Not actually needed, since ptr is a single, unique type.
+
+                            // Points at the `data` field of the exception.
+                            </span><span class="kw">let </span>wasmer_exc_data_ptr_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                <span class="self">self</span>.intrinsics.exc_ty,
+                                exc,
+                                <span class="number">1</span>,
+                                <span class="string">"wasmer_exc_data_ptr"
+                            </span>));
+
+                            <span class="kw">let </span>wasmer_exc_data_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
+                                <span class="self">self</span>.intrinsics.ptr_ty,
+                                wasmer_exc_data_ptr_ptr,
+                                <span class="string">"wasmer_exc_data_ptr"
+                            </span>));
+
+                            <span class="kw">let </span>wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                            <span class="comment">// Read each value from the data ptr.
+                            </span><span class="kw">let </span><span class="kw-2">mut </span>values = params
+                                .iter()
+                                .enumerate()
+                                .map(|(i, v)| {
+                                    <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"value{i}"</span>);
+                                    <span class="kw">let </span>ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                        inner_exc_ty,
+                                        wasmer_exc_data_ptr,
+                                        i <span class="kw">as </span>u32,
+                                        <span class="kw-2">&amp;</span>(name.clone() + <span class="string">"ptr"</span>)
+                                    ));
+                                    <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_load(
+                                        type_to_llvm(<span class="self">self</span>.intrinsics, <span class="kw-2">*</span>v)<span class="question-mark">?</span>,
+                                        ptr,
+                                        <span class="kw-2">&amp;</span>name,
+                                    ))
+                                })
+                                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
+
+                            values.push(uw_exc.as_basic_value_enum());
+
+                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                            <span class="comment">// todo: check that the types are compatible
+
+                            </span><span class="kw">for </span>(phi, value) <span class="kw">in </span>frame.phis().iter().zip(values.iter()) {
+                                phi.add_incoming(<span class="kw-2">&amp;</span>[(value, b)])
+                            }
+
+                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                            <span class="self">self</span>.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::AllRef { label } =&gt; {
+                            <span class="kw">let </span>b = <span class="self">self
+                                </span>.context
+                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                            <span class="self">self</span>.builder.position_at_end(b);
+
+                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                            <span class="kw">let </span>phis = frame.phis();
+
+                            <span class="comment">// sanity check (todo): check that the phi has only one element
+
+                            </span><span class="kw">for </span>phi <span class="kw">in </span>phis.iter() {
+                                phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc.as_basic_value_enum(), b)])
+                            }
+
+                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                            <span class="self">self</span>.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                    }
+                }
+
+                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_switch(
+                    exc_ty,
+                    rethrow_block,
+                    catch_blocks
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, v)| (<span class="self">self</span>.intrinsics.i32_ty.const_int(tags[i] <span class="kw">as _</span>, <span class="bool-val">false</span>), v))
+                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                        .as_slice()
+                ));
+
+                <span class="comment">// -- end
+
+                // -- The rethrow block
+                </span><span class="self">self</span>.builder.position_at_end(rethrow_block);
+
+                <span class="macro">err!</span>(<span class="self">self
+                    </span>.builder
+                    .build_call(<span class="self">self</span>.intrinsics.rethrow, <span class="kw-2">&amp;</span>[uw_exc.into()], <span class="string">"rethrow"</span>));
+                <span class="comment">// can't reach after an explicit throw!
+                </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_unreachable());
+
+                <span class="comment">// Move to the block that can throw exceptions
+                </span><span class="self">self</span>.builder.position_at_end(can_throw_block);
+                <span class="kw">let </span>can_throw_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt; = block_param_types
+                    .iter()
+                    .map(|<span class="kw-2">&amp;</span>ty| <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_phi(ty, <span class="string">""</span>)))
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;SmallVec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+
+                <span class="kw">for </span>phi <span class="kw">in </span>can_throw_phis.iter() {
+                    <span class="self">self</span>.state.push1(phi.as_basic_value());
+                }
+
+                <span class="self">self</span>.state.push_landingpad(
+                    catch_block,
+                    can_throw_block,
+                    can_throw_phis,
+                    end_block,
+                    end_phis,
+                    <span class="kw-2">&amp;</span>tags,
+                );
+            }
+            Operator::Throw { tag_index } =&gt; {
+                <span class="kw">let </span>current_block = <span class="self">self
+                    </span>.builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen(<span class="string">"not currently in a block"</span>.to_string()))<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>tag = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(tag_index)];
+                <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag];
+                <span class="kw">let </span>params = signature.params();
+                <span class="kw">let </span>values = <span class="self">self</span>.state.popn_save_extra(params.len())<span class="question-mark">?</span>;
+
+                values.iter().enumerate().try_for_each(|(i, (v, <span class="kw">_</span>))| {
+                    <span class="kw">let </span>t = type_to_llvm(<span class="self">self</span>.intrinsics, params[i])<span class="question-mark">?</span>;
+                    <span class="kw">if </span>t != v.get_type() {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+                            <span class="string">"Incompatible types: {:?} != {:?}"</span>,
+                            t,
+                            v.get_type()
+                        )));
+                    }
+
+                    <span class="prelude-val">Ok</span>(())
+                })<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>exception_type: inkwell::types::StructType =
+                    <span class="self">self</span>.get_or_insert_exception_type(tag_index, signature)<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>size = exception_type.size_of().unwrap();
+
+                <span class="comment">// Allocate the necessary bytes for the exception.
+                </span><span class="kw">let </span>exc = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_direct_call(
+                    <span class="self">self</span>.intrinsics.alloc_exception,
+                    <span class="kw-2">&amp;</span>[size.into()],
+                    <span class="string">"exception_ptr"</span>,
+                ));
+                <span class="kw">let </span>exc = exc.try_as_basic_value().left().unwrap();
+                <span class="kw">let </span>exc = exc.into_pointer_value();
+
+                <span class="kw">for </span>(i, value) <span class="kw">in </span>values.into_iter().enumerate() {
+                    <span class="kw">let </span>ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                        exception_type,
+                        exc,
+                        i <span class="kw">as </span>u32,
+                        i.to_string().as_str(),
+                    ));
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_store(ptr, value.<span class="number">0</span>));
+                }
+
+                <span class="kw">let </span>encoded_tag = <span class="self">self</span>.encode_tag(tag_index);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(pad) = <span class="self">self</span>.state.get_landingpad_for_tag(tag_index) {
+                    <span class="kw">let </span>unreachable_block = <span class="self">self
+                        </span>.context
+                        .append_basic_block(<span class="self">self</span>.function, <span class="string">"_throw_unreachable"</span>);
+
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_invoke(
+                        <span class="self">self</span>.intrinsics.throw,
+                        <span class="kw-2">&amp;</span>[
+                            <span class="self">self</span>.intrinsics
+                                .i64_ty
+                                .const_int(encoded_tag <span class="kw">as _</span>, <span class="bool-val">false</span>)
+                                .into(),
+                            exc.into(),
+                            size.into()
+                        ],
+                        unreachable_block,
+                        pad,
+                        <span class="string">"throw"</span>,
+                    ));
+
+                    <span class="self">self</span>.builder.position_at_end(unreachable_block);
+                    <span class="comment">// can't reach after an explicit throw!
+                    </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_unreachable());
+
+                    <span class="self">self</span>.builder.position_at_end(current_block);
+                } <span class="kw">else </span>{
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
+                        <span class="self">self</span>.intrinsics.throw,
+                        <span class="kw-2">&amp;</span>[
+                            <span class="self">self</span>.intrinsics
+                                .i64_ty
+                                .const_int(encoded_tag <span class="kw">as _</span>, <span class="bool-val">false</span>)
+                                .into(),
+                            exc.into(),
+                            size.into()
+                        ],
+                        <span class="string">"throw"
+                    </span>));
+                    <span class="comment">// can't reach after an explicit throw!
+                    </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_unreachable());
+                }
+
+                <span class="self">self</span>.state.reachable = <span class="bool-val">false</span>;
+            }
+            Operator::ThrowRef =&gt; {
+                <span class="kw">let </span>current_block = <span class="self">self
+                    </span>.builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen(<span class="string">"not currently in a block"</span>.to_string()))<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>exc = <span class="self">self</span>.state.pop1()<span class="question-mark">?</span>;
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(pad) = <span class="self">self</span>.state.get_landingpad() {
+                    <span class="kw">let </span>unreachable_block = <span class="self">self
+                        </span>.context
+                        .append_basic_block(<span class="self">self</span>.function, <span class="string">"_rethrow_unreachable"</span>);
+
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_invoke(
+                        <span class="self">self</span>.intrinsics.rethrow,
+                        <span class="kw-2">&amp;</span>[exc],
+                        unreachable_block,
+                        pad,
+                        <span class="string">"throw"</span>,
+                    ));
+
+                    <span class="self">self</span>.builder.position_at_end(unreachable_block);
+                    <span class="comment">// can't reach after an explicit throw!
+                    </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_unreachable());
+
+                    <span class="self">self</span>.builder.position_at_end(current_block);
+                } <span class="kw">else </span>{
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
+                        <span class="self">self</span>.intrinsics.rethrow,
+                        <span class="kw-2">&amp;</span>[exc.into(),],
+                        <span class="string">"rethrow"
+                    </span>));
+                    <span class="comment">// can't reach after an explicit throw!
+                    </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_unreachable());
+                }
+
+                <span class="self">self</span>.state.reachable = <span class="bool-val">false</span>;
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(

@@ -517,7 +517,7 @@
             tasks_outer
                 .task_wasm(
                     TaskWasm::new(Box::new(run), child_env, module, <span class="bool-val">false</span>)
-                        .with_globals(<span class="kw-2">&amp;</span>snapshot)
+                        .with_globals(snapshot)
                         .with_memory(spawn_type),
                 )
                 .map_err(|err| {

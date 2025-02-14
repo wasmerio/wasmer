@@ -267,6 +267,11 @@
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 <span class="kw">use </span>wasmer_wasix_types::wasi::ProcessHandles;
 
@@ -372,9 +377,6 @@
 ) -&gt; WasiResult&lt;(ProcessHandles, FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;)&gt; {
     <span class="kw">let </span>env = ctx.data();
 
-    <span class="comment">// Build a new store that will be passed to the thread
-    </span><span class="kw">let </span>new_store = ctx.data().runtime.new_store();
-
     <span class="comment">// Fork the current environment and set the new arguments
     </span><span class="kw">let </span>(<span class="kw-2">mut </span>child_env, handle) = <span class="kw">match </span>ctx.data().fork() {
         <span class="prelude-val">Ok</span>(x) =&gt; x,
@@ -420,22 +422,31 @@
     <span class="comment">// Replace the STDIO
     </span><span class="kw">let </span>(stdin, stdout, stderr) = {
         <span class="kw">let </span>(child_state, child_inodes) = child_env.get_wasi_state_and_inodes();
-        <span class="kw">let </span><span class="kw-2">mut </span>conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -&gt; <span class="prelude-ty">Result</span>&lt;OptionFd, Errno&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>conv_stdio_mode = |mode: WasiStdioMode,
+                                   fd: WasiFd,
+                                   pipe_towards_child: bool|
+         -&gt; <span class="prelude-ty">Result</span>&lt;OptionFd, Errno&gt; {
             <span class="kw">match </span>mode {
                 WasiStdioMode::Piped =&gt; {
-                    <span class="kw">let </span>(pipe1, pipe2) = Pipe::channel();
-                    <span class="kw">let </span>inode1 = child_state.fs.create_inode_with_default_stat(
+                    <span class="kw">let </span>(tx, rx) = Pipe::new().split();
+                    <span class="kw">let </span>read_inode = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
-                        Kind::Pipe { pipe: pipe1 },
+                        Kind::PipeRx { rx },
                         <span class="bool-val">false</span>,
                         <span class="string">"pipe"</span>.into(),
                     );
-                    <span class="kw">let </span>inode2 = child_state.fs.create_inode_with_default_stat(
+                    <span class="kw">let </span>write_inode = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
-                        Kind::Pipe { pipe: pipe2 },
+                        Kind::PipeTx { tx },
                         <span class="bool-val">false</span>,
                         <span class="string">"pipe"</span>.into(),
                     );
+
+                    <span class="kw">let </span>(parent_end, child_end) = <span class="kw">if </span>pipe_towards_child {
+                        (write_inode, read_inode)
+                    } <span class="kw">else </span>{
+                        (read_inode, write_inode)
+                    };
 
                     <span class="kw">let </span>rights = <span class="kw">crate</span>::net::socket::all_socket_rights();
                     <span class="kw">let </span>pipe = ctx.data().state.fs.create_fd(
@@ -444,7 +455,7 @@
                         Fdflags::empty(),
                         Fdflagsext::empty(),
                         <span class="number">0</span>,
-                        inode1,
+                        parent_end,
                     )<span class="question-mark">?</span>;
                     child_state.fs.create_fd_ext(
                         rights,
@@ -452,7 +463,7 @@
                         Fdflags::empty(),
                         Fdflagsext::empty(),
                         <span class="number">0</span>,
-                        inode2,
+                        child_end,
                         <span class="prelude-val">Some</span>(fd),
                         <span class="bool-val">false</span>,
                     )<span class="question-mark">?</span>;
@@ -476,15 +487,17 @@
                 }
             }
         };
-        <span class="kw">let </span>stdin = <span class="kw">match </span>conv_stdio_mode(stdin, <span class="number">0</span>) {
+        <span class="comment">// TODO: proc_spawn isn't used in WASIX at the time of writing
+        // this code, so the implementation isn't tested at all
+        </span><span class="kw">let </span>stdin = <span class="kw">match </span>conv_stdio_mode(stdin, <span class="number">0</span>, <span class="bool-val">true</span>) {
             <span class="prelude-val">Ok</span>(a) =&gt; a,
             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
         };
-        <span class="kw">let </span>stdout = <span class="kw">match </span>conv_stdio_mode(stdout, <span class="number">1</span>) {
+        <span class="kw">let </span>stdout = <span class="kw">match </span>conv_stdio_mode(stdout, <span class="number">1</span>, <span class="bool-val">false</span>) {
             <span class="prelude-val">Ok</span>(a) =&gt; a,
             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
         };
-        <span class="kw">let </span>stderr = <span class="kw">match </span>conv_stdio_mode(stderr, <span class="number">2</span>) {
+        <span class="kw">let </span>stderr = <span class="kw">match </span>conv_stdio_mode(stderr, <span class="number">2</span>, <span class="bool-val">false</span>) {
             <span class="prelude-val">Ok</span>(a) =&gt; a,
             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
         };
@@ -495,30 +508,27 @@
     </span><span class="kw">let </span>bin_factory = Box::new(ctx.data().bin_factory.clone());
     <span class="kw">let </span>child_pid = child_env.pid();
 
-    <span class="kw">let </span><span class="kw-2">mut </span>new_store = <span class="prelude-val">Some</span>(new_store);
     <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="prelude-val">Some</span>(child_env);
 
     <span class="comment">// First we try the built in commands
-    </span><span class="kw">let </span><span class="kw-2">mut </span>process =
-        <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>new_store, <span class="kw-2">&amp;mut </span>builder) {
-            <span class="prelude-val">Ok</span>(a) =&gt; a,
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="kw">if </span>!err.is_not_found() {
-                    <span class="macro">error!</span>(<span class="string">"builtin failed - {}"</span>, err);
-                }
-                <span class="comment">// Now we actually spawn the process
-                </span><span class="kw">let </span>child_work =
-                    bin_factory.spawn(name, new_store.take().unwrap(), builder.take().unwrap());
-
-                <span class="kw">match </span>__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(child_work.<span class="kw">await</span>) })<span class="question-mark">?
-                    </span>.map_err(|err| Errno::Unknown)
-                {
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)) =&gt; a,
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(conv_spawn_err_to_errno(<span class="kw-2">&amp;</span>err))),
-                    <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
-                }
+    </span><span class="kw">let </span><span class="kw-2">mut </span>process = <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>builder) {
+        <span class="prelude-val">Ok</span>(a) =&gt; a,
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="kw">if </span>!err.is_not_found() {
+                <span class="macro">error!</span>(<span class="string">"builtin failed - {}"</span>, err);
             }
-        };
+            <span class="comment">// Now we actually spawn the process
+            </span><span class="kw">let </span>child_work = bin_factory.spawn(name, builder.take().unwrap());
+
+            <span class="kw">match </span>__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(child_work.<span class="kw">await</span>) })<span class="question-mark">?
+                </span>.map_err(|err| Errno::Unknown)
+            {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)) =&gt; a,
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(conv_spawn_err_to_errno(<span class="kw-2">&amp;</span>err))),
+                <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
+            }
+        }
+    };
 
     <span class="comment">// Add the process to the environment state
     </span>{

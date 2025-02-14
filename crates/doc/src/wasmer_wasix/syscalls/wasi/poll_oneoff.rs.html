@@ -493,6 +493,10 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
@@ -751,7 +755,9 @@
                             <span class="prelude-val">Ok</span>(a) =&gt; a,
                             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(err),
                         };
-                        <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
+                        <span class="kw">if </span>!(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+                            &amp;&amp; fd_entry.inner.rights.contains(Rights::FD_READ))
+                        {
                             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
                         }
                     }
@@ -769,7 +775,9 @@
                             <span class="prelude-val">Ok</span>(a) =&gt; a,
                             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(err),
                         };
-                        <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
+                        <span class="kw">if </span>!(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+                            &amp;&amp; fd_entry.inner.rights.contains(Rights::FD_WRITE))
+                        {
                             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
                         }
                     }

@@ -148,6 +148,11 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -164,7 +169,7 @@
 <span class="kw">use </span>wasmer_types::MetadataHeader;
 <span class="kw">use </span>webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
-<span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
+<span class="kw">use </span><span class="kw">crate</span>::backend::RuntimeOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer gen-c-header` subcommand
@@ -233,7 +238,12 @@
             <span class="kw-2">&amp;</span>target_triple,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
         );
-        <span class="kw">let </span>(engine, <span class="kw">_</span>) = CompilerOptions::default().get_engine_for_target(target.clone())<span class="question-mark">?</span>;
+        <span class="kw">let </span>engine = RuntimeOptions::default().get_compiler_engine_for_target(target.clone())<span class="question-mark">?</span>;
+        <span class="kw">if </span>!engine.is_sys() {
+            <span class="macro">anyhow::bail!</span>(<span class="string">"Cannot use this engine to generate c-headers! Please, use one of `cranelift`, `llvm` or `singlepass`."</span>);
+        }
+        <span class="kw">let </span>engine = engine.into_sys();
+
         <span class="kw">let </span>engine_inner = engine.inner();
         <span class="kw">let </span>compiler = engine_inner.compiler()<span class="question-mark">?</span>;
         <span class="kw">let </span>features = engine_inner.features();

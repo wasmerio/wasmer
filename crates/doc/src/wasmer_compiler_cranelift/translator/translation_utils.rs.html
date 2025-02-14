@@ -143,6 +143,9 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.
 
 </span><span class="kw">use </span><span class="kw">super</span>::func_environ::TargetEnvironment;
@@ -153,7 +156,7 @@
     isa::TargetFrontendConfig,
 };
 <span class="kw">use </span>cranelift_frontend::FunctionBuilder;
-<span class="kw">use </span>wasmer_compiler::{types::relocation::RelocationKind, wasmparser};
+<span class="kw">use </span>wasmer_compiler::{types::relocation::RelocationKind, wasm_unsupported, wasmparser};
 <span class="kw">use </span>wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
 <span class="doccomment">/// Helper function translate a Function signature into Cranelift Ir
@@ -200,6 +203,9 @@
         Type::F64 =&gt; <span class="prelude-val">Ok</span>(ir::types::F64),
         Type::V128 =&gt; <span class="prelude-val">Ok</span>(ir::types::I8X16),
         Type::ExternRef | Type::FuncRef =&gt; reference_type(target_config),
+        Type::ExceptionRef =&gt; <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
+            <span class="string">"exnrefs are not supported yet in cranelift"
+        </span>)),
         <span class="comment">// ty =&gt; Err(wasm_unsupported!("type_to_type: wasm type {:?}", ty)),
     </span>}
 }
