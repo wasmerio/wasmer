@@ -130,7 +130,15 @@ pub fn spawn_exec_module(
         let tasks_outer = tasks.clone();
 
         tasks_outer
-            .task_wasm(TaskWasm::new(Box::new(run_exec), env, module, true))
+            .task_wasm(
+                TaskWasm::new(Box::new(run_exec), env, module, true).with_pre_run(Box::new(
+                    |ctx, store| {
+                        Box::pin(async move {
+                            ctx.data(store).state.fs.close_cloexec_fds().await;
+                        })
+                    },
+                )),
+            )
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
                 SpawnError::UnknownError

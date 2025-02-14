@@ -64,6 +64,12 @@ pub struct TaskWasmRunProperties {
     pub recycle: Option<Box<TaskWasmRecycle>>,
 }
 
+pub type TaskWasmPreRun = dyn (for<'a> FnOnce(
+        &'a mut WasiFunctionEnv,
+        &'a mut Store,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>)
+    + Send;
+
 /// Callback that will be invoked
 pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
 
@@ -91,6 +97,7 @@ pub struct TaskWasm<'a> {
     pub spawn_type: SpawnMemoryType<'a>,
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
+    pub pre_run: Option<Box<TaskWasmPreRun>>,
 }
 
 impl<'a> TaskWasm<'a> {
@@ -108,6 +115,7 @@ impl<'a> TaskWasm<'a> {
             trigger: None,
             update_layout,
             recycle: None,
+            pre_run: None,
         }
     }
 
@@ -133,8 +141,13 @@ impl<'a> TaskWasm<'a> {
         self
     }
 
-    pub fn with_recycle(mut self, trigger: Box<TaskWasmRecycle>) -> Self {
-        self.recycle.replace(trigger);
+    pub fn with_recycle(mut self, recycle: Box<TaskWasmRecycle>) -> Self {
+        self.recycle.replace(recycle);
+        self
+    }
+
+    pub fn with_pre_run(mut self, pre_run: Box<TaskWasmPreRun>) -> Self {
+        self.pre_run.replace(pre_run);
         self
     }
 }
