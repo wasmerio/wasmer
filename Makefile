@@ -114,9 +114,15 @@ endif
 ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
 ENABLE_SINGLEPASS ?=
+ENABLE_V8 ?=
+ENABLE_WAMR ?=
+ENABLE_WASMI ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers :=
+
+# Other backends to enable in the build phase (not while testing)
+build_compilers :=
 
 ##
 # Cranelift
@@ -207,10 +213,63 @@ ifneq (, $(findstring singlepass,$(compilers)))
 endif
 
 ##
+# V8 
+##
+
+# If the user didn't disable the V8 backend…
+ifneq ($(ENABLE_V8), 0)
+	# … then maybe the user forced to enable the V8 compiler.
+	ifeq ($(ENABLE_V8), 1)
+		build_compilers += v8
+	endif
+	# we don't check automatically for now  
+endif
+
+ifneq (, $(findstring v8,$(build_compilers)))
+	ENABLE_V8 := 1
+endif
+
+##
+# WAMR 
+##
+
+# If the user didn't disable the WAMR backend…
+ifneq ($(ENABLE_WAMR), 0)
+	# … then maybe the user forced to enable the WAMR compiler.
+	ifeq ($(ENABLE_WAMR), 1)
+		build_compilers += wamr
+	# we don't check automatically for now  
+	endif
+endif
+
+ifneq (, $(findstring wamr,$(build_compilers)))
+	ENABLE_WAMR := 1
+endif
+
+##
+# wasmi 
+##
+
+# If the user didn't disable the wasmi backend…
+ifneq ($(ENABLE_WASMI), 0)
+	# … then maybe the user forced to enable the wasmi compiler.
+	ifeq ($(ENABLE_WASMI), 1)
+		build_compilers += wasmi
+	# we don't check automatically for now  
+	endif
+endif
+
+ifneq (, $(findstring wasmi,$(build_compilers)))
+	ENABLE_WASMI := 1
+endif
+
+
+##
 # Clean the `compilers` variable.
 ##
 
 compilers := $(strip $(compilers))
+build_compilers := $(strip $(build_compilers) $(compilers))
 
 
 #####
@@ -281,6 +340,7 @@ comma := ,
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+build_compiler_features := --features $(subst $(space),$(comma),$(build_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 capi_compilers_engines_exclude :=
 
 # Define the compiler Cargo features for the C API. It always excludes
@@ -390,7 +450,7 @@ check-capi:
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
 
 build-wasmer:
-	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(build_compiler_features) --bin wasmer --locked
 	
 build-wasmer-v8:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="v8" --bin wasmer --locked

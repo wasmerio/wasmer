@@ -48,161 +48,66 @@ jobs:
             artifact_name: 'wasmer-linux-aarch64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
-            use_llvm: true
             build_wasm: true
+            enable_llvm: true
+            enable_v8: true 
+            enable_wasmi: true
+            enable_wamr: true
           - build: linux-x64
             os: ubuntu-22.04
             artifact_name: 'wasmer-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
-            use_llvm: true
             build_wasm: true
-          - build: linux-x64-v8
-            os: ubuntu-22.04
-            artifact_name: 'wasmer-v8-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: true
-          - build: linux-x64-wamr
-            os: ubuntu-22.04
-            artifact_name: 'wasmer-wamr-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: true
-          - build: linux-x64-wasmi
-            os: ubuntu-22.04
-            artifact_name: 'wasmer-wasmi-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: true
+            enable_llvm: true
+            enable_v8: true 
+            enable_wasmi: true
+            enable_wamr: true
           - build: macos-x64
             os: macos-13
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             use_sccache: false
-            use_llvm: true
             build_wasm: false
-          - build: macos-x64-v8
-            os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-v8-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: macos-x64-wamr
-            os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-wamr-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: macos-x64-wasmi
-            os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-wasmi-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
+            enable_llvm: true
+            enable_v8: true 
+            enable_wasmi: true
+            enable_wamr: true
           - build: macos-arm64
             os: macos-14
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: false
-            use_llvm: true
             build_wasm: false
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          - build: macos-arm64-v8
-            os: macos-14
-            target: aarch64-apple-darwin
-            artifact_name: 'wasmer-v8-darwin-arm64'
-            use_sccache: false
-            use_llvm: false
-            build_wasm: false
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          - build: macos-arm64-wamr
-            os: macos-14
-            target: aarch64-apple-darwin
-            artifact_name: 'wasmer-wamr-darwin-arm64'
-            use_sccache: false
-            use_llvm: false
-            build_wasm: false
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          - build: macos-arm64-wasmi
-            os: macos-14
-            target: aarch64-apple-darwin
-            artifact_name: 'wasmer-wasmi-darwin-arm64'
-            use_sccache: false
-            use_llvm: false
-            build_wasm: false
-            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            enable_llvm: true
+            enable_v8: true 
+            enable_wasmi: true
+            enable_wamr: true
           - build: windows-x64
             os: windows-2022
             artifact_name: 'wasmer-windows-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
             build_wasm: false
-          - build: windows-x64-v8
-            os: windows-2022
-            artifact_name: 'wasmer-v8-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
             use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: windows-x64-wamr
-            os: windows-2022
-            artifact_name: 'wasmer-wamr-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
-          - build: windows-x64-wasmi
-            os: windows-2022
-            artifact_name: 'wasmer-wasmi-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: false
-            use_llvm: true
-            build_wasm: false
+            enable_llvm: true
+            enable_v8: false 
+            enable_wasmi: true
+            enable_wamr: false
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
             container: alpine:latest
-            use_sccache: false
-            use_llvm: false
             build_wasm: true
-          - build: linux-musl-x64-v8
-            os: ubuntu-latest
-            artifact_name: 'wasmer-v8-linux-musl-amd64'
-            container: alpine:latest
             use_sccache: false
-            use_llvm: false
-            build_wasm: true
-          - build: linux-musl-x64-wasmi
-            os: ubuntu-latest
-            artifact_name: 'wasmer-wasmi-linux-musl-amd64'
-            container: alpine:latest
-            use_sccache: false
-            use_llvm: false
-            build_wasm: true
+            enable_llvm: false
+            enable_v8: true
+            enable_wasmi: true
+            enable_wamr: false
+
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -354,44 +259,27 @@ jobs:
         shell: bash
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
-      - name: Build Wasmer binary with LLVM
-        if: matrix.use_llvm && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
+      - name: Build Wasmer binary 
+        if: ${{ matrix.enable_llvm && !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
         run: |
           make build-wasmer
         env:
-          ENABLE_LLVM: 1
-      - name: Build Wasmer with v8 backend with mold
-        if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux-x64') }}
+          ENABLE_LLVM: matrix.enable_llvm
+          ENABLE_V8: matrix.enable_v8
+          ENABLE_WASMI: matrix.enable_wasmi
+          ENABLE_WAMR: matrix.enable_wamr
+      - name: Build Wasmer on linux-x64 
+        if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
-          RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer-v8
-      - name: Build Wasmer with v8 backend musl
-        if: ${{ endsWith(matrix.build, 'v8') && startsWith(matrix.build, 'linux-musl') }}
-        run: |
-          echo "#!/bin/bash" >> /usr/bin/llvm-config
-          echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
-          echo 'llvm-config-18 "$@" "--link-static"' >> /usr/bin/llvm-config
-          echo "else" >> /usr/bin/llvm-config
-          echo 'llvm-config-18 "$@"' >> /usr/bin/llvm-config
-          echo 'fi' >> /usr/bin/llvm-config
-          cat /usr/bin/llvm-config
-          chmod +x /usr/bin/llvm-config
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-v8
-      - name: Build Wasmer with v8 backend
-        if: ${{ endsWith(matrix.build, 'v8') && !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
-        run: |
-          echo $LIBCLANG_STATIC_PATH
-          make build-wasmer-v8
-      - name: Build Wasmer with wamr backend
-        if: ${{ endsWith(matrix.build, 'wamr') && !startsWith(matrix.build, 'linux-musl') }}
-        run: |
-          make build-wasmer-wamr
-      - name: Build Wasmer with wasmi backend
-        if: endsWith(matrix.build, 'wasmi') && !startsWith(matrix.build, 'linux-musl')
-        run: |
-          make build-wasmer-wasmi    
-      - name: Build Wasmer with wasmi backend musl
-        if: endsWith(matrix.build, 'wasmi') && startsWith(matrix.build, 'linux-musl')
+          RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer
+        env:
+          ENABLE_LLVM: matrix.enable_llvm
+          ENABLE_V8: matrix.enable_v8
+          ENABLE_WASMI: matrix.enable_wasmi
+          ENABLE_WAMR: matrix.enable_wamr
+      - name: Build Wasmer on linux-musl
+        if: ${{ startsWith(matrix.build, 'linux-musl') }}
         run: |
           echo "#!/bin/bash" >> /usr/bin/llvm-config
           echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
@@ -401,12 +289,12 @@ jobs:
           echo 'fi' >> /usr/bin/llvm-config
           cat /usr/bin/llvm-config
           chmod +x /usr/bin/llvm-config
-          RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer-wasmi
-      - name: Build Wasmer binary without LLVM
-        if: matrix.use_llvm != true && !endsWith(matrix.build, 'v8') && !endsWith(matrix.build, 'wamr') && !endsWith(matrix.build, 'wasmi')
-        shell: bash
-        run: |
-          ENABLE_LLVM=0 make build-wasmer
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer
+        env:
+          ENABLE_LLVM: matrix.enable_llvm
+          ENABLE_V8: matrix.enable_v8
+          ENABLE_WASMI: matrix.enable_wasmi
+          ENABLE_WAMR: matrix.enable_wamr
      #- name: Build Wasmer binary on Wasm32-WASI without LLVM
      #  if: matrix.build_wasm
      #  shell: bash
@@ -679,33 +567,6 @@ jobs:
           asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
           asset_name: wasmer-windows-amd64.tar.gz
           asset_content_type: application/gzip
-      - name: Upload Release Asset Windows With v8
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-v8-windows-amd64/wasmer.tar.gz
-          asset_name: wasmer-v8-windows-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Windows With wamr
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wamr-windows-amd64/wasmer.tar.gz
-          asset_name: wasmer-wamr-windows-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Windows With wasmi
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wasmi-windows-amd64/wasmer.tar.gz
-          asset_name: wasmer-wasmi-windows-amd64.tar.gz
-          asset_content_type: application/gzip
       - name: Upload Release Asset Linux amd64
         uses: actions/upload-release-asset@v1
         env:
@@ -714,33 +575,6 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
           asset_name: wasmer-linux-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 With v8
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-v8-linux-amd64/wasmer.tar.gz
-          asset_name: wasmer-v8-linux-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 With wamr
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wamr-linux-amd64/wasmer.tar.gz
-          asset_name: wasmer-wamr-linux-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 with wasmi
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wasmi-linux-amd64/wasmer.tar.gz
-          asset_name: wasmer-wasmi-linux-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64
         uses: actions/upload-release-asset@v1
@@ -779,26 +613,6 @@ jobs:
           asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
           asset_name: wasmer-linux-musl-amd64.tar.gz
           asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 (musl) With v8
-        id: upload-release-asset-linux-musl-amd64-v8
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-v8-linux-musl-amd64/wasmer.tar.gz
-          asset_name: wasmer-v8-linux-musl-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 (musl) With wasmi
-        id: upload-release-asset-linux-musl-amd64-wasmi
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wasmi-linux-musl-amd64/wasmer.tar.gz
-          asset_name: wasmer-wasmi-linux-musl-amd64.tar.gz
-          asset_content_type: application/gzip
       - name: Upload Release Asset Mac amd64
         uses: actions/upload-release-asset@v1
         env:
@@ -808,33 +622,6 @@ jobs:
           asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
           asset_name: wasmer-darwin-amd64.tar.gz
           asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64 With v8
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-v8-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-v8-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64 With wamr
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wamr-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-wamr-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64 With wasmi
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wasmi-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-wasmi-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
       - name: Upload Release Asset Mac arm64
         uses: actions/upload-release-asset@v1
         env:
@@ -843,31 +630,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64 With v8
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-v8-darwin-arm64/wasmer.tar.gz
-          asset_name: wasmer-v8-darwin-arm64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64 With wamr
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wamr-darwin-arm64/wasmer.tar.gz
-          asset_name: wasmer-wamr-darwin-arm64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64 With wasmi
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-wasmi-darwin-arm64/wasmer.tar.gz
-          asset_name: wasmer-wasmi-darwin-arm64.tar.gz
           asset_content_type: application/gzip
