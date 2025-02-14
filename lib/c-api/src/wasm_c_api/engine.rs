@@ -5,7 +5,7 @@ use cfg_if::cfg_if;
 
 #[cfg(feature = "compiler")]
 pub use super::unstable::engine::{wasm_config_set_target, wasmer_is_compiler_available};
-#[cfg(feature = "compiler")]
+#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use super::unstable::target_lexicon::wasmer_target_t;
 
 #[cfg(feature = "middlewares")]
@@ -89,7 +89,7 @@ pub struct wasm_config_t {
     pub(super) middlewares: Vec<wasmer_middleware_t>,
     pub(super) nan_canonicalization: bool,
     pub(super) features: Option<Box<wasmer_features_t>>,
-    #[cfg(feature = "compiler")]
+    #[cfg(any(feature = "compiler", feature = "compiler-headless"))]
     pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
