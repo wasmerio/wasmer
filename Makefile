@@ -114,6 +114,9 @@ endif
 ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
 ENABLE_SINGLEPASS ?=
+ENABLE_V8 ?=
+ENABLE_WAMR ?=
+ENABLE_WASMI ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers :=
@@ -205,6 +208,85 @@ endif
 ifneq (, $(findstring singlepass,$(compilers)))
 	ENABLE_SINGLEPASS := 1
 endif
+
+##
+# V8 
+##
+
+# If the user didn't disable the V8 backend…
+ifneq ($(ENABLE_V8), 0)
+	# … then maybe the user forced to enable the V8 compiler.
+	ifeq ($(ENABLE_V8), 1)
+		compilers += v8
+	# … otherwise, we try to check whether V8 works on this host.
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD) $(IS_WINDOWS)))
+		ifeq ($(IS_AMD64), 1)
+			compilers += v8
+		endif
+		ifeq ($(IS_AARCH64), 1)
+			ifneq ($(IS_WINDOWS), 1)
+				compilers += v8
+			endif
+		endif
+	endif
+endif
+
+ifneq (, $(findstring v8,$(compilers)))
+	ENABLE_V8 := 1
+endif
+
+##
+# WAMR 
+##
+
+# If the user didn't disable the WAMR backend…
+ifneq ($(ENABLE_WAMR), 0)
+	# … then maybe the user forced to enable the WAMR compiler.
+	ifeq ($(ENABLE_WAMR), 1)
+		compilers += wamr
+	# … otherwise, we try to check whether WAMR works on this host.
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD) $(IS_WINDOWS)))
+		ifeq ($(IS_AMD64), 1)
+			compilers += wamr
+		endif
+		ifeq ($(IS_AARCH64), 1)
+			ifneq ($(IS_WINDOWS), 1)
+				compilers += wamr
+			endif
+		endif
+	endif
+endif
+
+ifneq (, $(findstring wamr,$(compilers)))
+	ENABLE_WAMR := 1
+endif
+
+##
+# wasmi 
+##
+
+# If the user didn't disable the wasmi backend…
+ifneq ($(ENABLE_wasmi), 0)
+	# … then maybe the user forced to enable the wasmi compiler.
+	ifeq ($(ENABLE_wasmi), 1)
+		compilers += wasmi
+	# … otherwise, we try to check whether wasmi works on this host.
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD) $(IS_WINDOWS)))
+		ifeq ($(IS_AMD64), 1)
+			compilers += wasmi
+		endif
+		ifeq ($(IS_AARCH64), 1)
+			ifneq ($(IS_WINDOWS), 1)
+				compilers += wasmi
+			endif
+		endif
+	endif
+endif
+
+ifneq (, $(findstring wasmi,$(compilers)))
+	ENABLE_wasmi := 1
+endif
+
 
 ##
 # Clean the `compilers` variable.

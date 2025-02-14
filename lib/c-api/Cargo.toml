@@ -97,6 +97,22 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
+
+############
+# WARNING! #
+############
+# These features are here but, for now (wasmer 6.0.0-alpha1) they do nothing.
+# In the next alpha release they will be wired up to use the matching backend.
+# These features are being added now to make CI easier, since we will
+# nonetheless have to add them later.
+
+v8 = []
+wasmi = []
+wamr = []
+
+############
+############
+
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
