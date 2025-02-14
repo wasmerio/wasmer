@@ -766,6 +766,11 @@ impl WritableJournal for CompactingJournalTx {
                 let lookup = state.insert_new_sub_events(event_index);
                 state.open_sockets.insert(*fd, lookup);
             }
+            JournalEntry::SocketPairV1 { fd1, fd2 } => {
+                let lookup = state.insert_new_sub_events(event_index);
+                state.open_sockets.insert(*fd1, lookup);
+                state.open_sockets.insert(*fd2, lookup);
+            }
             JournalEntry::InitModuleV1 { .. } => {
                 state.clear_run_sub_events();
                 state.init_module = Some(event_index);

@@ -89,6 +89,7 @@ pub enum JournalEntryRecordType {
     OpenFileDescriptorV2 = 61,
     DuplicateFileDescriptorV2 = 62,
     FileDescriptorSetFdFlagsV1 = 63,
+    SocketPairV1 = 64,
 }
 
 impl JournalEntryRecordType {
@@ -231,6 +232,9 @@ impl JournalEntryRecordType {
             JournalEntryRecordType::SocketOpenV1 => {
                 ArchivedJournalEntry::SocketOpenV1(rkyv::access_unchecked(data))
             }
+            JournalEntryRecordType::SocketPairV1 => {
+                ArchivedJournalEntry::SocketPairV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::SocketListenV1 => {
                 ArchivedJournalEntry::SocketListenV1(rkyv::access_unchecked(data))
             }
@@ -349,6 +353,7 @@ impl<'a> JournalEntry<'a> {
             Self::PortRouteClearV1 => JournalEntryRecordType::PortRouteClearV1,
             Self::PortRouteDelV1 { .. } => JournalEntryRecordType::PortRouteDelV1,
             Self::SocketOpenV1 { .. } => JournalEntryRecordType::SocketOpenV1,
+            Self::SocketPairV1 { .. } => JournalEntryRecordType::SocketPairV1,
             Self::SocketListenV1 { .. } => JournalEntryRecordType::SocketListenV1,
             Self::SocketBindV1 { .. } => JournalEntryRecordType::SocketBindV1,
             Self::SocketConnectedV1 { .. } => JournalEntryRecordType::SocketConnectedV1,
@@ -783,6 +788,9 @@ impl<'a> JournalEntry<'a> {
                 },
                 serializer,
             ),
+            JournalEntry::SocketPairV1 { fd1, fd2 } => {
+                serialize_using(&JournalEntrySocketPairV1 { fd1, fd2 }, serializer)
+            }
             JournalEntry::SocketListenV1 { fd, backlog } => {
                 serialize_using(&JournalEntrySocketListenV1 { fd, backlog }, serializer)
             }
@@ -1017,6 +1025,7 @@ pub enum ArchivedJournalEntry<'a> {
     PortRouteClearV1,
     PortRouteDelV1(&'a ArchivedJournalEntryPortRouteDelV1),
     SocketOpenV1(&'a ArchivedJournalEntrySocketOpenV1),
+    SocketPairV1(&'a ArchivedJournalEntrySocketPairV1),
     SocketListenV1(&'a ArchivedJournalEntrySocketListenV1),
     SocketBindV1(&'a ArchivedJournalEntrySocketBindV1),
     SocketConnectedV1(&'a ArchivedJournalEntrySocketConnectedV1),
@@ -1460,6 +1469,14 @@ pub struct JournalEntrySocketOpenV1 {
     pub ty: JournalSocktypeV1,
     pub pt: u16,
     pub fd: u32,
+}
+
+#[repr(align(8))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug), attr(repr(align(8))))]
+pub struct JournalEntrySocketPairV1 {
+    pub fd1: u32,
+    pub fd2: u32,
 }
 
 #[repr(C)]

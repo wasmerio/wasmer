@@ -335,6 +335,60 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                     (bytes_read, false)
                 }
+                Kind::DuplexPipe { pipe } => {
+                    let mut pipe = pipe.clone();
+                    drop(guard);
+
+                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+
+                    let res = __asyncify_light(
+                        env,
+                        if fd_flags.contains(Fdflags::NONBLOCK) {
+                            Some(Duration::ZERO)
+                        } else {
+                            None
+                        },
+                        async move {
+                            let mut total_read = 0usize;
+
+                            let iovs_arr =
+                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            for iovs in iovs_arr.iter() {
+                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                    .slice(&memory, iovs.buf_len)
+                                    .map_err(mem_error_to_wasi)?
+                                    .access()
+                                    .map_err(mem_error_to_wasi)?;
+
+                                let local_read = match nonblocking {
+                                    true => match pipe.try_read(buf.as_mut()) {
+                                        Some(amt) => amt,
+                                        None => {
+                                            return Err(Errno::Again);
+                                        }
+                                    },
+                                    false => {
+                                        virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut())
+                                            .await?
+                                    }
+                                };
+                                total_read += local_read;
+                                if local_read != buf.len() {
+                                    break;
+                                }
+                            }
+                            Ok(total_read)
+                        },
+                    );
+
+                    let bytes_read = wasi_try_ok_ok!(res?.map_err(|err| match err {
+                        Errno::Timedout => Errno::Again,
+                        a => a,
+                    }));
+
+                    (bytes_read, false)
+                }
                 Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
                     return Ok(Err(Errno::Isdir));

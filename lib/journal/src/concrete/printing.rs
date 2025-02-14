@@ -234,6 +234,9 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::SocketOpenV1 { af, ty, pt, fd } => {
                 write!(f, "sock-open (fd={fd}, af={af:?}, ty={ty:?}, pt={pt:?})")
             }
+            JournalEntry::SocketPairV1 { fd1, fd2 } => {
+                write!(f, "sock-pair (fd1={fd1}, fd2={fd2})")
+            }
             JournalEntry::SocketListenV1 { fd, backlog } => {
                 write!(f, "sock-listen (fd={fd}, backlog={backlog})")
             }

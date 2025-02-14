@@ -335,6 +335,63 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
                     (written, false, true)
                 }
+                Kind::DuplexPipe { pipe } => {
+                    let mut written = 0usize;
+
+                    match &data {
+                        FdWriteSource::Iovs { iovs, iovs_len } => {
+                            let mut raise_sigpipe = false;
+                            let iovs_arr = wasi_try_ok_ok!(iovs
+                                .slice(&memory, *iovs_len)
+                                .map_err(mem_error_to_wasi));
+                            let iovs_arr =
+                                wasi_try_ok_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
+                            for iovs in iovs_arr.iter() {
+                                let buf = wasi_try_ok_ok!(WasmPtr::<u8, M>::new(iovs.buf)
+                                    .slice(&memory, iovs.buf_len)
+                                    .map_err(mem_error_to_wasi));
+                                let buf = wasi_try_ok_ok!(buf.access().map_err(mem_error_to_wasi));
+                                let write_result = std::io::Write::write(pipe, buf.as_ref());
+                                let local_written = match write_result {
+                                    Ok(w) => w,
+                                    Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                                        // Need to do this to avoid double borrow on ctx with iovs_arr
+                                        raise_sigpipe = true;
+                                        break;
+                                    }
+                                    Err(e) => return Ok(Err(map_io_err(e))),
+                                };
+
+                                written += local_written;
+                                if local_written != buf.len() {
+                                    break;
+                                }
+                            }
+
+                            drop(iovs_arr);
+
+                            if raise_sigpipe {
+                                env.process.signal_process(Signal::Sigpipe);
+                                wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
+                                return Ok(Err(Errno::Pipe));
+                            }
+                        }
+                        FdWriteSource::Buffer(data) => {
+                            match std::io::Write::write_all(pipe, data) {
+                                Ok(()) => (),
+                                Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                                    env.process.signal_process(Signal::Sigpipe);
+                                    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
+                                    return Ok(Err(Errno::Pipe));
+                                }
+                                Err(e) => return Ok(Err(map_io_err(e))),
+                            };
+                            written += data.len();
+                        }
+                    }
+
+                    (written, false, true)
+                }
                 Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
                     return Ok(Err(Errno::Isdir));

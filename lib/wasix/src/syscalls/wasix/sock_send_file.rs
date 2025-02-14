@@ -172,6 +172,19 @@ pub(crate) fn sock_send_file_internal(
                                 env = ctx.data();
                                 data
                             }
+                            Kind::DuplexPipe { ref mut pipe } => {
+                                let data = wasi_try_ok_ok!(__asyncify(ctx, None, async move {
+                                    // TODO: optimize with MaybeUninit
+                                    let mut buf = vec![0u8; sub_count as usize];
+                                    let amt = virtual_fs::AsyncReadExt::read(pipe, &mut buf[..])
+                                        .await
+                                        .map_err(map_io_err)?;
+                                    buf.truncate(amt);
+                                    Ok(buf)
+                                })?);
+                                env = ctx.data();
+                                data
+                            }
                             Kind::PipeTx { .. }
                             | Kind::Epoll { .. }
                             | Kind::EventNotifications { .. } => {

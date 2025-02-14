@@ -340,6 +340,7 @@ impl<W: WritableJournal> WritableJournal for FilteredJournalTx<W> {
             | JournalEntry::PortRouteClearV1
             | JournalEntry::PortRouteDelV1 { .. }
             | JournalEntry::SocketOpenV1 { .. }
+            | JournalEntry::SocketPairV1 { .. }
             | JournalEntry::SocketListenV1 { .. }
             | JournalEntry::SocketBindV1 { .. }
             | JournalEntry::SocketConnectedV1 { .. }

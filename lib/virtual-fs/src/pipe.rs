@@ -165,6 +165,10 @@ impl Pipe {
     pub fn combine(tx: PipeTx, rx: PipeRx) -> Self {
         Self { send: tx, recv: rx }
     }
+
+    pub fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
+        self.recv.try_read(buf)
+    }
 }
 
 impl Default for Pipe {

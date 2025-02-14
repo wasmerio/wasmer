@@ -1053,6 +1053,12 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 pt: (pt.to_native()).try_into().unwrap_or(wasi::SockProto::Max),
                 fd: fd.to_native(),
             },
+            ArchivedJournalEntry::SocketPairV1(ArchivedJournalEntrySocketPairV1 { fd1, fd2 }) => {
+                Self::SocketPairV1 {
+                    fd1: fd1.to_native(),
+                    fd2: fd2.to_native(),
+                }
+            }
             ArchivedJournalEntry::SocketListenV1(ArchivedJournalEntrySocketListenV1 {
                 fd,
                 backlog,

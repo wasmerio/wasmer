@@ -1219,6 +1219,7 @@ impl WasiFs {
                     | Kind::Socket { .. }
                     | Kind::PipeRx { .. }
                     | Kind::PipeTx { .. }
+                    | Kind::DuplexPipe { .. }
                     | Kind::EventNotifications { .. }
                     | Kind::Epoll { .. } => {
                         return Err(Errno::Notdir);

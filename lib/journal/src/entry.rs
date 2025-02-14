@@ -301,6 +301,10 @@ pub enum JournalEntry<'a> {
         pt: SockProto,
         fd: Fd,
     },
+    SocketPairV1 {
+        fd1: Fd,
+        fd2: Fd,
+    },
     SocketListenV1 {
         fd: Fd,
         backlog: u32,
@@ -659,6 +663,7 @@ impl<'a> JournalEntry<'a> {
             Self::PortRouteClearV1 => JournalEntry::PortRouteClearV1,
             Self::PortRouteDelV1 { ip } => JournalEntry::PortRouteDelV1 { ip },
             Self::SocketOpenV1 { af, ty, pt, fd } => JournalEntry::SocketOpenV1 { af, ty, pt, fd },
+            Self::SocketPairV1 { fd1, fd2 } => JournalEntry::SocketPairV1 { fd1, fd2 },
             Self::SocketListenV1 { fd, backlog } => JournalEntry::SocketListenV1 { fd, backlog },
             Self::SocketBindV1 { fd, addr } => JournalEntry::SocketBindV1 { fd, addr },
             Self::SocketConnectedV1 {
@@ -834,6 +839,7 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::PortRouteClearV1 => base_size,
             JournalEntry::PortRouteDelV1 { .. } => base_size,
             JournalEntry::SocketOpenV1 { .. } => base_size,
+            JournalEntry::SocketPairV1 { .. } => base_size,
             JournalEntry::SocketListenV1 { .. } => base_size,
             JournalEntry::SocketBindV1 { .. } => base_size,
             JournalEntry::SocketConnectedV1 { .. } => base_size,
