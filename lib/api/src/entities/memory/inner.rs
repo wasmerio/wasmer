@@ -13,7 +13,7 @@ gen_rt_ty!(Memory
 );
 
 impl BackendMemory {
-    /// Creates a new host [`Memory`] from the provided [`MemoryType`].
+    /// Creates a new host [`BackendMemory`] from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store
     /// `BaseTunables`.
@@ -105,7 +105,7 @@ impl BackendMemory {
         }
     }
 
-    /// Returns the [`MemoryType`] of the `Memory`.
+    /// Returns the [`MemoryType`] of the [`BackendMemory`].
     ///
     /// # Example
     ///

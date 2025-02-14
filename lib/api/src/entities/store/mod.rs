@@ -1,7 +1,7 @@
-//! Defines the [`Store`] data type, the [`StoreLike`] trait for implementers and various useful traits
-//! and data types to interact with them.
+//! Defines the [`Store`] data type and various useful traits and data types to interact with a
+//! store.
 
-/// Defines the [`StoreInner`] data type and the [`StoreLike`] trait.
+/// Defines the [`StoreInner`] data type.
 mod inner;
 
 /// Create temporary handles to engines.

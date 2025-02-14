@@ -1,5 +1,5 @@
-//! Defines the [`Module`] data type, the [`ModuleLike`] trait for implementers and various useful traits
-//! and data types to interact with them.
+//! Defines the [`BackendModule`] data type and various useful traits and data types to interact with
+//! a concrete module from a backend.
 
 use std::{fs, path::Path};
 
@@ -17,17 +17,6 @@ use crate::{
     utils::IntoBytes,
     AsEngineRef,
 };
-
-/// IO errors that can happen while compiling a [`Module`].
-#[derive(Error, Debug)]
-pub enum IoCompileError {
-    /// An IO error
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    /// A compilation error
-    #[error(transparent)]
-    Compile(#[from] CompileError),
-}
 
 /// A WebAssembly Module contains stateless WebAssembly
 /// code that has already been compiled and can be instantiated
@@ -59,7 +48,7 @@ impl BackendModule {
     pub fn from_file(
         engine: &impl AsEngineRef,
         file: impl AsRef<Path>,
-    ) -> Result<Self, IoCompileError> {
+    ) -> Result<Self, super::IoCompileError> {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
@@ -73,7 +62,7 @@ impl BackendModule {
 
     /// Creates a new WebAssembly module from a Wasm binary.
     ///
-    /// Opposed to [`Module::new`], this function is not compatible with
+    /// Opposed to [`Self::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     #[inline]
@@ -206,7 +195,7 @@ impl BackendModule {
     }
 
     /// Serializes a module into a binary representation that the `Engine`
-    /// can later process via [`Module::deserialize`].
+    /// can later process via [`Self::deserialize`].
     ///
     /// # Important
     ///
@@ -232,7 +221,7 @@ impl BackendModule {
     }
 
     /// Serializes a module into a file that the `Engine`
-    /// can later process via [`Module::deserialize_from_file`].
+    /// can later process via [`Self::deserialize_from_file`].
     ///
     /// # Usage
     ///
@@ -254,7 +243,7 @@ impl BackendModule {
 
     /// Deserializes a serialized module binary into a `Module`.
     ///
-    /// Note: You should usually prefer the safer [`Module::deserialize`].
+    /// Note: You should usually prefer the safer [`Self::deserialize`].
     ///
     /// # Important
     ///
@@ -332,7 +321,7 @@ impl BackendModule {
     /// This function only accepts a custom binary format, which will be different
     /// than the `wasm` binary format and may change among Wasmer versions.
     /// (it should be the result of the serialization of a Module via the
-    /// `Module::serialize` method.).
+    /// [`Self::serialize`] method.).
     ///
     /// # Usage
     ///
@@ -442,11 +431,11 @@ impl BackendModule {
     /// Deserializes a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
-    /// You should usually prefer the safer [`Module::deserialize_from_file`].
+    /// You should usually prefer the safer [`Self::deserialize_from_file`].
     ///
     /// # Safety
     ///
-    /// Please check [`Module::deserialize_unchecked`].
+    /// Please check [`Self::deserialize_unchecked`].
     ///
     /// # Usage
     ///
@@ -507,7 +496,7 @@ impl BackendModule {
     /// Returns the name of the current module.
     ///
     /// This name is normally set in the WebAssembly bytecode by some
-    /// compilers, but can be also overwritten using the [`Module::set_name`] method.
+    /// compilers, but can be also overwritten using the [`Self::set_name`] method.
     ///
     /// # Example
     ///
