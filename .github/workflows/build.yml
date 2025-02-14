@@ -265,19 +265,19 @@ jobs:
         run: |
           make build-wasmer
         env:
-          ENABLE_LLVM: matrix.enable_llvm
-          ENABLE_V8: matrix.enable_v8
-          ENABLE_WASMI: matrix.enable_wasmi
-          ENABLE_WAMR: matrix.enable_wamr
+          ENABLE_LLVM: ${{ matrix.enable_llvm }}
+          ENABLE_V8: ${{ matrix.enable_v8 }}
+          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
+          ENABLE_WAMR: ${{ matrix.enable_wamr }}
       - name: Build Wasmer on linux-x64 
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
           RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer
         env:
-          ENABLE_LLVM: matrix.enable_llvm
-          ENABLE_V8: matrix.enable_v8
-          ENABLE_WASMI: matrix.enable_wasmi
-          ENABLE_WAMR: matrix.enable_wamr
+          ENABLE_LLVM: ${{ matrix.enable_llvm }}
+          ENABLE_V8: ${{ matrix.enable_v8 }}
+          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
+          ENABLE_WAMR: ${{ matrix.enable_wamr }}
       - name: Build Wasmer on linux-musl
         if: ${{ startsWith(matrix.build, 'linux-musl') }}
         run: |
@@ -291,10 +291,10 @@ jobs:
           chmod +x /usr/bin/llvm-config
           LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer
         env:
-          ENABLE_LLVM: matrix.enable_llvm
-          ENABLE_V8: matrix.enable_v8
-          ENABLE_WASMI: matrix.enable_wasmi
-          ENABLE_WAMR: matrix.enable_wamr
+          ENABLE_LLVM: ${{ matrix.enable_llvm }}
+          ENABLE_V8: ${{ matrix.enable_v8 }}
+          ENABLE_WASMI: ${{ matrix.enable_wasmi }}
+          ENABLE_WAMR: ${{ matrix.enable_wamr }}
      #- name: Build Wasmer binary on Wasm32-WASI without LLVM
      #  if: matrix.build_wasm
      #  shell: bash
