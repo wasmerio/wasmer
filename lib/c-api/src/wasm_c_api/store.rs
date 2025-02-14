@@ -34,7 +34,7 @@ pub unsafe extern "C" fn wasm_store_new(
     engine: Option<&wasm_engine_t>,
 ) -> Option<Box<wasm_store_t>> {
     let engine = engine?;
-    let store = Store::new(&engine.inner);
+    let store = Store::new(engine.inner.clone());
 
     Some(Box::new(wasm_store_t {
         inner: StoreRef {

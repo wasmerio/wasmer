@@ -5,6 +5,7 @@ pub mod middlewares;
 pub mod module;
 #[cfg(feature = "compiler")]
 pub mod parser;
+#[cfg(feature = "compiler")]
 pub mod target_lexicon;
 #[cfg(feature = "wasi")]
 pub mod wasi;
