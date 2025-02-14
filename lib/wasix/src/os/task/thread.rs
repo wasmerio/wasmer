@@ -318,6 +318,7 @@ impl WasiThread {
     pub fn set_or_get_exit_code_for_signal(&self, sig: Signal) -> ExitCode {
         let default_exitcode: ExitCode = match sig {
             Signal::Sigquit | Signal::Sigabrt => Errno::Success.into(),
+            Signal::Sigpipe => Errno::Pipe.into(),
             _ => Errno::Intr.into(),
         };
         // This will only set the status code if its not already set

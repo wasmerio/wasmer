@@ -256,7 +256,9 @@ where
                             Ok(a) => a,
                             Err(err) => return Ok(err),
                         };
-                        if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
+                        if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+                            && fd_entry.inner.rights.contains(Rights::FD_READ))
+                        {
                             return Ok(Errno::Access);
                         }
                     }
@@ -274,7 +276,9 @@ where
                             Ok(a) => a,
                             Err(err) => return Ok(err),
                         };
-                        if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
+                        if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+                            && fd_entry.inner.rights.contains(Rights::FD_WRITE))
+                        {
                             return Ok(Errno::Access);
                         }
                     }

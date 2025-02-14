@@ -987,12 +987,13 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 },
                 line_feeds: *line_feeds,
             },
-            ArchivedJournalEntry::CreatePipeV1(ArchivedJournalEntryCreatePipeV1 { fd1, fd2 }) => {
-                Self::CreatePipeV1 {
-                    fd1: fd1.to_native(),
-                    fd2: fd2.to_native(),
-                }
-            }
+            ArchivedJournalEntry::CreatePipeV1(ArchivedJournalEntryCreatePipeV1 {
+                read_fd,
+                write_fd,
+            }) => Self::CreatePipeV1 {
+                read_fd: read_fd.to_native(),
+                write_fd: write_fd.to_native(),
+            },
             ArchivedJournalEntry::PortAddAddrV1(ArchivedJournalEntryPortAddAddrV1 { cidr }) => {
                 Self::PortAddAddrV1 {
                     cidr: JournalIpCidrV1 {
@@ -1052,6 +1053,12 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 pt: (pt.to_native()).try_into().unwrap_or(wasi::SockProto::Max),
                 fd: fd.to_native(),
             },
+            ArchivedJournalEntry::SocketPairV1(ArchivedJournalEntrySocketPairV1 { fd1, fd2 }) => {
+                Self::SocketPairV1 {
+                    fd1: fd1.to_native(),
+                    fd2: fd2.to_native(),
+                }
+            }
             ArchivedJournalEntry::SocketListenV1(ArchivedJournalEntrySocketListenV1 {
                 fd,
                 backlog,

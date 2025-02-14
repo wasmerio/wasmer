@@ -360,8 +360,8 @@ pub fn test_record_tty_set() {
 #[test]
 pub fn test_record_create_pipe() {
     run_test(JournalEntry::CreatePipeV1 {
-        fd1: 3452345,
-        fd2: 2345163,
+        read_fd: 3452345,
+        write_fd: 2345163,
     });
 }
 

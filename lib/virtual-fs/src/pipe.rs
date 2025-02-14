@@ -1,19 +1,24 @@
 use bytes::{Buf, Bytes};
-#[cfg(feature = "futures")]
-use futures::Future;
-use std::io::IoSlice;
 use std::io::{self, Read, Seek, SeekFrom};
-use std::ops::DerefMut;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
-use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use tokio::sync::{mpsc, mpsc::error::TryRecvError};
+use std::{io::IoSlice, sync::MutexGuard};
+use tokio::sync::mpsc;
+use tokio::{
+    io::{AsyncRead, AsyncSeek, AsyncWrite},
+    sync::mpsc::error::TryRecvError,
+};
 
 use crate::{ArcFile, FsError, VirtualFile};
 
+// Each pipe end is separately cloneable. The overall pipe
+// remains open as long as at least one tx end and one rx
+// end are still alive.
+// As such, closing a pipe isn't a well-defined operation,
+// since more references to the ends may still be alive.
 #[derive(Debug, Clone)]
 pub struct Pipe {
     /// Transmit side of the pipe
@@ -25,37 +30,56 @@ pub struct Pipe {
 #[derive(Debug, Clone)]
 pub struct PipeTx {
     /// Sends bytes down the pipe
-    tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
+    tx: Option<mpsc::UnboundedSender<Vec<u8>>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct PipeRx {
     /// Receives bytes from the pipe
     /// Also, buffers the last read message from the pipe while its being consumed
-    rx: Arc<Mutex<PipeReceiver>>,
+    rx: Option<Arc<Mutex<PipeReceiver>>>,
 }
 
 impl PipeRx {
-    fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
-        let max_size = buf.len();
-
-        let mut rx = self.rx.lock().unwrap();
-        loop {
-            {
-                if let Some(read_buffer) = rx.buffer.as_mut() {
-                    let buf_len = read_buffer.len();
-                    if buf_len > 0 {
-                        let mut read = buf_len.min(max_size);
-                        let mut inner_buf = &read_buffer[..read];
-                        read = match Read::read(&mut inner_buf, buf) {
-                            Ok(a) => a,
-                            Err(_) => return None,
-                        };
-                        read_buffer.advance(read);
-                        return Some(read);
-                    }
-                }
+    // Tries to read from the internal buffer if data is available.
+    fn try_read_from_buffer(
+        rx: &mut MutexGuard<'_, PipeReceiver>,
+        max_len: usize,
+        // Should return how much actual data was read from the provided slice
+        write: impl FnOnce(&[u8]) -> Option<usize>,
+    ) -> Option<usize> {
+        rx.buffer.as_mut().and_then(|read_buffer| {
+            let buf_len = read_buffer.len();
+            if buf_len > 0 {
+                let mut read = buf_len.min(max_len);
+                let inner_buf = &read_buffer[..read];
+                // read = ?;
+                read = write(inner_buf)?;
+                read_buffer.advance(read);
+                Some(read)
+            } else {
+                None
             }
+        })
+    }
+
+    pub fn close(&mut self) {
+        _ = self.rx.take();
+    }
+
+    pub fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
+        let Some(ref mut rx) = self.rx else {
+            return Some(0);
+        };
+
+        let mut rx = rx.lock().unwrap();
+        loop {
+            if let Some(read) = Self::try_read_from_buffer(&mut rx, buf.len(), |mut read_buf| {
+                Read::read(&mut read_buf, buf).ok()
+            }) {
+                return Some(read);
+            };
+
             let data = {
                 match rx.chan.try_recv() {
                     Ok(a) => a,
@@ -70,27 +94,57 @@ impl PipeRx {
             rx.buffer.replace(Bytes::from(data));
         }
     }
+
+    pub fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let Some(ref rx) = self.rx else {
+            return Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeRx is closed",
+            )));
+        };
+
+        let mut rx = rx.lock().unwrap();
+        loop {
+            {
+                if let Some(inner_buf) = rx.buffer.as_mut() {
+                    let buf_len = inner_buf.len();
+                    if buf_len > 0 {
+                        return Poll::Ready(Ok(buf_len));
+                    }
+                }
+            }
+
+            let mut pinned_rx = Pin::new(&mut rx.chan);
+            let data = match pinned_rx.poll_recv(cx) {
+                Poll::Ready(Some(a)) => a,
+                Poll::Ready(None) => return Poll::Ready(Ok(0)),
+                Poll::Pending => return Poll::Pending,
+            };
+
+            rx.buffer.replace(Bytes::from(data));
+        }
+    }
 }
 
 #[derive(Debug)]
 struct PipeReceiver {
+    // Note: Since we need to store the buffer alongside the
+    // actual receiver, we can't make use of an mpmc channel
     chan: mpsc::UnboundedReceiver<Vec<u8>>,
     buffer: Option<Bytes>,
 }
 
 impl Pipe {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
         Pipe {
-            send: PipeTx {
-                tx: Arc::new(Mutex::new(tx)),
-            },
+            send: PipeTx { tx: Some(tx) },
             recv: PipeRx {
-                rx: Arc::new(Mutex::new(PipeReceiver {
+                rx: Some(Arc::new(Mutex::new(PipeReceiver {
                     chan: rx,
                     buffer: None,
-                })),
+                }))),
             },
         }
     }
@@ -117,6 +171,12 @@ impl Pipe {
     }
 }
 
+impl Default for Pipe {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl From<Pipe> for PipeTx {
     fn from(val: Pipe) -> Self {
         val.send
@@ -129,19 +189,23 @@ impl From<Pipe> for PipeRx {
     }
 }
 
-impl Pipe {
-    pub fn close(&self) {
-        self.send.close();
-    }
-}
-
 impl PipeTx {
-    pub fn close(&self) {
-        // TODO: proper close() implementation - Propably want to store the writer in an Option<>
-        let (mut null_tx, _) = mpsc::unbounded_channel();
-        {
-            let mut guard = self.tx.lock().unwrap();
-            std::mem::swap(guard.deref_mut(), &mut null_tx);
+    pub fn close(&mut self) {
+        _ = self.tx.take();
+    }
+
+    pub fn poll_write_ready(self: Pin<&mut Self>) -> Poll<io::Result<usize>> {
+        let Some(ref tx) = self.tx else {
+            return Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeTx is closed",
+            )));
+        };
+
+        if tx.is_closed() {
+            Poll::Ready(Ok(0))
+        } else {
+            Poll::Ready(Ok(8192))
         }
     }
 }
@@ -172,22 +236,21 @@ impl Read for Pipe {
 
 impl Read for PipeRx {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let max_size = buf.len();
+        let Some(ref mut rx) = self.rx else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeRx is closed",
+            ));
+        };
 
-        let mut rx = self.rx.lock().unwrap();
+        let mut rx = rx.lock().unwrap();
         loop {
-            {
-                if let Some(read_buffer) = rx.buffer.as_mut() {
-                    let buf_len = read_buffer.len();
-                    if buf_len > 0 {
-                        let mut read = buf_len.min(max_size);
-                        let mut inner_buf = &read_buffer[..read];
-                        read = Read::read(&mut inner_buf, buf)?;
-                        read_buffer.advance(read);
-                        return Ok(read);
-                    }
-                }
+            if let Some(read) = Self::try_read_from_buffer(&mut rx, buf.len(), |mut read_buf| {
+                Read::read(&mut read_buf, buf).ok()
+            }) {
+                return Ok(read);
             }
+
             let data = {
                 match rx.chan.blocking_recv() {
                     Some(a) => a,
@@ -225,7 +288,13 @@ impl std::io::Write for Pipe {
 
 impl std::io::Write for PipeTx {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let tx = self.tx.lock().unwrap();
+        let Some(ref tx) = self.tx else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeTx is closed",
+            ));
+        };
+
         tx.send(buf.to_vec())
             .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
         Ok(buf.len())
@@ -305,8 +374,14 @@ impl AsyncWrite for PipeTx {
         _cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        let guard = self.tx.lock().unwrap();
-        match guard.send(buf.to_vec()) {
+        let Some(ref tx) = self.tx else {
+            return Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeTx is closed",
+            )));
+        };
+
+        match tx.send(buf.to_vec()) {
             Ok(()) => Poll::Ready(Ok(buf.len())),
             Err(_) => Poll::Ready(Err(Into::<std::io::Error>::into(
                 std::io::ErrorKind::BrokenPipe,
@@ -318,7 +393,7 @@ impl AsyncWrite for PipeTx {
         Poll::Ready(Ok(()))
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_shutdown(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.close();
         Poll::Ready(Ok(()))
     }
@@ -337,24 +412,28 @@ impl AsyncRead for Pipe {
 
 impl AsyncRead for PipeRx {
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let mut rx = self.rx.lock().unwrap();
+        let Some(ref mut rx) = self.rx else {
+            return Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "PipeRx is closed",
+            )));
+        };
+
+        let mut rx = rx.lock().unwrap();
         loop {
+            if Self::try_read_from_buffer(&mut rx, buf.remaining(), |read_buf| {
+                buf.put_slice(read_buf);
+                Some(read_buf.len())
+            })
+            .is_some()
             {
-                if let Some(inner_buf) = rx.buffer.as_mut() {
-                    let buf_len = inner_buf.len();
-                    if buf_len > 0 {
-                        let read = buf_len.min(buf.remaining());
-                        buf.put_slice(&inner_buf[..read]);
-                        inner_buf.advance(read);
-                        return Poll::Ready(Ok(()));
-                    }
-                }
+                return Poll::Ready(Ok(()));
             }
-            let mut rx = Pin::new(rx.deref_mut());
+
             let data = match rx.chan.poll_recv(cx) {
                 Poll::Ready(Some(a)) => a,
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
@@ -403,43 +482,22 @@ impl VirtualFile for Pipe {
     fn is_open(&self) -> bool {
         self.send
             .tx
-            .try_lock()
+            .as_ref()
             .map(|a| !a.is_closed())
-            .unwrap_or_else(|_| true)
+            .unwrap_or_else(|| false)
     }
 
     /// Polls the file for when there is data to be read
-    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let mut rx = self.recv.rx.lock().unwrap();
-        loop {
-            {
-                if let Some(inner_buf) = rx.buffer.as_mut() {
-                    let buf_len = inner_buf.len();
-                    if buf_len > 0 {
-                        return Poll::Ready(Ok(buf_len));
-                    }
-                }
-            }
-
-            let mut pinned_rx = Pin::new(&mut rx.chan);
-            let data = match pinned_rx.poll_recv(cx) {
-                Poll::Ready(Some(a)) => a,
-                Poll::Ready(None) => return Poll::Ready(Ok(0)),
-                Poll::Pending => return Poll::Pending,
-            };
-
-            rx.buffer.replace(Bytes::from(data));
-        }
+    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.recv).poll_read_ready(cx)
     }
 
     /// Polls the file for when it is available for writing
-    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let tx = self.send.tx.lock().unwrap();
-        if tx.is_closed() {
-            Poll::Ready(Ok(0))
-        } else {
-            Poll::Ready(Ok(8192))
-        }
+    fn poll_write_ready(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.send).poll_write_ready()
     }
 }
 

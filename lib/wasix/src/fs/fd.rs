@@ -11,7 +11,7 @@ use futures::Future;
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Mutex as StdMutex;
 use tokio::sync::{watch, Mutex as AsyncMutex};
-use virtual_fs::{Pipe, VirtualFile};
+use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
 use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
 
 use crate::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
@@ -184,8 +184,15 @@ pub enum Kind {
         socket: InodeSocket,
     },
     #[cfg_attr(feature = "enable-serde", serde(skip))]
-    Pipe {
-        /// Reference to the pipe
+    PipeTx {
+        tx: PipeTx,
+    },
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    PipeRx {
+        rx: PipeRx,
+    },
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    DuplexPipe {
         pipe: Pipe,
     },
     Epoll {

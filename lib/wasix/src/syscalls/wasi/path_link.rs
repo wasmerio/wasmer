@@ -119,7 +119,9 @@ pub(crate) fn path_link_internal(
             | Kind::Symlink { .. }
             | Kind::Buffer { .. }
             | Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeTx { .. }
+            | Kind::PipeRx { .. }
+            | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Err(Errno::Notdir),
         }

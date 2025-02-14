@@ -412,7 +412,10 @@ mod tests {
         // Write some events to it
         let journal = LogFileJournal::from_file(file.as_file().try_clone().unwrap()).unwrap();
         journal
-            .write(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 })
+            .write(JournalEntry::CreatePipeV1 {
+                read_fd: 1,
+                write_fd: 2,
+            })
             .unwrap();
         journal
             .write(JournalEntry::SetThreadV1 {
@@ -441,7 +444,13 @@ mod tests {
         let event4 = journal.read().unwrap().map(LogReadResult::into_inner);
 
         // Check the events
-        assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
+        assert_eq!(
+            event1,
+            Some(JournalEntry::CreatePipeV1 {
+                read_fd: 1,
+                write_fd: 2
+            })
+        );
         assert_eq!(
             event2,
             Some(JournalEntry::SetThreadV1 {
@@ -481,8 +490,8 @@ mod tests {
         // Before we read it, we will throw in another event
         journal
             .write(JournalEntry::CreatePipeV1 {
-                fd1: 1234,
-                fd2: 5432,
+                read_fd: 1234,
+                write_fd: 5432,
             })
             .unwrap();
 
@@ -491,7 +500,13 @@ mod tests {
         let event3 = journal.read().unwrap().map(LogReadResult::into_inner);
         let event4 = journal.read().unwrap().map(LogReadResult::into_inner);
         let event5 = journal.read().unwrap().map(LogReadResult::into_inner);
-        assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
+        assert_eq!(
+            event1,
+            Some(JournalEntry::CreatePipeV1 {
+                read_fd: 1,
+                write_fd: 2
+            })
+        );
         assert_eq!(
             event2,
             Some(JournalEntry::SetThreadV1 {
@@ -538,7 +553,13 @@ mod tests {
         tracing::info!("event5 {:?}", event5);
         tracing::info!("event6 {:?}", event6);
 
-        assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
+        assert_eq!(
+            event1,
+            Some(JournalEntry::CreatePipeV1 {
+                read_fd: 1,
+                write_fd: 2
+            })
+        );
         assert_eq!(
             event2,
             Some(JournalEntry::SetThreadV1 {
@@ -569,8 +590,8 @@ mod tests {
         assert_eq!(
             event5,
             Some(JournalEntry::CreatePipeV1 {
-                fd1: 1234,
-                fd2: 5432,
+                read_fd: 1234,
+                write_fd: 5432,
             })
         );
         assert_eq!(event6, None);

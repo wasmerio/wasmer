@@ -186,6 +186,8 @@ impl InodeGuard {
                 trace!(%file_ref_count, %ino, "dropping file handle");
                 drop(handle.take().unwrap());
             }
+            Kind::PipeRx { rx } => rx.close(),
+            Kind::PipeTx { tx } => tx.close(),
             _ => (),
         }
     }
@@ -1215,7 +1217,9 @@ impl WasiFs {
                     }
                     Kind::File { .. }
                     | Kind::Socket { .. }
-                    | Kind::Pipe { .. }
+                    | Kind::PipeRx { .. }
+                    | Kind::PipeTx { .. }
+                    | Kind::DuplexPipe { .. }
                     | Kind::EventNotifications { .. }
                     | Kind::Epoll { .. } => {
                         return Err(Errno::Notdir);

@@ -203,7 +203,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 if self.real_fd.contains(&original_fd) {
                     self.action_fd_dup(original_fd, copied_fd, cloexec)?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
-                    tracing::trace!(%original_fd, %copied_fd, "Differ(ether) journal - FdDuplicate");
+                    tracing::trace!(%original_fd, %copied_fd, %cloexec, "Differ(ether) journal - FdDuplicate");
                     differ_ethereal.push(JournalEntry::DuplicateFileDescriptorV2 {
                         original_fd,
                         copied_fd,
@@ -276,7 +276,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 if self.real_fd.contains(&fd) {
                     self.action_fd_set_fdflags(fd, flags)?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
-                    tracing::trace!(%fd, ?flags, "Differ(ether) journal - FdSetFlags");
+                    tracing::trace!(%fd, ?flags, "Differ(ether) journal - FdSetFdFlags");
                     differ_ethereal.push(JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags });
                 } else {
                     self.action_fd_set_fdflags(fd, flags)?;
@@ -376,13 +376,13 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 JournalEffector::apply_chdir(&mut self.ctx, &path)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
-            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
                 if let Some(differ_ethereal) = differ_ethereal {
-                    tracing::trace!(%fd1, %fd2,  "Differ(ether) journal - CreatePipe");
-                    differ_ethereal.push(JournalEntry::CreatePipeV1 { fd1, fd2 });
+                    tracing::trace!(%read_fd, %write_fd,  "Differ(ether) journal - CreatePipe");
+                    differ_ethereal.push(JournalEntry::CreatePipeV1 { read_fd, write_fd });
                 } else {
-                    tracing::trace!(%fd1, %fd2,  "Replay journal - CreatePipe");
-                    JournalEffector::apply_fd_pipe(&mut self.ctx, fd1, fd2)
+                    tracing::trace!(%read_fd, %write_fd,  "Replay journal - CreatePipe");
+                    JournalEffector::apply_fd_pipe(&mut self.ctx, read_fd, write_fd)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
             }
@@ -496,6 +496,16 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 } else {
                     tracing::trace!(?af, ?ty, ?pt, %fd, "Replay journal - SocketOpen");
                     JournalEffector::apply_sock_open(&mut self.ctx, af, ty, pt, fd)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+            }
+            JournalEntry::SocketPairV1 { fd1, fd2 } => {
+                if let Some(differ_ethereal) = differ_ethereal {
+                    tracing::trace!(%fd1, %fd2, "Differ(ether) journal - SocketPair");
+                    differ_ethereal.push(JournalEntry::SocketPairV1 { fd1, fd2 });
+                } else {
+                    tracing::trace!(%fd1, %fd2, "Replay journal - SocketOpen");
+                    JournalEffector::apply_sock_pair(&mut self.ctx, fd1, fd2)
                         .map_err(anyhow_err_to_runtime_err)?
                 }
             }

@@ -260,8 +260,8 @@ pub enum JournalEntry<'a> {
         line_feeds: bool,
     },
     CreatePipeV1 {
-        fd1: Fd,
-        fd2: Fd,
+        read_fd: Fd,
+        write_fd: Fd,
     },
     CreateEventV1 {
         initial_val: u64,
@@ -300,6 +300,10 @@ pub enum JournalEntry<'a> {
         ty: Socktype,
         pt: SockProto,
         fd: Fd,
+    },
+    SocketPairV1 {
+        fd1: Fd,
+        fd2: Fd,
     },
     SocketListenV1 {
         fd: Fd,
@@ -618,7 +622,9 @@ impl<'a> JournalEntry<'a> {
                 event,
             },
             Self::TtySetV1 { tty, line_feeds } => JournalEntry::TtySetV1 { tty, line_feeds },
-            Self::CreatePipeV1 { fd1, fd2 } => JournalEntry::CreatePipeV1 { fd1, fd2 },
+            Self::CreatePipeV1 { read_fd, write_fd } => {
+                JournalEntry::CreatePipeV1 { read_fd, write_fd }
+            }
             Self::CreateEventV1 {
                 initial_val,
                 flags,
@@ -657,6 +663,7 @@ impl<'a> JournalEntry<'a> {
             Self::PortRouteClearV1 => JournalEntry::PortRouteClearV1,
             Self::PortRouteDelV1 { ip } => JournalEntry::PortRouteDelV1 { ip },
             Self::SocketOpenV1 { af, ty, pt, fd } => JournalEntry::SocketOpenV1 { af, ty, pt, fd },
+            Self::SocketPairV1 { fd1, fd2 } => JournalEntry::SocketPairV1 { fd1, fd2 },
             Self::SocketListenV1 { fd, backlog } => JournalEntry::SocketListenV1 { fd, backlog },
             Self::SocketBindV1 { fd, addr } => JournalEntry::SocketBindV1 { fd, addr },
             Self::SocketConnectedV1 {
@@ -832,6 +839,7 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::PortRouteClearV1 => base_size,
             JournalEntry::PortRouteDelV1 { .. } => base_size,
             JournalEntry::SocketOpenV1 { .. } => base_size,
+            JournalEntry::SocketPairV1 { .. } => base_size,
             JournalEntry::SocketListenV1 { .. } => base_size,
             JournalEntry::SocketBindV1 { .. } => base_size,
             JournalEntry::SocketConnectedV1 { .. } => base_size,

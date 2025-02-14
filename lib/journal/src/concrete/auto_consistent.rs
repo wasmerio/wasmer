@@ -69,10 +69,10 @@ impl<W: WritableJournal> WritableJournal for AutoConsistentJournalTx<W> {
                 let mut state = self.state.lock().unwrap();
                 state.open_sockets.insert(*fd);
             }
-            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
                 let mut state = self.state.lock().unwrap();
-                state.open_files.insert(*fd1);
-                state.open_files.insert(*fd2);
+                state.open_files.insert(*read_fd);
+                state.open_files.insert(*write_fd);
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 let mut state = self.state.lock().unwrap();

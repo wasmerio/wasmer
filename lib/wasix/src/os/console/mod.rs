@@ -360,7 +360,6 @@ mod tests {
                 )
                 .await?;
 
-                stdin_tx.close();
                 std::mem::drop(stdin_tx);
 
                 let res = handle.wait_finished().await?;

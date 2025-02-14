@@ -70,6 +70,7 @@ mod syscalls {
     mod sock_leave_ipv6_multicast;
     mod sock_listen;
     mod sock_open;
+    mod sock_pair;
     mod sock_send;
     mod sock_send_file;
     mod sock_send_to;

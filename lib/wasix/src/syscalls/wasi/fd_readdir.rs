@@ -104,7 +104,9 @@ pub fn fd_readdir<M: MemorySize>(
             | Kind::Symlink { .. }
             | Kind::Buffer { .. }
             | Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
+            | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Errno::Notdir,
         }

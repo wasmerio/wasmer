@@ -95,7 +95,9 @@ pub fn path_symlink_internal(
             }
             Kind::Root { .. } => return Err(Errno::Notcapable),
             Kind::Socket { .. }
-            | Kind::Pipe { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
+            | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Err(Errno::Inval),
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => {

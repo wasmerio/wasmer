@@ -29,8 +29,9 @@ pub fn sock_send<M: MemorySize>(
 
     let env = ctx.data();
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
+    let enable_journal = env.enable_journal;
     let guard = fd_entry.inode.read();
-    let use_write = matches!(guard.deref(), Kind::Pipe { .. });
+    let use_write = matches!(guard.deref(), Kind::PipeTx { .. });
     drop(guard);
 
     let bytes_written = if use_write {
@@ -43,7 +44,7 @@ pub fn sock_send<M: MemorySize>(
         };
 
         wasi_try_ok!(fd_write_internal::<M>(
-            &ctx,
+            &mut ctx,
             fd,
             FdWriteSource::Iovs {
                 iovs: si_data,
@@ -51,7 +52,7 @@ pub fn sock_send<M: MemorySize>(
             },
             offset as u64,
             true,
-            env.enable_journal,
+            enable_journal
         )?)
     } else {
         wasi_try_ok!(sock_send_internal::<M>(
