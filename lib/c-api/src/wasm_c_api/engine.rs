@@ -1,18 +1,23 @@
-#[cfg(feature = "compiler")]
-pub use super::unstable::engine::wasmer_is_compiler_available;
-pub use super::unstable::engine::{wasm_config_set_features, wasm_config_set_target};
+pub use super::unstable::engine::wasm_config_set_features;
 use super::unstable::features::wasmer_features_t;
+use crate::error::update_last_error;
+use cfg_if::cfg_if;
+
+#[cfg(feature = "compiler")]
+pub use super::unstable::engine::{wasm_config_set_target, wasmer_is_compiler_available};
+#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
+use super::unstable::target_lexicon::wasmer_target_t;
+
 #[cfg(feature = "middlewares")]
 pub use super::unstable::middlewares::wasm_config_push_middleware;
 #[cfg(feature = "middlewares")]
 use super::unstable::middlewares::wasmer_middleware_t;
-use super::unstable::target_lexicon::wasmer_target_t;
-use crate::error::update_last_error;
-use cfg_if::cfg_if;
-#[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
-use wasmer_api::Engine;
+
 #[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use wasmer_compiler::{Engine, EngineBuilder};
+
+#[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
+use wasmer_api::Engine;
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -84,6 +89,7 @@ pub struct wasm_config_t {
     pub(super) middlewares: Vec<wasmer_middleware_t>,
     pub(super) nan_canonicalization: bool,
     pub(super) features: Option<Box<wasmer_features_t>>,
+    #[cfg(any(feature = "compiler", feature = "compiler-headless"))]
     pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
@@ -376,8 +382,9 @@ pub extern "C" fn wasm_engine_new_with_config(
 
     #[allow(unused)]
     let config = config?;
-    #[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
-    return return_with_error("Wasmer has not been compiled with the `compiler` feature.");
+    //#[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
+    //return return_with_error("Wasmer has not been compiled with the `compiler` feature.");
+
     cfg_if! {
         if #[cfg(feature = "compiler")] {
             #[allow(unused_mut)]

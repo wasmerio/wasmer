@@ -1,12 +1,13 @@
 //! Unstable non-standard Wasmer-specific types for the
 //! `wasm_engine_t` and siblings.
 
-#[cfg(feature = "compiler")]
-use super::super::engine::wasmer_compiler_t;
-use super::super::engine::{wasm_config_t, wasmer_engine_t};
+use super::{
+    super::engine::{wasm_config_t, wasmer_engine_t},
+    features::wasmer_features_t,
+};
 
-use super::features::wasmer_features_t;
-use super::target_lexicon::wasmer_target_t;
+#[cfg(feature = "compiler")]
+use super::{super::engine::wasmer_compiler_t, target_lexicon::wasmer_target_t};
 
 /// Unstable non-standard Wasmer-specific API to update the
 /// configuration to specify a particular target for the engine.
@@ -48,6 +49,7 @@ use super::target_lexicon::wasmer_target_t;
 /// # }
 /// ```
 #[no_mangle]
+#[cfg(feature = "compiler")]
 pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box<wasmer_target_t>) {
     config.target = Some(target);
 }
