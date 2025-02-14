@@ -1,5 +1,5 @@
-//! Defines the [`Function`] and [`HostFunction`] types, the [`FunctionLike`] trait for implementors and useful
-//! traits and data types to interact with them.
+//! Defines the [`Function`] and [`HostFunction`] types and useful traits and data types to
+//! interact with them.
 
 pub(crate) mod inner;
 pub use inner::*;
@@ -23,8 +23,8 @@ use crate::{
 ///
 /// A function instance is the runtime representation of a function.
 /// It effectively is a closure of the original function (defined in either
-/// the host or the WebAssembly module) over the runtime `Instance` of its
-/// originating `Module`.
+/// the host or the WebAssembly module) over the runtime [`crate::Instance`] of its
+/// originating [`crate::Module`].
 ///
 /// The module instance is used to resolve references to other definitions
 /// during execution of the function.

@@ -34,7 +34,7 @@ impl BackendFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
-    /// consider using [`Function::new_typed`] for less runtime overhead.
+    /// consider using [`Self::new_typed`] for less runtime overhead.
     #[inline]
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
@@ -51,10 +51,10 @@ impl BackendFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
-    /// consider using [`Function::new_typed_with_env`] for less runtime overhead.
+    /// consider using [`Self::new_typed_with_env`] for less runtime overhead.
     ///
     /// Takes a [`FunctionEnv`] that is passed into func. If that is not required,
-    /// [`Function::new`] might be an option as well.
+    /// [`Self::new`] might be an option as well.
     ///
     /// # Examples
     ///

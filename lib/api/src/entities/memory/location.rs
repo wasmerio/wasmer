@@ -24,24 +24,24 @@ impl From<u32> for MemoryLocation {
     }
 }
 
-/// See [`SharedMemory`].
+/// See [`crate::SharedMemory`].
 pub(crate) trait SharedMemoryOps {
-    /// See [`SharedMemory::disable_atomics`].
+    /// See [`crate::SharedMemory::disable_atomics`].
     fn disable_atomics(&self) -> Result<(), MemoryError> {
         Err(MemoryError::AtomicsNotSupported)
     }
 
-    /// See [`SharedMemory::wake_all_atomic_waiters`].
+    /// See [`crate::SharedMemory::wake_all_atomic_waiters`].
     fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
         Err(MemoryError::AtomicsNotSupported)
     }
 
-    /// See [`SharedMemory::notify`].
+    /// See [`crate::SharedMemory::notify`].
     fn notify(&self, _dst: MemoryLocation, _count: u32) -> Result<u32, AtomicsError> {
         Err(AtomicsError::Unimplemented)
     }
 
-    /// See [`SharedMemory::wait`].
+    /// See [`crate::SharedMemory::wait`].
     fn wait(
         &self,
         _dst: MemoryLocation,

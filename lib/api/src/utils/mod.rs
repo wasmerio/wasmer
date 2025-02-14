@@ -1,5 +1,5 @@
 //! Useful data types, functions and traits used throughout the crate to interact with WebAssembly
-//! entities such as [`Memory`] and [`Value`].
+//! entities such as [`crate::Memory`] and [`crate::Value`].
 
 /// Convert bynary data into [`bytes::Bytes`].
 mod into_bytes;

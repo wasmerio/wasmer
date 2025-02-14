@@ -13,7 +13,7 @@ use crate::{
 gen_rt_ty!(Engine @derives Debug, Clone);
 
 impl BackendEngine {
-    /// Returns the [`crate::Runtime`] kind this engine belongs to.
+    /// Returns the [`crate::BackendKind`] kind this engine belongs to.
     #[inline]
     pub fn get_be_kind(&self) -> crate::BackendKind {
         match self {
@@ -45,7 +45,7 @@ impl BackendEngine {
     /// `Module::serialize`,
     ///
     /// # Note
-    /// You should almost always prefer [`EngineLike::deserialize`].
+    /// You should almost always prefer [`Self::deserialize`].
     ///
     /// # Errors
     /// Not every implementer supports serializing and deserializing modules.

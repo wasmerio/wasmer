@@ -1,5 +1,5 @@
-//! Defines the [`Module`] data type, the [`ModuleLike`] trait for implementers and various useful traits
-//! and data types to interact with them.
+//! Defines the [`Module`] data type and various useful traits and data types to interact with a
+//! module.
 
 pub(crate) mod inner;
 pub(crate) use inner::*;

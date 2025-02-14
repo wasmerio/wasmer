@@ -1,5 +1,4 @@
-//! Defines the [`Engine`] type, the [`EngineLike`] trait for implementors and useful
-//! traits and data types to interact with them.
+//! Defines the [`self::Engine`] type and useful traits and data types to interact with an engine.
 
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
@@ -68,7 +67,7 @@ impl Engine {
     /// `Module::serialize`,
     ///
     /// # Note
-    /// You should almost always prefer [`EngineLike::deserialize`].
+    /// You should almost always prefer [`Self::deserialize`].
     ///
     /// # Errors
     /// Not every implementer supports serializing and deserializing modules.
