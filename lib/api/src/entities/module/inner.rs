@@ -18,17 +18,6 @@ use crate::{
     AsEngineRef,
 };
 
-/// IO errors that can happen while compiling a [`BackendModule`].
-#[derive(Error, Debug)]
-pub enum IoCompileError {
-    /// An IO error
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    /// A compilation error
-    #[error(transparent)]
-    Compile(#[from] CompileError),
-}
-
 /// A WebAssembly Module contains stateless WebAssembly
 /// code that has already been compiled and can be instantiated
 /// multiple times.
@@ -59,7 +48,7 @@ impl BackendModule {
     pub fn from_file(
         engine: &impl AsEngineRef,
         file: impl AsRef<Path>,
-    ) -> Result<Self, IoCompileError> {
+    ) -> Result<Self, super::IoCompileError> {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
