@@ -15,7 +15,7 @@ use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
 use tracing::*;
-use wasmer::{Function, Memory32, Memory64, Module, Store};
+use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::BinaryPackage;
@@ -279,15 +279,31 @@ fn call_module(
     // Invoke the start function
     let ret = {
         // Call the module
-        let call_ret = if let Some(start) = get_start(&ctx, &store) {
-            start.call(&mut store, &[])
-        } else {
+        let Some(start) = get_start(&ctx, &store) else {
             debug!("wasi[{}]::exec-failed: missing _start function", pid);
             ctx.data(&store)
                 .blocking_on_exit(Some(Errno::Noexec.into()));
             unsafe { run_recycle(recycle, ctx, store) };
             return;
         };
+
+        let mut call_ret = start.call(&mut store, &[]);
+
+        loop {
+            match resume_vfork(&ctx, &mut store, &start, &call_ret) {
+                // A vfork was resumed, there may be another, so loop back
+                Ok(Some(ret)) => call_ret = ret,
+
+                // An error was encountered when restoring from the vfork, report it
+                Err(e) => {
+                    call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
+                    break;
+                }
+
+                // No vfork, keep the call_ret value
+                Ok(None) => break,
+            }
+        }
 
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
@@ -355,4 +371,77 @@ fn call_module(
 
     debug!("wasi[{pid}]::main() has exited with {code}");
     handle.thread.set_status_finished(ret.map(|a| a.into()));
+}
+
+fn resume_vfork(
+    ctx: &WasiFunctionEnv,
+    store: &mut Store,
+    start: &Function,
+    call_ret: &Result<Box<[Value]>, RuntimeError>,
+) -> Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno> {
+    let code = match call_ret {
+        Ok(_) => wasmer_wasix_types::wasi::ExitCode::from(0u16),
+        Err(err) => match err.downcast_ref::<WasiError>() {
+            // If the child process is just deep sleeping, we don't restore the vfork
+            Some(WasiError::DeepSleep(..)) => return Ok(None),
+
+            Some(WasiError::Exit(code)) => *code,
+            Some(WasiError::ThreadExit) => wasmer_wasix_types::wasi::ExitCode::from(0u16),
+            Some(WasiError::UnknownWasiVersion) => Errno::Noexec.into(),
+            None => Errno::Unknown.into(),
+        },
+    };
+
+    if let Some(mut vfork) = ctx.data_mut(store).vfork.take() {
+        // Restore the WasiEnv to the point when we vforked
+        vfork.env.swap_inner(ctx.data_mut(store));
+        std::mem::swap(vfork.env.as_mut(), ctx.data_mut(store));
+        let mut child_env = *vfork.env;
+        child_env.owned_handles.push(vfork.handle);
+
+        // Terminate the child process
+        child_env.process.terminate(code);
+
+        // Jump back to the vfork point and current on execution
+        let child_pid = child_env.process.pid();
+        let memory_stack = vfork.memory_stack.freeze();
+        let rewind_stack = vfork.rewind_stack.freeze();
+        let store_data = vfork.store_data;
+
+        let ctx = ctx.env.clone().into_mut(store);
+        // Now rewind the previous stack and carry on from where we did the vfork
+        let rewind_result = if vfork.is_64bit {
+            crate::syscalls::rewind::<Memory64, _>(
+                ctx,
+                memory_stack,
+                rewind_stack,
+                store_data,
+                crate::syscalls::ForkResult {
+                    pid: child_pid.raw() as wasmer_wasix_types::wasi::Pid,
+                    ret: Errno::Success,
+                },
+            )
+        } else {
+            crate::syscalls::rewind::<Memory32, _>(
+                ctx,
+                memory_stack,
+                rewind_stack,
+                store_data,
+                crate::syscalls::ForkResult {
+                    pid: child_pid.raw() as wasmer_wasix_types::wasi::Pid,
+                    ret: Errno::Success,
+                },
+            )
+        };
+
+        match rewind_result {
+            Errno::Success => Ok(Some(start.call(store, &[]))),
+            err => {
+                warn!("fork failed - could not rewind the stack - errno={}", err);
+                Err(err.into())
+            }
+        }
+    } else {
+        Ok(None)
+    }
 }

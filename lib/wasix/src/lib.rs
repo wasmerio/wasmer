@@ -333,6 +333,8 @@ pub struct WasiVFork {
     /// Handle of the thread we have forked (dropping this handle
     /// will signal that the thread is dead)
     pub handle: WasiThreadHandle,
+
+    is_64bit: bool,
 }
 
 impl Clone for WasiVFork {
@@ -343,6 +345,7 @@ impl Clone for WasiVFork {
             store_data: self.store_data.clone(),
             env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
+            is_64bit: self.is_64bit,
         }
     }
 }

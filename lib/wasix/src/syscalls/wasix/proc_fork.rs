@@ -100,6 +100,7 @@ pub fn proc_fork<M: MemorySize>(
                 store_data: store_data.clone(),
                 env: Box::new(child_env),
                 handle: child_handle,
+                is_64bit: M::is_64bit(),
             });
 
             // Carry on as if the fork had taken place (which basically means
