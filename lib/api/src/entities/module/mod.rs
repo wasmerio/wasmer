@@ -110,13 +110,7 @@ impl Module {
     /// let module = Module::from_file(&engine, "path/to/foo.wasm");
     /// ```
     pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
-        #[cfg(feature = "wat")]
-        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-            CompileError::Wasm(WasmError::Generic(format!(
-                "Error when converting wat: {e}",
-            )))
-        })?;
-        Self::from_binary(engine, bytes.as_ref())
+        BackendModule::new(engine, bytes).map(Self)
     }
 
     /// Creates a new WebAssembly module from a file path.
@@ -124,15 +118,7 @@ impl Module {
         engine: &impl AsEngineRef,
         file: impl AsRef<Path>,
     ) -> Result<Self, IoCompileError> {
-        let file_ref = file.as_ref();
-        let canonical = file_ref.canonicalize()?;
-        let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Self::new(engine, wasm_bytes)?;
-        // Set the module name to the absolute path of the filename.
-        // This is useful for debugging the stack traces.
-        let filename = canonical.as_path().to_str().unwrap();
-        module.set_name(filename);
-        Ok(module)
+        BackendModule::from_file(engine, file).map(Self)
     }
 
     /// Creates a new WebAssembly module from a Wasm binary.
