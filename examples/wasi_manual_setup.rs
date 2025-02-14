@@ -10,7 +10,7 @@
 //! You can run the example directly by executing in Wasmer root:
 //!
 //! ```shell
-//! cargo run --example wasi-manual-setup --release --features "cranelift,wasi"
+//! cargo run --example wasi-manual-setup --release --features "cranelift,tokio,wasi"
 //! ```
 //!
 //! Ready?
