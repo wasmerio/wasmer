@@ -151,7 +151,7 @@ endif
 ifeq ($(ENABLE_LLVM), 0)
 	LLVM_VERSION :=
 	# … then maybe the user forced to enable the LLVM compiler.
-else ifeq ($(ENABLE_LLVM), 1)
+else ifneq ($(filter 1 true,$(ENABLE_LLVM)),)
 	LLVM_VERSION := $(shell llvm-config --version)
 	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
@@ -165,7 +165,7 @@ else ifneq (, $(shell which llvm-config 2>/dev/null))
 	ifneq (, $(findstring 18,$(LLVM_VERSION)))
 		compilers += llvm
 		export LLVM_SYS_180_PREFIX = $(shell llvm-config --prefix)
-	else ifneq (, $(findstring 14,$(LLVM_VERSION)))
+	else ifneq (, $(findstring 18,$(LLVM_VERSION)))
 		compilers += llvm
 		export LLVM_SYS_180_PREFIX = $(shell llvm-config --prefix)
 	endif
@@ -219,7 +219,7 @@ endif
 # If the user didn't disable the V8 backend…
 ifneq ($(ENABLE_V8), 0)
 	# … then maybe the user forced to enable the V8 compiler.
-	ifeq ($(ENABLE_V8), 1)
+	ifneq ($(filter 1 true,$(ENABLE_V8)),)
 		build_compilers += v8
 	endif
 	# we don't check automatically for now  
@@ -236,7 +236,7 @@ endif
 # If the user didn't disable the WAMR backend…
 ifneq ($(ENABLE_WAMR), 0)
 	# … then maybe the user forced to enable the WAMR compiler.
-	ifeq ($(ENABLE_WAMR), 1)
+	ifneq ($(filter 1 true,$(ENABLE_WAMR)),)
 		build_compilers += wamr
 	# we don't check automatically for now  
 	endif
@@ -253,7 +253,7 @@ endif
 # If the user didn't disable the wasmi backend…
 ifneq ($(ENABLE_WASMI), 0)
 	# … then maybe the user forced to enable the wasmi compiler.
-	ifeq ($(ENABLE_WASMI), 1)
+	ifneq ($(filter 1 true,$(ENABLE_WASMI)),)
 		build_compilers += wasmi
 	# we don't check automatically for now  
 	endif
