@@ -345,6 +345,11 @@ path = "examples/table.rs"
 required-features = ["backend"]
 
 [[example]]
+name = "table-large-grow"
+path = "examples/table_large_grow.rs"
+required-features = ["backend"]
+
+[[example]]
 name = "memory"
 path = "examples/memory.rs"
 required-features = ["backend"]
