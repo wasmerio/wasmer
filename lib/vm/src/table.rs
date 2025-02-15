@@ -199,8 +199,19 @@ impl VMTable {
             return Some(size);
         }
 
-        self.vec
-            .resize(usize::try_from(new_len).unwrap(), init_value.into());
+        let new_len_usize = usize::try_from(new_len).unwrap();
+        let current_len = self.vec.len();
+        let additional = new_len_usize
+            .checked_sub(current_len)
+            .expect("new_len should be >= current_len");
+
+        // Attempt to reserve memory; return None on failure
+        if self.vec.try_reserve_exact(additional).is_err() {
+            return None;
+        }
+
+        // Safe to proceed with resize since allocation succeeded
+        self.vec.resize(new_len_usize, init_value.into());
 
         // update table definition
         unsafe {
