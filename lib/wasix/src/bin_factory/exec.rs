@@ -370,6 +370,7 @@ fn call_module(
     handle.thread.set_status_finished(ret.map(|a| a.into()));
 }
 
+#[allow(clippy::type_complexity)]
 fn resume_vfork(
     ctx: &WasiFunctionEnv,
     store: &mut Store,
@@ -440,7 +441,7 @@ fn resume_vfork(
             Errno::Success => Ok(Some(start.call(store, &[]))),
             err => {
                 warn!("fork failed - could not rewind the stack - errno={}", err);
-                Err(err.into())
+                Err(err)
             }
         }
     } else {
