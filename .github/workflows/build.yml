@@ -63,7 +63,8 @@ jobs:
             artifact_name: 'wasmer-linux-aarch64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
-            use_sccache: true
+            use_sccache: false
+            use_rustcache: false
             build_wasm: true
             enable_llvm: false
             enable_v8: false
@@ -134,7 +135,7 @@ jobs:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs
+          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
           ln -s /usr/bin/clang-18 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
@@ -173,7 +174,7 @@ jobs:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-        if: matrix.use_sccache != true
+        if: ${{ matrix.use_sccache != true && ( matrix.use_rustcache == '' || matrix.use_rustcache == true ) }}
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-13' && !matrix.llvm_url
         run: |
