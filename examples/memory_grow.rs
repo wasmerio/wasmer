@@ -6,7 +6,7 @@
 //! cargo run --example memory-grow --release --features "cranelift"
 //! ```
 
-use wasmer::{imports, wat2wasm, Instance, Module, Pages, Store};
+use wasmer::{imports, wat2wasm, Instance, Module, Store};
 
 fn main() -> anyhow::Result<()> {
     let wasm_bytes = wat2wasm(
@@ -30,10 +30,10 @@ fn main() -> anyhow::Result<()> {
     println!("Testing memory growth limits...");
     println!("Initial size: {:?}", memory.view(&store).size());
 
-    let result = memory.grow(&mut store, 65534)?;
+    let _ = memory.grow(&mut store, 65534)?;
     println!("After growing by 65534: {:?}", memory.view(&store).size());
 
-    let result = memory.grow(&mut store, 1)?;
+    let _ = memory.grow(&mut store, 1)?;
     println!(
         "After growing to max (65536): {:?}",
         memory.view(&store).size()

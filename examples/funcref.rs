@@ -1,8 +1,5 @@
 use std::error::Error;
-use wasmer::{
-    imports, ExternRef, FromToNativeWasmType, Function, FunctionType, Instance, Module,
-    RuntimeError, Store, Table, TableType, Type, Value,
-};
+use wasmer::{imports, Instance, Module, Store, Table, TableType, Type, Value};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // 1) Create a default Wasmer Store.
