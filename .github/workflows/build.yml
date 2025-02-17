@@ -174,7 +174,7 @@ jobs:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-        if: ${{ matrix.use_sccache != true && matrix.use_rustcache != true }}
+        if: ${{ matrix.use_sccache != true && matrix.use_rustcache != false }}
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-13' && !matrix.llvm_url
         run: |
