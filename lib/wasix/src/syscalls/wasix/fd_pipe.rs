@@ -1,7 +1,11 @@
+use std::sync::atomic::AtomicUsize;
+
 use virtual_fs::Pipe;
 
 use super::*;
 use crate::syscalls::*;
+
+static PIPE_NUMBER: AtomicUsize = AtomicUsize::new(0);
 
 /// ### `fd_pipe()`
 /// Creates ta pipe that feeds data between two file handles
@@ -49,14 +53,22 @@ pub fn fd_pipe_internal(
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let (tx, rx) = Pipe::new().split();
 
-    let rx_inode =
-        state
-            .fs
-            .create_inode_with_default_stat(inodes, Kind::PipeRx { rx }, false, "pipe".into());
-    let tx_inode =
-        state
-            .fs
-            .create_inode_with_default_stat(inodes, Kind::PipeTx { tx }, false, "pipe".into());
+    // FIXME: since a hash of the inode name is used to calculate the inode number, this may
+    // or may not break journals that include pipes.
+    let pipe_no = PIPE_NUMBER.fetch_add(1, Ordering::SeqCst);
+
+    let rx_inode = state.fs.create_inode_with_default_stat(
+        inodes,
+        Kind::PipeRx { rx },
+        false,
+        format!("pipe{pipe_no}-rx").into(),
+    );
+    let tx_inode = state.fs.create_inode_with_default_stat(
+        inodes,
+        Kind::PipeTx { tx },
+        false,
+        format!("pipe{pipe_no}-tx").into(),
+    );
 
     let rights = Rights::FD_SYNC
         | Rights::FD_DATASYNC

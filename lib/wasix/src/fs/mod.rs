@@ -150,11 +150,14 @@ impl InodeGuard {
     }
 
     pub fn acquire_handle(&self) {
-        self.open_handles.fetch_add(1, Ordering::SeqCst);
+        let prev_handles = self.open_handles.fetch_add(1, Ordering::SeqCst);
+        trace!(ino = %self.ino.0, new_count = %(prev_handles + 1), "acquiring handle for InodeGuard");
     }
 
     pub fn drop_one_handle(&self) {
         let prev_handles = self.open_handles.fetch_sub(1, Ordering::SeqCst);
+
+        trace!(ino = %self.ino.0, %prev_handles, "dropping handle for InodeGuard");
 
         // If this wasn't the last handle, nothing else to do...
         if prev_handles > 1 {
@@ -186,8 +189,14 @@ impl InodeGuard {
                 trace!(%file_ref_count, %ino, "dropping file handle");
                 drop(handle.take().unwrap());
             }
-            Kind::PipeRx { rx } => rx.close(),
-            Kind::PipeTx { tx } => tx.close(),
+            Kind::PipeRx { rx } => {
+                trace!(%ino, "closing pipe rx");
+                rx.close();
+            }
+            Kind::PipeTx { tx } => {
+                trace!(%ino, "closing pipe tx");
+                tx.close();
+            }
             _ => (),
         }
     }
@@ -571,6 +580,7 @@ impl WasiFs {
                             && !v.is_stdio
                             && !v.inode.is_preopened
                         {
+                            tracing::trace!(fd = %k, "Closing FD due to CLOEXEC flag");
                             Some(k)
                         } else {
                             None
