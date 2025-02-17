@@ -241,6 +241,17 @@ pub fn proc_exec3<M: MemorySize>(
             Ok(mut process) => {
                 // If we support deep sleeping then we switch to deep sleep mode
                 let env = ctx.data();
+
+                // Since we clone the env for the subprocess, we need to close
+                // the file handles we're holding. Otherwise, files will never
+                // be closed.
+                InlineWaker::block_on(
+                    unsafe { env.get_memory_and_wasi_state(&ctx, 0) }
+                        .1
+                        .fs
+                        .close_all(),
+                );
+
                 let thread = env.thread.clone();
 
                 // The poller will wait for the process to actually finish

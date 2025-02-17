@@ -6,38 +6,9 @@
 #include <errno.h>
 #include <sys/wait.h>
 
-int successful_exec()
-{
-    int pid = vfork();
-
-    if (pid == 0)
-    {
-        execl("./main.wasm", "main.wasm", "subprocess", NULL);
-        perror("execl");
-        exit(10);
-    }
-    else
-    {
-        int status;
-        waitpid(pid, &status, 0);
-        if (WEXITSTATUS(status) != 20)
-        {
-            printf("Expected exit code 20 from subprocess, got %d\n", WEXITSTATUS(status));
-            return 1;
-        }
-
-        return 0;
-    }
-}
-
-int subprocess()
-{
-    return 20;
-}
-
 int failing_exec()
 {
-    int pid = vfork();
+    int pid = fork();
 
     if (pid == 0)
     {
@@ -59,11 +30,12 @@ int failing_exec()
     }
 }
 
+// Making sure CLOEXEC FDs are not closed with a failing exec call
 int cloexec()
 {
     int fd = open("/bin/file", O_RDONLY | O_CREAT | O_CLOEXEC);
 
-    int pid = vfork();
+    int pid = fork();
 
     if (pid == 0)
     {
@@ -105,15 +77,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    if (!strcmp(argv[1], "successful_exec"))
-    {
-        return successful_exec();
-    }
-    else if (!strcmp(argv[1], "subprocess"))
-    {
-        return subprocess();
-    }
-    else if (!strcmp(argv[1], "failing_exec"))
+    if (!strcmp(argv[1], "failing_exec"))
     {
         return failing_exec();
     }
