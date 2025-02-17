@@ -257,7 +257,7 @@ jobs:
         metadata: [
           {
             build: linux-x64,
-            os: ubuntu-24.04,
+            os: ubuntu-22.04,
           },
           {
             build: macos-arm,
