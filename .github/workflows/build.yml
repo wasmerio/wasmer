@@ -16,6 +16,7 @@ on:
     inputs:
       release:
           description: 'Make release'
+
 jobs:
   setup:
     name: Set up
@@ -49,8 +50,9 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
+            use_rustcache: false
             build_wasm: true
-            enable_llvm: true
+            enable_llvm: false
             enable_v8: false
             enable_wasmi: true
             enable_wamr: true
@@ -98,16 +100,16 @@ jobs:
             enable_v8: false 
             enable_wasmi: true
             enable_wamr: false
-          - build: linux-musl-x64
-            os: ubuntu-22.04
-            artifact_name: 'wasmer-linux-musl-amd64'
-            container: alpine:latest
-            build_wasm: true
-            use_sccache: false
-            enable_llvm: false
-            enable_v8: true
-            enable_wasmi: true
-            enable_wamr: false
+            #- build: linux-musl-x64
+            #  os: ubuntu-22.04
+            #  artifact_name: 'wasmer-linux-musl-amd64'
+            #  container: alpine:latest
+            #  build_wasm: true
+            #  use_sccache: false
+            #  enable_llvm: false
+            #  enable_v8: true
+            #  enable_wasmi: true
+            #  enable_wamr: false
 
     container: ${{ matrix.container }}
     env:
@@ -119,7 +121,7 @@ jobs:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2
+          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
           ln -s /usr/bin/clang-18 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
@@ -158,7 +160,7 @@ jobs:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-        if: matrix.use_sccache != true
+        if: ${{ matrix.use_sccache != true && matrix.use_rustcache != false }}
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-13' && !matrix.llvm_url
         run: |
@@ -600,16 +602,16 @@ jobs:
           asset_path: artifacts/wasmer-windows-gnu64/wasmer.tar.gz
           asset_name: wasmer-windows-gnu64.tar.gz
           asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 (musl)
-        id: upload-release-asset-linux-musl-amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
-          asset_name: wasmer-linux-musl-amd64.tar.gz
-          asset_content_type: application/gzip
+          #- name: Upload Release Asset Linux amd64 (musl)
+          #  id: upload-release-asset-linux-musl-amd64
+          #  uses: actions/upload-release-asset@v1
+          #  env:
+          #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #  with:
+          #    upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #    asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
+          #    asset_name: wasmer-linux-musl-amd64.tar.gz
+          #    asset_content_type: application/gzip
       - name: Upload Release Asset Mac amd64
         uses: actions/upload-release-asset@v1
         env:
