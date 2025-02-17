@@ -50,11 +50,11 @@ jobs:
             use_sccache: false
             build_wasm: true
             enable_llvm: true
-            enable_v8: true 
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: true
           - build: linux-x64
-            os: ubuntu-22.04
+            os: ubuntu-24.04
             artifact_name: 'wasmer-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
@@ -289,7 +289,7 @@ jobs:
           echo 'fi' >> /usr/bin/llvm-config
           cat /usr/bin/llvm-config
           chmod +x /usr/bin/llvm-config
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config RUSTFLAGS="-L/usr/lib64 -L/usr/lib -C linker=clang -C link-arg=-fuse-ld=mold -lzstd" make build-wasmer
         env:
           ENABLE_LLVM: ${{ matrix.enable_llvm }}
           ENABLE_V8: ${{ matrix.enable_v8 }}
