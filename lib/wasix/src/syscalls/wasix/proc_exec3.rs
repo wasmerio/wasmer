@@ -181,14 +181,13 @@ pub fn proc_exec3<M: MemorySize>(
             Ok(()) => {
                 // Jump back to the vfork point and current on execution
                 // note: fork does not return any values hence passing `()`
-                let memory_stack = vfork.memory_stack.freeze();
                 let rewind_stack = vfork.rewind_stack.freeze();
                 let store_data = vfork.store_data;
                 unwind::<M, _>(ctx, move |mut ctx, _, _| {
                     // Rewind the stack
                     match rewind::<M, _>(
                         ctx,
-                        memory_stack,
+                        None,
                         rewind_stack,
                         store_data,
                         ForkResult {

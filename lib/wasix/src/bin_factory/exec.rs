@@ -286,6 +286,7 @@ fn call_module(
         let mut call_ret = start.call(&mut store, &[]);
 
         loop {
+            // Technically, it's an error for a vfork to return from main, but anyway...
             match resume_vfork(&ctx, &mut store, &start, &call_ret) {
                 // A vfork was resumed, there may be another, so loop back
                 Ok(Some(ret)) => call_ret = ret,
@@ -406,7 +407,6 @@ fn resume_vfork(
 
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
-        let memory_stack = vfork.memory_stack.freeze();
         let rewind_stack = vfork.rewind_stack.freeze();
         let store_data = vfork.store_data;
 
@@ -415,7 +415,7 @@ fn resume_vfork(
         let rewind_result = if vfork.is_64bit {
             crate::syscalls::rewind::<Memory64, _>(
                 ctx,
-                memory_stack,
+                None,
                 rewind_stack,
                 store_data,
                 crate::syscalls::ForkResult {
@@ -426,7 +426,7 @@ fn resume_vfork(
         } else {
             crate::syscalls::rewind::<Memory32, _>(
                 ctx,
-                memory_stack,
+                None,
                 rewind_stack,
                 store_data,
                 crate::syscalls::ForkResult {

@@ -1228,7 +1228,7 @@ where
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    memory_stack: Bytes,
+    memory_stack: Option<Bytes>,
     rewind_stack: Bytes,
     store_data: Bytes,
     result: T,
@@ -1239,7 +1239,7 @@ where
     let rewind_result = bincode::serialize(&result).unwrap().into();
     rewind_ext::<M>(
         &mut ctx,
-        Some(memory_stack),
+        memory_stack,
         rewind_stack,
         store_data,
         RewindResultType::RewindWithResult(rewind_result),

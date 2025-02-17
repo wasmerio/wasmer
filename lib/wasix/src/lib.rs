@@ -323,8 +323,6 @@ pub(crate) fn run_wasi_func_start(
 pub struct WasiVFork {
     /// The unwound stack before the vfork occured
     pub rewind_stack: BytesMut,
-    /// The memory stack before the vfork occured
-    pub memory_stack: BytesMut,
     /// The mutable parts of the store
     pub store_data: Bytes,
     /// The environment before the vfork occured
@@ -341,7 +339,6 @@ impl Clone for WasiVFork {
     fn clone(&self) -> Self {
         Self {
             rewind_stack: self.rewind_stack.clone(),
-            memory_stack: self.memory_stack.clone(),
             store_data: self.store_data.clone(),
             env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
