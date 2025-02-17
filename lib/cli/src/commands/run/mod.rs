@@ -176,7 +176,7 @@ impl Run {
                     module,
                     module_hash,
                     path,
-                } => self.execute_wasm(&path, &module, module_hash, runtime.clone()),
+                } => self.execute_wasm(&path, module, module_hash, runtime.clone()),
                 ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime.clone()),
             }
         };
@@ -199,14 +199,14 @@ impl Run {
     fn execute_wasm(
         &self,
         path: &Path,
-        module: &Module,
+        module: Module,
         module_hash: ModuleHash,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
+        if wasmer_wasix::is_wasi_module(&module) || wasmer_wasix::is_wasix_module(&module) {
             self.execute_wasi_module(path, module, module_hash, runtime)
         } else {
-            self.execute_pure_wasm_module(module)
+            self.execute_pure_wasm_module(&module)
         }
     }
 
@@ -445,20 +445,14 @@ impl Run {
     fn execute_wasi_module(
         &self,
         wasm_path: &Path,
-        module: &Module,
+        module: Module,
         module_hash: ModuleHash,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
         let runner = self.build_wasi_runner(&runtime)?;
-        runner.run_wasm(
-            runtime,
-            &program_name,
-            module,
-            module_hash,
-            self.wasi.enable_async_threads,
-        )
+        runner.run_wasm(runtime, &program_name, module)
     }
 
     #[allow(unused_variables)]
