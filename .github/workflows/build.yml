@@ -65,7 +65,7 @@ jobs:
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
             build_wasm: true
-            enable_llvm: true
+            enable_llvm: false
             enable_v8: false
             enable_wasmi: true
             enable_wamr: true
@@ -134,7 +134,7 @@ jobs:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev
+          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs
           ln -s /usr/bin/clang-18 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
@@ -415,231 +415,231 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  darwin_aarch64_jsc:
-    name: macOS aarch64 (JSC)
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: aarch64-apple-darwin
-      - name: Install Darwin-aarch64 target
-        shell: bash
-        run: |
-          rustup target add aarch64-apple-darwin
-      - name: Build Wasmer C-API (JSC)
-        shell: bash
-        run: |
-          make build-capi-jsc
-        env:
-          RUSTFLAGS: -Cpanic=abort
-          CARGO_TARGET: aarch64-apple-darwin
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_TARGET: aarch64-apple-darwin
-          TARGET_DIR: target/aarch64-apple-darwin/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: 'aarch64-apple-darwin-jsc'
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
-  darwin_x86_64_jsc:
-    name: macOS x86_64 (JSC)
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-apple-darwin
-      - name: Build Wasmer C-API (JSC)
-        shell: bash
-        run: |
-          make build-capi-jsc
-        env:
-          RUSTFLAGS: -Cpanic=abort
-          CARGO_TARGET: x86_64-apple-darwin
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_TARGET: x86_64-apple-darwin
-          TARGET_DIR: target/x86_64-apple-darwin/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: 'x86_64-apple-darwin-jsc'
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
-  linux_riscv64:
-    name: Linux riscv64
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: riscv64gc-unknown-linux-gnu
-      - name: Build cross image
-        run: |
-          docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
-        env:
-          CROSS_DOCKER_IN_DOCKER: true
-      - name: Build Wasmer binary
-        run: |
-          make build-wasmer
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Build C API headless
-        shell: bash
-        run: |
-          make package-capi-headless
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-          TARGET: riscv64gc-unknown-linux-gnu
-          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
-      - name: Build C API
-        run: |
-          make build-capi
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          ENABLE_LLVM: 0
-      - name: Dist
-        run: |
-          make distribution
-        env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
-          CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
-          PKG_CONFIG_ALLOW_CROSS: true
-          TARGET: riscv64gc-unknown-linux-gnu
-          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasmer-linux-riscv64
-          path: dist
-          if-no-files-found: error
-          retention-days: 2
-
-  release:
-    needs: [setup, build, windows_gnu, linux_riscv64]
-    runs-on: ubuntu-latest
-    if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
-    steps:
-      - name: Download the Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ needs.setup.outputs.VERSION }}
-          release_name: Release ${{ needs.setup.outputs.VERSION }}
-          draft: true
-          prerelease: false
-      - name: Upload Release Asset Windows Installer
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
-          asset_name: wasmer-windows.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
-      - name: Upload Release Asset Windows
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
-          asset_name: wasmer-windows-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
-          asset_name: wasmer-linux-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux aarch64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-          asset_name: wasmer-linux-aarch64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux riscv64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-riscv64/wasmer.tar.gz
-          asset_name: wasmer-linux-riscv64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Windows gnu64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-gnu64/wasmer.tar.gz
-          asset_name: wasmer-windows-gnu64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 (musl)
-        id: upload-release-asset-linux-musl-amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
-          asset_name: wasmer-linux-musl-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
-          asset_name: wasmer-darwin-arm64.tar.gz
-          asset_content_type: application/gzip
+          #  darwin_aarch64_jsc:
+          #    name: macOS aarch64 (JSC)
+          #    runs-on: macos-13
+          #    steps:
+          #      - uses: actions/checkout@v3
+          #      - uses: dtolnay/rust-toolchain@stable
+          #        with:
+          #          target: aarch64-apple-darwin
+          #      - name: Install Darwin-aarch64 target
+          #        shell: bash
+          #        run: |
+          #          rustup target add aarch64-apple-darwin
+          #      - name: Build Wasmer C-API (JSC)
+          #        shell: bash
+          #        run: |
+          #          make build-capi-jsc
+          #        env:
+          #          RUSTFLAGS: -Cpanic=abort
+          #          CARGO_TARGET: aarch64-apple-darwin
+          #      - name: Dist
+          #        run: |
+          #          make distribution
+          #        env:
+          #          CARGO_TARGET: aarch64-apple-darwin
+          #          TARGET_DIR: target/aarch64-apple-darwin/release
+          #      - name: Upload Artifacts
+          #        uses: actions/upload-artifact@v4
+          #        with:
+          #          name: 'aarch64-apple-darwin-jsc'
+          #          path: dist
+          #          if-no-files-found: error
+          #          retention-days: 2
+          #
+          #  darwin_x86_64_jsc:
+          #    name: macOS x86_64 (JSC)
+          #    runs-on: macos-13
+          #    steps:
+          #      - uses: actions/checkout@v3
+          #      - uses: dtolnay/rust-toolchain@stable
+          #        with:
+          #          target: x86_64-apple-darwin
+          #      - name: Build Wasmer C-API (JSC)
+          #        shell: bash
+          #        run: |
+          #          make build-capi-jsc
+          #        env:
+          #          RUSTFLAGS: -Cpanic=abort
+          #          CARGO_TARGET: x86_64-apple-darwin
+          #      - name: Dist
+          #        run: |
+          #          make distribution
+          #        env:
+          #          CARGO_TARGET: x86_64-apple-darwin
+          #          TARGET_DIR: target/x86_64-apple-darwin/release
+          #      - name: Upload Artifacts
+          #        uses: actions/upload-artifact@v4
+          #        with:
+          #          name: 'x86_64-apple-darwin-jsc'
+          #          path: dist
+          #          if-no-files-found: error
+          #          retention-days: 2
+          #
+          #  linux_riscv64:
+          #    name: Linux riscv64
+          #    runs-on: ubuntu-latest
+          #    steps:
+          #      - uses: actions/checkout@v3
+          #      - uses: dtolnay/rust-toolchain@stable
+          #        with:
+          #          target: riscv64gc-unknown-linux-gnu
+          #      - name: Build cross image
+          #        run: |
+          #          docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
+          #        env:
+          #          CROSS_DOCKER_IN_DOCKER: true
+          #      - name: Build Wasmer binary
+          #        run: |
+          #          make build-wasmer
+          #        env:
+          #          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          #          CROSS_DOCKER_IN_DOCKER: true
+          #          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          #          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          #          PKG_CONFIG_ALLOW_CROSS: true
+          #          ENABLE_LLVM: 0
+          #      - name: Build C API headless
+          #        shell: bash
+          #        run: |
+          #          make package-capi-headless
+          #        env:
+          #          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          #          CROSS_DOCKER_IN_DOCKER: true
+          #          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          #          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          #          PKG_CONFIG_ALLOW_CROSS: true
+          #          ENABLE_LLVM: 0
+          #          TARGET: riscv64gc-unknown-linux-gnu
+          #          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
+          #      - name: Build C API
+          #        run: |
+          #          make build-capi
+          #        env:
+          #          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          #          CROSS_DOCKER_IN_DOCKER: true
+          #          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          #          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          #          PKG_CONFIG_ALLOW_CROSS: true
+          #          ENABLE_LLVM: 0
+          #      - name: Dist
+          #        run: |
+          #          make distribution
+          #        env:
+          #          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
+          #          CROSS_DOCKER_IN_DOCKER: true
+          #          CARGO_TARGET: riscv64gc-unknown-linux-gnu
+          #          PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
+          #          PKG_CONFIG_ALLOW_CROSS: true
+          #          TARGET: riscv64gc-unknown-linux-gnu
+          #          TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
+          #      - name: Upload Artifacts
+          #        uses: actions/upload-artifact@v4
+          #        with:
+          #          name: wasmer-linux-riscv64
+          #          path: dist
+          #          if-no-files-found: error
+          #          retention-days: 2
+          #
+          #  release:
+          #    needs: [setup, build, windows_gnu, linux_riscv64]
+          #    runs-on: ubuntu-latest
+          #    if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
+          #    steps:
+          #      - name: Download the Artifacts
+          #        uses: actions/download-artifact@v4
+          #        with:
+          #          path: artifacts
+          #      - name: Create Release
+          #        id: create_release
+          #        uses: actions/create-release@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          tag_name: ${{ needs.setup.outputs.VERSION }}
+          #          release_name: Release ${{ needs.setup.outputs.VERSION }}
+          #          draft: true
+          #          prerelease: false
+          #      - name: Upload Release Asset Windows Installer
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
+          #          asset_name: wasmer-windows.exe
+          #          asset_content_type: application/vnd.microsoft.portable-executable
+          #      - name: Upload Release Asset Windows
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
+          #          asset_name: wasmer-windows-amd64.tar.gz
+          #          asset_content_type: application/gzip
+          #      - name: Upload Release Asset Linux amd64
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
+          #          asset_name: wasmer-linux-amd64.tar.gz
+          #          asset_content_type: application/gzip
+          #      - name: Upload Release Asset Linux aarch64
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
+          #          asset_name: wasmer-linux-aarch64.tar.gz
+          #          asset_content_type: application/gzip
+          #      - name: Upload Release Asset Linux riscv64
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-linux-riscv64/wasmer.tar.gz
+          #          asset_name: wasmer-linux-riscv64.tar.gz
+          #          asset_content_type: application/gzip
+          #      - name: Upload Release Asset Windows gnu64
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-windows-gnu64/wasmer.tar.gz
+          #          asset_name: wasmer-windows-gnu64.tar.gz
+          #          asset_content_type: application/gzip
+          #      - name: Upload Release Asset Linux amd64 (musl)
+          #        id: upload-release-asset-linux-musl-amd64
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
+          #          asset_name: wasmer-linux-musl-amd64.tar.gz
+          #          asset_content_type: application/gzip
+          #      - name: Upload Release Asset Mac amd64
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
+          #          asset_name: wasmer-darwin-amd64.tar.gz
+          #          asset_content_type: application/gzip
+          #      - name: Upload Release Asset Mac arm64
+          #        uses: actions/upload-release-asset@v1
+          #        env:
+          #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          #        with:
+          #          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          #          asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
+          #          asset_name: wasmer-darwin-arm64.tar.gz
+          #          asset_content_type: application/gzip
