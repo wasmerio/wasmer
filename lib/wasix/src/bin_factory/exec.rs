@@ -389,6 +389,12 @@ fn resume_vfork(
     };
 
     if let Some(mut vfork) = ctx.data_mut(store).vfork.take() {
+        tracing::debug!(
+            pid = %ctx.data_mut(store).process.pid(),
+            vfork_pid = %vfork.env.process.pid(),
+            "Resuming from vfork after child process was terminated"
+        );
+
         // Restore the WasiEnv to the point when we vforked
         vfork.env.swap_inner(ctx.data_mut(store));
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut(store));

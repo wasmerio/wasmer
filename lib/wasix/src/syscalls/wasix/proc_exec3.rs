@@ -105,16 +105,24 @@ pub fn proc_exec3<M: MemorySize>(
     // If we are in a vfork we need to first spawn a subprocess of this type
     // with the forked WasiEnv, then do a longjmp back to the vfork point.
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
+        // Needed in case an error happens and we need to get back into the child process
+        let mut child_env = Box::new(ctx.data().clone());
+
         // We will need the child pid later
-        let child_process = ctx.data().process.clone();
-        let child_pid = child_process.pid();
-        let child_finished = child_process.finished;
+        let child_pid = ctx.data().process.pid();
+
+        tracing::debug!(
+            %child_pid,
+            vfork_pid = %vfork.env.process.pid(),
+            "proc_exec in presence of vfork"
+        );
 
         // Restore the WasiEnv to the point when we vforked
-        vfork.env.swap_inner(ctx.data_mut());
-        std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
-        let mut wasi_env = *vfork.env;
-        wasi_env.owned_handles.push(vfork.handle);
+        let mut vfork_env = vfork.env.clone();
+        vfork_env.swap_inner(ctx.data_mut());
+        std::mem::swap(vfork_env.as_mut(), ctx.data_mut());
+        let mut wasi_env = *vfork_env;
+        wasi_env.owned_handles.push(vfork.handle.clone());
         _prepare_wasi(&mut wasi_env, Some(args), envs);
 
         // Recrod the stack offsets before we give up ownership of the wasi_env
@@ -151,23 +159,25 @@ pub fn proc_exec3<M: MemorySize>(
                                 err_exit_code = conv_spawn_err_to_exit_code(&err);
 
                                 debug!(%child_pid, "process failed with (err={})", err_exit_code);
-                                child_finished.set_finished(Ok(err_exit_code));
-
-                                warn!(
-                                    "failed to execve as the process could not be spawned (vfork) - {}",
-                                    err
-                                );
 
                                 Err(Errno::Noexec)
                             }
                         }
-                    }).unwrap()
+                    })
+                    .unwrap()
                 }
             }
         };
 
         match spawn_result {
-            Err(e) => return Ok(e),
+            Err(e) => {
+                // We failed to spawn a new process - put the vfork back
+                child_env.swap_inner(ctx.data_mut());
+                std::mem::swap(child_env.as_mut(), ctx.data_mut());
+
+                ctx.data_mut().vfork = Some(vfork);
+                return Ok(e);
+            }
             Ok(()) => {
                 // Jump back to the vfork point and current on execution
                 // note: fork does not return any values hence passing `()`
