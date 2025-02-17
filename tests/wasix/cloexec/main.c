@@ -147,7 +147,6 @@ void write_subprocess_output(const char *msg)
 
 int exec_subprocess()
 {
-
     int flags = fcntl(6, F_GETFD);
     if (flags != -1 || errno != EBADF)
     {
