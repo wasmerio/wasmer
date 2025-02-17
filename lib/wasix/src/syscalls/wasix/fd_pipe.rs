@@ -5,6 +5,9 @@ use virtual_fs::Pipe;
 use super::*;
 use crate::syscalls::*;
 
+// Used to make pipe end names unique. This is necessary since we use
+// a hash of the name to calculate inode numbers. The actual number
+// has no other meaning.
 static PIPE_NUMBER: AtomicUsize = AtomicUsize::new(0);
 
 /// ### `fd_pipe()`
@@ -54,7 +57,7 @@ pub fn fd_pipe_internal(
     let (tx, rx) = Pipe::new().split();
 
     // FIXME: since a hash of the inode name is used to calculate the inode number, this may
-    // or may not break journals that include pipes.
+    // or may not break journals that include pipes and are compacted.
     let pipe_no = PIPE_NUMBER.fetch_add(1, Ordering::SeqCst);
 
     let rx_inode = state.fs.create_inode_with_default_stat(

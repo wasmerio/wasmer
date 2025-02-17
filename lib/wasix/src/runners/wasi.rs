@@ -311,14 +311,16 @@ impl WasiRunner {
                 builder.add_journal(journal);
             }
 
-            for trigger in self.wasi.snapshot_on.iter().cloned() {
-                builder.add_snapshot_trigger(trigger);
-            }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+            if !self.wasi.snapshot_on.is_empty() {
+                for trigger in self.wasi.snapshot_on.iter().cloned() {
+                    builder.add_snapshot_trigger(trigger);
+                }
+            } else if !self.wasi.journals.is_empty() {
                 for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
+
             if let Some(period) = self.wasi.snapshot_interval {
                 if self.wasi.journals.is_empty() {
                     return Err(anyhow::format_err!(
@@ -349,41 +351,7 @@ impl WasiRunner {
                         let weak = Arc::downgrade(&err);
                         Arc::into_inner(err).unwrap_or_else(|| {
                             weak.upgrade()
-                                .map(|err| match err.as_ref() {
-                                    WasiRuntimeError::Init(a) => WasiRuntimeError::Init(a.clone()),
-                                    WasiRuntimeError::Export(a) => {
-                                        WasiRuntimeError::Export(a.clone())
-                                    }
-                                    WasiRuntimeError::Instantiation(a) => {
-                                        WasiRuntimeError::Instantiation(a.clone())
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::Exit(a)) => {
-                                        WasiRuntimeError::Wasi(WasiError::Exit(*a))
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::ThreadExit) => {
-                                        WasiRuntimeError::Wasi(WasiError::ThreadExit)
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) => {
-                                        WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::DeepSleep(_)) => {
-                                        WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
-                                            "deep-sleep"
-                                        )))
-                                    }
-                                    WasiRuntimeError::ControlPlane(a) => {
-                                        WasiRuntimeError::ControlPlane(a.clone())
-                                    }
-                                    WasiRuntimeError::Runtime(a) => {
-                                        WasiRuntimeError::Runtime(a.clone())
-                                    }
-                                    WasiRuntimeError::Thread(a) => {
-                                        WasiRuntimeError::Thread(a.clone())
-                                    }
-                                    WasiRuntimeError::Anyhow(a) => {
-                                        WasiRuntimeError::Anyhow(a.clone())
-                                    }
-                                })
+                                .map(|err| wasi_runtime_error_to_owned(&err))
                                 .unwrap_or_else(|| {
                                     WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
                                         "{}", msg
@@ -443,14 +411,16 @@ impl crate::runners::Runner for WasiRunner {
                 builder.add_journal(journal);
             }
 
-            for trigger in self.wasi.snapshot_on.iter().cloned() {
-                builder.add_snapshot_trigger(trigger);
-            }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+            if !self.wasi.snapshot_on.is_empty() {
+                for trigger in self.wasi.snapshot_on.iter().cloned() {
+                    builder.add_snapshot_trigger(trigger);
+                }
+            } else if !self.wasi.journals.is_empty() {
                 for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
+
             if let Some(period) = self.wasi.snapshot_interval {
                 if self.wasi.journals.is_empty() {
                     return Err(anyhow::format_err!(
@@ -485,41 +455,7 @@ impl crate::runners::Runner for WasiRunner {
                         let weak = Arc::downgrade(&err);
                         Arc::into_inner(err).unwrap_or_else(|| {
                             weak.upgrade()
-                                .map(|err| match err.as_ref() {
-                                    WasiRuntimeError::Init(a) => WasiRuntimeError::Init(a.clone()),
-                                    WasiRuntimeError::Export(a) => {
-                                        WasiRuntimeError::Export(a.clone())
-                                    }
-                                    WasiRuntimeError::Instantiation(a) => {
-                                        WasiRuntimeError::Instantiation(a.clone())
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::Exit(a)) => {
-                                        WasiRuntimeError::Wasi(WasiError::Exit(*a))
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::ThreadExit) => {
-                                        WasiRuntimeError::Wasi(WasiError::ThreadExit)
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) => {
-                                        WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::DeepSleep(_)) => {
-                                        WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
-                                            "deep-sleep"
-                                        )))
-                                    }
-                                    WasiRuntimeError::ControlPlane(a) => {
-                                        WasiRuntimeError::ControlPlane(a.clone())
-                                    }
-                                    WasiRuntimeError::Runtime(a) => {
-                                        WasiRuntimeError::Runtime(a.clone())
-                                    }
-                                    WasiRuntimeError::Thread(a) => {
-                                        WasiRuntimeError::Thread(a.clone())
-                                    }
-                                    WasiRuntimeError::Anyhow(a) => {
-                                        WasiRuntimeError::Anyhow(a.clone())
-                                    }
-                                })
+                                .map(|err| wasi_runtime_error_to_owned(&err))
                                 .unwrap_or_else(|| {
                                     WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
                                         "{}", msg
@@ -537,6 +473,28 @@ impl crate::runners::Runner for WasiRunner {
         } else {
             Err(WasiRuntimeError::Wasi(crate::WasiError::Exit(exit_code)).into())
         }
+    }
+}
+
+fn wasi_runtime_error_to_owned(err: &WasiRuntimeError) -> WasiRuntimeError {
+    match err {
+        WasiRuntimeError::Init(a) => WasiRuntimeError::Init(a.clone()),
+        WasiRuntimeError::Export(a) => WasiRuntimeError::Export(a.clone()),
+        WasiRuntimeError::Instantiation(a) => WasiRuntimeError::Instantiation(a.clone()),
+        WasiRuntimeError::Wasi(WasiError::Exit(a)) => WasiRuntimeError::Wasi(WasiError::Exit(*a)),
+        WasiRuntimeError::Wasi(WasiError::ThreadExit) => {
+            WasiRuntimeError::Wasi(WasiError::ThreadExit)
+        }
+        WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) => {
+            WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
+        }
+        WasiRuntimeError::Wasi(WasiError::DeepSleep(_)) => {
+            WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!("deep-sleep")))
+        }
+        WasiRuntimeError::ControlPlane(a) => WasiRuntimeError::ControlPlane(a.clone()),
+        WasiRuntimeError::Runtime(a) => WasiRuntimeError::Runtime(a.clone()),
+        WasiRuntimeError::Thread(a) => WasiRuntimeError::Thread(a.clone()),
+        WasiRuntimeError::Anyhow(a) => WasiRuntimeError::Anyhow(a.clone()),
     }
 }
 
