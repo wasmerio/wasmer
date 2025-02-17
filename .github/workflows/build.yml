@@ -44,7 +44,7 @@ jobs:
       matrix:
         include:
           - build: linux-arm64
-            os: arm64-ubuntu-latest-8-cores
+            os: ubuntu-22.04-arm
             artifact_name: 'wasmer-linux-aarch64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
@@ -118,7 +118,7 @@ jobs:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static
+          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2
           ln -s /usr/bin/clang-18 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
@@ -128,10 +128,10 @@ jobs:
         if: startsWith(matrix.build, 'linux-arm64')
         run: |
           sudo apt install mold ninja-build llvm-18-dev libclang-18-dev clang-18 cmake make libpolly-18-dev libzstd1 zstd libzstd-dev
-      - name: Install Linux musl tools
-        if: startsWith(matrix.build, 'linux-musl')
-        run: |
-          apk add mold cmake ninja bash curl make llvm18 llvm18-dev clang18 lld clang18-static
+          #      - name: Install Linux musl tools
+          #        if: startsWith(matrix.build, 'linux-musl')
+          #        run: |
+          #          apk add mold cmake ninja bash curl make llvm18 llvm18-dev clang18 lld clang18-static
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
