@@ -46,6 +46,7 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: 'wasmer-linux-aarch64'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
             build_wasm: true
@@ -127,11 +128,7 @@ jobs:
       - name: Install Linux ARM tools
         if: startsWith(matrix.build, 'linux-arm64')
         run: |
-          sudo apt install mold ninja-build llvm-18-dev libclang-18-dev clang-18 cmake make libpolly-18-dev libzstd1 zstd libzstd-dev
-          #      - name: Install Linux musl tools
-          #        if: startsWith(matrix.build, 'linux-musl')
-          #        run: |
-          #          apk add mold cmake ninja bash curl make llvm18 llvm18-dev clang18 lld clang18-static
+          sudo apt install mold ninja-build cmake make libzstd1 zstd libzstd-dev
       - name: Install `ninja` on macOS
         if: startsWith(matrix.build, 'macos-')
         shell: bash
