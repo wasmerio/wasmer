@@ -17,7 +17,7 @@ static PIPE_NUMBER: AtomicUsize = AtomicUsize::new(0);
 ///     First file handle that represents the read end of the pipe
 /// - `Fd`
 ///     Second file handle that represents the write end of the pipe
-#[instrument(level = "trace", skip_all, fields(fd1 = field::Empty, fd2 = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(read_fd = field::Empty, write_fd = field::Empty), ret)]
 pub fn fd_pipe<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ro_read_fd: WasmPtr<WasiFd, M>,

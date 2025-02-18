@@ -23,6 +23,14 @@ pub fn proc_exit<M: MemorySize>(
             "proc_exit from vfork, returning control to parent process"
         );
 
+        // Prepare the child env for teardown by closing its FDs
+        InlineWaker::block_on(
+            unsafe { ctx.data().get_memory_and_wasi_state(&ctx, 0) }
+                .1
+                .fs
+                .close_all(),
+        );
+
         // Restore the WasiEnv to the point when we vforked
         vfork.env.swap_inner(ctx.data_mut());
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());

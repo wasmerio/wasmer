@@ -15,6 +15,7 @@ use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
 use tracing::*;
+use virtual_mio::InlineWaker;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
 
@@ -377,20 +378,35 @@ fn resume_vfork(
     start: &Function,
     call_ret: &Result<Box<[Value]>, RuntimeError>,
 ) -> Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno> {
-    let code = match call_ret {
-        Ok(_) => wasmer_wasix_types::wasi::ExitCode::from(0u16),
+    let (err, code) = match call_ret {
+        Ok(_) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
         Err(err) => match err.downcast_ref::<WasiError>() {
             // If the child process is just deep sleeping, we don't restore the vfork
             Some(WasiError::DeepSleep(..)) => return Ok(None),
 
-            Some(WasiError::Exit(code)) => *code,
-            Some(WasiError::ThreadExit) => wasmer_wasix_types::wasi::ExitCode::from(0u16),
-            Some(WasiError::UnknownWasiVersion) => Errno::Noexec.into(),
-            None => Errno::Unknown.into(),
+            Some(WasiError::Exit(code)) => (None, *code),
+            Some(WasiError::ThreadExit) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
+            Some(WasiError::UnknownWasiVersion) => (None, Errno::Noexec.into()),
+            None => (
+                Some(WasiRuntimeError::from(err.clone())),
+                Errno::Unknown.into(),
+            ),
         },
     };
 
     if let Some(mut vfork) = ctx.data_mut(store).vfork.take() {
+        if let Some(err) = err {
+            error!(%err, "Error from child process");
+            eprintln!("{err}");
+        }
+
+        InlineWaker::block_on(
+            unsafe { ctx.data(store).get_memory_and_wasi_state(store, 0) }
+                .1
+                .fs
+                .close_all(),
+        );
+
         tracing::debug!(
             pid = %ctx.data_mut(store).process.pid(),
             vfork_pid = %vfork.env.process.pid(),
