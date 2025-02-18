@@ -18,7 +18,7 @@ pub struct Output {
     /// The format to use when generating logs.
     #[clap(long, global = true, env, default_value = "text")]
     pub log_format: LogFormat,
-    /// The format to use when generating logs.
+    /// Which span events to log.
     #[clap(long, global = true, env, default_value = "close")]
     pub log_events: LogEvents,
     /// When to display colored output.
@@ -136,7 +136,7 @@ pub enum LogFormat {
     Json,
 }
 
-/// The format used when generating logs.
+/// Which span events to log.
 #[derive(Debug, Default, Copy, Clone, PartialEq, clap::ValueEnum)]
 pub enum LogEvents {
     // Only log at the start of a new span.
