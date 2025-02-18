@@ -7,6 +7,7 @@ on:
       - 'with-ci-.*'
       - 'v3.0.x'
       - 'v3.1.x'
+      - 2025-02/update-integration-tests
   pull_request:
   workflow_dispatch:
     inputs:
