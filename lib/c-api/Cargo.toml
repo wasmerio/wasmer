@@ -31,9 +31,9 @@ wasmer-compiler-llvm = { version = "=6.0.0-alpha.1", path = "../compiler-llvm", 
 wasmer-compiler-singlepass = { version = "=6.0.0-alpha.1", path = "../compiler-singlepass", optional = true }
 wasmer-middlewares = { version = "=6.0.0-alpha.1", path = "../middlewares", optional = true }
 wasmer-types = { version = "=6.0.0-alpha.1", path = "../types" }
-wasmer-wasix = { path = "../wasix", version="=0.35.0", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-wasix = { path = "../wasix", version="=0.36.0", features = ["host-fs", "host-vnet"], optional = true }
 webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.21.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
+virtual-fs = { version = "0.22.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
 cfg-if = "1.0"
 libc.workspace = true
