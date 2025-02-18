@@ -55,15 +55,15 @@ derive_more = { version = "1.0.0", features = ["from", "debug"] }
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=5.0.5-rc1" }
-wasmer-compiler = { path = "../compiler", version = "=5.0.5-rc1" }
-wasmer-derive = { path = "../derive", version = "=5.0.5-rc1" }
-wasmer-types = { path = "../types", version = "=5.0.5-rc1" }
+wasmer-vm = { path = "../vm", version = "=6.0.0-alpha.1" }
+wasmer-compiler = { path = "../compiler", version = "=6.0.0-alpha.1" }
+wasmer-derive = { path = "../derive", version = "=6.0.0-alpha.1" }
+wasmer-types = { path = "../types", version = "=6.0.0-alpha.1" }
 target-lexicon = { version = "0.12.2", default-features = false }
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=5.0.5-rc1", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=5.0.5-rc1", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=5.0.5-rc1", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.0.0-alpha.1", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=6.0.0-alpha.1", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=6.0.0-alpha.1", optional = true }
 
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
@@ -78,17 +78,17 @@ windows-sys = "0.59"
 wat = "1.0"
 tempfile = "3.6.0"
 anyhow = "1.0"
-macro-wasmer-universal-test = { version = "5.0.5-rc1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "6.0.0-alpha.1", path = "./macro-wasmer-universal-test" }
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=5.0.5-rc1", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=6.0.0-alpha.1", default-features = false, features = [
 	"std",
 ] }
 wasm-bindgen = "0.2.74"
 js-sys = "0.3.51"
-wasmer-derive = { path = "../derive", version = "=5.0.5-rc1" }
+wasmer-derive = { path = "../derive", version = "=6.0.0-alpha.1" }
 # - Optional dependencies for `js`.
 wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
@@ -101,7 +101,7 @@ target-lexicon = { workspace = true }
 wat = "1.0"
 anyhow = "1.0"
 wasm-bindgen-test = "0.3.0"
-macro-wasmer-universal-test = { version = "5.0.5-rc1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "6.0.0-alpha.1", path = "./macro-wasmer-universal-test" }
 
 # Specific to `js`.
 #
