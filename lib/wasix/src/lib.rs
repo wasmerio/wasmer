@@ -323,8 +323,6 @@ pub(crate) fn run_wasi_func_start(
 pub struct WasiVFork {
     /// The unwound stack before the vfork occured
     pub rewind_stack: BytesMut,
-    /// The memory stack before the vfork occured
-    pub memory_stack: BytesMut,
     /// The mutable parts of the store
     pub store_data: Bytes,
     /// The environment before the vfork occured
@@ -333,16 +331,18 @@ pub struct WasiVFork {
     /// Handle of the thread we have forked (dropping this handle
     /// will signal that the thread is dead)
     pub handle: WasiThreadHandle,
+
+    is_64bit: bool,
 }
 
 impl Clone for WasiVFork {
     fn clone(&self) -> Self {
         Self {
             rewind_stack: self.rewind_stack.clone(),
-            memory_stack: self.memory_stack.clone(),
             store_data: self.store_data.clone(),
             env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
+            is_64bit: self.is_64bit,
         }
     }
 }
@@ -551,6 +551,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal::<Memory32>),
         "proc_exec" => Function::new_typed_with_env(&mut store, env, proc_exec::<Memory32>),
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory32>),
+        "proc_exec3" => Function::new_typed_with_env(&mut store, env, proc_exec3::<Memory32>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
         "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory32>),
@@ -679,6 +680,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal::<Memory64>),
         "proc_exec" => Function::new_typed_with_env(&mut store, env, proc_exec::<Memory64>),
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory64>),
+        "proc_exec3" => Function::new_typed_with_env(&mut store, env, proc_exec3::<Memory64>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
         "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory64>),

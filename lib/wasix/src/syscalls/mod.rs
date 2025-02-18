@@ -557,7 +557,7 @@ where
 /// synchronous IO engine
 pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
-    timeout: Option<Duration>,
+    _timeout: Option<Duration>,
     work: Fut,
 ) -> WasiResult<T>
 where
@@ -565,37 +565,6 @@ where
     Fut: Future<Output = Result<T, Errno>>,
 {
     let snapshot_wait = wait_for_snapshot(env);
-
-    // This poller will process any signals when the main working function is idle
-    struct Poller<'a, Fut, T>
-    where
-        Fut: Future<Output = Result<T, Errno>>,
-    {
-        env: &'a WasiEnv,
-        pinned_work: Pin<Box<Fut>>,
-        pinned_snapshot: Pin<Box<dyn Future<Output = ()>>>,
-    }
-    impl<'a, Fut, T> Future for Poller<'a, Fut, T>
-    where
-        Fut: Future<Output = Result<T, Errno>>,
-    {
-        type Output = Result<Fut::Output, WasiError>;
-        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
-                return Poll::Ready(Ok(res));
-            }
-            if let Poll::Ready(()) = Pin::new(&mut self.pinned_snapshot).poll(cx) {
-                return Poll::Ready(Ok(Err(Errno::Intr)));
-            }
-            if let Some(exit_code) = self.env.should_exit() {
-                return Poll::Ready(Err(WasiError::Exit(exit_code)));
-            }
-            if self.env.thread.has_signals_or_subscribe(cx.waker()) {
-                return Poll::Ready(Ok(Err(Errno::Intr)));
-            }
-            Poll::Pending
-        }
-    }
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
@@ -1259,7 +1228,7 @@ where
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    memory_stack: Bytes,
+    memory_stack: Option<Bytes>,
     rewind_stack: Bytes,
     store_data: Bytes,
     result: T,
@@ -1270,7 +1239,7 @@ where
     let rewind_result = bincode::serialize(&result).unwrap().into();
     rewind_ext::<M>(
         &mut ctx,
-        Some(memory_stack),
+        memory_stack,
         rewind_stack,
         store_data,
         RewindResultType::RewindWithResult(rewind_result),

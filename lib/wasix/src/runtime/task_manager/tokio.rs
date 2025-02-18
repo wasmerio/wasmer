@@ -1,11 +1,13 @@
 use std::sync::Mutex;
 use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
-use crate::runtime::SpawnMemoryType;
-use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 use futures::{future::BoxFuture, Future};
 use tokio::runtime::{Handle, Runtime};
+use virtual_mio::InlineWaker;
 use wasmer::AsStoreMut;
+
+use crate::runtime::SpawnMemoryType;
+use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
 use super::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
@@ -150,6 +152,7 @@ impl VirtualTaskManager for TokioTaskManager {
         let run = task.run;
         let recycle = task.recycle;
         let env = task.env;
+        let pre_run = task.pre_run;
 
         let make_memory: SpawnMemoryTypeOrStore = match task.spawn_type {
             SpawnMemoryType::CreateMemory => SpawnMemoryTypeOrStore::New,
@@ -192,7 +195,7 @@ impl VirtualTaskManager for TokioTaskManager {
             // pool's one), and let it fail for runtimes that don't support entities created in a
             // thread that's not the one in which execution happens in; this until we can clone
             // stores.
-            let (ctx, mut store) = WasiFunctionEnv::new_with_store(
+            let (mut ctx, mut store) = WasiFunctionEnv::new_with_store(
                 task.module,
                 env,
                 task.globals,
@@ -232,6 +235,10 @@ impl VirtualTaskManager for TokioTaskManager {
                     };
                 };
 
+                if let Some(pre_run) = pre_run {
+                    pre_run(&mut ctx, &mut store).await;
+                }
+
                 // Build the task that will go on the callback
                 pool.execute(move || {
                     // Invoke the callback
@@ -249,7 +256,7 @@ impl VirtualTaskManager for TokioTaskManager {
             // Run the callback on a dedicated thread
             self.pool.execute(move || {
                 tracing::trace!("task_wasm started in blocking thread");
-                let (ctx, store) = WasiFunctionEnv::new_with_store(
+                let (mut ctx, mut store) = WasiFunctionEnv::new_with_store(
                     task.module,
                     env,
                     task.globals,
@@ -257,6 +264,10 @@ impl VirtualTaskManager for TokioTaskManager {
                     task.update_layout,
                 )
                 .unwrap();
+                if let Some(pre_run) = pre_run {
+                    InlineWaker::block_on(pre_run(&mut ctx, &mut store));
+                }
+
                 // Invoke the callback
                 run(TaskWasmRunProperties {
                     ctx,
