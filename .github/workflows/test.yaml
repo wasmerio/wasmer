@@ -1086,32 +1086,10 @@ jobs:
           #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-  # there is another set of integration tests in 'wasmer-integration-tests' repo. Run those
   test-wasmer-integration-tests:
     needs: [build]
-    runs-on: ubuntu-22.04
-    steps:
-    - name: Checkout wasmer-integration-tests repository
-      uses: actions/checkout@v3
-      with:
-        repository: wasmerio/wasmer-integration-tests
-        submodules: true
-        token: ${{ secrets.CLONE_WASMER_INTEGRATION_TESTS }}
-    - uses: actions/download-artifact@v4
-      with:
-        name: wasmer-cli-linux-x64 
-    - uses: wasmerio/setup-wasmer@v2
-    - uses: denoland/setup-deno@v1
-    - run: |
-        tar -xzf build-wasmer.tar.gz
-        cp ./bin/wasmer ~/.wasmer/bin/wasmer 
-    - name: test
-      env:
-        WASMER_REGISTRY: https://registry.wasmer.wtf/graphql
-        WASMER_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-      run: deno test --allow-all --parallel  
-    - name: notify failure in slack
-      if: failure()
-      run: |
-        curl -X POST -H 'Content-type: application/json' --data '{"text":"Integration tests failed ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' ${{ secrets.INTEGRATION_TEST_SLACK_WEBHOOK }}
+    uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
+    with:
+      fetch_artifact: "wasmer-cli-linux-x64"
+    secrets: inherit
+      
