@@ -6,6 +6,7 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
+## **Unreleased**
 
 ## 5.0.5-rc1 - 03/01/2025
 Fixed an error in `wasmer create-exe` that prevented the correct execution and various improvements to the FS in WASIX. 
