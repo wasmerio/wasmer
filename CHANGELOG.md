@@ -10,6 +10,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 6.0.0-alpha.1 - 18/02/2025
 
+This alpha release adds support for multiple heterogeneous backends to be
+enabled at the same time. For example, the `llvm`,  `v8` and `wamr` backends
+can be enabled in a single binary release. Furthermore, this release adds
+initial support for the exception handling proposal on linux-x64, linux-aarch64
+and macOS through LLVM. This release also contains improvements to process
+spawning in WASIX.
+
 ## Added
 
   - [#5396](https://github.com/wasmerio/wasmer/pull/5396) CI: Disable V8 for linux-aarch64, bump ubuntu version for linux-x64 and add search paths for linux-musl
