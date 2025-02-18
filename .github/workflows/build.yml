@@ -16,7 +16,6 @@ on:
     inputs:
       release:
           description: 'Make release'
-  pull_request:
 
 jobs:
   setup:
