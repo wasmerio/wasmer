@@ -980,12 +980,6 @@
 <a href="#980" id="980">980</a>
 <a href="#981" id="981">981</a>
 <a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1164,7 +1158,7 @@
                     module,
                     module_hash,
                     path,
-                } =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>module, module_hash, runtime.clone()),
+                } =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>path, module, module_hash, runtime.clone()),
                 ExecutableTarget::Package(pkg) =&gt; <span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>pkg, runtime.clone()),
             }
         };
@@ -1187,14 +1181,14 @@
     </span><span class="kw">fn </span>execute_wasm(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         path: <span class="kw-2">&amp;</span>Path,
-        module: <span class="kw-2">&amp;</span>Module,
+        module: Module,
         module_hash: ModuleHash,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">if </span>wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
+        <span class="kw">if </span>wasmer_wasix::is_wasi_module(<span class="kw-2">&amp;</span>module) || wasmer_wasix::is_wasix_module(<span class="kw-2">&amp;</span>module) {
             <span class="self">self</span>.execute_wasi_module(path, module, module_hash, runtime)
         } <span class="kw">else </span>{
-            <span class="self">self</span>.execute_pure_wasm_module(module)
+            <span class="self">self</span>.execute_pure_wasm_module(<span class="kw-2">&amp;</span>module)
         }
     }
 
@@ -1433,20 +1427,14 @@
     </span><span class="kw">fn </span>execute_wasi_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         wasm_path: <span class="kw-2">&amp;</span>Path,
-        module: <span class="kw-2">&amp;</span>Module,
+        module: Module,
         module_hash: ModuleHash,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>program_name = wasm_path.display().to_string();
 
         <span class="kw">let </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
-        runner.run_wasm(
-            runtime,
-            <span class="kw-2">&amp;</span>program_name,
-            module,
-            module_hash,
-            <span class="self">self</span>.wasi.enable_async_threads,
-        )
+        runner.run_wasm(runtime, <span class="kw-2">&amp;</span>program_name, module)
     }
 
     <span class="attr">#[allow(unused_variables)]

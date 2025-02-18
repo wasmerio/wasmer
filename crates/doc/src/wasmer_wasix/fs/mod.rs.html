@@ -2329,6 +2329,16 @@
 <a href="#2329" id="2329">2329</a>
 <a href="#2330" id="2330">2330</a>
 <a href="#2331" id="2331">2331</a>
+<a href="#2332" id="2332">2332</a>
+<a href="#2333" id="2333">2333</a>
+<a href="#2334" id="2334">2334</a>
+<a href="#2335" id="2335">2335</a>
+<a href="#2336" id="2336">2336</a>
+<a href="#2337" id="2337">2337</a>
+<a href="#2338" id="2338">2338</a>
+<a href="#2339" id="2339">2339</a>
+<a href="#2340" id="2340">2340</a>
+<a href="#2341" id="2341">2341</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
@@ -2481,11 +2491,14 @@
     }
 
     <span class="kw">pub fn </span>acquire_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.open_handles.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
+        <span class="kw">let </span>prev_handles = <span class="self">self</span>.open_handles.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
+        <span class="macro">trace!</span>(ino = %<span class="self">self</span>.ino.<span class="number">0</span>, new_count = %(prev_handles + <span class="number">1</span>), <span class="string">"acquiring handle for InodeGuard"</span>);
     }
 
     <span class="kw">pub fn </span>drop_one_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>prev_handles = <span class="self">self</span>.open_handles.fetch_sub(<span class="number">1</span>, Ordering::SeqCst);
+
+        <span class="macro">trace!</span>(ino = %<span class="self">self</span>.ino.<span class="number">0</span>, %prev_handles, <span class="string">"dropping handle for InodeGuard"</span>);
 
         <span class="comment">// If this wasn't the last handle, nothing else to do...
         </span><span class="kw">if </span>prev_handles &gt; <span class="number">1 </span>{
@@ -2517,8 +2530,14 @@
                 <span class="macro">trace!</span>(%file_ref_count, %ino, <span class="string">"dropping file handle"</span>);
                 drop(handle.take().unwrap());
             }
-            Kind::PipeRx { rx } =&gt; rx.close(),
-            Kind::PipeTx { tx } =&gt; tx.close(),
+            Kind::PipeRx { rx } =&gt; {
+                <span class="macro">trace!</span>(%ino, <span class="string">"closing pipe rx"</span>);
+                rx.close();
+            }
+            Kind::PipeTx { tx } =&gt; {
+                <span class="macro">trace!</span>(%ino, <span class="string">"closing pipe tx"</span>);
+                tx.close();
+            }
             <span class="kw">_ </span>=&gt; (),
         }
     }
@@ -2902,6 +2921,7 @@
                             &amp;&amp; !v.is_stdio
                             &amp;&amp; !v.inode.is_preopened
                         {
+                            <span class="macro">tracing::trace!</span>(fd = %k, <span class="string">"Closing FD due to CLOEXEC flag"</span>);
                             <span class="prelude-val">Some</span>(k)
                         } <span class="kw">else </span>{
                             <span class="prelude-val">None

@@ -267,11 +267,6 @@
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 <span class="kw">use </span>wasmer_wasix_types::wasi::ProcessHandles;
 
@@ -408,11 +403,6 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notsup));
         }
     }
-
-    __asyncify_light(ctx.data(), <span class="prelude-val">None</span>, <span class="kw">async </span>{
-        ctx.data().state.fs.close_cloexec_fds().<span class="kw">await</span>;
-        <span class="prelude-val">Ok</span>(())
-    });
 
     <span class="comment">// Change the current directory
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(working_dir) = working_dir {

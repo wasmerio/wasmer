@@ -1513,37 +1513,6 @@
 <a href="#1513" id="1513">1513</a>
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
-<a href="#1516" id="1516">1516</a>
-<a href="#1517" id="1517">1517</a>
-<a href="#1518" id="1518">1518</a>
-<a href="#1519" id="1519">1519</a>
-<a href="#1520" id="1520">1520</a>
-<a href="#1521" id="1521">1521</a>
-<a href="#1522" id="1522">1522</a>
-<a href="#1523" id="1523">1523</a>
-<a href="#1524" id="1524">1524</a>
-<a href="#1525" id="1525">1525</a>
-<a href="#1526" id="1526">1526</a>
-<a href="#1527" id="1527">1527</a>
-<a href="#1528" id="1528">1528</a>
-<a href="#1529" id="1529">1529</a>
-<a href="#1530" id="1530">1530</a>
-<a href="#1531" id="1531">1531</a>
-<a href="#1532" id="1532">1532</a>
-<a href="#1533" id="1533">1533</a>
-<a href="#1534" id="1534">1534</a>
-<a href="#1535" id="1535">1535</a>
-<a href="#1536" id="1536">1536</a>
-<a href="#1537" id="1537">1537</a>
-<a href="#1538" id="1538">1538</a>
-<a href="#1539" id="1539">1539</a>
-<a href="#1540" id="1540">1540</a>
-<a href="#1541" id="1541">1541</a>
-<a href="#1542" id="1542">1542</a>
-<a href="#1543" id="1543">1543</a>
-<a href="#1544" id="1544">1544</a>
-<a href="#1545" id="1545">1545</a>
-<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -2103,7 +2072,7 @@
 /// synchronous IO engine
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__asyncify_light&lt;T, Fut&gt;(
     env: <span class="kw-2">&amp;</span>WasiEnv,
-    timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    _timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     work: Fut,
 ) -&gt; WasiResult&lt;T&gt;
 <span class="kw">where
@@ -2111,37 +2080,6 @@
     Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
 {
     <span class="kw">let </span>snapshot_wait = wait_for_snapshot(env);
-
-    <span class="comment">// This poller will process any signals when the main working function is idle
-    </span><span class="kw">struct </span>Poller&lt;<span class="lifetime">'a</span>, Fut, T&gt;
-    <span class="kw">where
-        </span>Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
-    {
-        env: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasiEnv,
-        pinned_work: Pin&lt;Box&lt;Fut&gt;&gt;,
-        pinned_snapshot: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt;&gt;&gt;,
-    }
-    <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Fut, T&gt; Future <span class="kw">for </span>Poller&lt;<span class="lifetime">'a</span>, Fut, T&gt;
-    <span class="kw">where
-        </span>Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
-    {
-        <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Fut::Output, WasiError&gt;;
-        <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-            <span class="kw">if let </span>Poll::Ready(res) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.pinned_work).poll(cx) {
-                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(res));
-            }
-            <span class="kw">if let </span>Poll::Ready(()) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.pinned_snapshot).poll(cx) {
-                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Intr)));
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = <span class="self">self</span>.env.should_exit() {
-                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(exit_code)));
-            }
-            <span class="kw">if </span><span class="self">self</span>.env.thread.has_signals_or_subscribe(cx.waker()) {
-                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Intr)));
-            }
-            Poll::Pending
-        }
-    }
 
     <span class="comment">// Block until the work is finished or until we
     // unload the thread using asyncify
@@ -2805,7 +2743,7 @@
 </span><span class="attr">#[must_use = <span class="string">"the action must be passed to the call loop"</span>]
 </span><span class="kw">pub fn </span>rewind&lt;M: MemorySize, T&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
-    memory_stack: Bytes,
+    memory_stack: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
     rewind_stack: Bytes,
     store_data: Bytes,
     result: T,
@@ -2816,7 +2754,7 @@
     <span class="kw">let </span>rewind_result = bincode::serialize(<span class="kw-2">&amp;</span>result).unwrap().into();
     rewind_ext::&lt;M&gt;(
         <span class="kw-2">&amp;mut </span>ctx,
-        <span class="prelude-val">Some</span>(memory_stack),
+        memory_stack,
         rewind_stack,
         store_data,
         RewindResultType::RewindWithResult(rewind_result),

@@ -566,6 +566,43 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -584,7 +621,6 @@
     runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
-<span class="kw">use </span>wasmer_types::ModuleHash;
 
 <span class="kw">use </span><span class="kw">super</span>::wasi_common::{MappedCommand, MAPPED_CURRENT_DIR_DEFAULT_PATH};
 
@@ -862,14 +898,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         program_name: <span class="kw-2">&amp;</span>str,
-        module: <span class="kw-2">&amp;</span>Module,
-        module_hash: ModuleHash,
-        asyncify: bool,
+        module: Module,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>wasi = webc::metadata::annotations::Wasi::new(program_name);
-        <span class="kw">let </span><span class="kw-2">mut </span>store = runtime.new_store();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self</span>.prepare_webc_env(program_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>, runtime, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>builder =
+            <span class="self">self</span>.prepare_webc_env(program_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>, runtime.clone(), <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 
         <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
         </span>{
@@ -878,14 +912,20 @@
 
         <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
-            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
-                builder.add_snapshot_trigger(trigger);
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.journals.clone() {
+                builder.add_journal(journal);
             }
-            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.journals.is_empty() {
+
+            <span class="kw">if </span>!<span class="self">self</span>.wasi.snapshot_on.is_empty() {
+                <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
+                    builder.add_snapshot_trigger(trigger);
+                }
+            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.journals.is_empty() {
                 <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
+
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
                 <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
@@ -896,13 +936,44 @@
             }
         }
 
-        <span class="kw">if </span>asyncify {
-            builder.run_with_store_async(module.clone(), module_hash, store)<span class="question-mark">?</span>;
-        } <span class="kw">else </span>{
-            builder.run_with_store_ext(module.clone(), module_hash, <span class="kw-2">&amp;mut </span>store)<span class="question-mark">?</span>;
-        }
+        <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
+        <span class="kw">let </span>tasks = runtime.task_manager().clone();
 
-        <span class="prelude-val">Ok</span>(())
+        <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
+            <span class="kw">async move </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>task_handle = <span class="kw">crate</span>::bin_factory::spawn_exec_module(module, env, <span class="kw-2">&amp;</span>runtime)
+                    .context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
+
+                <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
+                </span>task_handle.install_ctrlc_handler();
+
+                task_handle
+                    .wait_finished()
+                    .<span class="kw">await
+                    </span>.map_err(|err| {
+                        <span class="comment">// We do our best to recover the error
+                        </span><span class="kw">let </span>msg = err.to_string();
+                        <span class="kw">let </span>weak = Arc::downgrade(<span class="kw-2">&amp;</span>err);
+                        Arc::into_inner(err).unwrap_or_else(|| {
+                            weak.upgrade()
+                                .map(|err| wasi_runtime_error_to_owned(<span class="kw-2">&amp;</span>err))
+                                .unwrap_or_else(|| {
+                                    WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
+                                        <span class="string">"{}"</span>, msg
+                                    )))
+                                })
+                        })
+                    })
+                    .context(<span class="string">"Unable to wait for the process to exit"</span>)
+            }
+            .in_current_span(),
+        )<span class="question-mark">??</span>;
+
+        <span class="kw">if </span>exit_code.raw() == <span class="number">0 </span>{
+            <span class="prelude-val">Ok</span>(())
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(WasiRuntimeError::Wasi(<span class="kw">crate</span>::WasiError::Exit(exit_code)).into())
+        }
     }
 }
 
@@ -935,22 +1006,37 @@
         };
 
         <span class="attr">#[allow(unused_mut)]
-        </span><span class="kw">let </span><span class="kw-2">mut </span>env = <span class="self">self
+        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self
             </span>.prepare_webc_env(exec_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">Some</span>(pkg), Arc::clone(<span class="kw-2">&amp;</span>runtime), <span class="prelude-val">None</span>)
             .context(<span class="string">"Unable to prepare the WASI environment"</span>)<span class="question-mark">?</span>;
 
         <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
             <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.journals.clone() {
-                env.add_journal(journal);
+                builder.add_journal(journal);
             }
 
-            <span class="kw">for </span>snapshot_trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
-                env.add_snapshot_trigger(snapshot_trigger);
+            <span class="kw">if </span>!<span class="self">self</span>.wasi.snapshot_on.is_empty() {
+                <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
+                    builder.add_snapshot_trigger(trigger);
+                }
+            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.journals.is_empty() {
+                <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+                    builder.add_snapshot_trigger(on);
+                }
+            }
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
+                <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+                            <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
+                        </span>));
+                }
+                builder.with_snapshot_interval(period);
             }
         }
 
-        <span class="kw">let </span>env = env.build()<span class="question-mark">?</span>;
+        <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
         <span class="kw">let </span>command_name = command_name.to_string();
         <span class="kw">let </span>tasks = runtime.task_manager().clone();
         <span class="kw">let </span>pkg = pkg.clone();
@@ -974,41 +1060,7 @@
                         <span class="kw">let </span>weak = Arc::downgrade(<span class="kw-2">&amp;</span>err);
                         Arc::into_inner(err).unwrap_or_else(|| {
                             weak.upgrade()
-                                .map(|err| <span class="kw">match </span>err.as_ref() {
-                                    WasiRuntimeError::Init(a) =&gt; WasiRuntimeError::Init(a.clone()),
-                                    WasiRuntimeError::Export(a) =&gt; {
-                                        WasiRuntimeError::Export(a.clone())
-                                    }
-                                    WasiRuntimeError::Instantiation(a) =&gt; {
-                                        WasiRuntimeError::Instantiation(a.clone())
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::Exit(a)) =&gt; {
-                                        WasiRuntimeError::Wasi(WasiError::Exit(<span class="kw-2">*</span>a))
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::ThreadExit) =&gt; {
-                                        WasiRuntimeError::Wasi(WasiError::ThreadExit)
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) =&gt; {
-                                        WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
-                                    }
-                                    WasiRuntimeError::Wasi(WasiError::DeepSleep(<span class="kw">_</span>)) =&gt; {
-                                        WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
-                                            <span class="string">"deep-sleep"
-                                        </span>)))
-                                    }
-                                    WasiRuntimeError::ControlPlane(a) =&gt; {
-                                        WasiRuntimeError::ControlPlane(a.clone())
-                                    }
-                                    WasiRuntimeError::Runtime(a) =&gt; {
-                                        WasiRuntimeError::Runtime(a.clone())
-                                    }
-                                    WasiRuntimeError::Thread(a) =&gt; {
-                                        WasiRuntimeError::Thread(a.clone())
-                                    }
-                                    WasiRuntimeError::Anyhow(a) =&gt; {
-                                        WasiRuntimeError::Anyhow(a.clone())
-                                    }
-                                })
+                                .map(|err| wasi_runtime_error_to_owned(<span class="kw-2">&amp;</span>err))
                                 .unwrap_or_else(|| {
                                     WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
                                         <span class="string">"{}"</span>, msg
@@ -1026,6 +1078,28 @@
         } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(WasiRuntimeError::Wasi(<span class="kw">crate</span>::WasiError::Exit(exit_code)).into())
         }
+    }
+}
+
+<span class="kw">fn </span>wasi_runtime_error_to_owned(err: <span class="kw-2">&amp;</span>WasiRuntimeError) -&gt; WasiRuntimeError {
+    <span class="kw">match </span>err {
+        WasiRuntimeError::Init(a) =&gt; WasiRuntimeError::Init(a.clone()),
+        WasiRuntimeError::Export(a) =&gt; WasiRuntimeError::Export(a.clone()),
+        WasiRuntimeError::Instantiation(a) =&gt; WasiRuntimeError::Instantiation(a.clone()),
+        WasiRuntimeError::Wasi(WasiError::Exit(a)) =&gt; WasiRuntimeError::Wasi(WasiError::Exit(<span class="kw-2">*</span>a)),
+        WasiRuntimeError::Wasi(WasiError::ThreadExit) =&gt; {
+            WasiRuntimeError::Wasi(WasiError::ThreadExit)
+        }
+        WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) =&gt; {
+            WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
+        }
+        WasiRuntimeError::Wasi(WasiError::DeepSleep(<span class="kw">_</span>)) =&gt; {
+            WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(<span class="string">"deep-sleep"</span>)))
+        }
+        WasiRuntimeError::ControlPlane(a) =&gt; WasiRuntimeError::ControlPlane(a.clone()),
+        WasiRuntimeError::Runtime(a) =&gt; WasiRuntimeError::Runtime(a.clone()),
+        WasiRuntimeError::Thread(a) =&gt; WasiRuntimeError::Thread(a.clone()),
+        WasiRuntimeError::Anyhow(a) =&gt; WasiRuntimeError::Anyhow(a.clone()),
     }
 }
 

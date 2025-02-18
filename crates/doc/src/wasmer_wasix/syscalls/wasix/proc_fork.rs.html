@@ -413,10 +413,10 @@
             std::mem::swap(ctx.data_mut(), <span class="kw-2">&amp;mut </span>child_env);
             ctx.data_mut().vfork.replace(WasiVFork {
                 rewind_stack: rewind_stack.clone(),
-                memory_stack: memory_stack.clone(),
                 store_data: store_data.clone(),
                 env: Box::new(child_env),
                 handle: child_handle,
+                is_64bit: M::is_64bit(),
             });
 
             <span class="comment">// Carry on as if the fork had taken place (which basically means
@@ -424,7 +424,7 @@
             // Rewind the stack and carry on
             </span><span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
                 ctx,
-                memory_stack.freeze(),
+                <span class="prelude-val">Some</span>(memory_stack.freeze()),
                 rewind_stack.freeze(),
                 store_data,
                 ForkResult {
@@ -491,7 +491,7 @@
                     <span class="kw">let </span>(data, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
                     <span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
                         ctx,
-                        child_memory_stack,
+                        <span class="prelude-val">Some</span>(child_memory_stack),
                         child_rewind_stack,
                         store_data.clone(),
                         ForkResult {
@@ -533,7 +533,7 @@
         <span class="comment">// Rewind the stack and carry on
         </span><span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
             ctx,
-            memory_stack,
+            <span class="prelude-val">Some</span>(memory_stack),
             rewind_stack,
             store_data,
             ForkResult {

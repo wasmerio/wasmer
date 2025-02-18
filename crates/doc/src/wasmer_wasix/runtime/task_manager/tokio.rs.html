@@ -319,14 +319,27 @@
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
-<span class="kw">use </span><span class="kw">crate</span>::runtime::SpawnMemoryType;
-<span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 <span class="kw">use </span>futures::{future::BoxFuture, Future};
 <span class="kw">use </span>tokio::runtime::{Handle, Runtime};
+<span class="kw">use </span>virtual_mio::InlineWaker;
 <span class="kw">use </span>wasmer::AsStoreMut;
+
+<span class="kw">use </span><span class="kw">crate</span>::runtime::SpawnMemoryType;
+<span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
 <span class="kw">use super</span>::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
@@ -471,6 +484,7 @@
         <span class="kw">let </span>run = task.run;
         <span class="kw">let </span>recycle = task.recycle;
         <span class="kw">let </span>env = task.env;
+        <span class="kw">let </span>pre_run = task.pre_run;
 
         <span class="kw">let </span>make_memory: SpawnMemoryTypeOrStore = <span class="kw">match </span>task.spawn_type {
             SpawnMemoryType::CreateMemory =&gt; SpawnMemoryTypeOrStore::New,
@@ -513,7 +527,7 @@
             // pool's one), and let it fail for runtimes that don't support entities created in a
             // thread that's not the one in which execution happens in; this until we can clone
             // stores.
-            </span><span class="kw">let </span>(ctx, <span class="kw-2">mut </span>store) = WasiFunctionEnv::new_with_store(
+            </span><span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>store) = WasiFunctionEnv::new_with_store(
                 task.module,
                 env,
                 task.globals,
@@ -553,6 +567,10 @@
                     };
                 };
 
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(pre_run) = pre_run {
+                    pre_run(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>store).<span class="kw">await</span>;
+                }
+
                 <span class="comment">// Build the task that will go on the callback
                 </span>pool.execute(<span class="kw">move </span>|| {
                     <span class="comment">// Invoke the callback
@@ -570,7 +588,7 @@
             <span class="comment">// Run the callback on a dedicated thread
             </span><span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
                 <span class="macro">tracing::trace!</span>(<span class="string">"task_wasm started in blocking thread"</span>);
-                <span class="kw">let </span>(ctx, store) = WasiFunctionEnv::new_with_store(
+                <span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>store) = WasiFunctionEnv::new_with_store(
                     task.module,
                     env,
                     task.globals,
@@ -578,6 +596,10 @@
                     task.update_layout,
                 )
                 .unwrap();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(pre_run) = pre_run {
+                    InlineWaker::block_on(pre_run(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>store));
+                }
+
                 <span class="comment">// Invoke the callback
                 </span>run(TaskWasmRunProperties {
                     ctx,

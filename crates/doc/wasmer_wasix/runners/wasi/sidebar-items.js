@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["WasiRunner"]};
+window.SIDEBAR_ITEMS = {"fn":["wasi_runtime_error_to_owned"],"struct":["WasiRunner"]};

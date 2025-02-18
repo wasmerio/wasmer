@@ -213,11 +213,6 @@
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     future::Future,
@@ -231,7 +226,6 @@
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
 <span class="kw">use </span>wasmer::FunctionEnvMut;
 <span class="kw">use </span>wasmer_package::utils::from_bytes;
-<span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
 <span class="kw">mod </span>binary_package;
 <span class="kw">mod </span>exec;
@@ -300,9 +294,6 @@
                 </span>.ok_or_else(|| SpawnError::BinaryNotFound {
                     binary: name.clone(),
                 });
-            <span class="kw">if </span>res.is_err() {
-                env.on_exit(<span class="prelude-val">Some</span>(Errno::Noent.into())).<span class="kw">await</span>;
-            }
             <span class="kw">let </span>executable = res<span class="question-mark">?</span>;
 
             <span class="comment">// Execute
@@ -322,7 +313,6 @@
                           pkg=%pkg.id,
                           <span class="string">"Unable to spawn a command because its package has no entrypoint"</span>,
                         );
-                        env.on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
                         <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::MissingEntrypoint {
                             package_id: pkg.id.clone(),
                         });

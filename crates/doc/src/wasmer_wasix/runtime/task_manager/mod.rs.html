@@ -472,6 +472,19 @@
 <a href="#472" id="472">472</a>
 <a href="#473" id="473">473</a>
 <a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
 </span><span class="kw">pub mod </span>tokio;
@@ -538,6 +551,12 @@
     </span><span class="kw">pub </span>recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
 }
 
+<span class="kw">pub type </span>TaskWasmPreRun = <span class="kw">dyn </span>(<span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; FnOnce(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>WasiFunctionEnv,
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Store,
+    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'a</span>&gt;&gt;)
+    + Send;
+
 <span class="doccomment">/// Callback that will be invoked
 </span><span class="kw">pub type </span>TaskWasmRun = <span class="kw">dyn </span>FnOnce(TaskWasmRunProperties) + Send + <span class="lifetime">'static</span>;
 
@@ -565,6 +584,7 @@
     <span class="kw">pub </span>spawn_type: SpawnMemoryType&lt;<span class="lifetime">'a</span>&gt;,
     <span class="kw">pub </span>trigger: <span class="prelude-ty">Option</span>&lt;Box&lt;WasmResumeTrigger&gt;&gt;,
     <span class="kw">pub </span>update_layout: bool,
+    <span class="kw">pub </span>pre_run: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmPreRun&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TaskWasm&lt;<span class="lifetime">'a</span>&gt; {
@@ -582,6 +602,7 @@
             trigger: <span class="prelude-val">None</span>,
             update_layout,
             recycle: <span class="prelude-val">None</span>,
+            pre_run: <span class="prelude-val">None</span>,
         }
     }
 
@@ -607,8 +628,13 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_recycle(<span class="kw-2">mut </span><span class="self">self</span>, trigger: Box&lt;TaskWasmRecycle&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.recycle.replace(trigger);
+    <span class="kw">pub fn </span>with_recycle(<span class="kw-2">mut </span><span class="self">self</span>, recycle: Box&lt;TaskWasmRecycle&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.recycle.replace(recycle);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_pre_run(<span class="kw-2">mut </span><span class="self">self</span>, pre_run: Box&lt;TaskWasmPreRun&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.pre_run.replace(pre_run);
         <span class="self">self
     </span>}
 }
