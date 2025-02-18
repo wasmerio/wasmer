@@ -1091,5 +1091,6 @@ jobs:
     uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
     with:
       fetch_artifact: "wasmer-cli-linux-x64"
-    secrets: inherit
+    secrets:
+      token: ${{ secrets.WAPM_DEV_TOKEN }}
       
