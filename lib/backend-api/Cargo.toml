@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-backend-api"
-version = "0.4.0"
+version = "0.5.0"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-backend-api"
@@ -15,7 +15,7 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 # Wasmer dependencies.
-wasmer-config = { version = "0.12.0", path = "../config" }
+wasmer-config = { version = "0.13.0", path = "../config" }
 wasmer-package.workspace = true
 webc.workspace = true
 
