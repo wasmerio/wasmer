@@ -125,6 +125,28 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Logging functions for the debug feature.
 
 </span><span class="kw">use </span>is_terminal::IsTerminal;
@@ -145,6 +167,9 @@
     <span class="doccomment">/// The format to use when generating logs.
     </span><span class="attr">#[clap(long, global = <span class="bool-val">true</span>, env, default_value = <span class="string">"text"</span>)]
     </span><span class="kw">pub </span>log_format: LogFormat,
+    <span class="doccomment">/// Which span events to log.
+    </span><span class="attr">#[clap(long, global = <span class="bool-val">true</span>, env, default_value = <span class="string">"close"</span>)]
+    </span><span class="kw">pub </span>log_events: LogEvents,
     <span class="doccomment">/// When to display colored output.
     </span><span class="attr">#[clap(long, default_value_t = clap::ColorChoice::Auto, global = <span class="bool-val">true</span>)]
     </span><span class="kw">pub </span>color: clap::ColorChoice,
@@ -161,10 +186,17 @@
     </span><span class="kw">pub fn </span>initialize_logging(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>fmt_layer = fmt::layer()
             .with_target(<span class="bool-val">true</span>)
-            .with_span_events(fmt::format::FmtSpan::CLOSE)
             .with_ansi(<span class="self">self</span>.should_emit_colors())
             .with_thread_ids(<span class="bool-val">true</span>)
             .with_writer(std::io::stderr);
+
+        <span class="kw">let </span>fmt_layer = <span class="kw">match </span><span class="self">self</span>.log_events {
+            LogEvents::New =&gt; fmt_layer.with_span_events(fmt::format::FmtSpan::NEW),
+            LogEvents::Close =&gt; fmt_layer.with_span_events(fmt::format::FmtSpan::CLOSE),
+            LogEvents::All =&gt; {
+                fmt_layer.with_span_events(fmt::format::FmtSpan::NEW | fmt::format::FmtSpan::CLOSE)
+            }
+        };
 
         <span class="kw">let </span>filter_layer = <span class="self">self</span>.log_filter();
 
@@ -251,5 +283,17 @@
     </span>Text,
     <span class="doccomment">/// Machine-readable logs.
     </span>Json,
+}
+
+<span class="doccomment">/// Which span events to log.
+</span><span class="attr">#[derive(Debug, Default, Copy, Clone, PartialEq, clap::ValueEnum)]
+</span><span class="kw">pub enum </span>LogEvents {
+    <span class="comment">// Only log at the start of a new span.
+    </span>New,
+    <span class="comment">// Only log at the end of a span.
+    </span><span class="attr">#[default]
+    </span>Close,
+    <span class="comment">// Log at the start and end of a span.
+    </span>All,
 }
 </code></pre></div></section></main></body></html>

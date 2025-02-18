@@ -61,6 +61,14 @@
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -85,6 +93,14 @@
             child_pid = %ctx.data().process.pid(),
             <span class="string">"proc_exit from vfork, returning control to parent process"
         </span>);
+
+        <span class="comment">// Prepare the child env for teardown by closing its FDs
+        </span>InlineWaker::block_on(
+            <span class="kw">unsafe </span>{ ctx.data().get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) }
+                .<span class="number">1
+                </span>.fs
+                .close_all(),
+        );
 
         <span class="comment">// Restore the WasiEnv to the point when we vforked
         </span>vfork.env.swap_inner(ctx.data_mut());

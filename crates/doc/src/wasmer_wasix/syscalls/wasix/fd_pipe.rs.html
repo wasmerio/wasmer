@@ -152,7 +152,7 @@
 ///     First file handle that represents the read end of the pipe
 /// - `Fd`
 ///     Second file handle that represents the write end of the pipe
-</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(fd1 = field::Empty, fd2 = field::Empty), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(read_fd = field::Empty, write_fd = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_pipe&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     ro_read_fd: WasmPtr&lt;WasiFd, M&gt;,
