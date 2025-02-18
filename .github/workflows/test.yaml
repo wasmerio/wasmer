@@ -1088,7 +1088,7 @@ jobs:
 
   test-wasmer-integration-tests:
     needs: [build]
-    uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@cifix/support-wasmer-ci
+    uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
     with:
       fetch_artifact: "wasmer-cli-linux-x64"
     secrets: inherit
