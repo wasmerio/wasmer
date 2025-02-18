@@ -16,6 +16,7 @@ on:
     inputs:
       release:
           description: 'Make release'
+  pull_request:
 
 jobs:
   setup:
@@ -196,13 +197,13 @@ jobs:
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
         if: startsWith(matrix.os, 'macos')
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
