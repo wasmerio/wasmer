@@ -7,6 +7,7 @@ pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
+use target_lexicon::BinaryFormat;
 use wasmer_compiler::{
     types::target::{Architecture, OperatingSystem, Target, Triple},
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
@@ -77,7 +78,11 @@ impl LLVM {
         self
     }
 
-    fn reloc_mode(&self) -> RelocMode {
+    fn reloc_mode(&self, binary_format: BinaryFormat) -> RelocMode {
+        if matches!(binary_format, BinaryFormat::Macho) {
+            return RelocMode::Static;
+        }
+
         if self.is_pic {
             RelocMode::PIC
         } else {
@@ -85,12 +90,16 @@ impl LLVM {
         }
     }
 
-    fn code_model(&self) -> CodeModel {
+    fn code_model(&self, binary_format: BinaryFormat) -> CodeModel {
         // We normally use the large code model, but when targeting shared
         // objects, we are required to use PIC. If we use PIC anyways, we lose
         // any benefit from large code model and there's some cost on all
         // platforms, plus some platforms (MachO) don't support PIC + large
         // at all.
+        if matches!(binary_format, BinaryFormat::Macho) {
+            return CodeModel::Default;
+        }
+
         if self.is_pic {
             CodeModel::Small
         } else {
@@ -229,10 +238,10 @@ impl LLVM {
                     _ => &llvm_cpu_features,
                 },
                 self.opt_level,
-                self.reloc_mode(),
+                self.reloc_mode(self.target_binary_format(target)),
                 match triple.architecture {
                     Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
-                    _ => self.code_model(),
+                    _ => self.code_model(self.target_binary_format(target)),
                 },
             )
             .unwrap();
