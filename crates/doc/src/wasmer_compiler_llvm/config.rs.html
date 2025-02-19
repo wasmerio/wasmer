@@ -318,6 +318,15 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::LLVMCompiler;
 <span class="kw">use </span>inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target <span class="kw">as </span>InkwellTarget, TargetMachine,
@@ -327,6 +336,7 @@
 <span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>target_lexicon::BinaryFormat;
 <span class="kw">use </span>wasmer_compiler::{
     types::target::{Architecture, OperatingSystem, Target, Triple},
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
@@ -397,7 +407,11 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">fn </span>reloc_mode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocMode {
+    <span class="kw">fn </span>reloc_mode(<span class="kw-2">&amp;</span><span class="self">self</span>, binary_format: BinaryFormat) -&gt; RelocMode {
+        <span class="kw">if </span><span class="macro">matches!</span>(binary_format, BinaryFormat::Macho) {
+            <span class="kw">return </span>RelocMode::Static;
+        }
+
         <span class="kw">if </span><span class="self">self</span>.is_pic {
             RelocMode::PIC
         } <span class="kw">else </span>{
@@ -405,13 +419,17 @@
         }
     }
 
-    <span class="kw">fn </span>code_model(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CodeModel {
+    <span class="kw">fn </span>code_model(<span class="kw-2">&amp;</span><span class="self">self</span>, binary_format: BinaryFormat) -&gt; CodeModel {
         <span class="comment">// We normally use the large code model, but when targeting shared
         // objects, we are required to use PIC. If we use PIC anyways, we lose
         // any benefit from large code model and there's some cost on all
         // platforms, plus some platforms (MachO) don't support PIC + large
         // at all.
-        </span><span class="kw">if </span><span class="self">self</span>.is_pic {
+        </span><span class="kw">if </span><span class="macro">matches!</span>(binary_format, BinaryFormat::Macho) {
+            <span class="kw">return </span>CodeModel::Default;
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.is_pic {
             CodeModel::Small
         } <span class="kw">else </span>{
             CodeModel::Large
@@ -549,10 +567,10 @@
                     <span class="kw">_ </span>=&gt; <span class="kw-2">&amp;</span>llvm_cpu_features,
                 },
                 <span class="self">self</span>.opt_level,
-                <span class="self">self</span>.reloc_mode(),
+                <span class="self">self</span>.reloc_mode(<span class="self">self</span>.target_binary_format(target)),
                 <span class="kw">match </span>triple.architecture {
                     Architecture::LoongArch64 | Architecture::Riscv64(<span class="kw">_</span>) =&gt; CodeModel::Medium,
-                    <span class="kw">_ </span>=&gt; <span class="self">self</span>.code_model(),
+                    <span class="kw">_ </span>=&gt; <span class="self">self</span>.code_model(<span class="self">self</span>.target_binary_format(target)),
                 },
             )
             .unwrap();
