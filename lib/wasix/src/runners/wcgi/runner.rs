@@ -62,7 +62,7 @@ impl WcgiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = runtime.load_module_sync(&cmd.atom())?;
+        let module = runtime.load_command_module_sync(cmd)?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {

@@ -19,7 +19,7 @@ use virtual_mio::InlineWaker;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
 
-use super::BinaryPackage;
+use super::{BinaryPackage, BinaryPackageCommand};
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
@@ -31,9 +31,8 @@ pub async fn spawn_exec(
 ) -> Result<TaskJoinHandle, SpawnError> {
     spawn_union_fs(&env, &binary).await?;
 
-    let wasm = spawn_load_wasm(&binary, name).await?;
-
-    let module = spawn_load_module(name, wasm, runtime).await?;
+    let cmd = package_command_by_name(&binary, name)?;
+    let module = runtime.load_command_module(cmd).await?;
 
     // Free the space used by the binary, since we don't need it
     // any longer
@@ -54,25 +53,36 @@ pub async fn spawn_exec_wasm(
     spawn_exec_module(module, env, runtime)
 }
 
-pub async fn spawn_load_wasm<'a>(
-    binary: &'a BinaryPackage,
+pub fn package_command_by_name<'a>(
+    pkg: &'a BinaryPackage,
     name: &str,
-) -> Result<&'a [u8], SpawnError> {
-    let wasm = if let Some(cmd) = binary.get_command(name) {
-        cmd.atom.as_ref()
-    } else if let Some(cmd) = binary.get_entrypoint_command() {
-        &cmd.atom
+) -> Result<&'a BinaryPackageCommand, SpawnError> {
+    // If an explicit command is provided, use it.
+    // Otherwise, use the entrypoint.
+    // If no entrypoint exists, and the package has a single
+    // command, then use it. This is done for backwards
+    // compatibility.
+    let cmd = if let Some(cmd) = pkg.get_command(&name) {
+        cmd
+    } else if let Some(cmd) = pkg.get_entrypoint_command() {
+        cmd
     } else {
-        tracing::error!(
-          command=name,
-          pkg=%binary.id,
-          "Unable to spawn a command because its package has no entrypoint",
-        );
-        return Err(SpawnError::MissingEntrypoint {
-            package_id: binary.id.clone(),
-        });
+        match pkg.commands.as_slice() {
+            [] => {
+                return Err(SpawnError::MissingEntrypoint {
+                    package_id: pkg.id.clone(),
+                });
+            }
+            [first] => first,
+            [_first, ..] => {
+                return Err(SpawnError::MissingEntrypoint {
+                    package_id: pkg.id.clone(),
+                });
+            }
+        }
     };
-    Ok(wasm)
+
+    Ok(cmd)
 }
 
 pub async fn spawn_load_module(
