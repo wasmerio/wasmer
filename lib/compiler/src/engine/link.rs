@@ -382,7 +382,7 @@ fn apply_relocation(
             );
 
             assert!(
-                !(-(1 << 27)..=((1 << 27) - 1)).contains(&value),
+                (-(1 << 27)..=((1 << 27) - 1)).contains(&value),
                 "out of range BranchPCRel26 target"
             );
 
