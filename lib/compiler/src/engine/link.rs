@@ -301,11 +301,11 @@ fn apply_relocation(
 
                 if is_load_store_imm12 {
                     let mut implicit_shift = raw_instr >> 30;
-                    if implicit_shift == 0 {
-                        if (raw_instr & VEC128_MASK) == VEC128_MASK {
-                            implicit_shift = 4;
-                        }
+
+                    if implicit_shift == 0 && (raw_instr & VEC128_MASK) == VEC128_MASK {
+                        implicit_shift = 4;
                     }
+
                     implicit_shift
                 } else {
                     0
@@ -382,7 +382,7 @@ fn apply_relocation(
             );
 
             assert!(
-                !(value < -(1 << 27) || value > ((1 << 27) - 1)),
+                !(-(1 << 27)..=((1 << 27) - 1)).contains(&value),
                 "out of range BranchPCRel26 target"
             );
 
