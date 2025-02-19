@@ -283,6 +283,12 @@ where
                             } | object::RelocationKind::MachO {
                                 value: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
                                 relative: true
+                            } | object::RelocationKind::MachO {
+                                value: object::macho::ARM64_RELOC_PAGE21,
+                                relative: true
+                            } | object::RelocationKind::MachO {
+                                value: object::macho::ARM64_RELOC_PAGEOFF12,
+                                relative: false
                             }
                         ) {
                             // (caveat: this comment comes from a point in time after the `addend`

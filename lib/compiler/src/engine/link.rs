@@ -249,7 +249,6 @@ fn apply_relocation(
             write_unaligned(reloc_address as *mut u64, reloc_sub);
         },
         RelocationKind::MachoArm64RelocGotLoadPage21
-        | RelocationKind::MachoArm64RelocPage21
         | RelocationKind::MachoArm64RelocTlvpLoadPage21 => unsafe {
             let (reloc_address, _) = r.for_address(body, target_func_address as u64);
             let target_func_page = target_func_address & !0xfff;
@@ -269,14 +268,59 @@ fn apply_relocation(
             let op = read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, (op & mask) | immlo | immhi);
         },
+
+        RelocationKind::MachoArm64RelocPage21 => unsafe {
+            let target_page: u64 =
+                ((target_func_address.wrapping_add(r.addend() as _)) & !0xfff) as u64;
+            let reloc_address = body.wrapping_add(r.offset() as _);
+            let pc_page: u64 = (reloc_address & !0xfff) as u64;
+            let page_delta = target_page - pc_page;
+            let raw_instr = read_unaligned(reloc_address as *mut u32);
+            assert_eq!(
+                (raw_instr & 0xffffffe0),
+                0x90000000,
+                "raw_instr isn't an ADRP instruction"
+            );
+
+            let immlo: u32 = ((page_delta >> 12) & 0x3) as _;
+            let immhi: u32 = ((page_delta >> 14) & 0x7ffff) as _;
+            let fixed_instr = raw_instr | (immlo << 29) | (immhi << 5);
+            write_unaligned(reloc_address as *mut u32, fixed_instr);
+        },
         RelocationKind::MachoArm64RelocPageoff12 => unsafe {
-            let (reloc_address, _) = r.for_address(body, target_func_address as u64);
-            assert_eq!(target_func_address & 0b111, 0);
-            let val = target_func_address >> 3;
-            let imm9 = ((val & 0x1ff) << 10) as u32;
-            let mask = !(0x1ff << 10);
-            let op = read_unaligned(reloc_address as *mut u32);
-            write_unaligned(reloc_address as *mut u32, (op & mask) | imm9);
+            let target_offset: u64 =
+                ((target_func_address.wrapping_add(r.addend() as _)) & 0xfff) as u64;
+
+            let reloc_address = body.wrapping_add(r.offset() as _);
+            let raw_instr = read_unaligned(reloc_address as *mut u32);
+            let imm_shift = {
+                const VEC128_MASK: u32 = 0x04800000;
+
+                const LOAD_STORE_IMM12_MASK: u32 = 0x3b000000;
+                let is_load_store_imm12 = (raw_instr & LOAD_STORE_IMM12_MASK) == 0x39000000;
+
+                if is_load_store_imm12 {
+                    let mut implicit_shift = raw_instr >> 30;
+
+                    if implicit_shift == 0 && (raw_instr & VEC128_MASK) == VEC128_MASK {
+                        implicit_shift = 4;
+                    }
+
+                    implicit_shift
+                } else {
+                    0
+                }
+            };
+
+            assert_eq!(
+                target_offset & ((1 << imm_shift) - 1),
+                0,
+                "PAGEOFF12 target is not aligned"
+            );
+
+            let encoded_imm: u32 = ((target_offset as u32) >> imm_shift) << 10;
+            let fixed_instr: u32 = raw_instr | encoded_imm;
+            write_unaligned(reloc_address as *mut u32, fixed_instr);
         },
 
         RelocationKind::MachoArm64RelocGotLoadPageoff12 => unsafe {
@@ -325,7 +369,36 @@ fn apply_relocation(
             let pcrel = i32::try_from((target_func_address as isize) - (at as isize)).unwrap();
             write_unaligned(at as *mut i32, pcrel);
         },
-        kind => panic!("Relocation kind unsupported in the current architecture {kind}",),
+
+        RelocationKind::MachoArm64RelocBranch26 => unsafe {
+            let fixup_ptr = body + r.offset() as usize;
+            assert_eq!(fixup_ptr & 0x3, 0, "Branch-inst is not 32-bit aligned");
+            let value = i32::try_from((target_func_address as isize) - (fixup_ptr as isize))
+                .unwrap()
+                .wrapping_add(r.addend() as _);
+            assert!(
+                value & 0x3 == 0,
+                "BranchPCRel26 target is not 32-bit aligned"
+            );
+
+            assert!(
+                (-(1 << 27)..=((1 << 27) - 1)).contains(&value),
+                "out of range BranchPCRel26 target"
+            );
+
+            let raw_instr = read_unaligned(fixup_ptr as *mut u32);
+
+            assert_eq!(
+                raw_instr & 0x7fffffff,
+                0x14000000,
+                "RawInstr isn't a B or BR immediate instruction"
+            );
+            let imm: u32 = ((value as u32) & ((1 << 28) - 1)) >> 2;
+            let fixed_instr: u32 = raw_instr | imm;
+
+            write_unaligned(fixup_ptr as *mut u32, fixed_instr);
+        },
+        kind => panic!("Relocation kind unsupported in the current architecture: {kind}"),
     }
 }
 
