@@ -16689,7 +16689,7 @@
             </span><span class="kw">let </span><span class="kw-2">mut </span>stack_param_count: usize = <span class="number">0</span>;
 
             <span class="kw">for </span>(i, ty) <span class="kw">in </span>sig.params().iter().enumerate() {
-                <span class="kw">let </span>source_loc = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention) {
+                <span class="kw">let </span>source_loc = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention)<span class="question-mark">? </span>{
                     <span class="prelude-val">Some</span>(X64Register::GPR(gpr)) =&gt; Location::GPR(gpr),
                     <span class="prelude-val">Some</span>(X64Register::XMM(xmm)) =&gt; Location::SIMD(xmm),
                     <span class="prelude-val">None </span>=&gt; {
@@ -16825,7 +16825,7 @@
                     </span><span class="kw">let </span><span class="kw-2">mut </span>argalloc = ArgumentRegisterAllocator::default();
                     <span class="kw">for </span>(i, ty) <span class="kw">in </span>sig.params().iter().enumerate() {
                         <span class="kw">let </span>prev_loc = param_locations[i];
-                        <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention) {
+                        <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention)<span class="question-mark">? </span>{
                             <span class="prelude-val">Some</span>(X64Register::GPR(_gpr)) =&gt; <span class="kw">continue</span>,
                             <span class="prelude-val">Some</span>(X64Register::XMM(xmm)) =&gt; {
                                 a.emit_mov(Size::S64, prev_loc, Location::SIMD(xmm))<span class="question-mark">?
@@ -16870,11 +16870,11 @@
 
                     <span class="comment">// Copy arguments.
                     </span><span class="kw">let </span><span class="kw-2">mut </span>argalloc = ArgumentRegisterAllocator::default();
-                    argalloc.next(Type::I64, calling_convention).unwrap(); <span class="comment">// skip VMContext
+                    argalloc.next(Type::I64, calling_convention)<span class="question-mark">?</span>.unwrap(); <span class="comment">// skip VMContext
                     </span><span class="kw">let </span><span class="kw-2">mut </span>caller_stack_offset: i32 = <span class="number">0</span>;
                     <span class="kw">for </span>(i, ty) <span class="kw">in </span>sig.params().iter().enumerate() {
                         <span class="kw">let </span>prev_loc = param_locations[i];
-                        <span class="kw">let </span>targ = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention) {
+                        <span class="kw">let </span>targ = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention)<span class="question-mark">? </span>{
                             <span class="prelude-val">Some</span>(X64Register::GPR(gpr)) =&gt; Location::GPR(gpr),
                             <span class="prelude-val">Some</span>(X64Register::XMM(xmm)) =&gt; Location::SIMD(xmm),
                             <span class="prelude-val">None </span>=&gt; {

@@ -341,6 +341,14 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! X64 structures.
 
 </span><span class="attr">#![allow(clippy::upper_case_acronyms)]
@@ -350,7 +358,7 @@
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::slice::Iter;
 <span class="kw">use </span>wasmer_compiler::types::target::CallingConvention;
-<span class="kw">use </span>wasmer_types::Type;
+<span class="kw">use </span>wasmer_types::{CompileError, Type};
 
 <span class="doccomment">/// General-purpose registers.
 </span><span class="attr">#[repr(u8)]
@@ -601,8 +609,12 @@
 
 <span class="kw">impl </span>ArgumentRegisterAllocator {
     <span class="doccomment">/// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
-    </span><span class="kw">pub fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ty: Type, calling_convention: CallingConvention) -&gt; <span class="prelude-ty">Option</span>&lt;X64Register&gt; {
-        <span class="kw">match </span>calling_convention {
+    </span><span class="kw">pub fn </span>next(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        ty: Type,
+        calling_convention: CallingConvention,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;X64Register&gt;, CompileError&gt; {
+        <span class="kw">let </span>ret = <span class="kw">match </span>calling_convention {
             CallingConvention::WindowsFastcall =&gt; {
                 <span class="kw">static </span>GPR_SEQ: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9];
                 <span class="kw">static </span>XMM_SEQ: <span class="kw-2">&amp;</span>[XMM] = <span class="kw-2">&amp;</span>[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
@@ -626,10 +638,11 @@
                             <span class="prelude-val">None
                         </span>}
                     }
-                    <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(
-                        <span class="string">"ArgumentRegisterAllocator::next: Unsupported type: {:?}"</span>,
-                        ty
-                    ),
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+                            <span class="string">"No register available for {calling_convention:?} and type {ty}"
+                        </span>)))
+                    }
                 }
             }
             <span class="kw">_ </span>=&gt; {
@@ -664,13 +677,16 @@
                             <span class="prelude-val">None
                         </span>}
                     }
-                    <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(
-                        <span class="string">"ArgumentRegisterAllocator::next: Unsupported type: {:?}"</span>,
-                        ty
-                    ),
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+                            <span class="string">"No register available for {calling_convention:?} and type {ty}"
+                        </span>)))
+                    }
                 }
             }
-        }
+        };
+
+        <span class="prelude-val">Ok</span>(ret)
     }
 }
 

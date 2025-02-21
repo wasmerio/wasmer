@@ -317,6 +317,13 @@
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! ARM64 structures.
 
 </span><span class="kw">use crate</span>::{
@@ -326,7 +333,7 @@
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::slice::Iter;
 <span class="kw">use </span>wasmer_compiler::types::target::CallingConvention;
-<span class="kw">use </span>wasmer_types::Type;
+<span class="kw">use </span>wasmer_types::{CompileError, Type};
 
 <span class="doccomment">/// General-purpose registers.
 </span><span class="attr">#[repr(u8)]
@@ -573,8 +580,8 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         ty: Type,
         calling_convention: CallingConvention,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;ARM64Register&gt; {
-        <span class="kw">match </span>calling_convention {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ARM64Register&gt;, CompileError&gt; {
+        <span class="kw">let </span>ret = <span class="kw">match </span>calling_convention {
             CallingConvention::SystemV | CallingConvention::AppleAarch64 =&gt; {
                 <span class="kw">static </span>GPR_SEQ: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[
                     GPR::X0,
@@ -615,14 +622,21 @@
                             <span class="prelude-val">None
                         </span>}
                     }
-                    <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(
-                        <span class="string">"ArgumentRegisterAllocator::next: Unsupported type: {:?}"</span>,
-                        ty
-                    ),
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+                            <span class="string">"No register available for {calling_convention:?} and type {ty}"
+                        </span>)))
+                    }
                 }
             }
-            <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
-        }
+            <span class="kw">_ </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+                    <span class="string">"No register available for {calling_convention:?} and type {ty}"
+                </span>)))
+            }
+        };
+
+        <span class="prelude-val">Ok</span>(ret)
     }
 }
 
