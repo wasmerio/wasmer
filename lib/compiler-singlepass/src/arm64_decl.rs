@@ -7,7 +7,7 @@ use crate::{
 use std::collections::BTreeMap;
 use std::slice::Iter;
 use wasmer_compiler::types::target::CallingConvention;
-use wasmer_types::Type;
+use wasmer_types::{CompileError, Type};
 
 /// General-purpose registers.
 #[repr(u8)]
@@ -254,8 +254,8 @@ impl ArgumentRegisterAllocator {
         &mut self,
         ty: Type,
         calling_convention: CallingConvention,
-    ) -> Option<ARM64Register> {
-        match calling_convention {
+    ) -> Result<Option<ARM64Register>, CompileError> {
+        let ret = match calling_convention {
             CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
                 static GPR_SEQ: &[GPR] = &[
                     GPR::X0,
@@ -296,14 +296,21 @@ impl ArgumentRegisterAllocator {
                             None
                         }
                     }
-                    _ => todo!(
-                        "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
-                        ty
-                    ),
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "No register available for {calling_convention:?} and type {ty}"
+                        )))
+                    }
                 }
             }
-            _ => unimplemented!(),
-        }
+            _ => {
+                return Err(CompileError::Codegen(format!(
+                    "No register available for {calling_convention:?} and type {ty}"
+                )))
+            }
+        };
+
+        Ok(ret)
     }
 }
 
