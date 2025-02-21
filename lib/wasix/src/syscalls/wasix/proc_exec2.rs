@@ -28,7 +28,18 @@ pub fn proc_exec2<M: MemorySize>(
     envs: WasmPtr<u8, M>,
     envs_len: M::Offset,
 ) -> Result<(), WasiError> {
-    match proc_exec3(ctx, name, name_len, args, args_len, envs, envs_len) {
+    match proc_exec3(
+        ctx,
+        name,
+        name_len,
+        args,
+        args_len,
+        envs,
+        envs_len,
+        Bool::False,
+        WasmPtr::null(),
+        0u32.into(),
+    ) {
         Ok(e) => Err(WasiError::Exit(e.into())),
         Err(e) => Err(e),
     }
