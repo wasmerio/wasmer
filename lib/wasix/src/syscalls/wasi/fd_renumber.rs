@@ -66,7 +66,9 @@ pub(crate) fn fd_renumber_internal(
     };
 
     // Exclusive insert because we expect `to` to be empty after closing it above
-    fd_map.insert(true, to, new_fd_entry);
+    if !fd_map.insert(true, to, new_fd_entry) {
+        panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
+    }
 
     Ok(Errno::Success)
 }
