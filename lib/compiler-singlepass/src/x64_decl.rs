@@ -7,7 +7,7 @@ use crate::location::Reg as AbstractReg;
 use std::collections::BTreeMap;
 use std::slice::Iter;
 use wasmer_compiler::types::target::CallingConvention;
-use wasmer_types::Type;
+use wasmer_types::{CompileError, Type};
 
 /// General-purpose registers.
 #[repr(u8)]
@@ -258,8 +258,12 @@ pub struct ArgumentRegisterAllocator {
 
 impl ArgumentRegisterAllocator {
     /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
-    pub fn next(&mut self, ty: Type, calling_convention: CallingConvention) -> Option<X64Register> {
-        match calling_convention {
+    pub fn next(
+        &mut self,
+        ty: Type,
+        calling_convention: CallingConvention,
+    ) -> Result<Option<X64Register>, CompileError> {
+        let ret = match calling_convention {
             CallingConvention::WindowsFastcall => {
                 static GPR_SEQ: &[GPR] = &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9];
                 static XMM_SEQ: &[XMM] = &[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
@@ -283,10 +287,11 @@ impl ArgumentRegisterAllocator {
                             None
                         }
                     }
-                    _ => todo!(
-                        "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
-                        ty
-                    ),
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "No register available for {calling_convention:?} and type {ty}"
+                        )))
+                    }
                 }
             }
             _ => {
@@ -321,13 +326,16 @@ impl ArgumentRegisterAllocator {
                             None
                         }
                     }
-                    _ => todo!(
-                        "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
-                        ty
-                    ),
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "No register available for {calling_convention:?} and type {ty}"
+                        )))
+                    }
                 }
             }
-        }
+        };
+
+        Ok(ret)
     }
 }
 
