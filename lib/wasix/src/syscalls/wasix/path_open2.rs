@@ -65,7 +65,7 @@ pub fn path_open2<M: MemorySize>(
     Span::current().record("path", path_string.as_str());
 
     let out_fd = wasi_try_ok!(path_open_internal(
-        &mut ctx,
+        ctx.data(),
         dirfd,
         dirflags,
         &path_string,
@@ -111,7 +111,7 @@ pub fn path_open2<M: MemorySize>(
 }
 
 pub(crate) fn path_open_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    env: &WasiEnv,
     dirfd: WasiFd,
     dirflags: LookupFlags,
     path: &str,
@@ -122,9 +122,8 @@ pub(crate) fn path_open_internal(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
-    let env = ctx.data();
-    let (memory, mut state, mut inodes) =
-        unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state.deref();
+    let inodes = &state.inodes;
 
     let path_arg = std::path::PathBuf::from(&path);
     let maybe_inode = state.fs.get_inode_at_path(

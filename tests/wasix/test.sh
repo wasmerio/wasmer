@@ -76,8 +76,8 @@ while read dir; do
     printf "Testing $dir..."
 
     cmd="cd $dir; \
-        $CC $CFLAGS $LDFLAGS -o main.wasm main.c; \
-        wasm-opt --asyncify main.wasm -o main.wasm; \
+        $CC $CFLAGS $LDFLAGS -o main-not-asyncified.wasm main.c; \
+        wasm-opt --asyncify main-not-asyncified.wasm -o main.wasm; \
         ./run.sh"
 
     if bash -c "$cmd"; then
