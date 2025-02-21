@@ -309,7 +309,8 @@ impl ArgumentRegisterAllocator {
                 )))
             }
         };
-        return Ok(ret);
+
+        Ok(ret)
     }
 }
 
