@@ -3481,7 +3481,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
         let mut stack_param_count: usize = 0;
 
         for (i, ty) in sig.params().iter().enumerate() {
-            let source_loc = match argalloc.next(*ty, calling_convention) {
+            let source_loc = match argalloc.next(*ty, calling_convention)? {
                 Some(ARM64Register::GPR(gpr)) => Location::GPR(gpr),
                 Some(ARM64Register::NEON(neon)) => Location::SIMD(neon),
                 None => {
@@ -3675,7 +3675,7 @@ pub fn gen_import_call_trampoline_arm64(
                 argalloc.next(Type::I64, calling_convention).unwrap(); // skip VMContext
                 for (i, ty) in sig.params().iter().enumerate() {
                     let prev_loc = param_locations[i];
-                    let targ = match argalloc.next(*ty, calling_convention) {
+                    let targ = match argalloc.next(*ty, calling_convention)? {
                         Some(ARM64Register::GPR(gpr)) => Location::GPR(gpr),
                         Some(ARM64Register::NEON(neon)) => Location::SIMD(neon),
                         None => {
