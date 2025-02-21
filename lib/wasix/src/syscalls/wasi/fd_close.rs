@@ -32,7 +32,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     // does writes in the background, it may miss writes if the file is
     // closed without flushing first. Hence, we flush once here.
     match __asyncify_light(env, None, state.fs.flush(fd))? {
-        Ok(_) | Err(Errno::Io) | Err(Errno::Access) => {}
+        Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
         Err(e) => {
             return Ok(e);
         }
