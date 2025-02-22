@@ -68,7 +68,7 @@ impl FdList {
         fd.inode.acquire_handle();
         match self.first_free {
             Some(free) => {
-                debug_assert!(self.fds[free].is_none());
+                assert!(self.fds[free].is_none());
 
                 self.fds[free] = Some(fd);
 
@@ -83,21 +83,21 @@ impl FdList {
         }
     }
 
-    pub fn insert_first_free_after(&mut self, fd: Fd, after: WasiFd) -> WasiFd {
+    pub fn insert_first_free_after(&mut self, fd: Fd, after_or_equal: WasiFd) -> WasiFd {
         match self.first_free {
             // We're shorter than `after`, need to extend the list regardless of whether we have holes
-            _ if self.fds.len() < after as usize => {
-                if !self.insert(true, after, fd) {
-                    panic!("Internal error in FdList - expected {after} to be unonccupied since the list wasn't long enough");
+            _ if self.fds.len() < after_or_equal as usize => {
+                if !self.insert(true, after_or_equal, fd) {
+                    panic!("Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough");
                 }
-                after
+                after_or_equal
             }
 
             // First free hole is suitable, we can insert there
-            Some(free) if free >= after as usize => self.insert_first_free(fd),
+            Some(free) if free >= after_or_equal as usize => self.insert_first_free(fd),
 
             // No holes, and we're longer than `after`, so insert at the end
-            None if self.fds.len() >= after as usize => self.insert_first_free(fd),
+            None if self.fds.len() >= after_or_equal as usize => self.insert_first_free(fd),
 
             // Keeping the compiler happy
             None => unreachable!("Both None cases were handled before"),
@@ -107,7 +107,7 @@ impl FdList {
                 // This is handled by insert or insert_first_free in every other case, but not this one
                 fd.inode.acquire_handle();
 
-                match self.first_free_after(after) {
+                match self.first_free_after(after_or_equal) {
                     // Found a suitable hole, and it's guaranteed to not be the first since
                     // that's checked in the previous Some case, so filling it has no effect
                     // on self.first_free
@@ -126,13 +126,13 @@ impl FdList {
         }
     }
 
-    fn first_free_after(&self, after: WasiFd) -> Option<usize> {
-        let after = after as usize;
+    fn first_free_after(&self, after_or_equal: WasiFd) -> Option<usize> {
+        let skip = after_or_equal as usize;
         self.fds
             .iter()
-            .skip(after)
+            .skip(skip)
             .position(|fd| fd.is_none())
-            .map(|idx| idx + after)
+            .map(|idx| idx + skip)
     }
 
     pub fn insert(&mut self, exclusive: bool, idx: WasiFd, fd: Fd) -> bool {
@@ -163,6 +163,11 @@ impl FdList {
 
         fd.inode.acquire_handle();
         self.fds[idx] = Some(fd);
+
+        if self.first_free == Some(idx) {
+            self.first_free = self.first_free_after(idx as WasiFd + 1);
+        }
+
         true
     }
 
@@ -395,6 +400,21 @@ mod tests {
         l.insert_first_free(useless_fd(4));
 
         assert_fds_match(&l, &[(0, 0), (1, 4), (2, 2)]);
+    }
+
+    #[test]
+    fn insert_at_first_free_updates_first_free() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.remove(1);
+        l.remove(2);
+        assert!(l.insert(true, 1, useless_fd(4)));
+        assert_eq!(l.first_free, Some(2));
+
+        assert_fds_match(&l, &[(0, 0), (1, 4), (3, 3)]);
     }
 
     #[test]
