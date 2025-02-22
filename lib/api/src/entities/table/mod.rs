@@ -98,6 +98,37 @@ impl Table {
         BackendTable::copy(store, &dst_table.0, dst_index, &src_table.0, src_index, len)
     }
 
+    /// Fills `len` elements in the table starting at `index` with `value`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the range is out of bounds or `value` mismatches the table type.
+    pub fn fill(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+        len: u32,
+        value: Value,
+    ) -> Result<(), RuntimeError> {
+        self.0.fill(store, index, len, value)
+    }
+
+    /// Initializes `len` elements in the table at `dst_index` from `values[src_index..]`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the table or segment range is out of bounds or values mismatch the table type.
+    pub fn init(
+        &self,
+        store: &mut impl AsStoreMut,
+        dst_index: u32,
+        src_index: u32,
+        len: u32,
+        values: &[Value],
+    ) -> Result<(), RuntimeError> {
+        self.0.init(store, dst_index, src_index, len, values)
+    }
+
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, ext: VMExternTable) -> Self {
         Self(BackendTable::from_vm_extern(store, ext))
     }
