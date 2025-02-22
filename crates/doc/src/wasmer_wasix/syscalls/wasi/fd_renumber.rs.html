@@ -70,6 +70,8 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -138,7 +140,9 @@
     };
 
     <span class="comment">// Exclusive insert because we expect `to` to be empty after closing it above
-    </span>fd_map.insert(<span class="bool-val">true</span>, to, new_fd_entry);
+    </span><span class="kw">if </span>!fd_map.insert(<span class="bool-val">true</span>, to, new_fd_entry) {
+        <span class="macro">panic!</span>(<span class="string">"Internal error: expected FD {to} to be free after closing in fd_renumber"</span>);
+    }
 
     <span class="prelude-val">Ok</span>(Errno::Success)
 }

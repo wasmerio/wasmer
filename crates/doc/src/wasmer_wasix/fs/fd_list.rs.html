@@ -681,6 +681,26 @@
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
 <a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A very simple data structure for holding the FDs a WASI process is using.
 //! Keeps track of the first unused (i.e. freed) FD, which is slightly faster
 //! than doing a linear search of the entire array each time.
@@ -751,7 +771,7 @@
         fd.inode.acquire_handle();
         <span class="kw">match </span><span class="self">self</span>.first_free {
             <span class="prelude-val">Some</span>(free) =&gt; {
-                <span class="macro">debug_assert!</span>(<span class="self">self</span>.fds[free].is_none());
+                <span class="macro">assert!</span>(<span class="self">self</span>.fds[free].is_none());
 
                 <span class="self">self</span>.fds[free] = <span class="prelude-val">Some</span>(fd);
 
@@ -766,21 +786,21 @@
         }
     }
 
-    <span class="kw">pub fn </span>insert_first_free_after(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fd: Fd, after: WasiFd) -&gt; WasiFd {
+    <span class="kw">pub fn </span>insert_first_free_after(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fd: Fd, after_or_equal: WasiFd) -&gt; WasiFd {
         <span class="kw">match </span><span class="self">self</span>.first_free {
             <span class="comment">// We're shorter than `after`, need to extend the list regardless of whether we have holes
-            </span><span class="kw">_ if </span><span class="self">self</span>.fds.len() &lt; after <span class="kw">as </span>usize =&gt; {
-                <span class="kw">if </span>!<span class="self">self</span>.insert(<span class="bool-val">true</span>, after, fd) {
-                    <span class="macro">panic!</span>(<span class="string">"Internal error in FdList - expected {after} to be unonccupied since the list wasn't long enough"</span>);
+            </span><span class="kw">_ if </span><span class="self">self</span>.fds.len() &lt; after_or_equal <span class="kw">as </span>usize =&gt; {
+                <span class="kw">if </span>!<span class="self">self</span>.insert(<span class="bool-val">true</span>, after_or_equal, fd) {
+                    <span class="macro">panic!</span>(<span class="string">"Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough"</span>);
                 }
-                after
+                after_or_equal
             }
 
             <span class="comment">// First free hole is suitable, we can insert there
-            </span><span class="prelude-val">Some</span>(free) <span class="kw">if </span>free &gt;= after <span class="kw">as </span>usize =&gt; <span class="self">self</span>.insert_first_free(fd),
+            </span><span class="prelude-val">Some</span>(free) <span class="kw">if </span>free &gt;= after_or_equal <span class="kw">as </span>usize =&gt; <span class="self">self</span>.insert_first_free(fd),
 
             <span class="comment">// No holes, and we're longer than `after`, so insert at the end
-            </span><span class="prelude-val">None </span><span class="kw">if </span><span class="self">self</span>.fds.len() &gt;= after <span class="kw">as </span>usize =&gt; <span class="self">self</span>.insert_first_free(fd),
+            </span><span class="prelude-val">None </span><span class="kw">if </span><span class="self">self</span>.fds.len() &gt;= after_or_equal <span class="kw">as </span>usize =&gt; <span class="self">self</span>.insert_first_free(fd),
 
             <span class="comment">// Keeping the compiler happy
             </span><span class="prelude-val">None </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Both None cases were handled before"</span>),
@@ -790,7 +810,7 @@
                 <span class="comment">// This is handled by insert or insert_first_free in every other case, but not this one
                 </span>fd.inode.acquire_handle();
 
-                <span class="kw">match </span><span class="self">self</span>.first_free_after(after) {
+                <span class="kw">match </span><span class="self">self</span>.first_free_after(after_or_equal) {
                     <span class="comment">// Found a suitable hole, and it's guaranteed to not be the first since
                     // that's checked in the previous Some case, so filling it has no effect
                     // on self.first_free
@@ -809,13 +829,13 @@
         }
     }
 
-    <span class="kw">fn </span>first_free_after(<span class="kw-2">&amp;</span><span class="self">self</span>, after: WasiFd) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="kw">let </span>after = after <span class="kw">as </span>usize;
+    <span class="kw">fn </span>first_free_after(<span class="kw-2">&amp;</span><span class="self">self</span>, after_or_equal: WasiFd) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">let </span>skip = after_or_equal <span class="kw">as </span>usize;
         <span class="self">self</span>.fds
             .iter()
-            .skip(after)
+            .skip(skip)
             .position(|fd| fd.is_none())
-            .map(|idx| idx + after)
+            .map(|idx| idx + skip)
     }
 
     <span class="kw">pub fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, exclusive: bool, idx: WasiFd, fd: Fd) -&gt; bool {
@@ -846,6 +866,11 @@
 
         fd.inode.acquire_handle();
         <span class="self">self</span>.fds[idx] = <span class="prelude-val">Some</span>(fd);
+
+        <span class="kw">if </span><span class="self">self</span>.first_free == <span class="prelude-val">Some</span>(idx) {
+            <span class="self">self</span>.first_free = <span class="self">self</span>.first_free_after(idx <span class="kw">as </span>WasiFd + <span class="number">1</span>);
+        }
+
         <span class="bool-val">true
     </span>}
 
@@ -1078,6 +1103,21 @@
         l.insert_first_free(useless_fd(<span class="number">4</span>));
 
         assert_fds_match(<span class="kw-2">&amp;</span>l, <span class="kw-2">&amp;</span>[(<span class="number">0</span>, <span class="number">0</span>), (<span class="number">1</span>, <span class="number">4</span>), (<span class="number">2</span>, <span class="number">2</span>)]);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>insert_at_first_free_updates_first_free() {
+        <span class="kw">let </span><span class="kw-2">mut </span>l = FdList::new();
+        l.insert_first_free(useless_fd(<span class="number">0</span>));
+        l.insert_first_free(useless_fd(<span class="number">1</span>));
+        l.insert_first_free(useless_fd(<span class="number">2</span>));
+        l.insert_first_free(useless_fd(<span class="number">3</span>));
+        l.remove(<span class="number">1</span>);
+        l.remove(<span class="number">2</span>);
+        <span class="macro">assert!</span>(l.insert(<span class="bool-val">true</span>, <span class="number">1</span>, useless_fd(<span class="number">4</span>)));
+        <span class="macro">assert_eq!</span>(l.first_free, <span class="prelude-val">Some</span>(<span class="number">2</span>));
+
+        assert_fds_match(<span class="kw-2">&amp;</span>l, <span class="kw-2">&amp;</span>[(<span class="number">0</span>, <span class="number">0</span>), (<span class="number">1</span>, <span class="number">4</span>), (<span class="number">3</span>, <span class="number">3</span>)]);
     }
 
     <span class="attr">#[test]
