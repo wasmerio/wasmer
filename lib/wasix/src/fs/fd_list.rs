@@ -88,7 +88,7 @@ impl FdList {
             // We're shorter than `after`, need to extend the list regardless of whether we have holes
             _ if self.fds.len() < after_or_equal as usize => {
                 if !self.insert(true, after_or_equal, fd) {
-                    panic!("Internal error in FdList - expected {after_or_equal} to be unonccupied since the list wasn't long enough");
+                    panic!("Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough");
                 }
                 after_or_equal
             }
