@@ -279,12 +279,12 @@ impl WasiEnvBuilder {
     }
 
     /// Get a reference to the configured signal handler overrides.
-    pub fn get_signal(&self) -> &[SignalAndAction] {
+    pub fn get_signals(&self) -> &[SignalAndAction] {
         &self.signals
     }
 
     /// Get a mutable reference to the configured signalironment variables.
-    pub fn get_signal_mut(&mut self) -> &mut Vec<SignalAndAction> {
+    pub fn get_signals_mut(&mut self) -> &mut Vec<SignalAndAction> {
         &mut self.signals
     }
 
