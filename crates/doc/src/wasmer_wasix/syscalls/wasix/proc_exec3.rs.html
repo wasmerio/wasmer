@@ -283,12 +283,56 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer::FromToNativeWasmType;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::<span class="kw-2">*</span>,
+    WasiFs, VIRTUAL_ROOT_FD,
 };
 
 <span class="doccomment">/// Replaces the current process with a new process
@@ -312,6 +356,9 @@
     args_len: M::Offset,
     envs: WasmPtr&lt;u8, M&gt;,
     envs_len: M::Offset,
+    search_path: Bool,
+    path: WasmPtr&lt;u8, M&gt;,
+    path_len: M::Offset,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
@@ -353,7 +400,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>vec = <span class="macro">vec!</span>[];
         <span class="kw">for </span>env <span class="kw">in </span>envs {
-            <span class="kw">let </span>(key, value) = env.split_once(<span class="string">'='</span>).unwrap();
+            <span class="kw">let </span>(key, value) = <span class="macro">wasi_try_ok!</span>(env.split_once(<span class="string">'='</span>).ok_or(Errno::Inval));
 
             vec.push((key.to_string(), value.to_string()));
         }
@@ -364,9 +411,29 @@
     </span>};
 
     <span class="comment">// Convert relative paths into absolute paths
-    </span><span class="kw">if </span>name.starts_with(<span class="string">"./"</span>) {
+    </span><span class="kw">if </span>search_path == Bool::True &amp;&amp; !name.contains(<span class="string">'/'</span>) {
+        <span class="kw">let </span>path_str;
+
+        <span class="kw">let </span>path = <span class="kw">if </span>path.is_null() {
+            <span class="macro">vec!</span>[<span class="string">"/usr/local/bin"</span>, <span class="string">"/bin"</span>, <span class="string">"/usr/bin"</span>]
+        } <span class="kw">else </span>{
+            path_str = path.read_utf8_string(<span class="kw-2">&amp;</span>memory, path_len).map_err(|err| {
+                <span class="macro">warn!</span>(<span class="string">"failed to execve as the path could not be read - {}"</span>, err);
+                WasiError::Exit(Errno::Inval.into())
+            })<span class="question-mark">?</span>;
+            path_str.split(<span class="string">':'</span>).collect()
+        };
+        <span class="kw">let </span>(<span class="kw">_</span>, state, inodes) =
+            <span class="kw">unsafe </span>{ ctx.data().get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+        <span class="kw">match </span>find_executable_in_path(<span class="kw-2">&amp;</span>state.fs, inodes, path.iter().map(AsRef::as_ref), <span class="kw-2">&amp;</span>name) {
+            FindExecutableResult::Found(p) =&gt; name = p,
+            FindExecutableResult::AccessError =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access),
+            FindExecutableResult::NotFound =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Noexec),
+        }
+    } <span class="kw">else if </span>name.starts_with(<span class="string">"./"</span>) {
         name = ctx.data().state.fs.relative_path_to_absolute(name);
     }
+
     <span class="macro">trace!</span>(name);
 
     <span class="comment">// Convert the preopen directories
@@ -408,7 +475,7 @@
         std::mem::swap(vfork_env.as_mut(), ctx.data_mut());
         <span class="kw">let </span><span class="kw-2">mut </span>wasi_env = <span class="kw-2">*</span>vfork_env;
         wasi_env.owned_handles.push(vfork.handle.clone());
-        _prepare_wasi(<span class="kw-2">&amp;mut </span>wasi_env, <span class="prelude-val">Some</span>(args), envs);
+        _prepare_wasi(<span class="kw-2">&amp;mut </span>wasi_env, <span class="prelude-val">Some</span>(args), envs, <span class="prelude-val">None</span>);
 
         <span class="comment">// Recrod the stack offsets before we give up ownership of the wasi_env
         </span><span class="kw">let </span>stack_lower = wasi_env.layout.stack_lower;
@@ -497,7 +564,7 @@
     </span><span class="kw">else </span>{
         <span class="comment">// Prepare the environment
         </span><span class="kw">let </span><span class="kw-2">mut </span>wasi_env = ctx.data().clone();
-        _prepare_wasi(<span class="kw-2">&amp;mut </span>wasi_env, <span class="prelude-val">Some</span>(args), envs);
+        _prepare_wasi(<span class="kw-2">&amp;mut </span>wasi_env, <span class="prelude-val">Some</span>(args), envs, <span class="prelude-val">None</span>);
 
         <span class="comment">// Get a reference to the runtime
         </span><span class="kw">let </span>bin_factory = ctx.data().bin_factory.clone();
@@ -526,16 +593,6 @@
             <span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>process) =&gt; {
                 <span class="comment">// If we support deep sleeping then we switch to deep sleep mode
                 </span><span class="kw">let </span>env = ctx.data();
-
-                <span class="comment">// Since we clone the env for the subprocess, we need to close
-                // the file handles we're holding. Otherwise, files will never
-                // be closed.
-                </span>InlineWaker::block_on(
-                    <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) }
-                        .<span class="number">1
-                        </span>.fs
-                        .close_all(),
-                );
 
                 <span class="kw">let </span>thread = env.thread.clone();
 
@@ -566,6 +623,35 @@
                 <span class="prelude-val">Ok</span>(Errno::Noexec)
             }
         }
+    }
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>FindExecutableResult {
+    Found(String),
+    AccessError,
+    NotFound,
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>find_executable_in_path&lt;<span class="lifetime">'a</span>&gt;(
+    fs: <span class="kw-2">&amp;</span>WasiFs,
+    inodes: <span class="kw-2">&amp;</span>WasiInodes,
+    path: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+    file_name: <span class="kw-2">&amp;</span>str,
+) -&gt; FindExecutableResult {
+    <span class="kw">let </span><span class="kw-2">mut </span>encountered_eaccess = <span class="bool-val">false</span>;
+    <span class="kw">for </span>p <span class="kw">in </span>path {
+        <span class="kw">let </span>full_path = <span class="macro">format!</span>(<span class="string">"{}/{}"</span>, p.trim_end_matches(<span class="string">'/'</span>), file_name);
+        <span class="kw">match </span>fs.get_inode_at_path(inodes, VIRTUAL_ROOT_FD, <span class="kw-2">&amp;</span>full_path, <span class="bool-val">true</span>) {
+            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>FindExecutableResult::Found(full_path),
+            <span class="prelude-val">Err</span>(Errno::Access) =&gt; encountered_eaccess = <span class="bool-val">true</span>,
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; (),
+        }
+    }
+
+    <span class="kw">if </span>encountered_eaccess {
+        FindExecutableResult::AccessError
+    } <span class="kw">else </span>{
+        FindExecutableResult::NotFound
     }
 }
 </code></pre></div></section></main></body></html>

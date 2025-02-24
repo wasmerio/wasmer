@@ -174,7 +174,7 @@
     Span::current().record(<span class="string">"path"</span>, path_string.as_str());
 
     <span class="kw">let </span>out_fd = <span class="macro">wasi_try_ok!</span>(path_open_internal(
-        <span class="kw-2">&amp;mut </span>ctx,
+        ctx.data(),
         dirfd,
         dirflags,
         <span class="kw-2">&amp;</span>path_string,

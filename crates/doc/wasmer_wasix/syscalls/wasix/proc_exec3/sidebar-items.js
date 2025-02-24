@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["proc_exec3"]};
+window.SIDEBAR_ITEMS = {"enum":["FindExecutableResult"],"fn":["find_executable_in_path","proc_exec3"]};

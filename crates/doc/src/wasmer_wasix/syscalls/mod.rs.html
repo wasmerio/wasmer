@@ -1513,6 +1513,13 @@
 <a href="#1513" id="1513">1513</a>
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -1602,10 +1609,10 @@
     wasi::{
         Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
         Eventrwflags, Eventtype, ExitCode, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
-        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, Rights,
-        Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
-        StdioMode <span class="kw">as </span>WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
-        Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, ProcSpawnFdOp,
+        Rights, SignalDisposition, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
+        StackSnapshot, StdioMode <span class="kw">as </span>WasiStdioMode, Streamsecurity, Subscription,
+        SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     <span class="kw-2">*</span>,
 };
@@ -2975,12 +2982,11 @@
     wasi_env: <span class="kw-2">&amp;mut </span>WasiEnv,
     args: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
     envs: <span class="prelude-ty">Option</span>&lt;Vec&lt;(String, String)&gt;&gt;,
+    signals: <span class="prelude-ty">Option</span>&lt;Vec&lt;SignalDisposition&gt;&gt;,
 ) {
     <span class="comment">// Swap out the arguments with the new ones
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(args) = args {
-        <span class="kw">let </span><span class="kw-2">mut </span>wasi_state = wasi_env.state.fork();
-        <span class="kw-2">*</span>wasi_state.args.lock().unwrap() = args;
-        wasi_env.state = Arc::new(wasi_state);
+        <span class="kw-2">*</span>wasi_env.state.args.lock().unwrap() = args;
     }
 
     <span class="comment">// Update the env vars
@@ -3013,6 +3019,14 @@
         <span class="kw-2">*</span>guard = envs;
 
         drop(guard)
+    }
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(signals) = signals {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = wasi_env.state.signals.lock().unwrap();
+        <span class="kw">for </span>signal <span class="kw">in </span>signals {
+            guard.insert(signal.sig, signal.disp);
+        }
+        drop(guard);
     }
 }
 

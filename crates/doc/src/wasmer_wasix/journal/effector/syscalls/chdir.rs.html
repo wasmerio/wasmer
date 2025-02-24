@@ -24,7 +24,7 @@
     }
 
     <span class="kw">pub fn </span>apply_chdir(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, path: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">crate</span>::syscalls::chdir_internal(ctx, path).map_err(|err| {
+        <span class="kw">crate</span>::syscalls::chdir_internal(ctx.data(), path).map_err(|err| {
             <span class="macro">anyhow::format_err!</span>(
                 <span class="string">"snapshot restore error: failed to change directory (path={}) - {}"</span>,
                 path,

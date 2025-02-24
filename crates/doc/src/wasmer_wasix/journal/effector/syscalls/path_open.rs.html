@@ -115,7 +115,7 @@
         fd_flags: Fdflagsext,
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>res = <span class="kw">crate</span>::syscalls::path_open_internal(
-            ctx,
+            ctx.data(),
             dirfd,
             dirflags,
             path,

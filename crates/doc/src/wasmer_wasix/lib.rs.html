@@ -877,6 +877,12 @@
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
 <a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
@@ -1428,6 +1434,8 @@
         <span class="string">"proc_fork" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_fork::&lt;Memory32&gt;),
         <span class="string">"proc_join" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory32&gt;),
         <span class="string">"proc_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory32&gt;),
+        <span class="string">"proc_signals_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signals_get::&lt;Memory32&gt;),
+        <span class="string">"proc_signals_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signals_sizes_get::&lt;Memory32&gt;),
         <span class="string">"proc_exec" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory32&gt;),
         <span class="string">"proc_exec2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory32&gt;),
         <span class="string">"proc_exec3" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec3::&lt;Memory32&gt;),
@@ -1435,6 +1443,7 @@
         <span class="string">"proc_raise_interval" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
         <span class="string">"proc_snapshot" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_snapshot::&lt;Memory32&gt;),
         <span class="string">"proc_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory32&gt;),
+        <span class="string">"proc_spawn2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn2::&lt;Memory32&gt;),
         <span class="string">"proc_id" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_id::&lt;Memory32&gt;),
         <span class="string">"proc_parent" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_parent::&lt;Memory32&gt;),
         <span class="string">"random_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
@@ -1557,6 +1566,8 @@
         <span class="string">"proc_fork" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_fork::&lt;Memory64&gt;),
         <span class="string">"proc_join" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory64&gt;),
         <span class="string">"proc_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory64&gt;),
+        <span class="string">"proc_signals_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signals_get::&lt;Memory64&gt;),
+        <span class="string">"proc_signals_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signals_sizes_get::&lt;Memory64&gt;),
         <span class="string">"proc_exec" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory64&gt;),
         <span class="string">"proc_exec2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory64&gt;),
         <span class="string">"proc_exec3" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec3::&lt;Memory64&gt;),
@@ -1564,6 +1575,7 @@
         <span class="string">"proc_raise_interval" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
         <span class="string">"proc_snapshot" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_snapshot::&lt;Memory64&gt;),
         <span class="string">"proc_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory64&gt;),
+        <span class="string">"proc_spawn2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn2::&lt;Memory64&gt;),
         <span class="string">"proc_id" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_id::&lt;Memory64&gt;),
         <span class="string">"proc_parent" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_parent::&lt;Memory64&gt;),
         <span class="string">"random_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory64&gt;),

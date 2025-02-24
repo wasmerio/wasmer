@@ -151,6 +151,12 @@
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>callback_signal;
 <span class="kw">mod </span>chdir;
 <span class="kw">mod </span>epoll_create;
@@ -186,8 +192,11 @@
 <span class="kw">mod </span>proc_join;
 <span class="kw">mod </span>proc_parent;
 <span class="kw">mod </span>proc_signal;
+<span class="kw">mod </span>proc_signals_get;
+<span class="kw">mod </span>proc_signals_sizes_get;
 <span class="kw">mod </span>proc_snapshot;
 <span class="kw">mod </span>proc_spawn;
+<span class="kw">mod </span>proc_spawn2;
 <span class="kw">mod </span>resolve;
 <span class="kw">mod </span>sched_yield;
 <span class="kw">mod </span>sock_accept;
@@ -262,8 +271,11 @@
 <span class="kw">pub use </span>proc_join::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>proc_parent::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>proc_signal::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>proc_signals_get::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>proc_signals_sizes_get::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>proc_snapshot::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>proc_spawn::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>proc_spawn2::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>resolve::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>sched_yield::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>sock_accept::<span class="kw-2">*</span>;
