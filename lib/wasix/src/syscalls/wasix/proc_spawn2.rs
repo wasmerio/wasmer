@@ -78,7 +78,7 @@ pub fn proc_spawn2<M: MemorySize>(
         let signal_actions = wasi_try_mem_ok!(signal_actions.slice(&memory, signal_actions_len));
         let mut vec = Vec::with_capacity(signal_actions.len() as usize);
         for s in wasi_try_mem_ok!(signal_actions.access()).iter() {
-            vec.push(s.clone());
+            vec.push(*s);
         }
         Some(vec)
     } else {
@@ -89,7 +89,7 @@ pub fn proc_spawn2<M: MemorySize>(
         let fd_ops = wasi_try_mem_ok!(fd_ops.slice(&memory, fd_ops_len));
         let mut vec = Vec::with_capacity(fd_ops.len() as usize);
         for s in wasi_try_mem_ok!(fd_ops.access()).iter() {
-            vec.push(s.clone());
+            vec.push(*s);
         }
         vec
     } else {
