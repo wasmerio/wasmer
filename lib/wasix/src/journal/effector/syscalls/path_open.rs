@@ -44,7 +44,7 @@ impl JournalEffector {
         fd_flags: Fdflagsext,
     ) -> anyhow::Result<()> {
         let res = crate::syscalls::path_open_internal(
-            ctx,
+            ctx.data(),
             dirfd,
             dirflags,
             path,

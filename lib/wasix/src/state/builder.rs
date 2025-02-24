@@ -28,6 +28,7 @@ use crate::{
     Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 use wasmer_types::ModuleHash;
+use wasmer_wasix_types::wasi::SignalDisposition;
 
 use super::env::WasiEnvInit;
 
@@ -55,6 +56,8 @@ pub struct WasiEnvBuilder {
     pub(super) args: Vec<String>,
     /// Environment variables.
     pub(super) envs: Vec<(String, Vec<u8>)>,
+    /// Signals that should get their handler overridden.
+    pub(super) signals: Vec<SignalDisposition>,
     /// Pre-opened directories that will be accessible from WASI.
     pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
@@ -102,6 +105,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
             .field("entry_function", &self.entry_function)
             .field("args", &self.args)
             .field("envs", &self.envs)
+            .field("signals", &self.signals)
             .field("preopens", &self.preopens)
             .field("uses", &self.uses)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
@@ -163,6 +167,14 @@ impl WasiEnvBuilder {
         }
     }
 
+    /// Attaches a ctrl-c handler which will send signals to the
+    /// process rather than immediately termiante it
+    #[cfg(feature = "ctrlc")]
+    pub fn attach_ctrl_c(mut self) -> Self {
+        self.attach_ctrl_c = true;
+        self
+    }
+
     /// Add an environment variable pair.
     ///
     /// Both the key and value of an environment variable must not
@@ -174,14 +186,6 @@ impl WasiEnvBuilder {
         Value: AsRef<[u8]>,
     {
         self.add_env(key, value);
-        self
-    }
-
-    /// Attaches a ctrl-c handler which will send signals to the
-    /// process rather than immediately termiante it
-    #[cfg(feature = "ctrlc")]
-    pub fn attach_ctrl_c(mut self) -> Self {
-        self.attach_ctrl_c = true;
         self
     }
 
@@ -241,6 +245,47 @@ impl WasiEnvBuilder {
     /// Get a mutable reference to the configured environment variables.
     pub fn get_env_mut(&mut self) -> &mut Vec<(String, Vec<u8>)> {
         &mut self.envs
+    }
+
+    /// Add a signal handler override.
+    pub fn signal(mut self, sig_action: SignalDisposition) -> Self {
+        self.add_signal(sig_action);
+        self
+    }
+
+    /// Add a signal handler override.
+    pub fn add_signal(&mut self, sig_action: SignalDisposition) {
+        self.signals.push(sig_action);
+    }
+
+    /// Add multiple signal handler overrides.
+    pub fn signals<I>(mut self, signal_pairs: I) -> Self
+    where
+        I: IntoIterator<Item = SignalDisposition>,
+    {
+        self.add_signals(signal_pairs);
+
+        self
+    }
+
+    /// Add multiple signal handler overrides.
+    pub fn add_signals<I>(&mut self, signal_pairs: I)
+    where
+        I: IntoIterator<Item = SignalDisposition>,
+    {
+        for sig in signal_pairs {
+            self.add_signal(sig);
+        }
+    }
+
+    /// Get a reference to the configured signal handler overrides.
+    pub fn get_signals(&self) -> &[SignalDisposition] {
+        &self.signals
+    }
+
+    /// Get a mutable reference to the configured signalironment variables.
+    pub fn get_signals_mut(&mut self) -> &mut Vec<SignalDisposition> {
+        &mut self.signals
     }
 
     pub fn entry_function<S>(mut self, entry_function: S) -> Self
@@ -891,6 +936,7 @@ impl WasiEnvBuilder {
             futexs: Default::default(),
             clock_offset: Default::default(),
             envs: std::sync::Mutex::new(conv_env_vars(self.envs)),
+            signals: std::sync::Mutex::new(self.signals.iter().map(|s| (s.sig, s.disp)).collect()),
         };
 
         let runtime = self.runtime.unwrap_or_else(|| {

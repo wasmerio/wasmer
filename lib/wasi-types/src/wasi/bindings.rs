@@ -2328,6 +2328,93 @@ impl core::fmt::Debug for Signal {
         }
     }
 }
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+pub enum Disposition {
+    Default,
+    Ignore,
+}
+impl core::fmt::Debug for Disposition {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Disposition::Default => f.debug_tuple("SigAction::Default").finish(),
+            Disposition::Ignore => f.debug_tuple("SigAction::Ignore").finish(),
+        }
+    }
+}
+
+#[doc = " A signal and its corresponding action."]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct SignalDisposition {
+    pub sig: Signal,
+    pub disp: Disposition,
+}
+impl core::fmt::Debug for SignalDisposition {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SignalAndAction")
+            .field("sig", &self.sig)
+            .field("act", &self.disp)
+            .finish()
+    }
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+pub enum ProcSpawnFdOpName {
+    Close,
+    Dup2,
+    Open,
+    Chdir,
+    Fchdir,
+}
+impl core::fmt::Debug for ProcSpawnFdOpName {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ProcSpawnFdOpName::Close => f.debug_tuple("ProcSpawnFdOpName::Close").finish(),
+            ProcSpawnFdOpName::Dup2 => f.debug_tuple("ProcSpawnFdOpName::Dup2").finish(),
+            ProcSpawnFdOpName::Open => f.debug_tuple("ProcSpawnFdOpName::Open").finish(),
+            ProcSpawnFdOpName::Chdir => f.debug_tuple("ProcSpawnFdOpName::Chdir").finish(),
+            ProcSpawnFdOpName::Fchdir => f.debug_tuple("ProcSpawnFdOpName::Fchdir").finish(),
+        }
+    }
+}
+
+#[doc = "  An FD operation performed during proc_spawn2, which is the backing syscall for posix_spawn."]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ProcSpawnFdOp<M: MemorySize> {
+    pub cmd: ProcSpawnFdOpName,
+    pub fd: Fd,
+    pub src_fd: Fd,
+    pub name: M::Offset,
+    pub name_len: M::Offset,
+    pub dirflags: LookupFlags,
+    pub oflags: Oflags,
+    pub fs_rights_base: Rights,
+    pub fs_rights_inheriting: Rights,
+    pub fdflags: Fdflags,
+    pub fdflagsext: Fdflagsext,
+}
+impl<M: MemorySize> core::fmt::Debug for ProcSpawnFdOp<M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ProcSpawnFdOp")
+            .field("cmd", &self.cmd)
+            .field("fd", &self.fd)
+            .field("src_fd", &self.src_fd)
+            .field("name", &self.name)
+            .field("name_len", &self.name_len)
+            .field("dirflags", &self.dirflags)
+            .field("oflags", &self.oflags)
+            .field("fs_rights_base", &self.fs_rights_base)
+            .field("fs_rights_inheriting", &self.fs_rights_inheriting)
+            .field("fdflags", &self.fdflags)
+            .field("fdflagsext", &self.fdflagsext)
+            .finish()
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct AddrUnspec {

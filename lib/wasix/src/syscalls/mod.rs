@@ -87,10 +87,10 @@ pub(crate) use self::types::{
     wasi::{
         Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
         Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
-        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, Rights,
-        Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
-        StdioMode as WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
-        Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, ProcSpawnFdOp,
+        Rights, SignalDisposition, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
+        StackSnapshot, StdioMode as WasiStdioMode, Streamsecurity, Subscription,
+        SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     *,
 };
@@ -1460,12 +1460,11 @@ pub(crate) fn _prepare_wasi(
     wasi_env: &mut WasiEnv,
     args: Option<Vec<String>>,
     envs: Option<Vec<(String, String)>>,
+    signals: Option<Vec<SignalDisposition>>,
 ) {
     // Swap out the arguments with the new ones
     if let Some(args) = args {
-        let mut wasi_state = wasi_env.state.fork();
-        *wasi_state.args.lock().unwrap() = args;
-        wasi_env.state = Arc::new(wasi_state);
+        *wasi_env.state.args.lock().unwrap() = args;
     }
 
     // Update the env vars
@@ -1498,6 +1497,14 @@ pub(crate) fn _prepare_wasi(
         *guard = envs;
 
         drop(guard)
+    }
+
+    if let Some(signals) = signals {
+        let mut guard = wasi_env.state.signals.lock().unwrap();
+        for signal in signals {
+            guard.insert(signal.sig, signal.disp);
+        }
+        drop(guard);
     }
 }
 

@@ -64,7 +64,7 @@ pub fn path_open<M: MemorySize>(
     Span::current().record("path", path_string.as_str());
 
     let out_fd = wasi_try_ok!(path_open_internal(
-        &mut ctx,
+        ctx.data(),
         dirfd,
         dirflags,
         &path_string,
