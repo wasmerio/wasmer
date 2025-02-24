@@ -5,7 +5,7 @@
 
   <p>
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?event=push" alt="Build Status">
+      <img src="https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?style=flat-square" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
