@@ -16,12 +16,12 @@ wasmer-wasix = { path = "../../../lib/wasix", version = "=0.36.0" }
 wasmer = { path = "../../../lib/api", version = "=6.0.0-alpha.1", default-features = false }
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.22.0" }
 
-anyhow = "1.0"
+anyhow = { workspace = true }
 wast = "221.0.2"
-serde = "1"
-tempfile = "3.6.0"
-thiserror = "1.0"
-futures = "0.3"
+serde = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+futures = { workspace = true }
 tokio = { workspace = true, features = [
 	"io-util",
 	"rt",

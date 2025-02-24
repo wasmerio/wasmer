@@ -17,25 +17,23 @@ rust-version.workspace = true
 [dependencies]
 wasmer = { default-features = false, path = "../api", version = "=6.0.0-alpha.1" }
 wasmer-types = { path = "../types", version = "=6.0.0-alpha.1" }
-wasmer-derive = { path = "../derive", version = "=6.0.0-alpha.1" }
-wai-bindgen-gen-rust = "0.2.1"
-wai-bindgen-rust = { version = "0.2.1", default-features = false, features = [
-	"macros",
-] }
-wai-bindgen-gen-rust-wasm = "0.2.1"
-wai-bindgen-gen-core = "0.2.1"
-wai-parser = "0.2.1"
-serde = { version = "1.0", features = ["derive"], optional = true }
-num_enum = "0.5.7"
-bitflags = "1.3.0"
-cfg-if = "1.0.0"
-anyhow = "1.0.66"
-byteorder = "1.3"
+wasmer-derive = { workspace = true }
+wai-bindgen-gen-rust = { workspace = true }
+wai-bindgen-rust = { workspace = true, features = ["macros"] }
+wai-bindgen-gen-rust-wasm = { workspace = true }
+wai-bindgen-gen-core = { workspace = true }
+wai-parser = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+num_enum = { workspace = true }
+bitflags = { workspace = true }
+cfg-if = { workspace = true }
+anyhow = { workspace = true }
+byteorder = { workspace = true }
 time = { workspace = true, features = ["formatting"] }
-tracing = { version = "0.1.37" }
+tracing = { workspace = true }
 
-[dev-dependencies.pretty_assertions]
-version = "1.3.0"
+[dev-dependencies]
+pretty_assertions= { workspace = true }
 
 [features]
 enable-serde = ["serde", "wasmer-types/serde"]

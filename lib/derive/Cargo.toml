@@ -16,10 +16,10 @@ proc-macro = true
 syn = { version = "1.0.72", features = ["full", "extra-traits"] }
 quote = "1"
 proc-macro2 = "1"
-proc-macro-error2 = "2.0.1"
+proc-macro-error2 = { workspace = true }
 
 [dev-dependencies]
 wasmer-types = { path = "../types", default-features = false, features = [
 	"std",
 ] }
-compiletest_rs = "0.6"
+compiletest_rs = { workspace = true }

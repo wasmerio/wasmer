@@ -8,30 +8,30 @@ edition = "2021"
 publish = false
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = { workspace = true }
 target-lexicon = "0.12.4"
-serde = { version = "1.0.147", features = ["derive"] }
-insta = { version = "1.21.1", features = ["json"] }
-md5 = "0.7.0"
-hex = "0.4.3"
+serde = { workspace = true, features = ["derive"] }
+insta = { workspace = true, features = ["json"] }
+md5 = { workspace = true }
+hex = { workspace = true }
 pretty_assertions.workspace = true
 object = "0.30.0"
 reqwest = { workspace = true, default-features = false, features = ["json", "blocking", "rustls-tls"] }
 tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "macros", "process" ] }
-assert_cmd = "2.0.8"
+assert_cmd = { workspace = true }
 predicates = "2.1.5"
-once_cell = "1.17.1"
-futures = "0.3.28"
-regex = "1.8.3"
+once_cell = { workspace = true }
+futures = { workspace = true }
+regex = { workspace = true }
 libc.workspace = true
 
 [dependencies]
-anyhow = "1"
-tempfile = "3.6.0"
+anyhow = { workspace = true }
+tempfile = { workspace = true }
 target-lexicon = "0.12.5"
-tar = "0.4.38"
-flate2 = "1.0.24"
-dirs = "4.0.0"
+tar = { workspace = true }
+flate2 = { workspace = true }
+dirs = { workspace = true }
 
 [features]
 default = ["webc_runner"]

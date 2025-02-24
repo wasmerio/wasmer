@@ -18,35 +18,24 @@ wasmer-compiler = { path = "../compiler", version = "=6.0.0-alpha.1", features =
 	"translator",
 	"compiler",
 ] }
-wasmer-vm = { path = "../vm", version = "=6.0.0-alpha.1" }
+wasmer-vm = { workspace = true }
 wasmer-types = { path = "../types", version = "=6.0.0-alpha.1" }
 target-lexicon = { version = "0.12.2", default-features = false }
-smallvec = "1.6"
+smallvec = { workspace = true }
 object = { workspace = true, features = ["read"] }
 libc.workspace = true
-byteorder = "1"
+byteorder = { workspace = true }
 itertools = "0.10"
-rayon = "1.5"
-phf = { version = "0.11.2", features = ["macros"] }
-tracing = { version = "0.1", default-features = false, features = ["log"] }
-
-[dependencies.inkwell]
-package = "inkwell"
-version = "0.5.0"
-default-features = false
-features = [
-	"llvm18-0-prefer-static",
-	"target-x86",
-	"target-aarch64",
-	"target-riscv",
-	"target-loongarch",
-]
+rayon = { workspace = true }
+phf = { workspace = true, features = ["macros"] }
+tracing = { workspace = true, features = ["log"] }
+inkwell= { workspace = true, features = ["llvm18-0-prefer-static", "target-x86", "target-aarch64", "target-riscv", "target-loongarch"] }
 
 [build-dependencies]
-cc = "1.0"
-regex = "1.5"
-semver = "1.0"
-rustc_version = "0.4"
+cc = { workspace = true }
+regex = { workspace = true }
+semver = { workspace = true }
+rustc_version = { workspace = true }
 
 [features]
 test = []

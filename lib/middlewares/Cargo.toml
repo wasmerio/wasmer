@@ -18,7 +18,7 @@ wasmer = { path = "../api", version = "=6.0.0-alpha.1", default-features = false
 	"wasmparser",
 ] }
 wasmer-types = { path = "../types", version = "=6.0.0-alpha.1" }
-wasmer-vm = { path = "../vm", version = "=6.0.0-alpha.1" }
+wasmer-vm = { workspace = true }
 
 [dev-dependencies]
 wasmer = { path = "../api", version = "=6.0.0-alpha.1", features = [

@@ -119,7 +119,7 @@ wasmer-compiler-singlepass = { version = "=6.0.0-alpha.1", path = "../compiler-s
 wasmer-compiler-llvm = { version = "=6.0.0-alpha.1", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
 
-wasmer-vm = { version = "=6.0.0-alpha.1", path = "../vm", optional = true }
+wasmer-vm = { workspace = true, optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.36.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
@@ -128,15 +128,15 @@ wasmer-wasix = { path = "../wasix", version = "=0.36.0", features = [
 	"host-fs",
 	"ctrlc",
 ] }
-wasmer-wast = { version = "=6.0.0-alpha.1", path = "../../tests/lib/wast", optional = true }
+wasmer-wast = { workspace = true, optional = true }
 wasmer-types = { version = "=6.0.0-alpha.1", path = "../types", features = [
 	"enable-serde",
 ] }
 virtual-fs = { version = "0.22.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.15.0", path = "../virtual-net" }
-virtual-mio = { version = "0.7.0", path = "../virtual-io" }
+virtual-net = { workspace = true }
+virtual-mio = { workspace = true }
 
 # Wasmer-owned dependencies.
 
@@ -147,67 +147,63 @@ wasmer-backend-api = { version = "=0.5.0", path = "../backend-api" }
 
 shared-buffer = { workspace = true, optional = true }
 rkyv = { workspace = true, optional = true }
-fuser = { version = "0.14.0", optional = true }
-time01 = { package = "time", version = "0.1.45", optional = true }
+fuser = { workspace = true, optional = true }
+time01 = { workspace = true, optional = true }
 
 
 # Third-party dependencies.
 
 http.workspace = true
-is-terminal = "0.4.7"
-colored = "2.0"
-anyhow = "1.0"
-bytesize = "1.0"
-cfg-if = "1.0"
-tempfile = "3.6.0"
-serde = { version = "1.0.147", features = ["derive"] }
-dirs = "4.0"
-serde_json = { version = "1.0" }
+is-terminal = { workspace = true }
+colored = { workspace = true }
+anyhow = { workspace = true }
+bytesize = { workspace = true }
+cfg-if = { workspace = true }
+tempfile = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+dirs = { workspace = true }
+serde_json = { workspace = true }
 target-lexicon = { version = "0.12", features = ["std"] }
 wasmer-config = { version = "0.13.0", path = "../config" }
 indexmap = { workspace = true }
-walkdir = "2.3.2"
-regex = "1.6.0"
+walkdir = { workspace = true }
+regex = { workspace = true }
 toml.workspace = true
-url = "2.3.1"
+url = { workspace = true }
 libc.workspace = true
-parking_lot = "0.12"
-dialoguer = "0.11.0"
-hex = "0.4.3"
-flate2 = "1.0.25"
-cargo_metadata = "0.15.2"
-tar = "0.4.40"
-bytes = "1"
-thiserror = "1.0.37"
-log = "0.4.17"
-semver = "1.0.14"
-pathdiff = "0.2.1"
-sha2 = "0.10.6"
+parking_lot = { workspace = true }
+dialoguer = { workspace = true }
+hex = { workspace = true }
+flate2 = { workspace = true }
+cargo_metadata = { workspace = true }
+tar = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+semver = { workspace = true }
+pathdiff = { workspace = true }
+sha2 = { workspace = true }
 object = { workspace = true }
-wasm-coredump-builder = { version = "0.1.11", optional = true }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = [
-	"env-filter",
-	"fmt",
-	"json",
-] }
-async-trait = "0.1.68"
+wasm-coredump-builder = { workspace = true, optional = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
+async-trait = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-once_cell = "1.17.1"
-indicatif = "0.17.5"
-opener = "0.6.1"
-normpath = "=1.1.1"
+once_cell = { workspace = true }
+indicatif = { workspace = true }
+opener = { workspace = true }
+normpath = { workspace = true }
 hyper = { workspace = true, features = ["server"] }
-hyper-util = { version = "0.1.5", features = ["tokio"] }
-http-body-util = "0.1.1"
-futures = "0.3.29"
-humantime = "2.1.0"
-interfaces = { version = "0.0.9", optional = true }
+hyper-util = { workspace = true, features = ["tokio"] }
+http-body-util = { workspace = true }
+futures = { workspace = true }
+humantime = { workspace = true }
+interfaces = { workspace = true, optional = true }
 
-uuid = { version = "1.3.0", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }
 time = { workspace = true, features = ["macros"] }
 serde_yaml = { workspace = true }
-comfy-table = "7.0.1"
+comfy-table = { workspace = true }
 
 
 # Used by tuntap and connect
@@ -217,15 +213,15 @@ tokio-tungstenite = { version = "0.21.0", features = [
 	"rustls-tls-webpki-roots",
 	"stream",
 ], optional = true }
-mac_address = { version = "1.1.5", optional = true }
+mac_address = { workspace = true, optional = true }
 #tun-tap = { version = "0.1.4", features = ["tokio"], optional = true }
 
-clap_complete = "4.5.2"
-clap_mangen = "0.2.20"
-zip = { version = "2.1.3", default-features = false, features = ["deflate"] }
-console = "0.15.8"
-dotenvy = "0.15.7"
-lzma-rs = "0.3.0"
+clap_complete = { workspace = true }
+clap_mangen = { workspace = true }
+zip = { workspace = true, features = ["deflate"] }
+console = { workspace = true }
+dotenvy = { workspace = true }
+lzma-rs = { workspace = true }
 
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
@@ -259,17 +255,14 @@ reqwest = { workspace = true, default-features = false, features = [
 
 
 [build-dependencies]
-chrono = { version = "0.4.38", default-features = false, features = [
-	"std",
-	"clock",
-] }
+chrono = { workspace = true, features = ["std", "clock"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
 
 
 [dev-dependencies]
-assert_cmd = "2.0.11"
+assert_cmd = { workspace = true }
 predicates = "3.0.3"
 pretty_assertions.workspace = true
 

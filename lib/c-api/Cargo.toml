@@ -35,20 +35,17 @@ wasmer-wasix = { path = "../wasix", version="=0.36.0", features = ["host-fs", "h
 webc = { workspace = true, optional = true }
 virtual-fs = { version = "0.22.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
-cfg-if = "1.0"
+cfg-if = { workspace = true }
 libc.workspace = true
-thiserror = "1"
-typetag = { version = "0.1", optional = true }
-paste = "1.0"
+thiserror = { workspace = true }
+typetag = { workspace = true, optional = true }
+paste = { workspace = true }
 tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default-features = false }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = [
-	"env-filter",
-	"fmt",
-] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
-field-offset = "0.3.3"
+field-offset = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
 wasmer-inline-c = "0.1.1"
@@ -122,4 +119,4 @@ webc_runner = ["virtual-fs", "webc"]
 jit = ["compiler"]
 
 [build-dependencies]
-cbindgen = { version = "0.27", default-features = false }
+cbindgen = { workspace = true }

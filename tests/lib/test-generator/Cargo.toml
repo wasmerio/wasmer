@@ -6,7 +6,7 @@ publish = false
 license = "Apache-2.0 WITH LLVM-exception"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { workspace = true }
 target-lexicon = "0.12"
 
 [features]

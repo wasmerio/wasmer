@@ -22,33 +22,27 @@ webc.workspace = true
 # crates.io dependencies.
 reqwest = { workspace = true, default-features = false, features = ["json"] }
 
-anyhow = "1"
-serde = { version = "1", features = ["derive"] }
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 time = { workspace = true, features = ["formatting", "parsing"] }
 tokio = { workspace = true }
-serde_json = "1"
-url = { version = "2", features = ["serde"] }
-futures = "0.3"
-tracing = "0.1"
-cynic = { version = "3.7.2", features = ["http-reqwest"] }
-pin-project-lite = "0.2.10"
-serde_path_to_error = "0.1.14"
-harsh = "0.2.2"
-merge-streams = "0.1.2"
+serde_json = { workspace = true }
+url = { workspace = true, features = ["serde"] }
+futures = { workspace = true }
+tracing = { workspace = true }
+cynic = { workspace = true, features = ["http-reqwest"] }
+pin-project-lite = { workspace = true }
+serde_path_to_error = { workspace = true }
+harsh = { workspace = true }
+merge-streams = { workspace = true }
 
 
 # Subscriptions. 
-graphql-ws-client = { version = "0.11.0", features = [
-	"tungstenite",
-	"client-cynic",
-] }
+graphql-ws-client = { workspace = true, features = ["tungstenite", "client-cynic"] }
 tokio-tungstenite = { version = "0.24.0", features = [
 	"rustls-tls-native-roots",
 ] }
-async-tungstenite = { version = "0.28.0", features = [
-	"tokio-runtime",
-	"tokio-rustls-native-certs",
-] }
+async-tungstenite = { workspace = true, features = ["tokio-runtime", "tokio-rustls-native-certs"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies.getrandom]
 version = "0.2.14"
@@ -57,4 +51,4 @@ features = ["js"]
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
 base64.workspace = true
-uuid = { version = "1", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }

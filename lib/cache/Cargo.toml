@@ -14,18 +14,18 @@ version.workspace = true
 
 [dependencies]
 wasmer = { path = "../api", version = "=6.0.0-alpha.1", default-features = false }
-hex = "0.4"
-thiserror = "1"
-blake3 = "1.0"
+hex = { workspace = true }
+thiserror = { workspace = true }
+blake3 = { workspace = true }
 
 [dev-dependencies]
-criterion = { version = "0.5", default-features = false }
+criterion = { workspace = true }
 clap = { version = "=4.4.11" }
-clap_builder = { version = "=4.4.11" }
-clap_derive = { version = "=4.4.7" }
-clap_lex = { version = "=0.6.0" }
-tempfile = "3.6.0"
-rand = "0.8.3"
+clap_builder = { workspace = true }
+clap_derive = { workspace = true }
+clap_lex = { workspace = true }
+tempfile = { workspace = true }
+rand = { workspace = true }
 wasmer = { path = "../api", version = "=6.0.0-alpha.1", default-features = false, features = ["sys", "cranelift"] }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.0.0-alpha.1" }
 

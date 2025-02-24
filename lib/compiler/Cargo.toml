@@ -16,27 +16,27 @@ version.workspace = true
 wasmer-types = { path = "../types", version = "=6.0.0-alpha.1", default-features = false }
 wasmparser = { workspace = true, optional = true, default-features = false }
 enumset.workspace = true
-hashbrown = { version = "0.11", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-thiserror = "1.0"
-serde_bytes = { version = "0.11", optional = true }
-smallvec = "1.6"
-xxhash-rust = { version = "0.8.10", features = ["xxh64"] }
+hashbrown = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+thiserror = { workspace = true }
+serde_bytes = { workspace = true, optional = true }
+smallvec = { workspace = true }
+xxhash-rust = { workspace = true, features = ["xxh64"] }
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
 ] }
 
-backtrace = "0.3"
-memmap2 = "0.6"
-more-asserts = "0.2"
+backtrace = { workspace = true }
+memmap2 = { workspace = true }
+more-asserts = { workspace = true }
 
-cfg-if = "1.0"
-leb128 = "0.2"
-enum-iterator = "0.7.0"
+cfg-if = { workspace = true }
+leb128 = { workspace = true }
+enum-iterator = { workspace = true }
 
-bytes = "1.0"
-self_cell = "1.0"
+bytes = { workspace = true }
+self_cell = { workspace = true }
 rkyv = { workspace = true }
 shared-buffer = { workspace = true }
 libc = { workspace = true }

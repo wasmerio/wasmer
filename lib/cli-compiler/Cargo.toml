@@ -24,17 +24,17 @@ wasmer-compiler = { version = "=6.0.0-alpha.1", path = "../compiler", features =
 	"compiler",
 ] }
 wasmer-types = { version = "=6.0.0-alpha.1", path = "../types" }
-is-terminal = "0.4.7"
-colored = "2.0"
-anyhow = "1.0"
+is-terminal = { workspace = true }
+colored = { workspace = true }
+anyhow = { workspace = true }
 # For the function names autosuggestion
-distance = "0.4"
+distance = { workspace = true }
 # For the inspect subcommand
-bytesize = "1.0"
-cfg-if = "1.0"
+bytesize = { workspace = true }
+cfg-if = { workspace = true }
 # For debug feature
-fern = { version = "0.6", features = ["colored"], optional = true }
-log = { version = "0.4", optional = true }
+fern = { workspace = true, features = ["colored"], optional = true }
+log = { workspace = true, optional = true }
 target-lexicon = { version = "0.12", features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
