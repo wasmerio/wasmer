@@ -6,7 +6,7 @@ impl JournalEffector {
     }
 
     pub fn apply_chdir(ctx: &mut FunctionEnvMut<'_, WasiEnv>, path: &str) -> anyhow::Result<()> {
-        crate::syscalls::chdir_internal(ctx, path).map_err(|err| {
+        crate::syscalls::chdir_internal(ctx.data(), path).map_err(|err| {
             anyhow::format_err!(
                 "snapshot restore error: failed to change directory (path={}) - {}",
                 path,

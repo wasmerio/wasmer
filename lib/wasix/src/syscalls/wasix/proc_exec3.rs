@@ -4,6 +4,7 @@ use super::*;
 use crate::{
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::*,
+    WasiFs, VIRTUAL_ROOT_FD,
 };
 
 /// Replaces the current process with a new process
@@ -27,6 +28,9 @@ pub fn proc_exec3<M: MemorySize>(
     args_len: M::Offset,
     envs: WasmPtr<u8, M>,
     envs_len: M::Offset,
+    search_path: Bool,
+    path: WasmPtr<u8, M>,
+    path_len: M::Offset,
 ) -> Result<Errno, WasiError> {
     WasiEnv::process_signals_and_exit(&mut ctx)?;
 
@@ -68,7 +72,7 @@ pub fn proc_exec3<M: MemorySize>(
 
         let mut vec = vec![];
         for env in envs {
-            let (key, value) = env.split_once('=').unwrap();
+            let (key, value) = wasi_try_ok!(env.split_once('=').ok_or(Errno::Inval));
 
             vec.push((key.to_string(), value.to_string()));
         }
@@ -79,9 +83,29 @@ pub fn proc_exec3<M: MemorySize>(
     };
 
     // Convert relative paths into absolute paths
-    if name.starts_with("./") {
+    if search_path == Bool::True && !name.contains('/') {
+        let path_str;
+
+        let path = if path.is_null() {
+            vec!["/usr/local/bin", "/bin", "/usr/bin"]
+        } else {
+            path_str = path.read_utf8_string(&memory, path_len).map_err(|err| {
+                warn!("failed to execve as the path could not be read - {}", err);
+                WasiError::Exit(Errno::Inval.into())
+            })?;
+            path_str.split(':').collect()
+        };
+        let (_, state, inodes) =
+            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+        match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), &name) {
+            FindExecutableResult::Found(p) => name = p,
+            FindExecutableResult::AccessError => return Ok(Errno::Access),
+            FindExecutableResult::NotFound => return Ok(Errno::Noexec),
+        }
+    } else if name.starts_with("./") {
         name = ctx.data().state.fs.relative_path_to_absolute(name);
     }
+
     trace!(name);
 
     // Convert the preopen directories
@@ -123,7 +147,7 @@ pub fn proc_exec3<M: MemorySize>(
         std::mem::swap(vfork_env.as_mut(), ctx.data_mut());
         let mut wasi_env = *vfork_env;
         wasi_env.owned_handles.push(vfork.handle.clone());
-        _prepare_wasi(&mut wasi_env, Some(args), envs);
+        _prepare_wasi(&mut wasi_env, Some(args), envs, None);
 
         // Recrod the stack offsets before we give up ownership of the wasi_env
         let stack_lower = wasi_env.layout.stack_lower;
@@ -212,7 +236,7 @@ pub fn proc_exec3<M: MemorySize>(
     else {
         // Prepare the environment
         let mut wasi_env = ctx.data().clone();
-        _prepare_wasi(&mut wasi_env, Some(args), envs);
+        _prepare_wasi(&mut wasi_env, Some(args), envs, None);
 
         // Get a reference to the runtime
         let bin_factory = ctx.data().bin_factory.clone();
@@ -241,16 +265,6 @@ pub fn proc_exec3<M: MemorySize>(
             Ok(mut process) => {
                 // If we support deep sleeping then we switch to deep sleep mode
                 let env = ctx.data();
-
-                // Since we clone the env for the subprocess, we need to close
-                // the file handles we're holding. Otherwise, files will never
-                // be closed.
-                InlineWaker::block_on(
-                    unsafe { env.get_memory_and_wasi_state(&ctx, 0) }
-                        .1
-                        .fs
-                        .close_all(),
-                );
 
                 let thread = env.thread.clone();
 
@@ -281,5 +295,34 @@ pub fn proc_exec3<M: MemorySize>(
                 Ok(Errno::Noexec)
             }
         }
+    }
+}
+
+pub(crate) enum FindExecutableResult {
+    Found(String),
+    AccessError,
+    NotFound,
+}
+
+pub(crate) fn find_executable_in_path<'a>(
+    fs: &WasiFs,
+    inodes: &WasiInodes,
+    path: impl IntoIterator<Item = &'a str>,
+    file_name: &str,
+) -> FindExecutableResult {
+    let mut encountered_eaccess = false;
+    for p in path {
+        let full_path = format!("{}/{}", p.trim_end_matches('/'), file_name);
+        match fs.get_inode_at_path(inodes, VIRTUAL_ROOT_FD, &full_path, true) {
+            Ok(_) => return FindExecutableResult::Found(full_path),
+            Err(Errno::Access) => encountered_eaccess = true,
+            Err(_) => (),
+        }
+    }
+
+    if encountered_eaccess {
+        FindExecutableResult::AccessError
+    } else {
+        FindExecutableResult::NotFound
     }
 }

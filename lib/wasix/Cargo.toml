@@ -213,9 +213,9 @@ sys-default = [
 	"sys-thread",
 	"host-vnet",
 	"host-threads",
-        "host-reqwest",
-        "wasmer/sys",
-	"ctrlc"
+	"host-reqwest",
+	"wasmer/sys",
+	"ctrlc",
 ]
 sys-poll = []
 extra-logging = []

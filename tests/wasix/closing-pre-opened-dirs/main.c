@@ -11,9 +11,9 @@ typedef unsigned char bool;
 
 int main()
 {
-    const size_t expected_count = 6;
-    const char *expected_entries[] = {".", "..", "main.c", "main.wasm", "output", "run.sh"};
-    bool entries_observed[6] = {false};
+    const size_t expected_count = 7;
+    const char *expected_entries[] = {".", "..", "main.c", "main.wasm", "main-not-asyncified.wasm", "output", "run.sh"};
+    bool entries_observed[7] = {false};
 
     for (int fd = 3; fd <= 5; fd++)
     {

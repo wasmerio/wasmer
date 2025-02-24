@@ -134,14 +134,14 @@ int exec_tests()
 
 // Since we don't pipe stderr from the child process, this function writes
 // output to a file which can (hopefully!) be inspected
-void write_subprocess_output(const char *msg)
+void write_subprocess_error(const char *msg)
 {
     FILE *outf = fopen("./output.child", "w");
     if (!outf)
     {
         exit(EXIT_FAILURE);
     }
-    fprintf(outf, "%s: %d\n", msg, errno);
+    fprintf(outf, "%s: %s\n", msg, strerror(errno));
     fclose(outf);
 }
 
@@ -150,20 +150,20 @@ int exec_subprocess()
     int flags = fcntl(6, F_GETFD);
     if (flags != -1 || errno != EBADF)
     {
-        write_subprocess_output("Expected EBADF for fd 6");
+        write_subprocess_error("Expected EBADF for fd 6");
         return 2;
     }
 
     flags = fcntl(7, F_GETFD);
     if (flags == -1)
     {
-        write_subprocess_output("Error from fcntl in subprocess");
+        write_subprocess_error("Error from fcntl in subprocess");
         return 3;
     }
 
     if ((flags & FD_CLOEXEC) != 0)
     {
-        write_subprocess_output("Expected FD_CLOEXEC to be 0 for fd 7");
+        write_subprocess_error("Expected FD_CLOEXEC to be 0 for fd 7");
         return 4;
     }
 
