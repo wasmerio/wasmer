@@ -10,7 +10,7 @@ use crate::syscalls::*;
 #[instrument(level = "trace", skip_all, ret)]
 pub fn proc_signals_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    buf: WasmPtr<SignalAndAction, M>,
+    buf: WasmPtr<SignalDisposition, M>,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
@@ -20,9 +20,9 @@ pub fn proc_signals_get<M: MemorySize>(
     let buf = wasi_try_mem_ok!(buf.slice(&memory, wasi_try_ok!(to_offset::<M>(signals.len()))));
 
     for (idx, (sig, act)) in signals.iter().enumerate() {
-        wasi_try_mem_ok!(buf.index(idx as u64).write(SignalAndAction {
+        wasi_try_mem_ok!(buf.index(idx as u64).write(SignalDisposition {
             sig: *sig,
-            act: *act
+            disp: *act
         }));
     }
 

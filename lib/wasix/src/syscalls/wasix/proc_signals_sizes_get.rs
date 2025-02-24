@@ -8,7 +8,7 @@ use crate::syscalls::*;
 /// - `size_t *signal_count`
 ///     The number of signals.
 #[instrument(level = "trace", skip_all, fields(signal_count = field::Empty), ret)]
-pub fn proc_signals_count_get<M: MemorySize>(
+pub fn proc_signals_sizes_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     signal_count: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {

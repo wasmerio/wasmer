@@ -88,9 +88,9 @@ pub(crate) use self::types::{
         Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
         Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
         Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, ProcSpawnFdOp,
-        Rights, SignalAndAction, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
-        StdioMode as WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
-        Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Rights, SignalDisposition, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
+        StackSnapshot, StdioMode as WasiStdioMode, Streamsecurity, Subscription,
+        SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     *,
 };
@@ -1460,7 +1460,7 @@ pub(crate) fn _prepare_wasi(
     wasi_env: &mut WasiEnv,
     args: Option<Vec<String>>,
     envs: Option<Vec<(String, String)>>,
-    signals: Option<Vec<SignalAndAction>>,
+    signals: Option<Vec<SignalDisposition>>,
 ) {
     // Swap out the arguments with the new ones
     if let Some(args) = args {
@@ -1502,7 +1502,7 @@ pub(crate) fn _prepare_wasi(
     if let Some(signals) = signals {
         let mut guard = wasi_env.state.signals.lock().unwrap();
         for signal in signals {
-            guard.insert(signal.sig, signal.act);
+            guard.insert(signal.sig, signal.disp);
         }
         drop(guard);
     }

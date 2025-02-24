@@ -2331,15 +2331,15 @@ impl core::fmt::Debug for Signal {
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
-pub enum SigAction {
+pub enum Disposition {
     Default,
     Ignore,
 }
-impl core::fmt::Debug for SigAction {
+impl core::fmt::Debug for Disposition {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            SigAction::Default => f.debug_tuple("SigAction::Default").finish(),
-            SigAction::Ignore => f.debug_tuple("SigAction::Ignore").finish(),
+            Disposition::Default => f.debug_tuple("SigAction::Default").finish(),
+            Disposition::Ignore => f.debug_tuple("SigAction::Ignore").finish(),
         }
     }
 }
@@ -2347,15 +2347,15 @@ impl core::fmt::Debug for SigAction {
 #[doc = " A signal and its corresponding action."]
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct SignalAndAction {
+pub struct SignalDisposition {
     pub sig: Signal,
-    pub act: SigAction,
+    pub disp: Disposition,
 }
-impl core::fmt::Debug for SignalAndAction {
+impl core::fmt::Debug for SignalDisposition {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("SignalAndAction")
             .field("sig", &self.sig)
-            .field("act", &self.act)
+            .field("act", &self.disp)
             .finish()
     }
 }

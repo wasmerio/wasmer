@@ -28,7 +28,7 @@ use crate::{
     Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 use wasmer_types::ModuleHash;
-use wasmer_wasix_types::wasi::SignalAndAction;
+use wasmer_wasix_types::wasi::SignalDisposition;
 
 use super::env::WasiEnvInit;
 
@@ -57,7 +57,7 @@ pub struct WasiEnvBuilder {
     /// Environment variables.
     pub(super) envs: Vec<(String, Vec<u8>)>,
     /// Signals that should get their handler overridden.
-    pub(super) signals: Vec<SignalAndAction>,
+    pub(super) signals: Vec<SignalDisposition>,
     /// Pre-opened directories that will be accessible from WASI.
     pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
@@ -248,20 +248,20 @@ impl WasiEnvBuilder {
     }
 
     /// Add a signal handler override.
-    pub fn signal(mut self, sig_action: SignalAndAction) -> Self {
+    pub fn signal(mut self, sig_action: SignalDisposition) -> Self {
         self.add_signal(sig_action);
         self
     }
 
     /// Add a signal handler override.
-    pub fn add_signal(&mut self, sig_action: SignalAndAction) {
+    pub fn add_signal(&mut self, sig_action: SignalDisposition) {
         self.signals.push(sig_action);
     }
 
     /// Add multiple signal handler overrides.
     pub fn signals<I>(mut self, signal_pairs: I) -> Self
     where
-        I: IntoIterator<Item = SignalAndAction>,
+        I: IntoIterator<Item = SignalDisposition>,
     {
         self.add_signals(signal_pairs);
 
@@ -271,7 +271,7 @@ impl WasiEnvBuilder {
     /// Add multiple signal handler overrides.
     pub fn add_signals<I>(&mut self, signal_pairs: I)
     where
-        I: IntoIterator<Item = SignalAndAction>,
+        I: IntoIterator<Item = SignalDisposition>,
     {
         for sig in signal_pairs {
             self.add_signal(sig);
@@ -279,12 +279,12 @@ impl WasiEnvBuilder {
     }
 
     /// Get a reference to the configured signal handler overrides.
-    pub fn get_signals(&self) -> &[SignalAndAction] {
+    pub fn get_signals(&self) -> &[SignalDisposition] {
         &self.signals
     }
 
     /// Get a mutable reference to the configured signalironment variables.
-    pub fn get_signals_mut(&mut self) -> &mut Vec<SignalAndAction> {
+    pub fn get_signals_mut(&mut self) -> &mut Vec<SignalDisposition> {
         &mut self.signals
     }
 
@@ -936,7 +936,7 @@ impl WasiEnvBuilder {
             futexs: Default::default(),
             clock_offset: Default::default(),
             envs: std::sync::Mutex::new(conv_env_vars(self.envs)),
-            signals: std::sync::Mutex::new(self.signals.iter().map(|s| (s.sig, s.act)).collect()),
+            signals: std::sync::Mutex::new(self.signals.iter().map(|s| (s.sig, s.disp)).collect()),
         };
 
         let runtime = self.runtime.unwrap_or_else(|| {

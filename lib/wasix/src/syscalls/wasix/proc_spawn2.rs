@@ -35,7 +35,7 @@ pub fn proc_spawn2<M: MemorySize>(
     envs_len: M::Offset,
     fd_ops: WasmPtr<ProcSpawnFdOp<M>, M>,
     fd_ops_len: M::Offset,
-    signal_actions: WasmPtr<SignalAndAction, M>,
+    signal_actions: WasmPtr<SignalDisposition, M>,
     signal_actions_len: M::Offset,
     search_path: Bool,
     path: WasmPtr<u8, M>,

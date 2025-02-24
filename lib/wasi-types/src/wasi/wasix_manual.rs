@@ -6,7 +6,7 @@ use wasmer::{FromToNativeWasmType, MemorySize, ValueType};
 
 use super::{
     Errno, ErrnoSignal, EventFdReadwrite, Eventtype, Fd, JoinStatusType, ProcSpawnFdOp, Signal,
-    SignalAndAction, Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite,
+    SignalDisposition, Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite,
     Userdata,
 };
 
@@ -507,7 +507,7 @@ where
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
-unsafe impl ValueType for SignalAndAction {
+unsafe impl ValueType for SignalDisposition {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
