@@ -274,7 +274,14 @@ fn prepare_webc_env(
 
     let handle = runtime.handle().clone();
     let _guard = handle.enter();
-    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+
+    let http_config = config
+        .builder
+        .build()
+        .ok()
+        .and_then(|wasi_env| wasi_env.runtime.http_config().cloned())
+        .unwrap_or_else(|| wasmer_wasix::http::client_builder::ClientBuilderConfig::default());
+    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)), &http_config);
     rt.set_engine(Some(store_mut.engine().clone()));
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
@@ -345,9 +352,16 @@ pub unsafe extern "C" fn wasi_env_new(
             .unwrap()
     });
 
+    let http_config = config
+        .builder
+        .build()
+        .ok()
+        .and_then(|wasi_env| wasi_env.runtime.http_config().cloned())
+        .unwrap_or_else(|| ClientBuilderConfig::default());
+
     let handle = runtime.handle().clone();
     let _guard = handle.enter();
-    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)), &http_config);
     rt.set_engine(Some(store_mut.engine().clone()));
 
     if !config.inherit_stdout {

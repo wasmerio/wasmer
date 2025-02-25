@@ -18,6 +18,8 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::{Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
+use crate::http::client_builder::ClientBuilderConfig;
+
 #[cfg(feature = "journal")]
 use crate::journal::DynJournal;
 use crate::{
@@ -89,6 +91,11 @@ where
 
     /// Get a custom HTTP client
     fn http_client(&self) -> Option<&DynHttpClient> {
+        None
+    }
+
+    /// Get a HTTP config
+    fn http_config(&self) -> Option<&ClientBuilderConfig> {
         None
     }
 
@@ -209,6 +216,7 @@ pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
+    pub http_config: Option<ClientBuilderConfig>,
     pub package_loader: Arc<dyn PackageLoader + Send + Sync>,
     pub source: Arc<dyn Source + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
@@ -219,7 +227,7 @@ pub struct PluggableRuntime {
 }
 
 impl PluggableRuntime {
-    pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
+    pub fn new(rt: Arc<dyn VirtualTaskManager>, http_config: &ClientBuilderConfig) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -229,7 +237,7 @@ impl PluggableRuntime {
             }
         }
         let http_client =
-            crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
+            crate::http::http_client(http_config).map(|client| Arc::new(client) as DynHttpClient);
 
         let loader = UnsupportedPackageLoader;
 
@@ -245,6 +253,7 @@ impl PluggableRuntime {
             rt,
             networking,
             http_client,
+            http_config: Some(http_config.clone()),
             engine: None,
             tty: None,
             source: Arc::new(source),
@@ -316,6 +325,10 @@ impl Runtime for PluggableRuntime {
 
     fn http_client(&self) -> Option<&DynHttpClient> {
         self.http_client.as_ref()
+    }
+
+    fn http_config(&self) -> Option<&ClientBuilderConfig> {
+        self.http_config.as_ref()
     }
 
     fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {

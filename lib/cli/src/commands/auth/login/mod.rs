@@ -6,7 +6,7 @@ use hyper_util::server::graceful::GracefulShutdown;
 
 use crate::{
     commands::AsyncCliCommand,
-    config::{UpdateRegistry, UserRegistry, WasmerConfig, WasmerEnv},
+    config::{CliClientBuilderConfig, UpdateRegistry, UserRegistry, WasmerConfig, WasmerEnv},
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use std::{path::PathBuf, time::Duration};
@@ -44,6 +44,9 @@ pub struct Login {
     /// Change the current registry
     #[clap(long, env = "WASMER_REGISTRY")]
     pub registry: Option<UserRegistry>,
+
+    #[clap(flatten)]
+    pub(crate) http_config: CliClientBuilderConfig,
 }
 
 impl Login {
@@ -231,6 +234,7 @@ impl Login {
             self.cache_dir.clone(),
             self.token.clone(),
             self.registry.clone(),
+            self.http_config.clone(),
         )
     }
 }
@@ -293,6 +297,7 @@ mod tests {
             wasmer_dir: temp.path().to_path_buf(),
             token: None,
             cache_dir: temp.path().join("cache").to_path_buf(),
+            http_config: CliClientBuilderConfig::default(),
         };
         let env = login.get_wasmer_env();
 
@@ -321,6 +326,7 @@ mod tests {
             wasmer_dir: temp.path().to_path_buf(),
             token: Some("abc".to_string()),
             cache_dir: temp.path().join("cache").to_path_buf(),
+            http_config: CliClientBuilderConfig::default(),
         };
         let env = login.get_wasmer_env();
 
@@ -381,6 +387,7 @@ mod tests {
             registry: Some("http://localhost:11".to_string().into()),
             token: Some("invalid".to_string()),
             cache_dir: crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
+            http_config: CliClientBuilderConfig::default(),
         };
 
         let res = cmd.run();

@@ -929,6 +929,10 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         self.runtime.http_client()
     }
 
+    fn http_config(&self) -> Option<&wasmer_wasix::http::client_builder::ClientBuilderConfig> {
+        self.runtime.http_config()
+    }
+
     fn tty(&self) -> Option<&(dyn wasmer_wasix::os::TtyBridge + Send + Sync)> {
         self.runtime.tty()
     }

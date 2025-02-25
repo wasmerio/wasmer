@@ -250,7 +250,12 @@ impl WasiRunner {
         runtime: Arc<dyn Runtime + Send + Sync>,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let mut builder = WasiEnvBuilder::new(program_name).runtime(runtime);
+        let http_config_optional = runtime.http_config();
+        let http_config = match http_config_optional {
+            Some(config) => config,
+            None => &crate::http::client_builder::ClientBuilderConfig::default(),
+        };
+        let mut builder = WasiEnvBuilder::new(program_name, http_config).runtime(runtime);
 
         let container_fs = if let Some(pkg) = pkg {
             builder.add_webc(pkg.clone());
@@ -534,7 +539,7 @@ mod tests {
         let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
             tokrt.clone(),
         ));
-        let rt = crate::PluggableRuntime::new(tm);
+        let rt = crate::PluggableRuntime::new(tm, &runtime.http_config);
 
         let envb = envb
             .prepare_webc_env("test", &annotations, None, Arc::new(rt), Some(root_fs))
@@ -572,8 +577,11 @@ mod tests {
         let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
             tokrt.clone(),
         ));
-        let mut rt = crate::PluggableRuntime::new(tm);
-        rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new());
+        let http_config = crate::http::client_builder::ClientBuilderConfig::default();
+        let mut rt = crate::PluggableRuntime::new(tm, &http_config);
+        rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new(
+            &http_config,
+        ));
 
         let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
         let webc_data = std::fs::read(webc_path).unwrap();

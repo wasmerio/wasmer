@@ -18,6 +18,8 @@ use wasmer_package::{
 use webc::DetectError;
 use webc::{Container, ContainerError};
 
+use crate::http::client_builder::ClientBuilderConfig;
+
 use crate::{
     bin_factory::BinaryPackage,
     http::{HttpClient, HttpRequest, USER_AGENT},
@@ -53,10 +55,10 @@ pub enum HashIntegrityValidationMode {
 }
 
 impl BuiltinPackageLoader {
-    pub fn new() -> Self {
+    pub fn new(http_config: &ClientBuilderConfig) -> Self {
         BuiltinPackageLoader {
             in_memory: InMemoryCache::default(),
-            client: Arc::new(crate::http::default_http_client().unwrap()),
+            client: Arc::new(crate::http::http_client(http_config).unwrap()),
             cache: None,
             hash_validation: HashIntegrityValidationMode::NoValidate,
             tokens: HashMap::new(),
@@ -317,7 +319,7 @@ impl BuiltinPackageLoader {
 
 impl Default for BuiltinPackageLoader {
     fn default() -> Self {
-        BuiltinPackageLoader::new()
+        BuiltinPackageLoader::new(&ClientBuilderConfig::default())
     }
 }
 
@@ -636,7 +638,7 @@ mod tests {
             status: StatusCode::OK,
             headers: HeaderMap::new(),
         }]));
-        let loader = BuiltinPackageLoader::new()
+        let loader = BuiltinPackageLoader::new(&ClientBuilderConfig::default())
             .with_cache_dir(temp.path())
             .with_shared_http_client(client.clone());
         let summary = PackageSummary {
@@ -712,7 +714,7 @@ mod test {
         let file_path = path.join(filename);
         std::fs::write(&file_path, contents).unwrap();
 
-        let dl = BuiltinPackageLoader::new().with_cache_dir(path);
+        let dl = BuiltinPackageLoader::new(&ClientBuilderConfig::default()).with_cache_dir(path);
 
         let errors = dl
             .validate_cache(CacheValidationMode::PruneOnMismatch)

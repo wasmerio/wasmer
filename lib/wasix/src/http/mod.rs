@@ -3,6 +3,9 @@ mod client;
 #[cfg(feature = "host-reqwest")]
 pub mod reqwest;
 
+#[cfg(feature = "host-reqwest")]
+pub mod client_builder;
+
 #[cfg(feature = "js")]
 mod web_http_client;
 
@@ -14,10 +17,12 @@ pub use self::client::*;
 pub(crate) const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "-", env!("CARGO_PKG_VERSION"));
 
 /// Try to instantiate a HTTP client that is suitable for the current platform.
-pub fn default_http_client() -> Option<impl HttpClient + Send + Sync + 'static> {
+pub fn http_client(
+    http_config: &client_builder::ClientBuilderConfig,
+) -> Option<impl HttpClient + Send + Sync + 'static> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-reqwest")] {
-            Some(self::reqwest::ReqwestHttpClient::default())
+            Some(self::reqwest::ReqwestHttpClient::new(http_config))
         } else if #[cfg(feature = "js")] {
             Some(web_http_client::WebHttpClient::default())
         } else {

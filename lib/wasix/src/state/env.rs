@@ -28,6 +28,7 @@ use crate::{
     bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
+    http::client_builder::ClientBuilderConfig,
     import_object_for_all_wasi_versions,
     os::task::{
         control_plane::ControlPlaneError,
@@ -378,7 +379,7 @@ impl Clone for WasiEnv {
 impl WasiEnv {
     /// Construct a new [`WasiEnvBuilder`] that allows customizing an environment.
     pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
-        WasiEnvBuilder::new(program_name)
+        WasiEnvBuilder::new(program_name, &ClientBuilderConfig::default())
     }
 
     /// Forking the WasiState is used when either fork or vfork is called

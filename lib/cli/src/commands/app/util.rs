@@ -247,6 +247,7 @@ pub(super) async fn login_user(
                     cache_dir: env.cache_dir().to_path_buf(),
                     token: None,
                     registry: env.registry.clone(),
+                    http_config: env.http_config.clone(),
                 }
                 .run_async()
                 .await?;

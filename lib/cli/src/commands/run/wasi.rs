@@ -573,7 +573,10 @@ impl Wasi {
         I: Into<RuntimeOrHandle>,
     {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
-        let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
+        let mut rt = PluggableRuntime::new(
+            tokio_task_manager.clone(),
+            &env.http_config.to_client_builder_config(),
+        );
 
         let has_networking = self.networking.is_some()
             || capabilities::get_cached_capability(pkg_cache_path)
@@ -615,8 +618,8 @@ impl Wasi {
             rt.set_tty(tty);
         }
 
-        let client =
-            wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
+        let client = wasmer_wasix::http::http_client(&env.http_config.to_client_builder_config())
+            .context("No HTTP client available")?;
         let client = Arc::new(client);
 
         let package_loader = self
@@ -673,7 +676,7 @@ impl Wasi {
         let checkout_dir = env.cache_dir().join("checkouts");
         let tokens = tokens_by_authority(env)?;
 
-        let loader = BuiltinPackageLoader::new()
+        let loader = BuiltinPackageLoader::new(&env.http_config.to_client_builder_config())
             .with_cache_dir(checkout_dir)
             .with_shared_http_client(client)
             .with_tokens(tokens);
