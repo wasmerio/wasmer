@@ -10,6 +10,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 6.0.0-alpha.2 - 25/02/2025
 
+This second alpha release notably fixes an out-of-bound memory access when
+using LLVM on aarch64. Furthermore, it adds proper support for the
+`posix_spawn` function without a need for asyncify.
+
 ## Added
 
   - [#5426](https://github.com/wasmerio/wasmer/pull/5426) Add proper posix_spawn support without needing asyncify
