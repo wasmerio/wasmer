@@ -555,6 +555,24 @@
         "action": {
           "$ref": "#/definitions/JobAction"
         },
+        "jitter_percent_max": {
+          "description": "Maximum percent of \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time. The calculation works by multiplying the time between invocations by a random amount, and taking the percentage of that random amount.\n\nSee also [`Self::jitter_percent_min`] to set a minimum jitter.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "jitter_percent_min": {
+          "description": "Minimum \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time. The calculation works by multiplying the time between invocations by a random amount, and taking the percentage of that random amount.\n\nIf not specified while `jitter_percent_max` is, it will default to 10%.\n\nSee also [`Self::jitter_percent_max`] to set a maximum jitter.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "minimum": 0.0
+        },
         "max_schedule_drift": {
           "description": "Don't start job if past the due time by this amount, instead opting to wait for the next instance of it to be triggered.",
           "anyOf": [
@@ -590,7 +608,8 @@
         "trigger": {
           "$ref": "#/definitions/JobTrigger"
         }
-      }
+      },
+      "additionalProperties": true
     },
     "JobAction": {
       "type": "object",
