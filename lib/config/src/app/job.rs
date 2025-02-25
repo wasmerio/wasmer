@@ -28,7 +28,39 @@ pub struct Job {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retries: Option<u32>,
 
+    /// Maximum percent of "jitter" to introduce between invocations.
+    ///
+    /// Value range: 0-100
+    ///
+    /// Jitter is used to spread out jobs over time.
+    /// The calculation works by multiplying the time between invocations
+    /// by a random amount, and taking the percentage of that random amount.
+    ///
+    /// See also [`Self::jitter_percent_min`] to set a minimum jitter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jitter_percent_max: Option<u8>,
+
+    /// Minimum "jitter" to introduce between invocations.
+    ///
+    /// Value range: 0-100
+    ///
+    /// Jitter is used to spread out jobs over time.
+    /// The calculation works by multiplying the time between invocations
+    /// by a random amount, and taking the percentage of that random amount.
+    ///
+    /// If not specified while `jitter_percent_max` is, it will default to 10%.
+    ///
+    /// See also [`Self::jitter_percent_max`] to set a maximum jitter.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jitter_percent_min: Option<u8>,
+
     action: JobAction,
+
+    /// Additional unknown fields.
+    ///
+    /// Exists for forward compatibility for newly added fields.
+    #[serde(flatten)]
+    pub other: IndexMap<String, serde_json::Value>,
 }
 
 // We need this wrapper struct to enable this formatting:
@@ -257,6 +289,8 @@ mod tests {
             trigger: JobTrigger::Cron(parse_cron("0/2 12 * JAN-APR 2")),
             timeout: Some("1m".parse().unwrap()),
             max_schedule_drift: Some("2h".parse().unwrap()),
+            jitter_percent_max: None,
+            jitter_percent_min: None,
             retries: None,
             action: JobAction {
                 action: JobActionCase::Execute(super::ExecutableJob {
@@ -283,6 +317,7 @@ mod tests {
                     }]),
                 }),
             },
+            other: Default::default(),
         };
 
         let serialized = r#"
