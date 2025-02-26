@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-journal"
-version = "0.19.0"
+version = "0.20.0"
 description = "Journaling functionality used by Wasmer to save and restore WASM state"
 authors.workspace = true
 edition.workspace = true
@@ -14,14 +14,14 @@ default = ["log-file", "wasmer/sys"]
 log-file = ["shared-buffer"]
 
 [dependencies]
-wasmer = { default-features = false, path = "../api", version = "=6.0.0-alpha.1" }
-wasmer-wasix-types = { path = "../wasi-types", version = "0.36.0", features = [
+wasmer = { default-features = false, path = "../api", version = "=6.0.0-alpha.2" }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.37.0", features = [
 	"enable-serde",
 ] }
 virtual-net = { path = "../virtual-net", version = "0.15.0", default-features = false, features = [
 	"rkyv",
 ] }
-virtual-fs = { path = "../virtual-fs", version = "0.22.0", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.23.0", default-features = false }
 
 shared-buffer = { workspace = true, optional = true }
 base64.workspace = true

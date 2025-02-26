@@ -14,11 +14,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.0.0-alpha.1", features = [
+wasmer-compiler = { path = "../compiler", version = "=6.0.0-alpha.2", features = [
 	"translator",
 	"compiler",
 ], default-features = false }
-wasmer-types = { path = "../types", version = "=6.0.0-alpha.1", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=6.0.0-alpha.2", default-features = false, features = [
 	"std",
 ] }
 cranelift-entity = { version = "=0.110.2", default-features = false }

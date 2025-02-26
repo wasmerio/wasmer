@@ -110,17 +110,17 @@ enable-serde = [
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=6.0.0-alpha.1", path = "../api", default-features = false }
-wasmer-compiler = { version = "=6.0.0-alpha.1", path = "../compiler", features = [
+wasmer = { version = "=6.0.0-alpha.2", path = "../api", default-features = false }
+wasmer-compiler = { version = "=6.0.0-alpha.2", path = "../compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=6.0.0-alpha.1", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=6.0.0-alpha.1", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=6.0.0-alpha.1", path = "../compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=6.0.0-alpha.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=6.0.0-alpha.2", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=6.0.0-alpha.2", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
 
-wasmer-vm = { version = "=6.0.0-alpha.1", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.36.0", features = [
+wasmer-vm = { version = "=6.0.0-alpha.2", path = "../vm", optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.37.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -128,11 +128,11 @@ wasmer-wasix = { path = "../wasix", version = "=0.36.0", features = [
 	"host-fs",
 	"ctrlc",
 ] }
-wasmer-wast = { version = "=6.0.0-alpha.1", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=6.0.0-alpha.1", path = "../types", features = [
+wasmer-wast = { version = "=6.0.0-alpha.2", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=6.0.0-alpha.2", path = "../types", features = [
 	"enable-serde",
 ] }
-virtual-fs = { version = "0.22.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.23.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
 virtual-net = { version = "0.15.0", path = "../virtual-net" }
@@ -141,7 +141,7 @@ virtual-mio = { version = "0.7.0", path = "../virtual-io" }
 # Wasmer-owned dependencies.
 
 webc = { workspace = true }
-wasmer-backend-api = { version = "=0.5.0", path = "../backend-api" }
+wasmer-backend-api = { version = "=0.6.0", path = "../backend-api" }
 
 # Used by the mount command
 

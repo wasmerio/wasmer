@@ -13,7 +13,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=6.0.0-alpha.1", default-features = false }
+wasmer-types = { path = "../types", version = "=6.0.0-alpha.2", default-features = false }
 wasmparser = { workspace = true, optional = true, default-features = false }
 enumset.workspace = true
 hashbrown = { version = "0.11", optional = true }
@@ -44,7 +44,7 @@ target-lexicon = { workspace = true }
 object = { workspace = true, features = ["write"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-vm = { path = "../vm", version = "=6.0.0-alpha.1" }
+wasmer-vm = { path = "../vm", version = "=6.0.0-alpha.2" }
 region = { version = "3.0" }
 
 [target.'cfg(target_os = "windows")'.dependencies]

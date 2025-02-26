@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.36.0"
+version = "0.37.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -14,22 +14,22 @@ rust-version.workspace = true
 
 [dependencies]
 wasmer-package.workspace = true
-wasmer-wasix-types = { path = "../wasi-types", version = "0.36.0", features = [
+wasmer-wasix-types = { path = "../wasi-types", version = "0.37.0", features = [
 	"enable-serde",
 ] }
-wasmer-types = { path = "../types", version = "=6.0.0-alpha.1", default-features = false }
-wasmer = { path = "../api", version = "=6.0.0-alpha.1", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=6.0.0-alpha.2", default-features = false }
+wasmer = { path = "../api", version = "=6.0.0-alpha.2", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 ] }
 virtual-mio = { path = "../virtual-io", version = "0.7.0", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.22.0", default-features = false, features = [
+virtual-fs = { path = "../virtual-fs", version = "0.23.0", default-features = false, features = [
 	"webc-fs",
 ] }
 virtual-net = { path = "../virtual-net", version = "0.15.0", default-features = false, features = [
 	"rkyv",
 ] }
-wasmer-journal = { path = "../journal", version = "0.19.0", default-features = false }
+wasmer-journal = { path = "../journal", version = "0.20.0", default-features = false }
 wasmer-config = { version = "0.13.0", path = "../config" }
 
 http.workspace = true
@@ -150,7 +150,7 @@ windows-sys = { version = "0.59", features = [
 terminal_size = { version = "0.3.0" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=6.0.0-alpha.1", default-features = false, features = [
+wasmer = { path = "../api", version = "=6.0.0-alpha.2", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 ] }
@@ -172,7 +172,7 @@ tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tracing-subscriber = { version = "^0.3" }
-wasmer = { path = "../api", version = "=6.0.0-alpha.1", default-features = false, features = [
+wasmer = { path = "../api", version = "=6.0.0-alpha.2", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 	"cranelift",

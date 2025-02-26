@@ -12,19 +12,19 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=6.0.0-alpha.1", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=6.0.0-alpha.1", path = "lib/compiler", features = [
+wasmer = { version = "=6.0.0-alpha.2", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "=6.0.0-alpha.2", path = "lib/compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=6.0.0-alpha.1", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=6.0.0-alpha.1", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=6.0.0-alpha.1", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=6.0.0-alpha.2", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=6.0.0-alpha.2", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=6.0.0-alpha.2", path = "lib/compiler-llvm", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
-wasmer-wast = { version = "=6.0.0-alpha.1", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=6.0.0-alpha.1", path = "tests/wasi-wast", optional = true }
-wasmer-cache = { version = "=6.0.0-alpha.1", path = "lib/cache", optional = true }
-wasmer-types = { version = "=6.0.0-alpha.1", path = "lib/types" }
-wasmer-middlewares = { version = "=6.0.0-alpha.1", path = "lib/middlewares", optional = true }
+wasmer-wast = { version = "=6.0.0-alpha.2", path = "tests/lib/wast", optional = true }
+wasi-test-generator = { version = "=6.0.0-alpha.2", path = "tests/wasi-wast", optional = true }
+wasmer-cache = { version = "=6.0.0-alpha.2", path = "lib/cache", optional = true }
+wasmer-types = { version = "=6.0.0-alpha.2", path = "lib/types" }
+wasmer-middlewares = { version = "=6.0.0-alpha.2", path = "lib/middlewares", optional = true }
 
 # Third party dependencies
 cfg-if = "1.0"
@@ -83,11 +83,11 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.81"
-version = "6.0.0-alpha.1"
+version = "6.0.0-alpha.2"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.5.0", path = "lib/package" }
+wasmer-package = { version = "0.6.0", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
@@ -135,7 +135,7 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=6.0.0-alpha.1", path = "lib/api", features = [
+wasmer = { version = "=6.0.0-alpha.2", path = "lib/api", features = [
 	"compiler",
 	"singlepass",
 	"sys",
