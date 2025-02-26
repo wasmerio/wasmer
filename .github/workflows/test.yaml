@@ -4,14 +4,14 @@ on:
   push:
     branches:
       - main
-      - 'with-ci-.*'
-      - 'v3.0.x'
-      - 'v3.1.x'
+      - "with-ci-.*"
+      - "v3.0.x"
+      - "v3.1.x"
   pull_request:
   workflow_dispatch:
     inputs:
       release:
-          description: 'Make release'
+        description: "Make release"
 
 # Automatically cancel previous workflow runs when a new commit is pushed.
 concurrency:
@@ -166,13 +166,23 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
       - name: Install Tools
+        # note: llvm-19 for building wasix-libc, llvm-18 later for building wasmer
         run: |
           sudo apt-get update
-          sudo apt-get install -y git llvm clang make lld curl
+          sudo apt-get install -y git make lld curl
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 19 all
       - name: Build wasix sysroot
         run: |
           cd ~
           git clone --recurse-submodules https://github.com/wasix-org/wasix-libc
+          sudo rm -f /usr/bin/clang /usr/bin/clang++ /usr/bin/llvm-ar /usr/bin/llvm-nm /usr/bin/llvm-ranlib
+          sudo ln -s /usr/bin/clang-19 /usr/bin/clang
+          sudo ln -s /usr/bin/clang++-19 /usr/bin/clang++
+          sudo ln -s /usr/bin/llvm-ar-19 /usr/bin/llvm-ar
+          sudo ln -s /usr/bin/llvm-nm-19 /usr/bin/llvm-nm
+          sudo ln -s /usr/bin/llvm-ranlib-19 /usr/bin/llvm-ranlib
           cd wasix-libc
           ./build32.sh
           rm -rf /opt/wasix-sysroot
@@ -232,47 +242,41 @@ jobs:
 
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
-    runs-on:  ${{ matrix.metadata.os }}
+    runs-on: ${{ matrix.metadata.os }}
     strategy:
       fail-fast: false
       matrix:
-        build-what: [
-          {
-            key: wamr,
-            build-cmd: 'make test-wamr-api',
-            name: 'Test API for wamr feature'
-          },
-          {
-            key: wasmi,
-            build-cmd: 'make test-wasmi-api',
-            name: 'Test API for wasmi feature'
-          },
-          {
-            key: v8,
-            build-cmd: 'make test-v8-api',
-            name: 'Test API for v8 feature'
-          }
-
-        ]
+        build-what:
+          [
+            {
+              key: wamr,
+              build-cmd: "make test-wamr-api",
+              name: "Test API for wamr feature",
+            },
+            {
+              key: wasmi,
+              build-cmd: "make test-wasmi-api",
+              name: "Test API for wasmi feature",
+            },
+            {
+              key: v8,
+              build-cmd: "make test-v8-api",
+              name: "Test API for v8 feature",
+            },
+          ]
         metadata: [
-          {
-            build: linux-x64,
-            os: ubuntu-22.04,
-          },
-          {
-            build: macos-arm,
-            os: macos-14,
-          },
-          #{
-          #  build: windows-x64,
-          #  os: windows-2022,
-          #}
-        ]
+            { build: linux-x64, os: ubuntu-22.04 },
+            { build: macos-arm, os: macos-14 },
+            #{
+            #  build: windows-x64,
+            #  os: windows-2022,
+            #}
+          ]
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup MSVC (Windows) 
+      - name: Setup MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: matrix.metadata.build == 'windows-x64'
 
@@ -303,24 +307,24 @@ jobs:
         run: |
           choco install ninja
 
-      - name: Delete unwanted link to stop it from interfering (Windows) 
+      - name: Delete unwanted link to stop it from interfering (Windows)
         shell: bash
         run: rm /usr/bin/link.exe
         if: startsWith(matrix.metadata.build, 'windows-')
 
-      - name: Test WAMR API 
+      - name: Test WAMR API
         if: ${{ matrix.build-what.key == 'wamr' }}
         run: echo $GITHUB_PATH && ${{ matrix.build-what.build-cmd }}
 
-      - name: Test wasmi API 
+      - name: Test wasmi API
         if: ${{ matrix.build-what.key == 'wasmi' }}
         run: ${{ matrix.build-what.build-cmd }}
 
-      - name: Test v8 API (Linux + clang) 
+      - name: Test v8 API (Linux + clang)
         if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
         run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld" CARGO_TERM_VERBOSE=true ${{ matrix.build-what.build-cmd }}
 
-      - name: Test v8 API 
+      - name: Test v8 API
         if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
         run: ${{ matrix.build-what.build-cmd }}
 
@@ -361,18 +365,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build-what: [
-          {
-            key: capi,
-            build-cmd: 'make build-capi && make package-capi',
-            name: 'Build C-API'
-          },
-          {
-            key: wasmer,
-            build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
-            name: 'Build wasmer-cli'
-          }
-        ]
+        build-what:
+          [
+            {
+              key: capi,
+              build-cmd: "make build-capi && make package-capi",
+              name: "Build C-API",
+            },
+            {
+              key: wasmer,
+              build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
+              name: "Build wasmer-cli",
+            },
+          ]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -421,18 +426,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build-what: [
-          {
-            key: capi,
-            build-cmd: 'make build-capi && make package-capi',
-            name: 'Build C-API'
-          },
-          {
-            key: wasmer,
-            build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
-            name: 'Build wasmer-cli'
-          }
-        ]
+        build-what:
+          [
+            {
+              key: capi,
+              build-cmd: "make build-capi && make package-capi",
+              name: "Build C-API",
+            },
+            {
+              key: wasmer,
+              build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
+              name: "Build wasmer-cli",
+            },
+          ]
     steps:
       - uses: actions/checkout@v3
       #- uses: dtolnay/rust-toolchain@stable
@@ -480,63 +486,62 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build-what: [
-          {
-            key: capi,
-            build-cmd: 'make build-capi && make build-capi-headless && make package-capi && make tar-capi',
-            name: 'Build and test C-API'
-          },
-          {
-            key: wasmer,
-            build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
-            name: 'Build wasmer-cli'
-          }
-        ]
+        build-what:
+          [
+            {
+              key: capi,
+              build-cmd: "make build-capi && make build-capi-headless && make package-capi && make tar-capi",
+              name: "Build and test C-API",
+            },
+            {
+              key: wasmer,
+              build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
+              name: "Build wasmer-cli",
+            },
+          ]
         metadata: [
-          {
-            build: linux-x64,
-            os: ubuntu-22.04,
-            target: x86_64-unknown-linux-gnu,
-            exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-          },
-          {
-            build: macos-x64,
-            os: macos-13,
-            target: x86_64-apple-darwin,
-            exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-
-          },
-          {
-            build: macos-arm,
-            os: macos-14,
-            target: aarch64-apple-darwin,
-            exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          },
-          {
-            build: windows-x64,
-            os: windows-2022,
-            target: x86_64-pc-windows-msvc,
-            exe: '.exe',
-            # For now, disable LLVM in `windows-x64.`
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-          },
-          {
-            build: windows-gnu,
-            target: x86_64-pc-windows-gnu,
-            os: ubuntu-22.04,
-          },
-          {
-            build: linux-musl,
-            target: x86_64-unknown-linux-musl,
-            os: ubuntu-22.04,
-            exe: '',
-            container: 'alpine:latest'
-          }
-
-        ]
+            {
+              build: linux-x64,
+              os: ubuntu-22.04,
+              target: x86_64-unknown-linux-gnu,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz",
+            },
+            {
+              build: macos-x64,
+              os: macos-13,
+              target: x86_64-apple-darwin,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz",
+            },
+            {
+              build: macos-arm,
+              os: macos-14,
+              target: aarch64-apple-darwin,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz",
+            },
+            {
+              build: windows-x64,
+              os: windows-2022,
+              target: x86_64-pc-windows-msvc,
+              exe: ".exe",
+              # For now, disable LLVM in `windows-x64.`
+              # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            },
+            {
+              build: windows-gnu,
+              target: x86_64-pc-windows-gnu,
+              os: ubuntu-22.04,
+            },
+            {
+              build: linux-musl,
+              target: x86_64-unknown-linux-musl,
+              os: ubuntu-22.04,
+              exe: "",
+              container: "alpine:latest",
+            },
+          ]
     container: ${{ matrix.metadata.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -555,7 +560,7 @@ jobs:
           ./scripts/alpine-linux-install-deps.sh 
           echo "ENABLE_LLVM=0" >> $GITHUB_ENV
           echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
-         # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
+        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -573,7 +578,7 @@ jobs:
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.metadata.build == 'windows-x64' }}
-      - name: Delete unwanted link to stop it from interfering (Windows) 
+      - name: Delete unwanted link to stop it from interfering (Windows)
         shell: bash
         run: rm /usr/bin/link.exe
         if: ${{ matrix.metadata.build == 'windows-x64' }}
@@ -721,70 +726,71 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stage: [
-          {
-            description: 'Run wast test suite for all compilers',
-            make: 'test-stage-0-wast',
-          },
-          {
-            description: 'Unit-test packages on std',
-            make: 'test-stage-1-test-all',
-          },
-          {
-            description: 'Unit-test cranelift on no-std',
-            make: 'test-stage-2-test-compiler-cranelift-nostd',
-          },
-          {
-            description: 'Unit-test singlepass on no-std',
-            make: 'test-stage-3-test-compiler-singlepass-nostd',
-          },
-          {
-            description: 'Unit-test wasmer-cli',
-            make: 'test-stage-4-wasmer-cli',
-          },
-          {
-            description: 'Unit-test examples',
-            make: 'test-stage-5-test-examples',
-          }
-        ]
+        stage:
+          [
+            {
+              description: "Run wast test suite for all compilers",
+              make: "test-stage-0-wast",
+            },
+            {
+              description: "Unit-test packages on std",
+              make: "test-stage-1-test-all",
+            },
+            {
+              description: "Unit-test cranelift on no-std",
+              make: "test-stage-2-test-compiler-cranelift-nostd",
+            },
+            {
+              description: "Unit-test singlepass on no-std",
+              make: "test-stage-3-test-compiler-singlepass-nostd",
+            },
+            {
+              description: "Unit-test wasmer-cli",
+              make: "test-stage-4-wasmer-cli",
+            },
+            {
+              description: "Unit-test examples",
+              make: "test-stage-5-test-examples",
+            },
+          ]
         metadata: [
-          {
-            build: linux-x64,
-            os: ubuntu-22.04,
-            target: x86_64-unknown-linux-gnu,
-            exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-          },
-          {
-            build: macos-x64,
-            os: macos-13,
-            target: x86_64-apple-darwin,
-            exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-          },
-          {
-            build: macos-arm,
-            os: macos-14,
-            target: aarch64-apple-darwin,
-            exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
-          },
-          {
-            build: windows-x64,
-            os: windows-2022,
-            target: x86_64-pc-windows-msvc,
-            exe: '.exe',
-            # For now, disable LLVM in `windows-x64.`
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-          },
-          {
-            build: linux-musl,
-            target: x86_64-unknown-linux-musl,
-            os: ubuntu-22.04,
-            exe: '',
-            container: 'alpine:latest'
-          }
-        ]
+            {
+              build: linux-x64,
+              os: ubuntu-22.04,
+              target: x86_64-unknown-linux-gnu,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz",
+            },
+            {
+              build: macos-x64,
+              os: macos-13,
+              target: x86_64-apple-darwin,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz",
+            },
+            {
+              build: macos-arm,
+              os: macos-14,
+              target: aarch64-apple-darwin,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz",
+            },
+            {
+              build: windows-x64,
+              os: windows-2022,
+              target: x86_64-pc-windows-msvc,
+              exe: ".exe",
+              # For now, disable LLVM in `windows-x64.`
+              # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            },
+            {
+              build: linux-musl,
+              target: x86_64-unknown-linux-musl,
+              os: ubuntu-22.04,
+              exe: "",
+              container: "alpine:latest",
+            },
+          ]
     container: ${{ matrix.metadata.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -803,11 +809,11 @@ jobs:
           ./scripts/alpine-linux-install-deps.sh
           echo "ENABLE_LLVM=0" >> $GITHUB_ENV
           echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
-         # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
+        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.metadata.build == 'windows-x64' }}
-      - name: Delete unwanted link to stop it from interfering (Windows) 
+      - name: Delete unwanted link to stop it from interfering (Windows)
         shell: bash
         run: rm /usr/bin/link.exe
         if: ${{ matrix.metadata.build == 'windows-x64' }}
@@ -882,7 +888,6 @@ jobs:
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
 
-
   test_integration_cli:
     name: CLI integration tests on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
@@ -894,7 +899,7 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz"
           - build: macos-x64
             os: macos-13
             target: x86_64-apple-darwin
@@ -927,7 +932,7 @@ jobs:
           ./scripts/alpine-linux-install-deps.sh
           echo "ENABLE_LLVM=0" >> $GITHUB_ENV
           echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-18" >> $GITHUB_ENV
-         # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
+        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - uses: actions/download-artifact@v4
         id: download
         with:
@@ -935,7 +940,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: wasmer-cli-${{ matrix.build }}
-      - name: 'Echo download path'
+      - name: "Echo download path"
         run: echo ${{steps.download.outputs.download-path}}
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -1053,7 +1058,7 @@ jobs:
           #     CARGO_TARGET: ${{ matrix.target }}
           #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
+
 
           # ---- 
           # Note (xdoardo on 2024/10/07): 
@@ -1093,4 +1098,3 @@ jobs:
       fetch_artifact: "wasmer-cli-linux-x64"
     secrets:
       token: ${{ secrets.WAPM_DEV_TOKEN }}
-      
