@@ -64,3 +64,10 @@ impl Tag {
         VMExtern::Sys(wasmer_vm::VMExtern::Tag(self.handle.internal_handle()))
     }
 }
+
+#[cfg(feature = "artifact-size")]
+impl loupe::MemoryUsage for Tag {
+    fn size_of_val(&self, tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
