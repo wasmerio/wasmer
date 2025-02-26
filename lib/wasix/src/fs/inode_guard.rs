@@ -8,7 +8,7 @@ use std::{
 };
 
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use virtual_fs::{FsError, PipeRx, PipeTx, VirtualFile};
+use virtual_fs::{FsError, Pipe, PipeRx, PipeTx, VirtualFile};
 use wasmer_wasix_types::{
     types::Eventtype,
     wasi::{self, EpollType},
@@ -30,6 +30,7 @@ pub(crate) enum InodeValFilePollGuardMode {
     Socket { inner: Arc<InodeSocketInner> },
     PipeRx { rx: Arc<RwLock<Box<PipeRx>>> },
     PipeTx { tx: Arc<RwLock<Box<PipeTx>>> },
+    DuplexPipe { pipe: Arc<RwLock<Box<Pipe>>> },
 }
 
 pub struct InodeValFilePollGuard {
@@ -62,6 +63,9 @@ impl InodeValFilePollGuard {
             },
             Kind::PipeTx { tx } => InodeValFilePollGuardMode::PipeTx {
                 tx: Arc::new(RwLock::new(Box::new(tx.clone()))),
+            },
+            Kind::DuplexPipe { pipe } => InodeValFilePollGuardMode::DuplexPipe {
+                pipe: Arc::new(RwLock::new(Box::new(pipe.clone()))),
             },
             _ => {
                 return None;
@@ -117,6 +121,9 @@ impl std::fmt::Debug for InodeValFilePollGuard {
             InodeValFilePollGuardMode::PipeTx { .. } => {
                 write!(f, "guard-pipe-tx(...)")
             }
+            InodeValFilePollGuardMode::DuplexPipe { .. } => {
+                write!(f, "guard-duplex-pipe(...)")
+            }
         }
     }
 }
@@ -157,7 +164,8 @@ impl InodeValFilePollGuardJoin {
             }
             InodeValFilePollGuardMode::Socket { .. }
             | InodeValFilePollGuardMode::PipeRx { .. }
-            | InodeValFilePollGuardMode::PipeTx { .. } => {}
+            | InodeValFilePollGuardMode::PipeTx { .. }
+            | InodeValFilePollGuardMode::DuplexPipe { .. } => {}
         }
         self.spent = false;
     }
@@ -217,6 +225,11 @@ impl Future for InodeValFilePollGuardJoin {
                     std::io::ErrorKind::InvalidInput,
                     "Cannot read from a pipe write end",
                 ))),
+                InodeValFilePollGuardMode::DuplexPipe { pipe } => {
+                    let mut guard = pipe.write().unwrap();
+                    let pipe = Pin::new(guard.as_mut());
+                    pipe.poll_read_ready(cx)
+                }
             };
             match poll_result {
                 Poll::Ready(Err(err)) if has_close && is_err_closed(&err) => {
@@ -302,15 +315,20 @@ impl Future for InodeValFilePollGuardJoin {
                     let mut guard = inner.protected.write().unwrap();
                     guard.poll_write_ready(cx)
                 }
+                InodeValFilePollGuardMode::PipeRx { .. } => Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Cannot write to a pipe read end",
+                ))),
                 InodeValFilePollGuardMode::PipeTx { tx } => {
                     let mut guard = tx.write().unwrap();
                     let tx = Pin::new(guard.as_mut());
                     tx.poll_write_ready()
                 }
-                InodeValFilePollGuardMode::PipeRx { .. } => Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Cannot write to a pipe read end",
-                ))),
+                InodeValFilePollGuardMode::DuplexPipe { pipe } => {
+                    let mut guard = pipe.write().unwrap();
+                    let pipe = Pin::new(guard.as_mut());
+                    pipe.poll_write_ready(cx)
+                }
             };
             match poll_result {
                 Poll::Ready(Err(err)) if has_close && is_err_closed(&err) => {
