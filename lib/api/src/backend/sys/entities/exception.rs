@@ -83,3 +83,10 @@ impl ExceptionRef {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 }
+
+#[cfg(feature = "artifact-size")]
+impl loupe::MemoryUsage for Exception {
+    fn size_of_val(&self, tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
