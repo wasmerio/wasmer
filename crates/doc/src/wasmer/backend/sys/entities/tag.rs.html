@@ -64,6 +64,13 @@
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for `sys` runtime's `Tag` implementation.
 </span><span class="kw">use </span>wasmer_types::{FunctionType, TagType, Type};
 <span class="kw">use </span>wasmer_vm::StoreHandle;
@@ -128,6 +135,13 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
         VMExtern::Sys(wasmer_vm::VMExtern::Tag(<span class="self">self</span>.handle.internal_handle()))
+    }
+}
+
+<span class="attr">#[cfg(feature = <span class="string">"artifact-size"</span>)]
+</span><span class="kw">impl </span>loupe::MemoryUsage <span class="kw">for </span>Tag {
+    <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
+        std::mem::size_of::&lt;<span class="self">Self</span>&gt;()
     }
 }
 </code></pre></div></section></main></body></html>

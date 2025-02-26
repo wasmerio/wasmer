@@ -83,6 +83,13 @@
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for `sys` runtime's `Tag` implementation.
 </span><span class="kw">use </span>std::any::Any;
 
@@ -166,6 +173,13 @@
     /// with that context.
     </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
         <span class="self">self</span>.handle.store_id() == store.as_store_ref().objects().id()
+    }
+}
+
+<span class="attr">#[cfg(feature = <span class="string">"artifact-size"</span>)]
+</span><span class="kw">impl </span>loupe::MemoryUsage <span class="kw">for </span>Exception {
+    <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
+        std::mem::size_of::&lt;<span class="self">Self</span>&gt;()
     }
 }
 </code></pre></div></section></main></body></html>
