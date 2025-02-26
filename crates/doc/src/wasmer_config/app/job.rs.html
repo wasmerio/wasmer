@@ -313,6 +313,41 @@
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{borrow::Cow, fmt::Display, str::FromStr};
 
 <span class="kw">use </span>serde::{de::Error, Deserialize, Serialize};
@@ -343,7 +378,39 @@
     <span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     </span><span class="kw">pub </span>retries: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 
+    <span class="doccomment">/// Maximum percent of "jitter" to introduce between invocations.
+    ///
+    /// Value range: 0-100
+    ///
+    /// Jitter is used to spread out jobs over time.
+    /// The calculation works by multiplying the time between invocations
+    /// by a random amount, and taking the percentage of that random amount.
+    ///
+    /// See also [`Self::jitter_percent_min`] to set a minimum jitter.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+    </span><span class="kw">pub </span>jitter_percent_max: <span class="prelude-ty">Option</span>&lt;u8&gt;,
+
+    <span class="doccomment">/// Minimum "jitter" to introduce between invocations.
+    ///
+    /// Value range: 0-100
+    ///
+    /// Jitter is used to spread out jobs over time.
+    /// The calculation works by multiplying the time between invocations
+    /// by a random amount, and taking the percentage of that random amount.
+    ///
+    /// If not specified while `jitter_percent_max` is, it will default to 10%.
+    ///
+    /// See also [`Self::jitter_percent_max`] to set a maximum jitter.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+    </span><span class="kw">pub </span>jitter_percent_min: <span class="prelude-ty">Option</span>&lt;u8&gt;,
+
     action: JobAction,
+
+    <span class="doccomment">/// Additional unknown fields.
+    ///
+    /// Exists for forward compatibility for newly added fields.
+    </span><span class="attr">#[serde(flatten)]
+    </span><span class="kw">pub </span>other: IndexMap&lt;String, serde_json::Value&gt;,
 }
 
 <span class="comment">// We need this wrapper struct to enable this formatting:
@@ -572,6 +639,8 @@
             trigger: JobTrigger::Cron(parse_cron(<span class="string">"0/2 12 * JAN-APR 2"</span>)),
             timeout: <span class="prelude-val">Some</span>(<span class="string">"1m"</span>.parse().unwrap()),
             max_schedule_drift: <span class="prelude-val">Some</span>(<span class="string">"2h"</span>.parse().unwrap()),
+            jitter_percent_max: <span class="prelude-val">None</span>,
+            jitter_percent_min: <span class="prelude-val">None</span>,
             retries: <span class="prelude-val">None</span>,
             action: JobAction {
                 action: JobActionCase::Execute(<span class="kw">super</span>::ExecutableJob {
@@ -598,6 +667,7 @@
                     }]),
                 }),
             },
+            other: Default::default(),
         };
 
         <span class="kw">let </span>serialized = <span class="string">r#"
