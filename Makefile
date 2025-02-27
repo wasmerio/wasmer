@@ -1051,3 +1051,7 @@ update-graphql-schema:
 
 require-nextest:
 	cargo nextest --version > /dev/null || cargo binstall cargo-nextest --secure || cargo install cargo-nextest
+
+# Check all the features compatible with the `sys` backend.
+check-api-features:
+	cargo check --package wasmer --features=$(subst $(space),$(comma),$(compilers)),default,artifact-size,core,enable-serde,wasmer-artifact-load,wasmer-artifact-create,static-artifact-load,static-artifact-create
