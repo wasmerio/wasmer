@@ -29,7 +29,8 @@ pub fn sock_recv<M: MemorySize>(
     let env = ctx.data();
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(sock));
     let guard = fd_entry.inode.read();
-    let use_read = matches!(guard.deref(), Kind::PipeRx { .. });
+    // We need this hack because we use a pipe to back socket pairs
+    let use_read = matches!(guard.deref(), Kind::DuplexPipe { .. });
     drop(guard);
     if use_read {
         fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)

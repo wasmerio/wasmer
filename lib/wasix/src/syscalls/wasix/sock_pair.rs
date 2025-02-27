@@ -21,6 +21,8 @@ use crate::{
 ///
 /// Note: This is (supposed to be) similar to `socketpair` in POSIX using PF_INET
 ///
+/// Note 2: This requires hacks in `sock_send` and `sock_recv` as well.
+///
 /// ## Parameters
 ///
 /// * `af` - Address family
