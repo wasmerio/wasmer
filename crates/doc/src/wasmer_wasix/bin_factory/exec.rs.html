@@ -604,7 +604,7 @@
             )
             .map_err(|err| {
                 <span class="macro">error!</span>(<span class="string">"wasi[{}]::failed to launch module - {}"</span>, pid, err);
-                SpawnError::UnknownError
+                SpawnError::Other(Box::new(err))
             })<span class="question-mark">?
     </span>};
 

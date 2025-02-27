@@ -1261,7 +1261,7 @@
     </span>MemoryCreateFailed(MemoryError),
     <span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>ExportError(ExportError),
-    <span class="attr">#[error(<span class="string">"Failed to create the instance"</span>)]
+    <span class="attr">#[error(<span class="string">"Failed to create the instance - {0}"</span>)]
     </span><span class="comment">// Note: Boxed so we can keep the error size down
     </span>InstanceCreateFailed(Box&lt;InstantiationError&gt;),
     <span class="attr">#[error(<span class="string">"Initialization function failed - {0}"</span>)]

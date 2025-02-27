@@ -330,6 +330,22 @@
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
@@ -585,17 +601,30 @@
         } <span class="kw">else </span>{
             <span class="macro">tracing::trace!</span>(<span class="string">"spawning task_wasm in blocking thread"</span>);
 
+            <span class="kw">let </span>(sx, rx) = std::sync::mpsc::channel();
+
             <span class="comment">// Run the callback on a dedicated thread
             </span><span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
                 <span class="macro">tracing::trace!</span>(<span class="string">"task_wasm started in blocking thread"</span>);
-                <span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>store) = WasiFunctionEnv::new_with_store(
+                <span class="kw">let </span>ret = WasiFunctionEnv::new_with_store(
                     task.module,
                     env,
                     task.globals,
                     make_memory,
                     task.update_layout,
-                )
-                .unwrap();
+                );
+
+                <span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>store) = <span class="kw">match </span>ret {
+                    <span class="prelude-val">Ok</span>(x) =&gt; {
+                        sx.send(<span class="prelude-val">Ok</span>(())).unwrap();
+                        x
+                    }
+                    <span class="prelude-val">Err</span>(c) =&gt; {
+                        sx.send(<span class="prelude-val">Err</span>(c)).unwrap();
+                        <span class="kw">return</span>;
+                    }
+                };
+
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(pre_run) = pre_run {
                     InlineWaker::block_on(pre_run(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>store));
                 }
@@ -608,6 +637,9 @@
                     recycle,
                 });
             });
+
+            rx.recv()
+                .map_err(|<span class="kw">_</span>| WasiThreadError::InvalidWasmContext)<span class="question-mark">??</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }
