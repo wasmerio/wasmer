@@ -692,6 +692,10 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+      - name: Check `wasmer` crate with all the `sys` features enabled
+        shell: bash
+        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' }}
+        run: ${{ matrix.build-what.build-cmd }}
       - name: Test C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
