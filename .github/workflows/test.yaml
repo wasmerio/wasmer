@@ -498,6 +498,11 @@ jobs:
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
               name: "Build wasmer-cli",
             },
+            {
+              key: "api-feats",
+              build-cmd: "make check-api-features",
+              name: "Check wasmer API with all sys features enabled"
+            },
           ]
         metadata: [
             {
