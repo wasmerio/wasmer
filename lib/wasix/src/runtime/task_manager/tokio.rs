@@ -276,6 +276,7 @@ impl VirtualTaskManager for TokioTaskManager {
                         return;
                     }
                 };
+
                 if let Some(pre_run) = pre_run {
                     InlineWaker::block_on(pre_run(&mut ctx, &mut store));
                 }
@@ -289,7 +290,8 @@ impl VirtualTaskManager for TokioTaskManager {
                 });
             });
 
-            rx.recv().unwrap()?;
+            rx.recv()
+                .map_err(|_| WasiThreadError::InvalidWasmContext)??;
         }
         Ok(())
     }
