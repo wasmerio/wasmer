@@ -258,13 +258,15 @@ impl VirtualTaskManager for TokioTaskManager {
             // Run the callback on a dedicated thread
             self.pool.execute(move || {
                 tracing::trace!("task_wasm started in blocking thread");
-                let (mut ctx, mut store) = match WasiFunctionEnv::new_with_store(
+                let ret = WasiFunctionEnv::new_with_store(
                     task.module,
                     env,
                     task.globals,
                     make_memory,
                     task.update_layout,
-                ) {
+                );
+
+                let (mut ctx, mut store) = match ret {
                     Ok(x) => {
                         sx.send(Ok(())).unwrap();
                         x
