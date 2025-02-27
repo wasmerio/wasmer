@@ -138,7 +138,7 @@ pub fn spawn_exec_module(
             )
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
-                SpawnError::UnknownError
+                SpawnError::Other(Box::new(err))
             })?
     };
 

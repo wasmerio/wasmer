@@ -618,7 +618,7 @@ pub enum WasiThreadError {
     MemoryCreateFailed(MemoryError),
     #[error("{0}")]
     ExportError(ExportError),
-    #[error("Failed to create the instance")]
+    #[error("Failed to create the instance - {0}")]
     // Note: Boxed so we can keep the error size down
     InstanceCreateFailed(Box<InstantiationError>),
     #[error("Initialization function failed - {0}")]

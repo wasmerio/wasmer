@@ -253,17 +253,27 @@ impl VirtualTaskManager for TokioTaskManager {
         } else {
             tracing::trace!("spawning task_wasm in blocking thread");
 
+            let (sx, rx) = std::sync::mpsc::channel();
+
             // Run the callback on a dedicated thread
             self.pool.execute(move || {
                 tracing::trace!("task_wasm started in blocking thread");
-                let (mut ctx, mut store) = WasiFunctionEnv::new_with_store(
+                let (mut ctx, mut store) = match WasiFunctionEnv::new_with_store(
                     task.module,
                     env,
                     task.globals,
                     make_memory,
                     task.update_layout,
-                )
-                .unwrap();
+                ) {
+                    Ok(x) => {
+                        sx.send(Ok(())).unwrap();
+                        x
+                    }
+                    Err(c) => {
+                        sx.send(Err(c)).unwrap();
+                        return;
+                    }
+                };
                 if let Some(pre_run) = pre_run {
                     InlineWaker::block_on(pre_run(&mut ctx, &mut store));
                 }
@@ -276,6 +286,8 @@ impl VirtualTaskManager for TokioTaskManager {
                     recycle,
                 });
             });
+
+            rx.recv().unwrap()?;
         }
         Ok(())
     }
