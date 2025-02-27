@@ -700,6 +700,24 @@
 <a href="#700" id="700">700</a>
 <a href="#701" id="701">701</a>
 <a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -710,7 +728,7 @@
 };
 
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-<span class="kw">use </span>virtual_fs::{FsError, PipeRx, PipeTx, VirtualFile};
+<span class="kw">use </span>virtual_fs::{FsError, Pipe, PipeRx, PipeTx, VirtualFile};
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Eventtype,
     wasi::{<span class="self">self</span>, EpollType},
@@ -732,6 +750,7 @@
     Socket { inner: Arc&lt;InodeSocketInner&gt; },
     PipeRx { rx: Arc&lt;RwLock&lt;Box&lt;PipeRx&gt;&gt;&gt; },
     PipeTx { tx: Arc&lt;RwLock&lt;Box&lt;PipeTx&gt;&gt;&gt; },
+    DuplexPipe { pipe: Arc&lt;RwLock&lt;Box&lt;Pipe&gt;&gt;&gt; },
 }
 
 <span class="kw">pub struct </span>InodeValFilePollGuard {
@@ -764,6 +783,9 @@
             },
             Kind::PipeTx { tx } =&gt; InodeValFilePollGuardMode::PipeTx {
                 tx: Arc::new(RwLock::new(Box::new(tx.clone()))),
+            },
+            Kind::DuplexPipe { pipe } =&gt; InodeValFilePollGuardMode::DuplexPipe {
+                pipe: Arc::new(RwLock::new(Box::new(pipe.clone()))),
             },
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
@@ -819,6 +841,9 @@
             InodeValFilePollGuardMode::PipeTx { .. } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"guard-pipe-tx(...)"</span>)
             }
+            InodeValFilePollGuardMode::DuplexPipe { .. } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">"guard-duplex-pipe(...)"</span>)
+            }
         }
     }
 }
@@ -859,7 +884,8 @@
             }
             InodeValFilePollGuardMode::Socket { .. }
             | InodeValFilePollGuardMode::PipeRx { .. }
-            | InodeValFilePollGuardMode::PipeTx { .. } =&gt; {}
+            | InodeValFilePollGuardMode::PipeTx { .. }
+            | InodeValFilePollGuardMode::DuplexPipe { .. } =&gt; {}
         }
         <span class="self">self</span>.spent = <span class="bool-val">false</span>;
     }
@@ -919,6 +945,11 @@
                     std::io::ErrorKind::InvalidInput,
                     <span class="string">"Cannot read from a pipe write end"</span>,
                 ))),
+                InodeValFilePollGuardMode::DuplexPipe { pipe } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
+                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
+                    pipe.poll_read_ready(cx)
+                }
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
@@ -1004,15 +1035,20 @@
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.protected.write().unwrap();
                     guard.poll_write_ready(cx)
                 }
+                InodeValFilePollGuardMode::PipeRx { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    <span class="string">"Cannot write to a pipe read end"</span>,
+                ))),
                 InodeValFilePollGuardMode::PipeTx { tx } =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = tx.write().unwrap();
                     <span class="kw">let </span>tx = Pin::new(guard.as_mut());
                     tx.poll_write_ready()
                 }
-                InodeValFilePollGuardMode::PipeRx { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    <span class="string">"Cannot write to a pipe read end"</span>,
-                ))),
+                InodeValFilePollGuardMode::DuplexPipe { pipe } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
+                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
+                    pipe.poll_write_ready(cx)
+                }
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {

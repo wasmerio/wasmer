@@ -555,7 +555,7 @@
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-</span><span class="comment">//#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 </span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize + <span class="lifetime">'static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     in_: WasmPtr&lt;Subscription, M&gt;,
