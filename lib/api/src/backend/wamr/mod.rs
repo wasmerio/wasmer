@@ -1,4 +1,4 @@
-//! Data types, functions and traits for `wamr`.
+//! Data types, functions and traits for the `wamr` backend.
 
 pub(crate) mod bindings;
 pub(crate) mod entities;

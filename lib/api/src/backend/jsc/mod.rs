@@ -1,4 +1,4 @@
-//! Data types, functions and traits for the `sys` runtime.
+//! Data types, functions and traits for the `jsc` backend.
 
 pub(crate) mod entities;
 pub(crate) mod error;
