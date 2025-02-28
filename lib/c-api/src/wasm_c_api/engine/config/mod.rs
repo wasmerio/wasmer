@@ -1,7 +1,7 @@
 #[cfg(feature = "sys")]
 pub mod sys;
 #[cfg(feature = "sys")]
-pub use sys::wasm_config_sys_set_compiler;
+pub use sys::*;
 
 use super::wasmer_engine_t;
 
