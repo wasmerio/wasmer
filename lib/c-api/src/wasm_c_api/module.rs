@@ -29,10 +29,15 @@ pub unsafe extern "C" fn wasm_module_new(
     store: Option<&mut wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
+
+    println!("ABOUT TO COMPILE!!!!!!!!!!!!!!!");
+
+
     let store = store?.inner.store_mut();
     let bytes = bytes?;
 
-    let module = c_try!(Module::from_binary(&store, bytes.as_slice()));
+    let module = c_try!(dbg!(Module::from_binary(&store, bytes.as_slice())));
+    println!("DONEEEEABOUT TO COMPILE!!!!!!!!!!!!!!!");
 
     Some(Box::new(wasm_module_t { inner: module }))
 }

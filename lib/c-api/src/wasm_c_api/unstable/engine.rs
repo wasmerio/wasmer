@@ -6,54 +6,6 @@ use super::{
     features::wasmer_features_t,
 };
 
-#[cfg(feature = "compiler")]
-use super::{super::engine::wasmer_compiler_t, target_lexicon::wasmer_target_t};
-
-/// Unstable non-standard Wasmer-specific API to update the
-/// configuration to specify a particular target for the engine.
-///
-/// # Example
-///
-/// ```rust
-/// # use wasmer_inline_c::assert_c;
-/// # fn main() {
-/// #    (assert_c! {
-/// # #include "tests/wasmer.h"
-/// #
-/// int main() {
-///     // Create the configuration.
-///     wasm_config_t* config = wasm_config_new();
-///
-///     // Set the target.
-///     {
-///         wasmer_triple_t* triple = wasmer_triple_new_from_host();
-///         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
-///         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
-///
-///         wasm_config_set_target(config, target);
-///     }
-///
-///     // Create the engine.
-///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
-///
-///     // Check we have an engine!
-///     assert(engine);
-///
-///     // Free everything.
-///     wasm_engine_delete(engine);
-///
-///     return 0;
-/// }
-/// #    })
-/// #    .success();
-/// # }
-/// ```
-#[no_mangle]
-#[cfg(feature = "compiler")]
-pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box<wasmer_target_t>) {
-    config.target = Some(target);
-}
-
 /// Unstable non-standard Wasmer-specific API to update the
 /// configuration to specify particular features for the engine.
 ///
@@ -98,58 +50,6 @@ pub extern "C" fn wasm_config_set_features(
     features: Box<wasmer_features_t>,
 ) {
     config.features = Some(features);
-}
-
-/// Updates the configuration to enable NaN canonicalization.
-///
-/// This is a Wasmer-specific function.
-///
-/// # Example
-///
-/// ```rust
-/// # use wasmer_inline_c::assert_c;
-/// # fn main() {
-/// #    (assert_c! {
-/// # #include "tests/wasmer.h"
-/// #
-/// int main() {
-///     // Create the configuration.
-///     wasm_config_t* config = wasm_config_new();
-///
-///     // Enable NaN canonicalization.
-///     wasm_config_canonicalize_nans(config, true);
-///
-///     // Create the engine.
-///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
-///
-///     // Check we have an engine!
-///     assert(engine);
-///
-///     // Free everything.
-///     wasm_engine_delete(engine);
-///
-///     return 0;
-/// }
-/// #    })
-/// #    .success();
-/// # }
-/// ```
-#[no_mangle]
-pub extern "C" fn wasm_config_canonicalize_nans(config: &mut wasm_config_t, enable: bool) {
-    config.nan_canonicalization = enable;
-}
-
-/// Check whether the given compiler is available, i.e. part of this
-/// compiled library.
-#[no_mangle]
-#[cfg(feature = "compiler")]
-pub extern "C" fn wasmer_is_compiler_available(compiler: wasmer_compiler_t) -> bool {
-    match compiler {
-        wasmer_compiler_t::CRANELIFT if cfg!(feature = "cranelift") => true,
-        wasmer_compiler_t::LLVM if cfg!(feature = "llvm") => true,
-        wasmer_compiler_t::SINGLEPASS if cfg!(feature = "singlepass") => true,
-        _ => false,
-    }
 }
 
 /// Check whether there is no compiler available in this compiled

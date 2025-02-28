@@ -66,18 +66,24 @@ wasmer-inline-c = "0.1.1"
 inline-c = "0.1.7"
 
 [features]
-default = ["wat", "cranelift", "compiler", "wasi", "middlewares"]
-sys = []
-jsc = ["wasmer-api/jsc", "wasmer-api/std"]
+default = ["wat", "sys-default", "cranelift", "compiler", "wasi", "middlewares"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasix"]
 middlewares = ["compiler", "wasmer-middlewares"]
+
+# Enable the `sys` backend.
+sys = []
+
+# Enable the use of compiler. Implies enabling the `sys` feature.
 compiler = [
+	"sys",
 	"wasmer-compiler",
 	"wasmer-api/compiler",
 	"wasmer-compiler/translator",
 	"wasmer-compiler/compiler",
 ]
+
+# Enable the use of the headless compiler. Implies enabling the `sys` feature.
 compiler-headless = [
 	"wasmer-artifact-load",
 	"static-artifact-load",
@@ -85,24 +91,42 @@ compiler-headless = [
 	"wasmer-compiler/translator",
 	"wasmer-compiler/compiler",
 ]
+
+# Enable the `singlepass` compiler.
 singlepass = ["wasmer-compiler-singlepass", "compiler"]
+# Enable the `cranelift` compiler. 
 cranelift = ["wasmer-compiler-cranelift", "compiler"]
+# Enable the `llvm` compiler.
 llvm = ["wasmer-compiler-llvm", "compiler"]
 
-############
-# WARNING! #
-############
-# These features are here but, for now (wasmer 6.0.0-alpha1) they do nothing.
-# In the next alpha release they will be wired up to use the matching backend.
-# These features are being added now to make CI easier, since we will
-# nonetheless have to add them later.
+# Enable the `jsc` backend.
+jsc = ["wasmer-api/jsc", "wasmer-api/std"]
 
-v8 = []
-wasmi = []
-wamr = []
+# Enable the `v8` backend.
+v8 = ["wasmer-api/v8"]
 
-############
-############
+# Enable the `wasmi` backend.
+wasmi = ["wasmer-api/wasmi"]
+
+# Enable the `wamr` backend.
+wamr = ["wasmer-api/wamr"]
+
+# Enable the `sys` backend and use it as default. Notice that this does not
+# enable a default compiler, and users should therefore add one (or more) of
+# the `singlepass`, `cranelift` and `llvm` features.
+sys-default = ["sys", "wasmer-api/sys-default"]
+
+# Enable the `jsc` backend and use it as default.
+jsc-default = ["jsc", "wasmer-api/jsc-default"]
+
+# Enable the `v8` backend and use it as default.
+v8-default = ["v8", "wasmer-api/v8-default"]
+
+# Enable the `wamr` backend and use it as default.
+wamr-default = ["wamr", "wasmer-api/wamr-default"]
+
+# Enable the `wasmi` backend and use it as default.
+wasmi-default = ["wasmi", "wasmer-api/wasmi-default"]
 
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
