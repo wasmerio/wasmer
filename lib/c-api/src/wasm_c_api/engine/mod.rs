@@ -4,6 +4,7 @@ use super::unstable::features::wasmer_features_t;
 use wasmer_api::Engine;
 
 mod config;
+#[allow(unused_imports)]
 pub use config::*;
 
 /// Kind of engines that can be used by the store.
@@ -15,22 +16,18 @@ pub use config::*;
 #[allow(non_camel_case_types)]
 pub enum wasmer_engine_t {
     /// The sys (cranelift, llvm, or singlepass) backend.
-    #[cfg(feature = "sys")]
     UNIVERSAL = 0,
 
-    #[cfg(feature = "v8")]
     /// The V8 backend.
     V8,
 
-    #[cfg(feature = "wasmi")]
     /// The WASMI backend.
     WASMI,
 
-    #[cfg(feature = "wamr")]
     /// The WAMR backend.
     WAMR,
 
-    #[cfg(feature = "jsc")]
+    /// The JSC backend.
     JSC,
 }
 
@@ -64,7 +61,6 @@ impl Default for wasmer_engine_t {
 // features.
 //
 // See the impl of `Default` for `BackendEngine` in the `wasmer` (API) crate.
-#[derive(Default)]
 pub struct wasm_engine_t {
     pub(crate) inner: Engine,
 }
@@ -130,7 +126,8 @@ pub extern "C" fn wasm_engine_new_with_config(
         #[cfg(feature = "wamr")]
         wasmer_engine_t::WAMR => config::wamr::wasm_wamr_engine_new_with_config(config),
         #[cfg(feature = "jsc")]
-        wasmer_engine_t::JSC => config::jsc::wasm_jsc_engine_new_sys_with_config(config),
+        wasmer_engine_t::JSC => config::jsc::wasm_jsc_engine_new_with_config(config),
+        _ => unreachable!(),
     }
 }
 
