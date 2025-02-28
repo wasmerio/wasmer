@@ -137,8 +137,10 @@ pub extern "C" fn wasm_config_set_sys_compiler(
     if let wasmer_engine_config_t::Sys(ref mut c) = config.engine_config {
         c.compiler = compiler;
     } else {
-        let mut sys_config: wasmer_sys_engine_config_t = Default::default();
-        sys_config.compiler = compiler;
+        let sys_config = wasmer_sys_engine_config_t {
+            compiler,
+            ..Default::default()
+        };
         config.engine_config = wasmer_engine_config_t::Sys(sys_config);
     }
 }
@@ -202,8 +204,10 @@ pub extern "C" fn wasm_config_set_sys_target(
     if let wasmer_engine_config_t::Sys(ref mut c) = config.engine_config {
         c.target = Some(target);
     } else {
-        let mut sys_config: wasmer_sys_engine_config_t = Default::default();
-        sys_config.target = Some(target);
+        let sys_config = wasmer_sys_engine_config_t {
+            target: Some(target),
+            ..Default::default()
+        };
         config.engine_config = wasmer_engine_config_t::Sys(sys_config);
     }
 }
@@ -236,8 +240,11 @@ pub extern "C" fn wasm_config_sys_push_middleware(
     if let wasmer_engine_config_t::Sys(ref mut c) = config.engine_config {
         c.middlewares.push(*middleware);
     } else {
-        let mut sys_config: wasmer_sys_engine_config_t = Default::default();
-        sys_config.middlewares.push(*middleware);
+        let sys_config = wasmer_sys_engine_config_t {
+            middlewares: vec![*middleware],
+            ..Default::default()
+        };
+
         config.engine_config = wasmer_engine_config_t::Sys(sys_config);
     }
 }
@@ -292,14 +299,16 @@ pub extern "C" fn wasm_config_sys_canonicalize_nans(config: &mut wasm_config_t, 
     if let wasmer_engine_config_t::Sys(ref mut c) = config.engine_config {
         c.nan_canonicalization = enable;
     } else {
-        let mut sys_config: wasmer_sys_engine_config_t = Default::default();
-        sys_config.nan_canonicalization = enable;
+        let sys_config = wasmer_sys_engine_config_t {
+            nan_canonicalization: enable,
+            ..Default::default()
+        };
         config.engine_config = wasmer_engine_config_t::Sys(sys_config);
     }
 }
 
 /// Create a new  [`wasm_engine_t`] backed by a `sys` engine.
-pub fn wasm_sys_engine_new_with_config(config: Box<wasm_config_t>) -> Option<Box<wasm_engine_t>> {
+pub fn wasm_sys_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm_engine_t>> {
     if !matches!(config.engine, wasmer_engine_t::UNIVERSAL) || !config.engine_config.is_sys() {
         update_last_error("Cannot create a new `sys` engine with a non-sys-specific config!");
         return None;

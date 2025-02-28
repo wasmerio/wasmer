@@ -60,20 +60,13 @@ impl Default for wasmer_engine_t {
 ///
 /// cbindgen:ignore
 #[repr(C)]
+// We can let the API decide which engine is default with the given set of
+// features.
+//
+// See the impl of `Default` for `BackendEngine` in the `wasmer` (API) crate.
+#[derive(Default)]
 pub struct wasm_engine_t {
     pub(crate) inner: Engine,
-}
-
-impl Default for wasm_engine_t {
-    fn default() -> Self {
-        // We can let the API decide which engine is default with the given set of
-        // features.
-        //
-        // See the impl of `Default` for `BackendEngine` in the `wasmer` (API) crate.
-        Self {
-            inner: Default::default(),
-        }
-    }
 }
 
 #[no_mangle]
@@ -125,7 +118,7 @@ pub extern "C" fn wasm_engine_new_with_config(
     config: Option<Box<wasm_config_t>>,
 ) -> Option<Box<wasm_engine_t>> {
     #[allow(unused)]
-    let config = config?;
+    let config = *(config?);
 
     match config.engine {
         #[cfg(feature = "sys")]
