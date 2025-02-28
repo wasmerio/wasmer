@@ -13,8 +13,11 @@ pub use crate::wasm_c_api::unstable::middlewares::wasmer_middleware_t;
 use crate::wasm_c_api::unstable::target_lexicon::wasmer_target_t;
 
 use cfg_if::cfg_if;
-use wasmer_api::{sys::CompilerConfig, Engine};
+use wasmer_api::Engine;
 use wasmer_compiler::EngineBuilder;
+
+#[cfg(feature = "compiler")]
+use wasmer_api::sys::CompilerConfig;
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -222,6 +225,7 @@ pub extern "C" fn wasm_config_sys_set_target(
 ///
 /// See the documentation of the [`metering`] module.
 #[no_mangle]
+#[cfg(feature = "middlewares")]
 pub extern "C" fn wasm_config_sys_push_middleware(
     config: &mut wasm_config_t,
     middleware: Box<wasmer_middleware_t>,
@@ -381,7 +385,7 @@ pub fn wasm_sys_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm
                          {
                                 let mut builder = EngineBuilder::headless();
 
-                                if let Some(target) = config.target {
+                                if let Some(target) = sys_config.target {
                                     builder = builder.set_target(Some(target.inner));
                                 }
 
