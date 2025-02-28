@@ -1,21 +1,21 @@
 #[cfg(feature = "sys")]
-pub mod sys;
+pub(crate) mod sys;
 #[cfg(feature = "sys")]
 pub use sys::*;
 
 use super::wasmer_engine_t;
 
 #[cfg(feature = "jsc")]
-pub mod jsc;
+pub(crate) mod jsc;
 
 #[cfg(feature = "v8")]
-pub mod v8;
+pub(crate) mod v8;
 
 #[cfg(feature = "wasmi")]
-pub mod wasmi;
+pub(crate) mod wasmi;
 
 #[cfg(feature = "wamr")]
-pub mod wamr;
+pub(crate) mod wamr;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -49,6 +49,8 @@ impl Default for wasmer_engine_config_t {
             wasmer_engine_t::WAMR => Self::Wamr(wamr::wasmer_wamr_engine_config_t::default()),
             #[cfg(feature = "jsc")]
             wasmer_engine_t::JSC => Self::Jsc(jsc::wasmer_jsc_engine_config_t::default()),
+
+            _ => unreachable!(),
         }
     }
 }

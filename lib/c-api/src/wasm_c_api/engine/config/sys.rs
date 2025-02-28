@@ -65,7 +65,7 @@ impl Default for wasmer_compiler_t {
 /// cbindgen:ignore
 #[repr(C)]
 #[derive(Debug, Default)]
-pub struct wasmer_sys_engine_config_t {
+pub(crate) struct wasmer_sys_engine_config_t {
     #[cfg(feature = "compiler")]
     pub compiler: wasmer_compiler_t,
     #[cfg(feature = "middlewares")]

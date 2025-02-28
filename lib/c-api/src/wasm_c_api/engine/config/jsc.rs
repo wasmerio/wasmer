@@ -13,10 +13,10 @@ use super::wasmer_engine_config_t;
 /// cbindgen:ignore
 #[repr(C)]
 #[derive(Debug, Default)]
-pub struct wasmer_jsc_engine_config_t;
+pub(crate) struct wasmer_jsc_engine_config_t;
 
 /// Create a new  [`wasm_engine_t`] backed by a `jsc` engine.
-pub fn wasm_jsc_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm_engine_t>> {
+pub(crate) fn wasm_jsc_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm_engine_t>> {
     if !matches!(config.engine, wasmer_engine_t::JSC) || !config.engine_config.is_jsc() {
         update_last_error("Cannot create a new `jsc` engine with a non-jsc-specific config!");
         return None;

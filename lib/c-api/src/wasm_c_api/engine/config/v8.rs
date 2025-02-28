@@ -13,10 +13,10 @@ use super::wasmer_engine_config_t;
 /// cbindgen:ignore
 #[repr(C)]
 #[derive(Debug, Default)]
-pub struct wasmer_v8_engine_config_t;
+pub(crate) struct wasmer_v8_engine_config_t;
 
 /// Create a new  [`wasm_engine_t`] backed by a `v8` engine.
-pub fn wasm_v8_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm_engine_t>> {
+pub(crate) fn wasm_v8_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm_engine_t>> {
     if !matches!(config.engine, wasmer_engine_t::V8) || !config.engine_config.is_v8() {
         update_last_error("Cannot create a new `v8` engine with a non-v8-specific config!");
         return None;

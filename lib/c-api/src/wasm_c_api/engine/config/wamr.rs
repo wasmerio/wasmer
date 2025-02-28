@@ -13,10 +13,10 @@ use super::wasmer_engine_config_t;
 /// cbindgen:ignore
 #[repr(C)]
 #[derive(Debug, Default)]
-pub struct wasmer_wamr_engine_config_t;
+pub(crate) struct wasmer_wamr_engine_config_t;
 
 /// Create a new  [`wasm_engine_t`] backed by a `wamr` engine.
-pub fn wasm_wamr_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm_engine_t>> {
+pub(crate) fn wasm_wamr_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm_engine_t>> {
     if !matches!(config.engine, wasmer_engine_t::WAMR) || !config.engine_config.is_wamr() {
         update_last_error("Cannot create a new `wamr` engine with a non-wamr-specific config!");
         return None;
