@@ -90,15 +90,15 @@ pub struct wasmer_sys_engine_config_t {
 ///
 ///     // Use the Cranelift compiler, if available.
 ///     if (wasmer_is_compiler_available(CRANELIFT)) {
-///         wasm_config_set_sys_compiler(config, CRANELIFT);
+///         wasm_config_sys_set_compiler(config, CRANELIFT);
 ///     }
 ///     // Or maybe LLVM?
 ///     else if (wasmer_is_compiler_available(LLVM)) {
-///         wasm_config_set_sys_compiler(config, LLVM);
+///         wasm_config_sys_set_compiler(config, LLVM);
 ///     }
 ///     // Or maybe Singlepass?
 ///     else if (wasmer_is_compiler_available(SINGLEPASS)) {
-///         wasm_config_set_sys_compiler(config, SINGLEPASS);
+///         wasm_config_sys_set_compiler(config, SINGLEPASS);
 ///     }
 ///     // OK, let's run with no particular compiler.
 ///
@@ -119,7 +119,7 @@ pub struct wasmer_sys_engine_config_t {
 /// ```
 #[cfg(feature = "compiler")]
 #[no_mangle]
-pub extern "C" fn wasm_config_set_sys_compiler(
+pub extern "C" fn wasm_config_sys_set_compiler(
     config: &mut wasm_config_t,
     compiler: wasmer_compiler_t,
 ) {
@@ -166,7 +166,7 @@ pub extern "C" fn wasm_config_set_sys_compiler(
 ///         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
 ///         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
 ///
-///         wasm_config_set_sys_target(config, target);
+///         wasm_config_sys_set_target(config, target);
 ///     }
 ///
 ///     // Create the engine.
@@ -186,7 +186,7 @@ pub extern "C" fn wasm_config_set_sys_compiler(
 /// ```
 #[no_mangle]
 #[cfg(feature = "compiler")]
-pub extern "C" fn wasm_config_set_sys_target(
+pub extern "C" fn wasm_config_sys_set_target(
     config: &mut wasm_config_t,
     target: Box<wasmer_target_t>,
 ) {

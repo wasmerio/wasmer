@@ -24,13 +24,13 @@ wasm_engine_t *wasm_engine_new() {
          wasmer_test_engine);
   if (strcmp(wasmer_test_compiler, "cranelift") == 0) {
     assert(wasmer_is_compiler_available(CRANELIFT));
-    wasm_config_set_sys_compiler(config, CRANELIFT);
+    wasm_config_sys_set_compiler(config, CRANELIFT);
   } else if (strcmp(wasmer_test_compiler, "llvm") == 0) {
     assert(wasmer_is_compiler_available(LLVM));
-    wasm_config_set_sys_compiler(config, LLVM);
+    wasm_config_sys_set_compiler(config, LLVM);
   } else if (strcmp(wasmer_test_compiler, "singlepass") == 0) {
     assert(wasmer_is_compiler_available(SINGLEPASS));
-    wasm_config_set_sys_compiler(config, SINGLEPASS);
+    wasm_config_sys_set_compiler(config, SINGLEPASS);
   } else if (wasmer_test_compiler) {
     printf("Compiler %s not recognized\n", wasmer_test_compiler);
     abort();
