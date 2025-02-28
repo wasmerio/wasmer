@@ -61,6 +61,7 @@ impl Default for wasmer_engine_t {
 // features.
 //
 // See the impl of `Default` for `BackendEngine` in the `wasmer` (API) crate.
+#[derive(Default)]
 pub struct wasm_engine_t {
     pub(crate) inner: Engine,
 }
