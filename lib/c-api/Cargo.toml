@@ -74,6 +74,21 @@ middlewares = ["compiler", "wasmer-middlewares"]
 # Enable the `sys` backend.
 sys = []
 
+# Enable the `singlepass` compiler.
+singlepass = [
+	"dep:wasmer-compiler-singlepass",
+	"wasmer-api/singlepass",
+	"compiler",
+]
+# Enable the `cranelift` compiler. 
+cranelift = [
+	"dep:wasmer-compiler-cranelift",
+	"wasmer-api/cranelift",
+	"compiler",
+]
+# Enable the `llvm` compiler.
+llvm = ["dep:wasmer-compiler-llvm", "wasmer-api/llvm", "compiler"]
+
 # Enable the use of compiler. Implies enabling the `sys` feature.
 compiler = [
 	"sys",
@@ -91,13 +106,6 @@ compiler-headless = [
 	"wasmer-compiler/translator",
 	"wasmer-compiler/compiler",
 ]
-
-# Enable the `singlepass` compiler.
-singlepass = ["wasmer-compiler-singlepass", "compiler"]
-# Enable the `cranelift` compiler. 
-cranelift = ["wasmer-compiler-cranelift", "compiler"]
-# Enable the `llvm` compiler.
-llvm = ["wasmer-compiler-llvm", "compiler"]
 
 # Enable the `jsc` backend.
 jsc = ["wasmer-api/jsc", "wasmer-api/std"]
