@@ -970,9 +970,10 @@ where
             mut self: Pin<&mut Self>,
             cx: &mut std::task::Context<'_>,
         ) -> Poll<Result<(), std::io::Error>> {
-            match self.poll_copy_start_and_progress(cx) {
+            match self.poll_copy_progress(cx) {
                 Poll::Ready(Ok(())) => {}
-                p => return p,
+                Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+                Poll::Pending => return Poll::Pending,
             }
             Pin::new(self.state.as_mut()).poll_flush(cx)
         }
@@ -981,9 +982,10 @@ where
             mut self: Pin<&mut Self>,
             cx: &mut std::task::Context<'_>,
         ) -> Poll<Result<(), std::io::Error>> {
-            match self.poll_copy_start_and_progress(cx) {
+            match self.poll_copy_progress(cx) {
                 Poll::Ready(Ok(())) => {}
-                p => return p,
+                Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+                Poll::Pending => return Poll::Pending,
             }
             Pin::new(self.state.as_mut()).poll_shutdown(cx)
         }
@@ -1536,6 +1538,39 @@ mod tests {
             fs.metadata(Path::new("/secondary")).unwrap_err(),
             FsError::EntryNotFound
         )
+    }
+
+    /// Make sure files that are never written are not copied to the primary,
+    /// even when opened with write permissions.
+    /// Regression test for https://github.com/wasmerio/wasmer/issues/5445
+    #[tokio::test]
+    async fn test_overlayfs_readonly_files_not_copied() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        {
+            let mut f = fs
+                .new_open_options()
+                .read(true)
+                .write(true)
+                .open(Path::new("/secondary/file.txt"))
+                .unwrap();
+            let mut s = String::new();
+            f.read_to_string(&mut s).await.unwrap();
+            assert_eq!(s, "Hello, World!");
+
+            f.flush().await.unwrap();
+            f.shutdown().await.unwrap();
+        }
+
+        // Primary should not have the file
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
     }
 
     // OLD tests that used WebcFileSystem.
