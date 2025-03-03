@@ -1687,6 +1687,41 @@
 <a href="#1687" id="1687">1687</a>
 <a href="#1688" id="1688">1688</a>
 <a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
+<a href="#1693" id="1693">1693</a>
+<a href="#1694" id="1694">1694</a>
+<a href="#1695" id="1695">1695</a>
+<a href="#1696" id="1696">1696</a>
+<a href="#1697" id="1697">1697</a>
+<a href="#1698" id="1698">1698</a>
+<a href="#1699" id="1699">1699</a>
+<a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
+<a href="#1716" id="1716">1716</a>
+<a href="#1717" id="1717">1717</a>
+<a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
@@ -2659,9 +2694,10 @@
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
             cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
-            <span class="kw">match </span><span class="self">self</span>.poll_copy_start_and_progress(cx) {
+            <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
-                p =&gt; <span class="kw">return </span>p,
+                Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
+                Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
             }
             Pin::new(<span class="self">self</span>.state.as_mut()).poll_flush(cx)
         }
@@ -2670,9 +2706,10 @@
             <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
             cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
         ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
-            <span class="kw">match </span><span class="self">self</span>.poll_copy_start_and_progress(cx) {
+            <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
                 Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
-                p =&gt; <span class="kw">return </span>p,
+                Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
+                Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
             }
             Pin::new(<span class="self">self</span>.state.as_mut()).poll_shutdown(cx)
         }
@@ -3225,6 +3262,39 @@
             fs.metadata(Path::new(<span class="string">"/secondary"</span>)).unwrap_err(),
             FsError::EntryNotFound
         )
+    }
+
+    <span class="doccomment">/// Make sure files that are never written are not copied to the primary,
+    /// even when opened with write permissions.
+    /// Regression test for https://github.com/wasmerio/wasmer/issues/5445
+    </span><span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_overlayfs_readonly_files_not_copied() {
+        <span class="kw">let </span>primary = MemFS::default();
+        <span class="kw">let </span>secondary = MemFS::default();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary"</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/file.txt"</span>, <span class="string">b"Hello, World!"</span>)
+            .<span class="kw">await
+            </span>.unwrap();
+
+        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
+
+        {
+            <span class="kw">let </span><span class="kw-2">mut </span>f = fs
+                .new_open_options()
+                .read(<span class="bool-val">true</span>)
+                .write(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">"/secondary/file.txt"</span>))
+                .unwrap();
+            <span class="kw">let </span><span class="kw-2">mut </span>s = String::new();
+            f.read_to_string(<span class="kw-2">&amp;mut </span>s).<span class="kw">await</span>.unwrap();
+            <span class="macro">assert_eq!</span>(s, <span class="string">"Hello, World!"</span>);
+
+            f.flush().<span class="kw">await</span>.unwrap();
+            f.shutdown().<span class="kw">await</span>.unwrap();
+        }
+
+        <span class="comment">// Primary should not have the file
+        </span><span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">"/secondary/file.txt"</span>));
     }
 
     <span class="comment">// OLD tests that used WebcFileSystem.
