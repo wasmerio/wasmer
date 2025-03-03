@@ -30,6 +30,33 @@ int successful_exec()
     }
 }
 
+int successful_execlp()
+{
+    // We should be able to handle an extra / at the end
+    putenv("PATH=/home/");
+
+    int pid = vfork();
+
+    if (pid == 0)
+    {
+        execlp("main.wasm", "main.wasm", "subprocess", NULL);
+        perror("execlp");
+        exit(10);
+    }
+    else
+    {
+        int status;
+        waitpid(pid, &status, 0);
+        if (WEXITSTATUS(status) != 20)
+        {
+            printf("Expected exit code 20 from subprocess, got %d\n", WEXITSTATUS(status));
+            return 1;
+        }
+
+        return 0;
+    }
+}
+
 int subprocess()
 {
     return 20;
@@ -387,6 +414,10 @@ int main(int argc, char **argv)
     if (!strcmp(argv[1], "successful_exec"))
     {
         return successful_exec();
+    }
+    if (!strcmp(argv[1], "successful_execlp"))
+    {
+        return successful_execlp();
     }
     else if (!strcmp(argv[1], "subprocess"))
     {
