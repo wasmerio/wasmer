@@ -148,6 +148,8 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -170,6 +172,8 @@
 /// as sending out-of-band packets.
 ///
 /// Note: This is (supposed to be) similar to `socketpair` in POSIX using PF_INET
+///
+/// Note 2: This requires hacks in `sock_send` and `sock_recv` as well.
 ///
 /// ## Parameters
 ///

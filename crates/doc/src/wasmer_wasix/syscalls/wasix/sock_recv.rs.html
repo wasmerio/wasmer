@@ -162,6 +162,7 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -193,7 +194,8 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(sock));
     <span class="kw">let </span>guard = fd_entry.inode.read();
-    <span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::PipeRx { .. });
+    <span class="comment">// We need this hack because we use a pipe to back socket pairs
+    </span><span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::DuplexPipe { .. });
     drop(guard);
     <span class="kw">if </span>use_read {
         fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)
