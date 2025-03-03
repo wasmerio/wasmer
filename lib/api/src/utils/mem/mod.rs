@@ -28,6 +28,8 @@ pub enum MemoryAccessError {
     /// String is not valid UTF-8.
     #[error("string is not valid utf-8")]
     NonUtf8String,
+    #[error("unaligned pointer read")]
+    UnalignedPointer,
 }
 
 impl From<MemoryAccessError> for RuntimeError {
@@ -103,8 +105,11 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     #[inline]
     pub fn read(self) -> Result<T, MemoryAccessError> {
         let mut out = MaybeUninit::uninit();
-        let buf =
-            unsafe { slice::from_raw_parts_mut(out.as_mut_ptr() as *mut u8, mem::size_of::<T>()) };
+        let buf_ptr = out.as_mut_ptr() as *mut u8;
+        if !buf_ptr.is_aligned() {
+            return Err(MemoryAccessError::UnalignedPointer);
+        }
+        let buf = unsafe { slice::from_raw_parts_mut(buf_ptr, mem::size_of::<T>()) };
         self.buffer.read(self.offset, buf)?;
         Ok(unsafe { out.assume_init() })
         // Ok(self.access()?.read())
