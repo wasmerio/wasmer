@@ -18,7 +18,7 @@ version.workspace = true
 # `libwasmer.so`, `libwasmer.dylib`, `wasmer.dll` etc. But it creates
 # a conflict with the existing `wasmer` crate, see below.
 name = "wasmer" # ##lib.name##
-                # ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
+# ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
 crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 
 [dependencies]
@@ -31,21 +31,29 @@ wasmer-compiler-llvm = { version = "=6.0.0-alpha.2", path = "../compiler-llvm", 
 wasmer-compiler-singlepass = { version = "=6.0.0-alpha.2", path = "../compiler-singlepass", optional = true }
 wasmer-middlewares = { version = "=6.0.0-alpha.2", path = "../middlewares", optional = true }
 wasmer-types = { version = "=6.0.0-alpha.2", path = "../types" }
-wasmer-wasix = { path = "../wasix", version="=0.37.0", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.37.0", features = [
+	"host-fs",
+	"host-vnet",
+], optional = true }
 webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.23.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
+virtual-fs = { version = "0.23.0", path = "../virtual-fs", optional = true, default-features = false, features = [
+	"static-fs",
+] }
 enumset.workspace = true
 cfg-if = "1.0"
 libc.workspace = true
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
-tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default-features = false }
+tokio = { workspace = true, features = [
+	"rt",
+	"rt-multi-thread",
+	"io-util",
+	"sync",
+	"macros",
+], default-features = false }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = [
-	"env-filter",
-	"fmt",
-] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 field-offset = "0.3.3"
@@ -57,61 +65,76 @@ wasmer-inline-c = "0.1.1"
 inline-c = "0.1.7"
 
 [features]
-default = [
-    "wat",
-    "cranelift",
-    "compiler",
-    "wasi",
-    "middlewares",
-]
-sys = []
-jsc = ["wasmer-api/jsc", "wasmer-api/std"]
+default = ["wat", "sys-default", "cranelift", "compiler", "wasi", "middlewares"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasix"]
-middlewares = [
-    "compiler",
-    "wasmer-middlewares",
-]
-compiler = [
-    "wasmer-compiler",
-    "wasmer-api/compiler",
-    "wasmer-compiler/translator",
-    "wasmer-compiler/compiler",
-]
-compiler-headless = [
-    "wasmer-artifact-load",
-    "static-artifact-load",
-    "wasmer-api/compiler",
-    "wasmer-compiler/translator",
-    "wasmer-compiler/compiler",
-]
+middlewares = ["compiler", "wasmer-middlewares"]
+
+# Enable the `sys` backend.
+sys = []
+
+# Enable the `singlepass` compiler.
 singlepass = [
-    "wasmer-compiler-singlepass",
-    "compiler",
+	"dep:wasmer-compiler-singlepass",
+	"wasmer-api/singlepass",
+	"compiler",
 ]
+# Enable the `cranelift` compiler. 
 cranelift = [
-    "wasmer-compiler-cranelift",
-    "compiler",
+	"dep:wasmer-compiler-cranelift",
+	"wasmer-api/cranelift",
+	"compiler",
 ]
-llvm = [
-    "wasmer-compiler-llvm",
-    "compiler",
+# Enable the `llvm` compiler.
+llvm = ["dep:wasmer-compiler-llvm", "wasmer-api/llvm", "compiler"]
+
+# Enable the use of compiler. Implies enabling the `sys` feature.
+compiler = [
+	"sys",
+	"wasmer-compiler",
+	"wasmer-api/compiler",
+	"wasmer-compiler/translator",
+	"wasmer-compiler/compiler",
 ]
 
-############
-# WARNING! #
-############
-# These features are here but, for now (wasmer 6.0.0-alpha1) they do nothing.
-# In the next alpha release they will be wired up to use the matching backend.
-# These features are being added now to make CI easier, since we will
-# nonetheless have to add them later.
+# Enable the use of the headless compiler. Implies enabling the `sys` feature.
+compiler-headless = [
+	"sys",
+	"wasmer-artifact-load",
+	"static-artifact-load",
+	"wasmer-api/compiler",
+	"wasmer-compiler/translator",
+	"wasmer-compiler/compiler",
+]
 
-v8 = []
-wasmi = []
-wamr = []
+# Enable the `jsc` backend.
+jsc = ["wasmer-api/jsc", "wasmer-api/std"]
 
-############
-############
+# Enable the `v8` backend.
+v8 = ["wasmer-api/v8"]
+
+# Enable the `wasmi` backend.
+wasmi = ["wasmer-api/wasmi"]
+
+# Enable the `wamr` backend.
+wamr = ["wasmer-api/wamr"]
+
+# Enable the `sys` backend and use it as default. Notice that this does not
+# enable a default compiler, and users should therefore add one (or more) of
+# the `singlepass`, `cranelift` and `llvm` features.
+sys-default = ["sys", "wasmer-api/sys-default"]
+
+# Enable the `jsc` backend and use it as default.
+jsc-default = ["jsc", "wasmer-api/jsc-default"]
+
+# Enable the `v8` backend and use it as default.
+v8-default = ["v8", "wasmer-api/v8-default"]
+
+# Enable the `wamr` backend and use it as default.
+wamr-default = ["wamr", "wasmer-api/wamr-default"]
+
+# Enable the `wasmi` backend and use it as default.
+wasmi-default = ["wasmi", "wasmer-api/wasmi-default"]
 
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]

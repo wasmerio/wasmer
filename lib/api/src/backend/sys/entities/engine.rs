@@ -30,7 +30,7 @@ pub fn get_default_compiler_config() -> Option<Box<dyn wasmer_compiler::Compiler
 }
 
 /// Returns the default engine for the Sys engine
-pub(crate) fn default_engine() -> Engine {
+pub fn default_engine() -> Engine {
     #[allow(unreachable_code, unused_mut)]
     fn get_engine() -> Engine {
         cfg_if::cfg_if! {

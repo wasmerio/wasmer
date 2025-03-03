@@ -1,4 +1,4 @@
-//! Data types, functions and traits for the `sys` runtime.
+//! Data types, functions and traits for the `v8` backend.
 
 pub(crate) mod bindings;
 pub(crate) mod entities;

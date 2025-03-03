@@ -25,7 +25,10 @@
 )]
 // Because this crate exposes a lot of C APIs which are unsafe by definition,
 // we allow unsafe without explicit safety documentation for each of them.
+//
+// For the same reason, we also turn off the warning for camel_case types.
 #![allow(clippy::missing_safety_doc)]
+#![allow(non_camel_case_types)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod error;

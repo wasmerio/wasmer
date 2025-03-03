@@ -1,4 +1,4 @@
-//! Data types, functions and traits for `wasmi`.
+//! Data types, functions and traits for the `wasmi` backend.
 
 pub(crate) mod bindings;
 pub(crate) mod entities;
