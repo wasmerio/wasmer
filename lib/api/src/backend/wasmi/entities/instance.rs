@@ -2,8 +2,9 @@
 use std::sync::Arc;
 
 use crate::{
-    backend::wasmi::bindings::*, vm::VMExtern, wasmi::error::Trap, AsStoreMut, AsStoreRef, Exports,
-    Extern, Imports, InstantiationError, Module,
+    backend::wasmi::bindings::*, entities::external::VMExternToExtern, vm::VMExtern,
+    wasmi::error::Trap, AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError,
+    Module,
 };
 
 #[derive(PartialEq, Eq)]
@@ -51,29 +52,48 @@ impl InstanceHandle {
     }
 
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
-        let mut exports = unsafe {
+        let mut c_api_externs = unsafe {
             let mut vec = Default::default();
             wasm_instance_exports(self.0, &mut vec);
             vec
         };
 
-        let wasm_exports: &[*mut wasm_extern_t] =
+        let c_api_externs: &[*mut wasm_extern_t] =
+            unsafe { std::slice::from_raw_parts(c_api_externs.data, c_api_externs.size) };
+        let c_api_externs = c_api_externs.to_vec();
+        let mut exports = unsafe {
+            let mut vec = Default::default();
+            wasm_module_exports(module.as_wasmi().handle.inner, &mut vec);
+            vec
+        };
+
+        let c_api_exports: &[*mut wasm_exporttype_t] =
             unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
+        let c_api_exports = c_api_exports.to_vec();
 
-        let exports_ty = module.exports().collect::<Vec<_>>();
-        let exports = exports_ty
-            .iter()
-            .zip(wasm_exports.into_iter())
-            .map(|(export_type, wasm_export)| {
-                let name = export_type.name();
-                let mut store = store.as_store_mut();
-                let extern_type = export_type.ty();
-                // Annotation is here to prevent spurious IDE warnings.
+        // We need to use the order of the exports from the polyfill info to get the right
+        // one, i.e. the from the declaration.
+        let module_exports = module.exports().collect::<Vec<_>>();
 
-                let extern_ = Extern::from_vm_extern(&mut store, VMExtern::Wasmi(*wasm_export));
-                (name.to_string(), extern_)
+        let c_api_exports: Exports = c_api_exports
+            .into_iter()
+            .zip(c_api_externs.into_iter())
+            .map(|(export, ext)| unsafe {
+                let name = wasm_exporttype_name(export);
+                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
+                let name = String::from_utf8(name.to_vec()).unwrap_or_default();
+                let ext = ext.to_extern(&mut store);
+                (name, ext)
             })
-            .collect::<Exports>();
+            .collect();
+
+        let mut exports = Exports::new();
+
+        for e in module_exports {
+            let ext: Extern = c_api_exports.get::<Extern>(e.name()).unwrap().clone();
+            exports.insert(e.name().to_string(), ext);
+        }
+
         exports
     }
 }
