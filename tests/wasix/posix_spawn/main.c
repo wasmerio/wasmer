@@ -15,7 +15,7 @@ int run_tests()
     posix_spawn_file_actions_t fdops;
     sigset_t sigdefault;
     pid_t pid;
-    char *argv[] = {"main.out", "subprocess", NULL};
+    char *argv[] = {"main.wasm", "subprocess", NULL};
     char *envp[] = {"ABCD=1234", NULL};
 
     // Ignore both SIGTERM and SIGHUP, then set SIGHUP up to be reset to default
@@ -163,6 +163,28 @@ int run_tests()
         return 1;
     }
 
+    char *argv2[] = {"main.wasm", "just-return", NULL};
+    putenv("PATH=/home/");
+    status = 0;
+
+    if (posix_spawnp(&pid, "main-not-asyncified.wasm", NULL, NULL, argv2, NULL) != 0)
+    {
+        perror("posix_spawn 2");
+        return 1;
+    }
+
+    if (waitpid(pid, &status, 0) == -1)
+    {
+        perror("waitpid 2");
+        return 1;
+    }
+
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 70)
+    {
+        printf("Expected exit with status 70, got: %d\n", WEXITSTATUS(status));
+        return 1;
+    }
+
     return 0;
 }
 
@@ -182,9 +204,20 @@ void write_subprocess_error(const char *msg)
 
 int subprocess(int argc, char **argv)
 {
-    if (argc != 2 || strcmp(argv[0], "main.out") || strcmp(argv[1], "subprocess"))
+    if (argc != 2 || strcmp(argv[0], "main.wasm"))
     {
         write_subprocess_error("Got bad CLI args");
+        return 2;
+    }
+
+    if (!strcmp(argv[1], "just-return"))
+    {
+        return 70;
+    }
+    else if (strcmp(argv[1], "subprocess"))
+    {
+        write_subprocess_error("Got bad CLI args");
+        return 2;
     }
 
     const char *env = getenv("ABCD");
