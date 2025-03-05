@@ -62,6 +62,28 @@ impl PackageDownload {
 
         step_num += 1;
 
+        let out_dir = if let Some(out_path) = self.out_path.as_ref().and_then(|p| p.parent()) {
+            match parent.metadata() {
+                Ok(m) => {
+                    if !m.is_dir() {
+                        bail!(
+                            "parent of output file is not a directory: '{}'",
+                            parent.display()
+                        );
+                    }
+                    parent.to_owned()
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    std::fs::create_dir_all(parent)
+                        .context("could not create parent directory of output file")?;
+                    parent.to_owned()
+                }
+                Err(err) => return Err(err.into()),
+            }
+        } else {
+            current_dir()?
+        };
+
         if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
             match parent.metadata() {
                 Ok(m) => {
@@ -195,11 +217,13 @@ impl PackageDownload {
         // Set the length of the progress bar
         pb.set_length(webc_total_size);
 
-        let mut tmpfile = if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
-            NamedTempFile::new_in(parent)?
+        let out_path = if let Some(out_path) = self.out_path {
+            out_path.clone()
         } else {
-            NamedTempFile::new()?
+            std::env::current_dir()
         };
+
+        let mut tmpfile = NamedTempFile::new_in(out_dir)?;
         let accepted_contenttypes = vec![
             "application/webc",
             "application/octet-stream",
@@ -239,7 +263,7 @@ impl PackageDownload {
         let out_path = if let Some(out_path) = &self.out_path {
             out_path.clone()
         } else {
-            current_dir()?.join(filename)
+            out_dir.join(filename)
         };
 
         tmpfile.persist(&out_path).with_context(|| {
