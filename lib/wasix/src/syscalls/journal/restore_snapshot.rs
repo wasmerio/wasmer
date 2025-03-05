@@ -8,7 +8,7 @@ use super::*;
 #[tracing::instrument(skip_all)]
 pub unsafe fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    journal: Arc<DynJournal>,
+    journal: &DynReadableJournal,
     bootstrapping: bool,
 ) -> Result<Option<RewindState>, WasiRuntimeError> {
     use std::{collections::BTreeMap, ops::Range};

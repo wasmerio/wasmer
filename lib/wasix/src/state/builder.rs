@@ -13,7 +13,7 @@ use wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
 use wasmer_config::package::PackageId;
 
 #[cfg(feature = "journal")]
-use crate::journal::{DynJournal, SnapshotTrigger};
+use crate::journal::{DynJournal, DynReadableJournal, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -95,7 +95,10 @@ pub struct WasiEnvBuilder {
     pub(super) stop_running_after_snapshot: bool,
 
     #[cfg(feature = "journal")]
-    pub(super) journals: Vec<Arc<DynJournal>>,
+    pub(super) read_only_journals: Vec<Arc<DynReadableJournal>>,
+
+    #[cfg(feature = "journal")]
+    pub(super) writable_journals: Vec<Arc<DynJournal>>,
 
     #[cfg(feature = "ctrlc")]
     pub(super) attach_ctrl_c: bool,
@@ -618,13 +621,23 @@ impl WasiEnvBuilder {
     ///
     /// The state of the WASM process and its sandbox will be reapplied use
     /// the journals in the order that you specify here.
+    #[cfg(feature = "journal")]
+    pub fn add_read_only_journal(&mut self, journal: Arc<DynReadableJournal>) {
+        self.read_only_journals.push(journal);
+    }
+
+    /// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied use
+    /// the journals in the order that you specify here.
     ///
     /// The last journal file specified will be created if it does not exist
     /// and opened for read and write. New journal events will be written to this
     /// file
     #[cfg(feature = "journal")]
-    pub fn add_journal(&mut self, journal: Arc<DynJournal>) {
-        self.journals.push(journal);
+    pub fn add_writable_journal(&mut self, journal: Arc<DynJournal>) {
+        self.writable_journals.push(journal);
     }
 
     pub fn get_current_dir(&mut self) -> Option<PathBuf> {
@@ -953,8 +966,12 @@ impl WasiEnvBuilder {
                 #[allow(unused_mut)]
                 let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
                 #[cfg(feature = "journal")]
-                for journal in self.journals.clone() {
-                    runtime.add_journal(journal);
+                for journal in self.read_only_journals.clone() {
+                    runtime.add_read_only_journal(journal);
+                }
+                #[cfg(feature = "journal")]
+                for journal in self.writable_journals.clone() {
+                    runtime.add_writable_journal(journal);
                 }
                 Arc::new(runtime)
             }
@@ -991,7 +1008,8 @@ impl WasiEnvBuilder {
             process: None,
             thread: None,
             #[cfg(feature = "journal")]
-            call_initialize: self.journals.is_empty(),
+            call_initialize: self.read_only_journals.is_empty()
+                && self.writable_journals.is_empty(),
             #[cfg(not(feature = "journal"))]
             call_initialize: true,
             can_deep_sleep: false,

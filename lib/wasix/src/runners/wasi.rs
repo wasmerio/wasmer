@@ -13,7 +13,7 @@ use webc::metadata::{annotations::Wasi, Command};
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{DynJournal, SnapshotTrigger},
+    journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory, MountedDirectory},
     runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
@@ -170,11 +170,13 @@ impl WasiRunner {
         self
     }
 
+    #[cfg(feature = "journal")]
     pub fn with_snapshot_trigger(&mut self, on: SnapshotTrigger) -> &mut Self {
         self.wasi.snapshot_on.push(on);
         self
     }
 
+    #[cfg(feature = "journal")]
     pub fn with_default_snapshot_triggers(&mut self) -> &mut Self {
         for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
             if !self.has_snapshot_trigger(on) {
@@ -184,10 +186,12 @@ impl WasiRunner {
         self
     }
 
+    #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, on: SnapshotTrigger) -> bool {
         self.wasi.snapshot_on.iter().any(|t| *t == on)
     }
 
+    #[cfg(feature = "journal")]
     pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
         if !self.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) {
             self.with_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
@@ -196,13 +200,21 @@ impl WasiRunner {
         self
     }
 
+    #[cfg(feature = "journal")]
     pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) -> &mut Self {
         self.wasi.stop_running_after_snapshot = stop_running;
         self
     }
 
-    pub fn with_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
-        self.wasi.journals.push(journal);
+    #[cfg(feature = "journal")]
+    pub fn with_read_only_journal(&mut self, journal: Arc<DynReadableJournal>) -> &mut Self {
+        self.wasi.read_only_journals.push(journal);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_writable_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
+        self.wasi.writable_journals.push(journal);
         self
     }
 
@@ -324,24 +336,27 @@ impl WasiRunner {
 
         #[cfg(feature = "journal")]
         {
-            for journal in self.wasi.journals.clone() {
-                builder.add_journal(journal);
+            for journal in self.wasi.read_only_journals.iter().cloned() {
+                builder.add_read_only_journal(journal);
+            }
+            for journal in self.wasi.writable_journals.iter().cloned() {
+                builder.add_writable_journal(journal);
             }
 
             if !self.wasi.snapshot_on.is_empty() {
                 for trigger in self.wasi.snapshot_on.iter().cloned() {
                     builder.add_snapshot_trigger(trigger);
                 }
-            } else if !self.wasi.journals.is_empty() {
+            } else if !self.wasi.writable_journals.is_empty() {
                 for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
 
             if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.journals.is_empty() {
+                if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
-                            "If you specify a snapshot interval then you must also specify a journal file"
+                            "If you specify a snapshot interval then you must also specify a writable journal file"
                         ));
                 }
                 builder.with_snapshot_interval(period);
@@ -432,22 +447,25 @@ impl crate::runners::Runner for WasiRunner {
 
         #[cfg(feature = "journal")]
         {
-            for journal in self.wasi.journals.clone() {
-                builder.add_journal(journal);
+            for journal in self.wasi.read_only_journals.iter().cloned() {
+                builder.add_read_only_journal(journal);
+            }
+            for journal in self.wasi.writable_journals.iter().cloned() {
+                builder.add_writable_journal(journal);
             }
 
             if !self.wasi.snapshot_on.is_empty() {
                 for trigger in self.wasi.snapshot_on.iter().cloned() {
                     builder.add_snapshot_trigger(trigger);
                 }
-            } else if !self.wasi.journals.is_empty() {
+            } else if !self.wasi.writable_journals.is_empty() {
                 for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
 
             if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.journals.is_empty() {
+                if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
                             "If you specify a snapshot interval then you must also specify a journal file"
                         ));
