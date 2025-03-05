@@ -2,12 +2,12 @@
 
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
-use wasmer_types::DeserializeError;
+use wasmer_types::{DeserializeError, Features};
 
 #[cfg(feature = "sys")]
-use wasmer_compiler::Artifact;
+use wasmer_compiler::{types::target::Target, Artifact};
 
-use crate::{IntoBytes, Store};
+use crate::{BackendKind, IntoBytes, Store};
 
 /// Create temporary handles to engines.
 mod engine_ref;
@@ -60,6 +60,71 @@ impl Engine {
     /// Returns the unique id of this engine.
     pub fn id(&self) -> EngineId {
         EngineId(self.id)
+    }
+
+    /// Returns the default WebAssembly features supported by this backend for a given target.
+    ///
+    /// These are the features that will be enabled by default without any user configuration.
+    pub fn default_features_for_target(&self, target: &Target) -> Features {
+        self.be.default_features_for_target(target)
+    }
+
+    /// Returns all WebAssembly features supported by this backend for a given target.
+    ///
+    /// These represent the full set of features the backend is capable of supporting,
+    /// regardless of whether they're enabled by default.
+    pub fn supported_features_for_target(&self, target: &Target) -> Features {
+        BackendEngine::supported_features_for_target(&self.be.get_be_kind(), target)
+    }
+
+    /// Returns all WebAssembly features supported by the specified backend for a given target.
+    ///
+    /// This static method allows checking features for any backend, not just the current one.
+    pub fn supported_features_for_backend(
+        backend: &crate::BackendKind,
+        target: &Target,
+    ) -> Features {
+        // Create a temporary engine of the specified type to query features
+        match backend {
+            #[cfg(feature = "sys")]
+            crate::BackendKind::Sys => {
+                // Use a headless engine for Sys backends
+                let engine = Self {
+                    be: BackendEngine::Sys(
+                        crate::backend::sys::entities::engine::Engine::headless(),
+                    ),
+                    id: Self::atomic_next_engine_id(),
+                };
+                engine.supported_features_for_target(target)
+            }
+            #[cfg(feature = "v8")]
+            crate::BackendKind::V8 => {
+                // Get V8-specific features
+                crate::backend::v8::engine::Engine::supported_features()
+            }
+            #[cfg(feature = "wamr")]
+            crate::BackendKind::Wamr => {
+                // Get WAMR-specific features
+                crate::backend::wamr::engine::Engine::supported_features()
+            }
+            #[cfg(feature = "wasmi")]
+            crate::BackendKind::Wasmi => {
+                // Get WASMI-specific features
+                crate::backend::wasmi::engine::Engine::supported_features()
+            }
+            #[cfg(feature = "js")]
+            crate::BackendKind::Js => {
+                // Get JS-specific features
+                crate::backend::js::engine::Engine::supported_features()
+            }
+            #[cfg(feature = "jsc")]
+            crate::BackendKind::Jsc => {
+                // Get JSC-specific features
+                crate::backend::jsc::engine::Engine::supported_features()
+            }
+            // Default case
+            _ => Features::default(),
+        }
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
