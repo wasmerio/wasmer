@@ -58,10 +58,6 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           components: rustfmt, clippy
-      - name: Install rust version
-        shell: bash
-        run: |
-          rustup install ${{ env.MSRV }}
       - name: Install libtinfo
         shell: bash
         run: |
