@@ -28,6 +28,15 @@ pub struct PackageDownload {
     #[clap(long)]
     pub quiet: bool,
 
+    /// Unpack the downloaded package.
+    ///
+    /// The output directory will be next to the downloaded file.
+    ///
+    /// Note: unpacking can also be done manually with the `wasmer package unpack`
+    /// command.
+    #[clap(long)]
+    unpack: bool,
+
     /// The package to download.
     package: PackageSource,
 }
@@ -62,7 +71,7 @@ impl PackageDownload {
 
         step_num += 1;
 
-        let out_dir = if let Some(out_path) = self.out_path.as_ref().and_then(|p| p.parent()) {
+        let out_dir = if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
             match parent.metadata() {
                 Ok(m) => {
                     if !m.is_dir() {
@@ -217,13 +226,7 @@ impl PackageDownload {
         // Set the length of the progress bar
         pb.set_length(webc_total_size);
 
-        let out_path = if let Some(out_path) = self.out_path {
-            out_path.clone()
-        } else {
-            std::env::current_dir()
-        };
-
-        let mut tmpfile = NamedTempFile::new_in(out_dir)?;
+        let mut tmpfile = NamedTempFile::new_in(&out_dir)?;
         let accepted_contenttypes = vec![
             "application/webc",
             "application/octet-stream",
@@ -282,6 +285,23 @@ impl PackageDownload {
         // We're done, so finish the progress bar
         pb.finish();
 
+        if self.unpack {
+            let out_dir = if out_path.extension().is_some() {
+                out_path.with_extension("")
+            } else {
+                out_path.with_extension("unpacked")
+            };
+
+            let unpack_cmd = super::unpack::PackageUnpack {
+                out_dir,
+                overwrite: false,
+                quiet: self.quiet,
+                package_path: out_path,
+                format: super::unpack::Format::Package,
+            };
+            unpack_cmd.execute()?;
+        }
+
         Ok(())
     }
 }
@@ -307,11 +327,14 @@ mod tests {
             validate: true,
             out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
+            unpack: true,
             quiet: true,
         };
 
         cmd.execute().unwrap();
 
         from_disk(out_path).unwrap();
+
+        assert!(dir.path().join("hello/wasmer.toml").is_file());
     }
 }
