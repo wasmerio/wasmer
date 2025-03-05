@@ -21,6 +21,7 @@ use wasmer_wasix_types::wasi::ExitCode;
 #[cfg(feature = "journal")]
 use crate::journal::DynJournal;
 use crate::{
+    bin_factory::BinaryPackageCommand,
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
     runtime::{
@@ -95,6 +96,29 @@ where
     /// Get access to the TTY used by the environment.
     fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         None
+    }
+
+    /// Load the module for a command.
+    ///
+    /// NOTE: This always be preferred over [`Self::load_module`] to avoid
+    /// re-hashing the module!
+    fn load_command_module(
+        &self,
+        cmd: &BinaryPackageCommand,
+    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
+        let engine = self.engine();
+        let hash = *cmd.hash();
+        let wasm = cmd.atom();
+        let module_cache = self.module_cache();
+
+        let task = async move { load_module(&engine, &module_cache, &wasm, hash).await };
+
+        Box::pin(task)
+    }
+
+    /// Sync version of [`Self::load_command_module`].
+    fn load_command_module_sync(&self, cmd: &BinaryPackageCommand) -> Result<Module, SpawnError> {
+        InlineWaker::block_on(self.load_command_module(cmd))
     }
 
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.

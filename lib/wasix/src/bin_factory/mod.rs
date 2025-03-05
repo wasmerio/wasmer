@@ -18,8 +18,8 @@ mod exec;
 pub use self::{
     binary_package::*,
     exec::{
-        run_exec, spawn_exec, spawn_exec_module, spawn_exec_wasm, spawn_load_module,
-        spawn_load_wasm, spawn_union_fs,
+        package_command_by_name, run_exec, spawn_exec, spawn_exec_module, spawn_exec_wasm,
+        spawn_load_module, spawn_union_fs,
     },
 };
 use crate::{
@@ -88,20 +88,7 @@ impl BinFactory {
                 }
                 Executable::BinaryPackage(pkg) => {
                     // Get the command that is going to be executed
-                    let cmd = if let Some(cmd) = pkg.get_command(name.as_str()) {
-                        cmd
-                    } else if let Some(cmd) = pkg.get_entrypoint_command() {
-                        cmd
-                    } else {
-                        tracing::error!(
-                          command=name,
-                          pkg=%pkg.id,
-                          "Unable to spawn a command because its package has no entrypoint",
-                        );
-                        return Err(SpawnError::MissingEntrypoint {
-                            package_id: pkg.id.clone(),
-                        });
-                    };
+                    let cmd = package_command_by_name(&pkg, name.as_str())?;
 
                     env.prepare_spawn(cmd);
 
