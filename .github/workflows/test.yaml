@@ -1,17 +1,17 @@
 name: test-sys
 
-#on:
-#  push:
-#    branches:
-#      - main
-#      - "with-ci-.*"
-#      - "v3.0.x"
-#      - "v3.1.x"
-#  pull_request:
-#  workflow_dispatch:
-#    inputs:
-#      release:
-#        description: "Make release"
+on:
+  push:
+    branches:
+      - main
+      - "with-ci-.*"
+      - "v3.0.x"
+      - "v3.1.x"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Make release"
 
 # Automatically cancel previous workflow runs when a new commit is pushed.
 concurrency:
