@@ -365,7 +365,7 @@ jobs:
 
   build_linux_aarch64:
     name: ${{ matrix.build-what.name }} on linux-aarch64
-    runs-on: ubuntu-22.04-arm64
+    runs-on: ubuntu-22.04-arm
     strategy:
       fail-fast: false
       matrix:
