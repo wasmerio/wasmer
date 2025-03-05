@@ -43,6 +43,7 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) journals: Vec<Arc<DynJournal>>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
     pub(crate) snapshot_interval: Option<std::time::Duration>,
+    pub(crate) stop_running_after_snapshot: bool,
     pub(crate) current_dir: Option<PathBuf>,
     pub(crate) additional_imports: Imports,
 }

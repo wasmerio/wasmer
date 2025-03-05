@@ -92,6 +92,9 @@ pub struct WasiEnvBuilder {
     pub(super) snapshot_interval: Option<std::time::Duration>,
 
     #[cfg(feature = "journal")]
+    pub(super) stop_running_after_snapshot: bool,
+
+    #[cfg(feature = "journal")]
     pub(super) journals: Vec<Arc<DynJournal>>,
 
     #[cfg(feature = "ctrlc")]
@@ -740,6 +743,11 @@ impl WasiEnvBuilder {
         self.snapshot_interval.replace(interval);
     }
 
+    #[cfg(feature = "journal")]
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) {
+        self.stop_running_after_snapshot = stop_running;
+    }
+
     /// Add an item to the list of importable items provided to the instance.
     pub fn import(
         mut self,
@@ -990,6 +998,7 @@ impl WasiEnvBuilder {
             extra_tracing: true,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on,
+            stop_running_after_snapshot: self.stop_running_after_snapshot,
             additional_imports: self.additional_imports,
         };
 

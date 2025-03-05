@@ -249,6 +249,10 @@ pub struct WasiEnvInit {
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
+
+    /// Stop running after the first snapshot is taken
+    #[cfg(feature = "journal")]
+    pub stop_running_after_snapshot: bool,
 }
 
 impl WasiEnvInit {
@@ -288,6 +292,7 @@ impl WasiEnvInit {
             extra_tracing: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
+            stop_running_after_snapshot: self.stop_running_after_snapshot,
             additional_imports: self.additional_imports.clone(),
         }
     }
@@ -511,7 +516,9 @@ impl WasiEnv {
 
         #[cfg(feature = "journal")]
         {
-            process.inner.0.lock().unwrap().snapshot_on = init.snapshot_on.into_iter().collect();
+            let mut guard = process.inner.0.lock().unwrap();
+            guard.snapshot_on = init.snapshot_on.into_iter().collect();
+            guard.stop_running_after_checkpoint = init.stop_running_after_snapshot;
         }
 
         let layout = WasiMemoryLayout::default();

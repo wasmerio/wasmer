@@ -324,6 +324,9 @@ impl Run {
                 }
                 config.with_snapshot_interval(Duration::from_millis(period));
             }
+            if self.wasi.stop_after_snapshot {
+                config.with_stop_running_after_snapshot(true);
+            }
             for journal in self.wasi.build_journals()? {
                 config.add_journal(journal);
             }
@@ -433,6 +436,9 @@ impl Run {
                 }
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
+            if self.wasi.stop_after_snapshot {
+                runner.with_stop_running_after_snapshot(true);
+            }
             for journal in self.wasi.build_journals()? {
                 runner.with_journal(journal);
             }
@@ -452,7 +458,7 @@ impl Run {
         let program_name = wasm_path.display().to_string();
 
         let runner = self.build_wasi_runner(&runtime)?;
-        runner.run_wasm(runtime, &program_name, module)
+        runner.run_wasm(runtime, &program_name, module, module_hash)
     }
 
     #[allow(unused_variables)]

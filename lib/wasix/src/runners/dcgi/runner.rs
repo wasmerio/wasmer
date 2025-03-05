@@ -209,6 +209,11 @@ impl Config {
         self
     }
 
+    #[cfg(feature = "journal")]
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) {
+        self.inner.with_stop_running_after_snapshot(stop_running);
+    }
+
     pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
         self.inner.add_journal(journal);
         self

@@ -3,9 +3,11 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
+use futures::future::Either;
 use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
 use wasmer::{Extern, Module};
+use wasmer_types::ModuleHash;
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
@@ -194,6 +196,11 @@ impl WasiRunner {
         self
     }
 
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) -> &mut Self {
+        self.wasi.stop_running_after_snapshot = stop_running;
+        self
+    }
+
     pub fn with_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
         self.wasi.journals.push(journal);
         self
@@ -246,19 +253,23 @@ impl WasiRunner {
         &self,
         program_name: &str,
         wasi: &Wasi,
-        pkg: Option<&BinaryPackage>,
+        pkg_or_module_hash: Either<&BinaryPackage, ModuleHash>,
         runtime: Arc<dyn Runtime + Send + Sync>,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name).runtime(runtime);
 
-        let container_fs = if let Some(pkg) = pkg {
-            builder.add_webc(pkg.clone());
-            builder.set_module_hash(pkg.hash());
-            builder.include_packages(pkg.package_ids.clone());
-            Some(Arc::clone(&pkg.webc_fs))
-        } else {
-            None
+        let container_fs = match pkg_or_module_hash {
+            Either::Left(pkg) => {
+                builder.add_webc(pkg.clone());
+                builder.set_module_hash(pkg.hash());
+                builder.include_packages(pkg.package_ids.clone());
+                Some(Arc::clone(&pkg.webc_fs))
+            }
+            Either::Right(hash) => {
+                builder.set_module_hash(hash);
+                None
+            }
         };
 
         if self.wasi.is_home_mapped {
@@ -294,11 +305,17 @@ impl WasiRunner {
         runtime: Arc<dyn Runtime + Send + Sync>,
         program_name: &str,
         module: Module,
+        module_hash: ModuleHash,
     ) -> Result<(), Error> {
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
 
-        let mut builder =
-            self.prepare_webc_env(program_name, &wasi, None, runtime.clone(), None)?;
+        let mut builder = self.prepare_webc_env(
+            program_name,
+            &wasi,
+            Either::Right(module_hash),
+            runtime.clone(),
+            None,
+        )?;
 
         #[cfg(feature = "ctrlc")]
         {
@@ -329,6 +346,8 @@ impl WasiRunner {
                 }
                 builder.with_snapshot_interval(period);
             }
+
+            builder.with_stop_running_after_snapshot(self.wasi.stop_running_after_snapshot);
         }
 
         let env = builder.build()?;
@@ -402,7 +421,13 @@ impl crate::runners::Runner for WasiRunner {
 
         #[allow(unused_mut)]
         let mut builder = self
-            .prepare_webc_env(exec_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
+            .prepare_webc_env(
+                exec_name,
+                &wasi,
+                Either::Left(pkg),
+                Arc::clone(&runtime),
+                None,
+            )
             .context("Unable to prepare the WASI environment")?;
 
         #[cfg(feature = "journal")]
@@ -429,6 +454,8 @@ impl crate::runners::Runner for WasiRunner {
                 }
                 builder.with_snapshot_interval(period);
             }
+
+            builder.with_stop_running_after_snapshot(self.wasi.stop_running_after_snapshot);
         }
 
         let env = builder.build()?;
@@ -516,6 +543,8 @@ mod tests {
     async fn test_volume_mount_without_webcs() {
         use std::sync::Arc;
 
+        use crate::utils::xxhash_random;
+
         let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
 
         let tokrt = tokio::runtime::Handle::current();
@@ -537,7 +566,13 @@ mod tests {
         let rt = crate::PluggableRuntime::new(tm);
 
         let envb = envb
-            .prepare_webc_env("test", &annotations, None, Arc::new(rt), Some(root_fs))
+            .prepare_webc_env(
+                "test",
+                &annotations,
+                Either::Right(xxhash_random()),
+                Arc::new(rt),
+                Some(root_fs),
+            )
             .unwrap();
 
         let init = envb.build_init().unwrap();
@@ -587,7 +622,7 @@ mod tests {
             .prepare_webc_env(
                 "test",
                 &annotations,
-                Some(&binpkg),
+                Either::Left(&binpkg),
                 Arc::new(rt),
                 Some(root_fs),
             )

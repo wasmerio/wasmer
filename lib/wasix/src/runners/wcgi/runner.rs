@@ -325,6 +325,11 @@ impl Config {
     }
 
     #[cfg(feature = "journal")]
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) {
+        self.wasi.stop_running_after_snapshot = stop_running;
+    }
+
+    #[cfg(feature = "journal")]
     pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
         self.wasi.journals.push(journal);
         self

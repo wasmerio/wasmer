@@ -189,6 +189,12 @@ pub struct Wasi {
     #[clap(long = "snapshot-period")]
     pub snapshot_interval: Option<u64>,
 
+    /// If specified, the runtime will stop executing the WASM module after the first snapshot
+    /// is taken.
+    #[cfg(feature = "journal")]
+    #[clap(long = "stop-after-snapshot")]
+    pub stop_after_snapshot: bool,
+
     /// Allow instances to send http requests.
     ///
     /// Access to domains is granted by default.
@@ -396,6 +402,9 @@ impl Wasi {
             }
             if let Some(interval) = self.snapshot_interval {
                 builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
+            }
+            if self.stop_after_snapshot {
+                builder.with_stop_running_after_snapshot(true);
             }
             for journal in self.build_journals()? {
                 builder.add_journal(journal);
