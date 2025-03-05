@@ -1,9 +1,11 @@
-//! Data types, functions and traits for `v8` runtime's `Engine` implementation.
+//! Data types, functions and traits for `wamr` runtime's `Engine` implementation.
 use crate::{
     backend::wamr::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     BackendEngine,
 };
 use std::sync::Arc;
+use wasmer_compiler::types::target::Target;
+use wasmer_types::Features;
 
 #[derive(Debug)]
 pub(crate) struct CApiEngine {
@@ -38,12 +40,25 @@ impl Engine {
     pub(crate) fn deterministic_id(&self) -> &str {
         "wamr"
     }
+
+    /// Returns the WebAssembly features supported by the WAMR engine.
+    pub fn supported_features() -> Features {
+        // WAMR-specific features
+        let mut features = Features::default();
+        features.bulk_memory(true);
+        features.reference_types(true);
+        features.multi_value(true);
+        features.simd(false);
+        features.threads(false);
+        features.exceptions(false);
+        features
+    }
 }
 
 unsafe impl Send for Engine {}
 unsafe impl Sync for Engine {}
 
-/// Returns the default engine for the JS engine
+/// Returns the default engine for the wamr engine
 pub(crate) fn default_engine() -> Engine {
     Engine::default()
 }

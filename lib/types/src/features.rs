@@ -247,6 +247,23 @@ impl Features {
         self.exceptions = enable;
         self
     }
+
+    /// Checks if this features set contains all the features required by another set
+    pub fn contains_features(&self, required: &Self) -> bool {
+        // Check all required features
+        (!required.simd || self.simd)
+            && (!required.bulk_memory || self.bulk_memory)
+            && (!required.reference_types || self.reference_types)
+            && (!required.threads || self.threads)
+            && (!required.multi_value || self.multi_value)
+            && (!required.exceptions || self.exceptions)
+            && (!required.tail_call || self.tail_call)
+            && (!required.module_linking || self.module_linking)
+            && (!required.multi_memory || self.multi_memory)
+            && (!required.memory64 || self.memory64)
+            && (!required.relaxed_simd || self.relaxed_simd)
+            && (!required.extended_const || self.extended_const)
+    }
 }
 
 impl Default for Features {

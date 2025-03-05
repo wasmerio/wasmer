@@ -4,6 +4,8 @@ use crate::{
     BackendEngine,
 };
 use std::sync::Arc;
+use wasmer_compiler::types::target::Target;
+use wasmer_types::Features;
 
 // A handle to an engine, which we want to unsafely mark as Sync.
 struct EngineCapsule(*mut wasm_engine_t);
@@ -51,6 +53,19 @@ impl Engine {
 
     pub(crate) fn deterministic_id(&self) -> &str {
         "v8"
+    }
+
+    /// Returns the WebAssembly features supported by the V8 engine.
+    pub fn supported_features() -> Features {
+        // V8-specific features
+        let mut features = Features::default();
+        features.bulk_memory(true);
+        features.reference_types(true);
+        features.simd(true);
+        features.threads(true);
+        features.multi_value(true);
+        features.exceptions(false);
+        features
     }
 }
 
