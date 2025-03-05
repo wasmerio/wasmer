@@ -18,6 +18,7 @@ use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
+    http::client_builder::ClientBuilderConfig,
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::{
@@ -96,6 +97,9 @@ pub struct WasiEnvBuilder {
 
     #[cfg(feature = "ctrlc")]
     pub(super) attach_ctrl_c: bool,
+
+    #[cfg(feature = "host-reqwest")]
+    pub(super) http_config: ClientBuilderConfig,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -160,6 +164,17 @@ pub type SetupFsFn = Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> 
 // return stdout somehow, it's unclear what that API should look like)
 impl WasiEnvBuilder {
     /// Creates an empty [`WasiEnvBuilder`].
+    /// Creates an empty [`WasiEnvBuilder`].
+    #[cfg(feature = "host-reqwest")]
+    pub fn new(program_name: impl Into<String>, http_config: &ClientBuilderConfig) -> Self {
+        WasiEnvBuilder {
+            args: vec![program_name.into()],
+            http_config: http_config.clone(),
+            ..WasiEnvBuilder::default()
+        }
+    }
+
+    #[cfg(not(feature = "host-reqwest"))]
     pub fn new(program_name: impl Into<String>) -> Self {
         WasiEnvBuilder {
             args: vec![program_name.into()],
@@ -172,6 +187,11 @@ impl WasiEnvBuilder {
     #[cfg(feature = "ctrlc")]
     pub fn attach_ctrl_c(mut self) -> Self {
         self.attach_ctrl_c = true;
+        self
+    }
+
+    pub fn http_config(mut self, http_config: &ClientBuilderConfig) -> Self {
+        self.http_config = http_config.clone();
         self
     }
 
@@ -943,7 +963,10 @@ impl WasiEnvBuilder {
             #[cfg(feature = "sys-thread")]
             {
                 #[allow(unused_mut)]
-                let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
+                let mut runtime = crate::runtime::PluggableRuntime::new(
+                    Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()),
+                    &ClientBuilderConfig::default()
+                );
                 #[cfg(feature = "journal")]
                 for journal in self.journals.clone() {
                     runtime.add_journal(journal);
@@ -1304,7 +1327,7 @@ mod test {
 
         // `\0` in the key is invalid.
         assert!(
-            WasiEnvBuilder::new("test_prog")
+            WasiEnvBuilder::new("test_prog", &ClientBuilderConfig::default())
                 .env("HOME\0", "/home/home")
                 .build_init()
                 .is_err(),
@@ -1313,7 +1336,7 @@ mod test {
 
         // `=` in the value is valid.
         assert!(
-            WasiEnvBuilder::new("test_prog")
+            WasiEnvBuilder::new("test_prog", &ClientBuilderConfig::default())
                 .env("HOME", "/home/home=home")
                 .build_init()
                 .is_ok(),
@@ -1322,7 +1345,7 @@ mod test {
 
         // `\0` in the value is invalid.
         assert!(
-            WasiEnvBuilder::new("test_prog")
+            WasiEnvBuilder::new("test_prog", &ClientBuilderConfig::default())
                 .env("HOME", "/home/home\0")
                 .build_init()
                 .is_err(),
@@ -1332,7 +1355,7 @@ mod test {
 
     #[test]
     fn nul_character_in_args() {
-        let output = WasiEnvBuilder::new("test_prog")
+        let output = WasiEnvBuilder::new("test_prog", &ClientBuilderConfig::default())
             .arg("--h\0elp")
             .build_init();
         let err = output.expect_err("should fail");
@@ -1341,7 +1364,7 @@ mod test {
             WasiStateCreationError::ArgumentContainsNulByte(_)
         ));
 
-        let output = WasiEnvBuilder::new("test_prog")
+        let output = WasiEnvBuilder::new("test_prog", &ClientBuilderConfig::default())
             .args(["--help", "--wat\0"])
             .build_init();
         let err = output.expect_err("should fail");

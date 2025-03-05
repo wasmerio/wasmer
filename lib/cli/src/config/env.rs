@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use url::Url;
 use wasmer_backend_api::WasmerClient;
+use wasmer_wasix::http::client_builder::ClientBuilderConfig;
 
 pub static DEFAULT_WASMER_CLI_USER_AGENT: LazyLock<String> =
     LazyLock::new(|| format!("WasmerCLI-v{}", env!("CARGO_PKG_VERSION")));
@@ -31,6 +32,54 @@ pub struct WasmerEnv {
     /// the environment by default)
     #[clap(long, env = "WASMER_TOKEN")]
     token: Option<String>,
+
+    #[clap(flatten)]
+    pub http_config: CliClientBuilderConfig,
+}
+
+#[derive(Debug, Clone, PartialEq, clap::Parser)]
+pub struct CliClientBuilderConfig {
+    #[clap(long, env = "HTTP_PROXY", help = "HTTP proxy URL")]
+    pub proxy: Option<String>,
+
+    #[clap(long, env = "CA_FILE", help = "Path to CA certificate file")]
+    pub ca_file: Option<PathBuf>,
+
+    #[clap(
+        long,
+        env = "WASMER_UNSAFE_DISABLE_SSL_VERIFY",
+        help = "Disable SSL verification (use with caution)"
+    )]
+    pub unsafe_disable_ssl_verify: bool,
+}
+
+impl Default for CliClientBuilderConfig {
+    fn default() -> Self {
+        CliClientBuilderConfig {
+            proxy: None,
+            ca_file: None,
+            unsafe_disable_ssl_verify: false,
+        }
+    }
+}
+
+impl CliClientBuilderConfig {
+    pub fn to_client_builder_config(&self) -> ClientBuilderConfig {
+        let proxy = self
+            .proxy
+            .as_ref()
+            .map(reqwest::Proxy::all)
+            .transpose()
+            // .map_err(Into::into)
+            .ok()
+            .flatten();
+
+        ClientBuilderConfig {
+            proxy,
+            ca_file: self.ca_file.clone(),
+            unsafe_disable_ssl_verify: self.unsafe_disable_ssl_verify,
+        }
+    }
 }
 
 impl WasmerEnv {
@@ -39,12 +88,14 @@ impl WasmerEnv {
         cache_dir: PathBuf,
         token: Option<String>,
         registry: Option<UserRegistry>,
+        http_config: CliClientBuilderConfig,
     ) -> Self {
         WasmerEnv {
             wasmer_dir,
             registry,
             token,
             cache_dir,
+            http_config,
         }
     }
 
@@ -171,6 +222,7 @@ impl Default for WasmerEnv {
             cache_dir: super::DEFAULT_WASMER_CACHE_DIR.clone(),
             registry: None,
             token: None,
+            http_config: CliClientBuilderConfig::default(),
         }
     }
 }
@@ -240,6 +292,7 @@ mod tests {
             registry: None,
             cache_dir: temp.path().join("cache").to_path_buf(),
             token: None,
+            http_config: CliClientBuilderConfig::default(),
         };
 
         assert_eq!(
@@ -260,6 +313,7 @@ mod tests {
             registry: None,
             cache_dir: temp.path().join("cache").to_path_buf(),
             token: Some("asdf".to_string()),
+            http_config: CliClientBuilderConfig::default(),
         };
 
         assert_eq!(
@@ -279,6 +333,7 @@ mod tests {
             registry: Some(UserRegistry::from("wasmer.wtf")),
             cache_dir: temp.path().join("cache").to_path_buf(),
             token: None,
+            http_config: CliClientBuilderConfig::default(),
         };
 
         assert_eq!(
@@ -299,6 +354,7 @@ mod tests {
             registry: Some(UserRegistry::from("wasmer.wtf")),
             cache_dir: temp.path().join("cache").to_path_buf(),
             token: Some("asdf".to_string()),
+            http_config: CliClientBuilderConfig::default(),
         };
 
         assert_eq!(
@@ -320,6 +376,7 @@ mod tests {
             registry: None,
             cache_dir: expected_cache_dir.clone(),
             token: None,
+            http_config: CliClientBuilderConfig::default(),
         };
 
         assert_eq!(
@@ -355,6 +412,7 @@ mod tests {
                 registry: Some(UserRegistry::from(input)),
                 cache_dir: temp.path().join("cache").to_path_buf(),
                 token: None,
+                http_config: CliClientBuilderConfig::default(),
             };
 
             assert_eq!(want, &env.registry_public_url().unwrap().to_string())

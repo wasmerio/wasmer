@@ -264,6 +264,8 @@ impl PackageDownload {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::CliClientBuilderConfig;
+
     use super::*;
 
     /// Download a package from the dev registry.
@@ -279,6 +281,7 @@ mod tests {
                 crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
                 None,
                 Some("https://registry.wasmer.io/graphql".to_owned().into()),
+                CliClientBuilderConfig::default(),
             ),
             validate: true,
             out_path: Some(out_path.clone()),
