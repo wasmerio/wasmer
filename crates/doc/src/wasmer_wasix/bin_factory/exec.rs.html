@@ -464,6 +464,14 @@
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
@@ -485,7 +493,7 @@
 <span class="kw">use </span>wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
-<span class="kw">use </span><span class="kw">super</span>::BinaryPackage;
+<span class="kw">use super</span>::{BinaryPackage, BinaryPackageCommand};
 <span class="kw">use crate</span>::{Runtime, WasiEnv, WasiFunctionEnv};
 
 <span class="attr">#[tracing::instrument(level = <span class="string">"trace"</span>, skip_all, fields(%name, package_id=%binary.id))]
@@ -497,9 +505,8 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     spawn_union_fs(<span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>binary).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">let </span>wasm = spawn_load_wasm(<span class="kw-2">&amp;</span>binary, name).<span class="kw">await</span><span class="question-mark">?</span>;
-
-    <span class="kw">let </span>module = spawn_load_module(name, wasm, runtime).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>cmd = package_command_by_name(<span class="kw-2">&amp;</span>binary, name)<span class="question-mark">?</span>;
+    <span class="kw">let </span>module = runtime.load_command_module(cmd).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="comment">// Free the space used by the binary, since we don't need it
     // any longer
@@ -520,25 +527,34 @@
     spawn_exec_module(module, env, runtime)
 }
 
-<span class="kw">pub async fn </span>spawn_load_wasm&lt;<span class="lifetime">'a</span>&gt;(
-    binary: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BinaryPackage,
+<span class="kw">pub fn </span>package_command_by_name&lt;<span class="lifetime">'a</span>&gt;(
+    pkg: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BinaryPackage,
     name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], SpawnError&gt; {
-    <span class="kw">let </span>wasm = <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = binary.get_command(name) {
-        cmd.atom.as_ref()
-    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cmd) = binary.get_entrypoint_command() {
-        <span class="kw-2">&amp;</span>cmd.atom
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>BinaryPackageCommand, SpawnError&gt; {
+    <span class="comment">// If an explicit command is provided, use it.
+    // Otherwise, use the entrypoint.
+    // If no entrypoint exists, and the package has a single
+    // command, then use it. This is done for backwards
+    // compatibility.
+    </span><span class="kw">let </span>cmd = <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = pkg.get_command(name) {
+        cmd
+    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cmd) = pkg.get_entrypoint_command() {
+        cmd
     } <span class="kw">else </span>{
-        <span class="macro">tracing::error!</span>(
-          command=name,
-          pkg=%binary.id,
-          <span class="string">"Unable to spawn a command because its package has no entrypoint"</span>,
-        );
-        <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::MissingEntrypoint {
-            package_id: binary.id.clone(),
-        });
+        <span class="kw">match </span>pkg.commands.as_slice() {
+            <span class="comment">// Package only has a single command, so use it.
+            </span>[first] =&gt; first,
+            <span class="comment">// Package either has no command, or has multiple commands, which
+            // would make the choice ambiguous, so fail.
+            </span><span class="kw">_ </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::MissingEntrypoint {
+                    package_id: pkg.id.clone(),
+                });
+            }
+        }
     };
-    <span class="prelude-val">Ok</span>(wasm)
+
+    <span class="prelude-val">Ok</span>(cmd)
 }
 
 <span class="kw">pub async fn </span>spawn_load_module(

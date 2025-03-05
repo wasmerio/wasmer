@@ -421,7 +421,7 @@
             .annotation(<span class="string">"wasi"</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
 
-        <span class="kw">let </span>module = runtime.load_module_sync(<span class="kw-2">&amp;</span>cmd.atom())<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = runtime.load_command_module_sync(cmd)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>Wcgi { dialect, .. } = metadata.annotation(<span class="string">"wcgi"</span>)<span class="question-mark">?</span>.unwrap_or_default();
         <span class="kw">let </span>dialect = <span class="kw">match </span>dialect {
