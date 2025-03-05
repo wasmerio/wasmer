@@ -5,7 +5,9 @@ use std::{path::Path, sync::Arc};
 use wasmer_types::{DeserializeError, Features};
 
 #[cfg(feature = "sys")]
-use wasmer_compiler::{types::target::Target, Artifact};
+use wasmer_compiler::Artifact;
+
+use wasmer_compiler::types::target::Target;
 
 use crate::{BackendKind, IntoBytes, Store};
 

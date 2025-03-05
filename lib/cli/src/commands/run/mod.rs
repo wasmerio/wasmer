@@ -285,7 +285,7 @@ impl Run {
         };
 
         let be_kind = engine.get_backend_kind();
-        tracing::info!("Executing on backend {be_kind:?}");
+        tracing::info!("Executing on backend {}", engine.deterministic_id());
 
         #[cfg(feature = "sys")]
         if engine.is_sys() {

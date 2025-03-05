@@ -1,9 +1,10 @@
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
+use wasmer_compiler::types::target::Target;
 use wasmer_types::{DeserializeError, Features};
 
 #[cfg(feature = "sys")]
-use wasmer_compiler::{types::target::Target, Artifact, CompilerConfig};
+use wasmer_compiler::{Artifact, CompilerConfig};
 
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
