@@ -23,6 +23,11 @@ impl Engine {
         features.exceptions(false);
         features
     }
+
+    /// Returns the default features for the JS engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
+    }
 }
 
 impl Default for Engine {

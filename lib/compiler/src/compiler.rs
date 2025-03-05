@@ -46,7 +46,12 @@ pub trait CompilerConfig {
     fn compiler(self: Box<Self>) -> Box<dyn Compiler>;
 
     /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, _target: &Target) -> Features {
+    fn default_features_for_target(&self, target: &Target) -> Features {
+        self.supported_features_for_target(target)
+    }
+
+    /// Gets the supported features for this compiler in the given target
+    fn supported_features_for_target(&self, _target: &Target) -> Features {
         Features::default()
     }
 

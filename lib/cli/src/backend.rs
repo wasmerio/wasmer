@@ -851,11 +851,11 @@ impl BackendType {
         // Map BackendType to the corresponding wasmer::BackendKind
         let backend_kind = match self {
             #[cfg(feature = "singlepass")]
-            Self::Singlepass => wasmer::BackendKind::Sys,
+            Self::Singlepass => wasmer::BackendKind::Singlepass,
             #[cfg(feature = "cranelift")]
-            Self::Cranelift => wasmer::BackendKind::Sys,
+            Self::Cranelift => wasmer::BackendKind::Cranelift,
             #[cfg(feature = "llvm")]
-            Self::LLVM => wasmer::BackendKind::Sys,
+            Self::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             Self::V8 => wasmer::BackendKind::V8,
             #[cfg(feature = "wamr")]
@@ -935,25 +935,25 @@ impl BackendType {
 impl From<&BackendType> for wasmer::BackendKind {
     fn from(backend_type: &BackendType) -> Self {
         match backend_type {
-            BackendType::Singlepass => wasmer::BackendKind::Sys,
-            BackendType::Cranelift => wasmer::BackendKind::Sys,
-            BackendType::LLVM => wasmer::BackendKind::Sys,
+            BackendType::Singlepass => wasmer::BackendKind::Singlepass,
+            BackendType::Cranelift => wasmer::BackendKind::Cranelift,
+            BackendType::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             BackendType::V8 => wasmer::BackendKind::V8,
             #[cfg(not(feature = "v8"))]
-            BackendType::V8 => wasmer::BackendKind::Sys, // Fallback if v8 not enabled
+            BackendType::V8 => wasmer::BackendKind::Headless, // Fallback if v8 not enabled
 
             #[cfg(feature = "wamr")]
             BackendType::Wamr => wasmer::BackendKind::Wamr,
             #[cfg(not(feature = "wamr"))]
-            BackendType::Wamr => wasmer::BackendKind::Sys, // Fallback if wamr not enabled
+            BackendType::Wamr => wasmer::BackendKind::Headless, // Fallback if wamr not enabled
 
             #[cfg(feature = "wasmi")]
             BackendType::Wasmi => wasmer::BackendKind::Wasmi,
             #[cfg(not(feature = "wasmi"))]
-            BackendType::Wasmi => wasmer::BackendKind::Sys, // Fallback if wasmi not enabled
+            BackendType::Wasmi => wasmer::BackendKind::Headless, // Fallback if wasmi not enabled
 
-            BackendType::Headless => wasmer::BackendKind::Sys, // Technically headless is still Sys
+            BackendType::Headless => wasmer::BackendKind::Headless, // Technically headless is still Sys
         }
     }
 }
