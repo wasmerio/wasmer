@@ -18,7 +18,7 @@ version.workspace = true
 # `libwasmer.so`, `libwasmer.dylib`, `wasmer.dll` etc. But it creates
 # a conflict with the existing `wasmer` crate, see below.
 name = "wasmer" # ##lib.name##
-                # ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
+# ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
 crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 
 [dependencies]
@@ -31,21 +31,30 @@ wasmer-compiler-llvm = { version = "=6.0.0-alpha.2", path = "../compiler-llvm", 
 wasmer-compiler-singlepass = { version = "=6.0.0-alpha.2", path = "../compiler-singlepass", optional = true }
 wasmer-middlewares = { version = "=6.0.0-alpha.2", path = "../middlewares", optional = true }
 wasmer-types = { version = "=6.0.0-alpha.2", path = "../types" }
-wasmer-wasix = { path = "../wasix", version="=0.37.0", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.37.0", features = [
+	"host-fs",
+	"host-vnet",
+	"sys",
+], default-features = false, optional = true }
 webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.23.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
+virtual-fs = { version = "0.23.0", path = "../virtual-fs", optional = true, default-features = false, features = [
+	"static-fs",
+] }
 enumset.workspace = true
 cfg-if = "1.0"
 libc.workspace = true
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
-tokio = { workspace = true, features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default-features = false }
+tokio = { workspace = true, features = [
+	"rt",
+	"rt-multi-thread",
+	"io-util",
+	"sync",
+	"macros",
+], default-features = false }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = [
-	"env-filter",
-	"fmt",
-] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 field-offset = "0.3.3"
@@ -57,46 +66,28 @@ wasmer-inline-c = "0.1.1"
 inline-c = "0.1.7"
 
 [features]
-default = [
-    "wat",
-    "cranelift",
-    "compiler",
-    "wasi",
-    "middlewares",
-]
+default = ["wat", "cranelift", "compiler", "wasi", "middlewares"]
 sys = []
 jsc = ["wasmer-api/jsc", "wasmer-api/std"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasix"]
-middlewares = [
-    "compiler",
-    "wasmer-middlewares",
-]
+middlewares = ["compiler", "wasmer-middlewares"]
 compiler = [
-    "wasmer-compiler",
-    "wasmer-api/compiler",
-    "wasmer-compiler/translator",
-    "wasmer-compiler/compiler",
+	"wasmer-compiler",
+	"wasmer-api/compiler",
+	"wasmer-compiler/translator",
+	"wasmer-compiler/compiler",
 ]
 compiler-headless = [
-    "wasmer-artifact-load",
-    "static-artifact-load",
-    "wasmer-api/compiler",
-    "wasmer-compiler/translator",
-    "wasmer-compiler/compiler",
+	"wasmer-artifact-load",
+	"static-artifact-load",
+	"wasmer-api/compiler",
+	"wasmer-compiler/translator",
+	"wasmer-compiler/compiler",
 ]
-singlepass = [
-    "wasmer-compiler-singlepass",
-    "compiler",
-]
-cranelift = [
-    "wasmer-compiler-cranelift",
-    "compiler",
-]
-llvm = [
-    "wasmer-compiler-llvm",
-    "compiler",
-]
+singlepass = ["wasmer-compiler-singlepass", "compiler"]
+cranelift = ["wasmer-compiler-cranelift", "compiler"]
+llvm = ["wasmer-compiler-llvm", "compiler"]
 
 ############
 # WARNING! #
