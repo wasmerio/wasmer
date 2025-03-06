@@ -30,7 +30,7 @@ xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
 sha2 = { version = "0.10" }
 hex = { version = "^0.4" }
 loupe = { workspace = true, optional = true }
-
+wasmparser = { workspace = true, default-features = false }
 
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature

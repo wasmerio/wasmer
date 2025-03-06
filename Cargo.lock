@@ -7198,6 +7198,7 @@ dependencies = [
  "sha2",
  "target-lexicon 0.12.16",
  "thiserror 1.0.69",
+ "wasmparser 0.224.1",
  "xxhash-rust",
 ]
 

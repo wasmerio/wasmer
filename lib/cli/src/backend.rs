@@ -48,6 +48,34 @@ pub struct WasmFeatures {
     #[clap(long = "enable-bulk-memory")]
     pub bulk_memory: bool,
 
+    /// Enable support for the tail call proposal.
+    #[clap(long = "enable-tail-call")]
+    pub tail_call: bool,
+
+    /// Enable support for the module linking proposal.
+    #[clap(long = "enable-module-linking")]
+    pub module_linking: bool,
+
+    /// Enable support for the multi memory proposal.
+    #[clap(long = "enable-multi-memory")]
+    pub multi_memory: bool,
+
+    /// Enable support for the memory64 proposal.
+    #[clap(long = "enable-memory64")]
+    pub memory64: bool,
+
+    /// Enable support for the exceptions proposal.
+    #[clap(long = "enable-exceptions")]
+    pub exceptions: bool,
+
+    /// Enable support for the relaxed SIMD proposal.
+    #[clap(long = "enable-relaxed-simd")]
+    pub relaxed_simd: bool,
+
+    /// Enable support for the extended constant expressions proposal.
+    #[clap(long = "enable-extended-const")]
+    pub extended_const: bool,
+
     /// Enable support for all pre-standard proposals.
     #[clap(long = "enable-all")]
     pub all: bool,
@@ -253,7 +281,7 @@ impl RuntimeOptions {
 
         if filtered_backends.len() == 0 {
             let enabled_backends = BackendType::enabled();
-            if (backends.len() == 1 && enabled_backends.len() > 1) {
+            if backends.len() == 1 && enabled_backends.len() > 1 {
                 // If the user has chosen an specific backend, we can suggest to use another one
                 let filtered_backends = Self::filter_backends_by_features(
                     enabled_backends,
@@ -313,135 +341,46 @@ impl RuntimeOptions {
     }
 
     #[cfg(feature = "compiler")]
-    /// Detect required WebAssembly features from a module binary
-    pub fn detect_features_from_wasm(&self, wasm_bytes: &[u8]) -> Result<Features> {
-        use wasmparser::{Parser, Payload, WasmFeatures};
+    /// Detect features from a WebAssembly module binary.
+    pub fn detect_features_from_wasm(
+        &self,
+        wasm_bytes: &[u8],
+    ) -> Result<Features, wasmparser::BinaryReaderError> {
+        let mut features = Features::detect_from_wasm(wasm_bytes)?;
 
-        tracing::info!(
-            "Detecting features from WebAssembly module ({} bytes)",
-            wasm_bytes.len()
-        );
-
-        // Start with basic features from user options
-        let mut features = self.get_configured_features()?;
-
-        // Simple test for exceptions - try to validate with exceptions disabled
-        let mut exceptions_test = WasmFeatures::default();
-        // Enable most features except exceptions
-        exceptions_test.set(WasmFeatures::BULK_MEMORY, true);
-        exceptions_test.set(WasmFeatures::REFERENCE_TYPES, true);
-        exceptions_test.set(WasmFeatures::SIMD, true);
-        exceptions_test.set(WasmFeatures::MULTI_VALUE, true);
-        exceptions_test.set(WasmFeatures::THREADS, true);
-        exceptions_test.set(WasmFeatures::TAIL_CALL, true);
-        exceptions_test.set(WasmFeatures::MULTI_MEMORY, true);
-        exceptions_test.set(WasmFeatures::MEMORY64, true);
-        exceptions_test.set(WasmFeatures::EXCEPTIONS, false);
-
-        let mut validator = wasmparser::Validator::new_with_features(exceptions_test);
-
-        if let Err(e) = validator.validate_all(wasm_bytes) {
-            let err_msg = e.to_string();
-            tracing::info!("Validation with exceptions disabled failed: {}", err_msg);
-            if err_msg.contains("exception") {
-                tracing::info!("Module requires exceptions");
-                features.exceptions(true);
-            }
+        // Merge with user-configured features
+        if !self.features.disable_threads || self.features.all {
+            features.threads(true);
+        }
+        if self.features.reference_types || self.features.all {
+            features.reference_types(true);
+        }
+        if self.features.simd || self.features.all {
+            features.simd(true);
+        }
+        if self.features.bulk_memory || self.features.all {
+            features.bulk_memory(true);
+        }
+        if self.features.multi_value || self.features.all {
+            features.multi_value(true);
+        }
+        if self.features.tail_call || self.features.all {
+            features.tail_call(true);
+        }
+        if self.features.module_linking || self.features.all {
+            features.module_linking(true);
+        }
+        if self.features.multi_memory || self.features.all {
+            features.multi_memory(true);
+        }
+        if self.features.memory64 || self.features.all {
+            features.memory64(true);
+        }
+        if self.features.exceptions || self.features.all {
+            features.exceptions(true);
         }
 
-        // Now try with all features enabled to catch anything we might have missed
-        let mut wasm_features = WasmFeatures::default();
-        wasm_features.set(WasmFeatures::EXCEPTIONS, true);
-        wasm_features.set(WasmFeatures::BULK_MEMORY, true);
-        wasm_features.set(WasmFeatures::REFERENCE_TYPES, true);
-        wasm_features.set(WasmFeatures::SIMD, true);
-        wasm_features.set(WasmFeatures::MULTI_VALUE, true);
-        wasm_features.set(WasmFeatures::THREADS, true);
-        wasm_features.set(WasmFeatures::TAIL_CALL, true);
-        wasm_features.set(WasmFeatures::MULTI_MEMORY, true);
-        wasm_features.set(WasmFeatures::MEMORY64, true);
-
-        let mut validator = wasmparser::Validator::new_with_features(wasm_features);
-        match validator.validate_all(wasm_bytes) {
-            Err(e) => {
-                // If validation fails due to missing feature support, check which feature it is
-                let err_msg = e.to_string().to_lowercase();
-
-                tracing::info!("Validation error message: {}", err_msg);
-
-                if err_msg.contains("exception") || err_msg.contains("try/catch") {
-                    tracing::info!("Detected 'exceptions' feature requirement");
-                    features.exceptions(true);
-                }
-
-                if err_msg.contains("bulk memory") {
-                    tracing::info!("Detected 'bulk_memory' feature requirement");
-                    features.bulk_memory(true);
-                }
-
-                if err_msg.contains("reference type") {
-                    tracing::info!("Detected 'reference_types' feature requirement");
-                    features.reference_types(true);
-                }
-
-                if err_msg.contains("simd") {
-                    tracing::info!("Detected 'simd' feature requirement");
-                    features.simd(true);
-                }
-
-                if err_msg.contains("multi value") || err_msg.contains("multiple values") {
-                    tracing::info!("Detected 'multi_value' feature requirement");
-                    features.multi_value(true);
-                }
-
-                if err_msg.contains("thread") || err_msg.contains("shared memory") {
-                    tracing::info!("Detected 'threads' feature requirement");
-                    features.threads(true);
-                }
-
-                if err_msg.contains("tail call") {
-                    tracing::info!("Detected 'tail_call' feature requirement");
-                    features.tail_call(true);
-                }
-
-                if err_msg.contains("module linking") {
-                    tracing::info!("Detected 'module_linking' feature requirement");
-                    features.module_linking(true);
-                }
-
-                if err_msg.contains("multi memory") {
-                    tracing::info!("Detected 'multi_memory' feature requirement");
-                    features.multi_memory(true);
-                }
-
-                if err_msg.contains("memory64") {
-                    tracing::info!("Detected 'memory64' feature requirement");
-                    features.memory64(true);
-                }
-            }
-            Ok(_) => {
-                // The module validated successfully with all features enabled,
-                // which means it could potentially use any of them.
-                // We'll do a more detailed analysis by parsing the module.
-            }
-        }
-
-        // A simple pass to detect certain common patterns
-        for payload in Parser::new(0).parse_all(wasm_bytes) {
-            let payload = payload?;
-            if let Payload::CustomSection(section) = payload {
-                let name = section.name();
-                // Exception handling has a custom section
-                if name.contains("exception") {
-                    tracing::info!("Detected exceptions custom section: {}", name);
-                    features.exceptions(true);
-                }
-            }
-        }
-
-        // Log the detected features
-        tracing::info!("Detected WebAssembly features: {:#?}", features);
-
+        tracing::info!("Detected features: {:?}", features);
         Ok(features)
     }
 
@@ -736,22 +675,22 @@ impl From<&BackendType> for wasmer::BackendKind {
         match backend_type {
             BackendType::Singlepass => wasmer::BackendKind::Singlepass,
             BackendType::Cranelift => wasmer::BackendKind::Cranelift,
+            #[cfg(feature = "llvm")]
             BackendType::LLVM => wasmer::BackendKind::LLVM,
+            #[cfg(not(feature = "llvm"))]
+            BackendType::LLVM => wasmer::BackendKind::Headless, // Fallback if llvm not enabled
             #[cfg(feature = "v8")]
             BackendType::V8 => wasmer::BackendKind::V8,
             #[cfg(not(feature = "v8"))]
             BackendType::V8 => wasmer::BackendKind::Headless, // Fallback if v8 not enabled
-
             #[cfg(feature = "wamr")]
             BackendType::Wamr => wasmer::BackendKind::Wamr,
             #[cfg(not(feature = "wamr"))]
             BackendType::Wamr => wasmer::BackendKind::Headless, // Fallback if wamr not enabled
-
             #[cfg(feature = "wasmi")]
             BackendType::Wasmi => wasmer::BackendKind::Wasmi,
             #[cfg(not(feature = "wasmi"))]
             BackendType::Wasmi => wasmer::BackendKind::Headless, // Fallback if wasmi not enabled
-
             BackendType::Headless => wasmer::BackendKind::Headless, // Technically headless is still Sys
         }
     }
