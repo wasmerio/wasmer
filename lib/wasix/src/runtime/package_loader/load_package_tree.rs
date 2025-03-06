@@ -27,6 +27,54 @@ use crate::{
 
 use super::to_module_hash;
 
+/// Convert WebAssembly feature annotations to a Features object
+fn wasm_annotation_to_features(
+    wasm_annotation: &webc::metadata::annotations::Wasm,
+) -> Option<wasmer_types::Features> {
+    // Create features object from the annotation strings
+    let mut features = wasmer_types::Features::default();
+
+    // Set features based on the string values in the annotation
+    features.simd(wasm_annotation.features.contains(&"simd".to_string()));
+    features.bulk_memory(
+        wasm_annotation
+            .features
+            .contains(&"bulk-memory".to_string()),
+    );
+    features.reference_types(
+        wasm_annotation
+            .features
+            .contains(&"reference-types".to_string()),
+    );
+    features.multi_value(
+        wasm_annotation
+            .features
+            .contains(&"multi-value".to_string()),
+    );
+    features.threads(wasm_annotation.features.contains(&"threads".to_string()));
+    features.exceptions(
+        wasm_annotation
+            .features
+            .contains(&"exception-handling".to_string()),
+    );
+    features.memory64(wasm_annotation.features.contains(&"memory64".to_string()));
+
+    Some(features)
+}
+
+/// Extract WebAssembly features from atom metadata if available
+fn extract_features_from_atom_metadata(
+    atom_metadata: &webc::metadata::Atom,
+) -> Option<wasmer_types::Features> {
+    if let Ok(Some(wasm_annotation)) = atom_metadata
+        .annotation::<webc::metadata::annotations::Wasm>(webc::metadata::annotations::Wasm::KEY)
+    {
+        wasm_annotation_to_features(&wasm_annotation)
+    } else {
+        None
+    }
+}
+
 /// The maximum number of packages that will be loaded in parallel.
 const MAX_PARALLEL_DOWNLOADS: usize = 32;
 
@@ -180,7 +228,15 @@ fn load_binary_command(
         )
     })?;
 
-    let cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash);
+    // Get WebAssembly features from manifest atom annotations
+    let features = if let Some(atom_metadata) = webc.manifest().atoms.get(&atom_name) {
+        extract_features_from_atom_metadata(atom_metadata)
+    } else {
+        None
+    };
+
+    let cmd =
+        BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash, features);
 
     Ok(Some(cmd))
 }
@@ -245,11 +301,19 @@ fn legacy_atom_hack(
 
     let hash = to_module_hash(webc.manifest().atom_signature(&name)?);
 
+    // Get WebAssembly features from manifest atom annotations
+    let features = if let Some(atom_metadata) = webc.manifest().atoms.get(&name) {
+        extract_features_from_atom_metadata(atom_metadata)
+    } else {
+        None
+    };
+
     Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
         hash,
+        features,
     )))
 }
 

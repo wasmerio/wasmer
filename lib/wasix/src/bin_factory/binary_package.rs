@@ -23,6 +23,7 @@ pub struct BinaryPackageCommand {
     #[debug(ignore)]
     pub(crate) atom: SharedBytes,
     hash: ModuleHash,
+    features: Option<wasmer_types::Features>,
 }
 
 impl BinaryPackageCommand {
@@ -31,12 +32,14 @@ impl BinaryPackageCommand {
         metadata: webc::metadata::Command,
         atom: SharedBytes,
         hash: ModuleHash,
+        features: Option<wasmer_types::Features>,
     ) -> Self {
         Self {
             name,
             metadata,
             atom,
             hash,
+            features,
         }
     }
 
@@ -60,35 +63,13 @@ impl BinaryPackageCommand {
 
     /// Get the WebAssembly features required by this command's module
     pub fn wasm_features(&self) -> Option<wasmer_types::Features> {
-        // Create default features
-        let mut features = wasmer_types::Features::default();
-
-        // Try to extract information from any annotations that might exist
-        if let Some(wasm_anno) = self.metadata().annotations.get("wasm") {
-            tracing::debug!("Found wasm annotation: {:?}", wasm_anno);
-            // We found an annotation, enable the basic features by default
-            features.reference_types(true);
-            features.bulk_memory(true);
-
-            // We'll use a simpler approach - if we have wasm annotations, just enable
-            // the features that are commonly needed for most modules
-            features.exceptions(true);
-
-            tracing::debug!("WebC module features from annotations: {:?}", features);
-            return Some(features);
+        // Return only the pre-computed features from the container manifest
+        if let Some(features) = &self.features {
+            return Some(features.clone());
         }
 
-        // Fallback: Try to detect features from the atom bytes
-        match wasmer_types::Features::detect_from_wasm(&self.atom) {
-            Ok(features) => {
-                tracing::debug!("WebC module features detected from binary: {:?}", features);
-                Some(features)
-            }
-            Err(err) => {
-                tracing::warn!("Failed to detect WebAssembly features from atom: {}", err);
-                None
-            }
-        }
+        // If no annotations were found, return None
+        None
     }
 }
 
