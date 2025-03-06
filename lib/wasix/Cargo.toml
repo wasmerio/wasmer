@@ -203,9 +203,10 @@ webc_runner_rt_dproxy = [
 	"journal",
 ]
 
-sys = ["webc/mmap", "time", "virtual-mio/sys"]
-sys-default = [
-	"sys",
+sys = [
+	"webc/mmap",
+	"time",
+	"virtual-mio/sys",
 	"logging",
 	"host-fs",
 	"journal",
@@ -214,9 +215,9 @@ sys-default = [
 	"host-vnet",
 	"host-threads",
 	"host-reqwest",
-	"wasmer/sys",
 	"ctrlc",
 ]
+sys-default = ["sys", "wasmer/sys"]
 sys-poll = []
 extra-logging = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
