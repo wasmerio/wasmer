@@ -59,12 +59,8 @@ macro_rules! impl_host_function {
                     {
                         crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower >]::<$($x,)* Rets>())
                     }
-                    #[cfg(feature = "js")]
-                    {
-                        // For JS backend, we use a simpler implementation that doesn't require trampolines
-                        crate::vm::VMTrampoline::Js(crate::backend::js::vm::VMTrampoline)
-                    }
-                    #[cfg(not(any(feature = "sys", feature = "js")))]
+
+                    #[cfg(not(feature = "sys"))]
                     {
                         unimplemented!("No backend available")
                     }
@@ -125,12 +121,8 @@ macro_rules! impl_host_function {
                     {
                         crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower _no_env>]::<$($x,)* Rets>())
                     }
-                    #[cfg(feature = "js")]
-                    {
-                        // For JS backend, we use a simpler implementation that doesn't require trampolines
-                        crate::vm::VMTrampoline::Js(crate::backend::js::vm::VMTrampoline)
-                    }
-                    #[cfg(not(any(feature = "sys", feature = "js")))]
+
+                    #[cfg(not(feature = "sys"))]
                     {
                         unimplemented!("No backend available")
                     }
