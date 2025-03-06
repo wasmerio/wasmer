@@ -291,6 +291,53 @@
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{env::current_dir, path::PathBuf};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -320,6 +367,15 @@
     <span class="doccomment">/// Run the download command without any output
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>quiet: bool,
+
+    <span class="doccomment">/// Unpack the downloaded package.
+    ///
+    /// The output directory will be next to the downloaded file.
+    ///
+    /// Note: unpacking can also be done manually with the `wasmer package unpack`
+    /// command.
+    </span><span class="attr">#[clap(long)]
+    </span>unpack: bool,
 
     <span class="doccomment">/// The package to download.
     </span>package: PackageSource,
@@ -354,6 +410,28 @@
         ));
 
         step_num += <span class="number">1</span>;
+
+        <span class="kw">let </span>out_dir = <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = <span class="self">self</span>.out_path.as_ref().and_then(|p| p.parent()) {
+            <span class="kw">match </span>parent.metadata() {
+                <span class="prelude-val">Ok</span>(m) =&gt; {
+                    <span class="kw">if </span>!m.is_dir() {
+                        <span class="macro">bail!</span>(
+                            <span class="string">"parent of output file is not a directory: '{}'"</span>,
+                            parent.display()
+                        );
+                    }
+                    parent.to_owned()
+                }
+                <span class="prelude-val">Err</span>(err) <span class="kw">if </span>err.kind() == std::io::ErrorKind::NotFound =&gt; {
+                    std::fs::create_dir_all(parent)
+                        .context(<span class="string">"could not create parent directory of output file"</span>)<span class="question-mark">?</span>;
+                    parent.to_owned()
+                }
+                <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err.into()),
+            }
+        } <span class="kw">else </span>{
+            current_dir()<span class="question-mark">?
+        </span>};
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = <span class="self">self</span>.out_path.as_ref().and_then(|p| p.parent()) {
             <span class="kw">match </span>parent.metadata() {
@@ -488,11 +566,7 @@
         <span class="comment">// Set the length of the progress bar
         </span>pb.set_length(webc_total_size);
 
-        <span class="kw">let </span><span class="kw-2">mut </span>tmpfile = <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = <span class="self">self</span>.out_path.as_ref().and_then(|p| p.parent()) {
-            NamedTempFile::new_in(parent)<span class="question-mark">?
-        </span>} <span class="kw">else </span>{
-            NamedTempFile::new()<span class="question-mark">?
-        </span>};
+        <span class="kw">let </span><span class="kw-2">mut </span>tmpfile = NamedTempFile::new_in(<span class="kw-2">&amp;</span>out_dir)<span class="question-mark">?</span>;
         <span class="kw">let </span>accepted_contenttypes = <span class="macro">vec!</span>[
             <span class="string">"application/webc"</span>,
             <span class="string">"application/octet-stream"</span>,
@@ -532,7 +606,7 @@
         <span class="kw">let </span>out_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(out_path) = <span class="kw-2">&amp;</span><span class="self">self</span>.out_path {
             out_path.clone()
         } <span class="kw">else </span>{
-            current_dir()<span class="question-mark">?</span>.join(filename)
+            out_dir.join(filename)
         };
 
         tmpfile.persist(<span class="kw-2">&amp;</span>out_path).with_context(|| {
@@ -550,6 +624,23 @@
 
         <span class="comment">// We're done, so finish the progress bar
         </span>pb.finish();
+
+        <span class="kw">if </span><span class="self">self</span>.unpack {
+            <span class="kw">let </span>out_dir = <span class="kw">if </span>out_path.extension().is_some() {
+                out_path.with_extension(<span class="string">""</span>)
+            } <span class="kw">else </span>{
+                out_path.with_extension(<span class="string">"unpacked"</span>)
+            };
+
+            <span class="kw">let </span>unpack_cmd = <span class="kw">super</span>::unpack::PackageUnpack {
+                out_dir,
+                overwrite: <span class="bool-val">false</span>,
+                quiet: <span class="self">self</span>.quiet,
+                package_path: out_path,
+                format: <span class="kw">super</span>::unpack::Format::Package,
+            };
+            unpack_cmd.execute()<span class="question-mark">?</span>;
+        }
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -576,12 +667,15 @@
             validate: <span class="bool-val">true</span>,
             out_path: <span class="prelude-val">Some</span>(out_path.clone()),
             package: <span class="string">"wasmer/hello@0.1.0"</span>.parse().unwrap(),
+            unpack: <span class="bool-val">true</span>,
             quiet: <span class="bool-val">true</span>,
         };
 
         cmd.execute().unwrap();
 
         from_disk(out_path).unwrap();
+
+        <span class="macro">assert!</span>(dir.path().join(<span class="string">"hello/wasmer.toml"</span>).is_file());
     }
 }
 </code></pre></div></section></main></body></html>
