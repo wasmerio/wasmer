@@ -169,7 +169,6 @@ pub struct RuntimeOptions {
 }
 
 impl RuntimeOptions {
-
     pub fn get_available_backends(&self) -> Result<Vec<BackendType>> {
         // If a specific backend is explicitly requested, use it
         #[cfg(feature = "cranelift")]
@@ -216,14 +215,16 @@ impl RuntimeOptions {
 
         Ok(BackendType::enabled())
     }
-    
+
     /// Filter enabled backends based on required WebAssembly features
-    pub fn filter_backends_by_features(backends: Vec<BackendType>, required_features: &Features, target: &Target) -> Vec<BackendType> {
+    pub fn filter_backends_by_features(
+        backends: Vec<BackendType>,
+        required_features: &Features,
+        target: &Target,
+    ) -> Vec<BackendType> {
         backends
             .into_iter()
-            .filter(|backend| {
-                backend.supports_features(required_features, target)
-            })
+            .filter(|backend| backend.supports_features(required_features, target))
             .collect()
     }
 
@@ -235,7 +236,10 @@ impl RuntimeOptions {
     pub fn get_engine(&self, target: &Target) -> Result<Engine> {
         let backends = self.get_available_backends()?;
         let required_features = Features::default();
-        backends.get(0).unwrap().get_engine(&target, &required_features)
+        backends
+            .get(0)
+            .unwrap()
+            .get_engine(&target, &required_features)
     }
 
     pub fn get_engine_for_module(&self, module_contents: &[u8], target: &Target) -> Result<Engine> {
@@ -244,12 +248,36 @@ impl RuntimeOptions {
             .unwrap_or_default();
 
         let backends = self.get_available_backends()?;
-        let filtered_backends = Self::filter_backends_by_features(backends, &required_features, &target);
+        let filtered_backends =
+            Self::filter_backends_by_features(backends.clone(), &required_features, &target);
 
         if filtered_backends.len() == 0 {
-            bail!("No backends support the required features for the Wasm module");
+            let enabled_backends = BackendType::enabled();
+            if (backends.len() == 1 && enabled_backends.len() > 1) {
+                // If the user has chosen an specific backend, we can suggest to use another one
+                let filtered_backends = Self::filter_backends_by_features(
+                    enabled_backends,
+                    &required_features,
+                    &target,
+                );
+                let extra_text: String = if filtered_backends.len() > 0 {
+                    format!(". You can use --{} instead", filtered_backends[0])
+                } else {
+                    "".to_string()
+                };
+                bail!(
+                    "The {} backend does not support the required features for the Wasm module{}",
+                    backends[0],
+                    extra_text
+                );
+            } else {
+                bail!("No backends support the required features for the Wasm module. Feel free to open an issue at https://github.com/wasmerio/wasmer/issues");
+            }
         }
-        filtered_backends.get(0).unwrap().get_engine(&target, &required_features)
+        filtered_backends
+            .get(0)
+            .unwrap()
+            .get_engine(&target, &required_features)
     }
 
     #[cfg(feature = "compiler")]
@@ -435,7 +463,10 @@ impl RuntimeOptions {
 
     #[allow(unused_variables)]
     #[cfg(feature = "compiler")]
-    pub(crate) fn get_sys_compiler_config(&self, rt: &BackendType) -> Result<Box<dyn CompilerConfig>> {
+    pub(crate) fn get_sys_compiler_config(
+        &self,
+        rt: &BackendType,
+    ) -> Result<Box<dyn CompilerConfig>> {
         let compiler_config: Box<dyn CompilerConfig> = match rt {
             BackendType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]

@@ -23,13 +23,14 @@ impl Validate {
             .context(format!("failed to validate `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-
         let module_contents = std::fs::read(&self.path)?;
         if !is_wasm(&module_contents) {
             bail!("`wasmer validate` only validates WebAssembly files");
         }
 
-        let engine = self.rt.get_engine_for_module(&module_contents, &Target::default())?;
+        let engine = self
+            .rt
+            .get_engine_for_module(&module_contents, &Target::default())?;
         Module::validate(&engine, &module_contents)?;
         eprintln!("Validation passed for `{}`.", self.path.display());
         Ok(())

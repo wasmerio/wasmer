@@ -25,7 +25,8 @@ use url::Url;
 #[cfg(feature = "sys")]
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    sys::Target, AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction, Value
+    sys::Target, AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store,
+    Type, TypedFunction, Value,
 };
 
 use wasmer_types::Features;
@@ -174,7 +175,8 @@ impl Run {
             Some(wasm_bytes) => {
                 tracing::info!("Attempting to detect WebAssembly features");
 
-                self.rt.get_engine_for_module(wasm_bytes, &Target::default())?
+                self.rt
+                    .get_engine_for_module(wasm_bytes, &Target::default())?
             }
             None => {
                 // No WebAssembly file available for analysis, use default engine selection
@@ -182,7 +184,6 @@ impl Run {
                 self.rt.get_engine(&Target::default())?
             }
         };
-
 
         tracing::info!("Executing on backend {}", engine.deterministic_id());
 

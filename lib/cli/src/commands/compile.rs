@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use wasmer::{
     sys::{engine::NativeEngineExt, *},
@@ -65,8 +65,10 @@ impl Compile {
         if !is_wasm(&module_contents) {
             bail!("`wasmer compile` only compiles WebAssembly files");
         }
-    
-        let mut engine = self.rt.get_engine_for_module(&module_contents, &Target::default())?;
+
+        let mut engine = self
+            .rt
+            .get_engine_for_module(&module_contents, &Target::default())?;
 
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));

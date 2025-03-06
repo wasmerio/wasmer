@@ -3,7 +3,10 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use wasmer::{sys::{engine::NativeEngineExt, Target}, Store};
+use wasmer::{
+    sys::{engine::NativeEngineExt, Target},
+    Store,
+};
 use wasmer_wast::Wast as WastSpectest;
 
 use crate::{backend::RuntimeOptions, common::HashAlgorithm};

@@ -26,12 +26,17 @@ impl Inspect {
 
     fn inner_execute(&self) -> Result<()> {
         let module_contents = std::fs::read(&self.path)?;
-        let engine = self.rt.get_engine_for_module(&module_contents, &Target::default())?;
+        let engine = self
+            .rt
+            .get_engine_for_module(&module_contents, &Target::default())?;
 
         let iswasm = is_wasm(&module_contents);
         let module_len = module_contents.len();
         let module = Module::new(&engine, module_contents)?;
-        println!("Backend used to parse the module: {}", engine.deterministic_id());
+        println!(
+            "Backend used to parse the module: {}",
+            engine.deterministic_id()
+        );
 
         println!("Type: {}", if !iswasm { "wat" } else { "wasm" });
         println!("Size: {}", ByteSize(module_len as _));

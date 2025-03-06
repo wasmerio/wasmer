@@ -83,7 +83,8 @@ impl GenCHeader {
             &target_triple,
             &self.cpu_features,
         );
-        let engine = RuntimeOptions::default().get_sys_compiler_engine_for_target(target.clone())?;
+        let engine =
+            RuntimeOptions::default().get_sys_compiler_engine_for_target(target.clone())?;
         if !engine.is_sys() {
             anyhow::bail!("Cannot use this engine to generate c-headers! Please, use one of `cranelift`, `llvm` or `singlepass`.");
         }
