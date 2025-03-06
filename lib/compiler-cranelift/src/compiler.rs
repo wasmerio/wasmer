@@ -35,13 +35,13 @@ use wasmer_compiler::{
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
-        target::{CallingConvention, Target},
         unwind::CompiledFunctionUnwindInfo,
     },
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::target::{CallingConvention, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
     TrapInformation,

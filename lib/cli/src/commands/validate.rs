@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use wasmer::*;
+use wasmer::{is_wasm, Module};
+use wasmer_types::target::Target;
 
 use crate::backend::RuntimeOptions;
 #[derive(Debug, Parser)]
@@ -23,13 +24,15 @@ impl Validate {
             .context(format!("failed to validate `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let store = self.rt.get_store()?;
-
         let module_contents = std::fs::read(&self.path)?;
         if !is_wasm(&module_contents) {
             bail!("`wasmer validate` only validates WebAssembly files");
         }
-        Module::validate(&store, &module_contents)?;
+
+        let engine = self
+            .rt
+            .get_engine_for_module(&module_contents, &Target::default())?;
+        Module::validate(&engine, &module_contents)?;
         eprintln!("Validation passed for `{}`.", self.path.display());
         Ok(())
     }

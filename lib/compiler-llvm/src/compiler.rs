@@ -19,11 +19,11 @@ use wasmer_compiler::{
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
         symbols::{Symbol, SymbolRegistry},
-        target::Target,
     },
     Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::target::Target;
 use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::LibCall;
 

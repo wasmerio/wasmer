@@ -1,5 +1,5 @@
 ---
-source: crates/webc/src/wasmer_package/package.rs
+source: lib/package/src/package/package.rs
 expression: pkg.manifest()
 ---
 package:
@@ -12,6 +12,14 @@ atoms:
   cowsay:
     kind: "https://webc.org/kind/wasm"
     signature: "sha256:DPmhiSNXCg5261eTUi3BIvAc/aJttGj+nD+bGhQkVQo="
+    annotations:
+      wasm:
+        features:
+          - simd
+          - bulk-memory
+          - reference-types
+          - multi-value
+          - threads
 commands:
   cowsay:
     runner: "https://webc.org/runner/wasi"

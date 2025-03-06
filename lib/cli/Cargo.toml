@@ -50,7 +50,7 @@ journal = ["wasmer-wasix/journal"]
 fuse = ["dep:fuser", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
-sys = ["compiler", "wasmer-vm"]
+sys = ["compiler", "dep:wasmer-vm"]
 v8 = ["backend", "wasmer/v8"]
 wamr = ["backend", "wasmer/wamr"]
 wasmi = ["backend", "wasmer/wasmi"]
@@ -63,6 +63,7 @@ compiler = [
 	"wasmer/compiler",
 	"wasmer-compiler/translator",
 	"wasmer-compiler/compiler",
+	"sys",
 ]
 wasmer-artifact-create = [
 	"compiler",
@@ -88,14 +89,14 @@ static-artifact-load = [
 	"wasmer/static-artifact-load",
 	"wasmer-compiler/static-artifact-load",
 ]
-singlepass = ["wasmer-compiler-singlepass", "compiler"]
-cranelift = ["wasmer-compiler-cranelift", "compiler"]
-llvm = ["wasmer-compiler-llvm", "compiler"]
+singlepass = ["wasmer-compiler-singlepass", "compiler", "wasmer/singlepass"]
+cranelift = ["wasmer-compiler-cranelift", "compiler", "wasmer/cranelift"]
+llvm = ["wasmer-compiler-llvm", "compiler", "wasmer/llvm"]
 disable-all-logging = [
 	"wasmer-wasix/disable-all-logging",
 	"log/release_max_level_off",
 ]
-headless = []
+headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
 
@@ -127,10 +128,12 @@ wasmer-wasix = { path = "../wasix", version = "=0.37.0", features = [
 	"webc_runner_rt_dproxy",
 	"host-fs",
 	"ctrlc",
-] }
+	"sys",
+], default-features = false }
 wasmer-wast = { version = "=6.0.0-alpha.2", path = "../../tests/lib/wast", optional = true }
 wasmer-types = { version = "=6.0.0-alpha.2", path = "../types", features = [
 	"enable-serde",
+	"detect-wasm-features"
 ] }
 virtual-fs = { version = "0.23.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",

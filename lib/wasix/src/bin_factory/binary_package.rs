@@ -23,6 +23,7 @@ pub struct BinaryPackageCommand {
     #[debug(ignore)]
     pub(crate) atom: SharedBytes,
     hash: ModuleHash,
+    features: Option<wasmer_types::Features>,
 }
 
 impl BinaryPackageCommand {
@@ -31,12 +32,14 @@ impl BinaryPackageCommand {
         metadata: webc::metadata::Command,
         atom: SharedBytes,
         hash: ModuleHash,
+        features: Option<wasmer_types::Features>,
     ) -> Self {
         Self {
             name,
             metadata,
             atom,
             hash,
+            features,
         }
     }
 
@@ -56,6 +59,17 @@ impl BinaryPackageCommand {
 
     pub fn hash(&self) -> &ModuleHash {
         &self.hash
+    }
+
+    /// Get the WebAssembly features required by this command's module
+    pub fn wasm_features(&self) -> Option<wasmer_types::Features> {
+        // Return only the pre-computed features from the container manifest
+        if let Some(features) = &self.features {
+            return Some(features.clone());
+        }
+
+        // If no annotations were found, return None
+        None
     }
 }
 

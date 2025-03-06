@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use rusty_jsc::{JSContext, JSObject};
+use wasmer_types::{target::Target, Features};
 
 use crate::{AsEngineRef, AsStoreRef};
 
@@ -168,6 +169,24 @@ impl Engine {
     pub(crate) fn deterministic_id(&self) -> &str {
         // All js engines have the same id
         "javascriptcore"
+    }
+
+    /// Returns the WebAssembly features supported by the JSC engine for the given target.
+    pub fn supported_features() -> Features {
+        // JSC-specific features
+        let mut features = Features::default();
+        features.bulk_memory(true);
+        features.reference_types(true);
+        features.simd(true);
+        features.threads(true);
+        features.multi_value(true);
+        features.exceptions(false);
+        features
+    }
+
+    /// Returns the default features for the JSC engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
     }
 
     #[inline]

@@ -5,10 +5,8 @@ use cranelift_codegen::{
     CodegenResult,
 };
 use std::sync::Arc;
-use wasmer_compiler::{
-    types::target::{Architecture, CpuFeature, Target},
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
-};
+use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_types::target::{Architecture, CpuFeature, Target};
 
 // Runtime Environment
 

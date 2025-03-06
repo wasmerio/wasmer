@@ -1,9 +1,10 @@
 use crate::store::StoreOptions;
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use std::{path::PathBuf, str::FromStr};
-use wasmer_compiler::types::target::{CpuFeature, Target, Triple};
+use std::path::PathBuf;
+use std::str::FromStr;
 use wasmer_types::is_wasm;
+use wasmer_types::target::{CpuFeature, Target, Triple};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand

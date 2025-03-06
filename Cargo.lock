@@ -7148,6 +7148,7 @@ dependencies = [
  "ureq",
  "url",
  "wasmer-config",
+ "wasmer-types",
  "webc",
 ]
 
@@ -7198,6 +7199,7 @@ dependencies = [
  "sha2",
  "target-lexicon 0.12.16",
  "thiserror 1.0.69",
+ "wasmparser 0.224.1",
  "xxhash-rust",
 ]
 
@@ -7602,9 +7604,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "8.0.0"
+version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3bdee7f8a5c220e497d264a89fca8e29627a702e2cc2fb8846426b8f0d2e2d5"
+checksum = "38544ae3a351279fa913b4dee9c548f0aa3b27ca05756531c3f2e6bc4e22c27d"
 dependencies = [
  "anyhow",
  "base64",

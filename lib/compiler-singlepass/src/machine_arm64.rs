@@ -8,11 +8,11 @@ use wasmer_compiler::{
         function::FunctionBody,
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::CustomSection,
-        target::{CallingConvention, CpuFeature, Target},
     },
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
+    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
 };
 

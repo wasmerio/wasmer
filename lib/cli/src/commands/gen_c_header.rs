@@ -3,15 +3,12 @@ use std::path::PathBuf;
 use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
-use wasmer_compiler::{
-    types::{
-        symbols::ModuleMetadataSymbolRegistry,
-        target::{CpuFeature, Triple},
-    },
-    Artifact,
-};
+use wasmer_compiler::{types::symbols::ModuleMetadataSymbolRegistry, Artifact};
 use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
-use wasmer_types::MetadataHeader;
+use wasmer_types::{
+    target::{CpuFeature, Triple},
+    MetadataHeader,
+};
 use webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
 use crate::backend::RuntimeOptions;
@@ -83,7 +80,8 @@ impl GenCHeader {
             &target_triple,
             &self.cpu_features,
         );
-        let engine = RuntimeOptions::default().get_compiler_engine_for_target(target.clone())?;
+        let engine =
+            RuntimeOptions::default().get_sys_compiler_engine_for_target(target.clone())?;
         if !engine.is_sys() {
             anyhow::bail!("Cannot use this engine to generate c-headers! Please, use one of `cranelift`, `llvm` or `singlepass`.");
         }

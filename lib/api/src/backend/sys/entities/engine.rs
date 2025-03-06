@@ -4,11 +4,9 @@ use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
 pub use wasmer_compiler::{
-    types::target::Target, Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
+    Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
-#[cfg(feature = "compiler")]
-use wasmer_types::Features;
-use wasmer_types::{DeserializeError, HashAlgorithm};
+use wasmer_types::{target::Target, DeserializeError, Features, HashAlgorithm};
 
 use crate::{BackendEngine, BackendModule};
 

@@ -234,13 +234,13 @@ impl CliCommand for CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let compiler_type = self.compiler.get_rt()?;
-        let mut engine = self.compiler.get_engine()?;
+        let _backends = self.compiler.get_available_backends()?;
+        let mut engine = self.compiler.get_engine(&target)?;
 
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
-        println!("Compiler: {compiler_type}");
+        println!("Compiler: {}", engine.deterministic_id());
         println!("Target: {}", target.triple());
         println!(
             "Using path `{}` as libwasmer path.",
@@ -283,9 +283,7 @@ impl CliCommand for CreateExe {
             )
         }?;
 
-        let store = self.compiler.get_store()?;
-
-        get_module_infos(&store, &tempdir, &atoms)?;
+        get_module_infos(&engine, &tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
         link_exe_from_dir(
@@ -834,7 +832,7 @@ fn compile_atoms(
             }
             continue;
         }
-        let engine = compiler.get_compiler_engine_for_target(target.clone())?;
+        let engine = compiler.get_sys_compiler_engine_for_target(target.clone())?;
         let engine_inner = engine.as_sys().inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
@@ -1027,7 +1025,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
 // reads the module info from the wasm module and writes the ModuleInfo for each file
 // into the entrypoint.json file
 fn get_module_infos(
-    store: &Store,
+    engine: &Engine,
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
@@ -1036,7 +1034,7 @@ fn get_module_infos(
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
-        let module = Module::new(&store, atom_bytes.as_slice())?;
+        let module = Module::new(engine, atom_bytes.as_slice())?;
         let module_info = module.info();
         if let Some(s) = entrypoint
             .atoms
@@ -1597,7 +1595,7 @@ pub(super) mod utils {
 
     use anyhow::{anyhow, Context};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
-    use wasmer_compiler::types::target::{self as wasmer_types, CpuFeature, Target};
+    use wasmer_types::target::{CpuFeature, Target};
 
     use crate::config::WasmerEnv;
 
@@ -1850,7 +1848,9 @@ pub(super) mod utils {
     pub(super) fn triple_to_zig_triple(target_triple: &Triple) -> String {
         let arch = match target_triple.architecture {
             Architecture::X86_64 => "x86_64".into(),
-            Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => "aarch64".into(),
+            Architecture::Aarch64(wasmer_types::target::Aarch64Architecture::Aarch64) => {
+                "aarch64".into()
+            }
             v => v.to_string(),
         };
         let os = match target_triple.operating_system {

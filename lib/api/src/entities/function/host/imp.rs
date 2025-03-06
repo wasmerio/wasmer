@@ -11,93 +11,124 @@ use wasmer_types::{NativeWasmType, RawValue};
 
 macro_rules! impl_host_function {
     ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
-#[allow(unused_parens)]
-impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* ), Rets, WithEnv> for Func where
-    $( $x: FromToNativeWasmType, )*
-    Rets: WasmTypeList,
-    RetsAsResult: IntoResult<Rets>,
-    T: Send + 'static,
-    Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
-{
+        #[allow(unused_parens)]
+        impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* ), Rets, WithEnv> for Func where
+            $( $x: FromToNativeWasmType, )*
+            Rets: WasmTypeList,
+            RetsAsResult: IntoResult<Rets>,
+            T: Send + 'static,
+            Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+        {
+            #[allow(non_snake_case)]
+            fn function_callback(&self, rt: crate::backend::BackendKind) -> crate::vm::VMFunctionCallback {
+                paste::paste! {
+                    match rt {
+                        #[cfg(feature = "sys")]
+                        crate::backend::BackendKind::Headless => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "llvm")]
+                        crate::backend::BackendKind::LLVM => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "cranelift")]
+                        crate::backend::BackendKind::Cranelift => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "singlepass")]
+                        crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "js")]
+                        crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "jsc")]
+                        crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "wamr")]
+                        crate::backend::BackendKind::Wamr => crate::vm::VMFunctionCallback::Wamr(crate::backend::wamr::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "wasmi")]
+                        crate::backend::BackendKind::Wasmi => crate::vm::VMFunctionCallback::Wasmi(crate::backend::wasmi::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+                        #[cfg(feature = "v8")]
+                        crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower >](self))
+                    }
+                }
+            }
 
-  #[allow(non_snake_case)]
-  fn function_callback(&self, rt: crate::backend::BackendKind) -> crate::vm::VMFunctionCallback {
-      paste::paste!{
-      match rt {
-          #[cfg(feature = "sys")]
-          crate::backend::BackendKind::Sys => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
-          #[cfg(feature = "js")]
-          crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
-          #[cfg(feature = "jsc")]
-          crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
-          #[cfg(feature = "wamr")]
-          crate::backend::BackendKind::Wamr => crate::vm::VMFunctionCallback::Wamr(crate::backend::wamr::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
-          #[cfg(feature = "wasmi")]
-          crate::backend::BackendKind::Wasmi => crate::vm::VMFunctionCallback::Wasmi(crate::backend::wasmi::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
-          #[cfg(feature = "v8")]
-          crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower >](self))
-      }
-      }
-  }
+            #[cfg(feature = "sys")]
+            fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
+                paste::paste! {
+                    crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self))
+                }
+            }
 
-  #[allow(non_snake_case)]
-  fn call_trampoline_address(rt: crate::backend::BackendKind) -> crate::vm::VMTrampoline {
-      paste::paste!{
-      match rt {
-          #[cfg(feature = "sys")]
-          crate::backend::BackendKind::Sys => crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower >]::<$($x,)* Rets>()),
-          _ => unimplemented!()
-      }
-      }
-  }
+            #[allow(non_snake_case)]
+            fn call_trampoline_address() -> crate::vm::VMTrampoline {
+                paste::paste! {
+                    #[cfg(feature = "sys")]
+                    {
+                        crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower >]::<$($x,)* Rets>())
+                    }
 
-}
+                    #[cfg(not(feature = "sys"))]
+                    {
+                        unimplemented!("No backend available")
+                    }
+                }
+            }
+        }
 
-// Implement `HostFunction` for a function that has the same arity than the tuple.
-#[allow(unused_parens)]
-impl< $( $x, )* Rets, RetsAsResult, Func >
-    crate::HostFunction<(), ( $( $x ),* ), Rets, WithoutEnv>
-for
-    Func
-where
-    $( $x: FromToNativeWasmType, )*
-    Rets: WasmTypeList,
-    RetsAsResult: IntoResult<Rets>,
-    Func: Fn($( $x , )*) -> RetsAsResult + 'static
-{
+        // Implement `HostFunction` for a function that has the same arity than the tuple.
+        #[allow(unused_parens)]
+        impl< $( $x, )* Rets, RetsAsResult, Func >
+            crate::HostFunction<(), ( $( $x ),* ), Rets, WithoutEnv>
+        for
+            Func
+        where
+            $( $x: FromToNativeWasmType, )*
+            Rets: WasmTypeList,
+            RetsAsResult: IntoResult<Rets>,
+            Func: Fn($( $x , )*) -> RetsAsResult + 'static
+        {
+            #[allow(non_snake_case)]
+            fn function_callback(&self, rt: crate::backend::BackendKind) -> crate::vm::VMFunctionCallback {
+                paste::paste! {
+                    match rt {
+                        #[cfg(feature = "sys")]
+                        crate::backend::BackendKind::Headless => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "llvm")]
+                        crate::backend::BackendKind::LLVM => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "cranelift")]
+                        crate::backend::BackendKind::Cranelift => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "singlepass")]
+                        crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "js")]
+                        crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "jsc")]
+                        crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "wamr")]
+                        crate::backend::BackendKind::Wamr => crate::vm::VMFunctionCallback::Wamr(crate::backend::wamr::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "wasmi")]
+                        crate::backend::BackendKind::Wasmi => crate::vm::VMFunctionCallback::Wasmi(crate::backend::wasmi::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        #[cfg(feature = "v8")]
+                        crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
+                    }
+                }
+            }
 
+            #[allow(non_snake_case)]
+            #[cfg(feature = "sys")]
+            fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
+                paste::paste! {
+                    crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
+                }
+            }
 
-  #[allow(non_snake_case)]
-  fn function_callback(&self, rt: crate::backend::BackendKind) -> crate::vm::VMFunctionCallback {
-    paste::paste!{
-      match rt {
-          #[cfg(feature = "sys")]
-          crate::backend::BackendKind::Sys => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
-          #[cfg(feature = "js")]
-          crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
-          #[cfg(feature = "jsc")]
-          crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
-          #[cfg(feature = "wamr")]
-          crate::backend::BackendKind::Wamr => crate::vm::VMFunctionCallback::Wamr(crate::backend::wamr::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
-          #[cfg(feature = "wasmi")]
-          crate::backend::BackendKind::Wasmi => crate::vm::VMFunctionCallback::Wasmi(crate::backend::wasmi::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
-          #[cfg(feature = "v8")]
-          crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
-      }
-      }
-  }
+            #[allow(non_snake_case)]
+            fn call_trampoline_address() -> crate::vm::VMTrampoline {
+                paste::paste! {
+                    #[cfg(feature = "sys")]
+                    {
+                        crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower _no_env>]::<$($x,)* Rets>())
+                    }
 
-  #[allow(non_snake_case)]
-  fn call_trampoline_address(rt: crate::backend::BackendKind) -> crate::vm::VMTrampoline {
-    paste::paste!{
-          match rt {
-              #[cfg(feature = "sys")]
-              crate::backend::BackendKind::Sys => crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower _no_env>]::<$($x,)* Rets>()),
-              _ => unimplemented!()
-          }
-          }
-      }
-    }
+                    #[cfg(not(feature = "sys"))]
+                    {
+                        unimplemented!("No backend available")
+                    }
+                }
+            }
+        }
     };
 }
 

@@ -1,3 +1,5 @@
+use wasmer_types::{target::Target, Features};
+
 /// The engine for the JavaScript runtime.
 #[derive(Clone, Debug)]
 pub struct Engine;
@@ -6,6 +8,24 @@ impl Engine {
     pub(crate) fn deterministic_id(&self) -> &str {
         // All js engines have the same id
         "js-generic"
+    }
+
+    /// Returns the WebAssembly features supported by the JS engine.
+    pub fn supported_features() -> Features {
+        // JS-specific features
+        let mut features = Features::default();
+        features.bulk_memory(true);
+        features.reference_types(true);
+        features.simd(true);
+        features.threads(true);
+        features.multi_value(true);
+        features.exceptions(false);
+        features
+    }
+
+    /// Returns the default features for the JS engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
     }
 }
 

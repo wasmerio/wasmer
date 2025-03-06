@@ -23,7 +23,7 @@ doc = false
 wasmer-compiler = { version = "=6.0.0-alpha.2", path = "../compiler", features = [
 	"compiler",
 ] }
-wasmer-types = { version = "=6.0.0-alpha.2", path = "../types" }
+wasmer-types = { version = "=6.0.0-alpha.2", path = "../types", features = ["detect-wasm-features"] }
 is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"

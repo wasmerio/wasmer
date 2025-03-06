@@ -6,8 +6,7 @@ use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 
 #[cfg(feature = "compiler")]
 use crate::{
-    serialize::SerializableCompilation, types::target::Target, EngineInner, ModuleEnvironment,
-    ModuleMiddlewareChain,
+    serialize::SerializableCompilation, EngineInner, ModuleEnvironment, ModuleMiddlewareChain,
 };
 use crate::{
     serialize::{
@@ -19,10 +18,12 @@ use crate::{
         module::CompileModuleInfo,
         relocation::Relocation,
         section::{CustomSection, SectionIndex},
-        target::CpuFeature,
     },
     ArtifactCreate, Features,
 };
+#[cfg(feature = "compiler")]
+use wasmer_types::target::Target;
+
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
 use rkyv::rancor::Error as RkyvError;
@@ -31,6 +32,7 @@ use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
 use wasmer_types::{
     entity::{ArchivedPrimaryMap, PrimaryMap},
+    target::CpuFeature,
     DeserializeError,
 };
 

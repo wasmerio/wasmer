@@ -1,37 +1,18 @@
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
-use wasmer_types::DeserializeError;
+use wasmer_types::{target::Target, DeserializeError, Features};
 
 #[cfg(feature = "sys")]
-use wasmer_compiler::Artifact;
+use wasmer_compiler::{Artifact, CompilerConfig};
 
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
-    IntoBytes, Store,
+    BackendKind, IntoBytes, Store,
 };
 
 gen_rt_ty!(Engine @derives Debug, Clone);
 
 impl BackendEngine {
-    /// Returns the [`crate::BackendKind`] kind this engine belongs to.
-    #[inline]
-    pub fn get_be_kind(&self) -> crate::BackendKind {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(_) => crate::BackendKind::Sys,
-            #[cfg(feature = "v8")]
-            Self::V8(_) => crate::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr(_) => crate::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(_) => crate::BackendKind::Wasmi,
-            #[cfg(feature = "js")]
-            Self::Js(_) => crate::BackendKind::Js,
-            #[cfg(feature = "jsc")]
-            Self::Jsc(_) => crate::BackendKind::Jsc,
-        }
-    }
-
     /// Returns the deterministic id of this engine.
     #[inline]
     pub fn deterministic_id(&self) -> &str {

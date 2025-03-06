@@ -16,6 +16,8 @@ use webc::{
     sanitize_path,
 };
 
+use crate::utils::features_to_wasm_annotations;
+
 use webc::metadata::{
     annotations::{
         Atom as AtomAnnotation, FileSystemMapping, FileSystemMappings, VolumeSpecificPath, Wapm,
@@ -296,9 +298,37 @@ fn transform_atoms_shared(
     let mut metadata = IndexMap::new();
 
     for (name, (kind, content)) in atoms.iter() {
+        // Create atom with annotations including Wasm features if available
+        let mut annotations = IndexMap::new();
+
+        // Detect required WebAssembly features by analyzing the module binary
+        let features_result = wasmer_types::Features::detect_from_wasm(content);
+
+        if let Ok(features) = features_result {
+            // Convert wasmer_types::Features to webc::metadata::annotations::Wasm
+            let feature_strings = features_to_wasm_annotations(&features);
+
+            // Only create annotation if we detected features
+            if !feature_strings.is_empty() {
+                let wasm = webc::metadata::annotations::Wasm::new(feature_strings);
+                match ciborium::value::Value::serialized(&wasm) {
+                    Ok(wasm_value) => {
+                        annotations.insert(
+                            webc::metadata::annotations::Wasm::KEY.to_string(),
+                            wasm_value,
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to serialize wasm features: {e}");
+                    }
+                }
+            }
+        }
+
         let atom = Atom {
             kind: atom_kind(kind.as_ref().map(|s| s.as_str()))?,
             signature: atom_signature(content),
+            annotations,
         };
 
         if metadata.contains_key(name) {
