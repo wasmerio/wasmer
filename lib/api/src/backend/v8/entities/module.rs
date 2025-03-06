@@ -7,7 +7,6 @@ use crate::{
 };
 
 use bytes::Bytes;
-use wasmer_compiler::object::object::write::WritableBuffer;
 use wasmer_types::{
     CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
     GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
