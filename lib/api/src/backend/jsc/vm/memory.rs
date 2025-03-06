@@ -1,6 +1,6 @@
 use rusty_jsc::JSObject;
 use tracing::trace;
-use wasmer_types::{MemoryType, MemoryError};
+use wasmer_types::{MemoryError, MemoryType};
 
 use crate::AsStoreRef;
 
