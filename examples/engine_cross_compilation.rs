@@ -19,8 +19,8 @@
 //! Ready?
 
 use std::str::FromStr;
-use wasmer::{sys::EngineBuilder, wat2wasm, Module, RuntimeError, Store};
-use wasmer_compiler::types::target::{CpuFeature, Target, Triple};
+use wasmer::{sys::{EngineBuilder, CpuFeature}, wat2wasm, Module, RuntimeError, Store};
+use wasmer_types::target::{Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
