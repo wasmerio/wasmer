@@ -92,7 +92,7 @@ wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = "=8.0"
+webc = { git = "ssh://git@github.com/wasmerio/pirita.git", branch = "main", package = "webc" }
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 

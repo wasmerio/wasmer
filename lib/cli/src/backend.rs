@@ -315,8 +315,6 @@ impl RuntimeOptions {
     #[cfg(feature = "compiler")]
     /// Detect required WebAssembly features from a module binary
     pub fn detect_features_from_wasm(&self, wasm_bytes: &[u8]) -> Result<Features> {
-        use wasmparser::{Parser, Payload, WasmFeatures};
-
         tracing::info!(
             "Detecting features from WebAssembly module ({} bytes)",
             wasm_bytes.len()
@@ -325,117 +323,57 @@ impl RuntimeOptions {
         // Start with basic features from user options
         let mut features = self.get_configured_features()?;
 
-        // Simple test for exceptions - try to validate with exceptions disabled
-        let mut exceptions_test = WasmFeatures::default();
-        // Enable most features except exceptions
-        exceptions_test.set(WasmFeatures::BULK_MEMORY, true);
-        exceptions_test.set(WasmFeatures::REFERENCE_TYPES, true);
-        exceptions_test.set(WasmFeatures::SIMD, true);
-        exceptions_test.set(WasmFeatures::MULTI_VALUE, true);
-        exceptions_test.set(WasmFeatures::THREADS, true);
-        exceptions_test.set(WasmFeatures::TAIL_CALL, true);
-        exceptions_test.set(WasmFeatures::MULTI_MEMORY, true);
-        exceptions_test.set(WasmFeatures::MEMORY64, true);
-        exceptions_test.set(WasmFeatures::EXCEPTIONS, false);
+        // Use the shared implementation to detect features
+        if let Some(detected_features) = Features::detect_from_wasm(wasm_bytes) {
+            // Merge detected features with user-configured features
+            if detected_features.has_simd() {
+                tracing::info!("Detected 'simd' feature requirement");
+                features.simd(true);
+            }
 
-        let mut validator = wasmparser::Validator::new_with_features(exceptions_test);
+            if detected_features.has_threads() {
+                tracing::info!("Detected 'threads' feature requirement");
+                features.threads(true);
+            }
 
-        if let Err(e) = validator.validate_all(wasm_bytes) {
-            let err_msg = e.to_string();
-            tracing::info!("Validation with exceptions disabled failed: {}", err_msg);
-            if err_msg.contains("exception") {
-                tracing::info!("Module requires exceptions");
+            if detected_features.has_reference_types() {
+                tracing::info!("Detected 'reference_types' feature requirement");
+                features.reference_types(true);
+            }
+
+            if detected_features.has_multi_value() {
+                tracing::info!("Detected 'multi_value' feature requirement");
+                features.multi_value(true);
+            }
+
+            if detected_features.has_bulk_memory() {
+                tracing::info!("Detected 'bulk_memory' feature requirement");
+                features.bulk_memory(true);
+            }
+
+            if detected_features.has_exceptions() {
+                tracing::info!("Detected 'exceptions' feature requirement");
                 features.exceptions(true);
             }
-        }
 
-        // Now try with all features enabled to catch anything we might have missed
-        let mut wasm_features = WasmFeatures::default();
-        wasm_features.set(WasmFeatures::EXCEPTIONS, true);
-        wasm_features.set(WasmFeatures::BULK_MEMORY, true);
-        wasm_features.set(WasmFeatures::REFERENCE_TYPES, true);
-        wasm_features.set(WasmFeatures::SIMD, true);
-        wasm_features.set(WasmFeatures::MULTI_VALUE, true);
-        wasm_features.set(WasmFeatures::THREADS, true);
-        wasm_features.set(WasmFeatures::TAIL_CALL, true);
-        wasm_features.set(WasmFeatures::MULTI_MEMORY, true);
-        wasm_features.set(WasmFeatures::MEMORY64, true);
-
-        let mut validator = wasmparser::Validator::new_with_features(wasm_features);
-        match validator.validate_all(wasm_bytes) {
-            Err(e) => {
-                // If validation fails due to missing feature support, check which feature it is
-                let err_msg = e.to_string().to_lowercase();
-
-                tracing::info!("Validation error message: {}", err_msg);
-
-                if err_msg.contains("exception") || err_msg.contains("try/catch") {
-                    tracing::info!("Detected 'exceptions' feature requirement");
-                    features.exceptions(true);
-                }
-
-                if err_msg.contains("bulk memory") {
-                    tracing::info!("Detected 'bulk_memory' feature requirement");
-                    features.bulk_memory(true);
-                }
-
-                if err_msg.contains("reference type") {
-                    tracing::info!("Detected 'reference_types' feature requirement");
-                    features.reference_types(true);
-                }
-
-                if err_msg.contains("simd") {
-                    tracing::info!("Detected 'simd' feature requirement");
-                    features.simd(true);
-                }
-
-                if err_msg.contains("multi value") || err_msg.contains("multiple values") {
-                    tracing::info!("Detected 'multi_value' feature requirement");
-                    features.multi_value(true);
-                }
-
-                if err_msg.contains("thread") || err_msg.contains("shared memory") {
-                    tracing::info!("Detected 'threads' feature requirement");
-                    features.threads(true);
-                }
-
-                if err_msg.contains("tail call") {
-                    tracing::info!("Detected 'tail_call' feature requirement");
-                    features.tail_call(true);
-                }
-
-                if err_msg.contains("module linking") {
-                    tracing::info!("Detected 'module_linking' feature requirement");
-                    features.module_linking(true);
-                }
-
-                if err_msg.contains("multi memory") {
-                    tracing::info!("Detected 'multi_memory' feature requirement");
-                    features.multi_memory(true);
-                }
-
-                if err_msg.contains("memory64") {
-                    tracing::info!("Detected 'memory64' feature requirement");
-                    features.memory64(true);
-                }
+            if detected_features.has_tail_call() {
+                tracing::info!("Detected 'tail_call' feature requirement");
+                features.tail_call(true);
             }
-            Ok(_) => {
-                // The module validated successfully with all features enabled,
-                // which means it could potentially use any of them.
-                // We'll do a more detailed analysis by parsing the module.
-            }
-        }
 
-        // A simple pass to detect certain common patterns
-        for payload in Parser::new(0).parse_all(wasm_bytes) {
-            let payload = payload?;
-            if let Payload::CustomSection(section) = payload {
-                let name = section.name();
-                // Exception handling has a custom section
-                if name.contains("exception") {
-                    tracing::info!("Detected exceptions custom section: {}", name);
-                    features.exceptions(true);
-                }
+            if detected_features.has_module_linking() {
+                tracing::info!("Detected 'module_linking' feature requirement");
+                features.module_linking(true);
+            }
+
+            if detected_features.has_multi_memory() {
+                tracing::info!("Detected 'multi_memory' feature requirement");
+                features.multi_memory(true);
+            }
+
+            if detected_features.has_memory64() {
+                tracing::info!("Detected 'memory64' feature requirement");
+                features.memory64(true);
             }
         }
 

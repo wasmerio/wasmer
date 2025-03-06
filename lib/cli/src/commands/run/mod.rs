@@ -30,6 +30,7 @@ use wasmer::{
 };
 
 use wasmer_types::Features;
+use webc::metadata::annotations::Wasm as WebcWasm;
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
@@ -59,8 +60,12 @@ use webc::metadata::Manifest;
 use webc::Container;
 
 use crate::{
-    backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
-    error::PrettyError, logging::Output,
+    backend::{BackendType, RuntimeOptions},
+    commands::run::wasi::Wasi,
+    common::HashAlgorithm,
+    config::WasmerEnv,
+    error::PrettyError,
+    logging::Output,
 };
 
 const TICK: Duration = Duration::from_millis(250);
@@ -135,54 +140,90 @@ impl Run {
 
         // Try to detect WebAssembly features before selecting a backend
         tracing::info!("Input source: {:?}", self.input);
-        if let PackageSource::File(path) = &self.input {
-            tracing::info!("Input file path: {}", path.display());
 
-            // Try to read and detect any file that exists, regardless of extension
-            if path.exists() {
-                tracing::info!("Found file: {}", path.display());
-                match std::fs::read(path) {
-                    Ok(bytes) => {
-                        tracing::info!("Read {} bytes from file", bytes.len());
+        // Initialize WebAssembly bytes option for feature detection
+        let wasm_bytes = match &self.input {
+            PackageSource::File(path) => {
+                tracing::info!("Input file path: {}", path.display());
 
-                        // Check if it's a WebAssembly module by looking for magic bytes
-                        let magic = [0x00, 0x61, 0x73, 0x6D]; // "\0asm"
-                        if bytes.len() >= 4 && bytes[0..4] == magic {
-                            // Looks like a valid WebAssembly module, save the bytes for feature detection
-                            tracing::info!(
-                                "Valid WebAssembly module detected, magic header verified"
-                            );
-                            wasm_bytes = Some(bytes);
-                        } else {
-                            tracing::info!("File does not have valid WebAssembly magic number, will try to run it anyway");
-                            // Still provide the bytes so the engine can attempt to run it
-                            wasm_bytes = Some(bytes);
+                if !path.exists() {
+                    tracing::info!("File does not exist: {}", path.display());
+                    None
+                } else if let Ok(bytes) = std::fs::read(path) {
+                    tracing::info!("Read {} bytes from file", bytes.len());
+
+                    // Check for WebAssembly magic bytes
+                    if bytes.len() >= 4 && bytes[0..4] == [0x00, 0x61, 0x73, 0x6D] {
+                        tracing::info!("Valid WebAssembly module detected, magic header verified");
+                        Some(bytes)
+                    } else {
+                        tracing::info!(
+                            "File doesn't have WebAssembly magic number, will try to run it anyway"
+                        );
+                        Some(bytes) // Still provide bytes for the engine to try
+                    }
+                } else {
+                    tracing::info!("Failed to read file for feature detection");
+                    None
+                }
+            }
+
+            PackageSource::Dir(dir_path) => {
+                tracing::info!("Input is a directory: {}", dir_path.display());
+                let modules_dir = dir_path.join("modules");
+
+                if !modules_dir.exists() || !modules_dir.is_dir() {
+                    tracing::info!(
+                        "Modules directory not found, skipping WebAssembly feature detection"
+                    );
+                    None
+                } else {
+                    tracing::info!("Scanning modules directory for WebAssembly files");
+
+                    let mut found_wasm = None;
+                    if let Ok(entries) = std::fs::read_dir(&modules_dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.extension().and_then(|s| s.to_str()) == Some("wasm") {
+                                if let Ok(bytes) = std::fs::read(&path) {
+                                    if bytes.len() >= 4 && &bytes[0..4] == b"\0asm" {
+                                        tracing::info!("Found valid WASM file: {}", path.display());
+                                        found_wasm = Some(bytes);
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
-                    Err(e) => {
-                        tracing::info!("Failed to read file for feature detection: {}", e);
+
+                    if found_wasm.is_none() {
+                        tracing::info!("No valid WebAssembly files found in modules directory");
                     }
+
+                    found_wasm
                 }
-            } else {
-                tracing::info!("File does not exist: {}", path.display());
             }
-        } else {
-            tracing::info!("Input is not a file, skipping WebAssembly feature detection");
-        }
+
+            PackageSource::Package(pkg_spec) => {
+                tracing::info!("Input is a remote package: {}", pkg_spec);
+                tracing::info!("Will perform feature detection after package download");
+                None
+            }
+
+            _ => {
+                tracing::info!("Input is not a recognized source type");
+                None
+            }
+        };
 
         // Get engine with feature-based backend selection if possible
-        let mut engine = match &wasm_bytes {
-            Some(wasm_bytes) => {
-                tracing::info!("Attempting to detect WebAssembly features");
-
-                self.rt
-                    .get_engine_for_module(wasm_bytes, &Target::default())?
-            }
-            None => {
-                // No WebAssembly file available for analysis, use default engine selection
-                // TODO: get backends from the webc file
-                self.rt.get_engine(&Target::default())?
-            }
+        let mut engine = if let Some(wasm_bytes) = &wasm_bytes {
+            tracing::info!("Detecting WebAssembly features for backend selection");
+            self.rt
+                .get_engine_for_module(wasm_bytes, &Target::default())?
+        } else {
+            tracing::info!("Using default engine selection (no WebAssembly content available)");
+            self.rt.get_engine(&Target::default())?
         };
 
         tracing::info!("Executing on backend {}", engine.deterministic_id());
@@ -265,6 +306,97 @@ impl Run {
         }
     }
 
+    /// Get WebAssembly features for a command in a WebC package
+    fn get_webc_features(
+        &self,
+        pkg: &BinaryPackage,
+        command_name: &str,
+    ) -> Result<Option<Features>, Error> {
+        // Get the command
+        let cmd = pkg.get_command(command_name).with_context(|| {
+            format!("Unable to get metadata for the \"{command_name}\" command")
+        })?;
+
+        // Get the atom name from the command - get from wasi annotations
+        let atom_annotation = match cmd
+            .metadata()
+            .annotation::<webc::metadata::annotations::Atom>("atom")
+        {
+            Ok(Some(ann)) => ann,
+            _ => return Ok(None),
+        };
+
+        let atom_name = &atom_annotation.name;
+
+        // Get the wasm module bytes from the package
+        let atom_bytes = cmd.atom();
+
+        // Try to get WebAssembly feature annotations if available
+        let mut features = Features::default();
+        let mut found_features = false;
+
+        // Try to read the atom's WebAssembly feature annotations from metadata
+        if let Ok(Some(atom_meta)) = cmd.metadata().annotation::<WebcWasm>(WebcWasm::KEY) {
+            if !atom_meta.features.is_empty() {
+                tracing::info!("Found Wasm feature annotations: {:?}", atom_meta.features);
+
+                // Process the features - we'll set each feature individually
+                for feature in &atom_meta.features {
+                    found_features = true;
+
+                    match feature.as_str() {
+                        "simd" => {
+                            features.simd(true);
+                        }
+                        "threads" => {
+                            features.threads(true);
+                        }
+                        "reference-types" => {
+                            features.reference_types(true);
+                        }
+                        "multi-value" => {
+                            features.multi_value(true);
+                        }
+                        "bulk-memory" => {
+                            features.bulk_memory(true);
+                        }
+                        "exception-handling" => {
+                            features.exceptions(true);
+                        }
+                        "tail-call" => {
+                            features.tail_call(true);
+                        }
+                        "memory64" => {
+                            features.memory64(true);
+                        }
+                        "multi-memory" => {
+                            features.multi_memory(true);
+                        }
+                        _ => (), // Ignore unknown features
+                    };
+                }
+            }
+        }
+
+        // If annotations are not available, try to detect features from the binary content
+        if !found_features && atom_bytes.len() >= 4 && &atom_bytes[0..4] == b"\0asm" {
+            tracing::info!("Analyzing WebAssembly module for features");
+
+            // Detect features from the module
+            if let Some(detected_features) = Features::detect_from_wasm(&atom_bytes) {
+                tracing::info!("Detected WebAssembly features from module content");
+                features = detected_features;
+                found_features = true;
+            }
+        }
+
+        if found_features {
+            Ok(Some(features))
+        } else {
+            Ok(None)
+        }
+    }
+
     #[tracing::instrument(skip_all)]
     fn execute_webc(
         &self,
@@ -275,6 +407,97 @@ impl Run {
             Some(cmd) => cmd,
             None => pkg.infer_entrypoint()?,
         };
+
+        // Get WebAssembly features for the selected command
+        if let Ok(Some(features)) = self.get_webc_features(pkg, id) {
+            tracing::info!(
+                "WebAssembly features detected from WebC package {:#?}",
+                features
+            );
+
+            // Check if the current runtime's engine is compatible with these features
+            let engine = runtime.engine();
+            let backend_id = engine.deterministic_id().to_string(); // Store as string to avoid the borrow
+            let target = Target::default();
+
+            // Get the backend from the engine id
+            let current_backend = if backend_id.contains("singlepass") {
+                BackendType::Singlepass
+            } else if backend_id.contains("cranelift") {
+                BackendType::Cranelift
+            } else if backend_id.contains("llvm") {
+                BackendType::LLVM
+            } else {
+                // Assume some unknown backend type
+                tracing::info!("Unknown backend type: {}", backend_id);
+                // Just continue with the current backend
+                if WasiRunner::can_run_command(
+                    pkg.get_command(id)
+                        .with_context(|| {
+                            format!("Unable to get metadata for the \"{id}\" command")
+                        })?
+                        .metadata(),
+                )? {
+                    return self.run_wasi(id, pkg, vec![], runtime);
+                } else {
+                    // Fallback to let other code handle it
+                    return Ok(());
+                }
+            };
+
+            let current_backend_compatible = current_backend.supports_features(&features, &target);
+
+            if !current_backend_compatible {
+                tracing::warn!(
+                    "Current backend '{}' doesn't support all required features.",
+                    backend_id
+                );
+
+                // Try to find a compatible backend
+                let available_backends = BackendType::enabled();
+                let compatible_backends = RuntimeOptions::filter_backends_by_features(
+                    available_backends,
+                    &features,
+                    &target,
+                );
+
+                if compatible_backends.is_empty() {
+                    tracing::error!("No compatible backends available for this module's features. Required features: {:?}", features);
+                    bail!("This WebAssembly module requires features that no available backend supports. Required features: {:?}", features);
+                }
+
+                // Use the first compatible backend
+                let new_backend = &compatible_backends[0];
+                tracing::info!(
+                    "Switching to backend '{}' which supports the required features",
+                    new_backend
+                );
+
+                // Create a new engine with the compatible backend
+                let new_engine = new_backend.get_engine(&target, &features)?;
+
+                // Create a new runtime with the compatible engine
+                let new_runtime = self.wasi.prepare_runtime(
+                    new_engine,
+                    &crate::config::WasmerEnv::default(),
+                    &capabilities::get_capability_cache_path(
+                        &crate::config::WasmerEnv::default(),
+                        &self.input,
+                    )?,
+                    tokio::runtime::Builder::new_multi_thread()
+                        .enable_all()
+                        .build()?,
+                    webc::Version::V3,
+                )?;
+
+                // Convert the runtime to an Arc
+                let new_runtime_arc: Arc<dyn Runtime + Send + Sync> = Arc::new(new_runtime);
+
+                // Run with the new runtime
+                return self.run_wasi(id, pkg, vec![], new_runtime_arc);
+            }
+        }
+
         let cmd = pkg
             .get_command(id)
             .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;

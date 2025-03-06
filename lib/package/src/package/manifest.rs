@@ -10,8 +10,10 @@ use shared_buffer::{MmapError, OwnedBuffer};
 use url::Url;
 #[allow(deprecated)]
 use wasmer_config::package::{CommandV1, CommandV2, Manifest as WasmerManifest, Package};
+use wasmer_types::Features;
 use webc::{
     indexmap::{self, IndexMap},
+    metadata::annotations::Wasm as WasmFeatures,
     metadata::AtomSignature,
     sanitize_path,
 };
@@ -296,9 +298,29 @@ fn transform_atoms_shared(
     let mut metadata = IndexMap::new();
 
     for (name, (kind, content)) in atoms.iter() {
+        // Detect Wasm features and add them as annotations
+        let mut annotations = IndexMap::new();
+
+        // Only add wasm features for wasm atoms
+        if kind.as_ref().map(|s| s.as_str()) == Some("wasm") || kind.is_none() {
+            // Try to detect WebAssembly features from the content
+            match detect_wasm_features(content) {
+                Ok(features) => {
+                    if !features.is_empty() {
+                        let wasm_features = create_wasm_features_annotation(&features);
+                        insert_annotation(&mut annotations, WasmFeatures::KEY, wasm_features)?;
+                    }
+                }
+                Err(_) => {
+                    // Ignore errors in feature detection
+                }
+            }
+        }
+
         let atom = Atom {
             kind: atom_kind(kind.as_ref().map(|s| s.as_str()))?,
             signature: atom_signature(content),
+            annotations,
         };
 
         if metadata.contains_key(name) {
@@ -315,6 +337,21 @@ fn transform_atoms_shared(
 fn atom_signature(atom: &[u8]) -> String {
     let hash: [u8; 32] = sha2::Sha256::digest(atom).into();
     AtomSignature::Sha256(hash).to_string()
+}
+
+/// Detects WebAssembly features from the provided WebAssembly module bytes
+/// using the shared implementation in wasmer-types
+fn detect_wasm_features(wasm_bytes: &[u8]) -> Result<Vec<String>, ManifestError> {
+    if let Some(features) = Features::detect_from_wasm(wasm_bytes) {
+        Ok(features.to_feature_names())
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+/// Create a WebC Wasm features annotation from detected features
+fn create_wasm_features_annotation(features: &[String]) -> WasmFeatures {
+    WasmFeatures::new(features.to_vec())
 }
 
 /// Map the "kind" field in a `[module]` to the corresponding URI.

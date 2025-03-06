@@ -61,6 +61,66 @@ impl Features {
         }
     }
 
+    /// Check if SIMD is enabled
+    pub fn has_simd(&self) -> bool {
+        self.simd
+    }
+
+    /// Check if threads are enabled
+    pub fn has_threads(&self) -> bool {
+        self.threads
+    }
+
+    /// Check if reference types are enabled
+    pub fn has_reference_types(&self) -> bool {
+        self.reference_types
+    }
+
+    /// Check if multi-value is enabled
+    pub fn has_multi_value(&self) -> bool {
+        self.multi_value
+    }
+
+    /// Check if bulk memory operations are enabled
+    pub fn has_bulk_memory(&self) -> bool {
+        self.bulk_memory
+    }
+
+    /// Check if exceptions are enabled
+    pub fn has_exceptions(&self) -> bool {
+        self.exceptions
+    }
+
+    /// Check if tail call is enabled
+    pub fn has_tail_call(&self) -> bool {
+        self.tail_call
+    }
+
+    /// Check if module linking is enabled
+    pub fn has_module_linking(&self) -> bool {
+        self.module_linking
+    }
+
+    /// Check if multi memory is enabled
+    pub fn has_multi_memory(&self) -> bool {
+        self.multi_memory
+    }
+
+    /// Check if memory64 is enabled
+    pub fn has_memory64(&self) -> bool {
+        self.memory64
+    }
+
+    /// Check if relaxed SIMD is enabled
+    pub fn has_relaxed_simd(&self) -> bool {
+        self.relaxed_simd
+    }
+
+    /// Check if extended const is enabled
+    pub fn has_extended_const(&self) -> bool {
+        self.extended_const
+    }
+
     /// Configures whether the WebAssembly threads proposal will be enabled.
     ///
     /// The [WebAssembly threads proposal][threads] is not currently fully
@@ -269,6 +329,182 @@ impl Features {
 impl Default for Features {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(feature = "std")]
+impl Features {
+    /// Detect required WebAssembly features from a module binary
+    pub fn detect_from_wasm(wasm_bytes: &[u8]) -> Option<Self> {
+        use wasmparser::{Parser, Payload};
+
+        // Check for Wasm magic bytes
+        if wasm_bytes.len() < 4 || &wasm_bytes[0..4] != b"\0asm" {
+            return None;
+        }
+
+        // Start with default features
+        let mut features = Self::default();
+
+        // Simple pass to detect features from module structure and instructions
+        let parser = Parser::new(0);
+
+        for payload_result in parser.parse_all(wasm_bytes) {
+            if let Ok(payload) = payload_result {
+                match payload {
+                    // Look for SIMD operations in code
+                    Payload::CodeSectionEntry(body) => {
+                        if let Ok(operators) = body.get_operators_reader() {
+                            for op in operators {
+                                if let Ok(op) = op {
+                                    let op_string = format!("{:?}", op);
+
+                                    // SIMD instructions will contain V128
+                                    if op_string.contains("V128") {
+                                        features.simd(true);
+                                    }
+
+                                    // Bulk memory operations
+                                    if op_string.contains("MemoryCopy")
+                                        || op_string.contains("MemoryFill")
+                                        || op_string.contains("TableCopy")
+                                    {
+                                        features.bulk_memory(true);
+                                    }
+
+                                    // Reference types
+                                    if op_string.contains("RefNull")
+                                        || op_string.contains("RefFunc")
+                                    {
+                                        features.reference_types(true);
+                                    }
+
+                                    // Exception handling
+                                    if op_string.contains("Try")
+                                        || op_string.contains("Catch")
+                                        || op_string.contains("Throw")
+                                    {
+                                        features.exceptions(true);
+                                    }
+
+                                    // Tail call
+                                    if op_string.contains("ReturnCall") {
+                                        features.tail_call(true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Check for shared memories (threads)
+                    Payload::MemorySection(memories) => {
+                        for memory in memories {
+                            if let Ok(memory) = memory {
+                                if memory.shared {
+                                    features.threads(true);
+                                }
+                                // Check for memory64
+                                if memory.memory64 {
+                                    features.memory64(true);
+                                }
+                            }
+                        }
+                    }
+
+                    // Check for multi-value returns in function signatures
+                    Payload::TypeSection(types) => {
+                        for type_entry in types {
+                            if let Ok(typ) = type_entry {
+                                // Use the debug representation to check for multi-results
+                                let type_str = format!("{:?}", typ);
+                                if type_str.contains("results: [") && type_str.contains(",") {
+                                    features.multi_value(true);
+                                }
+                            }
+                        }
+                    }
+
+                    // Tag section indicates exception handling
+                    Payload::TagSection(_) => {
+                        features.exceptions(true);
+                    }
+
+                    // Multi-memory check
+                    Payload::ImportSection(imports) => {
+                        let mut memory_count = 0;
+                        for import in imports {
+                            if let Ok(import) = import {
+                                // Use string comparison as a workaround for TypeRef comparison
+                                let type_str = format!("{:?}", import.ty);
+                                if type_str.contains("Memory") {
+                                    memory_count += 1;
+                                    if memory_count > 1 {
+                                        features.multi_memory(true);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Custom sections might have hints about features
+                    Payload::CustomSection(section) => {
+                        let name = section.name();
+                        if name.contains("exception") {
+                            features.exceptions(true);
+                        }
+                    }
+
+                    _ => {}
+                }
+            }
+        }
+
+        Some(features)
+    }
+
+    /// Convert features to list of feature names for WebC annotations
+    pub fn to_feature_names(&self) -> Vec<String> {
+        let mut feature_names = Vec::new();
+
+        if self.has_simd() {
+            feature_names.push("simd".to_string());
+        }
+
+        if self.has_threads() {
+            feature_names.push("threads".to_string());
+        }
+
+        if self.has_reference_types() {
+            feature_names.push("reference-types".to_string());
+        }
+
+        if self.has_multi_value() {
+            feature_names.push("multi-value".to_string());
+        }
+
+        if self.has_bulk_memory() {
+            feature_names.push("bulk-memory".to_string());
+        }
+
+        if self.has_exceptions() {
+            feature_names.push("exception-handling".to_string());
+        }
+
+        // Other features that might be relevant for WebC
+        if self.has_tail_call() {
+            feature_names.push("tail-call".to_string());
+        }
+
+        if self.has_multi_memory() {
+            feature_names.push("multi-memory".to_string());
+        }
+
+        if self.has_memory64() {
+            feature_names.push("memory64".to_string());
+        }
+
+        feature_names
     }
 }
 
