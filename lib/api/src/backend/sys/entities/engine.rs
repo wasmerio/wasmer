@@ -4,9 +4,9 @@ use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
 pub use wasmer_compiler::{
-    types::target::Target, Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
+    Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
-use wasmer_types::{DeserializeError, Features, HashAlgorithm};
+use wasmer_types::{target::Target, DeserializeError, Features, HashAlgorithm};
 
 use crate::{BackendEngine, BackendModule};
 
@@ -268,47 +268,4 @@ impl From<wasmer_compiler_llvm::LLVM> for crate::Engine {
             id: Self::atomic_next_engine_id(),
         }
     }
-}
-
-/// Returns WebAssembly features that the sys backend is capable of supporting for the given target.
-pub fn supported_features(target: &Target) -> Features {
-    // For SYS backend, get compiler-specific features if available
-    #[cfg(feature = "cranelift")]
-    {
-        let cranelift_config = wasmer_compiler_cranelift::Cranelift::new();
-        let mut features = cranelift_config.default_features_for_target(target);
-        features.exceptions(false); // Cranelift doesn't support exceptions
-        return features;
-    }
-
-    #[cfg(feature = "llvm")]
-    {
-        let llvm_config = wasmer_compiler_llvm::LLVM::new();
-        let mut features = llvm_config.default_features_for_target(target);
-        features.exceptions(true); // LLVM supports exceptions
-        return features;
-    }
-
-    #[cfg(all(
-        feature = "singlepass",
-        not(feature = "cranelift"),
-        not(feature = "llvm")
-    ))]
-    {
-        let singlepass_config = wasmer_compiler_singlepass::Singlepass::new();
-        let mut features = singlepass_config.default_features_for_target(target);
-        features.multi_value(false); // Singlepass doesn't support multi-value
-        features.exceptions(false); // Singlepass doesn't support exceptions
-        return features;
-    }
-
-    // Default SYS features if no compiler is enabled
-    let mut features = Features::default();
-    features.bulk_memory(true);
-    features.reference_types(true);
-    features.simd(true);
-    features.threads(true);
-    features.multi_value(true);
-    features.exceptions(false);
-    features
 }

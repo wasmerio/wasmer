@@ -25,8 +25,8 @@ use url::Url;
 #[cfg(feature = "sys")]
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type,
-    TypedFunction, Value,
+    sys::Target, AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store,
+    Type, TypedFunction, Value,
 };
 
 use wasmer_types::Features;
@@ -173,118 +173,18 @@ impl Run {
         // Get engine with feature-based backend selection if possible
         let mut engine = match &wasm_bytes {
             Some(wasm_bytes) => {
-                #[cfg(feature = "compiler")]
-                {
-                    tracing::info!("Attempting to detect WebAssembly features");
+                tracing::info!("Attempting to detect WebAssembly features");
 
-                    // Try first using regular detection
-                    let mut detected_features = self
-                        .rt
-                        .detect_features_from_wasm(wasm_bytes)
-                        .unwrap_or_default();
-
-                    // Check if the user has explicitly selected a backend
-                    if self.rt.has_explicitly_selected_backend() {
-                        tracing::info!(
-                            "User explicitly specified a backend, respecting that choice"
-                        );
-                        // Use the default engine selection (respecting user choice)
-                        self.rt.get_engine()?
-                    } else {
-                        // If the user didn't specify a backend, try to detect if exceptions are needed
-                        tracing::info!("Testing if module requires special features");
-                        let target = wasmer_compiler::types::target::Target::default();
-
-                        // We only care about special handling if the feature detection already found exceptions
-                        #[cfg(feature = "llvm")]
-                        if detected_features.exceptions {
-                            tracing::info!("Module uses exceptions, checking for LLVM support");
-
-                            let llvm_backend = crate::backend::BackendType::LLVM;
-                            match llvm_backend.get_engine(&target, &detected_features) {
-                                Ok(_) => {
-                                    // LLVM can compile with exceptions
-                                    tracing::info!(
-                                        "LLVM supports compiling this module with exceptions"
-                                    );
-                                }
-                                Err(_) => {
-                                    // Even LLVM can't compile with exceptions, turn them off
-                                    tracing::info!("LLVM doesn't support the exceptions used in this module, disabling");
-                                    detected_features.exceptions(false);
-                                }
-                            }
-                        } else {
-                            // No exceptions detected, no need for special handling
-                            tracing::info!("No exceptions detected in module");
-                        }
-
-                        // Proceed with feature detection
-                        tracing::info!("Feature detection successful");
-
-                        // Check if exceptions feature is enabled
-                        if detected_features.exceptions {
-                            tracing::info!(
-                                "Module uses exceptions feature, will require LLVM backend"
-                            );
-                        }
-
-                        // Get backends that support these features
-                        tracing::info!("Filtering backends by feature support");
-                        let supported_backends =
-                            crate::backend::BackendType::filter_by_features(&detected_features);
-                        tracing::info!("Found {} compatible backends", supported_backends.len());
-
-                        if !supported_backends.is_empty() {
-                            // Find the highest priority backend that supports the detected features
-                            let mut feature_based_engine = None;
-
-                            // Try each backend
-                            for backend in &supported_backends {
-                                tracing::info!(
-                                    "Selecting backend {} which supports the required features",
-                                    backend
-                                );
-
-                                // Create engine with this specific backend
-                                let target = wasmer_compiler::types::target::Target::default();
-                                if let Ok(created_engine) =
-                                    backend.get_engine(&target, &detected_features)
-                                {
-                                    // We found a compatible engine
-                                    feature_based_engine = Some(created_engine);
-                                    break;
-                                }
-                            }
-
-                            // If we found a feature-based engine, use it
-                            if let Some(feature_engine) = feature_based_engine {
-                                tracing::info!("Using feature-based engine selection");
-                                feature_engine
-                            } else {
-                                // No backend could create an engine, fall back to default
-                                self.rt.get_engine()?
-                            }
-                        } else {
-                            // No backend supports all required features, use default
-                            self.rt.get_engine()?
-                        }
-                    }
-                }
-
-                #[cfg(not(feature = "compiler"))]
-                {
-                    // Without compiler feature, just use default engine
-                    self.rt.get_engine()?
-                }
+                self.rt
+                    .get_engine_for_module(wasm_bytes, &Target::default())?
             }
             None => {
                 // No WebAssembly file available for analysis, use default engine selection
-                self.rt.get_engine()?
+                // TODO: get backends from the webc file
+                self.rt.get_engine(&Target::default())?
             }
         };
 
-        let be_kind = engine.get_backend_kind();
         tracing::info!("Executing on backend {}", engine.deterministic_id());
 
         #[cfg(feature = "sys")]

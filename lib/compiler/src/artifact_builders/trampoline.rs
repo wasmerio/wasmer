@@ -4,13 +4,12 @@
 //! through normal branch instructions.
 
 use enum_iterator::IntoEnumIterator;
-use target_lexicon::Architecture;
+use wasmer_types::target::{Architecture, Target};
 use wasmer_types::LibCall;
 
 use crate::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
     section::{CustomSection, CustomSectionProtection, SectionBody},
-    target::Target,
 };
 
 // SystemV says that both x16 and x17 are available as intra-procedural scratch

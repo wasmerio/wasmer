@@ -6,7 +6,7 @@ use crate::{
 };
 use std::collections::BTreeMap;
 use std::slice::Iter;
-use wasmer_compiler::types::target::CallingConvention;
+use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
 
 /// General-purpose registers.

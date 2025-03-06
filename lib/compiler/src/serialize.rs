@@ -9,14 +9,13 @@ use crate::types::{
     module::CompileModuleInfo,
     relocation::Relocation,
     section::{CustomSection, SectionIndex},
-    target::CpuFeature,
 };
 use enumset::EnumSet;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, Features, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
-    TableStyle,
+    entity::PrimaryMap, target::CpuFeature, DeserializeError, Features, FunctionIndex,
+    LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, SerializeError,
+    SignatureIndex, TableIndex, TableStyle,
 };
 
 pub use wasmer_types::MetadataHeader;

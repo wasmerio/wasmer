@@ -4,8 +4,7 @@ use crate::{
     BackendEngine,
 };
 use std::sync::Arc;
-use wasmer_compiler::types::target::Target;
-use wasmer_types::Features;
+use wasmer_types::{target::Target, Features};
 
 #[derive(Debug)]
 pub(crate) struct CApiEngine {
@@ -52,6 +51,11 @@ impl Engine {
         features.threads(false);
         features.exceptions(false);
         features
+    }
+
+    /// Returns the default features for the WASMI engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
     }
 }
 

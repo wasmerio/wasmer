@@ -162,7 +162,7 @@ reqwest = { workspace = true, features = ["blocking", "rustls-tls"] }
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "cache", "wasi", "engine", "middlewares"]
+default = ["wat", "wast", "cache", "wasi", "middlewares"]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []

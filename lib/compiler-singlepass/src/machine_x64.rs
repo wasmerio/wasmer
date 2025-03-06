@@ -19,11 +19,11 @@ use wasmer_compiler::{
         function::FunctionBody,
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::{CustomSection, CustomSectionProtection, SectionBody},
-        target::{CallingConvention, CpuFeature, Target},
     },
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
+    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
 };
@@ -8302,7 +8302,7 @@ mod test {
     use super::*;
     use enumset::enum_set;
     use std::str::FromStr;
-    use wasmer_compiler::types::target::{CpuFeature, Target, Triple};
+    use wasmer_types::target::{CpuFeature, Target, Triple};
 
     fn test_move_location(machine: &mut MachineX86_64) -> Result<(), CompileError> {
         machine.move_location_for_native(

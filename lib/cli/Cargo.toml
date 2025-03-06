@@ -88,14 +88,14 @@ static-artifact-load = [
 	"wasmer/static-artifact-load",
 	"wasmer-compiler/static-artifact-load",
 ]
-singlepass = ["wasmer-compiler-singlepass", "compiler"]
-cranelift = ["wasmer-compiler-cranelift", "compiler"]
-llvm = ["wasmer-compiler-llvm", "compiler"]
+singlepass = ["wasmer-compiler-singlepass", "compiler", "wasmer/singlepass"]
+cranelift = ["wasmer-compiler-cranelift", "compiler", "wasmer/cranelift"]
+llvm = ["wasmer-compiler-llvm", "compiler", "wasmer/llvm"]
 disable-all-logging = [
 	"wasmer-wasix/disable-all-logging",
 	"log/release_max_level_off",
 ]
-headless = []
+headless = ["wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
 

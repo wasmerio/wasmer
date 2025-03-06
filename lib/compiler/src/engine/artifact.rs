@@ -11,10 +11,7 @@ use crate::{
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
-    types::{
-        relocation::{RelocationLike, RelocationTarget},
-        target::{CpuFeature, Target},
-    },
+    types::relocation::{RelocationLike, RelocationTarget},
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
     ModuleEnvironment, Tunables,
@@ -35,6 +32,7 @@ use crate::object::{emit_compilation, emit_data, get_object_for_target, Object};
 
 use wasmer_types::{
     entity::{BoxedSlice, PrimaryMap},
+    target::{CpuFeature, Target},
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
     FunctionIndex, HashAlgorithm, LocalFunctionIndex, MemoryIndex, ModuleInfo,

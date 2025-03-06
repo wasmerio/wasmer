@@ -13,11 +13,11 @@ use wasmer_compiler::{
         function::FunctionBody,
         relocation::{Relocation, RelocationTarget},
         section::CustomSection,
-        target::{Architecture, CallingConvention, Target},
     },
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
+    target::{Architecture, CallingConvention, Target},
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
 };
 pub type Label = DynamicLabel;

@@ -1,5 +1,4 @@
-use wasmer_compiler::types::target::Target;
-use wasmer_types::Features;
+use wasmer_types::{target::Target, Features};
 
 /// The engine for the JavaScript runtime.
 #[derive(Clone, Debug)]
@@ -22,6 +21,11 @@ impl Engine {
         features.multi_value(true);
         features.exceptions(false);
         features
+    }
+
+    /// Returns the default features for the JS engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
     }
 }
 

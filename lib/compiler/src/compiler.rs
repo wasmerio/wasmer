@@ -1,15 +1,20 @@
 //! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
-use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry, target::Target};
+use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry};
 use crate::{
     lib::std::{boxed::Box, sync::Arc},
     translator::ModuleMiddleware,
-    types::{function::Compilation, target::CpuFeature},
+    types::function::Compilation,
     FunctionBodyData, ModuleTranslationState,
 };
 use enumset::EnumSet;
-use wasmer_types::{entity::PrimaryMap, error::CompileError, Features, LocalFunctionIndex};
+use wasmer_types::{
+    entity::PrimaryMap,
+    error::CompileError,
+    target::{CpuFeature, Target},
+    Features, LocalFunctionIndex,
+};
 use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.
@@ -46,7 +51,12 @@ pub trait CompilerConfig {
     fn compiler(self: Box<Self>) -> Box<dyn Compiler>;
 
     /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, _target: &Target) -> Features {
+    fn default_features_for_target(&self, target: &Target) -> Features {
+        self.supported_features_for_target(target)
+    }
+
+    /// Gets the supported features for this compiler in the given target
+    fn supported_features_for_target(&self, _target: &Target) -> Features {
         Features::default()
     }
 

@@ -1,8 +1,8 @@
 use crate::engine::error::LinkError;
-use crate::types::target::{PointerWidth, Target};
 use std::ptr::NonNull;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
+    target::{PointerWidth, Target},
     FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
     MemoryIndex, MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind,
 };

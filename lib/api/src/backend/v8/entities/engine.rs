@@ -4,8 +4,7 @@ use crate::{
     BackendEngine,
 };
 use std::sync::Arc;
-use wasmer_compiler::types::target::Target;
-use wasmer_types::Features;
+use wasmer_types::{target::Target, Features};
 
 // A handle to an engine, which we want to unsafely mark as Sync.
 struct EngineCapsule(*mut wasm_engine_t);
@@ -66,6 +65,11 @@ impl Engine {
         features.multi_value(true);
         features.exceptions(false);
         features
+    }
+
+    /// Returns the default features for the V8 engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
     }
 }
 

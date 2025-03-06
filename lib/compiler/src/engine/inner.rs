@@ -1,6 +1,6 @@
 //! Universal compilation.
 
-use crate::{engine::builder::EngineBuilder, types::target::Target};
+use crate::engine::builder::EngineBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     types::{
@@ -22,8 +22,8 @@ use std::sync::{Arc, Mutex};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
-    SignatureIndex,
+    entity::PrimaryMap, target::Target, DeserializeError, FunctionIndex, FunctionType,
+    LocalFunctionIndex, SignatureIndex,
 };
 use wasmer_types::{CompileError, Features, HashAlgorithm};
 

@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use rusty_jsc::{JSContext, JSObject};
-use wasmer_compiler::types::target::Target;
-use wasmer_types::Features;
+use wasmer_types::{target::Target, Features};
 
 use crate::{AsEngineRef, AsStoreRef};
 
@@ -183,6 +182,11 @@ impl Engine {
         features.multi_value(true);
         features.exceptions(false);
         features
+    }
+
+    /// Returns the default features for the JSC engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
     }
 
     #[inline]
