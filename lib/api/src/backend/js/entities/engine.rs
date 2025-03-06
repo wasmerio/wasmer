@@ -1,5 +1,4 @@
-use wasmer_compiler::types::target::Target;
-use wasmer_types::Features;
+use wasmer_types::{target::Target, Features};
 
 /// The engine for the JavaScript runtime.
 #[derive(Clone, Debug)]

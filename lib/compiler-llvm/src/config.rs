@@ -8,11 +8,11 @@ use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::BinaryFormat;
-use wasmer_compiler::{
-    types::target::{Architecture, OperatingSystem, Target, Triple},
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_types::{
+    target::{Architecture, OperatingSystem, Target, Triple},
+    Features, FunctionType, LocalFunctionIndex,
 };
-use wasmer_types::{Features, FunctionType, LocalFunctionIndex};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;

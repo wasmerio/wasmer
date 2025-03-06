@@ -14,11 +14,9 @@ pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
 
-pub use wasmer_compiler::{
-    types::target::{Architecture, CpuFeature, OperatingSystem, Target, Triple},
-    Artifact, EngineBuilder, Features, Tunables,
-};
+pub use wasmer_compiler::{Artifact, EngineBuilder, Features, Tunables};
 
+pub use wasmer_types::target::{Architecture, CpuFeature, OperatingSystem, Target, Triple};
 pub use wasmer_types::MiddlewareError;
 
 #[cfg(feature = "cranelift")]

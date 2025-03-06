@@ -1,7 +1,6 @@
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
-use wasmer_compiler::types::target::Target;
-use wasmer_types::{DeserializeError, Features};
+use wasmer_types::{target::Target, DeserializeError, Features};
 
 #[cfg(feature = "sys")]
 use wasmer_compiler::{Artifact, CompilerConfig};

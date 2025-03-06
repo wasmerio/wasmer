@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use rusty_jsc::{JSContext, JSObject};
-use wasmer_compiler::types::target::Target;
-use wasmer_types::Features;
+use wasmer_types::{target::Target, Features};
 
 use crate::{AsEngineRef, AsStoreRef};
 

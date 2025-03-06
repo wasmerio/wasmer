@@ -1595,7 +1595,7 @@ pub(super) mod utils {
 
     use anyhow::{anyhow, Context};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
-    use wasmer_compiler::types::target::{self as wasmer_types, CpuFeature, Target};
+    use wasmer_types::target::{CpuFeature, Target};
 
     use crate::config::WasmerEnv;
 
@@ -1848,7 +1848,9 @@ pub(super) mod utils {
     pub(super) fn triple_to_zig_triple(target_triple: &Triple) -> String {
         let arch = match target_triple.architecture {
             Architecture::X86_64 => "x86_64".into(),
-            Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => "aarch64".into(),
+            Architecture::Aarch64(wasmer_types::target::Aarch64Architecture::Aarch64) => {
+                "aarch64".into()
+            }
             v => v.to_string(),
         };
         let os = match target_triple.operating_system {

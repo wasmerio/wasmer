@@ -2,12 +2,12 @@
 
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
-use wasmer_types::{DeserializeError, Features};
+use wasmer_types::{target::Target, DeserializeError, Features};
 
 #[cfg(feature = "sys")]
 use wasmer_compiler::Artifact;
 
-use wasmer_compiler::types::target::Target;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 
 use crate::{BackendKind, IntoBytes, Store};

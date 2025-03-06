@@ -20,7 +20,6 @@ use wasmer_compiler::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
-        target::CallingConvention,
     },
     wasmparser::{
         BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
@@ -32,13 +31,13 @@ use wasmer_compiler::{
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
+use wasmer_types::target::CallingConvention;
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
     VMBuiltinFunctionIndex, VMOffsets,
 };
-
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
     // Immutable properties assigned at creation time.

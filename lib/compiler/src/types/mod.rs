@@ -6,5 +6,4 @@ pub mod module;
 pub mod relocation;
 pub mod section;
 pub mod symbols;
-pub mod target;
 pub mod unwind;

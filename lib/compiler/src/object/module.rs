@@ -4,7 +4,6 @@ use crate::types::{
     relocation::{RelocationKind as Reloc, RelocationTarget},
     section::{CustomSectionProtection, SectionIndex},
     symbols::{Symbol, SymbolRegistry},
-    target::{Architecture, BinaryFormat, Endianness, Triple},
 };
 use object::{
     elf, macho,
@@ -15,6 +14,7 @@ use object::{
     SymbolScope,
 };
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::target::{Architecture, BinaryFormat, Endianness, Triple};
 use wasmer_types::LocalFunctionIndex;
 
 const DWARF_SECTION_NAME: &[u8] = b".eh_frame";

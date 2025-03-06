@@ -25,12 +25,12 @@ use wasmer_compiler::{
         function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
-        target::{Architecture, CallingConvention, CpuFeature, OperatingSystem, Target},
     },
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     TableIndex, TrapCode, TrapInformation, VMOffsets,
