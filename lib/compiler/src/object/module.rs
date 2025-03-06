@@ -24,7 +24,7 @@ const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::target::Triple;
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target};
 ///
 /// # fn generate_object_for_target(triple: &Triple) -> Result<(), ObjectError> {
@@ -81,7 +81,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::target::Triple;
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_data};
 ///
 /// # fn emit_data_into_object(triple: &Triple) -> Result<(), ObjectError> {
@@ -118,7 +118,8 @@ pub fn emit_data(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, target::{Triple}, function::{Compilation} };
+/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
@@ -401,7 +402,8 @@ pub fn emit_compilation(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, target::{Triple}, function::{Compilation} };
+/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_serialized};
 ///
 /// # fn emit_compilation_into_object(
