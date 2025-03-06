@@ -43,3 +43,7 @@ serde_json = { version = "^1" }
 [dev-dependencies]
 tracing-test = "0.2.4"
 tempfile = "3.6.0"
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys", "wasmer/compiler"]
+rustc-args = ["--cfg", "docsrs"]

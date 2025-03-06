@@ -4,6 +4,7 @@ use std::{
     io::{BufRead, BufReader, Read, Seek},
     path::Path,
 };
+use wasmer_types::Features;
 use webc::{Container, ContainerError, Version};
 
 use crate::package::{Package, WasmerPackageError};
@@ -108,4 +109,88 @@ fn parse_v3_mmap(f: File) -> Result<Container, ContainerError> {
     // use a memory-mapped file when possible.
     let webc = webc::v3::read::OwnedReader::from_file(f)?;
     Ok(Container::new(webc))
+}
+
+/// Convert a `Features` object to a list of WebAssembly feature strings
+/// that can be used in annotations.
+///
+/// This maps each enabled feature to its corresponding string identifier
+/// used in the WebAssembly ecosystem.
+pub fn features_to_wasm_annotations(features: &Features) -> Vec<String> {
+    let mut feature_strings = Vec::new();
+
+    if features.simd {
+        feature_strings.push("simd".to_string());
+    }
+    if features.bulk_memory {
+        feature_strings.push("bulk-memory".to_string());
+    }
+    if features.reference_types {
+        feature_strings.push("reference-types".to_string());
+    }
+    if features.multi_value {
+        feature_strings.push("multi-value".to_string());
+    }
+    if features.threads {
+        feature_strings.push("threads".to_string());
+    }
+    if features.exceptions {
+        feature_strings.push("exception-handling".to_string());
+    }
+    if features.memory64 {
+        feature_strings.push("memory64".to_string());
+    }
+    // Note: We don't currently include tail_call, module_linking, multi_memory,
+    // relaxed_simd, or extended_const in the feature strings
+
+    feature_strings
+}
+
+/// Create a `Features` object from a list of WebAssembly feature strings.
+///
+/// This is the inverse of `features_to_wasm_annotations`, mapping string identifiers
+/// back to Features settings.
+pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
+    let mut features = Features::default();
+
+    // Initialize with default values
+    features
+        .simd(false)
+        .bulk_memory(false)
+        .reference_types(false)
+        .multi_value(false)
+        .threads(false)
+        .exceptions(false)
+        .memory64(false);
+
+    // Set features based on the string values
+    for feature in feature_strings {
+        match feature.as_str() {
+            "simd" => {
+                features.simd(true);
+            }
+            "bulk-memory" => {
+                features.bulk_memory(true);
+            }
+            "reference-types" => {
+                features.reference_types(true);
+            }
+            "multi-value" => {
+                features.multi_value(true);
+            }
+            "threads" => {
+                features.threads(true);
+            }
+            "exception-handling" => {
+                features.exceptions(true);
+            }
+            "memory64" => {
+                features.memory64(true);
+            }
+            // Ignore unrecognized features
+            _ => {}
+        }
+    }
+
+    features
 }

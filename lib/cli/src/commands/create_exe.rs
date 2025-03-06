@@ -234,7 +234,7 @@ impl CliCommand for CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let backends = self.compiler.get_available_backends()?;
+        let _backends = self.compiler.get_available_backends()?;
         let mut engine = self.compiler.get_engine(&target)?;
 
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();

@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use wasmer::{sys::Target, *};
+use wasmer::{is_wasm, Module};
+use wasmer_types::target::Target;
 
 use crate::backend::RuntimeOptions;
 #[derive(Debug, Parser)]

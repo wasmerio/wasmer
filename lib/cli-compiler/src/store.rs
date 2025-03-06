@@ -9,10 +9,8 @@ use std::path::PathBuf;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use wasmer_compiler::{
-    types::target::{PointerWidth, Target},
-    CompilerConfig, EngineBuilder, Features,
-};
+use wasmer_compiler::{CompilerConfig, EngineBuilder, Features};
+use wasmer_types::target::{PointerWidth, Target};
 #[cfg(doc)]
 use wasmer_types::Type;
 use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};

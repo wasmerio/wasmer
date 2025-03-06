@@ -1,6 +1,8 @@
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "detect-wasm-features")]
+use wasmparser::{Parser, Payload, Validator, WasmFeatures};
 
 /// Controls which experimental features will be enabled.
 /// Features usually have a corresponding [WebAssembly proposal].
@@ -263,6 +265,127 @@ impl Features {
             && (!required.memory64 || self.memory64)
             && (!required.relaxed_simd || self.relaxed_simd)
             && (!required.extended_const || self.extended_const)
+    }
+
+    #[cfg(feature = "detect-wasm-features")]
+    /// Detects required WebAssembly features from a module binary.
+    ///
+    /// This method analyzes a WebAssembly module's binary to determine which
+    /// features it requires. It does this by:
+    /// 1. Attempting to validate the module with different feature sets
+    /// 2. Analyzing validation errors to detect required features
+    /// 3. Parsing the module to detect certain common patterns
+    ///
+    /// # Arguments
+    ///
+    /// * `wasm_bytes` - The binary content of the WebAssembly module
+    ///
+    /// # Returns
+    ///
+    /// A new `Features` instance with the detected features enabled.
+    pub fn detect_from_wasm(wasm_bytes: &[u8]) -> Result<Self, wasmparser::BinaryReaderError> {
+        let mut features = Self::default();
+
+        // Simple test for exceptions - try to validate with exceptions disabled
+        let mut exceptions_test = WasmFeatures::default();
+        // Enable most features except exceptions
+        exceptions_test.set(WasmFeatures::BULK_MEMORY, true);
+        exceptions_test.set(WasmFeatures::REFERENCE_TYPES, true);
+        exceptions_test.set(WasmFeatures::SIMD, true);
+        exceptions_test.set(WasmFeatures::MULTI_VALUE, true);
+        exceptions_test.set(WasmFeatures::THREADS, true);
+        exceptions_test.set(WasmFeatures::TAIL_CALL, true);
+        exceptions_test.set(WasmFeatures::MULTI_MEMORY, true);
+        exceptions_test.set(WasmFeatures::MEMORY64, true);
+        exceptions_test.set(WasmFeatures::EXCEPTIONS, false);
+
+        let mut validator = Validator::new_with_features(exceptions_test);
+
+        if let Err(e) = validator.validate_all(wasm_bytes) {
+            let err_msg = e.to_string();
+            if err_msg.contains("exception") {
+                features.exceptions(true);
+            }
+        }
+
+        // Now try with all features enabled to catch anything we might have missed
+        let mut wasm_features = WasmFeatures::default();
+        wasm_features.set(WasmFeatures::EXCEPTIONS, true);
+        wasm_features.set(WasmFeatures::BULK_MEMORY, true);
+        wasm_features.set(WasmFeatures::REFERENCE_TYPES, true);
+        wasm_features.set(WasmFeatures::SIMD, true);
+        wasm_features.set(WasmFeatures::MULTI_VALUE, true);
+        wasm_features.set(WasmFeatures::THREADS, true);
+        wasm_features.set(WasmFeatures::TAIL_CALL, true);
+        wasm_features.set(WasmFeatures::MULTI_MEMORY, true);
+        wasm_features.set(WasmFeatures::MEMORY64, true);
+
+        let mut validator = Validator::new_with_features(wasm_features);
+        match validator.validate_all(wasm_bytes) {
+            Err(e) => {
+                // If validation fails due to missing feature support, check which feature it is
+                let err_msg = e.to_string().to_lowercase();
+
+                if err_msg.contains("exception") || err_msg.contains("try/catch") {
+                    features.exceptions(true);
+                }
+
+                if err_msg.contains("bulk memory") {
+                    features.bulk_memory(true);
+                }
+
+                if err_msg.contains("reference type") {
+                    features.reference_types(true);
+                }
+
+                if err_msg.contains("simd") {
+                    features.simd(true);
+                }
+
+                if err_msg.contains("multi value") || err_msg.contains("multiple values") {
+                    features.multi_value(true);
+                }
+
+                if err_msg.contains("thread") || err_msg.contains("shared memory") {
+                    features.threads(true);
+                }
+
+                if err_msg.contains("tail call") {
+                    features.tail_call(true);
+                }
+
+                if err_msg.contains("module linking") {
+                    features.module_linking(true);
+                }
+
+                if err_msg.contains("multi memory") {
+                    features.multi_memory(true);
+                }
+
+                if err_msg.contains("memory64") {
+                    features.memory64(true);
+                }
+            }
+            Ok(_) => {
+                // The module validated successfully with all features enabled,
+                // which means it could potentially use any of them.
+                // We'll do a more detailed analysis by parsing the module.
+            }
+        }
+
+        // A simple pass to detect certain common patterns
+        for payload in Parser::new(0).parse_all(wasm_bytes) {
+            let payload = payload?;
+            if let Payload::CustomSection(section) = payload {
+                let name = section.name();
+                // Exception handling has a custom section
+                if name.contains("exception") {
+                    features.exceptions(true);
+                }
+            }
+        }
+
+        Ok(features)
     }
 }
 

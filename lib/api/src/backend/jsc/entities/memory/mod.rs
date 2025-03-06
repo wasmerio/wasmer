@@ -6,8 +6,7 @@ pub(crate) use buffer::*;
 
 use crate::{jsc::vm::VMMemory, vm::VMExtern, AsStoreMut, AsStoreRef, BackendMemory};
 use rusty_jsc::{JSObject, JSValue};
-use wasmer_types::{MemoryType, Pages};
-use wasmer_vm::MemoryError;
+use wasmer_types::{MemoryError, MemoryType, Pages};
 
 #[derive(Debug, Clone)]
 pub struct Memory {

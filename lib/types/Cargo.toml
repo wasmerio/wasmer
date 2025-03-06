@@ -30,7 +30,7 @@ xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
 sha2 = { version = "0.10" }
 hex = { version = "^0.4" }
 loupe = { workspace = true, optional = true }
-
+wasmparser = { workspace = true, default-features = false, optional = true }
 
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature
@@ -47,6 +47,7 @@ std = []
 core = []
 enable-serde = ["serde", "serde/std", "serde_bytes", "indexmap/serde"]
 artifact-size = ["dep:loupe"]
+detect-wasm-features = ["dep:wasmparser"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

@@ -11,6 +11,7 @@ use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::PackageId;
+use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
 
@@ -26,6 +27,26 @@ use crate::{
 };
 
 use super::to_module_hash;
+
+/// Convert WebAssembly feature annotations to a Features object
+fn wasm_annotation_to_features(
+    wasm_annotation: &webc::metadata::annotations::Wasm,
+) -> Option<wasmer_types::Features> {
+    Some(wasm_annotations_to_features(&wasm_annotation.features))
+}
+
+/// Extract WebAssembly features from atom metadata if available
+fn extract_features_from_atom_metadata(
+    atom_metadata: &webc::metadata::Atom,
+) -> Option<wasmer_types::Features> {
+    if let Ok(Some(wasm_annotation)) = atom_metadata
+        .annotation::<webc::metadata::annotations::Wasm>(webc::metadata::annotations::Wasm::KEY)
+    {
+        wasm_annotation_to_features(&wasm_annotation)
+    } else {
+        None
+    }
+}
 
 /// The maximum number of packages that will be loaded in parallel.
 const MAX_PARALLEL_DOWNLOADS: usize = 32;
@@ -180,7 +201,15 @@ fn load_binary_command(
         )
     })?;
 
-    let cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash);
+    // Get WebAssembly features from manifest atom annotations
+    let features = if let Some(atom_metadata) = webc.manifest().atoms.get(&atom_name) {
+        extract_features_from_atom_metadata(atom_metadata)
+    } else {
+        None
+    };
+
+    let cmd =
+        BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash, features);
 
     Ok(Some(cmd))
 }
@@ -245,11 +274,19 @@ fn legacy_atom_hack(
 
     let hash = to_module_hash(webc.manifest().atom_signature(&name)?);
 
+    // Get WebAssembly features from manifest atom annotations
+    let features = if let Some(atom_metadata) = webc.manifest().atoms.get(&name) {
+        extract_features_from_atom_metadata(atom_metadata)
+    } else {
+        None
+    };
+
     Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
         hash,
+        features,
     )))
 }
 
