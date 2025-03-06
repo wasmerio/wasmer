@@ -14,6 +14,7 @@ use anyhow::{bail, Result};
 #[cfg(feature = "sys")]
 use wasmer::sys::*;
 use wasmer::*;
+use wasmer_types::{target::Target, Features};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
@@ -345,7 +346,6 @@ impl RuntimeOptions {
         self.get_features(&features)
     }
 
-    #[cfg(feature = "compiler")]
     /// Detect features from a WebAssembly module binary.
     pub fn detect_features_from_wasm(
         &self,
@@ -593,7 +593,6 @@ impl BackendType {
     }
 
     /// Get an engine for this backend type
-    #[cfg(feature = "compiler")]
     pub fn get_engine(&self, target: &Target, features: &Features) -> Result<Engine> {
         match self {
             #[cfg(feature = "singlepass")]
@@ -674,25 +673,28 @@ impl BackendType {
 impl From<&BackendType> for wasmer::BackendKind {
     fn from(backend_type: &BackendType) -> Self {
         match backend_type {
+            #[cfg(feature = "singlepass")]
             BackendType::Singlepass => wasmer::BackendKind::Singlepass,
+            #[cfg(feature = "cranelift")]
             BackendType::Cranelift => wasmer::BackendKind::Cranelift,
             #[cfg(feature = "llvm")]
             BackendType::LLVM => wasmer::BackendKind::LLVM,
-            #[cfg(not(feature = "llvm"))]
-            BackendType::LLVM => wasmer::BackendKind::Headless, // Fallback if llvm not enabled
             #[cfg(feature = "v8")]
             BackendType::V8 => wasmer::BackendKind::V8,
-            #[cfg(not(feature = "v8"))]
-            BackendType::V8 => wasmer::BackendKind::Headless, // Fallback if v8 not enabled
             #[cfg(feature = "wamr")]
             BackendType::Wamr => wasmer::BackendKind::Wamr,
-            #[cfg(not(feature = "wamr"))]
-            BackendType::Wamr => wasmer::BackendKind::Headless, // Fallback if wamr not enabled
             #[cfg(feature = "wasmi")]
             BackendType::Wasmi => wasmer::BackendKind::Wasmi,
-            #[cfg(not(feature = "wasmi"))]
-            BackendType::Wasmi => wasmer::BackendKind::Headless, // Fallback if wasmi not enabled
-            BackendType::Headless => wasmer::BackendKind::Headless, // Technically headless is still Sys
+            _ => {
+                #[cfg(feature = "sys")]
+                {
+                    return wasmer::BackendKind::Headless;
+                }
+                #[cfg(not(feature = "sys"))]
+                {
+                    unreachable!("No backend enabled!")
+                }
+            }
         }
     }
 }
