@@ -25,11 +25,11 @@ use url::Url;
 #[cfg(feature = "sys")]
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    sys::Target, AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store,
-    Type, TypedFunction, Value,
+    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type,
+    TypedFunction, Value,
 };
 
-use wasmer_types::Features;
+use wasmer_types::{target::Target, Features};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;

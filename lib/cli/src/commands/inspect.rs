@@ -4,7 +4,8 @@ use crate::backend::RuntimeOptions;
 use anyhow::{Context, Result};
 use bytesize::ByteSize;
 use clap::Parser;
-use wasmer::{sys::Target, *};
+use wasmer::*;
+use wasmer_types::target::Target;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
