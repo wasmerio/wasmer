@@ -1,6 +1,7 @@
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "detect-wasm-features")]
 use wasmparser::{Parser, Payload, Validator, WasmFeatures};
 
 /// Controls which experimental features will be enabled.
