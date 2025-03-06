@@ -142,6 +142,37 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     AsStoreMut, AsStoreRef, BackendFunctionEnv, BackendFunctionEnvMut, FunctionEnvMut,
@@ -155,93 +186,124 @@
 
 <span class="macro">macro_rules!</span> impl_host_function {
     ([<span class="macro-nonterminal">$c_struct_representation</span>:ident] <span class="macro-nonterminal">$c_struct_name</span>:ident, $( <span class="macro-nonterminal">$x</span>:ident ),* ) =&gt; {
-<span class="attr">#[allow(unused_parens)]
-</span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, T, Func&gt; <span class="kw">crate</span>::HostFunction&lt;T, ( $( <span class="macro-nonterminal">$x </span>),* ), Rets, WithEnv&gt; <span class="kw">for </span>Func <span class="kw">where
-    </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
-    Rets: WasmTypeList,
-    RetsAsResult: IntoResult&lt;Rets&gt;,
-    T: Send + <span class="lifetime">'static</span>,
-    Func: Fn(FunctionEnvMut&lt;<span class="lifetime">'_</span>, T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static</span>,
-{
+        <span class="attr">#[allow(unused_parens)]
+        </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, T, Func&gt; <span class="kw">crate</span>::HostFunction&lt;T, ( $( <span class="macro-nonterminal">$x </span>),* ), Rets, WithEnv&gt; <span class="kw">for </span>Func <span class="kw">where
+            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+            Rets: WasmTypeList,
+            RetsAsResult: IntoResult&lt;Rets&gt;,
+            T: Send + <span class="lifetime">'static</span>,
+            Func: Fn(FunctionEnvMut&lt;<span class="lifetime">'_</span>, T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static</span>,
+        {
+            <span class="attr">#[allow(non_snake_case)]
+            </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw">crate</span>::backend::BackendKind) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback {
+                <span class="macro">paste::paste!</span> {
+                    <span class="kw">match </span>rt {
+                        <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Headless =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::LLVM =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Cranelift =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"singlepass"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Singlepass =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Js =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Js(<span class="kw">crate</span>::backend::js::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Jsc =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Jsc(<span class="kw">crate</span>::backend::jsc::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Wamr =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wamr(<span class="kw">crate</span>::backend::wamr::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Wasmi =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wasmi(<span class="kw">crate</span>::backend::wasmi::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::V8 =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::V8(<span class="kw">crate</span>::backend::v8::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>))
+                    }
+                }
+            }
 
-  <span class="attr">#[allow(non_snake_case)]
-  </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw">crate</span>::backend::BackendKind) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback {
-      <span class="macro">paste::paste!</span>{
-      <span class="kw">match </span>rt {
-          <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Sys =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Js =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Js(<span class="kw">crate</span>::backend::js::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Jsc =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Jsc(<span class="kw">crate</span>::backend::jsc::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Wamr =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wamr(<span class="kw">crate</span>::backend::wamr::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Wasmi =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wasmi(<span class="kw">crate</span>::backend::wasmi::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::V8 =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::V8(<span class="kw">crate</span>::backend::v8::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>))
-      }
-      }
-  }
+            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+            </span><span class="kw">fn </span>function_callback_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback {
+                <span class="macro">paste::paste!</span> {
+                    <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;](<span class="self">self</span>))
+                }
+            }
 
-  <span class="attr">#[allow(non_snake_case)]
-  </span><span class="kw">fn </span>call_trampoline_address(rt: <span class="kw">crate</span>::backend::BackendKind) -&gt; <span class="kw">crate</span>::vm::VMTrampoline {
-      <span class="macro">paste::paste!</span>{
-      <span class="kw">match </span>rt {
-          <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Sys =&gt; <span class="kw">crate</span>::vm::VMTrampoline::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_call_trampoline_address_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;]::&lt;$(<span class="macro-nonterminal">$x</span>,)* Rets&gt;()),
-          <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>()
-      }
-      }
-  }
+            <span class="attr">#[allow(non_snake_case)]
+            </span><span class="kw">fn </span>call_trampoline_address() -&gt; <span class="kw">crate</span>::vm::VMTrampoline {
+                <span class="macro">paste::paste!</span> {
+                    <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+                    </span>{
+                        <span class="kw">crate</span>::vm::VMTrampoline::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_call_trampoline_address_ <span class="macro-nonterminal">$c_struct_name</span>:lower &gt;]::&lt;$(<span class="macro-nonterminal">$x</span>,)* Rets&gt;())
+                    }
 
-}
+                    <span class="attr">#[cfg(not(feature = <span class="string">"sys"</span>))]
+                    </span>{
+                        <span class="macro">unimplemented!</span>(<span class="string">"No backend available"</span>)
+                    }
+                }
+            }
+        }
 
-<span class="comment">// Implement `HostFunction` for a function that has the same arity than the tuple.
-</span><span class="attr">#[allow(unused_parens)]
-</span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func &gt;
-    <span class="kw">crate</span>::HostFunction&lt;(), ( $( <span class="macro-nonterminal">$x </span>),* ), Rets, WithoutEnv&gt;
-<span class="kw">for
-    </span>Func
-<span class="kw">where
-    </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
-    Rets: WasmTypeList,
-    RetsAsResult: IntoResult&lt;Rets&gt;,
-    Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static
-</span>{
+        <span class="comment">// Implement `HostFunction` for a function that has the same arity than the tuple.
+        </span><span class="attr">#[allow(unused_parens)]
+        </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func &gt;
+            <span class="kw">crate</span>::HostFunction&lt;(), ( $( <span class="macro-nonterminal">$x </span>),* ), Rets, WithoutEnv&gt;
+        <span class="kw">for
+            </span>Func
+        <span class="kw">where
+            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+            Rets: WasmTypeList,
+            RetsAsResult: IntoResult&lt;Rets&gt;,
+            Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">'static
+        </span>{
+            <span class="attr">#[allow(non_snake_case)]
+            </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw">crate</span>::backend::BackendKind) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback {
+                <span class="macro">paste::paste!</span> {
+                    <span class="kw">match </span>rt {
+                        <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Headless =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"llvm"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::LLVM =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Cranelift =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"singlepass"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Singlepass =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Js =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Js(<span class="kw">crate</span>::backend::js::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Jsc =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Jsc(<span class="kw">crate</span>::backend::jsc::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Wamr =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wamr(<span class="kw">crate</span>::backend::wamr::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::Wasmi =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wasmi(<span class="kw">crate</span>::backend::wasmi::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
+                        <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+                        </span><span class="kw">crate</span>::backend::BackendKind::V8 =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::V8(<span class="kw">crate</span>::backend::v8::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>))
+                    }
+                }
+            }
 
+            <span class="attr">#[allow(non_snake_case)]
+            #[cfg(feature = <span class="string">"sys"</span>)]
+            </span><span class="kw">fn </span>function_callback_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback {
+                <span class="macro">paste::paste!</span> {
+                    <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>))
+                }
+            }
 
-  <span class="attr">#[allow(non_snake_case)]
-  </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw">crate</span>::backend::BackendKind) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback {
-    <span class="macro">paste::paste!</span>{
-      <span class="kw">match </span>rt {
-          <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Sys =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Js =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Js(<span class="kw">crate</span>::backend::js::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Jsc =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Jsc(<span class="kw">crate</span>::backend::jsc::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Wamr =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wamr(<span class="kw">crate</span>::backend::wamr::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::Wasmi =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::Wasmi(<span class="kw">crate</span>::backend::wasmi::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>)),
-          <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-          </span><span class="kw">crate</span>::backend::BackendKind::V8 =&gt; <span class="kw">crate</span>::vm::VMFunctionCallback::V8(<span class="kw">crate</span>::backend::v8::function::[&lt;gen_fn_callback_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;](<span class="self">self</span>))
-      }
-      }
-  }
+            <span class="attr">#[allow(non_snake_case)]
+            </span><span class="kw">fn </span>call_trampoline_address() -&gt; <span class="kw">crate</span>::vm::VMTrampoline {
+                <span class="macro">paste::paste!</span> {
+                    <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+                    </span>{
+                        <span class="kw">crate</span>::vm::VMTrampoline::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_call_trampoline_address_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;]::&lt;$(<span class="macro-nonterminal">$x</span>,)* Rets&gt;())
+                    }
 
-  <span class="attr">#[allow(non_snake_case)]
-  </span><span class="kw">fn </span>call_trampoline_address(rt: <span class="kw">crate</span>::backend::BackendKind) -&gt; <span class="kw">crate</span>::vm::VMTrampoline {
-    <span class="macro">paste::paste!</span>{
-          <span class="kw">match </span>rt {
-              <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-              </span><span class="kw">crate</span>::backend::BackendKind::Sys =&gt; <span class="kw">crate</span>::vm::VMTrampoline::Sys(<span class="kw">crate</span>::backend::sys::function::[&lt;gen_call_trampoline_address_ <span class="macro-nonterminal">$c_struct_name</span>:lower _no_env&gt;]::&lt;$(<span class="macro-nonterminal">$x</span>,)* Rets&gt;()),
-              <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>()
-          }
-          }
-      }
-    }
+                    <span class="attr">#[cfg(not(feature = <span class="string">"sys"</span>))]
+                    </span>{
+                        <span class="macro">unimplemented!</span>(<span class="string">"No backend available"</span>)
+                    }
+                }
+            }
+        }
     };
 }
 

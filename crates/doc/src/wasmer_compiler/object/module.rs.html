@@ -463,13 +463,14 @@
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
 <a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::error::ObjectError;
 <span class="kw">use </span><span class="kw">crate</span>::types::{
     function::Compilation,
     relocation::{RelocationKind <span class="kw">as </span>Reloc, RelocationTarget},
     section::{CustomSectionProtection, SectionIndex},
     symbols::{Symbol, SymbolRegistry},
-    target::{Architecture, BinaryFormat, Endianness, Triple},
 };
 <span class="kw">use </span>object::{
     elf, macho,
@@ -480,6 +481,7 @@
     SymbolScope,
 };
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::target::{Architecture, BinaryFormat, Endianness, Triple};
 <span class="kw">use </span>wasmer_types::LocalFunctionIndex;
 
 <span class="kw">const </span>DWARF_SECTION_NAME: <span class="kw-2">&amp;</span>[u8] = <span class="string">b".eh_frame"</span>;
@@ -489,7 +491,7 @@
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::target::Triple;
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target};
 ///
 /// # fn generate_object_for_target(triple: &amp;Triple) -&gt; Result&lt;(), ObjectError&gt; {
@@ -546,7 +548,7 @@
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::target::Triple;
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_data};
 ///
 /// # fn emit_data_into_object(triple: &amp;Triple) -&gt; Result&lt;(), ObjectError&gt; {
@@ -583,7 +585,8 @@
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, target::{Triple}, function::{Compilation} };
+/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
@@ -866,7 +869,8 @@
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, target::{Triple}, function::{Compilation} };
+/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
+/// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_serialized};
 ///
 /// # fn emit_compilation_into_object(

@@ -500,11 +500,11 @@
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
         symbols::{Symbol, SymbolRegistry},
-        target::Target,
     },
     Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
 };
 <span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::target::Target;
 <span class="kw">use </span>wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 <span class="kw">use </span>wasmer_vm::LibCall;
 

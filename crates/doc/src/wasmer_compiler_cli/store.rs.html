@@ -389,8 +389,6 @@
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -402,10 +400,8 @@
 <span class="kw">use </span>std::string::ToString;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>wasmer_compiler::{
-    types::target::{PointerWidth, Target},
-    CompilerConfig, EngineBuilder, Features,
-};
+<span class="kw">use </span>wasmer_compiler::{CompilerConfig, EngineBuilder, Features};
+<span class="kw">use </span>wasmer_types::target::{PointerWidth, Target};
 <span class="attr">#[cfg(doc)]
 </span><span class="kw">use </span>wasmer_types::Type;
 <span class="kw">use </span>wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};

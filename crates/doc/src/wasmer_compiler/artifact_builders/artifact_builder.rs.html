@@ -516,6 +516,8 @@
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
@@ -524,8 +526,7 @@
 
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use crate</span>::{
-    serialize::SerializableCompilation, types::target::Target, EngineInner, ModuleEnvironment,
-    ModuleMiddlewareChain,
+    serialize::SerializableCompilation, EngineInner, ModuleEnvironment, ModuleMiddlewareChain,
 };
 <span class="kw">use crate</span>::{
     serialize::{
@@ -537,10 +538,12 @@
         module::CompileModuleInfo,
         relocation::Relocation,
         section::{CustomSection, SectionIndex},
-        target::CpuFeature,
     },
     ArtifactCreate, Features,
 };
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+</span><span class="kw">use </span>wasmer_types::target::Target;
+
 <span class="kw">use </span>core::mem::MaybeUninit;
 <span class="kw">use </span>enumset::EnumSet;
 <span class="kw">use </span>rkyv::rancor::Error <span class="kw">as </span>RkyvError;
@@ -549,6 +552,7 @@
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>wasmer_types::{
     entity::{ArchivedPrimaryMap, PrimaryMap},
+    target::CpuFeature,
     DeserializeError,
 };
 

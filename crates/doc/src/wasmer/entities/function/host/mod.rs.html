@@ -52,6 +52,11 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>imp;
 
 <span class="kw">use crate</span>::{
@@ -72,8 +77,13 @@
     <span class="doccomment">/// Get the pointer to the function body for a given runtime.
     </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: BackendKind) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback;
 
+    <span class="doccomment">/// Get the pointer to the function body for a given runtime.
+    </span><span class="kw">fn </span>function_callback_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::vm::VMFunctionCallback {
+        <span class="macro">unimplemented!</span>()
+    }
+
     <span class="doccomment">/// Get the pointer to the function call trampoline for a given runtime.
-    </span><span class="kw">fn </span>call_trampoline_address(rt: BackendKind) -&gt; <span class="kw">crate</span>::vm::VMTrampoline;
+    </span><span class="kw">fn </span>call_trampoline_address() -&gt; <span class="kw">crate</span>::vm::VMTrampoline;
 }
 
 <span class="doccomment">/// Empty trait to specify the kind of `HostFunction`: With or

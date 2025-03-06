@@ -101,15 +101,13 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>gimli::write::{Address, EndianVec, <span class="prelude-ty">Result</span>, Writer};
 <span class="kw">use </span>gimli::{RunTimeEndian, SectionId};
 <span class="kw">use </span>wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
     section::{CustomSection, CustomSectionProtection, SectionBody},
-    target::Endianness,
 };
-<span class="kw">use </span>wasmer_types::{entity::EntityRef, LocalFunctionIndex};
+<span class="kw">use </span>wasmer_types::{entity::EntityRef, target::Endianness, LocalFunctionIndex};
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WriterRelocate {

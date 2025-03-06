@@ -3777,6 +3777,7 @@
 <a href="#3777" id="3777">3777</a>
 <a href="#3778" id="3778">3778</a>
 <a href="#3779" id="3779">3779</a>
+<a href="#3780" id="3780">3780</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use crate</span>::{
     arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON},
     location::{Multiplier, Reg},
@@ -3792,9 +3793,10 @@
 <span class="kw">use </span>wasmer_compiler::types::{
     function::FunctionBody,
     section::{CustomSection, CustomSectionProtection, SectionBody},
-    target::CallingConvention,
 };
-<span class="kw">use </span>wasmer_types::{CompileError, FunctionIndex, FunctionType, Type, VMOffsets};
+<span class="kw">use </span>wasmer_types::{
+    target::CallingConvention, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+};
 
 <span class="kw">type </span>Assembler = VecAssembler&lt;Aarch64Relocation&gt;;
 

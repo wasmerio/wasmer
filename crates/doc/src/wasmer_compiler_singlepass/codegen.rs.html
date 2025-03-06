@@ -6754,7 +6754,6 @@
 <a href="#6754" id="6754">6754</a>
 <a href="#6755" id="6755">6755</a>
 <a href="#6756" id="6756">6756</a>
-<a href="#6757" id="6757">6757</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
 
@@ -6777,7 +6776,6 @@
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
-        target::CallingConvention,
     },
     wasmparser::{
         BlockType <span class="kw">as </span>WpTypeOrFuncType, HeapType <span class="kw">as </span>WpHeapType, Operator, RefType <span class="kw">as </span>WpRefType,
@@ -6789,13 +6787,13 @@
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
+<span class="kw">use </span>wasmer_types::target::CallingConvention;
 <span class="kw">use </span>wasmer_types::{
     entity::{EntityRef, PrimaryMap},
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
     VMBuiltinFunctionIndex, VMOffsets,
 };
-
 <span class="doccomment">/// The singlepass per-function code generator.
 </span><span class="kw">pub struct </span>FuncGen&lt;<span class="lifetime">'a</span>, M: Machine&gt; {
     <span class="comment">// Immutable properties assigned at creation time.

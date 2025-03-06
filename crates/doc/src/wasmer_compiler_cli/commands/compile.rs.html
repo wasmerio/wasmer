@@ -117,19 +117,15 @@
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
 <span class="kw">use </span><span class="kw">crate</span>::warning;
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::path::{Path, PathBuf};
-<span class="kw">use </span>wasmer_compiler::{
-    types::target::{Architecture, CpuFeature, Target, Triple},
-    ArtifactBuild, ArtifactCreate, ModuleEnvironment,
-};
+<span class="kw">use </span>wasmer_compiler::{ArtifactBuild, ArtifactCreate, ModuleEnvironment};
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::target::{Architecture, CpuFeature, Target, Triple};
 <span class="kw">use </span>wasmer_types::{CompileError, MemoryIndex, MemoryStyle, TableIndex, TableStyle};
 
 <span class="attr">#[derive(Debug, Parser)]

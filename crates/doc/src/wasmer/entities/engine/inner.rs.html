@@ -190,59 +190,21 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::{path::Path, sync::Arc};
-<span class="kw">use </span>wasmer_types::DeserializeError;
+<span class="kw">use </span>wasmer_types::{target::Target, DeserializeError, Features};
 
 <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-</span><span class="kw">use </span>wasmer_compiler::Artifact;
+</span><span class="kw">use </span>wasmer_compiler::{Artifact, CompilerConfig};
 
 <span class="kw">use crate</span>::{
     macros::backend::{gen_rt_ty, match_rt},
-    IntoBytes, Store,
+    BackendKind, IntoBytes, Store,
 };
 
 <span class="macro">gen_rt_ty!</span>(Engine @derives Debug, Clone);
 
 <span class="kw">impl </span>BackendEngine {
-    <span class="doccomment">/// Returns the [`crate::BackendKind`] kind this engine belongs to.
-    </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>get_be_kind(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::BackendKind {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-            </span><span class="self">Self</span>::Sys(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::BackendKind::Sys,
-            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-            </span><span class="self">Self</span>::V8(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::BackendKind::V8,
-            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-            </span><span class="self">Self</span>::Wamr(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::BackendKind::Wamr,
-            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-            </span><span class="self">Self</span>::Wasmi(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::BackendKind::Wasmi,
-            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-            </span><span class="self">Self</span>::Js(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::BackendKind::Js,
-            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-            </span><span class="self">Self</span>::Jsc(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::BackendKind::Jsc,
-        }
-    }
-
     <span class="doccomment">/// Returns the deterministic id of this engine.
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {

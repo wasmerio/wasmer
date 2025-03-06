@@ -70,6 +70,14 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span><span class="kw">crate</span>::backend::RuntimeOptions;
@@ -77,6 +85,7 @@
 <span class="kw">use </span>bytesize::ByteSize;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer_types::target::Target;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer validate` subcommand
@@ -97,12 +106,19 @@
     }
 
     <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>store = <span class="self">self</span>.rt.get_store()<span class="question-mark">?</span>;
-
         <span class="kw">let </span>module_contents = std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>engine = <span class="self">self
+            </span>.rt
+            .get_engine_for_module(<span class="kw-2">&amp;</span>module_contents, <span class="kw-2">&amp;</span>Target::default())<span class="question-mark">?</span>;
+
         <span class="kw">let </span>iswasm = is_wasm(<span class="kw-2">&amp;</span>module_contents);
         <span class="kw">let </span>module_len = module_contents.len();
-        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, module_contents)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, module_contents)<span class="question-mark">?</span>;
+        <span class="macro">println!</span>(
+            <span class="string">"Backend used to parse the module: {}"</span>,
+            engine.deterministic_id()
+        );
+
         <span class="macro">println!</span>(<span class="string">"Type: {}"</span>, <span class="kw">if </span>!iswasm { <span class="string">"wat" </span>} <span class="kw">else </span>{ <span class="string">"wasm" </span>});
         <span class="macro">println!</span>(<span class="string">"Size: {}"</span>, ByteSize(module_len <span class="kw">as _</span>));
         <span class="macro">println!</span>(<span class="string">"Imports:"</span>);

@@ -402,10 +402,10 @@
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::error::LinkError;
-<span class="kw">use </span><span class="kw">crate</span>::types::target::{PointerWidth, Target};
 <span class="kw">use </span>std::ptr::NonNull;
 <span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
 <span class="kw">use </span>wasmer_types::{
+    target::{PointerWidth, Target},
     FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
     MemoryIndex, MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind,
 };

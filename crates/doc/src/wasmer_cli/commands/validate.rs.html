@@ -34,11 +34,15 @@
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer::{is_wasm, Module};
+<span class="kw">use </span>wasmer_types::target::Target;
 
 <span class="kw">use </span><span class="kw">crate</span>::backend::RuntimeOptions;
 <span class="attr">#[derive(Debug, Parser)]
@@ -59,13 +63,15 @@
             .context(<span class="macro">format!</span>(<span class="string">"failed to validate `{}`"</span>, <span class="self">self</span>.path.display()))
     }
     <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>store = <span class="self">self</span>.rt.get_store()<span class="question-mark">?</span>;
-
         <span class="kw">let </span>module_contents = std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;
         <span class="kw">if </span>!is_wasm(<span class="kw-2">&amp;</span>module_contents) {
             <span class="macro">bail!</span>(<span class="string">"`wasmer validate` only validates WebAssembly files"</span>);
         }
-        Module::validate(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>module_contents)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>engine = <span class="self">self
+            </span>.rt
+            .get_engine_for_module(<span class="kw-2">&amp;</span>module_contents, <span class="kw-2">&amp;</span>Target::default())<span class="question-mark">?</span>;
+        Module::validate(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_contents)<span class="question-mark">?</span>;
         <span class="macro">eprintln!</span>(<span class="string">"Validation passed for `{}`."</span>, <span class="self">self</span>.path.display());
         <span class="prelude-val">Ok</span>(())
     }

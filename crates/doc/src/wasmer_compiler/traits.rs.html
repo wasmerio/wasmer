@@ -94,15 +94,15 @@
 <a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Generic Artifact abstraction for Wasmer Engines.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::types::target::CpuFeature;
-<span class="kw">use </span><span class="kw">crate</span>::Features;
+</span><span class="kw">use </span><span class="kw">crate</span>::Features;
 <span class="kw">use </span>enumset::EnumSet;
 <span class="kw">use </span>std::any::Any;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
 <span class="kw">use </span>wasmer_types::SerializeError;
 <span class="kw">use </span>wasmer_types::{
-    DataInitializerLike, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
+    target::CpuFeature, DataInitializerLike, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex,
+    TableStyle,
 };
 
 <span class="doccomment">/// An `Artifact` is the product that the `Engine`

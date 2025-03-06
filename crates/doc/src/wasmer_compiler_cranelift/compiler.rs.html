@@ -532,13 +532,13 @@
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
-        target::{CallingConvention, Target},
         unwind::CompiledFunctionUnwindInfo,
     },
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState,
 };
 <span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::target::{CallingConvention, Target};
 <span class="kw">use </span>wasmer_types::{
     CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
     TrapInformation,

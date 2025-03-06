@@ -666,11 +666,6 @@
 <a href="#666" id="666">666</a>
 <a href="#667" id="667">667</a>
 <a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for `sys` runtime's `Function` implementation.
 
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>env;
@@ -805,7 +800,7 @@
         Rets: WasmTypeList,
     {
         <span class="kw">let </span>env = FunctionEnv::new(store, ());
-        <span class="kw">let </span>func_ptr = func.function_callback(<span class="kw">crate</span>::BackendKind::Sys).into_sys();
+        <span class="kw">let </span>func_ptr = func.function_callback_sys().into_sys();
         <span class="kw">let </span>host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() <span class="kw">as </span><span class="kw-2">*mut </span>u8,
             env,
@@ -822,10 +817,7 @@
             host_env: host_data.as_ref() <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_ as </span><span class="kw-2">*mut </span>c_void,
         };
         <span class="kw">let </span>call_trampoline =
-            &lt;F <span class="kw">as </span>HostFunction&lt;(), Args, Rets, WithoutEnv&gt;&gt;::call_trampoline_address(
-                <span class="kw">crate</span>::BackendKind::Sys,
-            )
-            .into_sys();
+            &lt;F <span class="kw">as </span>HostFunction&lt;(), Args, Rets, WithoutEnv&gt;&gt;::call_trampoline_address().into_sys();
         <span class="kw">let </span>anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -854,7 +846,7 @@
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        <span class="kw">let </span>func_ptr = func.function_callback(<span class="kw">crate</span>::BackendKind::Sys).into_sys();
+        <span class="kw">let </span>func_ptr = func.function_callback_sys().into_sys();
         <span class="kw">let </span>host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() <span class="kw">as </span><span class="kw-2">*mut </span>u8,
             env: env.as_sys().clone().into(),
@@ -870,10 +862,8 @@
         <span class="kw">let </span>vmctx = VMFunctionContext {
             host_env: host_data.as_ref() <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_ as </span><span class="kw-2">*mut </span>c_void,
         };
-        <span class="kw">let </span>call_trampoline = &lt;F <span class="kw">as </span>HostFunction&lt;T, Args, Rets, WithEnv&gt;&gt;::call_trampoline_address(
-            <span class="kw">crate</span>::BackendKind::Sys,
-        )
-        .into_sys();
+        <span class="kw">let </span>call_trampoline =
+            &lt;F <span class="kw">as </span>HostFunction&lt;T, Args, Rets, WithEnv&gt;&gt;::call_trampoline_address().into_sys();
         <span class="kw">let </span>anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,

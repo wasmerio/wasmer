@@ -2525,11 +2525,11 @@
         function::FunctionBody,
         relocation::{Relocation, RelocationTarget},
         section::CustomSection,
-        target::{Architecture, CallingConvention, Target},
     },
     wasmparser::{MemArg, ValType <span class="kw">as </span>WpType},
 };
 <span class="kw">use </span>wasmer_types::{
+    target::{Architecture, CallingConvention, Target},
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
 };
 <span class="kw">pub type </span>Label = DynamicLabel;

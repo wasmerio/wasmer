@@ -545,7 +545,7 @@
 <a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
-</span><span class="kw">use crate</span>::{engine::builder::EngineBuilder, types::target::Target};
+</span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use crate</span>::{
     types::{
@@ -570,7 +570,7 @@
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
     SignatureIndex,
 };
-<span class="kw">use </span>wasmer_types::{CompileError, Features, HashAlgorithm};
+<span class="kw">use </span>wasmer_types::{target::Target, CompileError, Features, HashAlgorithm};
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_vm::{

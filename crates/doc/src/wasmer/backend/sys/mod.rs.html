@@ -25,8 +25,6 @@
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for the `sys` runtime.
 
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>entities;
@@ -43,11 +41,9 @@
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
 
-<span class="kw">pub use </span>wasmer_compiler::{
-    types::target::{Architecture, CpuFeature, OperatingSystem, Target, Triple},
-    Artifact, EngineBuilder, Features, Tunables,
-};
+<span class="kw">pub use </span>wasmer_compiler::{Artifact, EngineBuilder, Features, Tunables};
 
+<span class="kw">pub use </span>wasmer_types::target::{Architecture, CpuFeature, OperatingSystem, Target, Triple};
 <span class="kw">pub use </span>wasmer_types::MiddlewareError;
 
 <span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)]

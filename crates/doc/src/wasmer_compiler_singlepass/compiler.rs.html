@@ -388,12 +388,12 @@
         function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
-        target::{Architecture, CallingConvention, CpuFeature, OperatingSystem, Target},
     },
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 <span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 <span class="kw">use </span>wasmer_types::{
     CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     TableIndex, TrapCode, TrapInformation, VMOffsets,
@@ -659,11 +659,11 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>std::str::FromStr;
     <span class="kw">use </span>target_lexicon::triple;
-    <span class="kw">use </span>wasmer_compiler::{
-        types::target::{CpuFeature, Triple},
-        Features,
+    <span class="kw">use </span>wasmer_compiler::Features;
+    <span class="kw">use </span>wasmer_types::{
+        target::{CpuFeature, Triple},
+        MemoryStyle, TableStyle,
     };
-    <span class="kw">use </span>wasmer_types::{MemoryStyle, TableStyle};
 
     <span class="kw">fn </span>dummy_compilation_ingredients&lt;<span class="lifetime">'a</span>&gt;() -&gt; (
         CompileModuleInfo,

@@ -97,9 +97,15 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
-<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer::{
     sys::{engine::NativeEngineExt, <span class="kw-2">*</span>},
@@ -159,10 +165,16 @@
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        <span class="kw">let </span>compiler_type = <span class="self">self</span>.rt.get_rt()<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.rt.get_store_for_target(target.clone())<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>engine = store.engine_mut();
+        <span class="kw">let </span>module_contents = std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;
+        <span class="kw">if </span>!is_wasm(<span class="kw-2">&amp;</span>module_contents) {
+            <span class="macro">bail!</span>(<span class="string">"`wasmer compile` only compiles WebAssembly files"</span>);
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>engine = <span class="self">self
+            </span>.rt
+            .get_engine_for_module(<span class="kw-2">&amp;</span>module_contents, <span class="kw-2">&amp;</span>Target::default())<span class="question-mark">?</span>;
+
         <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(<span class="prelude-val">Some</span>(hash_algorithm));
 
@@ -183,10 +195,10 @@
                 <span class="macro">warning!</span>(<span class="string">"the output file has no extension. We recommend using `{}.{}` for the chosen target"</span>, <span class="kw-2">&amp;</span>output_filename, <span class="kw-2">&amp;</span>recommended_extension)
             }
         }
-        <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
+        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, engine.deterministic_id());
         <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
 
-        <span class="kw">let </span>module = Module::from_file(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_contents)<span class="question-mark">?</span>;
         module.serialize_to_file(<span class="kw-2">&amp;</span><span class="self">self</span>.output)<span class="question-mark">?</span>;
         <span class="macro">eprintln!</span>(
             <span class="string">"✔ File compiled successfully to `{}`."</span>,

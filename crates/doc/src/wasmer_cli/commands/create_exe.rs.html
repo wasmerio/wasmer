@@ -2576,13 +2576,13 @@
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">"input path cannot be a directory"</span>));
         }
 
-        <span class="kw">let </span>compiler_type = <span class="self">self</span>.compiler.get_rt()<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>engine = <span class="self">self</span>.compiler.get_engine()<span class="question-mark">?</span>;
+        <span class="kw">let </span>_backends = <span class="self">self</span>.compiler.get_available_backends()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>engine = <span class="self">self</span>.compiler.get_engine(<span class="kw-2">&amp;</span>target)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(<span class="prelude-val">Some</span>(hash_algorithm));
 
-        <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
+        <span class="macro">println!</span>(<span class="string">"Compiler: {}"</span>, engine.deterministic_id());
         <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
         <span class="macro">println!</span>(
             <span class="string">"Using path `{}` as libwasmer path."</span>,
@@ -2625,9 +2625,7 @@
             )
         }<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>store = <span class="self">self</span>.compiler.get_store()<span class="question-mark">?</span>;
-
-        get_module_infos(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>tempdir, <span class="kw-2">&amp;</span>atoms)<span class="question-mark">?</span>;
+        get_module_infos(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>tempdir, <span class="kw-2">&amp;</span>atoms)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>entrypoint = get_entrypoint(<span class="kw-2">&amp;</span>tempdir)<span class="question-mark">?</span>;
         create_header_files_in_dir(<span class="kw-2">&amp;</span>tempdir, <span class="kw-2">&amp;mut </span>entrypoint, <span class="kw-2">&amp;</span>atoms, <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom)<span class="question-mark">?</span>;
         link_exe_from_dir(
@@ -3176,7 +3174,7 @@
             }
             <span class="kw">continue</span>;
         }
-        <span class="kw">let </span>engine = compiler.get_compiler_engine_for_target(target.clone())<span class="question-mark">?</span>;
+        <span class="kw">let </span>engine = compiler.get_sys_compiler_engine_for_target(target.clone())<span class="question-mark">?</span>;
         <span class="kw">let </span>engine_inner = engine.as_sys().inner();
         <span class="kw">let </span>compiler = engine_inner.compiler()<span class="question-mark">?</span>;
         <span class="kw">let </span>features = engine_inner.features();
@@ -3369,7 +3367,7 @@
 // reads the module info from the wasm module and writes the ModuleInfo for each file
 // into the entrypoint.json file
 </span><span class="kw">fn </span>get_module_infos(
-    store: <span class="kw-2">&amp;</span>Store,
+    engine: <span class="kw-2">&amp;</span>Engine,
     directory: <span class="kw-2">&amp;</span>Path,
     atoms: <span class="kw-2">&amp;</span>[(String, Vec&lt;u8&gt;)],
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;String, ModuleInfo&gt;, anyhow::Error&gt; {
@@ -3378,7 +3376,7 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>module_infos = BTreeMap::new();
     <span class="kw">for </span>(atom_name, atom_bytes) <span class="kw">in </span>atoms {
-        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, atom_bytes.as_slice())<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = Module::new(engine, atom_bytes.as_slice())<span class="question-mark">?</span>;
         <span class="kw">let </span>module_info = module.info();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = entrypoint
             .atoms
@@ -3939,7 +3937,7 @@
 
     <span class="kw">use </span>anyhow::{anyhow, Context};
     <span class="kw">use </span>target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
-    <span class="kw">use </span>wasmer_compiler::types::target::{<span class="self">self </span><span class="kw">as </span>wasmer_types, CpuFeature, Target};
+    <span class="kw">use </span>wasmer_types::target::{CpuFeature, Target};
 
     <span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 
@@ -4192,7 +4190,9 @@
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>triple_to_zig_triple(target_triple: <span class="kw-2">&amp;</span>Triple) -&gt; String {
         <span class="kw">let </span>arch = <span class="kw">match </span>target_triple.architecture {
             Architecture::X86_64 =&gt; <span class="string">"x86_64"</span>.into(),
-            Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) =&gt; <span class="string">"aarch64"</span>.into(),
+            Architecture::Aarch64(wasmer_types::target::Aarch64Architecture::Aarch64) =&gt; {
+                <span class="string">"aarch64"</span>.into()
+            }
             v =&gt; v.to_string(),
         };
         <span class="kw">let </span>os = <span class="kw">match </span>target_triple.operating_system {

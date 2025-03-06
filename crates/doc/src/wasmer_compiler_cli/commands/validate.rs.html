@@ -38,12 +38,14 @@
 <a href="#38" id="38">38</a>
 <a href="#39" id="39">39</a>
 <a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::{path::PathBuf, str::FromStr};
-<span class="kw">use </span>wasmer_compiler::types::target::{CpuFeature, Target, Triple};
+<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::str::FromStr;
 <span class="kw">use </span>wasmer_types::is_wasm;
+<span class="kw">use </span>wasmer_types::target::{CpuFeature, Target, Triple};
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer validate` subcommand

@@ -329,7 +329,6 @@
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::Path;
 
 <span class="kw">use </span>wasmer_config::package::ModuleReference;
@@ -348,7 +347,7 @@
 
     </span><span class="kw">let </span>pkg_annotation = manifest
         .wapm()
-        .map_err(|err| ConversionError::with_cause(<span class="string">"could not read package annotation"</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| ConversionError::msg(<span class="macro">format!</span>(<span class="string">"could not read package annotation: {err}"</span>)))<span class="question-mark">?</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(ann) = pkg_annotation {
         <span class="kw">let </span><span class="kw-2">mut </span>pkg = wasmer_config::package::Package::new_empty();
 
@@ -406,7 +405,7 @@
 
     </span><span class="kw">let </span>fs_annotation = manifest
         .filesystem()
-        .map_err(|err| ConversionError::with_cause(<span class="string">"could n ot read fs annotation"</span>, err))<span class="question-mark">?</span>;
+        .map_err(|err| ConversionError::msg(<span class="macro">format!</span>(<span class="string">"could not read fs annotation: {err}"</span>)))<span class="question-mark">?</span>;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(ann) = fs_annotation {
         <span class="kw">for </span>mapping <span class="kw">in </span>ann.<span class="number">0 </span>{
             <span class="kw">if </span>mapping.from.is_some() {
@@ -509,10 +508,9 @@
         <span class="kw">let </span>atom_annotation = spec
             .annotation::&lt;webc::metadata::annotations::Atom&gt;(webc::metadata::annotations::Atom::KEY)
             .map_err(|err| {
-                ConversionError::with_cause(
-                    <span class="macro">format!</span>(<span class="string">"could not read atom annotation for command '{name}'"</span>),
-                    err,
-                )
+                ConversionError::msg(<span class="macro">format!</span>(
+                    <span class="string">"could not read atom annotation for command '{name}': {err}"
+                </span>))
             })<span class="question-mark">?
             </span>.ok_or_else(|| {
                 ConversionError::msg(<span class="macro">format!</span>(

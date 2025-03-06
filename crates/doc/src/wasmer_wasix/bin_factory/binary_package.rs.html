@@ -365,6 +365,20 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>anyhow::Context;
@@ -390,6 +404,7 @@
     <span class="attr">#[debug(ignore)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) atom: SharedBytes,
     hash: ModuleHash,
+    features: <span class="prelude-ty">Option</span>&lt;wasmer_types::Features&gt;,
 }
 
 <span class="kw">impl </span>BinaryPackageCommand {
@@ -398,12 +413,14 @@
         metadata: webc::metadata::Command,
         atom: SharedBytes,
         hash: ModuleHash,
+        features: <span class="prelude-ty">Option</span>&lt;wasmer_types::Features&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             name,
             metadata,
             atom,
             hash,
+            features,
         }
     }
 
@@ -424,6 +441,17 @@
     <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleHash {
         <span class="kw-2">&amp;</span><span class="self">self</span>.hash
     }
+
+    <span class="doccomment">/// Get the WebAssembly features required by this command's module
+    </span><span class="kw">pub fn </span>wasm_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_types::Features&gt; {
+        <span class="comment">// Return only the pre-computed features from the container manifest
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(features) = <span class="kw-2">&amp;</span><span class="self">self</span>.features {
+            <span class="kw">return </span><span class="prelude-val">Some</span>(features.clone());
+        }
+
+        <span class="comment">// If no annotations were found, return None
+        </span><span class="prelude-val">None
+    </span>}
 }
 
 <span class="doccomment">/// A WebAssembly package that has been loaded into memory.

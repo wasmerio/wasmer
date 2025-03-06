@@ -8734,11 +8734,11 @@
         function::FunctionBody,
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::{CustomSection, CustomSectionProtection, SectionBody},
-        target::{CallingConvention, CpuFeature, Target},
     },
     wasmparser::{MemArg, ValType <span class="kw">as </span>WpType},
 };
 <span class="kw">use </span>wasmer_types::{
+    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
 };
@@ -17017,7 +17017,7 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>enumset::enum_set;
     <span class="kw">use </span>std::str::FromStr;
-    <span class="kw">use </span>wasmer_compiler::types::target::{CpuFeature, Target, Triple};
+    <span class="kw">use </span>wasmer_types::target::{CpuFeature, Target, Triple};
 
     <span class="kw">fn </span>test_move_location(machine: <span class="kw-2">&amp;mut </span>MachineX86_64) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         machine.move_location_for_native(

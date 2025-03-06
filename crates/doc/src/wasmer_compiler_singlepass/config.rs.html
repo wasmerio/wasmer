@@ -72,11 +72,11 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::compiler::SinglepassCompiler;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>wasmer_compiler::{
-    types::target::{CpuFeature, Target},
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+<span class="kw">use </span>wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+<span class="kw">use </span>wasmer_types::{
+    target::{CpuFeature, Target},
+    Features,
 };
-<span class="kw">use </span>wasmer_types::Features;
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Singlepass {
@@ -112,8 +112,8 @@
         Box::new(SinglepassCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
     }
 
-    <span class="doccomment">/// Gets the default features for this compiler in the given target
-    </span><span class="kw">fn </span>default_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; Features {
+    <span class="doccomment">/// Gets the supported features for this compiler in the given target
+    </span><span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; Features {
         <span class="kw">let </span><span class="kw-2">mut </span>features = Features::default();
         features.multi_value(<span class="bool-val">false</span>);
         features

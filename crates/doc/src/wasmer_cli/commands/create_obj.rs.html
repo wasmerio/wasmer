@@ -261,19 +261,19 @@
             <span class="kw-2">&amp;</span>target_triple,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
         );
-        <span class="kw">let </span>compiler_type = <span class="self">self</span>.rt.get_rt()<span class="question-mark">?</span>;
-        <span class="kw">match </span>compiler_type {
-            <span class="kw">crate</span>::backend::BackendType::V8
-            | <span class="kw">crate</span>::backend::BackendType::Wamr
-            | <span class="kw">crate</span>::backend::BackendType::Wasmi =&gt; {
-                <span class="macro">anyhow::bail!</span>(<span class="string">"Cannot produce objects with {compiler_type}!"</span>)
-            }
-            <span class="kw">crate</span>::backend::BackendType::Headless =&gt; <span class="macro">todo!</span>(),
-            <span class="kw">_ </span>=&gt; {}
-        }
-        <span class="macro">println!</span>(<span class="string">"Compiler: {compiler_type}"</span>);
+        <span class="comment">// let compiler_type = self.rt.get_available_backends()?.get(0).unwrap();
+        // match compiler_type {
+        //     crate::backend::BackendType::Cranelift
+        //     | crate::backend::BackendType::LLVM
+        //     | crate::backend::BackendType::Singlepass=&gt; {
+        //     },
+        //     _ =&gt; {
+        //         anyhow::bail!("Cannot produce objects with {compiler_type}!")
+        //     }
+        // }
+        // println!("Compiler: {compiler_type}");
 
-        <span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
+        </span><span class="macro">println!</span>(<span class="string">"Target: {}"</span>, target.triple());
 
         <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(webc) = from_disk(<span class="kw-2">&amp;</span>input_path) {
             <span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory(

@@ -337,11 +337,11 @@
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>target_lexicon::BinaryFormat;
-<span class="kw">use </span>wasmer_compiler::{
-    types::target::{Architecture, OperatingSystem, Target, Triple},
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+<span class="kw">use </span>wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+<span class="kw">use </span>wasmer_types::{
+    target::{Architecture, OperatingSystem, Target, Triple},
+    Features, FunctionType, LocalFunctionIndex,
 };
-<span class="kw">use </span>wasmer_types::{Features, FunctionType, LocalFunctionIndex};
 
 <span class="doccomment">/// The InkWell ModuleInfo type
 </span><span class="kw">pub type </span>InkwellModule&lt;<span class="lifetime">'ctx</span>&gt; = inkwell::module::Module&lt;<span class="lifetime">'ctx</span>&gt;;
@@ -638,7 +638,7 @@
         <span class="self">self</span>.middlewares.push(middleware);
     }
 
-    <span class="kw">fn </span>default_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
+    <span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
         <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
         feats.exceptions(<span class="bool-val">true</span>);
         feats
