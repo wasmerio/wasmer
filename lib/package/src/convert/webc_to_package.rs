@@ -16,7 +16,7 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
 
     let pkg_annotation = manifest
         .wapm()
-        .map_err(|err| ConversionError::with_cause("could not read package annotation", err))?;
+        .map_err(|err| ConversionError::msg(format!("could not read package annotation: {err}")))?;
     if let Some(ann) = pkg_annotation {
         let mut pkg = wasmer_config::package::Package::new_empty();
 
@@ -74,7 +74,7 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
 
     let fs_annotation = manifest
         .filesystem()
-        .map_err(|err| ConversionError::with_cause("could n ot read fs annotation", err))?;
+        .map_err(|err| ConversionError::msg(format!("could not read fs annotation: {err}")))?;
     if let Some(ann) = fs_annotation {
         for mapping in ann.0 {
             if mapping.from.is_some() {
@@ -177,10 +177,9 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
         let atom_annotation = spec
             .annotation::<webc::metadata::annotations::Atom>(webc::metadata::annotations::Atom::KEY)
             .map_err(|err| {
-                ConversionError::with_cause(
-                    format!("could not read atom annotation for command '{name}'"),
-                    err,
-                )
+                ConversionError::msg(format!(
+                    "could not read atom annotation for command '{name}': {err}"
+                ))
             })?
             .ok_or_else(|| {
                 ConversionError::msg(format!(

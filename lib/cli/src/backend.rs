@@ -265,9 +265,9 @@ impl RuntimeOptions {
         let backends = self.get_available_backends()?;
         let required_features = Features::default();
         backends
-            .get(0)
+            .first()
             .unwrap()
-            .get_engine(&target, &required_features)
+            .get_engine(target, &required_features)
     }
 
     pub fn get_engine_for_module(&self, module_contents: &[u8], target: &Target) -> Result<Engine> {
@@ -275,20 +275,25 @@ impl RuntimeOptions {
             .detect_features_from_wasm(module_contents)
             .unwrap_or_default();
 
+        self.get_engine_for_features(&required_features, target)
+    }
+
+    pub fn get_engine_for_features(
+        &self,
+        required_features: &Features,
+        target: &Target,
+    ) -> Result<Engine> {
         let backends = self.get_available_backends()?;
         let filtered_backends =
-            Self::filter_backends_by_features(backends.clone(), &required_features, &target);
+            Self::filter_backends_by_features(backends.clone(), required_features, target);
 
-        if filtered_backends.len() == 0 {
+        if filtered_backends.is_empty() {
             let enabled_backends = BackendType::enabled();
             if backends.len() == 1 && enabled_backends.len() > 1 {
                 // If the user has chosen an specific backend, we can suggest to use another one
-                let filtered_backends = Self::filter_backends_by_features(
-                    enabled_backends,
-                    &required_features,
-                    &target,
-                );
-                let extra_text: String = if filtered_backends.len() > 0 {
+                let filtered_backends =
+                    Self::filter_backends_by_features(enabled_backends, required_features, target);
+                let extra_text: String = if !filtered_backends.is_empty() {
                     format!(". You can use --{} instead", filtered_backends[0])
                 } else {
                     "".to_string()
@@ -303,9 +308,9 @@ impl RuntimeOptions {
             }
         }
         filtered_backends
-            .get(0)
+            .first()
             .unwrap()
-            .get_engine(&target, &required_features)
+            .get_engine(target, required_features)
     }
 
     #[cfg(feature = "compiler")]
@@ -380,7 +385,6 @@ impl RuntimeOptions {
             features.exceptions(true);
         }
 
-        tracing::info!("Detected features: {:?}", features);
         Ok(features)
     }
 
@@ -390,7 +394,7 @@ impl RuntimeOptions {
         target: Target,
     ) -> std::result::Result<Engine, anyhow::Error> {
         let backends = self.get_available_backends()?;
-        let compiler_config = self.get_sys_compiler_config(&backends.get(0).unwrap())?;
+        let compiler_config = self.get_sys_compiler_config(backends.first().unwrap())?;
         let default_features = compiler_config.default_features_for_target(&target);
         let features = self.get_features(&default_features)?;
         Ok(wasmer_compiler::EngineBuilder::new(compiler_config)
@@ -656,13 +660,10 @@ impl BackendType {
         };
 
         // Get the supported features from the backend
-        let supported = wasmer::Engine::supported_features_for_backend(&backend_kind, &target);
+        let supported = wasmer::Engine::supported_features_for_backend(&backend_kind, target);
 
         // Check if the backend supports all required features
         if !supported.contains_features(required_features) {
-            tracing::info!("Backend {:?} doesn't support all required features", self);
-            tracing::info!("Supported: {:?}", supported);
-            tracing::info!("Required: {:?}", required_features);
             return false;
         }
 

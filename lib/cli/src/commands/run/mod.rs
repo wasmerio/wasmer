@@ -173,19 +173,22 @@ impl Run {
         // Get engine with feature-based backend selection if possible
         let mut engine = match &wasm_bytes {
             Some(wasm_bytes) => {
-                tracing::info!("Attempting to detect WebAssembly features");
+                tracing::info!("Attempting to detect WebAssembly features from binary");
 
                 self.rt
                     .get_engine_for_module(wasm_bytes, &Target::default())?
             }
             None => {
-                // No WebAssembly file available for analysis, use default engine selection
-                // TODO: get backends from the webc file
-                self.rt.get_engine(&Target::default())?
+                // No WebAssembly file available for analysis, check if we have a webc package
+                if let PackageSource::Package(ref pkg_source) = &self.input {
+                    tracing::info!("Checking package for WebAssembly features: {}", pkg_source);
+                    self.rt.get_engine(&Target::default())?
+                } else {
+                    tracing::info!("No feature detection possible, using default engine");
+                    self.rt.get_engine(&Target::default())?
+                }
             }
         };
-
-        tracing::info!("Executing on backend {}", engine.deterministic_id());
 
         #[cfg(feature = "sys")]
         if engine.is_sys() {
@@ -232,7 +235,61 @@ impl Run {
                     module_hash,
                     path,
                 } => self.execute_wasm(&path, module, module_hash, runtime.clone()),
-                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime.clone()),
+                ExecutableTarget::Package(pkg) => {
+                    // Check if we should update the engine based on the WebC package features
+                    if let Some(cmd) = pkg.get_entrypoint_command() {
+                        if let Some(features) = cmd.wasm_features() {
+                            // Get the right engine for these features
+                            let backends = self.rt.get_available_backends()?;
+                            let available_engines = backends
+                                .iter()
+                                .map(|b| b.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+
+                            let filtered_backends = RuntimeOptions::filter_backends_by_features(
+                                backends.clone(),
+                                &features,
+                                &Target::default(),
+                            );
+
+                            if !filtered_backends.is_empty() {
+                                let engine_id = filtered_backends[0].to_string();
+
+                                // Get a new engine that's compatible with the required features
+                                if let Ok(new_engine) =
+                                    filtered_backends[0].get_engine(&Target::default(), &features)
+                                {
+                                    tracing::info!(
+                                        "The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}.",
+                                        cmd.name(),
+                                        features,
+                                        available_engines,
+                                        engine_id
+                                    );
+                                    // Create a new runtime with the updated engine
+                                    let new_runtime = self.wasi.prepare_runtime(
+                                        new_engine,
+                                        &self.env,
+                                        &capabilities::get_capability_cache_path(
+                                            &self.env,
+                                            &self.input,
+                                        )?,
+                                        tokio::runtime::Builder::new_multi_thread()
+                                            .enable_all()
+                                            .build()?,
+                                        preferred_webc_version,
+                                    )?;
+
+                                    let new_runtime =
+                                        Arc::new(MonitoringRuntime::new(new_runtime, pb.clone()));
+                                    return self.execute_webc(&pkg, new_runtime);
+                                }
+                            }
+                        }
+                    }
+                    self.execute_webc(&pkg, runtime.clone())
+                }
             }
         };
 

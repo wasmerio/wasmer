@@ -57,6 +57,39 @@ impl BinaryPackageCommand {
     pub fn hash(&self) -> &ModuleHash {
         &self.hash
     }
+
+    /// Get the WebAssembly features required by this command's module
+    pub fn wasm_features(&self) -> Option<wasmer_types::Features> {
+        // Create default features
+        let mut features = wasmer_types::Features::default();
+
+        // Try to extract information from any annotations that might exist
+        if let Some(wasm_anno) = self.metadata().annotations.get("wasm") {
+            tracing::debug!("Found wasm annotation: {:?}", wasm_anno);
+            // We found an annotation, enable the basic features by default
+            features.reference_types(true);
+            features.bulk_memory(true);
+
+            // We'll use a simpler approach - if we have wasm annotations, just enable
+            // the features that are commonly needed for most modules
+            features.exceptions(true);
+
+            tracing::debug!("WebC module features from annotations: {:?}", features);
+            return Some(features);
+        }
+
+        // Fallback: Try to detect features from the atom bytes
+        match wasmer_types::Features::detect_from_wasm(&self.atom) {
+            Ok(features) => {
+                tracing::debug!("WebC module features detected from binary: {:?}", features);
+                Some(features)
+            }
+            Err(err) => {
+                tracing::warn!("Failed to detect WebAssembly features from atom: {}", err);
+                None
+            }
+        }
+    }
 }
 
 /// A WebAssembly package that has been loaded into memory.

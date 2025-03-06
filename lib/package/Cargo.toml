@@ -15,6 +15,7 @@ rust-version.workspace = true
 [dependencies]
 webc.workspace = true
 wasmer-config = { version = "0.13.0", path = "../config" }
+wasmer-types = { path = "../types" }
 toml = { workspace = true }
 bytes = "1.8.0"
 sha2 = "0.10.8"
