@@ -22,10 +22,10 @@ use std::sync::{Arc, Mutex};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, target::Target, DeserializeError, FunctionIndex, FunctionType,
-    LocalFunctionIndex, SignatureIndex,
+    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
+    SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, HashAlgorithm};
+use wasmer_types::{target::Target, CompileError, Features, HashAlgorithm};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
