@@ -169,216 +169,87 @@ pub struct RuntimeOptions {
 }
 
 impl RuntimeOptions {
-    /// Check if user explicitly specified a compiler/runtime backend
-    pub fn has_explicitly_selected_backend(&self) -> bool {
-        #[cfg(feature = "cranelift")]
-        if self.cranelift {
-            return true;
-        }
 
-        #[cfg(feature = "llvm")]
-        if self.llvm {
-            return true;
-        }
-
-        #[cfg(feature = "singlepass")]
-        if self.singlepass {
-            return true;
-        }
-
-        #[cfg(feature = "v8")]
-        if self.v8 {
-            return true;
-        }
-
-        #[cfg(feature = "wamr")]
-        if self.wamr {
-            return true;
-        }
-
-        #[cfg(feature = "wasmi")]
-        if self.wasmi {
-            return true;
-        }
-
-        false
-    }
-
-    pub fn get_rt(&self) -> Result<BackendType> {
+    pub fn get_available_backends(&self) -> Result<Vec<BackendType>> {
         // If a specific backend is explicitly requested, use it
         #[cfg(feature = "cranelift")]
         {
             if self.cranelift {
-                return Ok(BackendType::Cranelift);
+                return Ok(vec![BackendType::Cranelift]);
             }
         }
 
         #[cfg(feature = "llvm")]
         {
             if self.llvm {
-                return Ok(BackendType::LLVM);
+                return Ok(vec![BackendType::LLVM]);
             }
         }
 
         #[cfg(feature = "singlepass")]
         {
             if self.singlepass {
-                return Ok(BackendType::Singlepass);
+                return Ok(vec![BackendType::Singlepass]);
             }
         }
 
         #[cfg(feature = "wamr")]
         {
             if self.wamr {
-                return Ok(BackendType::Wamr);
+                return Ok(vec![BackendType::Wamr]);
             }
         }
 
         #[cfg(feature = "v8")]
         {
             if self.v8 {
-                return Ok(BackendType::V8);
+                return Ok(vec![BackendType::V8]);
             }
         }
 
         #[cfg(feature = "wasmi")]
         {
             if self.wasmi {
-                return Ok(BackendType::Wasmi);
+                return Ok(vec![BackendType::Wasmi]);
             }
         }
 
-        // Auto mode - select a backend based on required features
-        #[cfg(feature = "compiler")]
-        {
-            // Get the features we need for this module
-            let target = Target::default();
-            let features = self.get_configured_features().unwrap_or_default();
-
-            // Get all backends that support these features
-            let supported_backends = BackendType::filter_by_features(&features);
-
-            // Return the best available backend that supports the required features
-            if !supported_backends.is_empty() {
-                // Priority order: Cranelift > LLVM > Singlepass > V8 > Wasmi > WAMR
-                #[cfg(feature = "cranelift")]
-                {
-                    if supported_backends.contains(&BackendType::Cranelift) {
-                        return Ok(BackendType::Cranelift);
-                    }
-                }
-
-                #[cfg(feature = "llvm")]
-                {
-                    if supported_backends.contains(&BackendType::LLVM) {
-                        return Ok(BackendType::LLVM);
-                    }
-                }
-
-                #[cfg(feature = "singlepass")]
-                {
-                    if supported_backends.contains(&BackendType::Singlepass) {
-                        return Ok(BackendType::Singlepass);
-                    }
-                }
-
-                #[cfg(feature = "v8")]
-                {
-                    if supported_backends.contains(&BackendType::V8) {
-                        return Ok(BackendType::V8);
-                    }
-                }
-
-                #[cfg(feature = "wasmi")]
-                {
-                    if supported_backends.contains(&BackendType::Wasmi) {
-                        return Ok(BackendType::Wasmi);
-                    }
-                }
-
-                #[cfg(feature = "wamr")]
-                {
-                    if supported_backends.contains(&BackendType::Wamr) {
-                        return Ok(BackendType::Wamr);
-                    }
-                }
-
-                // Fallback to first supported backend
-                return Ok(supported_backends[0]);
-            }
-
-            // If no backend supports the required features, fall back to defaults
-            // Order: Cranelift > LLVM > Singlepass > V8 > Wasmi > WAMR
-            cfg_if::cfg_if! {
-                if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
-                    Ok(BackendType::Cranelift)
-                } else if #[cfg(feature = "llvm")] {
-                    Ok(BackendType::LLVM)
-                } else if #[cfg(all(feature = "singlepass", any(target_arch = "x86_64", target_arch = "aarch64")))] {
-                    Ok(BackendType::Singlepass)
-                } else if #[cfg(feature = "v8")] {
-                    Ok(BackendType::V8)
-                } else if #[cfg(feature = "wasmi")] {
-                    Ok(BackendType::Wasmi)
-                } else if #[cfg(feature = "wamr")] {
-                    Ok(BackendType::Wamr)
-                } else {
-                    bail!("There are no available runtimes for your architecture");
-                }
-            }
-        }
-
-        // Fallback if we're not compiled with the compiler feature
-        #[cfg(not(feature = "compiler"))]
-        {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "v8")] {
-                    Ok(BackendType::V8)
-                } else if #[cfg(feature = "wamr")] {
-                    Ok(BackendType::Wamr)
-                } else if #[cfg(feature = "wasmi")] {
-                    Ok(BackendType::Wasmi)
-                } else {
-                    bail!("There are no available runtimes for your architecture");
-                }
-            }
-        }
+        Ok(BackendType::enabled())
+    }
+    
+    /// Filter enabled backends based on required WebAssembly features
+    pub fn filter_backends_by_features(backends: Vec<BackendType>, required_features: &Features, target: &Target) -> Vec<BackendType> {
+        backends
+            .into_iter()
+            .filter(|backend| {
+                backend.supports_features(required_features, target)
+            })
+            .collect()
     }
 
     pub fn get_store(&self) -> Result<Store> {
-        #[cfg(feature = "compiler")]
-        #[allow(clippy::needless_return)]
-        {
-            let target = Target::default();
-            return self.get_store_for_target(target);
-        }
-
-        #[cfg(not(feature = "compiler"))]
-        {
-            let engine = self.get_engine()?;
-            Ok(Store::new(engine))
-        }
+        let engine = self.get_engine(&Target::default())?;
+        Ok(Store::new(engine))
     }
 
-    pub fn get_engine(&self) -> Result<Engine> {
-        #[cfg(feature = "compiler")]
-        #[allow(clippy::needless_return)]
-        {
-            let target = Target::default();
-            return self.get_engine_for_target(target);
+    pub fn get_engine(&self, target: &Target) -> Result<Engine> {
+        let backends = self.get_available_backends()?;
+        let required_features = Features::default();
+        backends.get(0).unwrap().get_engine(&target, &required_features)
+    }
+
+    pub fn get_engine_for_module(&self, module_contents: &[u8], target: &Target) -> Result<Engine> {
+        let required_features = self
+            .detect_features_from_wasm(module_contents)
+            .unwrap_or_default();
+
+        let backends = self.get_available_backends()?;
+        let filtered_backends = Self::filter_backends_by_features(backends, &required_features, &target);
+
+        if filtered_backends.len() == 0 {
+            bail!("No backends support the required features for the Wasm module");
         }
-        #[cfg(not(feature = "compiler"))]
-        {
-            Ok(match self.get_rt()? {
-                #[cfg(feature = "v8")]
-                BackendType::V8 => v8::V8::new().into(),
-                #[cfg(feature = "wamr")]
-                BackendType::Wamr => wamr::Wamr::new().into(),
-                #[cfg(feature = "wasmi")]
-                BackendType::Wasmi => wasmi::Wasmi::new().into(),
-                _ => unreachable!(),
-            })
-        }
+        filtered_backends.get(0).unwrap().get_engine(&target, &required_features)
     }
 
     #[cfg(feature = "compiler")]
@@ -546,63 +417,13 @@ impl RuntimeOptions {
         Ok(features)
     }
 
-    /// Gets the Store for a given target.
     #[cfg(feature = "compiler")]
-    pub fn get_store_for_target(&self, target: Target) -> Result<Store> {
-        let rt = self.get_rt()?;
-        let engine = self.get_engine_for_target_and_rt(target, &rt)?;
-        let store = Store::new(engine);
-        Ok(store)
-    }
-
-    #[cfg(feature = "compiler")]
-    pub fn get_engine_for_target(&self, target: Target) -> Result<Engine> {
-        let rt = self.get_rt()?;
-        self.get_engine_for_target_and_rt(target, &rt)
-    }
-
-    #[cfg(feature = "compiler")]
-    fn get_engine_for_target_and_rt(&self, target: Target, rt: &BackendType) -> Result<Engine> {
-        match rt {
-            BackendType::V8 => {
-                #[cfg(feature = "v8")]
-                return Ok(wasmer::v8::V8::new().into());
-                #[allow(unreachable_code)]
-                {
-                    anyhow::bail!("The `v8` engine is not enabled in this build.")
-                }
-            }
-            BackendType::Wamr => {
-                #[cfg(feature = "wamr")]
-                return Ok(wasmer::wamr::Wamr::new().into());
-                #[allow(unreachable_code)]
-                {
-                    anyhow::bail!("The `wamr` engine is not enabled in this build.")
-                }
-            }
-            BackendType::Wasmi => {
-                #[cfg(feature = "wasmi")]
-                return Ok(wasmer::wasmi::Wasmi::new().into());
-                #[allow(unreachable_code)]
-                {
-                    anyhow::bail!("The `wasmi` engine is not enabled in this build.")
-                }
-            }
-            #[cfg(feature = "compiler")]
-            _ => self.get_compiler_engine_for_target(target),
-
-            #[cfg(not(feature = "compiler"))]
-            _ => anyhow::bail!("No engine selected!"),
-        }
-    }
-
-    #[cfg(feature = "compiler")]
-    pub fn get_compiler_engine_for_target(
+    pub fn get_sys_compiler_engine_for_target(
         &self,
         target: Target,
     ) -> std::result::Result<Engine, anyhow::Error> {
-        let rt = self.get_rt()?;
-        let compiler_config = self.get_compiler_config(&rt)?;
+        let backends = self.get_available_backends()?;
+        let compiler_config = self.get_sys_compiler_config(&backends.get(0).unwrap())?;
         let default_features = compiler_config.default_features_for_target(&target);
         let features = self.get_features(&default_features)?;
         Ok(wasmer_compiler::EngineBuilder::new(compiler_config)
@@ -614,7 +435,7 @@ impl RuntimeOptions {
 
     #[allow(unused_variables)]
     #[cfg(feature = "compiler")]
-    pub(crate) fn get_compiler_config(&self, rt: &BackendType) -> Result<Box<dyn CompilerConfig>> {
+    pub(crate) fn get_sys_compiler_config(&self, rt: &BackendType) -> Result<Box<dyn CompilerConfig>> {
         let compiler_config: Box<dyn CompilerConfig> = match rt {
             BackendType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
@@ -782,12 +603,12 @@ impl BackendType {
     /// Return all enabled compilers
     pub fn enabled() -> Vec<Self> {
         vec![
-            #[cfg(feature = "singlepass")]
-            Self::Singlepass,
             #[cfg(feature = "cranelift")]
             Self::Cranelift,
             #[cfg(feature = "llvm")]
             Self::LLVM,
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass,
             #[cfg(feature = "v8")]
             Self::V8,
             #[cfg(feature = "wamr")]
@@ -844,10 +665,7 @@ impl BackendType {
     }
 
     /// Check if this backend supports all the required WebAssembly features
-    #[cfg(feature = "compiler")]
-    pub fn supports_features(&self, required_features: &Features) -> Result<bool> {
-        let target = Target::default();
-
+    pub fn supports_features(&self, required_features: &Features, target: &Target) -> bool {
         // Map BackendType to the corresponding wasmer::BackendKind
         let backend_kind = match self {
             #[cfg(feature = "singlepass")]
@@ -862,73 +680,23 @@ impl BackendType {
             Self::Wamr => wasmer::BackendKind::Wamr,
             #[cfg(feature = "wasmi")]
             Self::Wasmi => wasmer::BackendKind::Wasmi,
-            Self::Headless => return Ok(false), // Headless can't compile
+            Self::Headless => return false, // Headless can't compile
             #[allow(unreachable_patterns)]
-            _ => return Ok(false),
+            _ => return false,
         };
 
         // Get the supported features from the backend
-        let mut supported = wasmer::Engine::supported_features_for_backend(&backend_kind, &target);
-
-        if matches!(self, Self::LLVM) {
-            supported.exceptions(true);
-            tracing::info!("Explicitly enabled exceptions support for LLVM backend");
-        }
+        let supported = wasmer::Engine::supported_features_for_backend(&backend_kind, &target);
 
         // Check if the backend supports all required features
         if !supported.contains_features(required_features) {
             tracing::info!("Backend {:?} doesn't support all required features", self);
             tracing::info!("Supported: {:?}", supported);
             tracing::info!("Required: {:?}", required_features);
-            return Ok(false);
+            return false;
         }
 
-        // Try creating an engine to verify features work
-        let engine = self.get_engine(&target, required_features)?;
-
-        // If we got this far, basic feature requirements are met
-        Ok(true)
-    }
-
-    /// Filter enabled backends based on required WebAssembly features
-    #[cfg(feature = "compiler")]
-    pub fn filter_by_features(required_features: &Features) -> Vec<Self> {
-        let available_backends = Self::enabled();
-        let target = wasmer_compiler::types::target::Target::default();
-
-        // Special handling for exceptions - if exceptions are required, make sure LLVM is included
-        if required_features.exceptions {
-            #[cfg(feature = "llvm")]
-            {
-                tracing::info!("Module requires exceptions, forcing inclusion of LLVM backend");
-
-                // If LLVM is available, return it as the only option for exceptions
-                for backend in &available_backends {
-                    if matches!(backend, Self::LLVM) {
-                        return vec![Self::LLVM];
-                    }
-                }
-            }
-        }
-
-        // Normal filtering for other features
-        available_backends
-            .into_iter()
-            .filter(|backend| {
-                // First check using the Engine::supported_features_for_backend
-                // which queries the actual engine implementations
-                match wasmer::Engine::supported_features_for_backend(&backend.into(), &target) {
-                    supported if supported.contains_features(required_features) => true,
-                    _ => {
-                        // Fallback to our hardcoded checks if the engine-based check fails
-                        match backend.supports_features(required_features) {
-                            Ok(true) => true,
-                            _ => false,
-                        }
-                    }
-                }
-            })
-            .collect()
+        true
     }
 }
 
