@@ -638,6 +638,7 @@ impl BackendType {
     }
 
     /// Check if this backend supports all the required WebAssembly features
+    #[allow(unreachable_code)]
     pub fn supports_features(&self, required_features: &Features, target: &Target) -> bool {
         // Map BackendType to the corresponding wasmer::BackendKind
         let backend_kind = match self {
