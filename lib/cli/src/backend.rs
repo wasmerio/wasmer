@@ -688,7 +688,7 @@ impl From<&BackendType> for wasmer::BackendKind {
             _ => {
                 #[cfg(feature = "sys")]
                 {
-                    return wasmer::BackendKind::Headless;
+                    wasmer::BackendKind::Headless
                 }
                 #[cfg(not(feature = "sys"))]
                 {
