@@ -28,6 +28,15 @@ pub struct PackageDownload {
     #[clap(long)]
     pub quiet: bool,
 
+    /// Unpack the downloaded package.
+    ///
+    /// The output directory will be next to the downloaded file.
+    ///
+    /// Note: unpacking can also be done manually with the `wasmer package unpack`
+    /// command.
+    #[clap(long)]
+    unpack: bool,
+
     /// The package to download.
     package: PackageSource,
 }
@@ -61,6 +70,28 @@ impl PackageDownload {
         ));
 
         step_num += 1;
+
+        let out_dir = if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
+            match parent.metadata() {
+                Ok(m) => {
+                    if !m.is_dir() {
+                        bail!(
+                            "parent of output file is not a directory: '{}'",
+                            parent.display()
+                        );
+                    }
+                    parent.to_owned()
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    std::fs::create_dir_all(parent)
+                        .context("could not create parent directory of output file")?;
+                    parent.to_owned()
+                }
+                Err(err) => return Err(err.into()),
+            }
+        } else {
+            current_dir()?
+        };
 
         if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
             match parent.metadata() {
@@ -195,11 +226,7 @@ impl PackageDownload {
         // Set the length of the progress bar
         pb.set_length(webc_total_size);
 
-        let mut tmpfile = if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
-            NamedTempFile::new_in(parent)?
-        } else {
-            NamedTempFile::new()?
-        };
+        let mut tmpfile = NamedTempFile::new_in(&out_dir)?;
         let accepted_contenttypes = vec![
             "application/webc",
             "application/octet-stream",
@@ -239,7 +266,7 @@ impl PackageDownload {
         let out_path = if let Some(out_path) = &self.out_path {
             out_path.clone()
         } else {
-            current_dir()?.join(filename)
+            out_dir.join(filename)
         };
 
         tmpfile.persist(&out_path).with_context(|| {
@@ -257,6 +284,23 @@ impl PackageDownload {
 
         // We're done, so finish the progress bar
         pb.finish();
+
+        if self.unpack {
+            let out_dir = if out_path.extension().is_some() {
+                out_path.with_extension("")
+            } else {
+                out_path.with_extension("unpacked")
+            };
+
+            let unpack_cmd = super::unpack::PackageUnpack {
+                out_dir,
+                overwrite: false,
+                quiet: self.quiet,
+                package_path: out_path,
+                format: super::unpack::Format::Package,
+            };
+            unpack_cmd.execute()?;
+        }
 
         Ok(())
     }
@@ -283,11 +327,14 @@ mod tests {
             validate: true,
             out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
+            unpack: true,
             quiet: true,
         };
 
         cmd.execute().unwrap();
 
         from_disk(out_path).unwrap();
+
+        assert!(dir.path().join("hello/wasmer.toml").is_file());
     }
 }
