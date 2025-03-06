@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, num::NonZeroUsize};
 
-use wasmer_vm::StoreId;
+use wasmer_types::StoreId;
 
 use crate::jsc::vm::{VMFunctionEnvironment, VMGlobal};
 
