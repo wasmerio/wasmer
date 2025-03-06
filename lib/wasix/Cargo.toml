@@ -255,6 +255,7 @@ enable-serde = [
 [package.metadata.docs.rs]
 features = [
 	"wasmer/sys",
+	"wasmer/compiler",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
 	"webc_runner_rt_dproxy",
