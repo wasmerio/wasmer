@@ -266,6 +266,7 @@ impl Features {
             && (!required.extended_const || self.extended_const)
     }
 
+    #[cfg(feature = "detect-wasm-features")]
     /// Detects required WebAssembly features from a module binary.
     ///
     /// This method analyzes a WebAssembly module's binary to determine which

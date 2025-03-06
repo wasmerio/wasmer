@@ -133,6 +133,7 @@ wasmer-wasix = { path = "../wasix", version = "=0.37.0", features = [
 wasmer-wast = { version = "=6.0.0-alpha.2", path = "../../tests/lib/wast", optional = true }
 wasmer-types = { version = "=6.0.0-alpha.2", path = "../types", features = [
 	"enable-serde",
+	"detect-wasm-features"
 ] }
 virtual-fs = { version = "0.23.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
