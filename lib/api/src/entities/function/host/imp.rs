@@ -25,7 +25,13 @@ impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* 
       paste::paste!{
       match rt {
           #[cfg(feature = "sys")]
-          crate::backend::BackendKind::Sys => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+          crate::backend::BackendKind::Headless => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+          #[cfg(feature = "llvm")]
+          crate::backend::BackendKind::LLVM => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+          #[cfg(feature = "cranelift")]
+          crate::backend::BackendKind::Cranelift => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
+          #[cfg(feature = "singlepass")]
+          crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
           #[cfg(feature = "js")]
           crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
           #[cfg(feature = "jsc")]
@@ -40,14 +46,16 @@ impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* 
       }
   }
 
+  fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
+    paste::paste!{
+        crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower >](self))
+    }
+  }
+
   #[allow(non_snake_case)]
-  fn call_trampoline_address(rt: crate::backend::BackendKind) -> crate::vm::VMTrampoline {
+  fn call_trampoline_address() -> crate::vm::VMTrampoline {
       paste::paste!{
-      match rt {
-          #[cfg(feature = "sys")]
-          crate::backend::BackendKind::Sys => crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower >]::<$($x,)* Rets>()),
-          _ => unimplemented!()
-      }
+        crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower >]::<$($x,)* Rets>())
       }
   }
 
@@ -72,7 +80,13 @@ where
     paste::paste!{
       match rt {
           #[cfg(feature = "sys")]
-          crate::backend::BackendKind::Sys => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+          crate::backend::BackendKind::Headless => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+          #[cfg(feature = "llvm")]
+          crate::backend::BackendKind::LLVM => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+          #[cfg(feature = "cranelift")]
+          crate::backend::BackendKind::Cranelift => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+          #[cfg(feature = "singlepass")]
+          crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
           #[cfg(feature = "js")]
           crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
           #[cfg(feature = "jsc")]
@@ -88,13 +102,16 @@ where
   }
 
   #[allow(non_snake_case)]
-  fn call_trampoline_address(rt: crate::backend::BackendKind) -> crate::vm::VMTrampoline {
+  fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
     paste::paste!{
-          match rt {
-              #[cfg(feature = "sys")]
-              crate::backend::BackendKind::Sys => crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower _no_env>]::<$($x,)* Rets>()),
-              _ => unimplemented!()
-          }
+        crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
+    }
+  }
+
+  #[allow(non_snake_case)]
+  fn call_trampoline_address() -> crate::vm::VMTrampoline {
+    paste::paste!{
+          crate::vm::VMTrampoline::Sys(crate::backend::sys::function::[<gen_call_trampoline_address_ $c_struct_name:lower _no_env>]::<$($x,)* Rets>())
           }
       }
     }

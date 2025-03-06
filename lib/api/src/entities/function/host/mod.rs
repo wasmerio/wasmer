@@ -18,8 +18,13 @@ where
     /// Get the pointer to the function body for a given runtime.
     fn function_callback(&self, rt: BackendKind) -> crate::vm::VMFunctionCallback;
 
+    /// Get the pointer to the function body for a given runtime.
+    fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
+        unimplemented!()
+    }
+
     /// Get the pointer to the function call trampoline for a given runtime.
-    fn call_trampoline_address(rt: BackendKind) -> crate::vm::VMTrampoline;
+    fn call_trampoline_address() -> crate::vm::VMTrampoline;
 }
 
 /// Empty trait to specify the kind of `HostFunction`: With or

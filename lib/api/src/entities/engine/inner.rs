@@ -14,114 +14,12 @@ use crate::{
 gen_rt_ty!(Engine @derives Debug, Clone);
 
 impl BackendEngine {
-    /// Returns the [`crate::BackendKind`] kind this engine belongs to.
-    #[inline]
-    pub fn get_be_kind(&self) -> crate::BackendKind {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(_) => crate::BackendKind::Sys,
-            #[cfg(feature = "v8")]
-            Self::V8(_) => crate::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr(_) => crate::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(_) => crate::BackendKind::Wasmi,
-            #[cfg(feature = "js")]
-            Self::Js(_) => crate::BackendKind::Js,
-            #[cfg(feature = "jsc")]
-            Self::Jsc(_) => crate::BackendKind::Jsc,
-        }
-    }
-
     /// Returns the deterministic id of this engine.
     #[inline]
     pub fn deterministic_id(&self) -> &str {
         match_rt!(on self  => s {
             s.deterministic_id()
         })
-    }
-
-    /// Returns the default WebAssembly features that this backend enables for the given target.
-    #[inline]
-    pub fn default_features_for_target(&self, target: &Target) -> Features {
-        // For backends, use the appropriate default features
-        match self.get_be_kind() {
-            #[cfg(feature = "sys")]
-            crate::BackendKind::Sys => {
-                // For SYS, we use target features from the engine
-                // We already know this is a Sys backend due to the match branch
-                let engine = match self {
-                    Self::Sys(engine) => engine,
-                    // This is unreachable because we're already in the Sys match branch
-                    _ => unreachable!(),
-                };
-
-                // Try to access the inner features
-                #[cfg(feature = "compiler")]
-                {
-                    let inner = engine.inner();
-                    let features = inner.features();
-                    return features.clone();
-                }
-
-                // Otherwise, use compiler defaults if available
-                #[cfg(feature = "cranelift")]
-                {
-                    let cranelift_config = wasmer_compiler_cranelift::Cranelift::new();
-                    return cranelift_config.default_features_for_target(target);
-                }
-
-                #[cfg(all(feature = "llvm", not(feature = "cranelift")))]
-                {
-                    let llvm_config = wasmer_compiler_llvm::LLVM::new();
-                    return llvm_config.default_features_for_target(target);
-                }
-
-                #[cfg(all(
-                    feature = "singlepass",
-                    not(feature = "cranelift"),
-                    not(feature = "llvm")
-                ))]
-                {
-                    let singlepass_config = wasmer_compiler_singlepass::Singlepass::new();
-                    return singlepass_config.default_features_for_target(target);
-                }
-
-                // Fallback to default
-                Features::default()
-            }
-
-            // For other backends, provide hardcoded defaults
-            _ => Features::default(),
-        }
-    }
-
-    /// Returns all WebAssembly features that this backend is capable of supporting for the given target.
-    #[inline]
-    pub fn supported_features_for_target(backend: &BackendKind, target: &Target) -> Features {
-        // For backends, use the appropriate supported features
-        match backend {
-            #[cfg(feature = "sys")]
-            crate::BackendKind::Sys => {
-                // Call the dedicated function in the sys engine module
-                crate::backend::sys::entities::engine::supported_features(target)
-            }
-
-            #[cfg(feature = "v8")]
-            crate::BackendKind::V8 => {
-                // Get V8-specific features
-                crate::backend::v8::engine::Engine::supported_features()
-            }
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendKind::Wasmi => {
-                // Get WASMI-specific features
-                crate::backend::wasmi::engine::Engine::supported_features()
-            }
-
-            // Default features for all other backends
-            _ => Features::default(),
-        }
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]

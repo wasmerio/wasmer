@@ -23,9 +23,21 @@ pub mod jsc;
 #[derive(Debug, Clone, Copy)]
 /// An enumeration over all the supported runtimes.
 pub enum BackendKind {
+    #[cfg(feature = "cranelift")]
+    /// The `cranelift` runtime.
+    Cranelift,
+
+    #[cfg(feature = "llvm")]
+    /// The `llvm` runtime.
+    LLVM,
+
+    #[cfg(feature = "singlepass")]
+    /// The `singlepass` runtime.
+    Singlepass,
+
     #[cfg(feature = "sys")]
-    /// The `sys` runtime.
-    Sys,
+    /// The sys `headless` runtime.
+    Headless,
 
     #[cfg(feature = "wamr")]
     /// The `wamr` runtime.

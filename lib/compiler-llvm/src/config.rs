@@ -309,7 +309,7 @@ impl CompilerConfig for LLVM {
         self.middlewares.push(middleware);
     }
 
-    fn default_features_for_target(&self, _target: &Target) -> wasmer_types::Features {
+    fn supported_features_for_target(&self, _target: &Target) -> wasmer_types::Features {
         let mut feats = Features::default();
         feats.exceptions(true);
         feats

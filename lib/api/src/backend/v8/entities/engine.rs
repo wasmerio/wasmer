@@ -67,6 +67,11 @@ impl Engine {
         features.exceptions(false);
         features
     }
+
+    /// Returns the default features for the V8 engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
+    }
 }
 
 unsafe impl Send for Engine {}

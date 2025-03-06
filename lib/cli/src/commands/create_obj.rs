@@ -80,17 +80,17 @@ impl CreateObj {
             &target_triple,
             &self.cpu_features,
         );
-        let compiler_type = self.rt.get_rt()?;
-        match compiler_type {
-            crate::backend::BackendType::V8
-            | crate::backend::BackendType::Wamr
-            | crate::backend::BackendType::Wasmi => {
-                anyhow::bail!("Cannot produce objects with {compiler_type}!")
-            }
-            crate::backend::BackendType::Headless => todo!(),
-            _ => {}
-        }
-        println!("Compiler: {compiler_type}");
+        // let compiler_type = self.rt.get_available_backends()?.get(0).unwrap();
+        // match compiler_type {
+        //     crate::backend::BackendType::Cranelift
+        //     | crate::backend::BackendType::LLVM
+        //     | crate::backend::BackendType::Singlepass=> {
+        //     },
+        //     _ => {
+        //         anyhow::bail!("Cannot produce objects with {compiler_type}!")
+        //     }
+        // }
+        // println!("Compiler: {compiler_type}");
 
         println!("Target: {}", target.triple());
 

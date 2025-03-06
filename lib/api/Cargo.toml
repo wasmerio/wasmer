@@ -125,17 +125,14 @@ artifact-size = [
 ]
 
 # Features for `sys`.
-sys = ["wasmer-compiler/translator", "wasmer-compiler/compiler", "std"]
+sys = ["std"]
 sys-default = ["sys", "wat", "cranelift"]
 
 # - Compilers.
-compiler = ["sys"]
+compiler = ["sys", "wasmer-compiler/translator", "wasmer-compiler/compiler"]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
-
-# - Engines.
-engine = ["sys"]
 
 # --- Enable the WAMR backend and use it as default backend.
 wamr-default = ["wamr", "wat"]
@@ -153,9 +150,6 @@ v8 = ["wasm-c-api", "std", "dep:which", "dep:xz"]
 v8-default = ["v8", "wat"]
 
 wasm-c-api = ["wasm-types-polyfill"]
-
-# - Deprecated features.
-jit = ["engine"]
 
 # Features for `js`.
 js = ["wasm-bindgen", "js-sys"]
@@ -202,8 +196,6 @@ features = [
 	"compiler",
 	"core",
 	"cranelift",
-	"engine",
-	"jit",
 	"singlepass",
 	"static-artifact-create",
 	"static-artifact-load",

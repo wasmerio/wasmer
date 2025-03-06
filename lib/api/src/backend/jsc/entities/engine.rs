@@ -185,6 +185,11 @@ impl Engine {
         features
     }
 
+    /// Returns the default features for the JSC engine.
+    pub fn default_features() -> Features {
+        Self::supported_features()
+    }
+
     #[inline]
     pub(crate) fn context(&self) -> &JSContext {
         &self.inner.context
