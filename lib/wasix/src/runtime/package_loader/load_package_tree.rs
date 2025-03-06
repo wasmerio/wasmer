@@ -11,6 +11,7 @@ use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
 use wasmer_config::package::PackageId;
+use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
 
@@ -31,35 +32,7 @@ use super::to_module_hash;
 fn wasm_annotation_to_features(
     wasm_annotation: &webc::metadata::annotations::Wasm,
 ) -> Option<wasmer_types::Features> {
-    // Create features object from the annotation strings
-    let mut features = wasmer_types::Features::default();
-
-    // Set features based on the string values in the annotation
-    features.simd(wasm_annotation.features.contains(&"simd".to_string()));
-    features.bulk_memory(
-        wasm_annotation
-            .features
-            .contains(&"bulk-memory".to_string()),
-    );
-    features.reference_types(
-        wasm_annotation
-            .features
-            .contains(&"reference-types".to_string()),
-    );
-    features.multi_value(
-        wasm_annotation
-            .features
-            .contains(&"multi-value".to_string()),
-    );
-    features.threads(wasm_annotation.features.contains(&"threads".to_string()));
-    features.exceptions(
-        wasm_annotation
-            .features
-            .contains(&"exception-handling".to_string()),
-    );
-    features.memory64(wasm_annotation.features.contains(&"memory64".to_string()));
-
-    Some(features)
+    Some(wasm_annotations_to_features(&wasm_annotation.features))
 }
 
 /// Extract WebAssembly features from atom metadata if available

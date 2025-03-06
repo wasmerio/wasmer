@@ -16,6 +16,8 @@ use webc::{
     sanitize_path,
 };
 
+use crate::utils::features_to_wasm_annotations;
+
 use webc::metadata::{
     annotations::{
         Atom as AtomAnnotation, FileSystemMapping, FileSystemMappings, VolumeSpecificPath, Wapm,
@@ -304,29 +306,7 @@ fn transform_atoms_shared(
 
         if let Ok(features) = features_result {
             // Convert wasmer_types::Features to webc::metadata::annotations::Wasm
-            let mut feature_strings = Vec::new();
-
-            if features.simd {
-                feature_strings.push("simd".to_string());
-            }
-            if features.bulk_memory {
-                feature_strings.push("bulk-memory".to_string());
-            }
-            if features.reference_types {
-                feature_strings.push("reference-types".to_string());
-            }
-            if features.multi_value {
-                feature_strings.push("multi-value".to_string());
-            }
-            if features.threads {
-                feature_strings.push("threads".to_string());
-            }
-            if features.exceptions {
-                feature_strings.push("exception-handling".to_string());
-            }
-            if features.memory64 {
-                feature_strings.push("memory64".to_string());
-            }
+            let feature_strings = features_to_wasm_annotations(&features);
 
             // Only create annotation if we detected features
             if !feature_strings.is_empty() {
