@@ -45,23 +45,6 @@ impl JournalEffector {
             }
         }
 
-        let ret = crate::syscalls::fd_fdflags_set_internal(
-            ctx,
-            copied_fd,
-            if cloexec {
-                Fdflagsext::CLOEXEC
-            } else {
-                Fdflagsext::empty()
-            },
-        );
-        if !matches!(ret, Ok(Errno::Success)) {
-            bail!(
-                "journal restore error: failed to update fdflags after duplicate (fd={}) - {}",
-                copied_fd,
-                ret.unwrap_or(Errno::Unknown)
-            );
-        }
-
         Ok(())
     }
 }
