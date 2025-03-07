@@ -34,7 +34,7 @@ async = ["async-trait", "wai-bindgen-wasmer-impl/async"]
 
 # Wasmer features
 js = ["wasmer/js-default"]
-sys = ["wasmer/sys"]
+sys = ["wasmer/sys-default"]
 
 # Wasmer compiler (with `sys` feature only)
 cranelift = ["wasmer/cranelift"]
