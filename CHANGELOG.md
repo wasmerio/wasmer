@@ -8,6 +8,36 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.0.0-beta.1 - 07/03/2025
+
+## Added
+
+  - [#5448](https://github.com/wasmerio/wasmer/pull/5448) Add tests for exec*p and posix_spawnp
+  - [#5439](https://github.com/wasmerio/wasmer/pull/5439) feat: Add `check-api-features` Makefile target
+  - [#5347](https://github.com/wasmerio/wasmer/pull/5347) Add support for exceptions in LLVM
+  - [#5433](https://github.com/wasmerio/wasmer/pull/5433) fix(api): Add missing loupe::MemoryUsage impls
+
+## Changed
+
+  - [#5451](https://github.com/wasmerio/wasmer/pull/5451) Select engine based on WASM module feature requirements
+  - [#5458](https://github.com/wasmerio/wasmer/pull/5458) Select engine based on WASM module feature requirements (v2)
+  - [#5455](https://github.com/wasmerio/wasmer/pull/5455) Engine selection improved
+  - [#5454](https://github.com/wasmerio/wasmer/pull/5454) CLI: package unpack command improvements
+  - [#5415](https://github.com/wasmerio/wasmer/pull/5415) chore(wasix): Avoid redundant hashing when spawning commands
+  - [#5440](https://github.com/wasmerio/wasmer/pull/5440) Remove `unwrap` in code that instantiates a WASI module
+
+## Fixed
+
+  - [#5461](https://github.com/wasmerio/wasmer/pull/5461) fix: Bump `ring` to `0.17.12`
+  - [#5460](https://github.com/wasmerio/wasmer/pull/5460) fix(c-api): Adjust `wasix` features in the import in `wasmer-c-api`
+  - [#5452](https://github.com/wasmerio/wasmer/pull/5452) Fix CI
+  - [#5436](https://github.com/wasmerio/wasmer/pull/5436) Fix interacting with socket pairs through `send` and `recv`
+  - [#5438](https://github.com/wasmerio/wasmer/pull/5438) chore(wasix): Fix compilation warning when host-fs not enabled
+  - [#5446](https://github.com/wasmerio/wasmer/pull/5446) fix(virtual-fs): OverlayFs: don't copy files that are never written
+  - [#5435](https://github.com/wasmerio/wasmer/pull/5435) Fix polling duplex pipes
+
+
+
 ## 6.0.0-alpha.2 - 25/02/2025
 
 This second alpha release notably fixes an out-of-bound memory access when
