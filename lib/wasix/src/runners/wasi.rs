@@ -218,6 +218,11 @@ impl WasiRunner {
         self
     }
 
+    pub fn with_skip_stdio_during_bootstrap(&mut self, skip: bool) -> &mut Self {
+        self.wasi.skip_stdio_during_bootstrap = skip;
+        self
+    }
+
     pub fn with_stdin(&mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
         self.stdin = Some(ArcBoxFile::new(stdin));
         self
@@ -363,6 +368,7 @@ impl WasiRunner {
             }
 
             builder.with_stop_running_after_snapshot(self.wasi.stop_running_after_snapshot);
+            builder.with_skip_stdio_during_bootstrap(self.wasi.skip_stdio_during_bootstrap);
         }
 
         let env = builder.build()?;

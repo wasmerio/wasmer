@@ -61,7 +61,7 @@ impl From<Range<u64>> for MemoryRange {
 /// on the final deterministic outcome of the entire log.
 ///
 /// By grouping events into subevents it makes it possible to ignore an
-/// entire subgroup of events which are superseeded by a later event. For
+/// entire subgroup of events which are superceded by a later event. For
 /// example, all the events involved in creating a file are irrelevant if
 /// that file is later deleted.
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]

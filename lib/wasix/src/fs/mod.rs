@@ -83,6 +83,7 @@ const STDIN_DEFAULT_RIGHTS: Rights = {
             | Rights::FD_SYNC.bits()
             | Rights::FD_ADVISE.bits()
             | Rights::FD_FILESTAT_GET.bits()
+            | Rights::FD_FDSTAT_SET_FLAGS.bits()
             | Rights::POLL_FD_READWRITE.bits(),
     )
 };
@@ -95,6 +96,7 @@ const STDOUT_DEFAULT_RIGHTS: Rights = {
             | Rights::FD_WRITE.bits()
             | Rights::FD_ADVISE.bits()
             | Rights::FD_FILESTAT_GET.bits()
+            | Rights::FD_FDSTAT_SET_FLAGS.bits()
             | Rights::POLL_FD_READWRITE.bits(),
     )
 };

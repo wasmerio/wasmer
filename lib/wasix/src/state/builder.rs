@@ -100,6 +100,8 @@ pub struct WasiEnvBuilder {
     #[cfg(feature = "journal")]
     pub(super) writable_journals: Vec<Arc<DynJournal>>,
 
+    pub(super) skip_stdio_during_bootstrap: bool,
+
     #[cfg(feature = "ctrlc")]
     pub(super) attach_ctrl_c: bool,
 }
@@ -761,6 +763,10 @@ impl WasiEnvBuilder {
         self.stop_running_after_snapshot = stop_running;
     }
 
+    pub fn with_skip_stdio_during_bootstrap(&mut self, skip: bool) {
+        self.skip_stdio_during_bootstrap = skip;
+    }
+
     /// Add an item to the list of importable items provided to the instance.
     pub fn import(
         mut self,
@@ -1017,6 +1023,7 @@ impl WasiEnvBuilder {
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on,
             stop_running_after_snapshot: self.stop_running_after_snapshot,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             additional_imports: self.additional_imports,
         };
 

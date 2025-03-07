@@ -450,6 +450,7 @@ impl Run {
             for journal in w {
                 runner.with_writable_journal(journal);
             }
+            runner.with_skip_stdio_during_bootstrap(self.wasi.skip_stdio_during_bootstrap);
         }
 
         Ok(runner)

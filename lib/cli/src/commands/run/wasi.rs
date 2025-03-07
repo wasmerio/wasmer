@@ -204,6 +204,11 @@ pub struct Wasi {
     #[clap(long = "stop-after-snapshot")]
     pub stop_after_snapshot: bool,
 
+    /// Skip writes to stdout and stderr when replying journal events to bootstrap a module.
+    #[cfg(feature = "journal")]
+    #[clap(long = "skip-journal-stdio")]
+    pub skip_stdio_during_bootstrap: bool,
+
     /// Allow instances to send http requests.
     ///
     /// Access to domains is granted by default.
@@ -422,6 +427,7 @@ impl Wasi {
             for journal in w {
                 builder.add_writable_journal(journal);
             }
+            builder.with_skip_stdio_during_bootstrap(self.skip_stdio_during_bootstrap);
         }
 
         Ok(builder)

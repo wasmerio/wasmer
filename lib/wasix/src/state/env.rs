@@ -253,6 +253,9 @@ pub struct WasiEnvInit {
     /// Stop running after the first snapshot is taken
     #[cfg(feature = "journal")]
     pub stop_running_after_snapshot: bool,
+
+    /// Skip writes to stdout and stderr when bootstrapping from a journal
+    pub skip_stdio_during_bootstrap: bool,
 }
 
 impl WasiEnvInit {
@@ -293,6 +296,7 @@ impl WasiEnvInit {
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
             stop_running_after_snapshot: self.stop_running_after_snapshot,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             additional_imports: self.additional_imports.clone(),
         }
     }
@@ -339,6 +343,9 @@ pub struct WasiEnv {
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
 
+    /// Should stdio be skipped when bootstrapping this module from an existing journal?
+    pub skip_stdio_during_bootstrap: bool,
+
     /// Flag that indicates the cleanup of the environment is to be disabled
     /// (this is normally used so that the instance can be reused later on)
     pub(crate) disable_fs_cleanup: bool,
@@ -375,6 +382,7 @@ impl Clone for WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
         }
     }
@@ -415,6 +423,7 @@ impl WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
         };
         Ok((new_env, handle))
@@ -543,6 +552,7 @@ impl WasiEnv {
             #[cfg(not(feature = "journal"))]
             enable_journal: false,
             replaying_journal: false,
+            skip_stdio_during_bootstrap: init.skip_stdio_during_bootstrap,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             enable_exponential_cpu_backoff: init
                 .capabilities
