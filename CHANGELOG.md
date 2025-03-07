@@ -10,6 +10,19 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 6.0.0-beta.1 - 07/03/2025
 
+## Added
+
+
+## Changed
+
+
+## Fixed
+
+
+
+
+## 6.0.0-beta.1 - 07/03/2025
+
 This first beta release fixes a bug in `virtual-fs` together with other fixes
 to WASIX, adds various functions to check the features of a WebAssembly module
 given its bytes, adds a mechanism to the CLI to automatically switch to a
