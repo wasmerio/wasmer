@@ -10,11 +10,15 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 6.0.0-beta.1 - 07/03/2025
 
+This first beta release fixes a bug in `virtual-fs` and adds various functions
+to check the features of a WebAssembly module given its bytes. It also add a
+mechanism to the CLI to automatically switch to a suitable engine when needed,
+such as running a module with exception handling without specifying `--llvm`.
+
 ## Added
 
   - [#5448](https://github.com/wasmerio/wasmer/pull/5448) Add tests for exec*p and posix_spawnp
   - [#5439](https://github.com/wasmerio/wasmer/pull/5439) feat: Add `check-api-features` Makefile target
-  - [#5347](https://github.com/wasmerio/wasmer/pull/5347) Add support for exceptions in LLVM
   - [#5433](https://github.com/wasmerio/wasmer/pull/5433) fix(api): Add missing loupe::MemoryUsage impls
 
 ## Changed
