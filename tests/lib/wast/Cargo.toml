@@ -12,9 +12,9 @@ edition = "2018"
 
 [dependencies]
 wasmer-types = { path = "../../../lib/types", version = "=6.0.0-beta.1" }
-wasmer-wasix = { path = "../../../lib/wasix", version = "=0.37.0" }
+wasmer-wasix = { path = "../../../lib/wasix", version = "=0.38.0" }
 wasmer = { path = "../../../lib/api", version = "=6.0.0-beta.1", default-features = false }
-virtual-fs = { path = "../../../lib/virtual-fs", version = "0.23.0" }
+virtual-fs = { path = "../../../lib/virtual-fs", version = "0.24.0" }
 
 anyhow = "1.0"
 wast = "221.0.2"

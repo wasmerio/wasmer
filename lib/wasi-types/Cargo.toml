@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix-types"
-version = "0.37.0"
+version = "0.38.0"
 description = "WASI and WASIX types for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
