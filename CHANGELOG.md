@@ -10,10 +10,12 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 6.0.0-beta.1 - 07/03/2025
 
-This first beta release fixes a bug in `virtual-fs` and adds various functions
-to check the features of a WebAssembly module given its bytes. It also add a
-mechanism to the CLI to automatically switch to a suitable engine when needed,
-such as running a module with exception handling without specifying `--llvm`.
+This first beta release fixes a bug in `virtual-fs` together with other fixes
+to WASIX, adds various functions to check the features of a WebAssembly module
+given its bytes, adds a mechanism to the CLI to automatically switch to a
+suitable engine when needed, such as running a module with exception handling
+without specifying `--llvm` and, finally, also adds QoL improvements to the
+`package unpack` command in the CLI.
 
 ## Added
 
