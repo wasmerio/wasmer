@@ -15,6 +15,9 @@ pub struct CreateEnvConfig {
     pub module_hash: ModuleHash,
     pub runtime: Arc<dyn crate::runtime::Runtime + Send + Sync>,
     pub setup_builder: SetupBuilder,
+    // TODO: should HTTP client be configurable in WCGI?
+    // #[cfg(feature = "host-reqwest")]
+    // pub http_config: ClientBuilderConfig,
 }
 
 /// Result of a create operation on a new environment

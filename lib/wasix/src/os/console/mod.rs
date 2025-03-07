@@ -330,10 +330,13 @@ mod tests {
         let _guard = rt_handle.enter();
 
         let tm = TokioTaskManager::new(tokio_rt);
-        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        let http_config = ClientBuilderConfig::default();
+        let mut rt = PluggableRuntime::new(Arc::new(tm), &http_config);
         let client = rt.http_client().unwrap().clone();
         rt.set_engine(Some(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
+            .set_package_loader(
+                BuiltinPackageLoader::new(&http_config).with_shared_http_client(client),
+            );
 
         let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
             .into_iter()
@@ -383,11 +386,14 @@ mod tests {
         let rt_handle = tokio_rt.handle().clone();
         let _guard = rt_handle.enter();
 
+        let http_config = ClientBuilderConfig::default();
         let tm = TokioTaskManager::new(tokio_rt);
-        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        let mut rt = PluggableRuntime::new(Arc::new(tm), &http_config);
         let client = rt.http_client().unwrap().clone();
         rt.set_engine(Some(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
+            .set_package_loader(
+                BuiltinPackageLoader::new(&http_config).with_shared_http_client(client),
+            );
 
         let cmd = "wasmer-tests/python-env-dump --help";
 
