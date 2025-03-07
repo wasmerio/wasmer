@@ -10,7 +10,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["log-file", "wasmer/sys"]
+default = ["log-file", "wasmer/sys-default"]
 log-file = ["shared-buffer"]
 
 [dependencies]
