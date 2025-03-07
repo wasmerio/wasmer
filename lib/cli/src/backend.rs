@@ -264,11 +264,10 @@ impl RuntimeOptions {
 
     pub fn get_engine(&self, target: &Target) -> Result<Engine> {
         let backends = self.get_available_backends()?;
-        let required_features = Features::default();
-        backends
-            .first()
-            .unwrap()
-            .get_engine(target, &required_features)
+        let backend = backends.first().unwrap();
+        let backend_kind = wasmer::BackendKind::from(backend);
+        let required_features = wasmer::Engine::default_features_for_backend(&backend_kind, target);
+        backend.get_engine(target, &required_features)
     }
 
     pub fn get_engine_for_module(&self, module_contents: &[u8], target: &Target) -> Result<Engine> {
