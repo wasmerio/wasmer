@@ -33,32 +33,16 @@ impl JournalEffector {
                 )
             })?;
 
-        let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, copied_fd);
-        if !matches!(ret, Ok(Errno::Success)) {
-            bail!(
-                "journal restore error: failed renumber file descriptor after duplicate (from={}, to={}) - {}",
-                ret_fd,
-                copied_fd,
-                ret.unwrap_or(Errno::Unknown)
-            );
-        }
-
-        let ret = crate::syscalls::fd_fdflags_set_internal(
-            ctx,
-            copied_fd,
-            if cloexec {
-                Fdflagsext::CLOEXEC
-            } else {
-                Fdflagsext::empty()
-            },
-        );
-        if !matches!(ret, Ok(Errno::Success)) {
-            bail!(
-                "journal restore error: failed renumber file descriptor after duplicate (from={}, to={}) - {}",
-                ret_fd,
-                copied_fd,
-                ret.unwrap_or(Errno::Unknown)
-            );
+        if ret_fd != copied_fd {
+            let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, copied_fd);
+            if !matches!(ret, Ok(Errno::Success)) {
+                bail!(
+                    "journal restore error: failed renumber file descriptor after duplicate (from={}, to={}) - {}",
+                    ret_fd,
+                    copied_fd,
+                    ret.unwrap_or(Errno::Unknown)
+                );
+            }
         }
 
         Ok(())

@@ -12,6 +12,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
+use futures::future::Either;
 use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
 #[allow(unused_imports, dead_code)]
@@ -229,7 +230,7 @@ impl Console {
             .prepare_webc_env(
                 prog,
                 &wasi_opts,
-                Some(&pkg),
+                Either::Left(&pkg),
                 self.runtime.clone(),
                 Some(root_fs),
             )

@@ -100,7 +100,7 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 ..
             } => write!(
                 f,
-                "thread-update (id={}, call-stack.len={}, mem-stack.len={}, store-size={}",
+                "thread-update (id={}, call-stack.len={}, mem-stack.len={}, store-size={})",
                 id,
                 call_stack.len(),
                 memory_stack.len(),
@@ -287,7 +287,7 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 write!(f, "sock-send-to (fd={}, data.len={}, addr={})", fd, data.len(), addr)
             }
             JournalEntry::SocketSendV1 { fd, data, .. } => {
-                write!(f, "sock-send (fd={}, data.len={}", fd, data.len())
+                write!(f, "sock-send (fd={}, data.len={})", fd, data.len())
             }
             JournalEntry::SocketSetOptFlagV1 { fd, opt, flag } => {
                 write!(f, "sock-set-opt (fd={fd}, opt={opt:?}, flag={flag})")

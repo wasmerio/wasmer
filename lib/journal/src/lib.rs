@@ -95,7 +95,9 @@ pub trait ReadableJournal: std::fmt::Debug {
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 #[allow(unused_variables)]
-pub trait Journal: WritableJournal + ReadableJournal + std::fmt::Debug {
+pub trait Journal:
+    WritableJournal + ReadableJournal + AsDynReadableJournal + std::fmt::Debug
+{
     /// Splits the journal into a read and write side
     fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>);
 }
@@ -103,3 +105,14 @@ pub trait Journal: WritableJournal + ReadableJournal + std::fmt::Debug {
 pub type DynJournal = dyn Journal + Send + Sync;
 pub type DynWritableJournal = dyn WritableJournal + Send + Sync;
 pub type DynReadableJournal = dyn ReadableJournal + Send + Sync;
+
+/// A bit of manual up-casting support
+pub trait AsDynReadableJournal {
+    fn as_dyn_readable_journal(&self) -> &DynReadableJournal;
+}
+
+impl<T: Journal + Send + Sync + 'static> AsDynReadableJournal for T {
+    fn as_dyn_readable_journal(&self) -> &DynReadableJournal {
+        self
+    }
+}

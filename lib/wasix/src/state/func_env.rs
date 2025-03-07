@@ -340,14 +340,40 @@ impl WasiFunctionEnv {
         {
             // If there are journals we need to restore then do so (this will
             // prevent the initialization function from running
-            let restore_journals = self.data(&store).runtime.journals().clone();
-            if !restore_journals.is_empty() {
+            let restore_ro_journals = self
+                .data(&store)
+                .runtime
+                .read_only_journals()
+                .collect::<Vec<_>>();
+            let restore_w_journals = self
+                .data(&store)
+                .runtime
+                .writable_journals()
+                .collect::<Vec<_>>();
+            if !restore_ro_journals.is_empty() || !restore_w_journals.is_empty() {
                 tracing::trace!("replaying journal=true");
                 self.data_mut(&mut store).replaying_journal = true;
 
-                for journal in restore_journals {
+                for journal in restore_ro_journals {
                     let ctx = self.env.clone().into_mut(&mut store);
-                    let rewind = match restore_snapshot(ctx, journal, true) {
+                    let rewind = match restore_snapshot(ctx, journal.as_ref(), true) {
+                        Ok(r) => r,
+                        Err(err) => {
+                            tracing::trace!("replaying journal=false (err={:?})", err);
+                            self.data_mut(&mut store).replaying_journal = false;
+                            return Err(err);
+                        }
+                    };
+                    rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
+                }
+
+                for journal in restore_w_journals {
+                    let ctx = self.env.clone().into_mut(&mut store);
+                    let rewind = match restore_snapshot(
+                        ctx,
+                        journal.as_ref().as_dyn_readable_journal(),
+                        true,
+                    ) {
                         Ok(r) => r,
                         Err(err) => {
                             tracing::trace!("replaying journal=false (err={:?})", err);

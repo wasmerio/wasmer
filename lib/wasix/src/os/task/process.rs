@@ -171,6 +171,9 @@ pub struct WasiProcessInner {
     /// If true then the journaling will be disabled after the
     /// next snapshot is taken
     pub disable_journaling_after_checkpoint: bool,
+    /// If true then the process will stop running after the
+    /// next snapshot is taken
+    pub stop_running_after_checkpoint: bool,
     /// List of situations that the process will checkpoint on
     #[cfg(feature = "journal")]
     pub snapshot_on: HashSet<SnapshotTrigger>,
@@ -309,6 +312,14 @@ impl WasiProcessInner {
                 ctx.data().thread.set_checkpointing(false);
                 trace!("checkpoint finished");
 
+                if guard.stop_running_after_checkpoint {
+                    trace!("will stop running now");
+                    // Need to stop recording journal events so we don't also record the
+                    // thread and process exit events
+                    ctx.data_mut().enable_journal = false;
+                    return OnCalledAction::Finish;
+                }
+
                 // Rewind the stack and carry on
                 return match rewind_ext::<M>(
                     &mut ctx,
@@ -427,6 +438,7 @@ impl WasiProcess {
                 #[cfg(feature = "journal")]
                 snapshot_memory_hash: Default::default(),
                 disable_journaling_after_checkpoint: false,
+                stop_running_after_checkpoint: false,
                 backoff: WasiProcessCpuBackoff::new(max_cpu_backoff_time, max_cpu_cool_off_time),
             }),
             Condvar::new(),
@@ -612,6 +624,12 @@ impl WasiProcess {
     pub fn disable_journaling_after_checkpoint(&self) {
         let mut guard = self.inner.0.lock().unwrap();
         guard.disable_journaling_after_checkpoint = true;
+    }
+
+    /// Stop running once a checkpoint is taken
+    pub fn stop_running_after_checkpoint(&self) {
+        let mut guard = self.inner.0.lock().unwrap();
+        guard.stop_running_after_checkpoint = true;
     }
 
     /// Wait for the checkout process to finish

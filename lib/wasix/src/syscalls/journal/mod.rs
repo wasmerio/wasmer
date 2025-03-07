@@ -45,16 +45,18 @@ pub struct JournalSyscallPlayer<'a, 'c> {
     pub differ_memory: Vec<(Range<u64>, Cow<'a, [u8]>)>,
 
     // We capture the stdout and stderr while we replay
-    pub stdout: Vec<(u64, Cow<'a, [u8]>, bool)>,
-    pub stderr: Vec<(u64, Cow<'a, [u8]>, bool)>,
+    pub stdout: Option<Vec<(u64, Cow<'a, [u8]>, bool)>>,
+    pub stderr: Option<Vec<(u64, Cow<'a, [u8]>, bool)>>,
     pub stdout_fds: HashSet<u32>,
     pub stderr_fds: HashSet<u32>,
 }
 
 impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub fn new(mut ctx: FunctionEnvMut<'c, WasiEnv>, bootstrapping: bool) -> Self {
-        let cur_module_hash: Box<[u8]> = Box::from(ctx.data().process.module_hash.as_bytes());
-        let mut ret = JournalSyscallPlayer {
+        let env = ctx.data();
+        let keep_stdio = !env.skip_stdio_during_bootstrap;
+        let cur_module_hash: Box<[u8]> = Box::from(env.process.module_hash.as_bytes());
+        JournalSyscallPlayer {
             ctx,
             bootstrapping,
             cur_module_hash,
@@ -64,17 +66,12 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
             spawn_threads: Default::default(),
             staged_differ_memory: Default::default(),
             differ_memory: Default::default(),
-            stdout: Default::default(),
-            stderr: Default::default(),
-            stdout_fds: Default::default(),
-            stderr_fds: Default::default(),
+            // We capture stdout and stderr while we replay
+            stdout_fds: [1 as WasiFd].into(),
+            stderr_fds: [2 as WasiFd].into(),
+            stdout: keep_stdio.then(Default::default),
+            stderr: keep_stdio.then(Default::default),
             real_fd: Default::default(),
-        };
-
-        // We capture the stdout and stderr while we replay
-        ret.stdout_fds.insert(1 as WasiFd);
-        ret.stderr_fds.insert(2 as WasiFd);
-
-        ret
+        }
     }
 }
