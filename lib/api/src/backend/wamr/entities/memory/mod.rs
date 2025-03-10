@@ -9,14 +9,7 @@ use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 use crate::{
     shared::SharedMemory,
     vm::{VMExtern, VMExternMemory},
-    wamr::{
-        bindings::{
-            wasm_limits_max_default, wasm_limits_t, wasm_memory_as_extern, wasm_memory_copy,
-            wasm_memory_new, wasm_memory_type, wasm_memorytype_limits, wasm_memorytype_new,
-            wasm_memorytype_t,
-        },
-        vm::VMMemory,
-    },
+    wamr::{bindings::*, vm::VMMemory},
     AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
 };
 
@@ -34,15 +27,30 @@ unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let limits = Box::into_raw(Box::new(wasm_limits_t {
-            min: ty.minimum.0,
-            max: match ty.maximum {
-                Some(v) => v.0,
-                None => wasm_limits_max_default,
-            },
-        }));
+        let max_requested = ty.maximum.unwrap_or(Pages::max_value());
 
+        let min = ty.minimum.0;
+        let max = max_requested.0;
+
+        if max < min {
+            return Err(MemoryError::InvalidMemory {
+                reason: format!("the maximum ({max} pages) is less than the minimum ({min} pages)",),
+            });
+        }
+
+        let max_allowed = Pages::max_value();
+        if max_requested > max_allowed {
+            return Err(MemoryError::MaximumMemoryTooLarge {
+                max_requested,
+                max_allowed,
+            });
+        }
+
+        let limits = Box::into_raw(Box::new(wasm_limits_t { min, max }));
+
+        eprintln!("limits: {limits:?}");
         let memorytype = unsafe { wasm_memorytype_new(limits) };
+
 
         let mut store = store.as_store_mut();
         let inner = store.inner.store.as_wamr().inner;
