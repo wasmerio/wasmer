@@ -121,7 +121,6 @@ impl ModuleHandle {
             std::slice::from_raw_parts(bytes.data as *mut u8, bytes.size)
         };
 
-
         Ok(bytes.to_vec())
     }
 }
@@ -223,7 +222,7 @@ impl Module {
         let off = usize::from_ne_bytes(off.try_into().unwrap());
         let name_bytes = &binary[8..(8 + off)];
         let name = String::from_utf8_lossy(name_bytes).to_string();
-        let mod_bytes = &binary[off..];
+        let mod_bytes = &binary[(8 + off)..];
         let module = ModuleHandle::deserialize(engine, mod_bytes)?;
 
         Ok(Self {
