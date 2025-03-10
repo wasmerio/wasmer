@@ -36,8 +36,6 @@ impl Default for wasmer_engine_t {
         // Let the `wasmer_api` crate decide which is the default engine, given the enabled
         // features.
         match wasmer_api::BackendKind::default() {
-            #[cfg(feature = "sys")]
-            wasmer_api::BackendKind::Sys => wasmer_engine_t::UNIVERSAL,
             #[cfg(feature = "wamr")]
             wasmer_api::BackendKind::Wamr => wasmer_engine_t::WAMR,
             #[cfg(feature = "wasmi")]
@@ -47,7 +45,35 @@ impl Default for wasmer_engine_t {
             #[cfg(feature = "jsc")]
             wasmer_api::BackendKind::Jsc => wasmer_engine_t::JSC,
             // Should be unreachable, however.
-            b => panic!("Unsupported backend: {b:?}"),
+            b => {
+                #[cfg(feature = "sys")]
+                {
+                    #[cfg(feature = "cranelift")]
+                    {
+                        if matches!(b, wasmer_api::BackendKind::Cranelift) {
+                            return wasmer_engine_t::UNIVERSAL;
+                        }
+                    }
+                    #[cfg(feature = "singlepass")]
+                    {
+                        if matches!(b, wasmer_api::BackendKind::Singlepass) {
+                            return wasmer_engine_t::UNIVERSAL;
+                        }
+                    }
+                    #[cfg(feature = "llvm")]
+                    {
+                        if matches!(b, wasmer_api::BackendKind::LLVM) {
+                            return wasmer_engine_t::UNIVERSAL;
+                        }
+                    }
+
+                    if matches!(b, wasmer_api::BackendKind::Headless) {
+                        return wasmer_engine_t::UNIVERSAL;
+                    }
+                }
+
+                panic!("Unsupported backend: {b:?}")
+            }
         }
     }
 }
