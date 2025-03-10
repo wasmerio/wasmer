@@ -51,7 +51,6 @@ impl Memory {
         eprintln!("limits: {limits:?}");
         let memorytype = unsafe { wasm_memorytype_new(limits) };
 
-
         let mut store = store.as_store_mut();
         let inner = store.inner.store.as_wamr().inner;
         let c_memory = unsafe { wasm_memory_new(inner, memorytype) };
