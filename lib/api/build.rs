@@ -37,23 +37,27 @@ fn build_wamr() {
 
     // Cleanup tmp data from prior builds
     let wamr_dir = PathBuf::from(&crate_root).join("third_party/wamr");
-    let zip_dir = PathBuf::from(&crate_root).join("third_party");
-    let _ = std::fs::remove_dir_all(&wamr_dir);
-    let _ = std::fs::remove_dir_all(&zip_dir);
+    if !wamr_dir.exists() {
+        let zip_dir = PathBuf::from(&crate_root).join("third_party");
+        let _ = std::fs::remove_dir_all(&wamr_dir);
+        let _ = std::fs::remove_dir_all(&zip_dir);
 
-    // Fetch & extract wasm-micro-runtime source
-    let zip = ureq::get(WAMR_ZIP).call().expect("failed to download wamr");
-    let mut zip_data = Vec::new();
-    zip.into_reader()
-        .read_to_end(&mut zip_data)
-        .expect("failed to download wamr");
-    zip::read::ZipArchive::new(std::io::Cursor::new(zip_data))
-        .expect("failed to open wamr zip file")
-        .extract(&zip_dir)
-        .expect("failed to extract wamr zip file");
-    let _ = std::fs::remove_dir_all(&wamr_dir);
-    std::fs::rename(zip_dir.join(ZIP_NAME), &wamr_dir)
-        .expect(&format!("failed to rename wamr dir: {zip_dir:?}"));
+        // Fetch & extract wasm-micro-runtime source
+        let zip = ureq::get(WAMR_ZIP).call().expect("failed to download wamr");
+        let mut zip_data = Vec::new();
+        zip.into_reader()
+            .read_to_end(&mut zip_data)
+            .expect("failed to download wamr");
+        zip::read::ZipArchive::new(std::io::Cursor::new(zip_data))
+            .expect("failed to open wamr zip file")
+            .extract(&zip_dir)
+            .expect("failed to extract wamr zip file");
+        let _ = std::fs::remove_dir_all(&wamr_dir);
+        std::fs::rename(zip_dir.join(ZIP_NAME), &wamr_dir)
+            .expect(&format!("failed to rename wamr dir: {zip_dir:?}"));
+    } else {
+        println!("cargo::rerun-if-changed={}", wamr_dir.display());
+    }
 
     let wamr_platform_dir = wamr_dir.join("product-mini/platforms").join(target_os);
     let mut dst = Config::new(wamr_platform_dir.as_path());
