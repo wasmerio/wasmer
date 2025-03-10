@@ -33,12 +33,28 @@ impl Memory {
         let mut store_mut = store.as_store_mut();
         let v8_store = store_mut.inner.store.as_v8();
 
+        let max_requested = ty.maximum.unwrap_or(Pages::max_value());
+
+        let min = ty.minimum.0;
+        let max = max_requested.0;
+
+        if max < min {
+            return Err(MemoryError::InvalidMemory {
+                reason: format!("the maximum ({max} pages) is less than the minimum ({min} pages)",),
+            });
+        }
+
+        let max_allowed = Pages::max_value();
+        if max_requested > max_allowed {
+            return Err(MemoryError::MaximumMemoryTooLarge {
+                max_requested,
+                max_allowed,
+            });
+        }
+
         let limits = Box::into_raw(Box::new(wasm_limits_t {
-            min: ty.minimum.0,
-            max: match ty.maximum {
-                Some(v) => v.0,
-                None => wasm_limits_max_default,
-            },
+            min,
+            max,
             shared: ty.shared,
         }));
 
