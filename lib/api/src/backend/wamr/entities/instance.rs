@@ -40,17 +40,7 @@ impl InstanceHandle {
 
             std::mem::forget(externs);
 
-            let stack_size = 2 * 1024 * 1024;
-            let heap_size = 2 * 1024 * 1024;
-
-            wasm_instance_new_with_args(
-                store,
-                module,
-                &mut imports,
-                &mut trap,
-                stack_size,
-                heap_size,
-            )
+            wasm_instance_new(store, module, &mut imports, &mut trap)
         };
 
         if instance.is_null() {
