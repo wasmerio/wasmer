@@ -1,12 +1,7 @@
 //! Data types, functions and traits for `wamr`'s `Module` implementation.
 use std::{path::Path, sync::Arc};
 
-use crate::{
-    backend::wamr::bindings::{
-        wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t,
-    },
-    AsEngineRef, BackendModule, IntoBytes,
-};
+use crate::{backend::wamr::bindings::*, AsEngineRef, BackendModule, IntoBytes};
 
 use bytes::Bytes;
 use wasmer_types::{
@@ -97,8 +92,25 @@ impl Module {
     }
 
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        let engine = engine.as_engine_ref();
-        unimplemented!();
+        let engine = engine.as_engine_ref().engine().clone();
+        let store = super::store::Store::new(engine);
+        let bytes = wasm_byte_vec_t {
+            size: binary.len(),
+            data: binary.as_ptr() as _,
+            num_elems: binary.len(),
+            size_of_elem: 1,
+            lock: std::ptr::null_mut(),
+        };
+        let store = store.inner;
+        unsafe {
+            if !wasm_module_validate(store, &bytes as *const _) {
+                return Err(CompileError::Validate(String::from(
+                    "WAMR could not validate the given module",
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     pub fn name(&self) -> Option<&str> {
