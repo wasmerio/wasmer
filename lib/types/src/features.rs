@@ -387,6 +387,23 @@ impl Features {
 
         Ok(features)
     }
+
+    /// Checks if all needed features are supported by a specific compiler
+    pub fn supports_all_features(needed_features: &Features, compiler_features: &Features) -> bool {
+        // Check each needed feature that is true
+        (!needed_features.threads || compiler_features.threads)
+            && (!needed_features.reference_types || compiler_features.reference_types)
+            && (!needed_features.simd || compiler_features.simd)
+            && (!needed_features.bulk_memory || compiler_features.bulk_memory)
+            && (!needed_features.multi_value || compiler_features.multi_value)
+            && (!needed_features.tail_call || compiler_features.tail_call)
+            && (!needed_features.module_linking || compiler_features.module_linking)
+            && (!needed_features.multi_memory || compiler_features.multi_memory)
+            && (!needed_features.memory64 || compiler_features.memory64)
+            && (!needed_features.exceptions || compiler_features.exceptions)
+            && (!needed_features.relaxed_simd || compiler_features.relaxed_simd)
+            && (!needed_features.extended_const || compiler_features.extended_const)
+    }
 }
 
 impl Default for Features {
