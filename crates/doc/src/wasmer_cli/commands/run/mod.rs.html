@@ -1092,6 +1092,9 @@
 <a href="#1092" id="1092">1092</a>
 <a href="#1093" id="1093">1093</a>
 <a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1283,6 +1286,9 @@
                 </span>}
             }
         };
+
+        <span class="kw">let </span>engine_kind = engine.deterministic_id();
+        <span class="macro">tracing::info!</span>(<span class="string">"Executing on backend {engine_kind:?}"</span>);
 
         <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
         </span><span class="kw">if </span>engine.is_sys() {

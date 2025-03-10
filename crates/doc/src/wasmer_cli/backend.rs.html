@@ -716,7 +716,6 @@
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -983,11 +982,10 @@
 
     <span class="kw">pub fn </span>get_engine(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; <span class="prelude-ty">Result</span>&lt;Engine&gt; {
         <span class="kw">let </span>backends = <span class="self">self</span>.get_available_backends()<span class="question-mark">?</span>;
-        <span class="kw">let </span>required_features = Features::default();
-        backends
-            .first()
-            .unwrap()
-            .get_engine(target, <span class="kw-2">&amp;</span>required_features)
+        <span class="kw">let </span>backend = backends.first().unwrap();
+        <span class="kw">let </span>backend_kind = wasmer::BackendKind::from(backend);
+        <span class="kw">let </span>required_features = wasmer::Engine::default_features_for_backend(<span class="kw-2">&amp;</span>backend_kind, target);
+        backend.get_engine(target, <span class="kw-2">&amp;</span>required_features)
     }
 
     <span class="kw">pub fn </span>get_engine_for_module(<span class="kw-2">&amp;</span><span class="self">self</span>, module_contents: <span class="kw-2">&amp;</span>[u8], target: <span class="kw-2">&amp;</span>Target) -&gt; <span class="prelude-ty">Result</span>&lt;Engine&gt; {
