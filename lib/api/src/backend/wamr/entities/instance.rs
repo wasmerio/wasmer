@@ -68,8 +68,14 @@ impl InstanceHandle {
             vec
         };
 
-        let c_api_externs: &[*mut wasm_extern_t] =
-            unsafe { std::slice::from_raw_parts(c_api_externs.data, c_api_externs.size) };
+        let c_api_externs: Vec<*mut wasm_extern_t> = if c_api_externs.data.is_null()
+            || !c_api_externs.data.is_aligned()
+            || c_api_externs.size == 0
+        {
+            vec![]
+        } else {
+            unsafe { std::slice::from_raw_parts(c_api_externs.data, c_api_externs.size) }.to_vec()
+        };
         let c_api_externs = c_api_externs.to_vec();
         let mut exports = unsafe {
             let mut vec = Default::default();
@@ -77,9 +83,12 @@ impl InstanceHandle {
             vec
         };
 
-        let c_api_exports: &[*mut wasm_exporttype_t] =
-            unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
-        let c_api_exports = c_api_exports.to_vec();
+        let c_api_exports: Vec<*mut wasm_exporttype_t> =
+            if exports.data.is_null() || !exports.data.is_aligned() || exports.size == 0 {
+                vec![]
+            } else {
+                unsafe { std::slice::from_raw_parts(exports.data, exports.size) }.to_vec()
+            };
 
         // We need to use the order of the exports from the polyfill info to get the right
         // one, i.e. the from the declaration.
@@ -91,7 +100,10 @@ impl InstanceHandle {
             .map(|(export, ext)| unsafe {
                 let name = wasm_exporttype_name(export);
                 let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let mut name = String::from_utf8(name.to_vec()).unwrap_or_default();
+                let mut name = name.to_vec();
+                // Remove the '\0' at the end of the NULL-terminated string.
+                name.pop();
+                let name = String::from_utf8(name.to_vec()).unwrap_or_default();
                 let ext = ext.to_extern(&mut store);
                 (name, ext)
             })
