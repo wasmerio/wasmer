@@ -64,7 +64,19 @@ impl Default for BackendKind {
     fn default() -> Self {
         #[cfg(feature = "sys-default")]
         {
-            return Self::Sys;
+            #[cfg(feature = "cranelift")]
+            {
+                return Self::Cranelift;
+            }
+            #[cfg(feature = "singlepass")]
+            {
+                return Self::Singlepass;
+            }
+            #[cfg(feature = "llvm")]
+            {
+                return Self::LLVM;
+            }
+            return Self::Headless;
         }
 
         #[cfg(feature = "wamr-default")]
@@ -94,7 +106,19 @@ impl Default for BackendKind {
 
         #[cfg(feature = "sys")]
         {
-            return Self::Sys;
+            #[cfg(feature = "cranelift")]
+            {
+                return Self::Cranelift;
+            }
+            #[cfg(feature = "singlepass")]
+            {
+                return Self::Singlepass;
+            }
+            #[cfg(feature = "llvm")]
+            {
+                return Self::LLVM;
+            }
+            return Self::Headless;
         }
 
         #[cfg(feature = "wamr")]
