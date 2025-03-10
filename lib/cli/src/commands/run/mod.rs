@@ -190,6 +190,9 @@ impl Run {
             }
         };
 
+        let engine_kind = engine.deterministic_id();
+        tracing::info!("Executing on backend {engine_kind:?}");
+
         #[cfg(feature = "sys")]
         if engine.is_sys() {
             if self.stack_size.is_some() {
