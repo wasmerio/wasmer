@@ -70,7 +70,6 @@ pub extern "C" fn wasm_config_sys_canonicalize_nans(config: &mut wasm_config_t, 
     } else {
         let sys_config = wasmer_sys_engine_config_t {
             nan_canonicalization: enable,
-            ..Default::default()
         };
         config.backend_config.inner = wasmer_backend_config_kind_t::Sys(sys_config);
     }
@@ -84,7 +83,7 @@ pub fn wasm_sys_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm
         && !matches!(config.backend, wasmer_backend_t::HEADLESS)
         && !config.backend_config.inner.is_sys()
     {
-        update_last_error(&format!(
+        update_last_error(format!(
             "Cannot create a new `sys` engine with a non-sys-specific config! {config:?}"
         ));
         return None;
@@ -93,7 +92,7 @@ pub fn wasm_sys_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm
     let backend = config.backend;
     let sys_config = match config.backend_config.inner.try_into_sys() {
         Err(_) => {
-            update_last_error(&format!(
+            update_last_error(format!(
                 "Could not create new `sys` engine with the selected {backend:?} backend."
             ));
             return None;
