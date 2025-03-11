@@ -301,8 +301,13 @@ fn build_v8() {
     }
 
     let header_path = v8_header_path.join("wasm.h");
+    let mut args = vec![];
+    if cfg!(target_os = "macos") {
+        args.push("-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.5.sdk/usr/include/c++/v1/");
+    }
     let bindings = bindgen::Builder::default()
         .header(header_path.display().to_string())
+        .clang_args(args)
         .derive_default(true)
         .derive_debug(true)
         .parse_callbacks(Box::new(Wee8Renamer {}))
