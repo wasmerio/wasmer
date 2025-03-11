@@ -19,7 +19,8 @@ pub(crate) struct wasmer_wasmi_engine_config_t;
 pub(crate) fn wasm_wasmi_engine_new_with_config(
     config: wasm_config_t,
 ) -> Option<Box<wasm_engine_t>> {
-    if !matches!(config.backend, wasmer_backend_t::WASMI) || !config.backend_config.inner.is_wasmi() {
+    if !matches!(config.backend, wasmer_backend_t::WASMI) || !config.backend_config.inner.is_wasmi()
+    {
         update_last_error("Cannot create a new `wasmi` engine with a non-wasmi-specific config!");
         return None;
     }
