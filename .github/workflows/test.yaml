@@ -516,7 +516,10 @@ jobs:
               target: x86_64-unknown-linux-gnu,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz",
-              supports_v8: true
+              # Unfortunately, building a shared lib of the c_api with the v8
+              # backend does not work, due to unsupported relocations to hidden
+              # symbols in wee8.
+              supports_v8: false
             },
             {
               build: macos-x64,
