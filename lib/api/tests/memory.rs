@@ -87,6 +87,7 @@ fn test_shared_memory_disable_atomics() {
 
 /// See https://github.com/wasmerio/wasmer/issues/5444
 #[test]
+#[cfg(feature = "sys")]
 fn test_wasm_slice_issue_5444() {
     let mut store = Store::default();
     let wat = r#"(module
