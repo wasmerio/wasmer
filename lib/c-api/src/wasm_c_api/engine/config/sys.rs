@@ -90,6 +90,7 @@ pub fn wasm_sys_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm
     }
 
     let backend = config.backend;
+    #[allow(unused)]
     let sys_config = match config.backend_config.inner.try_into_sys() {
         Err(_) => {
             update_last_error(format!(
@@ -166,7 +167,7 @@ pub fn wasm_sys_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm
                          {
                                 let mut builder = EngineBuilder::headless();
 
-                                if let Some(target) = config.backend.target {
+                                if let Some(target) = config.backend_config.target {
                                     builder = builder.set_target(Some(target.inner));
                                 }
 
