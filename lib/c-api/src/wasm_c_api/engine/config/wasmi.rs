@@ -1,9 +1,9 @@
 use crate::{
     error::update_last_error,
-    wasm_c_api::engine::{wasm_config_t, wasm_engine_t, wasmer_engine_t},
+    wasm_c_api::engine::{wasm_config_t, wasm_engine_t, wasmer_backend_t},
 };
 
-use super::wasmer_engine_config_t;
+use super::wasmer_backend_config_kind_t;
 
 /// Configuration specific for the `wasmi` engine.
 ///
@@ -19,7 +19,7 @@ pub(crate) struct wasmer_wasmi_engine_config_t;
 pub(crate) fn wasm_wasmi_engine_new_with_config(
     config: wasm_config_t,
 ) -> Option<Box<wasm_engine_t>> {
-    if !matches!(config.engine, wasmer_engine_t::WASMI) || !config.engine_config.is_wasmi() {
+    if !matches!(config.backend, wasmer_backend_t::WASMI) || !config.backend_config.inner.is_wasmi() {
         update_last_error("Cannot create a new `wasmi` engine with a non-wasmi-specific config!");
         return None;
     }
@@ -29,7 +29,7 @@ pub(crate) fn wasm_wasmi_engine_new_with_config(
     }))
 }
 
-impl wasmer_engine_config_t {
+impl wasmer_backend_config_kind_t {
     /// Returns `true` if the wasmer_engine_config_t is [`WASMI`].
     ///
     /// [`WASMI`]: wasmer_engine_config_t::WASMI

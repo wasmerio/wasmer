@@ -1,7 +1,7 @@
 pub use super::unstable::engine::wasm_config_set_features;
 use super::unstable::features::wasmer_features_t;
 
-use wasmer_api::Engine;
+use wasmer_api::{BackendKind, Engine};
 
 mod config;
 #[allow(unused_imports)]
@@ -14,9 +14,18 @@ pub use config::*;
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
-pub enum wasmer_engine_t {
-    /// The sys (cranelift, llvm, or singlepass) backend.
-    UNIVERSAL = 0,
+pub enum wasmer_backend_t {
+    /// The cranelift backend.
+    CRANELIFT = 0,
+
+    /// The LLVM backend.
+    LLVM,
+
+    /// The singlepass backend.
+    SINGLEPASS,
+
+    /// The headless backend.
+    HEADLESS,
 
     /// The V8 backend.
     V8,
@@ -31,50 +40,35 @@ pub enum wasmer_engine_t {
     JSC,
 }
 
-impl Default for wasmer_engine_t {
+impl From<BackendKind> for wasmer_backend_t {
+    fn from(value: BackendKind) -> Self {
+        match value {
+            #[cfg(feature = "cranelift")]
+            BackendKind::Cranelift => Self::CRANELIFT,
+            #[cfg(feature = "llvm")]
+            BackendKind::LLVM => Self::LLVM,
+            #[cfg(feature = "singlepass")]
+            BackendKind::Singlepass => Self::SINGLEPASS,
+            #[cfg(feature = "sys")]
+            BackendKind::Headless => Self::HEADLESS,
+            #[cfg(feature = "wamr")]
+            BackendKind::Wamr => Self::WAMR,
+            #[cfg(feature = "wasmi")]
+            BackendKind::Wasmi => Self::WASMI,
+            #[cfg(feature = "v8")]
+            BackendKind::V8 => Self::V8,
+            #[cfg(feature = "jsc")]
+            BackendKind::Jsc => Self::JSC,
+            v => panic!("Unsupported backend kind {v:?}"),
+        }
+    }
+}
+
+impl Default for wasmer_backend_t {
     fn default() -> Self {
         // Let the `wasmer_api` crate decide which is the default engine, given the enabled
         // features.
-        match wasmer_api::BackendKind::default() {
-            #[cfg(feature = "wamr")]
-            wasmer_api::BackendKind::Wamr => wasmer_engine_t::WAMR,
-            #[cfg(feature = "wasmi")]
-            wasmer_api::BackendKind::Wasmi => wasmer_engine_t::WASMI,
-            #[cfg(feature = "v8")]
-            wasmer_api::BackendKind::V8 => wasmer_engine_t::V8,
-            #[cfg(feature = "jsc")]
-            wasmer_api::BackendKind::Jsc => wasmer_engine_t::JSC,
-            // Should be unreachable, however.
-            b => {
-                #[cfg(feature = "sys")]
-                {
-                    #[cfg(feature = "cranelift")]
-                    {
-                        if matches!(b, wasmer_api::BackendKind::Cranelift) {
-                            return wasmer_engine_t::UNIVERSAL;
-                        }
-                    }
-                    #[cfg(feature = "singlepass")]
-                    {
-                        if matches!(b, wasmer_api::BackendKind::Singlepass) {
-                            return wasmer_engine_t::UNIVERSAL;
-                        }
-                    }
-                    #[cfg(feature = "llvm")]
-                    {
-                        if matches!(b, wasmer_api::BackendKind::LLVM) {
-                            return wasmer_engine_t::UNIVERSAL;
-                        }
-                    }
-
-                    if matches!(b, wasmer_api::BackendKind::Headless) {
-                        return wasmer_engine_t::UNIVERSAL;
-                    }
-                }
-
-                panic!("Unsupported backend: {b:?}")
-            }
-        }
+        wasmer_api::BackendKind::default().into()
     }
 }
 
@@ -111,6 +105,14 @@ pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
 /// int main() {
 ///     // Create a default engine.
 ///     wasm_engine_t* engine = wasm_engine_new();
+///     int error_length = wasmer_last_error_length();
+///     if (error_length > 0) {
+///         char *error_message = malloc(error_length);
+///         wasmer_last_error_message(error_message, error_length);
+///
+///         printf("Attempted to set an immutable global: `%s`\n", error_message);
+///         free(error_message);
+///     }
 ///
 ///     // Check we have an engine!
 ///     assert(engine);
@@ -143,17 +145,23 @@ pub extern "C" fn wasm_engine_new_with_config(
     #[allow(unused)]
     let config = *(config?);
 
-    match config.engine {
+    match config.backend {
+        #[cfg(feature = "llvm")]
+        wasmer_backend_t::LLVM => config::sys::wasm_sys_engine_new_with_config(config),
+        #[cfg(feature = "cranelift")]
+        wasmer_backend_t::CRANELIFT => config::sys::wasm_sys_engine_new_with_config(config),
+        #[cfg(feature = "singlepass")]
+        wasmer_backend_t::SINGLEPASS => config::sys::wasm_sys_engine_new_with_config(config),
         #[cfg(feature = "sys")]
-        wasmer_engine_t::UNIVERSAL => config::sys::wasm_sys_engine_new_with_config(config),
+        wasmer_backend_t::HEADLESS => config::sys::wasm_sys_engine_new_with_config(config),
         #[cfg(feature = "v8")]
-        wasmer_engine_t::V8 => config::v8::wasm_v8_engine_new_with_config(config),
+        wasmer_backend_t::V8 => config::v8::wasm_v8_engine_new_with_config(config),
         #[cfg(feature = "wasmi")]
-        wasmer_engine_t::WASMI => config::wasmi::wasm_wasmi_engine_new_with_config(config),
+        wasmer_backend_t::WASMI => config::wasmi::wasm_wasmi_engine_new_with_config(config),
         #[cfg(feature = "wamr")]
-        wasmer_engine_t::WAMR => config::wamr::wasm_wamr_engine_new_with_config(config),
+        wasmer_backend_t::WAMR => config::wamr::wasm_wamr_engine_new_with_config(config),
         #[cfg(feature = "jsc")]
-        wasmer_engine_t::JSC => config::jsc::wasm_jsc_engine_new_with_config(config),
+        wasmer_backend_t::JSC => config::jsc::wasm_jsc_engine_new_with_config(config),
         _ => unreachable!(),
     }
 }
@@ -164,8 +172,8 @@ pub extern "C" fn wasm_engine_new_with_config(
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct wasm_config_t {
-    pub(super) engine: wasmer_engine_t,
-    pub(super) engine_config: wasmer_engine_config_t,
+    pub(super) backend: wasmer_backend_t,
+    pub(super) backend_config: wasmer_backend_config_t,
     pub(super) features: Option<Box<wasmer_features_t>>,
 }
 
@@ -267,8 +275,8 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 /// # }
 /// ```
 #[no_mangle]
-pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
-    config.engine = engine;
+pub extern "C" fn wasm_config_set_backend(config: &mut wasm_config_t, engine: wasmer_backend_t) {
+    config.backend = engine;
 }
 
 #[cfg(test)]

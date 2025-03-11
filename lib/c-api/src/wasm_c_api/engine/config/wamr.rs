@@ -1,9 +1,9 @@
 use crate::{
     error::update_last_error,
-    wasm_c_api::engine::{wasm_config_t, wasm_engine_t, wasmer_engine_t},
+    wasm_c_api::engine::{wasm_config_t, wasm_engine_t, wasmer_backend_t},
 };
 
-use super::wasmer_engine_config_t;
+use super::wasmer_backend_config_kind_t;
 
 /// Configuration specific for the `wamr` engine.
 ///
@@ -19,7 +19,7 @@ pub(crate) struct wasmer_wamr_engine_config_t;
 pub(crate) fn wasm_wamr_engine_new_with_config(
     config: wasm_config_t,
 ) -> Option<Box<wasm_engine_t>> {
-    if !matches!(config.engine, wasmer_engine_t::WAMR) || !config.engine_config.is_wamr() {
+    if !matches!(config.backend, wasmer_backend_t::WAMR) || !config.backend_config.inner.is_wamr() {
         update_last_error("Cannot create a new `wamr` engine with a non-wamr-specific config!");
         return None;
     }
@@ -29,7 +29,7 @@ pub(crate) fn wasm_wamr_engine_new_with_config(
     }))
 }
 
-impl wasmer_engine_config_t {
+impl wasmer_backend_config_kind_t {
     /// Returns `true` if the wasmer_engine_config_t is [`WAMR`].
     ///
     /// [`WAMR`]: wasmer_engine_config_t::WAMR

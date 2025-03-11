@@ -16,30 +16,36 @@
 wasm_engine_t *wasm_engine_new() {
   wasm_config_t *config = wasm_config_new();
 
-  char *wasmer_test_compiler = getenv("WASMER_CAPI_CONFIG");
+  char *wasmer_test_backend = getenv("WASMER_CAPI_CONFIG");
   char *wasmer_test_engine;
 
-  strtok_r(wasmer_test_compiler, "-", &wasmer_test_engine);
-  printf("Using compiler: %s, engine: %s\n", wasmer_test_compiler,
-         wasmer_test_engine);
-  if (strcmp(wasmer_test_compiler, "cranelift") == 0) {
-    assert(wasmer_is_compiler_available(CRANELIFT));
-    wasm_config_sys_set_compiler(config, CRANELIFT);
-  } else if (strcmp(wasmer_test_compiler, "llvm") == 0) {
-    assert(wasmer_is_compiler_available(LLVM));
-    wasm_config_sys_set_compiler(config, LLVM);
-  } else if (strcmp(wasmer_test_compiler, "singlepass") == 0) {
-    assert(wasmer_is_compiler_available(SINGLEPASS));
-    wasm_config_sys_set_compiler(config, SINGLEPASS);
-  } else if (wasmer_test_compiler) {
-    printf("Compiler %s not recognized\n", wasmer_test_compiler);
-    abort();
-  }
-  if (strcmp(wasmer_test_engine, "universal") == 0) {
-    assert(wasmer_is_engine_available(UNIVERSAL));
-    wasm_config_set_engine(config, UNIVERSAL);
-  } else if (wasmer_test_engine) {
-    printf("Engine %s not recognized\n", wasmer_test_engine);
+  printf("Using backend: %s\n", wasmer_test_backend);
+
+  strtok_r(wasmer_test_backend, "-", &wasmer_test_engine);
+
+  if (strcmp(wasmer_test_backend, "cranelift") == 0) {
+    assert(wasmer_is_backend_available(CRANELIFT));
+    wasm_config_set_backend(config, CRANELIFT);
+  } else if (strcmp(wasmer_test_backend, "llvm") == 0) {
+    assert(wasmer_is_backend_available(LLVM));
+    wasm_config_set_backend(config, LLVM);
+  } else if (strcmp(wasmer_test_backend, "singlepass") == 0) {
+    assert(wasmer_is_backend_available(SINGLEPASS));
+    wasm_config_set_backend(config, SINGLEPASS);
+  } else if (strcmp(wasmer_test_backend, "headless") == 0) {
+    assert(wasmer_is_backend_available(HEADLESS));
+    wasm_config_set_backend(config, HEADLESS);
+  } else if (strcmp(wasmer_test_backend, "v8") == 0) {
+    assert(wasmer_is_backend_available(V8));
+    wasm_config_set_backend(config, V8);
+  } else if (strcmp(wasmer_test_backend, "wamr") == 0) {
+    assert(wasmer_is_backend_available(WAMR));
+    wasm_config_set_backend(config, WAMR);
+  } else if (strcmp(wasmer_test_backend, "wasmi") == 0) {
+    assert(wasmer_is_backend_available(WASMI));
+    wasm_config_set_backend(config, WASMI);
+  } else if (wasmer_test_backend) {
+    printf("Compiler %s not recognized\n", wasmer_test_backend);
     abort();
   }
 

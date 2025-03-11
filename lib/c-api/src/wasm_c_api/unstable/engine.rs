@@ -2,7 +2,7 @@
 //! `wasm_engine_t` and siblings.
 
 use super::{
-    super::engine::{wasm_config_t, wasmer_engine_t},
+    super::engine::{wasm_config_t, wasmer_backend_t},
     features::wasmer_features_t,
 };
 
@@ -59,16 +59,19 @@ pub extern "C" fn wasmer_is_headless() -> bool {
     !cfg!(feature = "compiler")
 }
 
-/// Check whether the given engine is available, i.e. part of this
+/// Check whether the given backend is available, i.e. part of this
 /// compiled library.
 #[no_mangle]
-pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
-    match engine {
-        wasmer_engine_t::UNIVERSAL => cfg!(feature = "sys"),
-        wasmer_engine_t::V8 => cfg!(feature = "v8"),
-        wasmer_engine_t::WASMI => cfg!(feature = "wasmi"),
-        wasmer_engine_t::WAMR => cfg!(feature = "wamr"),
-        wasmer_engine_t::JSC => cfg!(feature = "wasmi"),
+pub extern "C" fn wasmer_is_backend_available(backend: wasmer_backend_t) -> bool {
+    match backend {
+        wasmer_backend_t::LLVM => cfg!(feature = "llvm"),
+        wasmer_backend_t::CRANELIFT => cfg!(feature = "cranelift"),
+        wasmer_backend_t::SINGLEPASS => cfg!(feature = "singlepass"),
+        wasmer_backend_t::HEADLESS => cfg!(feature = "sys"),
+        wasmer_backend_t::V8 => cfg!(feature = "v8"),
+        wasmer_backend_t::WASMI => cfg!(feature = "wasmi"),
+        wasmer_backend_t::WAMR => cfg!(feature = "wamr"),
+        wasmer_backend_t::JSC => cfg!(feature = "jsc"),
     }
 }
 
@@ -103,7 +106,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wasmer_is_compiler_available() {
+    fn test_wasmer_is_backend_available() {
         set_var(
             "CRANELIFT",
             if cfg!(feature = "cranelift") {
@@ -127,9 +130,9 @@ mod tests {
             #include <stdlib.h>
 
             int main() {
-                assert(wasmer_is_compiler_available(CRANELIFT) == (getenv("CRANELIFT")[0] == '1'));
-                assert(wasmer_is_compiler_available(LLVM) == (getenv("LLVM")[0] == '1'));
-                assert(wasmer_is_compiler_available(SINGLEPASS) == (getenv("SINGLEPASS")[0] == '1'));
+                assert(wasmer_is_backend_available(CRANELIFT) == (getenv("CRANELIFT")[0] == '1'));
+                assert(wasmer_is_backend_available(LLVM) == (getenv("LLVM")[0] == '1'));
+                assert(wasmer_is_backend_available(SINGLEPASS) == (getenv("SINGLEPASS")[0] == '1'));
 
                 return 0;
             }
@@ -139,27 +142,5 @@ mod tests {
         remove_var("CRANELIFT");
         remove_var("LLVM");
         remove_var("SINGLEPASS");
-    }
-
-    #[test]
-    fn test_wasmer_is_engine_available() {
-        set_var(
-            "UNIVERSAL",
-            if cfg!(feature = "compiler") { "1" } else { "0" },
-        );
-
-        (assert_c! {
-            #include "tests/wasmer.h"
-            #include <stdlib.h>
-
-            int main() {
-                assert(wasmer_is_engine_available(UNIVERSAL) == (getenv("UNIVERSAL")[0] == '1'));
-
-                return 0;
-            }
-        })
-        .success();
-
-        remove_var("UNIVERSAL");
     }
 }
