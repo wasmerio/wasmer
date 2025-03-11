@@ -110,5 +110,8 @@ fn test_wasm_slice_issue_5444() {
     let slice = WasmSlice::<u64>::new(&view, 1, 10).unwrap();
     let access = slice.access();
 
-    assert!(matches!(access.err(), Some(MemoryAccessError::UnalignedPointerRead)))
+    assert!(matches!(
+        access.err(),
+        Some(MemoryAccessError::UnalignedPointerRead)
+    ))
 }
