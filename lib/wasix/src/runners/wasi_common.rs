@@ -14,7 +14,7 @@ use webc::metadata::annotations::Wasi as WasiAnnotation;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{self, DynJournal, DynReadableJournal, SnapshotTrigger},
+    journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
     WasiEnvBuilder,
 };
 

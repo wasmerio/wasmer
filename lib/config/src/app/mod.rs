@@ -198,6 +198,10 @@ pub struct AppConfigCapabilityMapV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<AppConfigCapabilityMemoryV1>,
 
+    /// Runtime settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<AppConfigCapabilityRuntimeV1>,
+
     /// Enables app bootstrapping with startup snapshots.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
@@ -227,6 +231,19 @@ pub struct AppConfigCapabilityMemoryV1 {
     pub limit: Option<ByteSize>,
 }
 
+/// Runtime capability settings.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct AppConfigCapabilityRuntimeV1 {
+    /// Engine to use for an instance, e.g. wasmer_cranelift, wasmer_llvm, etc.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub engine: Option<String>,
+    /// Whether to enable asynchronous threads/deep sleeping.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub async_threads: Option<bool>,
+}
+
 /// Enables accelerated instance boot times with startup snapshots.
 ///
 /// How it works:
@@ -242,6 +259,10 @@ pub struct AppConfigCapabilityMemoryV1 {
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
 pub struct AppConfigCapabilityInstaBootV1 {
+    /// The method to use to generate the instaboot snapshot for the instance.
+    #[serde(default)]
+    pub mode: Option<InstabootSnapshotModeV1>,
+
     /// HTTP requests to perform during startup snapshot creation.
     /// Apps can perform all the appropriate warmup logic in these requests.
     ///
@@ -258,6 +279,33 @@ pub struct AppConfigCapabilityInstaBootV1 {
     /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_age: Option<PrettyDuration>,
+}
+
+/// How will an instance be bootstrapped?
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    schemars::JsonSchema,
+    Default,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum InstabootSnapshotModeV1 {
+    /// Start the instance without any snapshot triggers. Once the requests are done,
+    /// use [`snapshot_and_stop`](wasmer_wasix::WasiProcess::snapshot_and_stop) to
+    /// capture a snapshot and shut the instance down.
+    #[default]
+    Bootstrap,
+
+    /// Explicitly enable the given snapshot triggers before starting the instance.
+    /// The instance's process will have its stop_running_after_checkpoint flag set,
+    /// so the first snapshot will cause the instance to shut down.
+    // FIXME: make this strongly typed
+    Triggers(Vec<String>),
 }
 
 /// App redirect configuration.
