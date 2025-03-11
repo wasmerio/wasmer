@@ -434,6 +434,7 @@ impl Wasi {
     }
 
     #[cfg(feature = "journal")]
+    #[allow(clippy::type_complexity)]
     pub fn build_journals(
         &self,
     ) -> anyhow::Result<(Vec<Arc<DynReadableJournal>>, Vec<Arc<DynJournal>>)> {

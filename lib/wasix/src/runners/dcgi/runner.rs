@@ -75,7 +75,6 @@ impl crate::runners::Runner for DcgiRunner {
         // once due to limitations in the runtime
         let journals = runtime
             .writable_journals()
-            .into_iter()
             .map(|journal| {
                 let journal = FilteredJournalBuilder::new()
                     .with_ignore_memory(true)

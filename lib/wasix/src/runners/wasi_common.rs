@@ -106,7 +106,7 @@ impl CommonWasiOptions {
                 builder.add_writable_journal(journal.clone());
             }
             for trigger in &self.snapshot_on {
-                builder.add_snapshot_trigger(trigger.clone());
+                builder.add_snapshot_trigger(*trigger);
             }
             if let Some(interval) = self.snapshot_interval {
                 builder.with_snapshot_interval(interval);
