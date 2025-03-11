@@ -494,6 +494,11 @@ jobs:
               name: "Build and test C-API",
             },
             {
+              key: capi-v8,
+              build-cmd: "make test-capi-v8",
+              name: "Build and test C-API with v8",
+            },
+            {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
               name: "Build wasmer-cli",
@@ -511,6 +516,7 @@ jobs:
               target: x86_64-unknown-linux-gnu,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz",
+              supports_v8: true
             },
             {
               build: macos-x64,
@@ -518,6 +524,7 @@ jobs:
               target: x86_64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz",
+              supports_v8: true
             },
             {
               build: macos-arm,
@@ -525,6 +532,7 @@ jobs:
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz",
+              supports_v8: true
             },
             {
               build: windows-x64,
@@ -533,11 +541,13 @@ jobs:
               exe: ".exe",
               # For now, disable LLVM in `windows-x64.`
               # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+              supports_v8: false
             },
             {
               build: windows-gnu,
               target: x86_64-pc-windows-gnu,
               os: ubuntu-22.04,
+              supports_v8: false
             },
             {
               build: linux-musl,
@@ -545,6 +555,7 @@ jobs:
               os: ubuntu-22.04,
               exe: "",
               container: "alpine:latest",
+              supports_v8: false
             },
           ]
     container: ${{ matrix.metadata.container }}
@@ -684,6 +695,10 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+      - name: Test C-API (v8)  
+        shell: bash
+        run: ${{ matrix.build-what.build-cmd }}
+        if: ${{ matrix.build-what.key == 'capi-v8' && matrix.metadata.supports_v8 == true  }}
       - name: Build Wasmer
         shell: bash
         if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' }}
