@@ -22,7 +22,7 @@ mod update_memory;
 
 use crate::journal::JournalEffector;
 use crate::syscalls::anyhow_err_to_runtime_err;
-use crate::syscalls::JournalSyscallPlayer;
+use crate::syscalls::{JournalStdIoWrite, JournalSyscallPlayer};
 use crate::RewindState;
 use crate::WasiRuntimeError;
 use crate::WasiThreadId;

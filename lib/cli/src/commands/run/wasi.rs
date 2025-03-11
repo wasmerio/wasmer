@@ -23,7 +23,7 @@ use wasmer_wasix::{
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
-    journal::{CompactingLogFileJournal, DynJournal},
+    journal::{CompactingLogFileJournal, DynJournal, DynReadableJournal},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
@@ -136,6 +136,15 @@ pub struct Wasi {
     pub enable_cpu_backoff: Option<u64>,
 
     /// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process as it executes.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied using
+    /// the journals in the order that you specify here.
+    #[cfg(feature = "journal")]
+    #[clap(long = "journal")]
+    pub read_only_journals: Vec<PathBuf>,
+
+    /// Specifies one or more journal files that Wasmer will use to restore
     /// and save the state of the WASM process as it executes.
     ///
     /// The state of the WASM process and its sandbox will be reapplied using
@@ -145,8 +154,8 @@ pub struct Wasi {
     /// and opened for read and write. New journal events will be written to this
     /// file
     #[cfg(feature = "journal")]
-    #[clap(long = "journal")]
-    pub journals: Vec<PathBuf>,
+    #[clap(long = "journal-writable")]
+    pub writable_journals: Vec<PathBuf>,
 
     /// Flag that indicates if the journal will be automatically compacted
     /// as it fills up and when the process exits
@@ -188,6 +197,17 @@ pub struct Wasi {
     #[cfg(feature = "journal")]
     #[clap(long = "snapshot-period")]
     pub snapshot_interval: Option<u64>,
+
+    /// If specified, the runtime will stop executing the WASM module after the first snapshot
+    /// is taken.
+    #[cfg(feature = "journal")]
+    #[clap(long = "stop-after-snapshot")]
+    pub stop_after_snapshot: bool,
+
+    /// Skip writes to stdout and stderr when replying journal events to bootstrap a module.
+    #[cfg(feature = "journal")]
+    #[clap(long = "skip-journal-stdio")]
+    pub skip_stdio_during_bootstrap: bool,
 
     /// Allow instances to send http requests.
     ///
@@ -397,18 +417,40 @@ impl Wasi {
             if let Some(interval) = self.snapshot_interval {
                 builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
             }
-            for journal in self.build_journals()? {
-                builder.add_journal(journal);
+            if self.stop_after_snapshot {
+                builder.with_stop_running_after_snapshot(true);
             }
+            let (r, w) = self.build_journals()?;
+            for journal in r {
+                builder.add_read_only_journal(journal);
+            }
+            for journal in w {
+                builder.add_writable_journal(journal);
+            }
+            builder.with_skip_stdio_during_bootstrap(self.skip_stdio_during_bootstrap);
         }
 
         Ok(builder)
     }
 
     #[cfg(feature = "journal")]
-    pub fn build_journals(&self) -> anyhow::Result<Vec<Arc<DynJournal>>> {
-        let mut ret = Vec::new();
-        for journal in self.journals.clone() {
+    #[allow(clippy::type_complexity)]
+    pub fn build_journals(
+        &self,
+    ) -> anyhow::Result<(Vec<Arc<DynReadableJournal>>, Vec<Arc<DynJournal>>)> {
+        let mut readable = Vec::new();
+        for journal in self.read_only_journals.clone() {
+            if matches!(std::fs::metadata(&journal), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
+            {
+                bail!("Read-only journal file does not exist: {journal:?}");
+            }
+
+            readable
+                .push(Arc::new(LogFileJournal::new_readonly(journal)?) as Arc<DynReadableJournal>);
+        }
+
+        let mut writable = Vec::new();
+        for journal in self.writable_journals.clone() {
             if self.enable_compaction {
                 let mut journal = CompactingLogFileJournal::new(journal)?;
                 if !self.without_compact_on_drop {
@@ -417,12 +459,12 @@ impl Wasi {
                 if self.with_compact_on_growth.is_normal() && self.with_compact_on_growth != 0f32 {
                     journal = journal.with_compact_on_factor_size(self.with_compact_on_growth);
                 }
-                ret.push(Arc::new(journal) as Arc<DynJournal>);
+                writable.push(Arc::new(journal) as Arc<DynJournal>);
             } else {
-                ret.push(Arc::new(LogFileJournal::new(journal)?));
+                writable.push(Arc::new(LogFileJournal::new(journal)?));
             }
         }
-        Ok(ret)
+        Ok((readable, writable))
     }
 
     #[cfg(not(feature = "journal"))]
@@ -605,8 +647,14 @@ impl Wasi {
         }
 
         #[cfg(feature = "journal")]
-        for journal in self.build_journals()? {
-            rt.add_journal(journal);
+        {
+            let (r, w) = self.build_journals()?;
+            for journal in r {
+                rt.add_read_only_journal(journal);
+            }
+            for journal in w {
+                rt.add_writable_journal(journal);
+            }
         }
 
         if !self.no_tty {

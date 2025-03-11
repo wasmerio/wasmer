@@ -19,7 +19,7 @@ use wasmer::{Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
-use crate::journal::DynJournal;
+use crate::journal::{DynJournal, DynReadableJournal};
 use crate::{
     bin_factory::BinaryPackageCommand,
     http::{DynHttpClient, HttpClient},
@@ -143,11 +143,17 @@ where
     /// for multiple reasons however the most common is a panic within the process
     fn on_taint(&self, _reason: TaintReason) {}
 
-    /// The list of journals which will be used to restore the state of the
+    /// The list of all read-only journals which will be used to restore the state of the
     /// runtime at a particular point in time
     #[cfg(feature = "journal")]
-    fn journals(&self) -> &'_ Vec<Arc<DynJournal>> {
-        &EMPTY_JOURNAL_LIST
+    fn read_only_journals<'a>(&'a self) -> Box<dyn Iterator<Item = Arc<DynReadableJournal>> + 'a> {
+        Box::new(std::iter::empty())
+    }
+
+    /// The list of writable journals which will be appended to
+    #[cfg(feature = "journal")]
+    fn writable_journals<'a>(&'a self) -> Box<dyn Iterator<Item = Arc<DynJournal>> + 'a> {
+        Box::new(std::iter::empty())
     }
 
     /// The snapshot capturer takes and restores snapshots of the WASM process at specific
@@ -159,9 +165,6 @@ where
 }
 
 pub type DynRuntime = dyn Runtime + Send + Sync;
-
-#[cfg(feature = "journal")]
-static EMPTY_JOURNAL_LIST: Vec<Arc<DynJournal>> = Vec::new();
 
 /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
 ///
@@ -239,7 +242,9 @@ pub struct PluggableRuntime {
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
-    pub journals: Vec<Arc<DynJournal>>,
+    pub read_only_journals: Vec<Arc<DynReadableJournal>>,
+    #[cfg(feature = "journal")]
+    pub writable_journals: Vec<Arc<DynJournal>>,
 }
 
 impl PluggableRuntime {
@@ -275,7 +280,9 @@ impl PluggableRuntime {
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
             #[cfg(feature = "journal")]
-            journals: Vec::new(),
+            read_only_journals: Vec::new(),
+            #[cfg(feature = "journal")]
+            writable_journals: Vec::new(),
         }
     }
 
@@ -327,8 +334,14 @@ impl PluggableRuntime {
     }
 
     #[cfg(feature = "journal")]
-    pub fn add_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
-        self.journals.push(journal);
+    pub fn add_read_only_journal(&mut self, journal: Arc<DynReadableJournal>) -> &mut Self {
+        self.read_only_journals.push(journal);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_writable_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
+        self.writable_journals.push(journal);
         self
     }
 }
@@ -374,13 +387,18 @@ impl Runtime for PluggableRuntime {
     }
 
     #[cfg(feature = "journal")]
-    fn journals(&self) -> &'_ Vec<Arc<DynJournal>> {
-        &self.journals
+    fn read_only_journals<'a>(&'a self) -> Box<dyn Iterator<Item = Arc<DynReadableJournal>> + 'a> {
+        Box::new(self.read_only_journals.iter().cloned())
+    }
+
+    #[cfg(feature = "journal")]
+    fn writable_journals<'a>(&'a self) -> Box<dyn Iterator<Item = Arc<DynJournal>> + 'a> {
+        Box::new(self.writable_journals.iter().cloned())
     }
 
     #[cfg(feature = "journal")]
     fn active_journal(&self) -> Option<&DynJournal> {
-        self.journals.iter().last().map(|a| a.as_ref())
+        self.writable_journals.iter().last().map(|a| a.as_ref())
     }
 }
 
@@ -398,7 +416,9 @@ pub struct OverriddenRuntime {
     module_cache: Option<Arc<dyn ModuleCache + Send + Sync>>,
     tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
-    journals: Option<Vec<Arc<DynJournal>>>,
+    pub read_only_journals: Option<Vec<Arc<DynReadableJournal>>>,
+    #[cfg(feature = "journal")]
+    pub writable_journals: Option<Vec<Arc<DynJournal>>>,
 }
 
 impl OverriddenRuntime {
@@ -414,7 +434,9 @@ impl OverriddenRuntime {
             module_cache: None,
             tty: None,
             #[cfg(feature = "journal")]
-            journals: None,
+            read_only_journals: None,
+            #[cfg(feature = "journal")]
+            writable_journals: None,
         }
     }
 
@@ -456,15 +478,20 @@ impl OverriddenRuntime {
         self
     }
 
-    #[cfg(feature = "journal")]
     pub fn with_tty(mut self, tty: Arc<dyn TtyBridge + Send + Sync>) -> Self {
         self.tty.replace(tty);
         self
     }
 
     #[cfg(feature = "journal")]
-    pub fn with_journals(mut self, journals: Vec<Arc<DynJournal>>) -> Self {
-        self.journals.replace(journals);
+    pub fn with_read_only_journals(mut self, journals: Vec<Arc<DynReadableJournal>>) -> Self {
+        self.read_only_journals.replace(journals);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_writable_journals(mut self, journals: Vec<Arc<DynJournal>>) -> Self {
+        self.writable_journals.replace(journals);
         self
     }
 }
@@ -543,17 +570,26 @@ impl Runtime for OverriddenRuntime {
     }
 
     #[cfg(feature = "journal")]
-    fn journals(&self) -> &'_ Vec<Arc<DynJournal>> {
-        if let Some(journals) = self.journals.as_ref() {
-            journals
+    fn read_only_journals<'a>(&'a self) -> Box<dyn Iterator<Item = Arc<DynReadableJournal>> + 'a> {
+        if let Some(journals) = self.read_only_journals.as_ref() {
+            Box::new(journals.iter().cloned())
         } else {
-            self.inner.journals()
+            self.inner.read_only_journals()
+        }
+    }
+
+    #[cfg(feature = "journal")]
+    fn writable_journals<'a>(&'a self) -> Box<dyn Iterator<Item = Arc<DynJournal>> + 'a> {
+        if let Some(journals) = self.writable_journals.as_ref() {
+            Box::new(journals.iter().cloned())
+        } else {
+            self.inner.writable_journals()
         }
     }
 
     #[cfg(feature = "journal")]
     fn active_journal(&self) -> Option<&'_ DynJournal> {
-        if let Some(journals) = self.journals.as_ref() {
+        if let Some(journals) = self.writable_journals.as_ref() {
             journals.iter().last().map(|a| a.as_ref())
         } else {
             self.inner.active_journal()

@@ -42,7 +42,12 @@ pub(crate) fn fd_renumber_internal(
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     if state.fs.get_fd(to).is_ok() {
-        wasi_try_ok!(__asyncify_light(env, None, state.fs.flush(to))?);
+        match __asyncify_light(env, None, state.fs.flush(to))? {
+            Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
+            Err(e) => {
+                return Ok(e);
+            }
+        }
         wasi_try_ok!(state.fs.close_fd(to));
     }
 

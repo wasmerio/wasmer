@@ -249,6 +249,13 @@ pub struct WasiEnvInit {
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
+
+    /// Stop running after the first snapshot is taken
+    #[cfg(feature = "journal")]
+    pub stop_running_after_snapshot: bool,
+
+    /// Skip writes to stdout and stderr when bootstrapping from a journal
+    pub skip_stdio_during_bootstrap: bool,
 }
 
 impl WasiEnvInit {
@@ -288,6 +295,9 @@ impl WasiEnvInit {
             extra_tracing: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
+            #[cfg(feature = "journal")]
+            stop_running_after_snapshot: self.stop_running_after_snapshot,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             additional_imports: self.additional_imports.clone(),
         }
     }
@@ -334,6 +344,9 @@ pub struct WasiEnv {
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
 
+    /// Should stdio be skipped when bootstrapping this module from an existing journal?
+    pub skip_stdio_during_bootstrap: bool,
+
     /// Flag that indicates the cleanup of the environment is to be disabled
     /// (this is normally used so that the instance can be reused later on)
     pub(crate) disable_fs_cleanup: bool,
@@ -370,6 +383,7 @@ impl Clone for WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
         }
     }
@@ -410,6 +424,7 @@ impl WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
         };
         Ok((new_env, handle))
@@ -511,7 +526,9 @@ impl WasiEnv {
 
         #[cfg(feature = "journal")]
         {
-            process.inner.0.lock().unwrap().snapshot_on = init.snapshot_on.into_iter().collect();
+            let mut guard = process.inner.0.lock().unwrap();
+            guard.snapshot_on = init.snapshot_on.into_iter().collect();
+            guard.stop_running_after_checkpoint = init.stop_running_after_snapshot;
         }
 
         let layout = WasiMemoryLayout::default();
@@ -536,6 +553,7 @@ impl WasiEnv {
             #[cfg(not(feature = "journal"))]
             enable_journal: false,
             replaying_journal: false,
+            skip_stdio_during_bootstrap: init.skip_stdio_during_bootstrap,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             enable_exponential_cpu_backoff: init
                 .capabilities

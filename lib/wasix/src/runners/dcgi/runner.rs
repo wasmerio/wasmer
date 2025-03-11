@@ -74,9 +74,7 @@ impl crate::runners::Runner for DcgiRunner {
         // file system changes as it is unable to run the main function more than
         // once due to limitations in the runtime
         let journals = runtime
-            .journals()
-            .clone()
-            .into_iter()
+            .writable_journals()
             .map(|journal| {
                 let journal = FilteredJournalBuilder::new()
                     .with_ignore_memory(true)
@@ -89,7 +87,7 @@ impl crate::runners::Runner for DcgiRunner {
                 Arc::new(journal) as Arc<DynJournal>
             })
             .collect::<Vec<_>>();
-        let runtime = OverriddenRuntime::new(runtime).with_journals(journals);
+        let runtime = OverriddenRuntime::new(runtime).with_writable_journals(journals);
         let runtime = Arc::new(runtime) as Arc<DynRuntime>;
 
         //We now pass the runtime to the handlers
@@ -191,26 +189,45 @@ impl Config {
         self.inner.capabilities()
     }
 
+    #[cfg(feature = "journal")]
     pub fn add_snapshot_trigger(&mut self, on: crate::journal::SnapshotTrigger) {
         self.inner.add_snapshot_trigger(on);
     }
 
+    #[cfg(feature = "journal")]
     pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
         self.inner.add_default_snapshot_triggers();
         self
     }
 
+    #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, on: crate::journal::SnapshotTrigger) -> bool {
         self.inner.has_snapshot_trigger(on)
     }
 
+    #[cfg(feature = "journal")]
     pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
         self.inner.with_snapshot_interval(period);
         self
     }
 
-    pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
-        self.inner.add_journal(journal);
+    #[cfg(feature = "journal")]
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) {
+        self.inner.with_stop_running_after_snapshot(stop_running);
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_read_only_journal(
+        &mut self,
+        journal: Arc<crate::journal::DynReadableJournal>,
+    ) -> &mut Self {
+        self.inner.add_read_only_journal(journal);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_writable_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
+        self.inner.add_writable_journal(journal);
         self
     }
 }

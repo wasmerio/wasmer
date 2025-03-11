@@ -14,7 +14,7 @@ use webc::metadata::annotations::Wasi as WasiAnnotation;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{DynJournal, SnapshotTrigger},
+    journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
     WasiEnvBuilder,
 };
 
@@ -40,9 +40,12 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) is_tmp_mapped: bool,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
-    pub(crate) journals: Vec<Arc<DynJournal>>,
+    pub(crate) read_only_journals: Vec<Arc<DynReadableJournal>>,
+    pub(crate) writable_journals: Vec<Arc<DynJournal>>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
     pub(crate) snapshot_interval: Option<std::time::Duration>,
+    pub(crate) stop_running_after_snapshot: bool,
+    pub(crate) skip_stdio_during_bootstrap: bool,
     pub(crate) current_dir: Option<PathBuf>,
     pub(crate) additional_imports: Imports,
 }
@@ -93,6 +96,23 @@ impl CommonWasiOptions {
         *builder.capabilities_mut() = self.capabilities.clone();
 
         builder.add_imports(&self.additional_imports);
+
+        #[cfg(feature = "journal")]
+        {
+            for journal in &self.read_only_journals {
+                builder.add_read_only_journal(journal.clone());
+            }
+            for journal in &self.writable_journals {
+                builder.add_writable_journal(journal.clone());
+            }
+            for trigger in &self.snapshot_on {
+                builder.add_snapshot_trigger(*trigger);
+            }
+            if let Some(interval) = self.snapshot_interval {
+                builder.with_snapshot_interval(interval);
+            }
+            builder.with_stop_running_after_snapshot(self.stop_running_after_snapshot);
+        }
 
         Ok(())
     }

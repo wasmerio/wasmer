@@ -161,6 +161,18 @@
             }
           ]
         },
+        "mode": {
+          "description": "The method to use to generate the instaboot snapshot for the instance.",
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/InstabootSnapshotModeV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "requests": {
           "description": "HTTP requests to perform during startup snapshot creation. Apps can perform all the appropriate warmup logic in these requests.\n\nNOTE: if no requests are configured, then a single HTTP request to '/' will be performed instead.",
           "type": "array",
@@ -195,6 +207,17 @@
               "type": "null"
             }
           ]
+        },
+        "runtime": {
+          "description": "Runtime settings.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppConfigCapabilityRuntimeV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": true
@@ -205,6 +228,26 @@
       "properties": {
         "limit": {
           "description": "Memory limit for an instance.\n\nFormat: [digit][unit], where unit is Mb/Gb/MiB/GiB,...",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "AppConfigCapabilityRuntimeV1": {
+      "description": "Runtime capability settings.",
+      "type": "object",
+      "properties": {
+        "async_threads": {
+          "description": "Whether to enable asynchronous threads/deep sleeping.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "engine": {
+          "description": "Engine to use for an instance, e.g. wasmer_cranelift, wasmer_llvm, etc.",
           "type": [
             "string",
             "null"
@@ -542,6 +585,34 @@
           }
         }
       }
+    },
+    "InstabootSnapshotModeV1": {
+      "description": "How will an instance be bootstrapped?",
+      "oneOf": [
+        {
+          "description": "Start the instance without any snapshot triggers. Once the requests are done, use [`snapshot_and_stop`](wasmer_wasix::WasiProcess::snapshot_and_stop) to capture a snapshot and shut the instance down.",
+          "type": "string",
+          "enum": [
+            "bootstrap"
+          ]
+        },
+        {
+          "description": "Explicitly enable the given snapshot triggers before starting the instance. The instance's process will have its stop_running_after_checkpoint flag set, so the first snapshot will cause the instance to shut down.",
+          "type": "object",
+          "required": [
+            "triggers"
+          ],
+          "properties": {
+            "triggers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "Job": {
       "description": "Job configuration.",

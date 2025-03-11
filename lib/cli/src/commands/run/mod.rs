@@ -428,19 +428,26 @@ impl Run {
             for trigger in self.wasi.snapshot_on.iter().cloned() {
                 config.add_snapshot_trigger(trigger);
             }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+            if self.wasi.snapshot_on.is_empty() && !self.wasi.writable_journals.is_empty() {
                 config.add_default_snapshot_triggers();
             }
             if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.journals.is_empty() {
+                if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
-                        "If you specify a snapshot interval then you must also specify a journal file"
+                        "If you specify a snapshot interval then you must also specify a writable journal file"
                     ));
                 }
                 config.with_snapshot_interval(Duration::from_millis(period));
             }
-            for journal in self.wasi.build_journals()? {
-                config.add_journal(journal);
+            if self.wasi.stop_after_snapshot {
+                config.with_stop_running_after_snapshot(true);
+            }
+            let (r, w) = self.wasi.build_journals()?;
+            for journal in r {
+                config.add_read_only_journal(journal);
+            }
+            for journal in w {
+                config.add_writable_journal(journal);
             }
         }
 
@@ -537,20 +544,28 @@ impl Run {
             for trigger in self.wasi.snapshot_on.iter().cloned() {
                 runner.with_snapshot_trigger(trigger);
             }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+            if self.wasi.snapshot_on.is_empty() && !self.wasi.writable_journals.is_empty() {
                 runner.with_default_snapshot_triggers();
             }
             if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.journals.is_empty() {
+                if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
-                        "If you specify a snapshot interval then you must also specify a journal file"
+                        "If you specify a snapshot interval then you must also specify a writable journal file"
                     ));
                 }
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
-            for journal in self.wasi.build_journals()? {
-                runner.with_journal(journal);
+            if self.wasi.stop_after_snapshot {
+                runner.with_stop_running_after_snapshot(true);
             }
+            let (r, w) = self.wasi.build_journals()?;
+            for journal in r {
+                runner.with_read_only_journal(journal);
+            }
+            for journal in w {
+                runner.with_writable_journal(journal);
+            }
+            runner.with_skip_stdio_during_bootstrap(self.wasi.skip_stdio_during_bootstrap);
         }
 
         Ok(runner)
@@ -567,7 +582,7 @@ impl Run {
         let program_name = wasm_path.display().to_string();
 
         let runner = self.build_wasi_runner(&runtime)?;
-        runner.run_wasm(runtime, &program_name, module)
+        runner.run_wasm(runtime, &program_name, module, module_hash)
     }
 
     #[allow(unused_variables)]
@@ -1046,6 +1061,25 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
 
     fn tty(&self) -> Option<&(dyn wasmer_wasix::os::TtyBridge + Send + Sync)> {
         self.runtime.tty()
+    }
+
+    #[cfg(feature = "journal")]
+    fn read_only_journals<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynReadableJournal>> + 'a> {
+        self.runtime.read_only_journals()
+    }
+
+    #[cfg(feature = "journal")]
+    fn writable_journals<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynJournal>> + 'a> {
+        self.runtime.writable_journals()
+    }
+
+    #[cfg(feature = "journal")]
+    fn active_journal(&self) -> Option<&'_ wasmer_wasix::journal::DynJournal> {
+        self.runtime.active_journal()
     }
 }
 

@@ -13,7 +13,7 @@ use wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
 use wasmer_config::package::PackageId;
 
 #[cfg(feature = "journal")]
-use crate::journal::{DynJournal, SnapshotTrigger};
+use crate::journal::{DynJournal, DynReadableJournal, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -92,7 +92,15 @@ pub struct WasiEnvBuilder {
     pub(super) snapshot_interval: Option<std::time::Duration>,
 
     #[cfg(feature = "journal")]
-    pub(super) journals: Vec<Arc<DynJournal>>,
+    pub(super) stop_running_after_snapshot: bool,
+
+    #[cfg(feature = "journal")]
+    pub(super) read_only_journals: Vec<Arc<DynReadableJournal>>,
+
+    #[cfg(feature = "journal")]
+    pub(super) writable_journals: Vec<Arc<DynJournal>>,
+
+    pub(super) skip_stdio_during_bootstrap: bool,
 
     #[cfg(feature = "ctrlc")]
     pub(super) attach_ctrl_c: bool,
@@ -615,13 +623,23 @@ impl WasiEnvBuilder {
     ///
     /// The state of the WASM process and its sandbox will be reapplied use
     /// the journals in the order that you specify here.
+    #[cfg(feature = "journal")]
+    pub fn add_read_only_journal(&mut self, journal: Arc<DynReadableJournal>) {
+        self.read_only_journals.push(journal);
+    }
+
+    /// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied use
+    /// the journals in the order that you specify here.
     ///
     /// The last journal file specified will be created if it does not exist
     /// and opened for read and write. New journal events will be written to this
     /// file
     #[cfg(feature = "journal")]
-    pub fn add_journal(&mut self, journal: Arc<DynJournal>) {
-        self.journals.push(journal);
+    pub fn add_writable_journal(&mut self, journal: Arc<DynJournal>) {
+        self.writable_journals.push(journal);
     }
 
     pub fn get_current_dir(&mut self) -> Option<PathBuf> {
@@ -738,6 +756,15 @@ impl WasiEnvBuilder {
     #[cfg(feature = "journal")]
     pub fn with_snapshot_interval(&mut self, interval: std::time::Duration) {
         self.snapshot_interval.replace(interval);
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) {
+        self.stop_running_after_snapshot = stop_running;
+    }
+
+    pub fn with_skip_stdio_during_bootstrap(&mut self, skip: bool) {
+        self.skip_stdio_during_bootstrap = skip;
     }
 
     /// Add an item to the list of importable items provided to the instance.
@@ -945,8 +972,12 @@ impl WasiEnvBuilder {
                 #[allow(unused_mut)]
                 let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
                 #[cfg(feature = "journal")]
-                for journal in self.journals.clone() {
-                    runtime.add_journal(journal);
+                for journal in self.read_only_journals.clone() {
+                    runtime.add_read_only_journal(journal);
+                }
+                #[cfg(feature = "journal")]
+                for journal in self.writable_journals.clone() {
+                    runtime.add_writable_journal(journal);
                 }
                 Arc::new(runtime)
             }
@@ -983,13 +1014,17 @@ impl WasiEnvBuilder {
             process: None,
             thread: None,
             #[cfg(feature = "journal")]
-            call_initialize: self.journals.is_empty(),
+            call_initialize: self.read_only_journals.is_empty()
+                && self.writable_journals.is_empty(),
             #[cfg(not(feature = "journal"))]
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on,
+            #[cfg(feature = "journal")]
+            stop_running_after_snapshot: self.stop_running_after_snapshot,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             additional_imports: self.additional_imports,
         };
 

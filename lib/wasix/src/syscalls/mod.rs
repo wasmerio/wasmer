@@ -124,7 +124,7 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, FdInner, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    journal::{DynJournal, JournalEffector},
+    journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
     os::task::{
         process::{MaybeCheckpointResult, WasiProcessCheckpoint},
         thread::{RewindResult, RewindResultType},
