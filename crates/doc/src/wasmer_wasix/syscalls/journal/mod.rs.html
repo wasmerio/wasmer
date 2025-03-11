@@ -78,6 +78,9 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">mod </span>actions;
 <span class="kw">mod </span>clear_ethereal;
@@ -107,6 +110,12 @@
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
+<span class="kw">pub struct </span>JournalStdIoWrite&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">pub </span>offset: u64,
+    <span class="kw">pub </span>data: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
+    <span class="kw">pub </span>is_64bit: bool,
+}
+
 <span class="kw">pub struct </span>JournalSyscallPlayer&lt;<span class="lifetime">'a</span>, <span class="lifetime">'c</span>&gt; {
     <span class="kw">pub </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'c</span>, WasiEnv&gt;,
     <span class="kw">pub </span>bootstrapping: bool,
@@ -125,16 +134,18 @@
     <span class="kw">pub </span>differ_memory: Vec&lt;(Range&lt;u64&gt;, Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;)&gt;,
 
     <span class="comment">// We capture the stdout and stderr while we replay
-    </span><span class="kw">pub </span>stdout: Vec&lt;(u64, Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;, bool)&gt;,
-    <span class="kw">pub </span>stderr: Vec&lt;(u64, Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;, bool)&gt;,
+    </span><span class="kw">pub </span>stdout: <span class="prelude-ty">Option</span>&lt;Vec&lt;JournalStdIoWrite&lt;<span class="lifetime">'a</span>&gt;&gt;&gt;,
+    <span class="kw">pub </span>stderr: <span class="prelude-ty">Option</span>&lt;Vec&lt;JournalStdIoWrite&lt;<span class="lifetime">'a</span>&gt;&gt;&gt;,
     <span class="kw">pub </span>stdout_fds: HashSet&lt;u32&gt;,
     <span class="kw">pub </span>stderr_fds: HashSet&lt;u32&gt;,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'c</span>&gt; JournalSyscallPlayer&lt;<span class="lifetime">'a</span>, <span class="lifetime">'c</span>&gt; {
     <span class="kw">pub fn </span>new(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'c</span>, WasiEnv&gt;, bootstrapping: bool) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>cur_module_hash: Box&lt;[u8]&gt; = Box::from(ctx.data().process.module_hash.as_bytes());
-        <span class="kw">let </span><span class="kw-2">mut </span>ret = JournalSyscallPlayer {
+        <span class="kw">let </span>env = ctx.data();
+        <span class="kw">let </span>keep_stdio = !env.skip_stdio_during_bootstrap;
+        <span class="kw">let </span>cur_module_hash: Box&lt;[u8]&gt; = Box::from(env.process.module_hash.as_bytes());
+        JournalSyscallPlayer {
             ctx,
             bootstrapping,
             cur_module_hash,
@@ -144,18 +155,13 @@
             spawn_threads: Default::default(),
             staged_differ_memory: Default::default(),
             differ_memory: Default::default(),
-            stdout: Default::default(),
-            stderr: Default::default(),
-            stdout_fds: Default::default(),
-            stderr_fds: Default::default(),
+            <span class="comment">// We capture stdout and stderr while we replay
+            </span>stdout_fds: [<span class="number">1 </span><span class="kw">as </span>WasiFd].into(),
+            stderr_fds: [<span class="number">2 </span><span class="kw">as </span>WasiFd].into(),
+            stdout: keep_stdio.then(Default::default),
+            stderr: keep_stdio.then(Default::default),
             real_fd: Default::default(),
-        };
-
-        <span class="comment">// We capture the stdout and stderr while we replay
-        </span>ret.stdout_fds.insert(<span class="number">1 </span><span class="kw">as </span>WasiFd);
-        ret.stderr_fds.insert(<span class="number">2 </span><span class="kw">as </span>WasiFd);
-
-        ret
+        }
     }
 }
 </code></pre></div></section></main></body></html>

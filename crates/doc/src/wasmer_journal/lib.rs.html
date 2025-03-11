@@ -103,6 +103,19 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>base64;
 <span class="kw">mod </span>concrete;
 <span class="kw">mod </span>entry;
@@ -200,7 +213,9 @@
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 </span><span class="attr">#[allow(unused_variables)]
-</span><span class="kw">pub trait </span>Journal: WritableJournal + ReadableJournal + std::fmt::Debug {
+</span><span class="kw">pub trait </span>Journal:
+    WritableJournal + ReadableJournal + AsDynReadableJournal + std::fmt::Debug
+{
     <span class="doccomment">/// Splits the journal into a read and write side
     </span><span class="kw">fn </span>split(<span class="self">self</span>) -&gt; (Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;);
 }
@@ -208,4 +223,15 @@
 <span class="kw">pub type </span>DynJournal = <span class="kw">dyn </span>Journal + Send + Sync;
 <span class="kw">pub type </span>DynWritableJournal = <span class="kw">dyn </span>WritableJournal + Send + Sync;
 <span class="kw">pub type </span>DynReadableJournal = <span class="kw">dyn </span>ReadableJournal + Send + Sync;
+
+<span class="doccomment">/// A bit of manual up-casting support
+</span><span class="kw">pub trait </span>AsDynReadableJournal {
+    <span class="kw">fn </span>as_dyn_readable_journal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DynReadableJournal;
+}
+
+<span class="kw">impl</span>&lt;T: Journal + Send + Sync + <span class="lifetime">'static</span>&gt; AsDynReadableJournal <span class="kw">for </span>T {
+    <span class="kw">fn </span>as_dyn_readable_journal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DynReadableJournal {
+        <span class="self">self
+    </span>}
+}
 </code></pre></div></section></main></body></html>

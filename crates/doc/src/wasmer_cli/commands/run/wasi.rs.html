@@ -782,6 +782,54 @@
 <a href="#782" id="782">782</a>
 <a href="#783" id="783">783</a>
 <a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -807,7 +855,7 @@
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
-    journal::{CompactingLogFileJournal, DynJournal},
+    journal::{CompactingLogFileJournal, DynJournal, DynReadableJournal},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
@@ -920,6 +968,15 @@
     </span><span class="kw">pub </span>enable_cpu_backoff: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 
     <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process as it executes.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied using
+    /// the journals in the order that you specify here.
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub </span>read_only_journals: Vec&lt;PathBuf&gt;,
+
+    <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
     /// and save the state of the WASM process as it executes.
     ///
     /// The state of the WASM process and its sandbox will be reapplied using
@@ -929,8 +986,8 @@
     /// and opened for read and write. New journal events will be written to this
     /// file
     </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    #[clap(long = <span class="string">"journal"</span>)]
-    </span><span class="kw">pub </span>journals: Vec&lt;PathBuf&gt;,
+    #[clap(long = <span class="string">"journal-writable"</span>)]
+    </span><span class="kw">pub </span>writable_journals: Vec&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Flag that indicates if the journal will be automatically compacted
     /// as it fills up and when the process exits
@@ -972,6 +1029,17 @@
     </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     #[clap(long = <span class="string">"snapshot-period"</span>)]
     </span><span class="kw">pub </span>snapshot_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+
+    <span class="doccomment">/// If specified, the runtime will stop executing the WASM module after the first snapshot
+    /// is taken.
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"stop-after-snapshot"</span>)]
+    </span><span class="kw">pub </span>stop_after_snapshot: bool,
+
+    <span class="doccomment">/// Skip writes to stdout and stderr when replying journal events to bootstrap a module.
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    #[clap(long = <span class="string">"skip-journal-stdio"</span>)]
+    </span><span class="kw">pub </span>skip_stdio_during_bootstrap: bool,
 
     <span class="doccomment">/// Allow instances to send http requests.
     ///
@@ -1181,18 +1249,40 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(interval) = <span class="self">self</span>.snapshot_interval {
                 builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
             }
-            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.build_journals()<span class="question-mark">? </span>{
-                builder.add_journal(journal);
+            <span class="kw">if </span><span class="self">self</span>.stop_after_snapshot {
+                builder.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
             }
+            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
+            <span class="kw">for </span>journal <span class="kw">in </span>r {
+                builder.add_read_only_journal(journal);
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span>w {
+                builder.add_writable_journal(journal);
+            }
+            builder.with_skip_stdio_during_bootstrap(<span class="self">self</span>.skip_stdio_during_bootstrap);
         }
 
         <span class="prelude-val">Ok</span>(builder)
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">pub fn </span>build_journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>ret = Vec::new();
-        <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.journals.clone() {
+    #[allow(clippy::type_complexity)]
+    </span><span class="kw">pub fn </span>build_journals(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; anyhow::Result&lt;(Vec&lt;Arc&lt;DynReadableJournal&gt;&gt;, Vec&lt;Arc&lt;DynJournal&gt;&gt;)&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>readable = Vec::new();
+        <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.read_only_journals.clone() {
+            <span class="kw">if </span><span class="macro">matches!</span>(std::fs::metadata(<span class="kw-2">&amp;</span>journal), <span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound)
+            {
+                <span class="macro">bail!</span>(<span class="string">"Read-only journal file does not exist: {journal:?}"</span>);
+            }
+
+            readable
+                .push(Arc::new(LogFileJournal::new_readonly(journal)<span class="question-mark">?</span>) <span class="kw">as </span>Arc&lt;DynReadableJournal&gt;);
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>writable = Vec::new();
+        <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.writable_journals.clone() {
             <span class="kw">if </span><span class="self">self</span>.enable_compaction {
                 <span class="kw">let </span><span class="kw-2">mut </span>journal = CompactingLogFileJournal::new(journal)<span class="question-mark">?</span>;
                 <span class="kw">if </span>!<span class="self">self</span>.without_compact_on_drop {
@@ -1201,12 +1291,12 @@
                 <span class="kw">if </span><span class="self">self</span>.with_compact_on_growth.is_normal() &amp;&amp; <span class="self">self</span>.with_compact_on_growth != <span class="number">0f32 </span>{
                     journal = journal.with_compact_on_factor_size(<span class="self">self</span>.with_compact_on_growth);
                 }
-                ret.push(Arc::new(journal) <span class="kw">as </span>Arc&lt;DynJournal&gt;);
+                writable.push(Arc::new(journal) <span class="kw">as </span>Arc&lt;DynJournal&gt;);
             } <span class="kw">else </span>{
-                ret.push(Arc::new(LogFileJournal::new(journal)<span class="question-mark">?</span>));
+                writable.push(Arc::new(LogFileJournal::new(journal)<span class="question-mark">?</span>));
             }
         }
-        <span class="prelude-val">Ok</span>(ret)
+        <span class="prelude-val">Ok</span>((readable, writable))
     }
 
     <span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
@@ -1389,8 +1479,14 @@
         }
 
         <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-        </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.build_journals()<span class="question-mark">? </span>{
-            rt.add_journal(journal);
+        </span>{
+            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
+            <span class="kw">for </span>journal <span class="kw">in </span>r {
+                rt.add_read_only_journal(journal);
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span>w {
+                rt.add_writable_journal(journal);
+            }
         }
 
         <span class="kw">if </span>!<span class="self">self</span>.no_tty {

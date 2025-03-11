@@ -865,6 +865,39 @@
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
 <a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use crate</span>::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
 <span class="kw">use crate</span>::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
@@ -1038,6 +1071,9 @@
     <span class="doccomment">/// If true then the journaling will be disabled after the
     /// next snapshot is taken
     </span><span class="kw">pub </span>disable_journaling_after_checkpoint: bool,
+    <span class="doccomment">/// If true then the process will stop running after the
+    /// next snapshot is taken
+    </span><span class="kw">pub </span>stop_running_after_checkpoint: bool,
     <span class="doccomment">/// List of situations that the process will checkpoint on
     </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">pub </span>snapshot_on: HashSet&lt;SnapshotTrigger&gt;,
@@ -1176,6 +1212,14 @@
                 ctx.data().thread.set_checkpointing(<span class="bool-val">false</span>);
                 <span class="macro">trace!</span>(<span class="string">"checkpoint finished"</span>);
 
+                <span class="kw">if </span>guard.stop_running_after_checkpoint {
+                    <span class="macro">trace!</span>(<span class="string">"will stop running now"</span>);
+                    <span class="comment">// Need to stop recording journal events so we don't also record the
+                    // thread and process exit events
+                    </span>ctx.data_mut().enable_journal = <span class="bool-val">false</span>;
+                    <span class="kw">return </span>OnCalledAction::Finish;
+                }
+
                 <span class="comment">// Rewind the stack and carry on
                 </span><span class="kw">return match </span>rewind_ext::&lt;M&gt;(
                     <span class="kw-2">&amp;mut </span>ctx,
@@ -1294,6 +1338,7 @@
                 <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
                 </span>snapshot_memory_hash: Default::default(),
                 disable_journaling_after_checkpoint: <span class="bool-val">false</span>,
+                stop_running_after_checkpoint: <span class="bool-val">false</span>,
                 backoff: WasiProcessCpuBackoff::new(max_cpu_backoff_time, max_cpu_cool_off_time),
             }),
             Condvar::new(),
@@ -1462,6 +1507,21 @@
         <span class="self">self</span>.wait_for_checkpoint_finish()
     }
 
+    <span class="doccomment">/// Takes a snapshot of the process and shuts it down after the snapshot
+    /// is taken.
+    ///
+    /// Note: If you ignore the returned future the checkpoint will still
+    /// occur but it will execute asynchronously
+    </span><span class="kw">pub fn </span>snapshot_and_stop(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        trigger: SnapshotTrigger,
+    ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
+        guard.stop_running_after_checkpoint = <span class="bool-val">true</span>;
+        guard.checkpoint = WasiProcessCheckpoint::Snapshot { trigger };
+        <span class="self">self</span>.wait_for_checkpoint_finish()
+    }
+
     <span class="doccomment">/// Takes a snapshot of the process
     ///
     /// Note: If you ignore the returned future the checkpoint will still
@@ -1479,6 +1539,12 @@
     </span><span class="kw">pub fn </span>disable_journaling_after_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
         guard.disable_journaling_after_checkpoint = <span class="bool-val">true</span>;
+    }
+
+    <span class="doccomment">/// Stop running once a checkpoint is taken
+    </span><span class="kw">pub fn </span>stop_running_after_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
+        guard.stop_running_after_checkpoint = <span class="bool-val">true</span>;
     }
 
     <span class="doccomment">/// Wait for the checkout process to finish

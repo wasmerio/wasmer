@@ -409,7 +409,7 @@
                 ..
             } =&gt; <span class="macro">write!</span>(
                 f,
-                <span class="string">"thread-update (id={}, call-stack.len={}, mem-stack.len={}, store-size={}"</span>,
+                <span class="string">"thread-update (id={}, call-stack.len={}, mem-stack.len={}, store-size={})"</span>,
                 id,
                 call_stack.len(),
                 memory_stack.len(),
@@ -596,7 +596,7 @@
                 <span class="macro">write!</span>(f, <span class="string">"sock-send-to (fd={}, data.len={}, addr={})"</span>, fd, data.len(), addr)
             }
             JournalEntry::SocketSendV1 { fd, data, .. } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">"sock-send (fd={}, data.len={}"</span>, fd, data.len())
+                <span class="macro">write!</span>(f, <span class="string">"sock-send (fd={}, data.len={})"</span>, fd, data.len())
             }
             JournalEntry::SocketSetOptFlagV1 { fd, opt, flag } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">"sock-set-opt (fd={fd}, opt={opt:?}, flag={flag})"</span>)

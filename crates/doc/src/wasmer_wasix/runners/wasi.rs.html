@@ -603,20 +603,81 @@
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>futures::future::Either;
 <span class="kw">use </span>tracing::Instrument;
 <span class="kw">use </span>virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
 <span class="kw">use </span>wasmer::{Extern, Module};
+<span class="kw">use </span>wasmer_types::ModuleHash;
 <span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
 <span class="kw">use crate</span>::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{DynJournal, SnapshotTrigger},
+    journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory, MountedDirectory},
     runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
@@ -773,12 +834,14 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>with_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.snapshot_on.push(on);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_default_snapshot_triggers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>with_default_snapshot_triggers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
             <span class="kw">if </span>!<span class="self">self</span>.has_snapshot_trigger(on) {
                 <span class="self">self</span>.with_snapshot_trigger(on);
@@ -787,11 +850,13 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>has_snapshot_trigger(<span class="kw-2">&amp;</span><span class="self">self</span>, on: SnapshotTrigger) -&gt; bool {
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>has_snapshot_trigger(<span class="kw-2">&amp;</span><span class="self">self</span>, on: SnapshotTrigger) -&gt; bool {
         <span class="self">self</span>.wasi.snapshot_on.iter().any(|t| <span class="kw-2">*</span>t == on)
     }
 
-    <span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, period: std::time::Duration) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, period: std::time::Duration) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="kw">if </span>!<span class="self">self</span>.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) {
             <span class="self">self</span>.with_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
         }
@@ -799,8 +864,26 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.wasi.journals.push(journal);
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>with_stop_running_after_snapshot(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stop_running: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.stop_running_after_snapshot = stop_running;
+        <span class="self">self
+    </span>}
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>with_read_only_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynReadableJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.read_only_journals.push(journal);
+        <span class="self">self
+    </span>}
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>with_writable_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.writable_journals.push(journal);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_skip_stdio_during_bootstrap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, skip: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.skip_stdio_during_bootstrap = skip;
         <span class="self">self
     </span>}
 
@@ -851,20 +934,24 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
-        pkg: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>BinaryPackage&gt;,
+        pkg_or_module_hash: Either&lt;<span class="kw-2">&amp;</span>BinaryPackage, ModuleHash&gt;,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name).runtime(runtime);
 
-        <span class="kw">let </span>container_fs = <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = pkg {
-            builder.add_webc(pkg.clone());
-            builder.set_module_hash(pkg.hash());
-            builder.include_packages(pkg.package_ids.clone());
-            <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs))
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
+        <span class="kw">let </span>container_fs = <span class="kw">match </span>pkg_or_module_hash {
+            Either::Left(pkg) =&gt; {
+                builder.add_webc(pkg.clone());
+                builder.set_module_hash(pkg.hash());
+                builder.include_packages(pkg.package_ids.clone());
+                <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs))
+            }
+            Either::Right(hash) =&gt; {
+                builder.set_module_hash(hash);
+                <span class="prelude-val">None
+            </span>}
+        };
 
         <span class="kw">if </span><span class="self">self</span>.wasi.is_home_mapped {
             builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
@@ -899,11 +986,17 @@
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         program_name: <span class="kw-2">&amp;</span>str,
         module: Module,
+        module_hash: ModuleHash,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>wasi = webc::metadata::annotations::Wasi::new(program_name);
 
-        <span class="kw">let </span><span class="kw-2">mut </span>builder =
-            <span class="self">self</span>.prepare_webc_env(program_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>, runtime.clone(), <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self</span>.prepare_webc_env(
+            program_name,
+            <span class="kw-2">&amp;</span>wasi,
+            Either::Right(module_hash),
+            runtime.clone(),
+            <span class="prelude-val">None</span>,
+        )<span class="question-mark">?</span>;
 
         <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
         </span>{
@@ -912,28 +1005,34 @@
 
         <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
-            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.journals.clone() {
-                builder.add_journal(journal);
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.read_only_journals.iter().cloned() {
+                builder.add_read_only_journal(journal);
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.writable_journals.iter().cloned() {
+                builder.add_writable_journal(journal);
             }
 
             <span class="kw">if </span>!<span class="self">self</span>.wasi.snapshot_on.is_empty() {
                 <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                     builder.add_snapshot_trigger(trigger);
                 }
-            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.journals.is_empty() {
+            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.writable_journals.is_empty() {
                 <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
-                <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
+                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                            <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
+                            <span class="string">"If you specify a snapshot interval then you must also specify a writable journal file"
                         </span>));
                 }
                 builder.with_snapshot_interval(period);
             }
+
+            builder.with_stop_running_after_snapshot(<span class="self">self</span>.wasi.stop_running_after_snapshot);
+            builder.with_skip_stdio_during_bootstrap(<span class="self">self</span>.wasi.skip_stdio_during_bootstrap);
         }
 
         <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
@@ -1007,33 +1106,44 @@
 
         <span class="attr">#[allow(unused_mut)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self
-            </span>.prepare_webc_env(exec_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">Some</span>(pkg), Arc::clone(<span class="kw-2">&amp;</span>runtime), <span class="prelude-val">None</span>)
+            </span>.prepare_webc_env(
+                exec_name,
+                <span class="kw-2">&amp;</span>wasi,
+                Either::Left(pkg),
+                Arc::clone(<span class="kw-2">&amp;</span>runtime),
+                <span class="prelude-val">None</span>,
+            )
             .context(<span class="string">"Unable to prepare the WASI environment"</span>)<span class="question-mark">?</span>;
 
         <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{
-            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.journals.clone() {
-                builder.add_journal(journal);
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.read_only_journals.iter().cloned() {
+                builder.add_read_only_journal(journal);
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.writable_journals.iter().cloned() {
+                builder.add_writable_journal(journal);
             }
 
             <span class="kw">if </span>!<span class="self">self</span>.wasi.snapshot_on.is_empty() {
                 <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                     builder.add_snapshot_trigger(trigger);
                 }
-            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.journals.is_empty() {
+            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.writable_journals.is_empty() {
                 <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
                     builder.add_snapshot_trigger(on);
                 }
             }
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
-                <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
+                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
                             <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
                         </span>));
                 }
                 builder.with_snapshot_interval(period);
             }
+
+            builder.with_stop_running_after_snapshot(<span class="self">self</span>.wasi.stop_running_after_snapshot);
         }
 
         <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
@@ -1121,6 +1231,8 @@
     </span><span class="kw">async fn </span>test_volume_mount_without_webcs() {
         <span class="kw">use </span>std::sync::Arc;
 
+        <span class="kw">use </span><span class="kw">crate</span>::utils::xxhash_random;
+
         <span class="kw">let </span>root_fs = virtual_fs::RootFileSystemBuilder::new().build();
 
         <span class="kw">let </span>tokrt = tokio::runtime::Handle::current();
@@ -1142,7 +1254,13 @@
         <span class="kw">let </span>rt = <span class="kw">crate</span>::PluggableRuntime::new(tm);
 
         <span class="kw">let </span>envb = envb
-            .prepare_webc_env(<span class="string">"test"</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>, Arc::new(rt), <span class="prelude-val">Some</span>(root_fs))
+            .prepare_webc_env(
+                <span class="string">"test"</span>,
+                <span class="kw-2">&amp;</span>annotations,
+                Either::Right(xxhash_random()),
+                Arc::new(rt),
+                <span class="prelude-val">Some</span>(root_fs),
+            )
             .unwrap();
 
         <span class="kw">let </span>init = envb.build_init().unwrap();
@@ -1192,7 +1310,7 @@
             .prepare_webc_env(
                 <span class="string">"test"</span>,
                 <span class="kw-2">&amp;</span>annotations,
-                <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>binpkg),
+                Either::Left(<span class="kw-2">&amp;</span>binpkg),
                 Arc::new(rt),
                 <span class="prelude-val">Some</span>(root_fs),
             )

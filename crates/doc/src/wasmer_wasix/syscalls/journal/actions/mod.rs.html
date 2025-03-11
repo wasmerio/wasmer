@@ -69,7 +69,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::journal::JournalEffector;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::anyhow_err_to_runtime_err;
-<span class="kw">use </span><span class="kw">crate</span>::syscalls::JournalSyscallPlayer;
+<span class="kw">use </span><span class="kw">crate</span>::syscalls::{JournalStdIoWrite, JournalSyscallPlayer};
 <span class="kw">use </span><span class="kw">crate</span>::RewindState;
 <span class="kw">use </span><span class="kw">crate</span>::WasiRuntimeError;
 <span class="kw">use </span><span class="kw">crate</span>::WasiThreadId;

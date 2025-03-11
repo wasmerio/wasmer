@@ -581,6 +581,42 @@
 <a href="#581" id="581">581</a>
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
@@ -602,7 +638,7 @@
 <span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 
 <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::journal::DynJournal;
+</span><span class="kw">use </span><span class="kw">crate</span>::journal::{DynJournal, DynReadableJournal};
 <span class="kw">use crate</span>::{
     bin_factory::BinaryPackageCommand,
     http::{DynHttpClient, HttpClient},
@@ -726,11 +762,17 @@
     /// for multiple reasons however the most common is a panic within the process
     </span><span class="kw">fn </span>on_taint(<span class="kw-2">&amp;</span><span class="self">self</span>, _reason: TaintReason) {}
 
-    <span class="doccomment">/// The list of journals which will be used to restore the state of the
+    <span class="doccomment">/// The list of all read-only journals which will be used to restore the state of the
     /// runtime at a particular point in time
     </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">fn </span>journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'_ </span>Vec&lt;Arc&lt;DynJournal&gt;&gt; {
-        <span class="kw-2">&amp;</span>EMPTY_JOURNAL_LIST
+    </span><span class="kw">fn </span>read_only_journals&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;DynReadableJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        Box::new(std::iter::empty())
+    }
+
+    <span class="doccomment">/// The list of writable journals which will be appended to
+    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">fn </span>writable_journals&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;DynJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        Box::new(std::iter::empty())
     }
 
     <span class="doccomment">/// The snapshot capturer takes and restores snapshots of the WASM process at specific
@@ -742,9 +784,6 @@
 }
 
 <span class="kw">pub type </span>DynRuntime = <span class="kw">dyn </span>Runtime + Send + Sync;
-
-<span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-</span><span class="kw">static </span>EMPTY_JOURNAL_LIST: Vec&lt;Arc&lt;DynJournal&gt;&gt; = Vec::new();
 
 <span class="doccomment">/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
 ///
@@ -822,7 +861,9 @@
     <span class="kw">pub </span>module_cache: Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;,
     <span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">pub </span>journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
+    </span><span class="kw">pub </span>read_only_journals: Vec&lt;Arc&lt;DynReadableJournal&gt;&gt;,
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub </span>writable_journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
 }
 
 <span class="kw">impl </span>PluggableRuntime {
@@ -858,7 +899,9 @@
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
             <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-            </span>journals: Vec::new(),
+            </span>read_only_journals: Vec::new(),
+            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+            </span>writable_journals: Vec::new(),
         }
     }
 
@@ -910,8 +953,14 @@
     </span>}
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">pub fn </span>add_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.journals.push(journal);
+    </span><span class="kw">pub fn </span>add_read_only_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynReadableJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.read_only_journals.push(journal);
+        <span class="self">self
+    </span>}
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>add_writable_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.writable_journals.push(journal);
         <span class="self">self
     </span>}
 }
@@ -957,13 +1006,18 @@
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">fn </span>journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'_ </span>Vec&lt;Arc&lt;DynJournal&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.journals
+    </span><span class="kw">fn </span>read_only_journals&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;DynReadableJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        Box::new(<span class="self">self</span>.read_only_journals.iter().cloned())
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">fn </span>writable_journals&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;DynJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        Box::new(<span class="self">self</span>.writable_journals.iter().cloned())
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">fn </span>active_journal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>DynJournal&gt; {
-        <span class="self">self</span>.journals.iter().last().map(|a| a.as_ref())
+        <span class="self">self</span>.writable_journals.iter().last().map(|a| a.as_ref())
     }
 }
 
@@ -981,7 +1035,9 @@
     module_cache: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;&gt;,
     tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span>journals: <span class="prelude-ty">Option</span>&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt;,
+    </span><span class="kw">pub </span>read_only_journals: <span class="prelude-ty">Option</span>&lt;Vec&lt;Arc&lt;DynReadableJournal&gt;&gt;&gt;,
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub </span>writable_journals: <span class="prelude-ty">Option</span>&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt;,
 }
 
 <span class="kw">impl </span>OverriddenRuntime {
@@ -997,7 +1053,9 @@
             module_cache: <span class="prelude-val">None</span>,
             tty: <span class="prelude-val">None</span>,
             <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-            </span>journals: <span class="prelude-val">None</span>,
+            </span>read_only_journals: <span class="prelude-val">None</span>,
+            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+            </span>writable_journals: <span class="prelude-val">None</span>,
         }
     }
 
@@ -1039,15 +1097,20 @@
         <span class="self">self
     </span>}
 
-    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">pub fn </span>with_tty(<span class="kw-2">mut </span><span class="self">self</span>, tty: Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_tty(<span class="kw-2">mut </span><span class="self">self</span>, tty: Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.tty.replace(tty);
         <span class="self">self
     </span>}
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">pub fn </span>with_journals(<span class="kw-2">mut </span><span class="self">self</span>, journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.journals.replace(journals);
+    </span><span class="kw">pub fn </span>with_read_only_journals(<span class="kw-2">mut </span><span class="self">self</span>, journals: Vec&lt;Arc&lt;DynReadableJournal&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.read_only_journals.replace(journals);
+        <span class="self">self
+    </span>}
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>with_writable_journals(<span class="kw-2">mut </span><span class="self">self</span>, journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.writable_journals.replace(journals);
         <span class="self">self
     </span>}
 }
@@ -1126,17 +1189,26 @@
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">fn </span>journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'_ </span>Vec&lt;Arc&lt;DynJournal&gt;&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(journals) = <span class="self">self</span>.journals.as_ref() {
-            journals
+    </span><span class="kw">fn </span>read_only_journals&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;DynReadableJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(journals) = <span class="self">self</span>.read_only_journals.as_ref() {
+            Box::new(journals.iter().cloned())
         } <span class="kw">else </span>{
-            <span class="self">self</span>.inner.journals()
+            <span class="self">self</span>.inner.read_only_journals()
+        }
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">fn </span>writable_journals&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;DynJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(journals) = <span class="self">self</span>.writable_journals.as_ref() {
+            Box::new(journals.iter().cloned())
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.inner.writable_journals()
         }
     }
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">fn </span>active_journal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>DynJournal&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(journals) = <span class="self">self</span>.journals.as_ref() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(journals) = <span class="self">self</span>.writable_journals.as_ref() {
             journals.iter().last().map(|a| a.as_ref())
         } <span class="kw">else </span>{
             <span class="self">self</span>.inner.active_journal()

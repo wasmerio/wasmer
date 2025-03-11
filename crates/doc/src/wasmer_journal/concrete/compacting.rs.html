@@ -1544,6 +1544,24 @@
 <a href="#1544" id="1544">1544</a>
 <a href="#1545" id="1545">1545</a>
 <a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
+<a href="#1556" id="1556">1556</a>
+<a href="#1557" id="1557">1557</a>
+<a href="#1558" id="1558">1558</a>
+<a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     ops::{DerefMut, Range},
@@ -1607,7 +1625,7 @@
 /// on the final deterministic outcome of the entire log.
 ///
 /// By grouping events into subevents it makes it possible to ignore an
-/// entire subgroup of events which are superseeded by a later event. For
+/// entire subgroup of events which are superceded by a later event. For
 /// example, all the events involved in creating a file are irrelevant if
 /// that file is later deleted.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -1776,6 +1794,15 @@
         filter.build_split(writer, reader)
     }
 
+    <span class="kw">fn </span>insert_new_sub_events_empty(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; SubGroupIndex {
+        <span class="kw">let </span>lookup = SubGroupIndex(<span class="self">self</span>.descriptor_seed);
+        <span class="self">self</span>.descriptor_seed += <span class="number">1</span>;
+
+        <span class="self">self</span>.sub_events.entry(lookup).or_default();
+
+        lookup
+    }
+
     <span class="kw">fn </span>insert_new_sub_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event_index: usize) -&gt; SubGroupIndex {
         <span class="kw">let </span>lookup = SubGroupIndex(<span class="self">self</span>.descriptor_seed);
         <span class="self">self</span>.descriptor_seed += <span class="number">1</span>;
@@ -1845,6 +1872,10 @@
         <span class="self">self</span>.stdio_descriptors.clear();
         <span class="self">self</span>.suspect_descriptors.clear();
         <span class="self">self</span>.thread_map.clear();
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..=<span class="number">2 </span>{
+            <span class="kw">let </span>lookup = <span class="self">self</span>.insert_new_sub_events_empty();
+            <span class="self">self</span>.stdio_descriptors.insert(i, lookup);
+        }
     }
 }
 
@@ -1881,7 +1912,7 @@
         </span>J: Journal,
     {
         <span class="kw">let </span>(tx, rx) = inner.split();
-        <span class="kw">let </span>state = State {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = State {
             inner_tx: tx,
             inner_rx: rx.as_restarted()<span class="question-mark">?</span>,
             tty: <span class="prelude-val">None</span>,
@@ -1910,6 +1941,11 @@
             delta_list: <span class="prelude-val">None</span>,
             event_index: <span class="number">0</span>,
         };
+        <span class="comment">// stdio FDs are always created for a process initially, fill them out here
+        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..=<span class="number">2 </span>{
+            <span class="kw">let </span>lookup = state.insert_new_sub_events_empty();
+            state.stdio_descriptors.insert(i, lookup);
+        }
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             tx: CompactingJournalTx {
                 state: Arc::new(Mutex::new(state)),
@@ -2130,12 +2166,6 @@
                     state.keep_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
                 }
 
-                <span class="comment">// If its stdio then we need to create the descriptor if its not there already
-                </span><span class="kw">if </span><span class="kw-2">*</span>fd &lt;= <span class="number">3 </span>&amp;&amp; !state.stdio_descriptors.contains_key(fd) {
-                    <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
-                    state.stdio_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
-                }
-
                 <span class="comment">// Update the state
                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(state) = state
                     .find_sub_events(fd)
@@ -2154,19 +2184,11 @@
                     }
                 }
             }
-            <span class="comment">// Seeks to a particular position within
+            <span class="comment">// We keep non-mutable events for file descriptors that are suspect
             </span>JournalEntry::FileDescriptorSeekV1 { fd, .. }
             | JournalEntry::FileDescriptorSetFdFlagsV1 { fd, .. }
-            | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. } =&gt; {
-                <span class="comment">// If its stdio then we need to create the descriptor if its not there already
-                </span><span class="kw">if </span><span class="kw-2">*</span>fd &lt;= <span class="number">3 </span>&amp;&amp; !state.stdio_descriptors.contains_key(fd) {
-                    <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
-                    state.stdio_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
-                }
-                state.find_sub_events_and_append(fd, event_index);
-            }
-            <span class="comment">// We keep non-mutable events for file descriptors that are suspect
-            </span>JournalEntry::SocketBindV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. }
+            | JournalEntry::SocketBindV1 { fd, .. }
             | JournalEntry::SocketSendFileV1 { socket_fd: fd, .. }
             | JournalEntry::SocketSendToV1 { fd, .. }
             | JournalEntry::SocketSendV1 { fd, .. }
@@ -2215,36 +2237,50 @@
             } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.get(original_fd).cloned() {
                     state.suspect_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.keep_descriptors.get(original_fd).cloned() {
                     state.keep_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.stdio_descriptors.get(original_fd).cloned() {
                     state.stdio_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_pipes.get(original_fd).cloned() {
                     state.open_pipes.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_sockets.get(original_fd).cloned() {
                     state.open_sockets.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.accepted_sockets.get(original_fd).cloned() {
                     state.accepted_sockets.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.event_descriptors.get(original_fd).cloned() {
                     state.event_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 }
             }
             <span class="comment">// Renumbered file descriptors will retain their suspect status
             </span>JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.remove(old_fd) {
                     state.suspect_descriptors.insert(<span class="kw-2">*</span>new_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.keep_descriptors.remove(old_fd) {
                     state.keep_descriptors.insert(<span class="kw-2">*</span>new_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.stdio_descriptors.remove(old_fd) {
                     state.stdio_descriptors.insert(<span class="kw-2">*</span>new_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_pipes.remove(old_fd) {
                     state.open_pipes.insert(<span class="kw-2">*</span>new_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_sockets.remove(old_fd) {
                     state.open_sockets.insert(<span class="kw-2">*</span>new_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_sockets.remove(old_fd) {
                     state.accepted_sockets.insert(<span class="kw-2">*</span>new_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.event_descriptors.remove(old_fd) {
                     state.event_descriptors.insert(<span class="kw-2">*</span>new_fd, lookup);
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
                 }
             }
             <span class="comment">// Creating a new directory only needs to be done once

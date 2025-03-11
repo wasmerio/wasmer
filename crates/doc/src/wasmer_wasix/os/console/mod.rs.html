@@ -403,6 +403,7 @@
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -417,6 +418,7 @@
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
+<span class="kw">use </span>futures::future::Either;
 <span class="kw">use </span>linked_hash_set::LinkedHashSet;
 <span class="kw">use </span>tokio::sync::{mpsc, RwLock};
 <span class="attr">#[allow(unused_imports, dead_code)]
@@ -634,7 +636,7 @@
             .prepare_webc_env(
                 prog,
                 <span class="kw-2">&amp;</span>wasi_opts,
-                <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>pkg),
+                Either::Left(<span class="kw-2">&amp;</span>pkg),
                 <span class="self">self</span>.runtime.clone(),
                 <span class="prelude-val">Some</span>(root_fs),
             )

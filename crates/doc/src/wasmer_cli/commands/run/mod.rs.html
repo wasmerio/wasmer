@@ -1095,6 +1095,40 @@
 <a href="#1095" id="1095">1095</a>
 <a href="#1096" id="1096">1096</a>
 <a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1525,19 +1559,26 @@
             <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                 config.add_snapshot_trigger(trigger);
             }
-            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.journals.is_empty() {
+            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.writable_journals.is_empty() {
                 config.add_default_snapshot_triggers();
             }
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
-                <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
+                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                        <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
+                        <span class="string">"If you specify a snapshot interval then you must also specify a writable journal file"
                     </span>));
                 }
                 config.with_snapshot_interval(Duration::from_millis(period));
             }
-            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.build_journals()<span class="question-mark">? </span>{
-                config.add_journal(journal);
+            <span class="kw">if </span><span class="self">self</span>.wasi.stop_after_snapshot {
+                config.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
+            }
+            <span class="kw">let </span>(r, w) = <span class="self">self</span>.wasi.build_journals()<span class="question-mark">?</span>;
+            <span class="kw">for </span>journal <span class="kw">in </span>r {
+                config.add_read_only_journal(journal);
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span>w {
+                config.add_writable_journal(journal);
             }
         }
 
@@ -1634,20 +1675,28 @@
             <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                 runner.with_snapshot_trigger(trigger);
             }
-            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.journals.is_empty() {
+            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.writable_journals.is_empty() {
                 runner.with_default_snapshot_triggers();
             }
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
-                <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
+                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                        <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
+                        <span class="string">"If you specify a snapshot interval then you must also specify a writable journal file"
                     </span>));
                 }
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
-            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.build_journals()<span class="question-mark">? </span>{
-                runner.with_journal(journal);
+            <span class="kw">if </span><span class="self">self</span>.wasi.stop_after_snapshot {
+                runner.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
             }
+            <span class="kw">let </span>(r, w) = <span class="self">self</span>.wasi.build_journals()<span class="question-mark">?</span>;
+            <span class="kw">for </span>journal <span class="kw">in </span>r {
+                runner.with_read_only_journal(journal);
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span>w {
+                runner.with_writable_journal(journal);
+            }
+            runner.with_skip_stdio_during_bootstrap(<span class="self">self</span>.wasi.skip_stdio_during_bootstrap);
         }
 
         <span class="prelude-val">Ok</span>(runner)
@@ -1664,7 +1713,7 @@
         <span class="kw">let </span>program_name = wasm_path.display().to_string();
 
         <span class="kw">let </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
-        runner.run_wasm(runtime, <span class="kw-2">&amp;</span>program_name, module)
+        runner.run_wasm(runtime, <span class="kw-2">&amp;</span>program_name, module, module_hash)
     }
 
     <span class="attr">#[allow(unused_variables)]
@@ -2143,6 +2192,25 @@
 
     <span class="kw">fn </span>tty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>wasmer_wasix::os::TtyBridge + Send + Sync)&gt; {
         <span class="self">self</span>.runtime.tty()
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">fn </span>read_only_journals&lt;<span class="lifetime">'a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;wasmer_wasix::journal::DynReadableJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        <span class="self">self</span>.runtime.read_only_journals()
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">fn </span>writable_journals&lt;<span class="lifetime">'a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;wasmer_wasix::journal::DynJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+        <span class="self">self</span>.runtime.writable_journals()
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">fn </span>active_journal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>wasmer_wasix::journal::DynJournal&gt; {
+        <span class="self">self</span>.runtime.active_journal()
     }
 }
 

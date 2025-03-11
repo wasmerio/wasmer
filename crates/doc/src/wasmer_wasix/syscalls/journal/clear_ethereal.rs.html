@@ -17,6 +17,13 @@
 <a href="#17" id="17">17</a>
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'c</span>&gt; JournalSyscallPlayer&lt;<span class="lifetime">'a</span>, <span class="lifetime">'c</span>&gt; {
@@ -26,12 +33,19 @@
     ) {
         <span class="macro">tracing::trace!</span>(<span class="string">"Replay journal - ClearEthereal"</span>);
         <span class="self">self</span>.spawn_threads.clear();
-        <span class="self">self</span>.stdout.clear();
-        <span class="self">self</span>.stderr.clear();
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = <span class="self">self</span>.stdout.as_mut() {
+            x.clear();
+        }
         <span class="self">self</span>.stdout_fds.clear();
-        <span class="self">self</span>.stderr_fds.clear();
         <span class="self">self</span>.stdout_fds.insert(<span class="number">1 </span><span class="kw">as </span>WasiFd);
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = <span class="self">self</span>.stderr.as_mut() {
+            x.clear();
+        }
+        <span class="self">self</span>.stderr_fds.clear();
         <span class="self">self</span>.stderr_fds.insert(<span class="number">2 </span><span class="kw">as </span>WasiFd);
+
         differ_ethereal.iter_mut().for_each(|e| e.clear());
         <span class="self">self</span>.staged_differ_memory.clear();
     }

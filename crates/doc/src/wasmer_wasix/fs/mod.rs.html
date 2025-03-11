@@ -2339,6 +2339,8 @@
 <a href="#2339" id="2339">2339</a>
 <a href="#2340" id="2340">2340</a>
 <a href="#2341" id="2341">2341</a>
+<a href="#2342" id="2342">2342</a>
+<a href="#2343" id="2343">2343</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
@@ -2424,6 +2426,7 @@
             | Rights::FD_SYNC.bits()
             | Rights::FD_ADVISE.bits()
             | Rights::FD_FILESTAT_GET.bits()
+            | Rights::FD_FDSTAT_SET_FLAGS.bits()
             | Rights::POLL_FD_READWRITE.bits(),
     )
 };
@@ -2436,6 +2439,7 @@
             | Rights::FD_WRITE.bits()
             | Rights::FD_ADVISE.bits()
             | Rights::FD_FILESTAT_GET.bits()
+            | Rights::FD_FDSTAT_SET_FLAGS.bits()
             | Rights::POLL_FD_READWRITE.bits(),
     )
 };

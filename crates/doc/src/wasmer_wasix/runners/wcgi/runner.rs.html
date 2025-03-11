@@ -357,6 +357,20 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc};
 
 <span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::Body;
@@ -684,8 +698,22 @@
     </span>}
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-    </span><span class="kw">pub fn </span>add_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;<span class="kw">crate</span>::journal::DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.wasi.journals.push(journal);
+    </span><span class="kw">pub fn </span>with_stop_running_after_snapshot(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stop_running: bool) {
+        <span class="self">self</span>.wasi.stop_running_after_snapshot = stop_running;
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>add_read_only_journal(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        journal: Arc&lt;<span class="kw">crate</span>::journal::DynReadableJournal&gt;,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.read_only_journals.push(journal);
+        <span class="self">self
+    </span>}
+
+    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+    </span><span class="kw">pub fn </span>add_writable_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;<span class="kw">crate</span>::journal::DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.writable_journals.push(journal);
         <span class="self">self
     </span>}
 }

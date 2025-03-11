@@ -81,7 +81,36 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Display;
+
+<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Various triggers that will cause the runtime to take snapshot
 /// of the WASM state and store it in the snapshot file.
@@ -162,6 +191,31 @@
             <span class="string">"explicit" </span>=&gt; <span class="self">Self</span>::Explicit,
             a =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">"invalid or unknown trigger ({a})"</span>)),
         })
+    }
+}
+
+<span class="kw">impl </span>Display <span class="kw">for </span>SnapshotTrigger {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(
+            f,
+            <span class="string">"{}"</span>,
+            <span class="kw">match </span><span class="self">self </span>{
+                <span class="self">Self</span>::Bootstrap =&gt; <span class="string">"bootstrap"</span>,
+                <span class="self">Self</span>::Explicit =&gt; <span class="string">"explicit"</span>,
+                <span class="self">Self</span>::FirstEnviron =&gt; <span class="string">"first-environ"</span>,
+                <span class="self">Self</span>::FirstListen =&gt; <span class="string">"first-listen"</span>,
+                <span class="self">Self</span>::FirstSigint =&gt; <span class="string">"first-sigint"</span>,
+                <span class="self">Self</span>::FirstStdin =&gt; <span class="string">"first-stdin"</span>,
+                <span class="self">Self</span>::Idle =&gt; <span class="string">"idle"</span>,
+                <span class="self">Self</span>::NonDeterministicCall =&gt; <span class="string">"non-deterministic-call"</span>,
+                <span class="self">Self</span>::PeriodicInterval =&gt; <span class="string">"periodic-interval"</span>,
+                <span class="self">Self</span>::Sigalrm =&gt; <span class="string">"sigalrm"</span>,
+                <span class="self">Self</span>::Sigint =&gt; <span class="string">"sigint"</span>,
+                <span class="self">Self</span>::Sigtstp =&gt; <span class="string">"sigtstp"</span>,
+                <span class="self">Self</span>::Sigstop =&gt; <span class="string">"sigstop"</span>,
+                <span class="self">Self</span>::Transaction =&gt; <span class="string">"transaction"</span>,
+            }
+        )
     }
 }
 </code></pre></div></section></main></body></html>
