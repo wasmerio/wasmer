@@ -27,6 +27,12 @@ use std::{collections::BTreeMap, ops::Range};
 
 use super::*;
 
+pub struct JournalStdIoWrite<'a> {
+    pub offset: u64,
+    pub data: Cow<'a, [u8]>,
+    pub is_64bit: bool,
+}
+
 pub struct JournalSyscallPlayer<'a, 'c> {
     pub ctx: FunctionEnvMut<'c, WasiEnv>,
     pub bootstrapping: bool,
@@ -45,8 +51,8 @@ pub struct JournalSyscallPlayer<'a, 'c> {
     pub differ_memory: Vec<(Range<u64>, Cow<'a, [u8]>)>,
 
     // We capture the stdout and stderr while we replay
-    pub stdout: Option<Vec<(u64, Cow<'a, [u8]>, bool)>>,
-    pub stderr: Option<Vec<(u64, Cow<'a, [u8]>, bool)>>,
+    pub stdout: Option<Vec<JournalStdIoWrite<'a>>>,
+    pub stderr: Option<Vec<JournalStdIoWrite<'a>>>,
     pub stdout_fds: HashSet<u32>,
     pub stderr_fds: HashSet<u32>,
 }

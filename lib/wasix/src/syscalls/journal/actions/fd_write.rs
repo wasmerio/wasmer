@@ -11,15 +11,23 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     ) -> Result<(), WasiRuntimeError> {
         tracing::trace!(%fd, %offset, "Replay journal - FdWrite");
         if self.stdout_fds.contains(&fd) {
-            self.stdout
-                .as_mut()
-                .map(|x| x.push((offset, data, is_64bit)));
+            if let Some(x) = self.stdout.as_mut() {
+                x.push(JournalStdIoWrite {
+                    offset,
+                    data,
+                    is_64bit,
+                });
+            }
             return Ok(());
         }
         if self.stderr_fds.contains(&fd) {
-            self.stderr
-                .as_mut()
-                .map(|x| x.push((offset, data, is_64bit)));
+            if let Some(x) = self.stdout.as_mut() {
+                x.push(JournalStdIoWrite {
+                    offset,
+                    data,
+                    is_64bit,
+                });
+            }
             return Ok(());
         }
 

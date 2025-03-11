@@ -8,11 +8,15 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         tracing::trace!("Replay journal - ClearEthereal");
         self.spawn_threads.clear();
 
-        self.stdout.as_mut().map(|x| x.clear());
+        if let Some(x) = self.stdout.as_mut() {
+            x.clear();
+        }
         self.stdout_fds.clear();
         self.stdout_fds.insert(1 as WasiFd);
 
-        self.stderr.as_mut().map(|x| x.clear());
+        if let Some(x) = self.stderr.as_mut() {
+            x.clear();
+        }
         self.stderr_fds.clear();
         self.stderr_fds.insert(2 as WasiFd);
 

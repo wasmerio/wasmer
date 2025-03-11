@@ -295,6 +295,7 @@ impl WasiEnvInit {
             extra_tracing: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
+            #[cfg(feature = "journal")]
             stop_running_after_snapshot: self.stop_running_after_snapshot,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             additional_imports: self.additional_imports.clone(),

@@ -36,7 +36,12 @@ pub unsafe fn restore_snapshot(
     // Now output the stdout and stderr
     if let Some(stdout) = runner.stdout {
         tracing::trace!("replaying stdout");
-        for (offset, data, is_64bit) in stdout {
+        for JournalStdIoWrite {
+            offset,
+            data,
+            is_64bit,
+        } in stdout
+        {
             if is_64bit {
                 JournalEffector::apply_fd_write::<Memory64>(&mut runner.ctx, 1, offset, data)
             } else {
@@ -48,7 +53,12 @@ pub unsafe fn restore_snapshot(
 
     if let Some(stderr) = runner.stderr {
         tracing::trace!("replaying stderr");
-        for (offset, data, is_64bit) in stderr {
+        for JournalStdIoWrite {
+            offset,
+            data,
+            is_64bit,
+        } in stderr
+        {
             if is_64bit {
                 JournalEffector::apply_fd_write::<Memory64>(&mut runner.ctx, 2, offset, data)
             } else {

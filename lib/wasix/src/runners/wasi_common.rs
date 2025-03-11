@@ -14,7 +14,7 @@ use webc::metadata::annotations::Wasi as WasiAnnotation;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
+    journal::{self, DynJournal, DynReadableJournal, SnapshotTrigger},
     WasiEnvBuilder,
 };
 
@@ -96,6 +96,23 @@ impl CommonWasiOptions {
         *builder.capabilities_mut() = self.capabilities.clone();
 
         builder.add_imports(&self.additional_imports);
+
+        #[cfg(feature = "journal")]
+        {
+            for journal in &self.read_only_journals {
+                builder.add_read_only_journal(journal.clone());
+            }
+            for journal in &self.writable_journals {
+                builder.add_writable_journal(journal.clone());
+            }
+            for trigger in &self.snapshot_on {
+                builder.add_snapshot_trigger(trigger.clone());
+            }
+            if let Some(interval) = self.snapshot_interval {
+                builder.with_snapshot_interval(interval);
+            }
+            builder.with_stop_running_after_snapshot(self.stop_running_after_snapshot);
+        }
 
         Ok(())
     }

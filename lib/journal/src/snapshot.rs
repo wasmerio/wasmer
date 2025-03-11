@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::*;
 
 /// Various triggers that will cause the runtime to take snapshot
@@ -79,5 +81,30 @@ impl FromStr for SnapshotTrigger {
             "explicit" => Self::Explicit,
             a => return Err(anyhow::format_err!("invalid or unknown trigger ({a})")),
         })
+    }
+}
+
+impl Display for SnapshotTrigger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Bootstrap => "bootstrap",
+                Self::Explicit => "explicit",
+                Self::FirstEnviron => "first-environ",
+                Self::FirstListen => "first-listen",
+                Self::FirstSigint => "first-sigint",
+                Self::FirstStdin => "first-stdin",
+                Self::Idle => "idle",
+                Self::NonDeterministicCall => "non-deterministic-call",
+                Self::PeriodicInterval => "periodic-interval",
+                Self::Sigalrm => "sigalrm",
+                Self::Sigint => "sigint",
+                Self::Sigtstp => "sigtstp",
+                Self::Sigstop => "sigstop",
+                Self::Transaction => "transaction",
+            }
+        )
     }
 }
