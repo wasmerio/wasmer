@@ -304,6 +304,7 @@ fn build_v8() {
     let mut args = vec![];
     if cfg!(target_os = "macos") {
         args.push("-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.5.sdk/usr/include/c++/v1/");
+        args.push("-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.5.sdk/usr/include");
     }
     let bindings = bindgen::Builder::default()
         .header(header_path.display().to_string())
