@@ -264,6 +264,7 @@ mod tests {
     use wasmer_package::utils::from_disk;
 
     use crate::{
+        http::client_builder::ClientBuilderConfig,
         runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
         PluggableRuntime,
     };
@@ -305,7 +306,7 @@ mod tests {
         let tasks = task_manager();
         let mut runtime = PluggableRuntime::new(tasks);
         runtime.set_package_loader(
-            BuiltinPackageLoader::new()
+            BuiltinPackageLoader::new(ClientBuilderConfig::default())
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
@@ -364,7 +365,7 @@ mod tests {
         let tasks = task_manager();
         let mut runtime = PluggableRuntime::new(tasks);
         runtime.set_package_loader(
-            BuiltinPackageLoader::new()
+            BuiltinPackageLoader::new(ClientBuilderConfig::default())
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
