@@ -1,6 +1,7 @@
 //! Data types, functions and traits for `wamr`'s `Instance` implementation.
 use std::sync::Arc;
 
+use crate::entities::external::VMExternToExtern;
 use crate::{
     backend::wamr::bindings::*, vm::VMExtern, wamr::error::Trap, AsStoreMut, AsStoreRef, Exports,
     Extern, Imports, InstantiationError, Module,
@@ -39,17 +40,7 @@ impl InstanceHandle {
 
             std::mem::forget(externs);
 
-            let stack_size = 2 * 1024 * 1024;
-            let heap_size = 2 * 1024 * 1024;
-
-            wasm_instance_new_with_args(
-                store,
-                module,
-                &mut imports,
-                &mut trap,
-                stack_size,
-                heap_size,
-            )
+            wasm_instance_new(store, module, &mut imports, &mut trap)
         };
 
         if instance.is_null() {
@@ -61,29 +52,66 @@ impl InstanceHandle {
     }
 
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
-        let mut exports = unsafe {
+        let mut c_api_externs = unsafe {
             let mut vec = Default::default();
             wasm_instance_exports(self.0, &mut vec);
             vec
         };
 
-        let wasm_exports: &[*mut wasm_extern_t] =
-            unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
+        let c_api_externs: Vec<*mut wasm_extern_t> = if c_api_externs.data.is_null()
+            || !c_api_externs.data.is_aligned()
+            || c_api_externs.size == 0
+        {
+            vec![]
+        } else {
+            unsafe { std::slice::from_raw_parts(c_api_externs.data, c_api_externs.size) }.to_vec()
+        };
+        let c_api_externs = c_api_externs.to_vec();
+        let mut exports = unsafe {
+            let mut vec = Default::default();
+            wasm_module_exports(module.as_wamr().handle.inner, &mut vec);
+            vec
+        };
 
-        let exports_ty = module.exports().collect::<Vec<_>>();
-        let exports = exports_ty
-            .iter()
-            .zip(wasm_exports.into_iter())
-            .map(|(export_type, wasm_export)| {
-                let name = export_type.name();
-                let mut store = store.as_store_mut();
-                let extern_type = export_type.ty();
-                // Annotation is here to prevent spurious IDE warnings.
+        let c_api_exports: Vec<*mut wasm_exporttype_t> =
+            if exports.data.is_null() || !exports.data.is_aligned() || exports.size == 0 {
+                vec![]
+            } else {
+                unsafe { std::slice::from_raw_parts(exports.data, exports.size) }.to_vec()
+            };
 
-                let extern_ = Extern::from_vm_extern(&mut store, VMExtern::Wamr(*wasm_export));
-                (name.to_string(), extern_)
+        // We need to use the order of the exports from the polyfill info to get the right
+        // one, i.e. the from the declaration.
+        let module_exports = module.exports().collect::<Vec<_>>();
+
+        let c_api_exports: Exports = c_api_exports
+            .into_iter()
+            .zip(c_api_externs.into_iter())
+            .map(|(export, ext)| unsafe {
+                let name = wasm_exporttype_name(export);
+                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
+                let mut name = name.to_vec();
+                // Remove the '\0' at the end of the NULL-terminated string.
+                name.pop();
+                let name = String::from_utf8(name.to_vec()).unwrap_or_default();
+                let ext = ext.to_extern(&mut store);
+                (name, ext)
             })
-            .collect::<Exports>();
+            .collect();
+
+        let mut exports = Exports::new();
+
+        for e in module_exports {
+            let ext: Extern = c_api_exports
+                .get::<Extern>(e.name())
+                .expect(&format!(
+                    "c_api_exports: {c_api_exports:?} (name: {})",
+                    e.name()
+                ))
+                .clone();
+            exports.insert(e.name().to_string(), ext);
+        }
+
         exports
     }
 }

@@ -222,7 +222,7 @@ impl Module {
         let off = usize::from_ne_bytes(off.try_into().unwrap());
         let name_bytes = &binary[8..(8 + off)];
         let name = String::from_utf8_lossy(name_bytes).to_string();
-        let mod_bytes = &binary[off..];
+        let mod_bytes = &binary[(8 + off)..];
         let module = ModuleHandle::deserialize(engine, mod_bytes)?;
 
         Ok(Self {
@@ -275,7 +275,12 @@ impl Module {
 
             wasm_module_imports(module as *const _, &mut imports as *mut _);
 
-            let imports = std::slice::from_raw_parts(imports.data, imports.size).to_vec();
+            let imports =
+                if imports.data.is_null() || !imports.data.is_aligned() || imports.size == 0 {
+                    vec![]
+                } else {
+                    std::slice::from_raw_parts(imports.data, imports.size).to_vec()
+                };
             let mut wasmer_imports = vec![];
 
             for i in imports.into_iter() {
@@ -287,9 +292,17 @@ impl Module {
                 let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
                 let name_str = String::from_utf8_lossy(name).to_string();
                 let module = wasm_importtype_module(i as *const _);
-                let module =
-                    std::slice::from_raw_parts((*module).data as *const u8, (*module).size);
-                let module_str = String::from_utf8_lossy(module).to_string();
+                let module_str = if module.is_null()
+                    || (*module).data.is_null()
+                    || !(*module).data.is_aligned()
+                    || (*module).size == 0
+                {
+                    String::new()
+                } else {
+                    let str =
+                        std::slice::from_raw_parts((*module).data as *const u8, (*module).size);
+                    String::from_utf8_lossy(str).to_string()
+                };
 
                 let ty = IntoWasmerExternType::into_wextt(wasm_importtype_type(i as *const _));
                 if ty.is_err() {

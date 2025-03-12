@@ -161,6 +161,7 @@ js = ["wasm-bindgen", "js-sys"]
 js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["wasmparser"]
+wat = ["dep:wat", "wasmparser"]
 
 jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
 jsc-default = ["jsc"]

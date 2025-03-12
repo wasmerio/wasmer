@@ -559,7 +559,7 @@ build-docs-capi:
 
 build-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked
+		--no-default-features --features wat,sys-default,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked
 
 build-capi-singlepass:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
@@ -585,9 +585,21 @@ build-capi-llvm-universal:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner --locked
 
+build-capi-v8:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,v8-default,wasi --locked
+
+build-capi-wamr:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,wamr-default,wasi --locked
+
+build-capi-wasmi:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,wasmi-default,wasi --locked
+
 build-capi-jsc:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jsc,wasi --locked
+		--no-default-features --features wat,jsc-default,wasi --locked
 
 # Headless (we include the minimal to be able to run)
 
@@ -702,6 +714,10 @@ test-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crat
 # This test requires building the capi with all the available
 # compilers first
 test-capi: build-capi package-capi test-capi-ci
+
+test-capi-v8: build-capi-v8 package-capi test-capi-integration-v8 
+test-capi-wasmi: build-capi-wasmi package-capi test-capi-integration-wasmi
+test-capi-wamr: build-capi-wamr package-capi test-capi-integration-wamr 
 
 test-capi-jsc: build-capi-jsc package-capi test-capi-integration-jsc
 

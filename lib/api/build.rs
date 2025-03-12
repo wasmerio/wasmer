@@ -1,8 +1,9 @@
 #[cfg(feature = "wamr")]
 fn build_wamr() {
     use bindgen::callbacks::ParseCallbacks;
-    const WAMR_ZIP: &str = "https://github.com/bytecodealliance/wasm-micro-runtime/archive/0e4dffc47922bb6fcdcaed7de2a6edfe8c48a7cd.zip";
-    const ZIP_NAME: &str = "wasm-micro-runtime-0e4dffc47922bb6fcdcaed7de2a6edfe8c48a7cd";
+    const WAMR_ZIP: &str =
+        "https://github.com/bytecodealliance/wasm-micro-runtime/archive/refs/tags/WAMR-2.2.0.zip";
+    const ZIP_NAME: &str = "wasm-micro-runtime-WAMR-2.2.0";
 
     use cmake::Config;
     use std::{env, path::PathBuf};
@@ -36,24 +37,27 @@ fn build_wamr() {
 
     // Cleanup tmp data from prior builds
     let wamr_dir = PathBuf::from(&crate_root).join("third_party/wamr");
-    let zip_dir = PathBuf::from(&crate_root)
-        .join("third_party")
-        .join(ZIP_NAME);
-    let _ = std::fs::remove_dir_all(&wamr_dir);
-    let _ = std::fs::remove_dir_all(&zip_dir);
+    if !wamr_dir.exists() {
+        let zip_dir = PathBuf::from(&crate_root).join("third_party");
+        let _ = std::fs::remove_dir_all(&wamr_dir);
+        let _ = std::fs::remove_dir_all(&zip_dir);
 
-    // Fetch & extract wasm-micro-runtime source
-    let zip = ureq::get(WAMR_ZIP).call().expect("failed to download wamr");
-    let mut zip_data = Vec::new();
-    zip.into_reader()
-        .read_to_end(&mut zip_data)
-        .expect("failed to download wamr");
-    zip::read::ZipArchive::new(std::io::Cursor::new(zip_data))
-        .expect("failed to open wamr zip file")
-        .extract(&zip_dir)
-        .expect("failed to extract wamr zip file");
-    let _ = std::fs::remove_dir_all(&wamr_dir);
-    std::fs::rename(zip_dir.join(ZIP_NAME), &wamr_dir).expect("failed to rename wamr dir");
+        // Fetch & extract wasm-micro-runtime source
+        let zip = ureq::get(WAMR_ZIP).call().expect("failed to download wamr");
+        let mut zip_data = Vec::new();
+        zip.into_reader()
+            .read_to_end(&mut zip_data)
+            .expect("failed to download wamr");
+        zip::read::ZipArchive::new(std::io::Cursor::new(zip_data))
+            .expect("failed to open wamr zip file")
+            .extract(&zip_dir)
+            .expect("failed to extract wamr zip file");
+        let _ = std::fs::remove_dir_all(&wamr_dir);
+        std::fs::rename(zip_dir.join(ZIP_NAME), &wamr_dir)
+            .expect(&format!("failed to rename wamr dir: {zip_dir:?}"));
+    } else {
+        println!("cargo::rerun-if-changed={}", wamr_dir.display());
+    }
 
     let wamr_platform_dir = wamr_dir.join("product-mini/platforms").join(target_os);
     let mut dst = Config::new(wamr_platform_dir.as_path());
@@ -83,7 +87,7 @@ fn build_wamr() {
         .define("WAMR_BUILD_LIBC_WASI", "0")
         .define("WAMR_BUILD_LIBC_BUILTIN", "0")
         .define("WAMR_BUILD_SHARED_MEMORY", "1")
-        .define("WAMR_BUILD_MULTI_MODULE", "0")
+        .define("WAMR_BUILD_MULTI_MODULE", "1")
         .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
         .define("WAMR_BUILD_TARGET", target_arch);
 
@@ -216,7 +220,7 @@ fn build_wamr() {
         "cargo:rustc-link-search=native={}",
         dst.join("build").display()
     );
-    println!("cargo:rustc-link-lib=wamr");
+    println!("cargo:rustc-link-lib=static=wamr");
 }
 
 #[cfg(feature = "v8")]
@@ -297,8 +301,17 @@ fn build_v8() {
     }
 
     let header_path = v8_header_path.join("wasm.h");
+    let mut args = vec![];
+    if cfg!(target_os = "macos") {
+        args.push("-I/usr/local/include");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks");
+    }
     let bindings = bindgen::Builder::default()
         .header(header_path.display().to_string())
+        .clang_args(args)
         .derive_default(true)
         .derive_debug(true)
         .parse_callbacks(Box::new(Wee8Renamer {}))

@@ -3,7 +3,6 @@
 
 pub mod metering;
 
-use super::super::engine::wasm_config_t;
 use std::sync::Arc;
 use wasmer_api::sys::ModuleMiddleware;
 
@@ -20,21 +19,4 @@ compile_error!("The `middlewares` feature requires the `compiler` feature to be 
 #[allow(non_camel_case_types)]
 pub struct wasmer_middleware_t {
     pub(in crate::wasm_c_api) inner: Arc<dyn ModuleMiddleware>,
-}
-
-/// Updates the configuration to add a module middleware.
-///
-/// This function takes ownership of `middleware`.
-///
-/// This is a Wasmer-specific function.
-///
-/// # Example
-///
-/// See the documentation of the [`metering`] module.
-#[no_mangle]
-pub extern "C" fn wasm_config_push_middleware(
-    config: &mut wasm_config_t,
-    middleware: Box<wasmer_middleware_t>,
-) {
-    config.middlewares.push(*middleware);
 }

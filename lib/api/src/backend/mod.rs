@@ -59,3 +59,93 @@ pub enum BackendKind {
     /// The `jsc` runtime.
     Jsc,
 }
+
+impl Default for BackendKind {
+    fn default() -> Self {
+        #[cfg(feature = "sys-default")]
+        {
+            #[cfg(feature = "cranelift")]
+            {
+                return Self::Cranelift;
+            }
+            #[cfg(feature = "singlepass")]
+            {
+                return Self::Singlepass;
+            }
+            #[cfg(feature = "llvm")]
+            {
+                return Self::LLVM;
+            }
+            return Self::Headless;
+        }
+
+        #[cfg(feature = "wamr-default")]
+        {
+            return Self::Wamr;
+        }
+
+        #[cfg(feature = "wasmi-default")]
+        {
+            return Self::Wasmi;
+        }
+
+        #[cfg(feature = "v8-default")]
+        {
+            return Self::V8;
+        }
+
+        #[cfg(feature = "js-default")]
+        {
+            return Self::Js;
+        }
+
+        #[cfg(feature = "jsc-default")]
+        {
+            return Self::Jsc;
+        }
+
+        #[cfg(feature = "sys")]
+        {
+            #[cfg(feature = "cranelift")]
+            {
+                return Self::Cranelift;
+            }
+            #[cfg(feature = "singlepass")]
+            {
+                return Self::Singlepass;
+            }
+            #[cfg(feature = "llvm")]
+            {
+                return Self::LLVM;
+            }
+            return Self::Headless;
+        }
+
+        #[cfg(feature = "wamr")]
+        {
+            return Self::Wamr;
+        }
+
+        #[cfg(feature = "wasmi")]
+        {
+            return Self::Wasmi;
+        }
+
+        #[cfg(feature = "v8")]
+        {
+            return Self::V8;
+        }
+
+        #[cfg(feature = "js")]
+        {
+            return Self::Js;
+        }
+
+        #[cfg(feature = "jsc")]
+        {
+            return Self::Jsc;
+        }
+
+        panic!("No runtime enabled!")
+    }
+}
