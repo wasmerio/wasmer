@@ -303,8 +303,11 @@ fn build_v8() {
     let header_path = v8_header_path.join("wasm.h");
     let mut args = vec![];
     if cfg!(target_os = "macos") {
-        args.push("-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.5.sdk/usr/include/c++/v1/");
-        args.push("-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.5.sdk/usr/include");
+        args.push("-I/usr/local/include");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include");
+        args.push("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks");
     }
     let bindings = bindgen::Builder::default()
         .header(header_path.display().to_string())
