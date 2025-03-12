@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["wasm_config_push_middleware"],"mod":["metering"],"struct":["wasmer_middleware_t"]};
+window.SIDEBAR_ITEMS = {"mod":["metering"],"struct":["wasmer_middleware_t"]};

@@ -31,6 +31,9 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wasmer C API.
 //!
 //! [Wasmer](https://github.com/wasmerio/wasmer) is the leading
@@ -58,7 +61,10 @@
 )]
 </span><span class="comment">// Because this crate exposes a lot of C APIs which are unsafe by definition,
 // we allow unsafe without explicit safety documentation for each of them.
+//
+// For the same reason, we also turn off the warning for camel_case types.
 </span><span class="attr">#![allow(clippy::missing_safety_doc)]
+#![allow(non_camel_case_types)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 </span><span class="kw">pub mod </span>error;

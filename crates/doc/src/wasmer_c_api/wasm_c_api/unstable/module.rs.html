@@ -353,7 +353,7 @@
     engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasm_engine_t&gt;,
     bytes: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_byte_vec_t&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_module_t&gt;&gt; {
-    <span class="kw">let </span>engine: wasmer_api::Engine = engine<span class="question-mark">?</span>.inner.clone().into();
+    <span class="kw">let </span>engine: wasmer_api::Engine = engine<span class="question-mark">?</span>.inner.clone();
     <span class="kw">let </span>bytes = bytes<span class="question-mark">?</span>;
 
     <span class="kw">let </span>module = <span class="macro">c_try!</span>(Module::from_binary(<span class="kw-2">&amp;</span>engine, bytes.as_slice()));
