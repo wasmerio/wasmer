@@ -309,6 +309,9 @@
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::mem::MaybeUninit;
 
 <span class="kw">use crate</span>::{
@@ -557,6 +560,9 @@
         <span class="kw">let </span>buf = <span class="kw">unsafe </span>{
             <span class="kw">let </span>buf_ptr: <span class="kw-2">*mut </span>u8 = slice.buffer.base().add(slice.offset <span class="kw">as </span>usize);
             <span class="kw">let </span>buf_ptr: <span class="kw-2">*mut </span>T = std::mem::transmute(buf_ptr);
+            <span class="kw">if </span>!buf_ptr.is_aligned() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryAccessError::UnalignedPointerRead);
+            }
             std::slice::from_raw_parts_mut(buf_ptr, slice.len <span class="kw">as </span>usize)
         };
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
