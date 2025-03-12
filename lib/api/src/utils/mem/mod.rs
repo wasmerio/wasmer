@@ -28,6 +28,9 @@ pub enum MemoryAccessError {
     /// String is not valid UTF-8.
     #[error("string is not valid utf-8")]
     NonUtf8String,
+    /// Pointer to memory is unaligned.
+    #[error("unaligned pointer read")]
+    UnalignedPointerRead,
 }
 
 impl From<MemoryAccessError> for RuntimeError {

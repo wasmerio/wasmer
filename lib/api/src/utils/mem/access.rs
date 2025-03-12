@@ -246,6 +246,9 @@ where
         let buf = unsafe {
             let buf_ptr: *mut u8 = slice.buffer.base().add(slice.offset as usize);
             let buf_ptr: *mut T = std::mem::transmute(buf_ptr);
+            if !buf_ptr.is_aligned() {
+                return Err(MemoryAccessError::UnalignedPointerRead);
+            }
             std::slice::from_raw_parts_mut(buf_ptr, slice.len as usize)
         };
         Ok(Self {

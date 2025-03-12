@@ -2,7 +2,10 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use wasmer::{imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store};
+use wasmer::{
+    imports, Instance, Memory, MemoryAccessError, MemoryLocation, MemoryType, Module, Store,
+    WasmSlice,
+};
 
 #[test]
 #[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]
@@ -80,4 +83,36 @@ fn test_shared_memory_disable_atomics() {
 
     let err = mem.wait(MemoryLocation::new_32(1), None).unwrap_err();
     assert_eq!(err, AtomicsError::AtomicsDisabled);
+}
+
+/// See https://github.com/wasmerio/wasmer/issues/5444
+#[test]
+#[cfg(feature = "sys")]
+fn test_wasm_slice_issue_5444() {
+    let mut store = Store::default();
+    let wat = r#"(module
+(import "host" "memory" (memory 10 65536))
+)"#;
+    let module = Module::new(&store, wat)
+        .map_err(|e| format!("{e:?}"))
+        .unwrap();
+
+    let mem = Memory::new(&mut store, MemoryType::new(10, Some(65536), false)).unwrap();
+
+    let imports = imports! {
+        "host" => {
+            "memory" => mem.clone(),
+        },
+    };
+
+    let _inst = Instance::new(&mut store, &module, &imports).unwrap();
+
+    let view = mem.view(&store);
+    let slice = WasmSlice::<u64>::new(&view, 1, 10).unwrap();
+    let access = slice.access();
+
+    assert!(matches!(
+        access.err(),
+        Some(MemoryAccessError::UnalignedPointerRead)
+    ))
 }
