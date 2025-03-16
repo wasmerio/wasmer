@@ -126,7 +126,7 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
         let timeout = if timeout == TIMEOUT_FOREVER {
             None
         } else {
-            Some(ctx.data().tasks().sleep_now(Duration::from_nanos(timeout)))
+            Some(ctx.data().tasks().sleep_now(Duration::from_millis(timeout)))
         };
         async move {
             if let Some(timeout) = timeout {
