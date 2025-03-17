@@ -283,6 +283,11 @@ impl FuncTranslator {
             passes.push("verify");
         }
 
+        passes.push("called-value-propagation");
+        passes.push("attributor");
+        passes.push("scc-oz-module-inliner");
+        passes.push("early-cse<memssa>");
+
         passes.push("sccp");
         passes.push("early-cse");
         //passes.push("deadargelim");
@@ -291,7 +296,17 @@ impl FuncTranslator {
         passes.push("aggressive-instcombine");
         passes.push("jump-threading");
         //passes.push("ipsccp");
-        passes.push("simplifycfg");
+        passes.push("loop-simplify");
+        passes.push("loop-unroll");
+        passes.push("loop-fusion");
+        passes.push("loop-vectorize");
+        passes.push("slp-vectorizer");
+        passes.push("flattencfg");
+        passes.push("simplifycfg<forward-switch-cond;no-keep-loops;hoist-common-insts>");
+        //passes.push("instcombine<use-loop-info;max-iterations=256>");
+        passes.push("ipsccp<func-spec>");
+        passes.push("simple-loop-unswitch<nontrivial;trivial>");
+        passes.push("loop-deletion");
         passes.push("reassociate");
         passes.push("loop-rotate");
         passes.push("indvars");
