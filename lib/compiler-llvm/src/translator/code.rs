@@ -98,8 +98,10 @@ impl FuncTranslator {
         // The function type, used for the callbacks.
         let function = CompiledKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
+        let function_name = match wasm_module.function_names.get(&func_index) {
+            Some(f) => f.to_string(),
+            None => symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index)),
+        };
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {function_name}"),
             Some(module_name) => format!("module {module_name} function {function_name}"),
@@ -277,61 +279,171 @@ impl FuncTranslator {
             callbacks.preopt_ir(&function, &module);
         }
 
-        let mut passes = vec![];
+        let mut mod_passes = vec![];
 
         if config.enable_verifier {
-            passes.push("verify");
+            mod_passes.push("verify");
         }
 
-        passes.push("called-value-propagation");
-        passes.push("attributor");
-        passes.push("scc-oz-module-inliner");
-        passes.push("early-cse<memssa>");
+        let mut env_mod_passes = vec![];
+        if let Ok(mods_passes) = std::env::var("WASMER_LLVM_MOD_OPTS") {
+            let splits = mods_passes.split(",");
 
-        passes.push("sccp");
-        passes.push("early-cse");
-        //passes.push("deadargelim");
-        passes.push("adce");
-        passes.push("sroa");
-        passes.push("aggressive-instcombine");
-        passes.push("jump-threading");
-        //passes.push("ipsccp");
-        passes.push("loop-simplify");
-        passes.push("loop-unroll");
-        passes.push("loop-fusion");
-        passes.push("loop-vectorize");
-        passes.push("slp-vectorizer");
-        passes.push("flattencfg");
-        passes.push("simplifycfg<forward-switch-cond;no-keep-loops;hoist-common-insts>");
-        //passes.push("instcombine<use-loop-info;max-iterations=256>");
-        passes.push("ipsccp<func-spec>");
-        passes.push("simple-loop-unswitch<nontrivial;trivial>");
-        passes.push("loop-deletion");
-        passes.push("reassociate");
-        passes.push("loop-rotate");
-        passes.push("indvars");
-        //passes.push("lcssa");
-        //passes.push("licm");
-        //passes.push("instcombine");
-        passes.push("sccp");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("gvn");
-        passes.push("memcpyopt");
-        passes.push("dse");
-        passes.push("dce");
-        //passes.push("instcombine");
-        passes.push("reassociate");
-        passes.push("simplifycfg");
-        passes.push("mem2reg");
+            for s in splits {
+                env_mod_passes.push(s.to_string())
+            }
+        }
 
-        module
-            .run_passes(
-                passes.join(",").as_str(),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
-            .unwrap();
+        // -- Module-wide passes
+        //mod_passes.push("always-inline");
+        //mod_passes.push("attributor");
+        //mod_passes.push("called-value-propagation");
+        //mod_passes.push("canonicalize-aliases");
+        //mod_passes.push("constmerge");
+        //mod_passes.push("deadargelim");
+        //mod_passes.push("dfsan");
+        //mod_passes.push("globalopt");
+        //mod_passes.push("globalsplit");
+        //mod_passes.push("hipstdpar-interpose-alloc");
+        //mod_passes.push("hipstdpar-select-accelerator-code");
+        //mod_passes.push("hotcoldsplit");
+        //mod_passes.push("instrorderfile");
+        //mod_passes.push("scc-oz-module-inliner");
+        //mod_passes.push("always-inline");
+        //mod_passes.push("canonicalize-aliases");
+        //mod_passes.push("constmerge");
+        //mod_passes.push("called-value-propagation");
+        //mod_passes.push("attributor");
+        //mod_passes.push("scc-oz-module-inliner");
+
+        #[allow(unused_mut)]
+        let mut fn_passes = vec![];
+        //fn_passes.push("loop-vectorize");
+        //fn_passes.push("slp-vectorizer");
+        //fn_passes.push("load-store-vectorizer");
+        //fn_passes.push("vector-combine");
+        //fn_passes.push("mem2reg");
+        //fn_passes.push("aggressive-instcombine");
+        //fn_passes.push("simplifycfg");
+        //fn_passes.push("jump-threading");
+        //fn_passes.push("indvars");
+        //fn_passes.push("add-discriminators");
+        //fn_passes.push("alignment-from-assumptions");
+        //fn_passes.push("bdce");
+        //fn_passes.push("bounds-checking");
+        //fn_passes.push("callsite-splitting");
+        //fn_passes.push("chr");
+        //fn_passes.push("constraint-elimination");
+        //fn_passes.push("correlated-propagation");
+        //fn_passes.push("dce");
+        //fn_passes.push("declare-to-assign");
+        //fn_passes.push("dfa-jump-threading");
+        //fn_passes.push("div-rem-pairs");
+        //fn_passes.push("dse");
+        //fn_passes.push("expand-large-div-rem");
+        //fn_passes.push("expand-large-fp-convert");
+        //fn_passes.push("expand-memcmp");
+        //fn_passes.push("fix-irreducible");
+        //fn_passes.push("flattencfg");
+        //fn_passes.push("float2int");
+        //fn_passes.push("guard-widening");
+        //fn_passes.push("gvn-hoist");
+        //fn_passes.push("gvn-sink");
+        //fn_passes.push("indirectbr-expand");
+        //fn_passes.push("infer-address-spaces");
+        //fn_passes.push("infer-alignment");
+        //fn_passes.push("inject-tli-mappings");
+        //fn_passes.push("interleaved-access");
+        //fn_passes.push("interleaved-load-combine");
+        //fn_passes.push("irce");
+        //fn_passes.push("jump-threading");
+        //fn_passes.push("kcfi");
+        //fn_passes.push("lcssa");
+        //fn_passes.push("libcalls-shrinkwrap");
+        //fn_passes.push("loop-data-prefetch");
+        //fn_passes.push("loop-distribute");
+        //fn_passes.push("loop-fusion");
+        //fn_passes.push("loop-load-elim");
+        //fn_passes.push("loop-simplify");
+        //fn_passes.push("loop-sink");
+        //fn_passes.push("loop-versioning");
+        //fn_passes.push("lower-constant-intrinsics");
+        //fn_passes.push("lower-expect");
+        //fn_passes.push("lower-guard-intrinsic");
+        //fn_passes.push("lower-widenable-condition");
+        //fn_passes.push("loweratomic");
+        //fn_passes.push("lowerinvoke");
+        //fn_passes.push("lowerswitch");
+        //fn_passes.push("memprof");
+        //fn_passes.push("mergeicmps");
+        //fn_passes.push("mergereturn");
+        //fn_passes.push("move-auto-init");
+        //fn_passes.push("nary-reassociate");
+        //fn_passes.push("no-op-function");
+        //fn_passes.push("objc-arc");
+        //fn_passes.push("objc-arc-contract");
+        //fn_passes.push("objc-arc-expand");
+        //fn_passes.push("pa-eval");
+        //fn_passes.push("partially-inline-libcalls");
+        //fn_passes.push("pgo-memop-opt");
+        //fn_passes.push("place-safepoints");
+        //fn_passes.push("reg2mem");
+        //fn_passes.push("safe-stack");
+        //fn_passes.push("scalarize-masked-mem-intrin");
+        //fn_passes.push("scalarizer");
+        //fn_passes.push("sccp");
+        //fn_passes.push("select-optimize");
+        //fn_passes.push("separate-const-offset-from-gep");
+        //fn_passes.push("sink");
+        //fn_passes.push("sjlj-eh-prepare");
+        //fn_passes.push("slsr");
+        //fn_passes.push("stack-protector");
+        //fn_passes.push("strip-gc-relocates");
+        //fn_passes.push("structurizecfg");
+        //fn_passes.push("tailcallelim");
+        //fn_passes.push("tlshoist");
+        //fn_passes.push("transform-warning");
+        //fn_passes.push("unify-loop-exits");
+
+        let mut env_fn_passes = vec![];
+        if let Ok(fn_passes) = std::env::var("WASMER_LLVM_FN_OPTS") {
+            let splits = fn_passes.split(",");
+
+            for s in splits {
+                env_fn_passes.push(s.to_string())
+            }
+        }
+
+        let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            let path = std::path::Path::new(llvm_dump_path);
+            if !path.exists() {
+                std::fs::create_dir_all(path).unwrap()
+            }
+            let path = path.join(format!("{function_name}.ll"));
+            _ = module.print_to_file(path).unwrap();
+        }
+
+        let passes = mod_passes
+            .into_iter()
+            .chain(env_mod_passes.iter().map(|v| v.as_str()))
+            .chain(fn_passes.into_iter())
+            .chain(env_fn_passes.iter().map(|v| v.as_str()))
+            .join(",");
+        //eprintln!("passes: {passes}");
+
+        if !passes.is_empty() {
+            module
+                .run_passes(&passes, target_machine, PassBuilderOptions::create())
+                .unwrap();
+        }
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            if !passes.is_empty() {
+                let path =
+                    std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
+                _ = module.print_to_file(path).unwrap();
+            }
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
