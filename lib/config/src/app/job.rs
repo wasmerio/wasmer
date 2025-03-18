@@ -1,5 +1,6 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
+use anyhow::anyhow;
 use serde::{de::Error, Deserialize, Serialize};
 
 use indexmap::IndexMap;
@@ -96,6 +97,7 @@ pub enum JobTrigger {
     PreDeployment,
     PostDeployment,
     Cron(CronExpression),
+    Duration(PrettyDuration),
 }
 
 #[derive(
@@ -167,21 +169,28 @@ impl Display for JobTrigger {
             Self::PreDeployment => write!(f, "pre-deployment"),
             Self::PostDeployment => write!(f, "post-deployment"),
             Self::Cron(cron) => write!(f, "{}", cron.parsed_from),
+            Self::Duration(duration) => write!(f, "{}", duration),
         }
     }
 }
 
 impl FromStr for JobTrigger {
-    type Err = Box<dyn std::error::Error + Send + Sync>;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "pre-deployment" {
             Ok(Self::PreDeployment)
         } else if s == "post-deployment" {
             Ok(Self::PostDeployment)
-        } else {
-            let expr = s.parse::<CronExpression>()?;
+        } else if let Ok(expr) = s.parse::<CronExpression>() {
             Ok(Self::Cron(expr))
+        } else if let Ok(duration) = s.parse::<PrettyDuration>() {
+            Ok(Self::Duration(duration))
+        } else {
+            Err(anyhow!(
+                "Invalid job trigger '{s}'. Must be 'pre-deployment', 'post-deployment', \
+                a valid cron expression such as '0 */5 * * *' or a duration such as '15m'.",
+            ))
         }
     }
 }
@@ -239,15 +248,21 @@ impl schemars::JsonSchema for JobTrigger {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
 
     #[test]
     pub fn job_trigger_serialization_roundtrip() {
-        fn assert_roundtrip(serialized: &str, description: Option<&str>) {
+        fn assert_roundtrip(
+            serialized: &str,
+            description: Option<&str>,
+            duration: Option<Duration>,
+        ) {
             let parsed = serialized.parse::<JobTrigger>().unwrap();
             assert_eq!(&parsed.to_string(), serialized);
 
-            if let JobTrigger::Cron(expr) = parsed {
+            if let JobTrigger::Cron(expr) = &parsed {
                 assert_eq!(
                     &expr
                         .cron
@@ -256,23 +271,44 @@ mod tests {
                     description.unwrap()
                 );
             } else {
-                assert!(description.is_none())
+                assert!(description.is_none());
+            }
+
+            if let JobTrigger::Duration(d) = &parsed {
+                assert_eq!(d.as_duration(), duration.unwrap());
+            } else {
+                assert!(duration.is_none());
             }
         }
 
-        assert_roundtrip("pre-deployment", None);
-        assert_roundtrip("post-deployment", None);
+        assert_roundtrip("pre-deployment", None, None);
+        assert_roundtrip("post-deployment", None, None);
 
-        assert_roundtrip("@hourly", Some("Every hour"));
-        assert_roundtrip("@daily", Some("At 12:00 AM"));
-        assert_roundtrip("@weekly", Some("At 12:00 AM on Sunday"));
-        assert_roundtrip("@monthly", Some("At 12:00 AM on the 1st of every month"));
-        assert_roundtrip("@yearly", Some("At 12:00 AM on the 1st of January"));
+        assert_roundtrip("@hourly", Some("Every hour"), None);
+        assert_roundtrip("@daily", Some("At 12:00 AM"), None);
+        assert_roundtrip("@weekly", Some("At 12:00 AM on Sunday"), None);
+        assert_roundtrip(
+            "@monthly",
+            Some("At 12:00 AM on the 1st of every month"),
+            None,
+        );
+        assert_roundtrip("@yearly", Some("At 12:00 AM on the 1st of January"), None);
 
         // Note: the parsing code should keep the formatting of the source string.
         // This is tested in assert_roundtrip.
-        assert_roundtrip("0/2 12 * JAN-APR 2", Some("At every 2nd minute from 0 through 59 minutes past the hour, \
-                                                    between 12:00 PM and 12:59 PM on Monday of January to April"));
+        assert_roundtrip(
+            "0/2 12 * JAN-APR 2",
+            Some(
+                "At every 2nd minute from 0 through 59 minutes past the hour, \
+                between 12:00 PM and 12:59 PM on Monday of January to April",
+            ),
+            None,
+        );
+
+        assert_roundtrip("10s", None, Some(Duration::from_secs(10)));
+        assert_roundtrip("15m", None, Some(Duration::from_secs(15 * 60)));
+        assert_roundtrip("20h", None, Some(Duration::from_secs(20 * 60 * 60)));
+        assert_roundtrip("2d", None, Some(Duration::from_secs(2 * 60 * 60 * 24)));
     }
 
     #[test]
