@@ -169,7 +169,7 @@ impl Display for JobTrigger {
             Self::PreDeployment => write!(f, "pre-deployment"),
             Self::PostDeployment => write!(f, "post-deployment"),
             Self::Cron(cron) => write!(f, "{}", cron.parsed_from),
-            Self::Duration(duration) => write!(f, "{}", duration),
+            Self::Duration(duration) => write!(f, "{duration}"),
         }
     }
 }
