@@ -7119,6 +7119,7 @@ dependencies = [
  "virtual-fs",
  "virtual-net",
  "wasmer",
+ "wasmer-config",
  "wasmer-wasix-types",
 ]
 

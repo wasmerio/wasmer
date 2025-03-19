@@ -1,10 +1,12 @@
 use std::fmt::Display;
 
+use wasmer_config::app::SnapshotTrigger as ConfigSnapshotTrigger;
+
 use super::*;
 
 /// Various triggers that will cause the runtime to take snapshot
 /// of the WASM state and store it in the snapshot file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SnapshotTrigger {
     /// Triggered when all the threads in the process goes idle
     Idle,
@@ -59,52 +61,79 @@ pub const DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; 5] = [
     SnapshotTrigger::Explicit,
 ];
 
-impl FromStr for SnapshotTrigger {
-    type Err = anyhow::Error;
+// We're purposefully redirecting serialization-related functionality for SnapshotTrigger
+// through the equivalent type in wasmer_config (ConfigSnapshotTrigger) to make sure the
+// two types always stay in sync.
+impl From<ConfigSnapshotTrigger> for SnapshotTrigger {
+    fn from(value: ConfigSnapshotTrigger) -> Self {
+        match value {
+            ConfigSnapshotTrigger::Bootstrap => Self::Bootstrap,
+            ConfigSnapshotTrigger::Explicit => Self::Explicit,
+            ConfigSnapshotTrigger::FirstEnviron => Self::FirstEnviron,
+            ConfigSnapshotTrigger::FirstListen => Self::FirstListen,
+            ConfigSnapshotTrigger::FirstSigint => Self::FirstSigint,
+            ConfigSnapshotTrigger::FirstStdin => Self::FirstStdin,
+            ConfigSnapshotTrigger::Idle => Self::Idle,
+            ConfigSnapshotTrigger::NonDeterministicCall => Self::NonDeterministicCall,
+            ConfigSnapshotTrigger::PeriodicInterval => Self::PeriodicInterval,
+            ConfigSnapshotTrigger::Sigalrm => Self::Sigalrm,
+            ConfigSnapshotTrigger::Sigint => Self::Sigint,
+            ConfigSnapshotTrigger::Sigstop => Self::Sigstop,
+            ConfigSnapshotTrigger::Sigtstp => Self::Sigtstp,
+            ConfigSnapshotTrigger::Transaction => Self::Transaction,
+        }
+    }
+}
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let s = s.trim().to_lowercase();
-        Ok(match s.as_str() {
-            "idle" => Self::Idle,
-            "first-listen" => Self::FirstListen,
-            "first-stdin" => Self::FirstStdin,
-            "first-environ" => Self::FirstEnviron,
-            "first-intr" | "first-sigint" | "first-ctrlc" | "first-ctrl-c" => Self::FirstSigint,
-            "periodic-interval" => Self::PeriodicInterval,
-            "intr" | "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
-            "alarm" | "timer" | "sigalrm" => Self::Sigalrm,
-            "sigtstp" | "ctrlz" | "ctrl-z" => Self::Sigtstp,
-            "stop" | "sigstop" => Self::Sigstop,
-            "non-deterministic-call" => Self::NonDeterministicCall,
-            "bootstrap" => Self::Bootstrap,
-            "transaction" => Self::Transaction,
-            "explicit" => Self::Explicit,
-            a => return Err(anyhow::format_err!("invalid or unknown trigger ({a})")),
-        })
+impl From<SnapshotTrigger> for ConfigSnapshotTrigger {
+    fn from(value: SnapshotTrigger) -> Self {
+        match value {
+            SnapshotTrigger::Bootstrap => Self::Bootstrap,
+            SnapshotTrigger::Explicit => Self::Explicit,
+            SnapshotTrigger::FirstEnviron => Self::FirstEnviron,
+            SnapshotTrigger::FirstListen => Self::FirstListen,
+            SnapshotTrigger::FirstSigint => Self::FirstSigint,
+            SnapshotTrigger::FirstStdin => Self::FirstStdin,
+            SnapshotTrigger::Idle => Self::Idle,
+            SnapshotTrigger::NonDeterministicCall => Self::NonDeterministicCall,
+            SnapshotTrigger::PeriodicInterval => Self::PeriodicInterval,
+            SnapshotTrigger::Sigalrm => Self::Sigalrm,
+            SnapshotTrigger::Sigint => Self::Sigint,
+            SnapshotTrigger::Sigstop => Self::Sigstop,
+            SnapshotTrigger::Sigtstp => Self::Sigtstp,
+            SnapshotTrigger::Transaction => Self::Transaction,
+        }
+    }
+}
+
+impl FromStr for SnapshotTrigger {
+    type Err = <ConfigSnapshotTrigger as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        <ConfigSnapshotTrigger as FromStr>::from_str(s).map(Into::into)
     }
 }
 
 impl Display for SnapshotTrigger {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Bootstrap => "bootstrap",
-                Self::Explicit => "explicit",
-                Self::FirstEnviron => "first-environ",
-                Self::FirstListen => "first-listen",
-                Self::FirstSigint => "first-sigint",
-                Self::FirstStdin => "first-stdin",
-                Self::Idle => "idle",
-                Self::NonDeterministicCall => "non-deterministic-call",
-                Self::PeriodicInterval => "periodic-interval",
-                Self::Sigalrm => "sigalrm",
-                Self::Sigint => "sigint",
-                Self::Sigtstp => "sigtstp",
-                Self::Sigstop => "sigstop",
-                Self::Transaction => "transaction",
-            }
-        )
+        <ConfigSnapshotTrigger as Display>::fmt(&(*self).into(), f)
+    }
+}
+
+impl Serialize for SnapshotTrigger {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        ConfigSnapshotTrigger::from(*self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SnapshotTrigger {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        <ConfigSnapshotTrigger as Deserialize>::deserialize(deserializer).map(Into::into)
     }
 }

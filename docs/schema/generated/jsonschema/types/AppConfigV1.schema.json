@@ -606,7 +606,7 @@
             "triggers": {
               "type": "array",
               "items": {
-                "type": "string"
+                "$ref": "#/definitions/SnapshotTrigger"
               }
             }
           },
@@ -746,6 +746,9 @@
           ]
         }
       }
+    },
+    "SnapshotTrigger": {
+      "type": "string"
     }
   }
 }
