@@ -71,7 +71,7 @@ members = [
 	"tests/lib/compiler-test-derive",
 	"tests/lib/wast",
 	"tests/wasi-wast",
-	"tests/wasmer-argus",
+	"tests/wasmer-argus", "tests/wasmer-bench",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
