@@ -196,8 +196,9 @@ impl FuncTranslator {
                 1
             };
         let mut is_first_alloca = true;
-        let mut insert_alloca = |ty, name| -> Result<PointerValue, CompileError> {
-            let alloca = err!(alloca_builder.build_alloca(ty, name));
+        let mut insert_alloca = |ty, name: &str| -> Result<PointerValue, CompileError> {
+            let name = name.to_string();
+            let alloca = err!(alloca_builder.build_alloca(ty, &name));
             if is_first_alloca {
                 alloca_builder.position_at(entry, &alloca.as_instruction_value().unwrap());
                 is_first_alloca = false;
@@ -222,8 +223,9 @@ impl FuncTranslator {
             let (count, ty) = reader.read_local_decl()?;
             let ty = err!(wptype_to_type(ty));
             let ty = type_to_llvm(&intrinsics, ty)?;
-            for _ in 0..count {
-                let alloca = insert_alloca(ty, "local")?;
+            for i in 0..count {
+                let name = format!("local.{i}");
+                let alloca = insert_alloca(ty, &name)?;
                 err!(cache_builder.build_store(alloca, ty.const_zero()));
                 locals.push((ty, alloca));
             }
@@ -2398,7 +2400,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             // Operate on self.locals.
             Operator::LocalGet { local_index } => {
                 let (type_value, pointer_value) = self.locals[local_index as usize];
-                let v = err!(self.builder.build_load(type_value, pointer_value, ""));
+                let name = format!("local.{local_index}");
+                let v = err!(self.builder.build_load(type_value, pointer_value, &name));
                 tbaa_label(
                     self.module,
                     self.intrinsics,
