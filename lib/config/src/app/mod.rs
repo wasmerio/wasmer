@@ -4,13 +4,13 @@ mod healthcheck;
 mod http;
 mod job;
 mod pretty_duration;
+mod snapshot_trigger;
 
-pub use self::{healthcheck::*, http::*, job::*};
+pub use self::{healthcheck::*, http::*, job::*, pretty_duration::*, snapshot_trigger::*};
 
 use anyhow::{bail, Context};
 use bytesize::ByteSize;
 use indexmap::IndexMap;
-use pretty_duration::PrettyDuration;
 
 use crate::package::PackageSource;
 
@@ -305,7 +305,7 @@ pub enum InstabootSnapshotModeV1 {
     /// The instance's process will have its stop_running_after_checkpoint flag set,
     /// so the first snapshot will cause the instance to shut down.
     // FIXME: make this strongly typed
-    Triggers(Vec<String>),
+    Triggers(Vec<SnapshotTrigger>),
 }
 
 /// App redirect configuration.
