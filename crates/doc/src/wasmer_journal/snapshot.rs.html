@@ -108,13 +108,44 @@
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::Display;
+
+<span class="kw">use </span>wasmer_config::app::SnapshotTrigger <span class="kw">as </span>ConfigSnapshotTrigger;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Various triggers that will cause the runtime to take snapshot
 /// of the WASM state and store it in the snapshot file.
-</span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 </span><span class="kw">pub enum </span>SnapshotTrigger {
     <span class="doccomment">/// Triggered when all the threads in the process goes idle
     </span>Idle,
@@ -169,53 +200,80 @@
     SnapshotTrigger::Explicit,
 ];
 
-<span class="kw">impl </span>FromStr <span class="kw">for </span>SnapshotTrigger {
-    <span class="kw">type </span><span class="prelude-val">Err </span>= anyhow::Error;
+<span class="comment">// We're purposefully redirecting serialization-related functionality for SnapshotTrigger
+// through the equivalent type in wasmer_config (ConfigSnapshotTrigger) to make sure the
+// two types always stay in sync.
+</span><span class="kw">impl </span>From&lt;ConfigSnapshotTrigger&gt; <span class="kw">for </span>SnapshotTrigger {
+    <span class="kw">fn </span>from(value: ConfigSnapshotTrigger) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            ConfigSnapshotTrigger::Bootstrap =&gt; <span class="self">Self</span>::Bootstrap,
+            ConfigSnapshotTrigger::Explicit =&gt; <span class="self">Self</span>::Explicit,
+            ConfigSnapshotTrigger::FirstEnviron =&gt; <span class="self">Self</span>::FirstEnviron,
+            ConfigSnapshotTrigger::FirstListen =&gt; <span class="self">Self</span>::FirstListen,
+            ConfigSnapshotTrigger::FirstSigint =&gt; <span class="self">Self</span>::FirstSigint,
+            ConfigSnapshotTrigger::FirstStdin =&gt; <span class="self">Self</span>::FirstStdin,
+            ConfigSnapshotTrigger::Idle =&gt; <span class="self">Self</span>::Idle,
+            ConfigSnapshotTrigger::NonDeterministicCall =&gt; <span class="self">Self</span>::NonDeterministicCall,
+            ConfigSnapshotTrigger::PeriodicInterval =&gt; <span class="self">Self</span>::PeriodicInterval,
+            ConfigSnapshotTrigger::Sigalrm =&gt; <span class="self">Self</span>::Sigalrm,
+            ConfigSnapshotTrigger::Sigint =&gt; <span class="self">Self</span>::Sigint,
+            ConfigSnapshotTrigger::Sigstop =&gt; <span class="self">Self</span>::Sigstop,
+            ConfigSnapshotTrigger::Sigtstp =&gt; <span class="self">Self</span>::Sigtstp,
+            ConfigSnapshotTrigger::Transaction =&gt; <span class="self">Self</span>::Transaction,
+        }
+    }
+}
 
-    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-        <span class="kw">let </span>s = s.trim().to_lowercase();
-        <span class="prelude-val">Ok</span>(<span class="kw">match </span>s.as_str() {
-            <span class="string">"idle" </span>=&gt; <span class="self">Self</span>::Idle,
-            <span class="string">"first-listen" </span>=&gt; <span class="self">Self</span>::FirstListen,
-            <span class="string">"first-stdin" </span>=&gt; <span class="self">Self</span>::FirstStdin,
-            <span class="string">"first-environ" </span>=&gt; <span class="self">Self</span>::FirstEnviron,
-            <span class="string">"first-intr" </span>| <span class="string">"first-sigint" </span>| <span class="string">"first-ctrlc" </span>| <span class="string">"first-ctrl-c" </span>=&gt; <span class="self">Self</span>::FirstSigint,
-            <span class="string">"periodic-interval" </span>=&gt; <span class="self">Self</span>::PeriodicInterval,
-            <span class="string">"intr" </span>| <span class="string">"sigint" </span>| <span class="string">"ctrlc" </span>| <span class="string">"ctrl-c" </span>=&gt; <span class="self">Self</span>::Sigint,
-            <span class="string">"alarm" </span>| <span class="string">"timer" </span>| <span class="string">"sigalrm" </span>=&gt; <span class="self">Self</span>::Sigalrm,
-            <span class="string">"sigtstp" </span>| <span class="string">"ctrlz" </span>| <span class="string">"ctrl-z" </span>=&gt; <span class="self">Self</span>::Sigtstp,
-            <span class="string">"stop" </span>| <span class="string">"sigstop" </span>=&gt; <span class="self">Self</span>::Sigstop,
-            <span class="string">"non-deterministic-call" </span>=&gt; <span class="self">Self</span>::NonDeterministicCall,
-            <span class="string">"bootstrap" </span>=&gt; <span class="self">Self</span>::Bootstrap,
-            <span class="string">"transaction" </span>=&gt; <span class="self">Self</span>::Transaction,
-            <span class="string">"explicit" </span>=&gt; <span class="self">Self</span>::Explicit,
-            a =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">"invalid or unknown trigger ({a})"</span>)),
-        })
+<span class="kw">impl </span>From&lt;SnapshotTrigger&gt; <span class="kw">for </span>ConfigSnapshotTrigger {
+    <span class="kw">fn </span>from(value: SnapshotTrigger) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            SnapshotTrigger::Bootstrap =&gt; <span class="self">Self</span>::Bootstrap,
+            SnapshotTrigger::Explicit =&gt; <span class="self">Self</span>::Explicit,
+            SnapshotTrigger::FirstEnviron =&gt; <span class="self">Self</span>::FirstEnviron,
+            SnapshotTrigger::FirstListen =&gt; <span class="self">Self</span>::FirstListen,
+            SnapshotTrigger::FirstSigint =&gt; <span class="self">Self</span>::FirstSigint,
+            SnapshotTrigger::FirstStdin =&gt; <span class="self">Self</span>::FirstStdin,
+            SnapshotTrigger::Idle =&gt; <span class="self">Self</span>::Idle,
+            SnapshotTrigger::NonDeterministicCall =&gt; <span class="self">Self</span>::NonDeterministicCall,
+            SnapshotTrigger::PeriodicInterval =&gt; <span class="self">Self</span>::PeriodicInterval,
+            SnapshotTrigger::Sigalrm =&gt; <span class="self">Self</span>::Sigalrm,
+            SnapshotTrigger::Sigint =&gt; <span class="self">Self</span>::Sigint,
+            SnapshotTrigger::Sigstop =&gt; <span class="self">Self</span>::Sigstop,
+            SnapshotTrigger::Sigtstp =&gt; <span class="self">Self</span>::Sigtstp,
+            SnapshotTrigger::Transaction =&gt; <span class="self">Self</span>::Transaction,
+        }
+    }
+}
+
+<span class="kw">impl </span>FromStr <span class="kw">for </span>SnapshotTrigger {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= &lt;ConfigSnapshotTrigger <span class="kw">as </span>FromStr&gt;::Err;
+
+    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        &lt;ConfigSnapshotTrigger <span class="kw">as </span>FromStr&gt;::from_str(s).map(Into::into)
     }
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>SnapshotTrigger {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(
-            f,
-            <span class="string">"{}"</span>,
-            <span class="kw">match </span><span class="self">self </span>{
-                <span class="self">Self</span>::Bootstrap =&gt; <span class="string">"bootstrap"</span>,
-                <span class="self">Self</span>::Explicit =&gt; <span class="string">"explicit"</span>,
-                <span class="self">Self</span>::FirstEnviron =&gt; <span class="string">"first-environ"</span>,
-                <span class="self">Self</span>::FirstListen =&gt; <span class="string">"first-listen"</span>,
-                <span class="self">Self</span>::FirstSigint =&gt; <span class="string">"first-sigint"</span>,
-                <span class="self">Self</span>::FirstStdin =&gt; <span class="string">"first-stdin"</span>,
-                <span class="self">Self</span>::Idle =&gt; <span class="string">"idle"</span>,
-                <span class="self">Self</span>::NonDeterministicCall =&gt; <span class="string">"non-deterministic-call"</span>,
-                <span class="self">Self</span>::PeriodicInterval =&gt; <span class="string">"periodic-interval"</span>,
-                <span class="self">Self</span>::Sigalrm =&gt; <span class="string">"sigalrm"</span>,
-                <span class="self">Self</span>::Sigint =&gt; <span class="string">"sigint"</span>,
-                <span class="self">Self</span>::Sigtstp =&gt; <span class="string">"sigtstp"</span>,
-                <span class="self">Self</span>::Sigstop =&gt; <span class="string">"sigstop"</span>,
-                <span class="self">Self</span>::Transaction =&gt; <span class="string">"transaction"</span>,
-            }
-        )
+        &lt;ConfigSnapshotTrigger <span class="kw">as </span>Display&gt;::fmt(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span><span class="self">self</span>).into(), f)
+    }
+}
+
+<span class="kw">impl </span>Serialize <span class="kw">for </span>SnapshotTrigger {
+    <span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
+    <span class="kw">where
+        </span>S: serde::Serializer,
+    {
+        ConfigSnapshotTrigger::from(<span class="kw-2">*</span><span class="self">self</span>).serialize(serializer)
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>SnapshotTrigger {
+    <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
+    <span class="kw">where
+        </span>D: serde::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
+    {
+        &lt;ConfigSnapshotTrigger <span class="kw">as </span>Deserialize&gt;::deserialize(deserializer).map(Into::into)
     }
 }
 </code></pre></div></section></main></body></html>

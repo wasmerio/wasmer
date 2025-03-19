@@ -435,13 +435,13 @@
 <span class="kw">mod </span>http;
 <span class="kw">mod </span>job;
 <span class="kw">mod </span>pretty_duration;
+<span class="kw">mod </span>snapshot_trigger;
 
-<span class="kw">pub use </span><span class="self">self</span>::{healthcheck::<span class="kw-2">*</span>, http::<span class="kw-2">*</span>, job::<span class="kw-2">*</span>};
+<span class="kw">pub use </span><span class="self">self</span>::{healthcheck::<span class="kw-2">*</span>, http::<span class="kw-2">*</span>, job::<span class="kw-2">*</span>, pretty_duration::<span class="kw-2">*</span>, snapshot_trigger::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>bytesize::ByteSize;
 <span class="kw">use </span>indexmap::IndexMap;
-<span class="kw">use </span>pretty_duration::PrettyDuration;
 
 <span class="kw">use </span><span class="kw">crate</span>::package::PackageSource;
 
@@ -736,7 +736,7 @@
     /// The instance's process will have its stop_running_after_checkpoint flag set,
     /// so the first snapshot will cause the instance to shut down.
     </span><span class="comment">// FIXME: make this strongly typed
-    </span>Triggers(Vec&lt;String&gt;),
+    </span>Triggers(Vec&lt;SnapshotTrigger&gt;),
 }
 
 <span class="doccomment">/// App redirect configuration.
