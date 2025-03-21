@@ -106,6 +106,9 @@ pub enum WasmerPackageError {
     /// A manifest validation error.
     #[error("The manifest is invalid")]
     Validation(#[from] wasmer_config::package::ValidationError),
+    /// Volumes can't be mounted on the guest's root
+    #[error("Mounting on the guest's root (e.g. \"/\" = \"<HOST_PATH>\" in [fs] section of wasmer.toml) is not allowed")]
+    MountOnRoot,
     /// A path in the fs mapping does not exist
     #[error("Path: \"{}\" does not exist", path.display())]
     PathNotExists {
@@ -224,6 +227,10 @@ impl Package {
             .parent()
             .expect("Canonicalizing should always result in a file with a parent directory")
             .to_path_buf();
+
+        if wasmer_toml.fs.keys().any(|k| k == "/") {
+            return Err(WasmerPackageError::MountOnRoot);
+        }
 
         for path in wasmer_toml.fs.values() {
             if !base_dir.join(path).exists() {

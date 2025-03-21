@@ -390,7 +390,8 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut runner = self.build_wasi_runner(&runtime)?;
+        // Assume webcs are always WASIX
+        let mut runner = self.build_wasi_runner(&runtime, true)?;
         runner.run_command(command_name, pkg, runtime)
     }
 
@@ -473,7 +474,7 @@ impl Run {
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut inner = self.build_wasi_runner(&runtime)?;
+        let mut inner = self.build_wasi_runner(&runtime, true)?;
         let mut runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg);
         runner.run_command(command_name, pkg, runtime)
     }
@@ -516,13 +517,14 @@ impl Run {
     fn build_wasi_runner(
         &self,
         runtime: &Arc<dyn Runtime + Send + Sync>,
+        is_wasix: bool,
     ) -> Result<WasiRunner, anyhow::Error> {
         let packages = self.load_injected_packages(runtime)?;
 
         let mut runner = WasiRunner::new();
 
         let (is_home_mapped, is_tmp_mapped, mapped_diretories) =
-            self.wasi.build_mapped_directories()?;
+            self.wasi.build_mapped_directories(is_wasix)?;
 
         runner
             .with_args(&self.args)
@@ -581,7 +583,7 @@ impl Run {
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
-        let runner = self.build_wasi_runner(&runtime)?;
+        let runner = self.build_wasi_runner(&runtime, wasmer_wasix::is_wasix_module(&module))?;
         runner.run_wasm(runtime, &program_name, module, module_hash)
     }
 
