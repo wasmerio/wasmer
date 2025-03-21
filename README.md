@@ -16,6 +16,9 @@
     <a href="https://discord.gg/rWkMNStrEW">
       <img src="https://img.shields.io/discord/1110300506942881873?label=Wasmer&logo=discord&logoColor=white" alt="Wasmer on Discord">
     </a>
+    <a href="https://x.com/wasmerio">
+      <img src="https://img.shields.io/twitter/follow/wasmerio" alt="Wasmer on X">
+    </a>  
   </p>
 </div>
 
