@@ -801,12 +801,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .map(|v| v.into_int_value()))
     }
 
+    #[allow(unused)]
     fn trap_if_not_representable_as_int(
         &self,
         lower_bound: u64, // Inclusive (not a trapping value)
         upper_bound: u64, // Inclusive (not a trapping value)
         value: FloatValue,
     ) -> Result<(), CompileError> {
+        return Ok(());
+
         let float_ty = value.get_type();
         let int_ty = if float_ty == self.intrinsics.f32_ty {
             self.intrinsics.i32_ty
@@ -876,11 +879,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         Ok(())
     }
 
+    #[allow(unused)]
     fn trap_if_zero_or_overflow(
         &self,
         left: IntValue,
         right: IntValue,
     ) -> Result<(), CompileError> {
+        return Ok(());
         let int_type = left.get_type();
 
         let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
@@ -961,7 +966,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         Ok(())
     }
 
+    #[allow(unused)]
     fn trap_if_zero(&self, value: IntValue) -> Result<(), CompileError> {
+        return Ok(());
         let int_type = value.get_type();
         let should_trap = err!(self.builder.build_int_compare(
             IntPredicate::EQ,
@@ -1116,7 +1123,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         value: BasicValueEnum<'ctx>,
         info: ExtraInfo,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        if !self.config.enable_nan_canonicalization {
+        if true {
             return Ok(value);
         }
 
@@ -1156,7 +1163,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         &self,
         value: BasicValueEnum<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        if !self.config.enable_nan_canonicalization {
+        if true {
             return Ok(value);
         }
 
@@ -1240,10 +1247,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     // If this memory access must trap when out of bounds (i.e. it is a memory
     // access written in the user program as opposed to one used by our VM)
     // then mark that it can't be delete.
+    #[allow(dead_code)]
     fn mark_memaccess_nodelete(
         &mut self,
         memory_index: MemoryIndex,
-        memaccess: InstructionValue<'ctx>,
+        _memaccess: InstructionValue<'ctx>,
     ) -> Result<(), CompileError> {
         if let MemoryCache::Static { base_ptr: _ } = self.ctx.memory(
             memory_index,
@@ -1251,9 +1259,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             self.module,
             self.memory_styles,
         )? {
+            _ = &self.config;
             // The best we've got is `volatile`.
             // TODO: convert unwrap fail to CompileError
-            memaccess.set_volatile(true).unwrap();
+            //memaccess.set_volatile(true).unwrap();
         }
         Ok(())
     }
@@ -1421,12 +1430,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .map(|v| v.into_pointer_value()))
     }
 
+    #[allow(unused)]
     fn trap_if_misaligned(
         &self,
         _memarg: &MemArg,
         ptr: PointerValue<'ctx>,
         align: u8,
     ) -> Result<(), CompileError> {
+        return Ok(());
+
         if align <= 1 {
             return Ok(());
         }
@@ -2674,7 +2686,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             } => {
                 let sigindex = SignatureIndex::from_u32(type_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
-                let expected_dynamic_sigindex =
+                let _expected_dynamic_sigindex =
                     self.ctx
                         .dynamic_sigindex(sigindex, self.intrinsics, self.module)?;
                 let (table_base, table_bound) = self.ctx.table(
@@ -2757,32 +2769,32 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .into_pointer_value();
 
                 // trap if we're trying to call a null funcref
-                {
-                    let funcref_not_null = err!(self
-                        .builder
-                        .build_is_not_null(anyfunc_struct_ptr, "null funcref check"));
+                //{
+                //    let funcref_not_null = err!(self
+                //        .builder
+                //        .build_is_not_null(anyfunc_struct_ptr, "null funcref check"));
 
-                    let funcref_continue_deref_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_continue deref_block");
+                //    let funcref_continue_deref_block = self
+                //        .context
+                //        .append_basic_block(self.function, "funcref_continue deref_block");
 
-                    let funcref_is_null_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_is_null_block");
-                    err!(self.builder.build_conditional_branch(
-                        funcref_not_null,
-                        funcref_continue_deref_block,
-                        funcref_is_null_block,
-                    ));
-                    self.builder.position_at_end(funcref_is_null_block);
-                    err!(self.builder.build_call(
-                        self.intrinsics.throw_trap,
-                        &[self.intrinsics.trap_call_indirect_null.into()],
-                        "throw",
-                    ));
-                    err!(self.builder.build_unreachable());
-                    self.builder.position_at_end(funcref_continue_deref_block);
-                }
+                //    let funcref_is_null_block = self
+                //        .context
+                //        .append_basic_block(self.function, "funcref_is_null_block");
+                //    err!(self.builder.build_conditional_branch(
+                //        funcref_not_null,
+                //        funcref_continue_deref_block,
+                //        funcref_is_null_block,
+                //    ));
+                //    self.builder.position_at_end(funcref_is_null_block);
+                //    err!(self.builder.build_call(
+                //        self.intrinsics.throw_trap,
+                //        &[self.intrinsics.trap_call_indirect_null.into()],
+                //        "throw",
+                //    ));
+                //    err!(self.builder.build_unreachable());
+                //    self.builder.position_at_end(funcref_continue_deref_block);
+                //}
 
                 // Load things from the anyfunc data structure.
                 let func_ptr_ptr = self
@@ -2812,7 +2824,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "ctx_ptr_ptr",
                     )
                     .unwrap();
-                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
+                let (func_ptr, _found_dynamic_sigindex, ctx_ptr) = (
                     err!(self
                         .builder
                         .build_load(self.intrinsics.ptr_ty, func_ptr_ptr, "func_ptr"))
@@ -2829,62 +2841,62 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // Next, check if the table element is initialized.
 
                 // TODO: we may not need this check anymore
-                let elem_initialized = err!(self.builder.build_is_not_null(func_ptr, ""));
+                //let elem_initialized = err!(self.builder.build_is_not_null(func_ptr, ""));
 
                 // Next, check if the signature id is correct.
 
-                let sigindices_equal = err!(self.builder.build_int_compare(
-                    IntPredicate::EQ,
-                    expected_dynamic_sigindex,
-                    found_dynamic_sigindex,
-                    "sigindices_equal",
-                ));
+                //let sigindices_equal = err!(self.builder.build_int_compare(
+                //    IntPredicate::EQ,
+                //    expected_dynamic_sigindex,
+                //    found_dynamic_sigindex,
+                //    "sigindices_equal",
+                //));
 
-                let initialized_and_sigindices_match =
-                    err!(self
-                        .builder
-                        .build_and(elem_initialized, sigindices_equal, ""));
+                //let initialized_and_sigindices_match =
+                //    err!(self
+                //        .builder
+                //        .build_and(elem_initialized, sigindices_equal, ""));
 
-                // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let initialized_and_sigindices_match = err!(self.builder.build_call(
-                    self.intrinsics.expect_i1,
-                    &[
-                        initialized_and_sigindices_match.into(),
-                        self.intrinsics.i1_ty.const_int(1, false).into(),
-                    ],
-                    "initialized_and_sigindices_match_expect",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
+                //// Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
+                //let initialized_and_sigindices_match = err!(self.builder.build_call(
+                //    self.intrinsics.expect_i1,
+                //    &[
+                //        initialized_and_sigindices_match.into(),
+                //        self.intrinsics.i1_ty.const_int(1, false).into(),
+                //    ],
+                //    "initialized_and_sigindices_match_expect",
+                //))
+                //.try_as_basic_value()
+                //.left()
+                //.unwrap()
+                //.into_int_value();
 
-                let continue_block = self
-                    .context
-                    .append_basic_block(self.function, "continue_block");
-                let sigindices_notequal_block = self
-                    .context
-                    .append_basic_block(self.function, "sigindices_notequal_block");
-                err!(self.builder.build_conditional_branch(
-                    initialized_and_sigindices_match,
-                    continue_block,
-                    sigindices_notequal_block,
-                ));
+                //let continue_block = self
+                //    .context
+                //    .append_basic_block(self.function, "continue_block");
+                //let sigindices_notequal_block = self
+                //    .context
+                //    .append_basic_block(self.function, "sigindices_notequal_block");
+                //err!(self.builder.build_conditional_branch(
+                //    initialized_and_sigindices_match,
+                //    continue_block,
+                //    sigindices_notequal_block,
+                //));
 
-                self.builder.position_at_end(sigindices_notequal_block);
-                let trap_code = err!(self.builder.build_select(
-                    elem_initialized,
-                    self.intrinsics.trap_call_indirect_sig,
-                    self.intrinsics.trap_call_indirect_null,
-                    "",
-                ));
-                err!(self.builder.build_call(
-                    self.intrinsics.throw_trap,
-                    &[trap_code.into()],
-                    "throw"
-                ));
-                err!(self.builder.build_unreachable());
-                self.builder.position_at_end(continue_block);
+                //self.builder.position_at_end(sigindices_notequal_block);
+                //let trap_code = err!(self.builder.build_select(
+                //    elem_initialized,
+                //    self.intrinsics.trap_call_indirect_sig,
+                //    self.intrinsics.trap_call_indirect_null,
+                //    "",
+                //));
+                //err!(self.builder.build_call(
+                //    self.intrinsics.throw_trap,
+                //    &[trap_code.into()],
+                //    "throw"
+                //));
+                //err!(self.builder.build_unreachable());
+                //self.builder.position_at_end(continue_block);
 
                 let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
                     self.context,
