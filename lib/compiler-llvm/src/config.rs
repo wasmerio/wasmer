@@ -161,6 +161,14 @@ impl LLVM {
         TargetTriple::create(&triple.to_string())
     }
 
+    pub fn global_sp_register(&self, triple: &Triple) -> Option<String> {
+        match triple.architecture {
+            Architecture::X86_64 => Some(String::from("+reserve-x28")),
+            Architecture::Aarch64(_) => Some(String::from("+reserve-x28")),
+            _ => None,
+        }
+    }
+
     /// Generates the target machine for the current target
     pub fn target_machine(&self, target: &Target) -> TargetMachine {
         let triple = target.triple();
@@ -217,10 +225,15 @@ impl LLVM {
         // The CPU features formatted as LLVM strings
         // We can safely map to gcc-like features as the CPUFeatures
         // are compliant with the same string representations as gcc.
-        let llvm_cpu_features = cpu_features
+
+        let mut llvm_cpu_features = cpu_features
             .iter()
             .map(|feature| format!("+{feature}"))
             .join(",");
+
+        if let Some(reg) = self.global_sp_register(target.triple()) {
+            llvm_cpu_features = format!("{llvm_cpu_features},{reg}");
+        }
 
         let target_triple = self.target_triple(target);
         let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();

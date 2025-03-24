@@ -38,6 +38,9 @@ pub trait FunctionBinaryReader<'a> {
     /// Reads the next available `Operator`.
     fn read_operator(&mut self) -> WasmResult<Operator<'a>>;
 
+    /// Peeks the n-th `Operator` without consuming it.
+    fn peek_operator(&mut self, nth: usize) -> WasmResult<Operator<'a>>;
+
     /// Returns the current position.
     fn current_position(&self) -> usize;
 

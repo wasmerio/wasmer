@@ -16,7 +16,7 @@ use inkwell::{
     AddressSpace, DLLStorageClass,
 };
 use std::{cmp, convert::TryInto};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{BinaryFormat, Triple};
 use wasmer_compiler::types::{function::FunctionBody, relocation::RelocationTarget};
 use wasmer_types::{CompileError, FunctionType as FuncType, LocalFunctionIndex};
 
@@ -24,33 +24,30 @@ pub struct FuncTrampoline {
     ctx: Context,
     target_machine: TargetMachine,
     abi: Box<dyn Abi>,
-    binary_fmt: BinaryFormat,
     func_section: String,
+    triple: Triple,
 }
 
 const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
 const FUNCTION_SECTION_MACHO: &str = "wasmer_trmpl"; // Needs to be between 1 and 16 chars
 
 impl FuncTrampoline {
-    pub fn new(
-        target_machine: TargetMachine,
-        binary_fmt: BinaryFormat,
-    ) -> Result<Self, CompileError> {
+    pub fn new(target_machine: TargetMachine, triple: Triple) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
             target_machine,
             abi,
-            func_section: match binary_fmt {
+            func_section: match triple.binary_format {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
                 BinaryFormat::Macho => FUNCTION_SECTION_MACHO.to_string(),
-                _ => {
+                bin_fmt => {
                     return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {binary_fmt:?}",
+                        "Unsupported binary format: {bin_fmt:?}",
                     )))
                 }
             },
-            binary_fmt,
+            triple,
         })
     }
 
@@ -68,7 +65,7 @@ impl FuncTrampoline {
         let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &self.triple, &target_data);
 
         let (callee_ty, callee_attrs) =
             self.abi
@@ -170,7 +167,7 @@ impl FuncTrampoline {
                     "trampoline generation produced reference to unknown function {name}",
                 )))
             },
-            self.binary_fmt,
+            &self.triple,
         )?;
         let mut all_sections_are_eh_sections = true;
         let mut unwind_section_indices = eh_frame_section_indices;
@@ -218,7 +215,7 @@ impl FuncTrampoline {
         let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_data.get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &self.triple, &target_data);
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi
@@ -298,7 +295,7 @@ impl FuncTrampoline {
                     "trampoline generation produced reference to unknown function {name}",
                 )))
             },
-            self.binary_fmt,
+            &self.triple,
         )?;
         let mut all_sections_are_eh_sections = true;
         let mut unwind_section_indices = eh_frame_section_indices;

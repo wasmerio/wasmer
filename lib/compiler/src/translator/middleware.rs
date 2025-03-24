@@ -154,6 +154,57 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
         Ok((count, ty))
     }
 
+    fn peek_operator(&mut self, mut nth: usize) -> WasmResult<Operator<'a>> {
+        if self.chain.is_empty() {
+            let x = self.state.inner.clone();
+
+            while nth > 0 {
+                self.state
+                    .inner
+                    .read_operator()
+                    .map_err(from_binaryreadererror_wasmerror)?;
+                nth -= 1;
+            }
+
+            let next = self
+                .state
+                .inner
+                .read_operator()
+                .map_err(from_binaryreadererror_wasmerror);
+
+            self.state.inner = x;
+
+            return next;
+        }
+
+        todo!()
+
+        //// Try to fill the `self.pending_operations` buffer, until it is non-empty.
+        //while self.state.pending_operations.is_empty() {
+        //    let raw_op = self
+        //        .state
+        //        .inner
+        //        .read_operator()
+        //        .map_err(from_binaryreadererror_wasmerror)?;
+
+        //    // Fill the initial raw operator into pending buffer.
+        //    self.state.pending_operations.push_back(raw_op);
+
+        //    // Run the operator through each stage.
+        //    for stage in &mut self.chain {
+        //        // Take the outputs from the previous stage.
+        //        let pending: SmallVec<[Operator<'a>; 2]> =
+        //            self.state.pending_operations.drain(0..).collect();
+
+        //        // ...and feed them into the current stage.
+        //        for pending_op in pending {
+        //            stage.feed(pending_op, &mut self.state)?;
+        //        }
+        //    }
+        //}
+
+        //Ok(self.state.pending_operations.pop_front().unwrap())
+    }
     fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
         if self.chain.is_empty() {
             // We short-circuit in case no chain is used

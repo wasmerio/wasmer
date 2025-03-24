@@ -92,8 +92,8 @@ impl LLVMCompiler {
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         symbol_registry: &dyn SymbolRegistry,
         wasmer_metadata: &[u8],
-        binary_format: target_lexicon::BinaryFormat,
     ) -> Result<Vec<u8>, CompileError> {
+        let triple = target.triple().clone();
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
 
@@ -102,7 +102,7 @@ impl LLVMCompiler {
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine, binary_format).unwrap()
+                FuncTranslator::new(target_machine, triple.clone()).unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -123,7 +123,7 @@ impl LLVMCompiler {
         let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTrampoline::new(target_machine, binary_format).unwrap()
+                FuncTrampoline::new(target_machine, triple.clone()).unwrap()
             },
             |func_trampoline, (i, sig)| {
                 let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
@@ -137,7 +137,7 @@ impl LLVMCompiler {
                 || {
                     let target_machine = self.config().target_machine(target);
                     (
-                        FuncTrampoline::new(target_machine, binary_format).unwrap(),
+                        FuncTrampoline::new(target_machine, triple.clone()).unwrap(),
                         &compile_info.module.signatures,
                     )
                 },
@@ -233,7 +233,6 @@ impl Compiler for LLVMCompiler {
             function_body_inputs,
             symbol_registry,
             wasmer_metadata,
-            self.config.target_binary_format(target),
         ))
     }
 
@@ -250,7 +249,6 @@ impl Compiler for LLVMCompiler {
 
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
 
@@ -263,6 +261,7 @@ impl Compiler for LLVMCompiler {
 
         let mut compact_unwind_section_bytes = vec![];
         let mut compact_unwind_section_relocations = vec![];
+        let triple = target.triple().clone();
 
         let mut got_targets: HashSet<wasmer_compiler::types::relocation::RelocationTarget> = if matches!(
             target.triple().binary_format,
@@ -280,7 +279,7 @@ impl Compiler for LLVMCompiler {
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTranslator::new(target_machine, binary_format).unwrap()
+                    FuncTranslator::new(target_machine, triple.clone()).unwrap()
                 },
                 |func_translator, (i, input)| {
                     // TODO: remove (to serialize)
@@ -402,7 +401,7 @@ impl Compiler for LLVMCompiler {
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine, binary_format).unwrap()
+                    FuncTrampoline::new(target_machine, triple.clone()).unwrap()
                 },
                 |func_trampoline, sig| func_trampoline.trampoline(sig, self.config(), ""),
             )
@@ -417,7 +416,7 @@ impl Compiler for LLVMCompiler {
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine, binary_format).unwrap()
+                    FuncTrampoline::new(target_machine, triple.clone()).unwrap()
                 },
                 |func_trampoline, func_type| {
                     func_trampoline.dynamic_trampoline(func_type, self.config(), "")

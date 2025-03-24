@@ -23,7 +23,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 use smallvec::SmallVec;
-use target_lexicon::BinaryFormat;
+use target_lexicon::{BinaryFormat, Triple};
 
 use crate::{
     abi::{get_abi, Abi},
@@ -56,30 +56,27 @@ pub struct FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
     abi: Box<dyn Abi>,
-    binary_fmt: BinaryFormat,
+    triple: Triple,
     func_section: String,
 }
 
 impl FuncTranslator {
-    pub fn new(
-        target_machine: TargetMachine,
-        binary_fmt: BinaryFormat,
-    ) -> Result<Self, CompileError> {
+    pub fn new(target_machine: TargetMachine, triple: Triple) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
             ctx: Context::create(),
             target_machine,
             abi,
-            func_section: match binary_fmt {
+            func_section: match triple.binary_format {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
                 BinaryFormat::Macho => FUNCTION_SEGMENT_MACHO.to_string(),
-                _ => {
+                fmt => {
                     return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {binary_fmt:?}"
+                        "Unsupported binary format: {fmt:?}"
                     )))
                 }
             },
-            binary_fmt,
+            triple,
         })
     }
 
@@ -120,7 +117,7 @@ impl FuncTranslator {
 
         // TODO: pointer width
         let offsets = VMOffsets::new(8, wasm_module);
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &self.triple, &target_data);
         let (func_type, func_attrs) =
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, Some(&offsets), wasm_fn_type)?;
@@ -134,15 +131,23 @@ impl FuncTranslator {
         func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
 
-        let section = match self.binary_fmt {
+        let features = self.ctx.create_string_attribute(
+            "target-features",
+            target_machine
+                .get_feature_string()
+                .to_str()
+                .unwrap_or_default(),
+        );
+        func.add_attribute(AttributeLoc::Function, features);
+
+        let section = match self.triple.binary_format {
             BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
             BinaryFormat::Macho => {
                 format!("{FUNCTION_SECTION_MACHO},{FUNCTION_SEGMENT_MACHO}")
             }
-            _ => {
+            fmt => {
                 return Err(CompileError::UnsupportedTarget(format!(
-                    "Unsupported binary format: {:?}",
-                    self.binary_fmt
+                    "Unsupported binary format: {fmt:?}",
                 )))
             }
         };
@@ -231,8 +236,51 @@ impl FuncTranslator {
             }
         }
 
+        /* fix global stack ptr */
+
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
+
+        //if let Ok(Operator::GlobalGet { global_index: 0 }) = reader.peek_operator(0) {
+        //    if let Ok(Operator::I32Const { value }) = reader.peek_operator(1) {
+        //        if let Ok(Operator::I32Sub) = reader.peek_operator(2) {
+        //            if let Ok(Operator::LocalTee { local_index }) = reader.peek_operator(3) {
+        //                if let Ok(Operator::GlobalSet { global_index: 0 }) = reader.peek_operator(4)
+        //                {
+        //                    for _ in 0..4 {
+        //                        _ = reader.read_operator()?;
+        //                    }
+
+        //                    let global_sp = err!(cache_builder.build_indirect_call(
+        //                        intrinsics.read_global_sp_ty,
+        //                        intrinsics.read_global_sp,
+        //                        &[],
+        //                        "global_sp",
+        //                    ));
+        //                    let global_sp = global_sp.try_as_basic_value().left().unwrap();
+        //                    let value = intrinsics.i32_ty.const_int(value as u64, false);
+        //                    let new_global_sp = err!(cache_builder.build_int_sub(
+        //                        global_sp.into_int_value(),
+        //                        value,
+        //                        "new_global_sp",
+        //                    ));
+
+        //                    let pointer_value = params_locals[local_index as usize].1;
+        //                    //let (v, i) = self.state.pop1_extra()?;
+        //                    //let v = self.apply_pending_canonicalization(v, i)?;
+        //                    state.push1(new_global_sp);
+        //                    err!(cache_builder.build_store(pointer_value, new_global_sp));
+        //                    //tbaa_label(
+        //                    //    self.module,
+        //                    //    self.intrinsics,
+        //                    //    format!("local {local_index}"),
+        //                    //    store,
+        //                    //);
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
 
         let mut fcg = LLVMFunctionCodeGenerator {
             context: &self.ctx,
@@ -258,7 +306,7 @@ impl FuncTranslator {
                 .target_machine
                 .get_target_data()
                 .get_pointer_byte_size(None),
-            binary_fmt: self.binary_fmt,
+            triple: &self.triple,
         };
 
         fcg.ctx.add_func(
@@ -493,7 +541,7 @@ impl FuncTranslator {
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &str| {
                 Ok({
-                    let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
+                    let name = if matches!(self.triple.binary_format, BinaryFormat::Macho) {
                         if name.starts_with("_") {
                             name.replacen("_", "", 1)
                         } else {
@@ -511,7 +559,7 @@ impl FuncTranslator {
                     }
                 })
             },
-            self.binary_fmt,
+            &self.triple,
         )
     }
 }
@@ -1576,7 +1624,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         // The general idea is that each tag has its own section, so the GOT-based relocation can
         // have a zero addend, i.e. the data of the tag is the first (and only) value in a specific
         // section we can target in relocations.
-        if matches!(self.binary_fmt, target_lexicon::BinaryFormat::Macho) {
+        if matches!(
+            self.triple.binary_format,
+            target_lexicon::BinaryFormat::Macho
+        ) {
             tag_glbl.set_section(Some(&format!("{FUNCTION_SECTION_MACHO},_eh_ti_{tag}")));
         }
 
@@ -1742,7 +1793,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     tags_cache: HashMap<u32, BasicValueEnum<'ctx>>,
     exception_types_cache: HashMap<u32, inkwell::types::StructType<'ctx>>,
     ptr_size: u32,
-    binary_fmt: target_lexicon::BinaryFormat,
+    triple: &'a Triple,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -2448,52 +2499,76 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
 
             Operator::GlobalGet { global_index } => {
-                let global_index = GlobalIndex::from_u32(global_index);
-                match self
-                    .ctx
-                    .global(global_index, self.intrinsics, self.module)?
-                {
-                    GlobalCache::Const { value } => {
-                        self.state.push1(*value);
-                    }
-                    GlobalCache::Mut {
-                        ptr_to_value,
-                        value_type,
-                    } => {
-                        let value = err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
-                        tbaa_label(
-                            self.module,
-                            self.intrinsics,
-                            format!("global {}", global_index.as_u32()),
-                            value.as_instruction_value().unwrap(),
-                        );
-                        self.state.push1(value);
+                if global_index == 0 {
+                    let global_sp = err!(self.builder.build_indirect_call(
+                        self.intrinsics.read_global_sp_ty,
+                        self.intrinsics.read_global_sp,
+                        &[],
+                        "global_sp",
+                    ));
+
+                    let global_sp = global_sp.try_as_basic_value().left().unwrap();
+                    self.state.push1(global_sp.as_basic_value_enum());
+                } else {
+                    let global_index = GlobalIndex::from_u32(global_index);
+                    match self
+                        .ctx
+                        .global(global_index, self.intrinsics, self.module)?
+                    {
+                        GlobalCache::Const { value } => {
+                            self.state.push1(*value);
+                        }
+                        GlobalCache::Mut {
+                            ptr_to_value,
+                            value_type,
+                        } => {
+                            let value =
+                                err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
+                            tbaa_label(
+                                self.module,
+                                self.intrinsics,
+                                format!("global {}", global_index.as_u32()),
+                                value.as_instruction_value().unwrap(),
+                            );
+                            self.state.push1(value);
+                        }
                     }
                 }
             }
             Operator::GlobalSet { global_index } => {
-                let global_index = GlobalIndex::from_u32(global_index);
-                match self
-                    .ctx
-                    .global(global_index, self.intrinsics, self.module)?
-                {
-                    GlobalCache::Const { value: _ } => {
-                        return Err(CompileError::Codegen(format!(
-                            "global.set on immutable global index {}",
-                            global_index.as_u32()
-                        )))
-                    }
-                    GlobalCache::Mut { ptr_to_value, .. } => {
-                        let ptr_to_value = *ptr_to_value;
-                        let (value, info) = self.state.pop1_extra()?;
-                        let value = self.apply_pending_canonicalization(value, info)?;
-                        let store = err!(self.builder.build_store(ptr_to_value, value));
-                        tbaa_label(
-                            self.module,
-                            self.intrinsics,
-                            format!("global {}", global_index.as_u32()),
-                            store,
-                        );
+                if global_index == 0 {
+                    let (value, info) = self.state.pop1_extra()?;
+                    let value = self.apply_pending_canonicalization(value, info)?;
+                    err!(self.builder.build_indirect_call(
+                        self.intrinsics.write_global_sp_ty,
+                        self.intrinsics.write_global_sp,
+                        &[value.into()],
+                        "",
+                    ));
+                } else {
+                    let global_index = GlobalIndex::from_u32(global_index);
+                    match self
+                        .ctx
+                        .global(global_index, self.intrinsics, self.module)?
+                    {
+                        GlobalCache::Const { value: _ } => {
+                            return Err(CompileError::Codegen(format!(
+                                "global.set on immutable global index {}",
+                                global_index.as_u32()
+                            )))
+                        }
+                        GlobalCache::Mut { ptr_to_value, .. } => {
+                            let ptr_to_value = *ptr_to_value;
+                            let (value, info) = self.state.pop1_extra()?;
+                            let value = self.apply_pending_canonicalization(value, info)?;
+                            let store = err!(self.builder.build_store(ptr_to_value, value));
+                            tbaa_label(
+                                self.module,
+                                self.intrinsics,
+                                format!("global {}", global_index.as_u32()),
+                                store,
+                            );
+                        }
                     }
                 }
             }

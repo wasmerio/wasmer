@@ -24,6 +24,7 @@ use inkwell::{
     AddressSpace,
 };
 use std::collections::{hash_map::Entry, HashMap};
+use target_lexicon::Triple;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
@@ -260,6 +261,12 @@ pub struct Intrinsics<'ctx> {
     pub vmmemory_definition_ty: StructType<'ctx>,
     pub vmmemory_definition_base_element: u32,
     pub vmmemory_definition_current_length_element: u32,
+
+    // Register manipulation.
+    pub read_global_sp: inkwell::values::PointerValue<'ctx>,
+    pub read_global_sp_ty: FunctionType<'ctx>,
+    pub write_global_sp: inkwell::values::PointerValue<'ctx>,
+    pub write_global_sp_ty: FunctionType<'ctx>,
 }
 
 impl<'ctx> Intrinsics<'ctx> {
@@ -267,8 +274,8 @@ impl<'ctx> Intrinsics<'ctx> {
     pub fn declare(
         module: &Module<'ctx>,
         context: &'ctx Context,
+        triple: &Triple,
         target_data: &TargetData,
-        binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
@@ -457,6 +464,16 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
+
+        let read_register_ty = i64_ty.fn_type(&[], false);
+
+        let write_register_ty = void_ty.fn_type(&[i64_ty_basic_md], false);
+
+        let global_sp_register = match triple.architecture {
+            target_lexicon::Architecture::Aarch64(_) => String::from("x28"),
+            target_lexicon::Architecture::X86_64 => String::from("r19"),
+            _ => todo!(),
+        };
 
         let intrinsics = Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -689,7 +706,7 @@ impl<'ctx> Intrinsics<'ctx> {
             trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
             debug_trap: module.add_function("llvm.debugtrap", void_ty.fn_type(&[], false), None),
             personality: module.add_function(
-                if matches!(binary_fmt, target_lexicon::BinaryFormat::Macho) {
+                if matches!(triple.binary_format, target_lexicon::BinaryFormat::Macho) {
                     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
                     // will generate things differently than "normal", wreaking havoc.
                     "__gxx_personality_v0"
@@ -1161,6 +1178,27 @@ impl<'ctx> Intrinsics<'ctx> {
 
             // LLVM > 15 has a single type for pointers.
             ptr_ty,
+
+            read_global_sp: context.create_inline_asm(
+                read_register_ty,
+                format!("mov $0, {global_sp_register}",),
+                "={x28}".into(),
+                true,
+                false,
+                None,
+                false,
+            ),
+            read_global_sp_ty: read_register_ty,
+            write_global_sp: context.create_inline_asm(
+                write_register_ty,
+                format!("mov {global_sp_register}, $0"),
+                "{x28}".into(),
+                true,
+                false,
+                None,
+                false,
+            ),
+            write_global_sp_ty: write_register_ty,
         };
 
         let noreturn =

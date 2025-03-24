@@ -1,5 +1,5 @@
 use object::{Object, ObjectSection, ObjectSymbol};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{BinaryFormat, Triple};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -149,19 +149,19 @@ pub fn load_object_file<F>(
     root_section: &str,
     root_section_reloc_target: RelocationTarget,
     mut symbol_name_to_relocation_target: F,
-    binary_fmt: BinaryFormat,
+    triple: &Triple,
 ) -> Result<CompiledFunction, CompileError>
 where
     F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
 {
     let obj = object::File::parse(contents).map_err(map_object_err)?;
 
-    let libcalls = match binary_fmt {
+    let libcalls = match triple.binary_format {
         BinaryFormat::Elf => &LIBCALLS_ELF,
         BinaryFormat::Macho => &LIBCALLS_MACHO,
-        _ => {
+        fmt => {
             return Err(CompileError::UnsupportedTarget(format!(
-                "Unsupported binary format {binary_fmt:?}"
+                "Unsupported binary format {fmt:?}"
             )))
         }
     };
