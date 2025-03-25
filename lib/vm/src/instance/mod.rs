@@ -300,7 +300,7 @@ impl Instance {
     }
 
     /// Return the indexed `VMGlobalDefinition`.
-    fn global(&self, index: LocalGlobalIndex) -> VMGlobalDefinition {
+    pub fn global(&self, index: LocalGlobalIndex) -> VMGlobalDefinition {
         unsafe { self.global_ptr(index).as_ref().clone() }
     }
 

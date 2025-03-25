@@ -241,47 +241,6 @@ impl FuncTranslator {
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
 
-        //if let Ok(Operator::GlobalGet { global_index: 0 }) = reader.peek_operator(0) {
-        //    if let Ok(Operator::I32Const { value }) = reader.peek_operator(1) {
-        //        if let Ok(Operator::I32Sub) = reader.peek_operator(2) {
-        //            if let Ok(Operator::LocalTee { local_index }) = reader.peek_operator(3) {
-        //                if let Ok(Operator::GlobalSet { global_index: 0 }) = reader.peek_operator(4)
-        //                {
-        //                    for _ in 0..4 {
-        //                        _ = reader.read_operator()?;
-        //                    }
-
-        //                    let global_sp = err!(cache_builder.build_indirect_call(
-        //                        intrinsics.read_global_sp_ty,
-        //                        intrinsics.read_global_sp,
-        //                        &[],
-        //                        "global_sp",
-        //                    ));
-        //                    let global_sp = global_sp.try_as_basic_value().left().unwrap();
-        //                    let value = intrinsics.i32_ty.const_int(value as u64, false);
-        //                    let new_global_sp = err!(cache_builder.build_int_sub(
-        //                        global_sp.into_int_value(),
-        //                        value,
-        //                        "new_global_sp",
-        //                    ));
-
-        //                    let pointer_value = params_locals[local_index as usize].1;
-        //                    //let (v, i) = self.state.pop1_extra()?;
-        //                    //let v = self.apply_pending_canonicalization(v, i)?;
-        //                    state.push1(new_global_sp);
-        //                    err!(cache_builder.build_store(pointer_value, new_global_sp));
-        //                    //tbaa_label(
-        //                    //    self.module,
-        //                    //    self.intrinsics,
-        //                    //    format!("local {local_index}"),
-        //                    //    store,
-        //                    //);
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
-
         let mut fcg = LLVMFunctionCodeGenerator {
             context: &self.ctx,
             builder,
@@ -317,6 +276,79 @@ impl FuncTranslator {
             &func_attrs,
         );
 
+        if fcg.state.has_control_frames() {
+        if let Ok(Operator::GlobalGet { global_index: 0 }) = reader.peek_operator(0) {
+            if let Ok(Operator::I32Const { value }) = reader.peek_operator(1) {
+                if let Ok(Operator::I32Sub) = reader.peek_operator(2) {
+                    if let Ok(Operator::LocalTee { local_index }) = reader.peek_operator(3) {
+                        if let Ok(Operator::GlobalSet { global_index: 0 }) = reader.peek_operator(4)
+                        {
+                         let wasm_index = wasm_module.func_index(*local_func_index);
+                         println!("wasm_func_index: {}, value: {}, local_index: {}",  wasm_index.as_u32(), value, local_index);
+                             // Dismiss it, lets see if it goes faster
+                            for _ in 0..5 {
+                                // let pos = reader.current_position() as u32;
+                                // let op = reader.read_operator()?;
+                                // fcg.translate_operator(op, pos)?;
+
+                                let _op = reader.read_operator()?;
+                                // fcg.translate_operator(op, 0)?;
+                            }
+                            
+                            // fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
+                            // fcg.translate_operator(Operator::I32Const { value }, 0)?;
+                            // fcg.translate_operator(Operator::I32Sub, 0)?;
+                            // fcg.translate_operator(Operator::LocalTee { local_index }, 0)?;
+                            // fcg.translate_operator(Operator::GlobalSet { global_index: 0 }, 0)?;
+                            let _ty = fcg.intrinsics.void_ty.fn_type(&[], false);
+                            let x = fcg.context.create_inline_asm(
+                                _ty,
+                                format!("sub x28, x28, #{value}"),
+                                "{x28}".into(),
+                                false,
+                                false,
+                                None,
+                                false,
+                            );
+                            cache_builder.build_indirect_call(
+                                _ty,
+                                x,
+                                &[],
+                                "global_sp",
+                            ).unwrap();
+                            fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
+                            fcg.translate_operator(Operator::LocalSet { local_index }, 0)?;
+                         }
+                         //    let global_sp = err!(cache_builder.build_indirect_call(
+                         //        intrinsics.read_global_sp_ty,
+                         //        intrinsics.read_global_sp,
+                         //        &[],
+                         //        "global_sp",
+                         //    ));
+                         //    let global_sp = global_sp.try_as_basic_value().left().unwrap();
+                         //    let value = intrinsics.i32_ty.const_int(value as u64, false);
+                         //    let new_global_sp = err!(cache_builder.build_int_sub(
+                         //        global_sp.into_int_value(),
+                         //        value,
+                         //        "new_global_sp",
+                         //    ));
+ 
+                         //    let pointer_value = params_locals[local_index as usize].1;
+                         //    //let (v, i) = self.state.pop1_extra()?;
+                         //    //let v = self.apply_pending_canonicalization(v, i)?;
+                         //    state.push1(new_global_sp);
+                         //    err!(cache_builder.build_store(pointer_value, new_global_sp));
+                         //    //tbaa_label(
+                         //    //    self.module,
+                         //    //    self.intrinsics,
+                         //    //    format!("local {local_index}"),
+                         //    //    store,
+                         //    //);
+                    }
+                }
+            }
+         }
+        }
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
             let op = reader.read_operator()?;

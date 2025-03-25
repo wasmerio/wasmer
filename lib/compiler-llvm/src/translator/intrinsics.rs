@@ -465,9 +465,9 @@ impl<'ctx> Intrinsics<'ctx> {
             false,
         );
 
-        let read_register_ty = i64_ty.fn_type(&[], false);
+        let read_register_ty = i32_ty.fn_type(&[], false);
 
-        let write_register_ty = void_ty.fn_type(&[i64_ty_basic_md], false);
+        let write_register_ty = void_ty.fn_type(&[i32_ty_basic_md], false);
 
         let global_sp_register = match triple.architecture {
             target_lexicon::Architecture::Aarch64(_) => String::from("x28"),
@@ -1183,7 +1183,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 read_register_ty,
                 format!("mov $0, {global_sp_register}",),
                 "={x28}".into(),
-                true,
+                false,
                 false,
                 None,
                 false,
@@ -1193,7 +1193,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 write_register_ty,
                 format!("mov {global_sp_register}, $0"),
                 "{x28}".into(),
-                true,
+                false,
                 false,
                 None,
                 false,
