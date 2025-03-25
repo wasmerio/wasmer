@@ -310,12 +310,12 @@ impl FuncTranslator {
                                 None,
                                 false,
                             );
-                            cache_builder.build_indirect_call(
-                                _ty,
-                                x,
-                                &[],
-                                "global_sp",
-                            ).unwrap();
+                            // cache_builder.build_indirect_call(
+                            //     _ty,
+                            //     x,
+                            //     &[],
+                            //     "global_sp",
+                            // ).unwrap();
                             fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
                             fcg.translate_operator(Operator::LocalSet { local_index }, 0)?;
                          }
