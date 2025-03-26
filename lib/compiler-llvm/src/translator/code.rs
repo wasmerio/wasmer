@@ -200,6 +200,8 @@ impl FuncTranslator {
             } else {
                 1
             };
+            // let wasm_index = wasm_module.func_index(*local_func_index).as_u32();
+
         let mut is_first_alloca = true;
         let mut insert_alloca = |ty, name: &str| -> Result<PointerValue, CompileError> {
             let name = name.to_string();
@@ -208,6 +210,10 @@ impl FuncTranslator {
                 alloca_builder.position_at(entry, &alloca.as_instruction_value().unwrap());
                 is_first_alloca = false;
             }
+            // if wasm_index == 12 {
+            //     println!("Insert alloca {}: {}", name, ty);
+            // }
+
             Ok(alloca)
         };
 
@@ -217,7 +223,7 @@ impl FuncTranslator {
             let value = func
                 .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
-            let alloca = insert_alloca(ty, "param")?;
+            let alloca = insert_alloca(ty, &format!("param.{idx}"))?;
             err!(cache_builder.build_store(alloca, value));
             params.push((ty, alloca));
         }
@@ -226,6 +232,7 @@ impl FuncTranslator {
         let num_locals = reader.read_local_count()?;
         for _ in 0..num_locals {
             let (count, ty) = reader.read_local_decl()?;
+            // println!("wasm_func_index: {}, num_locals: {}, count: {}, ty: {}", wasm_index, num_locals, count, ty);
             let ty = err!(wptype_to_type(ty));
             let ty = type_to_llvm(&intrinsics, ty)?;
             for i in 0..count {
@@ -276,23 +283,22 @@ impl FuncTranslator {
             &func_attrs,
         );
 
-        if fcg.state.has_control_frames() {
         if let Ok(Operator::GlobalGet { global_index: 0 }) = reader.peek_operator(0) {
-            if let Ok(Operator::I32Const { value }) = reader.peek_operator(1) {
+            if let Ok(Operator::I32Const { value: _value }) = reader.peek_operator(1) {
                 if let Ok(Operator::I32Sub) = reader.peek_operator(2) {
-                    if let Ok(Operator::LocalTee { local_index }) = reader.peek_operator(3) {
+                    if let Ok(Operator::LocalTee { local_index: _local_index }) = reader.peek_operator(3) {
                         if let Ok(Operator::GlobalSet { global_index: 0 }) = reader.peek_operator(4)
                         {
-                         let wasm_index = wasm_module.func_index(*local_func_index);
-                         println!("wasm_func_index: {}, value: {}, local_index: {}",  wasm_index.as_u32(), value, local_index);
+                        //  let wasm_index = wasm_module.func_index(*local_func_index);
+                        //  println!("wasm_func_index: {}, value: {}, local_index: {}",  wasm_index.as_u32(), value, local_index);
                              // Dismiss it, lets see if it goes faster
                             for _ in 0..5 {
-                                // let pos = reader.current_position() as u32;
+                                let pos = reader.current_position() as u32;
                                 // let op = reader.read_operator()?;
                                 // fcg.translate_operator(op, pos)?;
 
-                                let _op = reader.read_operator()?;
-                                // fcg.translate_operator(op, 0)?;
+                                let _op: Operator<'_> = reader.read_operator()?;
+                                fcg.translate_operator(_op, pos)?;
                             }
                             
                             // fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
@@ -300,24 +306,34 @@ impl FuncTranslator {
                             // fcg.translate_operator(Operator::I32Sub, 0)?;
                             // fcg.translate_operator(Operator::LocalTee { local_index }, 0)?;
                             // fcg.translate_operator(Operator::GlobalSet { global_index: 0 }, 0)?;
-                            let _ty = fcg.intrinsics.void_ty.fn_type(&[], false);
-                            let x = fcg.context.create_inline_asm(
-                                _ty,
-                                format!("sub x28, x28, #{value}"),
-                                "{x28}".into(),
-                                false,
-                                false,
-                                None,
-                                false,
-                            );
-                            // cache_builder.build_indirect_call(
+                            // let _ty = fcg.intrinsics.read_global_sp_ty;
+                            // let x = fcg.context.create_inline_asm(
+                            //     _ty,
+                            //     format!("sub $0, x28, {_value}"),
+                            //     "{x28}".into(),
+                            //     false,
+                            //     false,
+                            //     None,
+                            //     false,
+                            // );
+                            // let global_sp = err!(fcg.builder.build_indirect_call(
                             //     _ty,
                             //     x,
                             //     &[],
-                            //     "global_sp",
+                            //     "global_sp_decrease",
+                            // ));
+                            // let global_sp = global_sp.try_as_basic_value().left().unwrap();
+                            // fcg.state.push1(global_sp.as_basic_value_enum());
+        
+                            // cache_builder.build_call(
+                            //     intrinsics.read_register_sp,
+                            //     &[
+                            //         intrinsics.wasm_sp_metadata,
+                            //     ],
+                            //     "get_wasm_sp",
                             // ).unwrap();
-                            fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
-                            fcg.translate_operator(Operator::LocalSet { local_index }, 0)?;
+                            // fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
+                            // fcg.translate_operator(Operator::LocalSet { local_index: _local_index }, 0)?;
                          }
                          //    let global_sp = err!(cache_builder.build_indirect_call(
                          //        intrinsics.read_global_sp_ty,
@@ -348,7 +364,6 @@ impl FuncTranslator {
                 }
             }
          }
-        }
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
             let op = reader.read_operator()?;
@@ -361,142 +376,42 @@ impl FuncTranslator {
             callbacks.preopt_ir(&function, &module);
         }
 
-        let mut mod_passes = vec![];
+        let mut passes = vec![];
 
         if config.enable_verifier {
-            mod_passes.push("verify");
+            passes.push("verify");
         }
 
-        let mut env_mod_passes = vec![];
-        if let Ok(mods_passes) = std::env::var("WASMER_LLVM_MOD_OPTS") {
-            let splits = mods_passes.split(",");
+        passes.push("mergereturn");
+        passes.push("sccp");
+        passes.push("early-cse");
+        //passes.push("deadargelim");
+        passes.push("adce");
+        passes.push("sroa");
+        passes.push("aggressive-instcombine");
+        passes.push("jump-threading");
+        //passes.push("ipsccp");
 
-            for s in splits {
-                env_mod_passes.push(s.to_string())
-            }
-        }
+        passes.push("simplifycfg");
+        passes.push("reassociate");
+        passes.push("loop-rotate");
+        passes.push("indvars");
+        //passes.push("lcssa");
+        //passes.push("licm");
+        // passes.push("instcombine");
+        passes.push("sccp");
+        passes.push("reassociate");
+        passes.push("simplifycfg");
+        passes.push("gvn");
+        passes.push("memcpyopt");
+        passes.push("dse");
+        passes.push("dce");
+        // passes.push("instcombine");
+        passes.push("reassociate");
+        passes.push("simplifycfg");
+        passes.push("mem2reg");
 
-        // -- Module-wide passes
-        //mod_passes.push("always-inline");
-        //mod_passes.push("attributor");
-        //mod_passes.push("called-value-propagation");
-        //mod_passes.push("canonicalize-aliases");
-        //mod_passes.push("constmerge");
-        //mod_passes.push("deadargelim");
-        //mod_passes.push("dfsan");
-        //mod_passes.push("globalopt");
-        //mod_passes.push("globalsplit");
-        //mod_passes.push("hipstdpar-interpose-alloc");
-        //mod_passes.push("hipstdpar-select-accelerator-code");
-        //mod_passes.push("hotcoldsplit");
-        //mod_passes.push("instrorderfile");
-        //mod_passes.push("scc-oz-module-inliner");
-        //mod_passes.push("always-inline");
-        //mod_passes.push("canonicalize-aliases");
-        //mod_passes.push("constmerge");
-        //mod_passes.push("called-value-propagation");
-        //mod_passes.push("attributor");
-        //mod_passes.push("scc-oz-module-inliner");
-
-        #[allow(unused_mut)]
-        let mut fn_passes = vec![];
-        //fn_passes.push("loop-vectorize");
-        //fn_passes.push("slp-vectorizer");
-        //fn_passes.push("load-store-vectorizer");
-        //fn_passes.push("vector-combine");
-        //fn_passes.push("mem2reg");
-        //fn_passes.push("aggressive-instcombine");
-        //fn_passes.push("simplifycfg");
-        //fn_passes.push("jump-threading");
-        //fn_passes.push("indvars");
-        //fn_passes.push("add-discriminators");
-        //fn_passes.push("alignment-from-assumptions");
-        //fn_passes.push("bdce");
-        //fn_passes.push("bounds-checking");
-        //fn_passes.push("callsite-splitting");
-        //fn_passes.push("chr");
-        //fn_passes.push("constraint-elimination");
-        //fn_passes.push("correlated-propagation");
-        //fn_passes.push("dce");
-        //fn_passes.push("declare-to-assign");
-        //fn_passes.push("dfa-jump-threading");
-        //fn_passes.push("div-rem-pairs");
-        //fn_passes.push("dse");
-        //fn_passes.push("expand-large-div-rem");
-        //fn_passes.push("expand-large-fp-convert");
-        //fn_passes.push("expand-memcmp");
-        //fn_passes.push("fix-irreducible");
-        //fn_passes.push("flattencfg");
-        //fn_passes.push("float2int");
-        //fn_passes.push("guard-widening");
-        //fn_passes.push("gvn-hoist");
-        //fn_passes.push("gvn-sink");
-        //fn_passes.push("indirectbr-expand");
-        //fn_passes.push("infer-address-spaces");
-        //fn_passes.push("infer-alignment");
-        //fn_passes.push("inject-tli-mappings");
-        //fn_passes.push("interleaved-access");
-        //fn_passes.push("interleaved-load-combine");
-        //fn_passes.push("irce");
-        //fn_passes.push("jump-threading");
-        //fn_passes.push("kcfi");
-        //fn_passes.push("lcssa");
-        //fn_passes.push("libcalls-shrinkwrap");
-        //fn_passes.push("loop-data-prefetch");
-        //fn_passes.push("loop-distribute");
-        //fn_passes.push("loop-fusion");
-        //fn_passes.push("loop-load-elim");
-        //fn_passes.push("loop-simplify");
-        //fn_passes.push("loop-sink");
-        //fn_passes.push("loop-versioning");
-        //fn_passes.push("lower-constant-intrinsics");
-        //fn_passes.push("lower-expect");
-        //fn_passes.push("lower-guard-intrinsic");
-        //fn_passes.push("lower-widenable-condition");
-        //fn_passes.push("loweratomic");
-        //fn_passes.push("lowerinvoke");
-        //fn_passes.push("lowerswitch");
-        //fn_passes.push("memprof");
-        //fn_passes.push("mergeicmps");
-        //fn_passes.push("mergereturn");
-        //fn_passes.push("move-auto-init");
-        //fn_passes.push("nary-reassociate");
-        //fn_passes.push("no-op-function");
-        //fn_passes.push("objc-arc");
-        //fn_passes.push("objc-arc-contract");
-        //fn_passes.push("objc-arc-expand");
-        //fn_passes.push("pa-eval");
-        //fn_passes.push("partially-inline-libcalls");
-        //fn_passes.push("pgo-memop-opt");
-        //fn_passes.push("place-safepoints");
-        //fn_passes.push("reg2mem");
-        //fn_passes.push("safe-stack");
-        //fn_passes.push("scalarize-masked-mem-intrin");
-        //fn_passes.push("scalarizer");
-        //fn_passes.push("sccp");
-        //fn_passes.push("select-optimize");
-        //fn_passes.push("separate-const-offset-from-gep");
-        //fn_passes.push("sink");
-        //fn_passes.push("sjlj-eh-prepare");
-        //fn_passes.push("slsr");
-        //fn_passes.push("stack-protector");
-        //fn_passes.push("strip-gc-relocates");
-        //fn_passes.push("structurizecfg");
-        //fn_passes.push("tailcallelim");
-        //fn_passes.push("tlshoist");
-        //fn_passes.push("transform-warning");
-        //fn_passes.push("unify-loop-exits");
-
-        let mut env_fn_passes = vec![];
-        if let Ok(fn_passes) = std::env::var("WASMER_LLVM_FN_OPTS") {
-            let splits = fn_passes.split(",");
-
-            for s in splits {
-                env_fn_passes.push(s.to_string())
-            }
-        }
-
-        let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        let llvm_dump_path: Result<String, std::env::VarError> = std::env::var("WASMER_LLVM_DUMP_DIR");
         if let Ok(ref llvm_dump_path) = llvm_dump_path {
             let path = std::path::Path::new(llvm_dump_path);
             if !path.exists() {
@@ -506,11 +421,7 @@ impl FuncTranslator {
             _ = module.print_to_file(path).unwrap();
         }
 
-        let passes = mod_passes
-            .into_iter()
-            .chain(env_mod_passes.iter().map(|v| v.as_str()))
-            .chain(fn_passes.into_iter())
-            .chain(env_fn_passes.iter().map(|v| v.as_str()))
+        let passes = passes
             .join(",");
         //eprintln!("passes: {passes}");
 
@@ -1342,7 +1253,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             _ = &self.config;
             // The best we've got is `volatile`.
             // TODO: convert unwrap fail to CompileError
-            //memaccess.set_volatile(true).unwrap();
+            // memaccess.set_volatile(true).unwrap();
         }
         Ok(())
     }
@@ -1374,7 +1285,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         &mut self,
         memory_index: MemoryIndex,
         memarg: &MemArg,
-        ptr_ty: PointerType<'ctx>,
+        _ptr_ty: PointerType<'ctx>,
         var_offset: IntValue<'ctx>,
         value_size: usize,
     ) -> Result<PointerValue<'ctx>, CompileError> {
@@ -1384,8 +1295,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let function = &self.function;
 
         // Compute the offset into the storage.
-        let imm_offset = intrinsics.i64_ty.const_int(memarg.offset, false);
-        let var_offset = err!(builder.build_int_z_extend(var_offset, intrinsics.i64_ty, ""));
+        let imm_offset = intrinsics.i32_ty.const_int(memarg.offset, false);
+        // let var_offset = err!(builder.build_int_z_extend(var_offset, intrinsics.i64_ty, ""));
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
@@ -1504,10 +1415,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 MemoryCache::Static { base_ptr } => base_ptr,
             };
         let value_ptr =
-            unsafe { err!(builder.build_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "")) };
-        err_nt!(builder
-            .build_bit_cast(value_ptr, ptr_ty, "")
-            .map(|v| v.into_pointer_value()))
+            unsafe { err!(builder.build_in_bounds_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "memory_value")) };
+        // err_nt!(builder
+        //     .build_bit_cast(value_ptr, ptr_ty, "")
+        //     .map(|v| v.into_pointer_value()))
+        Ok(value_ptr)
     }
 
     #[allow(unused)]
@@ -2495,7 +2407,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             // Operate on self.locals.
             Operator::LocalGet { local_index } => {
                 let (type_value, pointer_value) = self.locals[local_index as usize];
-                let name = format!("local.{local_index}");
+                let name = format!("localget.{local_index}");
                 let v = err!(self.builder.build_load(type_value, pointer_value, &name));
                 tbaa_label(
                     self.module,
@@ -2531,14 +2443,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
 
             Operator::GlobalGet { global_index } => {
-                if global_index == 0 {
+                if global_index == 10 {
                     let global_sp = err!(self.builder.build_indirect_call(
                         self.intrinsics.read_global_sp_ty,
                         self.intrinsics.read_global_sp,
                         &[],
                         "global_sp",
                     ));
-
+                    // let global_sp = err!(self.builder.build_call(
+                    //     self.intrinsics.read_register_sp,
+                    //     &[
+                    //         self.intrinsics.wasm_sp_metadata,
+                    //     ],
+                    //     "global_sp",
+                    // ));
                     let global_sp = global_sp.try_as_basic_value().left().unwrap();
                     self.state.push1(global_sp.as_basic_value_enum());
                 } else {
@@ -2555,11 +2473,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             value_type,
                         } => {
                             let value =
-                                err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
+                                err!(self.builder.build_load(*value_type, *ptr_to_value, &format!("global.{}", global_index.as_u32())));
                             tbaa_label(
                                 self.module,
                                 self.intrinsics,
-                                format!("global {}", global_index.as_u32()),
+                                format!("global.{}", global_index.as_u32()),
                                 value.as_instruction_value().unwrap(),
                             );
                             self.state.push1(value);
@@ -2568,15 +2486,23 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
             }
             Operator::GlobalSet { global_index } => {
-                if global_index == 0 {
+                if global_index == 10 {
                     let (value, info) = self.state.pop1_extra()?;
                     let value = self.apply_pending_canonicalization(value, info)?;
                     err!(self.builder.build_indirect_call(
                         self.intrinsics.write_global_sp_ty,
                         self.intrinsics.write_global_sp,
                         &[value.into()],
-                        "",
+                        "globalsetasm",
                     ));
+                    // err!(self.builder.build_call(
+                    //     self.intrinsics.write_register_sp,
+                    //     &[
+                    //         self.intrinsics.wasm_sp_metadata,
+                    //         value.into(),
+                    //     ],
+                    //     "",
+                    // ));
                 } else {
                     let global_index = GlobalIndex::from_u32(global_index);
                     match self
