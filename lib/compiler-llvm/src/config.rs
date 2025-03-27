@@ -163,8 +163,8 @@ impl LLVM {
 
     pub fn global_sp_register(&self, triple: &Triple) -> Option<String> {
         match triple.architecture {
-            // Architecture::X86_64 => Some(String::from("+reserve-x28")),
-            // Architecture::Aarch64(_) => Some(String::from("+reserve-x28")),
+            Architecture::X86_64 => Some(String::from("+reserve-x28")),
+            Architecture::Aarch64(_) => Some(String::from("+reserve-x28")),
             _ => None,
         }
     }
