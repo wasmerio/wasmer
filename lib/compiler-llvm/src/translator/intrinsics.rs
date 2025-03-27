@@ -485,16 +485,12 @@ impl<'ctx> Intrinsics<'ctx> {
 
         let write_register_sp_ty = void_ty.fn_type(&[md_ty_basic_md, i32_ty_basic_md], false);
 
-
         // Construct (or look up) the type descriptor, for example
         //   `!"wasm_sp" = !{!"x28"}`.
         let wasm_sp = "wasm_sp";
         let type_label: inkwell::values::MetadataValue<'_> = context.metadata_string("x28");
         module
-            .add_global_metadata(
-                wasm_sp,
-                &context.metadata_node(&[type_label.into()]),
-            )
+            .add_global_metadata(wasm_sp, &context.metadata_node(&[type_label.into()]))
             .unwrap();
 
         let wasm_sp_metadata = module.get_global_metadata(wasm_sp).pop().unwrap();
@@ -1223,9 +1219,17 @@ impl<'ctx> Intrinsics<'ctx> {
                 false,
             ),
             write_global_sp_ty: write_register_ty,
-            read_register_sp: module.add_function("llvm.read_register.i32", read_register_sp_ty, None),
+            read_register_sp: module.add_function(
+                "llvm.read_register.i32",
+                read_register_sp_ty,
+                None,
+            ),
             read_register_sp_ty: read_register_sp_ty,
-            write_register_sp: module.add_function("llvm.write_register.i32", write_register_sp_ty, None),
+            write_register_sp: module.add_function(
+                "llvm.write_register.i32",
+                write_register_sp_ty,
+                None,
+            ),
             write_register_sp_ty: write_register_sp_ty,
             register_sp_metadata: context.metadata_string("register_sp").into(),
             wasm_sp_metadata: wasm_sp_metadata.into(),
@@ -1340,8 +1344,33 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.offsets,
         );
         let memory_style = &memory_styles[index];
+        //eprintln!("Generating memory for style {memory_style:?} (index: {index:?})");
         match cached_memories.get(&index) {
             Some(r) => Ok(*r),
+            None if wasm_module
+                .local_memory_index(index)
+                .is_some_and(|v| v.as_u32() == 0)
+                && matches!(memory_style, MemoryStyle::Static { .. }) =>
+            {
+                let memory = module
+                    .get_global("__WASMER_MEMORY_M0")
+                    .expect("Global not found");
+                //let memory_ptr = memory.as_pointer_value();
+
+                //let loaded_value = err!(cache_builder.build_load(
+                //    intrinsics.ptr_ty,
+                //    memory_ptr,
+                //    "__wasmer_memory_m0"
+                //));
+                //let base_ptr = loaded_value.as_basic_value_enum();
+
+                let base_ptr = memory.as_pointer_value();
+
+                //err!(cache_builder.build_call(intrinsics.debug_ptr, &[base_ptr.into()], ""));
+                let value = MemoryCache::Static { base_ptr };
+                self.cached_memories.insert(index, value);
+                Ok(*self.cached_memories.get(&index).unwrap())
+            }
             None => {
                 let memory_definition_ptr =
                     if let Some(local_memory_index) = wasm_module.local_memory_index(index) {
@@ -1410,14 +1439,21 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ptr_to_current_length: current_length_ptr,
                     }
                 } else {
-                    let base_ptr = err!(cache_builder.build_load(intrinsics.ptr_ty, base_ptr, &format!("memory_static_base_ptr.{}", index.as_u32())))
-                        .into_pointer_value();
+                    let base_ptr = err!(cache_builder.build_load(
+                        intrinsics.ptr_ty,
+                        base_ptr,
+                        &format!("memory_static_base_ptr.{}", index.as_u32())
+                    ))
+                    .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
                         format!("memory_static_base_ptr {}", index.as_u32()),
                         base_ptr.as_instruction_value().unwrap(),
                     );
+
+                    //err!(cache_builder.build_call(intrinsics.debug_ptr, &[base_ptr.into()], ""));
+
                     MemoryCache::Static { base_ptr }
                 };
 
@@ -1678,9 +1714,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     // let global_ptr_ptr: PointerValue<'_> =
                     //     err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, "bitcast"))
                     //         .into_pointer_value();
-                    let global_ptr =
-                        err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, &format!("global_ptr.{}", index.as_u32())))
-                            .into_pointer_value();
+                    let global_ptr = err!(cache_builder.build_load(
+                        intrinsics.ptr_ty,
+                        global_ptr_ptr,
+                        &format!("global_ptr.{}", index.as_u32())
+                    ))
+                    .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,

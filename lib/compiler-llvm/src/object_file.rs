@@ -332,6 +332,8 @@ where
                         }
                     } else if symbol_name == "___WASMER_GLOBAL_G0" {
                         RelocationTarget::GlobalStackPtr
+                    } else if symbol_name == "___WASMER_MEMORY_M0" {
+                        RelocationTarget::LocalMemory0
                     } else {
                         return Err(CompileError::Codegen(format!(
                             "relocation {reloc:?} targets unknown symbol '{symbol:?}'",

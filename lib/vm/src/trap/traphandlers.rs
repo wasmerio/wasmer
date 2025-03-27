@@ -122,7 +122,10 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
         None => None,
         Some(val) => match val {
             0 => Some(TrapCode::StackOverflow),
-            1 => Some(TrapCode::HeapAccessOutOfBounds),
+            1 => {
+                println!("Hehe!");
+                Some(TrapCode::HeapAccessOutOfBounds)
+            }
             2 => Some(TrapCode::HeapMisaligned),
             3 => Some(TrapCode::TableAccessOutOfBounds),
             4 => Some(TrapCode::IndirectCallToNull),
@@ -685,10 +688,10 @@ pub unsafe fn wasmer_call_trampoline(
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    let instance = unsafe {&*(vmctx.vmctx)}.instance();
+    let instance = unsafe { &*(vmctx.vmctx) }.instance();
     let global = instance.global(LocalGlobalIndex::from_u32(0));
     let global_value: i32 = global.val.i32;
-        // let value = global.get();
+    // let value = global.get();
 
     // println!("global value: {}", global_value);
     catch_traps(trap_handler, config, move || {
@@ -700,14 +703,14 @@ pub unsafe fn wasmer_call_trampoline(
                 tmp = out(reg) original_x28,  // Output to Rust variable
                 options(nostack)
             );
-    
+
             std::arch::asm!(
                 "mov x28, {tmp}",  // Move the value into x28
                 tmp = in(reg) global_value,  // Input operand: value goes into a temporary register
                 options(nostack)      // Avoid modifying the stack
             );
         }
-            mem::transmute::<
+        mem::transmute::<
             unsafe extern "C" fn(
                 *mut VMContext,
                 *const VMFunctionBody,
@@ -722,8 +725,6 @@ pub unsafe fn wasmer_call_trampoline(
             options(nostack)
         );
     })
-    
-
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,
@@ -885,6 +886,7 @@ impl<T> TrapHandlerContextInner<T> {
                 if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
                     TrapCode::StackOverflow
                 } else {
+                    println!("In handle trap..");
                     TrapCode::HeapAccessOutOfBounds
                 }
             })

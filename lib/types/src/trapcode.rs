@@ -111,7 +111,10 @@ impl FromStr for TrapCode {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "stk_ovf" => Ok(Self::StackOverflow),
-            "heap_get_oob" => Ok(Self::HeapAccessOutOfBounds),
+            "heap_get_oob" => {
+                println!("Huh!");
+                Ok(Self::HeapAccessOutOfBounds)
+            },
             "heap_misaligned" => Ok(Self::HeapMisaligned),
             "table_get_oob" => Ok(Self::TableAccessOutOfBounds),
             "icall_null" => Ok(Self::IndirectCallToNull),

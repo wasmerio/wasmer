@@ -1492,6 +1492,7 @@ fn initialize_memories(
                 .checked_add(init.data.len())
                 .map_or(true, |end| end > current_length)
             {
+                println!("Error while initializing stufff!!!");
                 return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
             }
             memory.initialize_with_data(start, init.data)?;

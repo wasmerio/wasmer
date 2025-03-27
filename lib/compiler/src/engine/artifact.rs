@@ -35,8 +35,8 @@ use wasmer_types::{
     target::{CpuFeature, Target},
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, HashAlgorithm, LocalFunctionIndex, LocalGlobalIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    FunctionIndex, HashAlgorithm, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
 };
 
 use wasmer_vm::{
@@ -117,6 +117,7 @@ pub struct Artifact {
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
+    last_standing_memory_relocs: Vec<(usize, i64)>,
 }
 
 /// Artifacts may be created as the result of the compilation of a wasm
@@ -307,6 +308,7 @@ impl Artifact {
                 id: Default::default(),
                 artifact,
                 allocated: None,
+                last_standing_memory_relocs: vec![],
             });
         } else {
             // check if cpu features are compatible before anything else
@@ -338,7 +340,7 @@ impl Artifact {
                 p.get_function_call_trampolines_ref().values(),
                 p.get_dynamic_function_trampolines_ref().values(),
                 p.get_custom_sections_ref().values(),
-                global_init
+                global_init,
             )?,
             ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
                 module_info,
@@ -346,7 +348,7 @@ impl Artifact {
                 a.get_function_call_trampolines_ref().values(),
                 a.get_dynamic_function_trampolines_ref().values(),
                 a.get_custom_sections_ref().values(),
-                global_init
+                global_init,
             )?,
         };
 
@@ -388,6 +390,8 @@ impl Artifact {
             }
         };
 
+        let mut last_standing_memory_relocs = vec![];
+
         match &artifact {
             ArtifactBuildVariant::Plain(p) => link_module(
                 module_info,
@@ -403,6 +407,7 @@ impl Artifact {
                 p.get_libcall_trampoline_len(),
                 &get_got_address,
                 &stack_ptr,
+                &mut last_standing_memory_relocs,
             ),
             ArtifactBuildVariant::Archived(a) => link_module(
                 module_info,
@@ -418,6 +423,7 @@ impl Artifact {
                 a.get_libcall_trampoline_len(),
                 &get_got_address,
                 &stack_ptr,
+                &mut last_standing_memory_relocs,
             ),
         };
 
@@ -495,6 +501,7 @@ impl Artifact {
         let mut artifact = Self {
             id: Default::default(),
             artifact,
+            last_standing_memory_relocs,
             allocated: Some(AllocatedArtifact {
                 frame_info_registered: false,
                 frame_info_registration: None,
@@ -886,6 +893,24 @@ impl Artifact {
             )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
+
+        if let Some(ref m) = finished_memories.get(LocalMemoryIndex::from_u32(0)) {
+            let memory = m.get(&context);
+            let base = memory.0.vmmemory().as_mut().base as usize;
+
+            //let r = Box::leak(Box::new(base.to_ne_bytes())).as_ptr() as usize;
+            //
+            //for (unfinished_reloc, _addend) in self.last_standing_memory_relocs.iter() {
+            //    core::ptr::write_unaligned((*unfinished_reloc) as *mut u64, r as _);
+            //}
+            for (unfinished_reloc, addend) in self.last_standing_memory_relocs.iter() {
+                core::ptr::write_unaligned(
+                    (*unfinished_reloc) as *mut u64,
+                    (base as i64 + addend) as _,
+                );
+            }
+        }
+
         let finished_tables = tunables
             .create_tables(
                 context,
@@ -1263,6 +1288,7 @@ impl Artifact {
         Ok(Self {
             id: Default::default(),
             artifact: ArtifactBuildVariant::Plain(artifact),
+            last_standing_memory_relocs: vec![],
             allocated: Some(AllocatedArtifact {
                 frame_info_registered: false,
                 frame_info_registration: None,

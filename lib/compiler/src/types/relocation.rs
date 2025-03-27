@@ -455,6 +455,8 @@ pub enum RelocationTarget {
     CustomSection(SectionIndex),
     /// hehe
     GlobalStackPtr,
+    /// hehe
+    LocalMemory0,
 }
 
 /// Relocations to apply to function bodies.

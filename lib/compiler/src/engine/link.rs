@@ -29,6 +29,7 @@ fn apply_relocation(
     riscv_pcrel_hi20s: &mut HashMap<usize, u32>,
     get_got_address: &dyn Fn(RelocationTarget) -> Option<usize>,
     stack_ptr: &VMStackPtr,
+    last_standing_memory_relocs: &mut Vec<(usize, i64)>,
 ) {
     let reloc_target = r.reloc_target();
 
@@ -68,6 +69,13 @@ fn apply_relocation(
                 *allocated_sections[custom_section] as usize
             }
             RelocationTarget::GlobalStackPtr => stack_ptr.0 as usize,
+            RelocationTarget::LocalMemory0 => {
+                if r.kind() != RelocationKind::Abs8 {
+                    panic!("Not abs! {:?}", r.kind());
+                }
+                last_standing_memory_relocs.push((body + r.offset() as usize, r.addend()));
+                return;
+            }
         }
     };
 
@@ -429,6 +437,7 @@ pub fn link_module<'a>(
     trampoline_len: usize,
     get_got_address: &'a dyn Fn(RelocationTarget) -> Option<usize>,
     stack_ptr: &VMStackPtr,
+    last_standing_memory_relocs: &mut Vec<(usize, i64)>,
 ) {
     let mut riscv_pcrel_hi20s: HashMap<usize, u32> = HashMap::new();
 
@@ -445,6 +454,7 @@ pub fn link_module<'a>(
                 &mut riscv_pcrel_hi20s,
                 get_got_address,
                 stack_ptr,
+                last_standing_memory_relocs,
             );
         }
     }
@@ -461,6 +471,7 @@ pub fn link_module<'a>(
                 &mut riscv_pcrel_hi20s,
                 get_got_address,
                 stack_ptr,
+                last_standing_memory_relocs,
             );
         }
     }

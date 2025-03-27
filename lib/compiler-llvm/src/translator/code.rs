@@ -169,6 +169,11 @@ impl FuncTranslator {
         let gv = module.add_global(intrinsics.i32_ty, None, "__WASMER_GLOBAL_G0");
         gv.set_linkage(Linkage::External);
         gv.set_section(Some("__DATA,__wasmer_data"));
+
+        let mv = module.add_global(intrinsics.ptr_ty, None, "__WASMER_MEMORY_M0");
+        mv.set_linkage(Linkage::External);
+        mv.set_section(Some("__DATA,__wasmer_data"));
+
         //}
 
         let entry = self.ctx.append_basic_block(func, "entry");

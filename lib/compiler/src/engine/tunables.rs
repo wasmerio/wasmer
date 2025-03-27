@@ -77,6 +77,14 @@ pub trait Tunables {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
             PrimaryMap::with_capacity(module.memories.len() - num_imports);
+
+        //if let Some(first_local_memory_base) = first_local_memory_base {
+        //    memories.push(InternalStoreHandle::new(
+        //        context,
+        //        VMMemory::from_custom(memory),
+        //    ))
+        //}
+
         for (index, mdl) in memory_definition_locations
             .iter()
             .enumerate()

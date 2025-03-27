@@ -203,6 +203,7 @@ mod tests {
             let def = unsafecell.get().as_ref().unwrap();
             md.base = def.base;
             md.current_length = def.current_length;
+            eprintln!("New mem!");
             Ok(memory.into())
         }
 
