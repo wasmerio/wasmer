@@ -35,7 +35,7 @@ use wasmer_types::{
     target::{CpuFeature, Target},
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, HashAlgorithm, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    FunctionIndex, HashAlgorithm, LocalFunctionIndex, LocalGlobalIndex, MemoryIndex, ModuleInfo,
     OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
 };
 
@@ -62,7 +62,22 @@ pub struct AllocatedArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
+    stack_ptr: VMStackPtr,
 }
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[repr(transparent)]
+pub struct VMStackPtr(pub *const u32);
+
+/// # Safety
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
+unsafe impl Send for VMStackPtr {}
+/// # Safety
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
+unsafe impl Sync for VMStackPtr {}
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -304,11 +319,18 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
+
+        let global_init = match module_info.global_initializers[LocalGlobalIndex::from_u32(0)] {
+            wasmer_types::GlobalInit::I32Const(c) => c,
+            _ => panic!("Global init not supported!"),
+        };
+
         let (
             finished_functions,
             finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             custom_sections,
+            stack_ptr,
         ) = match &artifact {
             ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
                 module_info,
@@ -316,6 +338,7 @@ impl Artifact {
                 p.get_function_call_trampolines_ref().values(),
                 p.get_dynamic_function_trampolines_ref().values(),
                 p.get_custom_sections_ref().values(),
+                global_init
             )?,
             ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
                 module_info,
@@ -323,6 +346,7 @@ impl Artifact {
                 a.get_function_call_trampolines_ref().values(),
                 a.get_dynamic_function_trampolines_ref().values(),
                 a.get_custom_sections_ref().values(),
+                global_init
             )?,
         };
 
@@ -378,6 +402,7 @@ impl Artifact {
                 p.get_libcall_trampolines(),
                 p.get_libcall_trampoline_len(),
                 &get_got_address,
+                &stack_ptr,
             ),
             ArtifactBuildVariant::Archived(a) => link_module(
                 module_info,
@@ -392,6 +417,7 @@ impl Artifact {
                 a.get_libcall_trampolines(),
                 a.get_libcall_trampoline_len(),
                 &get_got_address,
+                &stack_ptr,
             ),
         };
 
@@ -477,6 +503,7 @@ impl Artifact {
                 finished_dynamic_function_trampolines,
                 signatures,
                 finished_function_lengths,
+                stack_ptr,
             }),
         };
 
@@ -1246,6 +1273,7 @@ impl Artifact {
                     .into_boxed_slice(),
                 signatures: signatures.into_boxed_slice(),
                 finished_function_lengths,
+                stack_ptr: todo!(),
             }),
         })
     }

@@ -330,6 +330,8 @@ where
 
                             elf_section_to_target(section_index)
                         }
+                    } else if symbol_name == "___WASMER_GLOBAL_G0" {
+                        RelocationTarget::GlobalStackPtr
                     } else {
                         return Err(CompileError::Codegen(format!(
                             "relocation {reloc:?} targets unknown symbol '{symbol:?}'",

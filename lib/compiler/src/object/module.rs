@@ -390,6 +390,7 @@ pub fn emit_compilation(
                     )
                     .map_err(ObjectError::Write)?;
                 }
+                RelocationTarget::GlobalStackPtr => todo!(),
             };
         }
     }
