@@ -16,6 +16,8 @@ use std::{
 use wasmer_types::{entity::PrimaryMap, LocalFunctionIndex, ModuleInfo};
 use wasmer_vm::{libcalls::function_pointer, SectionBodyPtr};
 
+use super::artifact::VMStackPtr;
+
 #[allow(clippy::too_many_arguments)]
 fn apply_relocation(
     body: usize,
@@ -26,6 +28,7 @@ fn apply_relocation(
     libcall_trampoline_len: usize,
     riscv_pcrel_hi20s: &mut HashMap<usize, u32>,
     get_got_address: &dyn Fn(RelocationTarget) -> Option<usize>,
+    stack_ptr: &VMStackPtr,
 ) {
     let reloc_target = r.reloc_target();
 
@@ -64,6 +67,7 @@ fn apply_relocation(
             RelocationTarget::CustomSection(custom_section) => {
                 *allocated_sections[custom_section] as usize
             }
+            RelocationTarget::GlobalStackPtr => stack_ptr.0 as usize,
         }
     };
 
@@ -424,6 +428,7 @@ pub fn link_module<'a>(
     libcall_trampolines: SectionIndex,
     trampoline_len: usize,
     get_got_address: &'a dyn Fn(RelocationTarget) -> Option<usize>,
+    stack_ptr: &VMStackPtr,
 ) {
     let mut riscv_pcrel_hi20s: HashMap<usize, u32> = HashMap::new();
 
@@ -439,6 +444,7 @@ pub fn link_module<'a>(
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
                 get_got_address,
+                stack_ptr,
             );
         }
     }
@@ -454,6 +460,7 @@ pub fn link_module<'a>(
                 trampoline_len,
                 &mut riscv_pcrel_hi20s,
                 get_got_address,
+                stack_ptr,
             );
         }
     }

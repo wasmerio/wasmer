@@ -355,12 +355,14 @@ impl EngineInner {
         function_call_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         dynamic_function_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         custom_sections: impl ExactSizeIterator<Item = &'a CustomSection> + Clone + 'a,
+        global_init: i32,
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, FunctionExtent>,
             PrimaryMap<SignatureIndex, VMTrampoline>,
             PrimaryMap<FunctionIndex, FunctionBodyPtr>,
             PrimaryMap<SectionIndex, SectionBodyPtr>,
+            super::artifact::VMStackPtr,
         ),
         CompileError,
     >
@@ -380,20 +382,26 @@ impl EngineInner {
             .partition(|section| section.protection() == CustomSectionProtection::ReadExecute);
         self.code_memory.push(CodeMemory::new());
 
-        let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
-            self.code_memory
-                .last_mut()
-                .unwrap()
-                .allocate(
-                    function_bodies.as_slice(),
-                    executable_sections.as_slice(),
-                    data_sections.as_slice(),
-                )
-                .map_err(|message| {
-                    CompileError::Resource(format!(
-                        "failed to allocate memory for functions: {message}",
-                    ))
-                })?;
+        let (
+            mut allocated_functions,
+            allocated_executable_sections,
+            allocated_data_sections,
+            vm_stack_ptr,
+        ) = self
+            .code_memory
+            .last_mut()
+            .unwrap()
+            .allocate(
+                function_bodies.as_slice(),
+                executable_sections.as_slice(),
+                data_sections.as_slice(),
+                global_init,
+            )
+            .map_err(|message| {
+                CompileError::Resource(format!(
+                    "failed to allocate memory for functions: {message}",
+                ))
+            })?;
 
         let allocated_functions_result = allocated_functions
             .drain(0..functions_len)
@@ -439,6 +447,7 @@ impl EngineInner {
             allocated_function_call_trampolines,
             allocated_dynamic_function_trampolines,
             allocated_custom_sections,
+            vm_stack_ptr,
         ))
     }
 

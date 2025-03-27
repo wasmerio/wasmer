@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 //! Memory management for executable code.
-use super::unwind::UnwindRegistry;
+use super::{artifact::VMStackPtr, unwind::UnwindRegistry};
 use crate::{
     types::{
         function::FunctionBodyLike,
@@ -56,11 +56,13 @@ impl CodeMemory {
         functions: &'memory [&'module FunctionBody],
         executable_sections: &'memory [&'module CustomSection],
         data_sections: &'memory [&'module CustomSection],
+        global_init: i32,
     ) -> Result<
         (
             Vec<&'memory mut [VMFunctionBody]>,
             Vec<&'memory mut [u8]>,
             Vec<&'memory mut [u8]>,
+            VMStackPtr,
         ),
         String,
     >
@@ -96,7 +98,7 @@ impl CodeMemory {
             page_size,
         ) + data_sections.iter().fold(0, |acc, data| {
             round_up(acc + data.bytes().len(), DATA_SECTION_ALIGNMENT)
-        });
+        }) + size_of::<u32>();
 
         // 2. Allocate the pages. Mark them all read-write.
 
@@ -150,10 +152,14 @@ impl CodeMemory {
             }
         }
 
+        buf[..4].copy_from_slice(global_init.to_ne_bytes().as_slice());
+        let vm_stack_ptr = VMStackPtr(buf.as_ptr() as _);
+
         Ok((
             function_result,
             executable_section_result,
             data_section_result,
+            vm_stack_ptr,
         ))
     }
 
