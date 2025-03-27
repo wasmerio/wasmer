@@ -228,10 +228,19 @@ struct Landingpad<'ctx> {
     pub tags: Vec<u32>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StackState {
+    None,
+    GetStack,
+    DecreaseStack,
+    IncreaseStack,
+    StackInLocal(u32),
+}
+
 #[derive(Debug)]
 pub struct State<'ctx> {
     pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
-    control_stack: Vec<ControlFrame<'ctx>>,
+    control_stack: Vec<(ControlFrame<'ctx>, StackState)>,
     landingpads: VecDeque<Landingpad<'ctx>>,
     landingpads_scope: HashMap<u32, VecDeque<BasicBlock<'ctx>>>,
     pub reachable: bool,
@@ -274,10 +283,14 @@ impl<'ctx> State<'ctx> {
         self.stack.truncate(stack_size_snapshot);
     }
 
+    pub fn stack_state(&mut self) -> Option<&mut StackState> {
+        self.control_stack.last_mut().map(|(_, v)| v)
+    }
+
     pub fn outermost_frame(&self) -> Result<&ControlFrame<'ctx>, CompileError> {
-        self.control_stack.first().ok_or_else(|| {
+        Ok(&self.control_stack.first().ok_or_else(|| {
             CompileError::Codegen("outermost_frame: invalid control stack depth".to_string())
-        })
+        })?.0)
     }
 
     pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame<'ctx>, CompileError> {
@@ -288,7 +301,7 @@ impl<'ctx> State<'ctx> {
             .ok_or_else(|| {
                 CompileError::Codegen("frame_at_depth: invalid control stack depth".to_string())
             })?;
-        Ok(&self.control_stack[index])
+        Ok(&self.control_stack[index].0)
     }
 
     pub fn frame_at_depth_mut(
@@ -302,13 +315,14 @@ impl<'ctx> State<'ctx> {
             .ok_or_else(|| {
                 CompileError::Codegen("frame_at_depth_mut: invalid control stack depth".to_string())
             })?;
-        Ok(&mut self.control_stack[index])
+        Ok(&mut self.control_stack[index].0)
     }
 
     pub fn pop_frame(&mut self) -> Result<ControlFrame<'ctx>, CompileError> {
-        self.control_stack.pop().ok_or_else(|| {
+        let frame = self.control_stack.pop().ok_or_else(|| {
             CompileError::Codegen("pop_frame: cannot pop from control stack".to_string())
-        })
+        })?;
+        Ok(frame.0)
     }
 
     pub fn push1<T: BasicValue<'ctx>>(&mut self, value: T) {
@@ -427,11 +441,11 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn push_block(&mut self, next: BasicBlock<'ctx>, phis: SmallVec<[PhiValue<'ctx>; 1]>) {
-        self.control_stack.push(ControlFrame::Block {
+        self.control_stack.push((ControlFrame::Block {
             next,
             phis,
             stack_size_snapshot: self.stack.len(),
-        });
+        }, StackState::None));
     }
 
     pub fn push_loop(
@@ -441,13 +455,13 @@ impl<'ctx> State<'ctx> {
         loop_body_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
     ) {
-        self.control_stack.push(ControlFrame::Loop {
+        self.control_stack.push((ControlFrame::Loop {
             body,
             next,
             loop_body_phis,
             phis,
             stack_size_snapshot: self.stack.len(),
-        });
+        }, StackState::None));
     }
 
     pub fn push_if(
@@ -459,7 +473,7 @@ impl<'ctx> State<'ctx> {
         else_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
     ) {
-        self.control_stack.push(ControlFrame::IfElse {
+        self.control_stack.push((ControlFrame::IfElse {
             if_then,
             if_else,
             next,
@@ -468,7 +482,7 @@ impl<'ctx> State<'ctx> {
             next_phis,
             stack_size_snapshot: self.stack.len(),
             if_else_state: IfElseState::If,
-        });
+        }, StackState::None));
     }
 
     pub fn push_landingpad(
@@ -489,13 +503,13 @@ impl<'ctx> State<'ctx> {
             }
         }
 
-        self.control_stack.push(ControlFrame::Landingpad {
+        self.control_stack.push((ControlFrame::Landingpad {
             can_throw,
             can_throw_phis,
             next,
             next_phis,
             stack_size_snapshot: self.stack.len(),
-        });
+        }, StackState::None));
 
         self.landingpads.push_back(Landingpad {
             catch_block,

@@ -5,7 +5,7 @@ use super::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
-    state::{ControlFrame, ExtraInfo, IfElseState, State},
+    state::{ControlFrame, ExtraInfo, IfElseState, State, StackState},
 };
 use inkwell::{
     attributes::AttributeLoc,
@@ -217,6 +217,13 @@ impl FuncTranslator {
             Ok(alloca)
         };
 
+        // let _global_sp = err!(cache_builder.build_indirect_call(
+        //     intrinsics.void_ty.fn_type(&[], false),
+        //     intrinsics.reserve_global_gp,
+        //     &[],
+        //     "reserve_global_gp",
+        // ));
+
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty)?;
@@ -282,9 +289,10 @@ impl FuncTranslator {
             fcg.ctx.basic(),
             &func_attrs,
         );
-
+        if false {
         if let Ok(Operator::GlobalGet { global_index: 0 }) = reader.peek_operator(0) {
             if let Ok(Operator::I32Const { value: _value }) = reader.peek_operator(1) {
+                if _value < 4096 {
                 if let Ok(Operator::I32Sub) = reader.peek_operator(2) {
                     if let Ok(Operator::LocalTee { local_index: _local_index }) = reader.peek_operator(3) {
                         if let Ok(Operator::GlobalSet { global_index: 0 }) = reader.peek_operator(4)
@@ -293,12 +301,12 @@ impl FuncTranslator {
                         //  println!("wasm_func_index: {}, value: {}, local_index: {}",  wasm_index.as_u32(), value, local_index);
                              // Dismiss it, lets see if it goes faster
                             for _ in 0..5 {
-                                let pos = reader.current_position() as u32;
+                                // let pos = reader.current_position() as u32;
                                 // let op = reader.read_operator()?;
                                 // fcg.translate_operator(op, pos)?;
 
                                 let _op: Operator<'_> = reader.read_operator()?;
-                                fcg.translate_operator(_op, pos)?;
+                                // fcg.translate_operator(_op, pos)?;
                             }
                             
                             // fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
@@ -306,24 +314,24 @@ impl FuncTranslator {
                             // fcg.translate_operator(Operator::I32Sub, 0)?;
                             // fcg.translate_operator(Operator::LocalTee { local_index }, 0)?;
                             // fcg.translate_operator(Operator::GlobalSet { global_index: 0 }, 0)?;
-                            // let _ty = fcg.intrinsics.read_global_sp_ty;
-                            // let x = fcg.context.create_inline_asm(
-                            //     _ty,
-                            //     format!("sub $0, x28, {_value}"),
-                            //     "{x28}".into(),
-                            //     false,
-                            //     false,
-                            //     None,
-                            //     false,
-                            // );
-                            // let global_sp = err!(fcg.builder.build_indirect_call(
-                            //     _ty,
-                            //     x,
-                            //     &[],
-                            //     "global_sp_decrease",
-                            // ));
-                            // let global_sp = global_sp.try_as_basic_value().left().unwrap();
-                            // fcg.state.push1(global_sp.as_basic_value_enum());
+                            let _ty = fcg.intrinsics.read_global_sp_ty;
+                            let x = fcg.context.create_inline_asm(
+                                _ty,
+                                format!("sub x28, x28, {_value}"),
+                                "={x28}".into(),
+                                false,
+                                false,
+                                None,
+                                false,
+                            );
+                            let global_sp = err!(fcg.builder.build_indirect_call(
+                                _ty,
+                                x,
+                                &[],
+                                "global_sp_decrease",
+                            ));
+                            let global_sp = global_sp.try_as_basic_value().left().unwrap();
+                            fcg.state.push1(global_sp.as_basic_value_enum());
         
                             // cache_builder.build_call(
                             //     intrinsics.read_register_sp,
@@ -333,7 +341,7 @@ impl FuncTranslator {
                             //     "get_wasm_sp",
                             // ).unwrap();
                             // fcg.translate_operator(Operator::GlobalGet { global_index: 0 }, 0)?;
-                            // fcg.translate_operator(Operator::LocalSet { local_index: _local_index }, 0)?;
+                            fcg.translate_operator(Operator::LocalSet { local_index: _local_index }, 0)?;
                          }
                          //    let global_sp = err!(cache_builder.build_indirect_call(
                          //        intrinsics.read_global_sp_ty,
@@ -363,7 +371,8 @@ impl FuncTranslator {
                     }
                 }
             }
-         }
+            }
+         }}
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
             let op = reader.read_operator()?;
@@ -1761,6 +1770,71 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let vmctx = &self.ctx.basic().into_pointer_value();
 
         //let opcode_offset: Option<usize> = None;
+        match op {
+            Operator::GlobalGet { global_index } => {
+                if global_index == 0 {
+                    *self.state.stack_state().unwrap() = StackState::GetStack;
+                }
+            }
+            Operator::I32Const { value: _ } => {
+                let stack_state: StackState = self.state.stack_state().unwrap().clone();
+                if stack_state != StackState::GetStack {
+                    *self.state.stack_state().unwrap() = StackState::None;
+                }
+            }
+            Operator::I32Sub => {
+                let stack_state: StackState = self.state.stack_state().unwrap().clone();
+                if stack_state == StackState::GetStack {
+                    let ((v1, _i1), (v2, _i2)) = self.state.pop2_extra()?;
+                    let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                    let res = err!(self.builder.build_int_nsw_sub(v1, v2, "stack_sub"));
+                    self.state.push1(res);
+                    *self.state.stack_state().unwrap() = StackState::DecreaseStack;
+                    return Ok(());
+                }
+            }
+            Operator::I32Add => {
+                let stack_state: StackState = self.state.stack_state().unwrap().clone();
+                if stack_state == StackState::GetStack {
+                    let ((v1, _i1), (v2, _i2)) = self.state.pop2_extra()?;
+                    let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                    let res = err!(self.builder.build_int_nsw_add(v1, v2, "stack_add"));
+                    self.state.push1(res);
+                    *self.state.stack_state().unwrap() = StackState::IncreaseStack;
+                    return Ok(());
+                }
+            }
+            Operator::LocalTee { local_index } => {
+                let stack_state: StackState = self.state.stack_state().unwrap().clone();
+                if stack_state == StackState::IncreaseStack || stack_state == StackState::DecreaseStack {
+                    *self.state.stack_state().unwrap() = StackState::StackInLocal(local_index);
+                }
+            }
+            Operator::GlobalSet { global_index: _ } => {
+            }
+            Operator::LocalGet { local_index } => {
+                let stack_state: StackState = self.state.stack_state().unwrap().clone();
+                if let StackState::StackInLocal(stack_index) = stack_state {
+                    if local_index == stack_index {
+                        *self.state.stack_state().unwrap() = StackState::GetStack;
+                    }
+                }
+            }
+            Operator::LocalSet { local_index } => {
+                let stack_state: StackState = self.state.stack_state().unwrap().clone();
+                if stack_state == StackState::StackInLocal(local_index) {
+                    *self.state.stack_state().unwrap() = StackState::None;
+                }
+            }
+            _ => {
+                match &self.state.stack_state().unwrap() {
+                    StackState::StackInLocal(_) => {},
+                    _ => {
+                        *self.state.stack_state().unwrap() = StackState::None;
+                    }
+                }
+            }
+        }
 
         if !self.state.reachable {
             match op {
