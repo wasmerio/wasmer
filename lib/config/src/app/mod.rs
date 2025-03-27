@@ -31,6 +31,7 @@ pub const HEADER_APP_VERSION_ID: &str = "x-edge-app-version-id";
 )]
 pub struct AppConfigV1 {
     /// Name of the app.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 
     /// App id assigned by the backend.
