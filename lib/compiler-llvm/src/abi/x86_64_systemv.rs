@@ -57,6 +57,10 @@ impl Abi for X86_64SystemV {
                     AttributeLoc::Param(i),
                 ),
                 (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                    AttributeLoc::Param(i),
+                ),
+                (
                     if let Some(offsets) = offsets {
                         context.create_enum_attribute(
                             Attribute::get_named_enum_kind_id("dereferenceable"),
@@ -91,6 +95,11 @@ impl Abi for X86_64SystemV {
             })
             .collect::<Vec<i32>>();
 
+        let param_attributes: Vec<(Attribute, AttributeLoc)> = (0..sig.params().len() as u32).map(|i| (context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0), AttributeLoc::Param(i+1))).collect();
+        let mut all_attributes = vmctx_attributes(0);
+        all_attributes.extend(param_attributes.iter());
+    
+
         Ok(match sig_returns_bitwidths.as_slice() {
             [] => (
                 intrinsics.void_ty.fn_type(
@@ -100,7 +109,7 @@ impl Abi for X86_64SystemV {
                         .as_slice(),
                     false,
                 ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             [_] => {
                 let single_value = sig.results()[0];
@@ -112,7 +121,7 @@ impl Abi for X86_64SystemV {
                             .as_slice(),
                         false,
                     ),
-                    vmctx_attributes(0),
+                    all_attributes,
                 )
             }
             [32, 64] | [64, 32] | [64, 64] => {
@@ -130,7 +139,7 @@ impl Abi for X86_64SystemV {
                             .as_slice(),
                         false,
                     ),
-                    vmctx_attributes(0),
+                    all_attributes,
                 )
             }
             [32, 32] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
@@ -141,7 +150,7 @@ impl Abi for X86_64SystemV {
                         .as_slice(),
                     false,
                 ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             [32, 32] => (
                 intrinsics.i64_ty.fn_type(
@@ -151,7 +160,7 @@ impl Abi for X86_64SystemV {
                         .as_slice(),
                     false,
                 ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             [32, 32, _] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
                 context
@@ -169,7 +178,7 @@ impl Abi for X86_64SystemV {
                             .as_slice(),
                         false,
                     ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             [32, 32, _] => (
                 context
@@ -187,7 +196,7 @@ impl Abi for X86_64SystemV {
                             .as_slice(),
                         false,
                     ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             [64, 32, 32] if sig.results()[1] == Type::F32 && sig.results()[2] == Type::F32 => (
                 context
@@ -205,7 +214,7 @@ impl Abi for X86_64SystemV {
                             .as_slice(),
                         false,
                     ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             [64, 32, 32] => (
                 context
@@ -223,7 +232,7 @@ impl Abi for X86_64SystemV {
                             .as_slice(),
                         false,
                     ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             [32, 32, 32, 32] => (
                 context
@@ -249,7 +258,7 @@ impl Abi for X86_64SystemV {
                             .as_slice(),
                         false,
                     ),
-                vmctx_attributes(0),
+                all_attributes,
             ),
             _ => {
                 let basic_types: Vec<_> = sig
@@ -272,6 +281,7 @@ impl Abi for X86_64SystemV {
                     AttributeLoc::Param(0),
                 )];
                 attributes.append(&mut vmctx_attributes(1));
+                attributes.extend(param_attributes.iter());
 
                 (
                     intrinsics.void_ty.fn_type(
