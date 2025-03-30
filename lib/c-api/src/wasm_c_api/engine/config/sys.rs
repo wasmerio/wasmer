@@ -12,9 +12,9 @@ use crate::{
 pub use crate::wasm_c_api::unstable::middlewares::wasmer_middleware_t;
 
 use cfg_if::cfg_if;
-#[cfg(feature = "compiler")]
+#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use wasmer_api::Engine;
-#[cfg(feature = "compiler")]
+#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use wasmer_compiler::EngineBuilder;
 
 #[cfg(feature = "compiler")]
