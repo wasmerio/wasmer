@@ -6,6 +6,8 @@ use std::sync::{
     Arc,
 };
 
+#[cfg(feature = "compiler")]
+use crate::ModuleEnvironment;
 use crate::{
     engine::link::link_module,
     lib::std::vec::IntoIter,
@@ -13,8 +15,7 @@ use crate::{
     serialize::{MetadataHeader, SerializableModule},
     types::relocation::{RelocationLike, RelocationTarget},
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
-    ModuleEnvironment, Tunables,
+    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
 };
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
@@ -30,13 +31,15 @@ use std::mem;
 #[cfg(feature = "static-artifact-create")]
 use crate::object::{emit_compilation, emit_data, get_object_for_target, Object};
 
+#[cfg(feature = "compiler")]
+use wasmer_types::HashAlgorithm;
 use wasmer_types::{
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, HashAlgorithm, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
+    SerializeError, SignatureIndex, TableIndex,
 };
 
 use wasmer_vm::{

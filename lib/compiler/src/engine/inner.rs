@@ -20,12 +20,14 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 
+#[cfg(feature = "compiler")]
+use wasmer_types::Features;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
     SignatureIndex,
 };
-use wasmer_types::{target::Target, CompileError, Features, HashAlgorithm};
+use wasmer_types::{target::Target, CompileError, HashAlgorithm};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -74,15 +76,6 @@ impl Engine {
             name,
             hash_algorithm: None,
         }
-    }
-
-    #[cfg(not(feature = "compiler"))]
-    pub fn new(
-        compiler_config: Box<dyn CompilerConfig>,
-        target: Target,
-        features: Features,
-    ) -> Self {
-        panic!("The engine is not compiled with any compiler support")
     }
 
     /// Returns the name of this engine

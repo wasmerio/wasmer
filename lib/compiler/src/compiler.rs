@@ -15,6 +15,7 @@ use wasmer_types::{
     target::{CpuFeature, Target},
     Features, LocalFunctionIndex,
 };
+#[cfg(feature = "translator")]
 use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.
@@ -83,6 +84,7 @@ pub trait Compiler: Send {
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
+    #[cfg(feature = "translator")]
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
         let mut wasm_features = WasmFeatures::default();
         wasm_features.set(WasmFeatures::BULK_MEMORY, features.bulk_memory);

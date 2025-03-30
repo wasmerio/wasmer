@@ -52,9 +52,17 @@ impl Module {
         Ok(module)
     }
 
+    #[cfg(feature = "compiler")]
     #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
         engine.as_engine_ref().engine().as_sys().validate(binary)
+    }
+
+    #[cfg(not(feature = "compiler"))]
+    pub(crate) fn validate(_engine: &impl AsEngineRef, _binary: &[u8]) -> Result<(), CompileError> {
+        Err(CompileError::UnsupportedTarget(
+            "The compiler feature is not enabled, but is required to validate a Module".to_string(),
+        ))
     }
 
     #[cfg(feature = "compiler")]
