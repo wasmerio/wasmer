@@ -3,6 +3,8 @@
 //! This is needed because the target of libcall relocations are not reachable
 //! through normal branch instructions.
 
+#![cfg_attr(not(feature = "compiler"), allow(dead_code))]
+
 use enum_iterator::IntoEnumIterator;
 use wasmer_types::target::{Architecture, Target};
 use wasmer_types::LibCall;

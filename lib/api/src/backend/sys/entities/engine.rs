@@ -3,15 +3,14 @@
 use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
-pub use wasmer_compiler::{
-    Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
-};
+pub use wasmer_compiler::{Artifact, BaseTunables, Engine, EngineBuilder, Tunables};
 use wasmer_types::{target::Target, DeserializeError, Features, HashAlgorithm};
 
 use crate::{BackendEngine, BackendModule};
 
 /// Get the default config for the sys Engine
 #[allow(unreachable_code)]
+#[cfg(feature = "compiler")]
 pub fn get_default_compiler_config() -> Option<Box<dyn wasmer_compiler::CompilerConfig>> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "cranelift")] {
@@ -29,21 +28,18 @@ pub fn get_default_compiler_config() -> Option<Box<dyn wasmer_compiler::Compiler
 
 /// Returns the default engine for the Sys engine
 pub fn default_engine() -> Engine {
-    #[allow(unreachable_code, unused_mut)]
+    #[cfg(feature = "compiler")]
     fn get_engine() -> Engine {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "compiler")] {
-                if let Some(config) = get_default_compiler_config() {
-                    EngineBuilder::new(config)
-                        .engine()
-                } else {
-                    EngineBuilder::headless()
-                        .engine()
-                }
-            } else {
-                EngineBuilder::headless().engine()
-            }
+        if let Some(config) = get_default_compiler_config() {
+            EngineBuilder::new(config).engine()
+        } else {
+            EngineBuilder::headless().engine()
         }
+    }
+
+    #[cfg(not(feature = "compiler"))]
+    fn get_engine() -> Engine {
+        EngineBuilder::headless().engine()
     }
 
     let mut engine = get_engine();
@@ -57,7 +53,11 @@ pub fn default_engine() -> Engine {
 pub trait NativeEngineExt {
     /// Create a new `Engine` with the given config
     #[cfg(feature = "compiler")]
-    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self;
+    fn new(
+        compiler_config: Box<dyn wasmer_compiler::CompilerConfig>,
+        target: Target,
+        features: Features,
+    ) -> Self;
 
     /// Sets the hash algorithm
     fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>);
@@ -109,7 +109,11 @@ pub trait NativeEngineExt {
 
 impl NativeEngineExt for crate::engine::Engine {
     #[cfg(feature = "compiler")]
-    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
+    fn new(
+        compiler_config: Box<dyn wasmer_compiler::CompilerConfig>,
+        target: Target,
+        features: Features,
+    ) -> Self {
         Self {
             be: BackendEngine::Sys(Engine::new(compiler_config, target, features)),
             id: Self::atomic_next_engine_id(),

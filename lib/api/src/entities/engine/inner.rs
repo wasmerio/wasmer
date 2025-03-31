@@ -3,7 +3,9 @@ use std::{path::Path, sync::Arc};
 use wasmer_types::{target::Target, DeserializeError, Features};
 
 #[cfg(feature = "sys")]
-use wasmer_compiler::{Artifact, CompilerConfig};
+use wasmer_compiler::Artifact;
+#[cfg(feature = "compiler")]
+use wasmer_compiler::CompilerConfig;
 
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},

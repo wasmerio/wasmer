@@ -72,7 +72,7 @@ wasi = ["wasmer-wasix"]
 middlewares = ["compiler", "wasmer-middlewares"]
 
 # Enable the `sys` backend.
-sys = []
+sys = ["wasmer-api/sys", "wasmer-compiler"]
 
 # Enable the `singlepass` compiler.
 singlepass = [
