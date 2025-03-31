@@ -2329,17 +2329,6 @@
 <a href="#2329" id="2329">2329</a>
 <a href="#2330" id="2330">2330</a>
 <a href="#2331" id="2331">2331</a>
-<a href="#2332" id="2332">2332</a>
-<a href="#2333" id="2333">2333</a>
-<a href="#2334" id="2334">2334</a>
-<a href="#2335" id="2335">2335</a>
-<a href="#2336" id="2336">2336</a>
-<a href="#2337" id="2337">2337</a>
-<a href="#2338" id="2338">2338</a>
-<a href="#2339" id="2339">2339</a>
-<a href="#2340" id="2340">2340</a>
-<a href="#2341" id="2341">2341</a>
-<a href="#2342" id="2342">2342</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -2365,7 +2354,7 @@
 };
 <span class="kw">use </span>wasmer_compiler::{
     object::{emit_serialized, get_object_for_target},
-    types::symbols::ModuleMetadataSymbolRegistry,
+    types::symbols::{ModuleMetadataSymbolRegistry, Symbol, SymbolRegistry},
 };
 <span class="kw">use </span>wasmer_package::utils::from_disk;
 <span class="kw">use </span>wasmer_types::ModuleInfo;
@@ -3400,7 +3389,7 @@
     atoms: <span class="kw-2">&amp;</span>[(String, Vec&lt;u8&gt;)],
     prefixes: <span class="kw-2">&amp;</span>[String],
 ) -&gt; anyhow::Result&lt;()&gt; {
-    <span class="kw">use </span>object::{Object, ObjectSection};
+    <span class="kw">use </span>object::{Object, ObjectSymbol};
 
     std::fs::create_dir_all(directory.join(<span class="string">"include"</span>)).map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot create /include dir in {}: {e}"</span>, directory.display())
@@ -3414,27 +3403,18 @@
         <span class="kw">let </span>prefix = prefixes
             .get_prefix_for_atom(atom_name)
             .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"cannot get prefix for atom {atom_name}"</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>symbol_registry = ModuleMetadataSymbolRegistry {
+            prefix: prefix.clone(),
+        };
 
         <span class="kw">let </span>object_file_src = directory.join(<span class="kw-2">&amp;</span>atom.path);
         <span class="kw">let </span>object_file = std::fs::read(<span class="kw-2">&amp;</span>object_file_src)
             .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not read {}: {e}"</span>, object_file_src.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span>obj_file = object::File::parse(<span class="kw-2">&amp;*</span>object_file)<span class="question-mark">?</span>;
-        <span class="kw">let </span>sections = obj_file
-            .sections()
-            .filter_map(|s| s.name().ok().map(|s| s.to_string()))
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="kw">let </span>section = obj_file
-            .section_by_name(<span class="string">".data"</span>)
+        <span class="kw">let </span>metadata_length = obj_file
+            .symbol_by_name(<span class="kw-2">&amp;</span>symbol_registry.symbol_to_name(Symbol::Metadata))
             .unwrap()
-            .data()
-            .map_err(|<span class="kw">_</span>| {
-                <span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">"missing section .data in object file {} (sections = {:#?}"</span>,
-                    object_file_src.display(),
-                    sections
-                )
-            })<span class="question-mark">?</span>;
-        <span class="kw">let </span>metadata_length = section.len();
+            .size() <span class="kw">as </span>usize;
 
         <span class="kw">let </span>module_info = atom
             .module_info
@@ -3447,9 +3427,7 @@
         <span class="kw">let </span>header_file_src = <span class="kw">crate</span>::c_gen::staticlib_header::generate_header_file(
             <span class="kw-2">&amp;</span>prefix,
             module_info,
-            <span class="kw-2">&amp;</span>ModuleMetadataSymbolRegistry {
-                prefix: prefix.clone(),
-            },
+            <span class="kw-2">&amp;</span>symbol_registry,
             metadata_length,
         );
 
