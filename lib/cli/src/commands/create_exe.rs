@@ -23,7 +23,7 @@ use wasmer::{
 };
 use wasmer_compiler::{
     object::{emit_serialized, get_object_for_target},
-    types::symbols::ModuleMetadataSymbolRegistry,
+    types::symbols::{ModuleMetadataSymbolRegistry, Symbol, SymbolRegistry},
 };
 use wasmer_package::utils::from_disk;
 use wasmer_types::ModuleInfo;
@@ -1058,7 +1058,7 @@ pub(crate) fn create_header_files_in_dir(
     atoms: &[(String, Vec<u8>)],
     prefixes: &[String],
 ) -> anyhow::Result<()> {
-    use object::{Object, ObjectSection};
+    use object::{Object, ObjectSymbol};
 
     std::fs::create_dir_all(directory.join("include")).map_err(|e| {
         anyhow::anyhow!("cannot create /include dir in {}: {e}", directory.display())
@@ -1072,27 +1072,18 @@ pub(crate) fn create_header_files_in_dir(
         let prefix = prefixes
             .get_prefix_for_atom(atom_name)
             .ok_or_else(|| anyhow::anyhow!("cannot get prefix for atom {atom_name}"))?;
+        let symbol_registry = ModuleMetadataSymbolRegistry {
+            prefix: prefix.clone(),
+        };
 
         let object_file_src = directory.join(&atom.path);
         let object_file = std::fs::read(&object_file_src)
             .map_err(|e| anyhow::anyhow!("could not read {}: {e}", object_file_src.display()))?;
         let obj_file = object::File::parse(&*object_file)?;
-        let sections = obj_file
-            .sections()
-            .filter_map(|s| s.name().ok().map(|s| s.to_string()))
-            .collect::<Vec<_>>();
-        let section = obj_file
-            .section_by_name(".data")
+        let metadata_length = obj_file
+            .symbol_by_name(&symbol_registry.symbol_to_name(Symbol::Metadata))
             .unwrap()
-            .data()
-            .map_err(|_| {
-                anyhow::anyhow!(
-                    "missing section .data in object file {} (sections = {:#?}",
-                    object_file_src.display(),
-                    sections
-                )
-            })?;
-        let metadata_length = section.len();
+            .size() as usize;
 
         let module_info = atom
             .module_info
@@ -1105,9 +1096,7 @@ pub(crate) fn create_header_files_in_dir(
         let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
             &prefix,
             module_info,
-            &ModuleMetadataSymbolRegistry {
-                prefix: prefix.clone(),
-            },
+            &symbol_registry,
             metadata_length,
         );
 
