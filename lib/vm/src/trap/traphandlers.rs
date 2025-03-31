@@ -24,7 +24,7 @@ use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 use std::sync::{LazyLock, Once};
-use wasmer_types::{LocalGlobalIndex, TrapCode};
+use wasmer_types::{LocalGlobalIndex, LocalMemoryIndex, TrapCode};
 
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
@@ -685,12 +685,14 @@ pub unsafe fn wasmer_call_trampoline(
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    let instance = unsafe {&*(vmctx.vmctx)}.instance();
+    let instance = unsafe { &*(vmctx.vmctx) }.instance();
     let global = instance.global(LocalGlobalIndex::from_u32(0));
+    let global_ptr = instance.global_ptr(LocalGlobalIndex::from_u32(0));
+    let mem_ptr = instance.get_local_vmmemory(LocalMemoryIndex::from_u32(0)) as *const _;
     let global_value: i32 = global.val.i32;
-        // let value = global.get();
+    // let value = global.get();
 
-    // println!("global value: {}", global_value);
+    println!("calling tramp {vmctx:?} {global_ptr:?} {mem_ptr:?}");
     catch_traps(trap_handler, config, move || {
         let original_x28: i32;
 
@@ -700,21 +702,29 @@ pub unsafe fn wasmer_call_trampoline(
                 tmp = out(reg) original_x28,  // Output to Rust variable
                 options(nostack)
             );
-    
+
             std::arch::asm!(
                 "mov x28, {tmp}",  // Move the value into x28
                 tmp = in(reg) global_value,  // Input operand: value goes into a temporary register
                 options(nostack)      // Avoid modifying the stack
             );
         }
-            mem::transmute::<
+        mem::transmute::<
             unsafe extern "C" fn(
                 *mut VMContext,
+                usize,
+                usize,
                 *const VMFunctionBody,
                 *mut wasmer_types::RawValue,
             ),
-            extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-        >(trampoline)(vmctx, callee, values_vec);
+            extern "C" fn(VMFunctionContext, usize, usize, *const VMFunctionBody, *mut u8),
+        >(trampoline)(
+            vmctx,
+            global_ptr.as_ptr() as usize,
+            mem_ptr as usize,
+            callee,
+            values_vec,
+        );
         // Restore the original value back to x28
         std::arch::asm!(
             "mov x28, {tmp}",    // Move original value back into x28
@@ -722,8 +732,6 @@ pub unsafe fn wasmer_call_trampoline(
             options(nostack)
         );
     })
-    
-
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,

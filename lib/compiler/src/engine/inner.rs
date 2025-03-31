@@ -355,14 +355,14 @@ impl EngineInner {
         function_call_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         dynamic_function_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         custom_sections: impl ExactSizeIterator<Item = &'a CustomSection> + Clone + 'a,
-        global_init: i32,
+        //global_init: i32,
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, FunctionExtent>,
             PrimaryMap<SignatureIndex, VMTrampoline>,
             PrimaryMap<FunctionIndex, FunctionBodyPtr>,
             PrimaryMap<SectionIndex, SectionBodyPtr>,
-            super::artifact::VMStackPtr,
+            //   super::artifact::VMStackPtr,
         ),
         CompileError,
     >
@@ -386,7 +386,7 @@ impl EngineInner {
             mut allocated_functions,
             allocated_executable_sections,
             allocated_data_sections,
-            vm_stack_ptr,
+//            vm_stack_ptr,
         ) = self
             .code_memory
             .last_mut()
@@ -395,7 +395,7 @@ impl EngineInner {
                 function_bodies.as_slice(),
                 executable_sections.as_slice(),
                 data_sections.as_slice(),
-                global_init,
+//                global_init,
             )
             .map_err(|message| {
                 CompileError::Resource(format!(
@@ -447,7 +447,7 @@ impl EngineInner {
             allocated_function_call_trampolines,
             allocated_dynamic_function_trampolines,
             allocated_custom_sections,
-            vm_stack_ptr,
+//            vm_stack_ptr,
         ))
     }
 

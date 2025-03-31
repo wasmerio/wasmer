@@ -769,6 +769,9 @@ impl VMBuiltinFunctionsArray {
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() as usize] =
             wasmer_vm_dbg_usize as usize;
 
+        ptrs[VMBuiltinFunctionIndex::get_imported_debug_str_index().index() as usize] =
+            wasmer_vm_dbg_str as usize;
+
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 
         Self { ptrs }
@@ -809,6 +812,8 @@ impl VMContext {
 /// The type for tramplines in the VM.
 pub type VMTrampoline = unsafe extern "C" fn(
     *mut VMContext,        // callee vmctx
+    usize,                 // g0
+    usize,                 // m0
     *const VMFunctionBody, // function we're actually calling
     *mut RawValue,         // space for arguments and return values
 );

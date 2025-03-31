@@ -36,6 +36,17 @@ impl Abi for X86_64SystemV {
             .into_pointer_value()
     }
 
+    fn get_globl_g0_ptr_param<'ctx>(
+        &self,
+        _func_value: &FunctionValue<'ctx>,
+    ) -> PointerValue<'ctx> {
+        todo!()
+    }
+
+    fn get_mem_m0_ptr_param<'ctx>(&self, _func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+        todo!()
+    }
+
     // Given a wasm function type, produce an llvm function declaration.
     fn func_type_to_llvm<'ctx>(
         &self,
@@ -95,10 +106,16 @@ impl Abi for X86_64SystemV {
             })
             .collect::<Vec<i32>>();
 
-        let param_attributes: Vec<(Attribute, AttributeLoc)> = (0..sig.params().len() as u32).map(|i| (context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0), AttributeLoc::Param(i+1))).collect();
+        let param_attributes: Vec<(Attribute, AttributeLoc)> = (0..sig.params().len() as u32)
+            .map(|i| {
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                    AttributeLoc::Param(i + 1),
+                )
+            })
+            .collect();
         let mut all_attributes = vmctx_attributes(0);
         all_attributes.extend(param_attributes.iter());
-    
 
         Ok(match sig_returns_bitwidths.as_slice() {
             [] => (
@@ -304,6 +321,8 @@ impl Abi for X86_64SystemV {
         func_sig: &FuncSig,
         llvm_fn_ty: &FunctionType<'ctx>,
         ctx_ptr: PointerValue<'ctx>,
+        _g0_ptr: PointerValue<'ctx>,
+        _m0_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {

@@ -137,6 +137,7 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_delete_exception" => LibCall::DeleteException,
     "_wasmer_vm_read_exception" => LibCall::ReadException,
     "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "_wasmer_vm_dbg_str" => LibCall::DebugStr,
     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
     // will generate things differently than "normal", wreaking havoc.
     //
@@ -330,6 +331,8 @@ where
 
                             elf_section_to_target(section_index)
                         }
+                    } else if symbol_name == "___WASMER_MEMORY_M0" {
+                        RelocationTarget::LocalMemory
                     } else if symbol_name == "___WASMER_GLOBAL_G0" {
                         RelocationTarget::GlobalStackPtr
                     } else {

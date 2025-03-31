@@ -252,6 +252,7 @@ pub struct Intrinsics<'ctx> {
 
     // Debug
     pub debug_ptr: FunctionValue<'ctx>,
+    pub debug_str: FunctionValue<'ctx>,
 
     // VM builtins.
     pub vmfunction_import_ty: StructType<'ctx>,
@@ -485,16 +486,12 @@ impl<'ctx> Intrinsics<'ctx> {
 
         let write_register_sp_ty = void_ty.fn_type(&[md_ty_basic_md, i32_ty_basic_md], false);
 
-
         // Construct (or look up) the type descriptor, for example
         //   `!"wasm_sp" = !{!"x28"}`.
         let wasm_sp = "wasm_sp";
         let type_label: inkwell::values::MetadataValue<'_> = context.metadata_string("x28");
         module
-            .add_global_metadata(
-                wasm_sp,
-                &context.metadata_node(&[type_label.into()]),
-            )
+            .add_global_metadata(wasm_sp, &context.metadata_node(&[type_label.into()]))
             .unwrap();
 
         let wasm_sp_metadata = module.get_global_metadata(wasm_sp).pop().unwrap();
@@ -1081,12 +1078,18 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[ptr_ty.into()], false),
                 None,
             ),
+
+            debug_str: module.add_function(
+                "wasmer_vm_dbg_str",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+
             memory_wait32: module.add_function(
                 "wasmer_vm_memory32_atomic_wait32",
                 i32_ty.fn_type(
                     &[
                         ctx_ptr_ty_basic_md,
-                        i32_ty_basic_md,
                         i32_ty_basic_md,
                         i32_ty_basic_md,
                         i64_ty_basic_md,
@@ -1223,9 +1226,17 @@ impl<'ctx> Intrinsics<'ctx> {
                 false,
             ),
             write_global_sp_ty: write_register_ty,
-            read_register_sp: module.add_function("llvm.read_register.i32", read_register_sp_ty, None),
+            read_register_sp: module.add_function(
+                "llvm.read_register.i32",
+                read_register_sp_ty,
+                None,
+            ),
             read_register_sp_ty: read_register_sp_ty,
-            write_register_sp: module.add_function("llvm.write_register.i32", write_register_sp_ty, None),
+            write_register_sp: module.add_function(
+                "llvm.write_register.i32",
+                write_register_sp_ty,
+                None,
+            ),
             write_register_sp_ty: write_register_sp_ty,
             register_sp_metadata: context.metadata_string("register_sp").into(),
             wasm_sp_metadata: wasm_sp_metadata.into(),
@@ -1273,11 +1284,15 @@ pub struct FunctionCache<'ctx> {
     pub func: PointerValue<'ctx>,
     pub llvm_func_type: FunctionType<'ctx>,
     pub vmctx: BasicValueEnum<'ctx>,
+    pub g0: BasicValueEnum<'ctx>,
+    pub m0: BasicValueEnum<'ctx>,
     pub attrs: Vec<(Attribute, AttributeLoc)>,
 }
 
 pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
+    globl_g0_ptr_value: PointerValue<'ctx>,
+    mem_m0_ptr_value: PointerValue<'ctx>,
 
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
@@ -1303,7 +1318,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
     ) -> CtxType<'ctx, 'a> {
         CtxType {
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
-
+            globl_g0_ptr_value: abi.get_globl_g0_ptr_param(func_value),
+            mem_m0_ptr_value: abi.get_mem_m0_ptr_param(func_value),
             wasm_module,
             cache_builder,
             abi,
@@ -1323,6 +1339,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
     pub fn basic(&self) -> BasicValueEnum<'ctx> {
         self.ctx_ptr_value.as_basic_value_enum()
+    }
+
+    pub fn g0(&self) -> PointerValue<'ctx> {
+        self.globl_g0_ptr_value.clone()
+    }
+
+    pub fn m0(&self) -> PointerValue<'ctx> {
+        self.mem_m0_ptr_value.clone()
     }
 
     pub fn memory(
@@ -1410,8 +1434,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ptr_to_current_length: current_length_ptr,
                     }
                 } else {
-                    let base_ptr = err!(cache_builder.build_load(intrinsics.ptr_ty, base_ptr, &format!("memory_static_base_ptr.{}", index.as_u32())))
-                        .into_pointer_value();
+                    let base_ptr = err!(cache_builder.build_load(
+                        intrinsics.ptr_ty,
+                        base_ptr,
+                        &format!("memory_static_base_ptr.{}", index.as_u32())
+                    ))
+                    .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
@@ -1678,9 +1706,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     // let global_ptr_ptr: PointerValue<'_> =
                     //     err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, "bitcast"))
                     //         .into_pointer_value();
-                    let global_ptr =
-                        err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, &format!("global_ptr.{}", index.as_u32())))
-                            .into_pointer_value();
+                    let global_ptr = err!(cache_builder.build_load(
+                        intrinsics.ptr_ty,
+                        global_ptr_ptr,
+                        &format!("global_ptr.{}", index.as_u32())
+                    ))
+                    .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
@@ -1728,6 +1759,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         func: PointerValue<'ctx>,
         llvm_func_type: FunctionType<'ctx>,
         vmctx: BasicValueEnum<'ctx>,
+        g0: BasicValueEnum<'ctx>,
+        m0: BasicValueEnum<'ctx>,
         attrs: &[(Attribute, AttributeLoc)],
     ) {
         match self.cached_functions.entry(function_index) {
@@ -1738,6 +1771,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     llvm_func_type,
                     vmctx,
                     attrs: attrs.to_vec(),
+                    g0,
+                    m0,
                 });
             }
         }
@@ -1754,9 +1789,11 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         func_type: &FuncType,
         function_name: &str,
     ) -> Result<&FunctionCache<'ctx>, CompileError> {
-        let (cached_functions, ctx_ptr_value, offsets) = (
+        let (cached_functions, ctx_ptr_value, g0_ptr_value, m0_ptr_value, offsets) = (
             &mut self.cached_functions,
             &self.ctx_ptr_value,
+            &self.globl_g0_ptr_value,
+            &self.mem_m0_ptr_value,
             &self.offsets,
         );
         Ok(match cached_functions.entry(function_index) {
@@ -1776,6 +1813,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     llvm_func_type,
                     vmctx: ctx_ptr_value.as_basic_value_enum(),
                     attrs: llvm_func_attrs,
+                    g0: g0_ptr_value.as_basic_value_enum(),
+                    m0: m0_ptr_value.as_basic_value_enum(),
                 })
             }
         })
@@ -1788,10 +1827,20 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         context: &'ctx Context,
         func_type: &FuncType,
     ) -> Result<&FunctionCache<'ctx>, CompileError> {
-        let (cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
+        let (
+            cached_functions,
+            wasm_module,
+            ctx_ptr_value,
+            g0_ptr_value,
+            m0_ptr_value,
+            cache_builder,
+            offsets,
+        ) = (
             &mut self.cached_functions,
             self.wasm_module,
             &self.ctx_ptr_value,
+            &self.globl_g0_ptr_value,
+            &self.mem_m0_ptr_value,
             &self.cache_builder,
             &self.offsets,
         );
@@ -1837,6 +1886,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     llvm_func_type,
                     vmctx: vmctx_ptr,
                     attrs: llvm_func_attrs,
+                    g0: g0_ptr_value.as_basic_value_enum(),
+                    m0: m0_ptr_value.as_basic_value_enum(),
                 }))
             }
         }

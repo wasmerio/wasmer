@@ -689,7 +689,28 @@ pub unsafe extern "C-unwind" fn wasmer_vm_rethrow(exc: *mut UwExceptionWrapper) 
 pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
     #[allow(clippy::print_stdout)]
     {
-        println!("wasmer_vm_dbg_usize: {value}");
+        println!("wasmer_vm_dbg_usize: {:?}", value as *const u8);
+    }
+}
+
+/// (debug) Print an usize.
+#[no_mangle]
+pub extern "C-unwind" fn wasmer_vm_dbg_str(value: usize) {
+    let mut value = value as *const u8;
+    let mut chars = vec![];
+
+    unsafe {
+        while !value.is_null() && (*value) != 0 {
+            chars.push(*value);
+            value = value.wrapping_add(1);
+        }
+    }
+
+    let string = String::from_utf8(chars).unwrap_or_default();
+
+    #[allow(clippy::print_stdout)]
+    {
+        println!("{string}");
     }
 }
 
@@ -936,5 +957,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::DeleteException => wasmer_vm_delete_exception as usize,
         LibCall::ReadException => wasmer_vm_read_exception as usize,
         LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
+        LibCall::DebugStr => wasmer_vm_dbg_str as usize,
     }
 }

@@ -45,6 +45,12 @@ pub trait Abi {
     /// Given a function definition, retrieve the parameter that is the vmctx pointer.
     fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx>;
 
+    /// Given a function definition, retrieve the parameter that is the vmctx pointer.
+    fn get_globl_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx>;
+
+    /// Given a function definition, retrieve the parameter that is the vmctx pointer.
+    fn get_mem_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx>;
+
     /// Given a wasm function type, produce an llvm function declaration.
     fn func_type_to_llvm<'ctx>(
         &self,
@@ -61,6 +67,8 @@ pub trait Abi {
         func_sig: &FuncSig,
         llvm_fn_ty: &FunctionType<'ctx>,
         ctx_ptr: PointerValue<'ctx>,
+        g0_ptr: PointerValue<'ctx>,
+        m0_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError>;

@@ -12,8 +12,9 @@ use inkwell::{
     passes::PassBuilderOptions,
     targets::{FileType, TargetMachine},
     types::FunctionType,
-    values::{BasicMetadataValueEnum, FunctionValue},
-    AddressSpace, DLLStorageClass,
+    values::{BasicMetadataValueEnum, FunctionValue}, //, PointerValue},
+    AddressSpace,
+    DLLStorageClass,
 };
 use std::{cmp, convert::TryInto};
 use target_lexicon::{BinaryFormat, Triple};
@@ -73,6 +74,8 @@ impl FuncTrampoline {
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ptr_ty.into(), // vmctx ptr
+                intrinsics.ptr_ty.into(), // g0 ptr
+                intrinsics.ptr_ty.into(), // m0 ptr
                 intrinsics.ptr_ty.into(), // callee function address
                 intrinsics.ptr_ty.into(), // in/out values ptr
             ],
@@ -91,6 +94,15 @@ impl FuncTrampoline {
             .set_dll_storage_class(DLLStorageClass::Export);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
+
+        //let gv = module.add_global(intrinsics.i32_ty, None, "__WASMER_GLOBAL_G0");
+        //gv.set_linkage(Linkage::External);
+        //gv.set_section(Some("__DATA,__wasmer_data"));
+
+        //let mv = module.add_global(intrinsics.i32_ty, None, "__WASMER_MEMORY_M0");
+        //mv.set_linkage(Linkage::External);
+        //mv.set_section(Some("__DATA,__wasmer_data"));
+
         self.generate_trampoline(
             trampoline_func,
             ty,
@@ -98,6 +110,8 @@ impl FuncTrampoline {
             &callee_attrs,
             &self.ctx,
             &intrinsics,
+            //    gv.as_pointer_value(),
+            //    mv.as_pointer_value(),
         )?;
 
         if let Some(ref callbacks) = config.callbacks {
@@ -106,9 +120,9 @@ impl FuncTrampoline {
 
         let mut passes = vec![];
 
-        if config.enable_verifier {
-            passes.push("verify");
-        }
+        //if config.enable_verifier {
+        passes.push("verify");
+        // }
 
         passes.push("instcombine");
         module
@@ -124,12 +138,31 @@ impl FuncTrampoline {
         }
 
         // -- Uncomment to enable dumping intermediate LLVM objects
-        //module
-        //    .print_to_file(format!(
-        //        "{}/obj_trmpl.ll",
-        //        std::env!("LLVM_EH_TESTS_DUMP_DIR")
-        //    ))
-        //    .unwrap();
+        let llvm_dump_path: Result<String, std::env::VarError> =
+            std::env::var("WASMER_LLVM_DUMP_DIR");
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            let path = std::path::Path::new(llvm_dump_path);
+            if !path.exists() {
+                std::fs::create_dir_all(path).unwrap()
+            }
+            let mod_path = path.join(format!("trmpl_{}.ll", ty.to_string()));
+            _ = module.print_to_file(mod_path).unwrap();
+            _ = target_machine
+                .write_to_file(
+                    &module,
+                    FileType::Object,
+                    &path.join(format!("trmpl_{ty}.o")),
+                )
+                .unwrap();
+            _ = target_machine
+                .write_to_file(
+                    &module,
+                    FileType::Assembly,
+                    &path.join(format!("trmpl_{ty}.s")),
+                )
+                .unwrap();
+        }
+
         Ok(module)
     }
 
@@ -338,15 +371,19 @@ impl FuncTrampoline {
         func_attrs: &[(Attribute, AttributeLoc)],
         context: &'ctx Context,
         intrinsics: &Intrinsics<'ctx>,
+        //gv: PointerValue<'ctx>,
+        //mv: PointerValue<'ctx>,
     ) -> Result<(), CompileError> {
         let entry_block = context.append_basic_block(trampoline_func, "entry");
         let builder = context.create_builder();
         builder.position_at_end(entry_block);
 
-        let (callee_vmctx_ptr, func_ptr, args_rets_ptr) =
+        let (callee_vmctx_ptr, g0_ptr, m0_ptr, func_ptr, args_rets_ptr) =
             match *trampoline_func.get_params().as_slice() {
-                [callee_vmctx_ptr, func_ptr, args_rets_ptr] => (
+                [callee_vmctx_ptr, g0_ptr, m0_ptr, func_ptr, args_rets_ptr] => (
                     callee_vmctx_ptr,
+                    g0_ptr,
+                    m0_ptr,
                     func_ptr.into_pointer_value(),
                     args_rets_ptr.into_pointer_value(),
                 ),
@@ -372,6 +409,10 @@ impl FuncTrampoline {
         }
 
         args_vec.push(callee_vmctx_ptr.into());
+        args_vec.push(g0_ptr.into());
+        args_vec.push(m0_ptr.into());
+        //args_vec.push(gv.into());
+        //args_vec.push(mv.into());
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {
             let index = intrinsics.i32_ty.const_int(i as _, false);

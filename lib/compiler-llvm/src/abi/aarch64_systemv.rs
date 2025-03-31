@@ -21,17 +21,15 @@ pub struct Aarch64SystemV {}
 impl Abi for Aarch64SystemV {
     // Given a function definition, retrieve the parameter that is the vmctx pointer.
     fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        func_value
-            .get_nth_param(u32::from(
-                func_value
-                    .get_enum_attribute(
-                        AttributeLoc::Param(0),
-                        Attribute::get_named_enum_kind_id("sret"),
-                    )
-                    .is_some(),
-            ))
-            .unwrap()
-            .into_pointer_value()
+        func_value.get_nth_param(0).unwrap().into_pointer_value()
+    }
+
+    fn get_globl_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+        func_value.get_nth_param(1).unwrap().into_pointer_value()
+    }
+
+    fn get_mem_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+        func_value.get_nth_param(2).unwrap().into_pointer_value()
     }
 
     // Given a wasm function type, produce an llvm function declaration.
@@ -44,17 +42,27 @@ impl Abi for Aarch64SystemV {
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
-        let param_types =
-            std::iter::once(Ok(intrinsics.ptr_ty.as_basic_type_enum())).chain(user_param_types);
+        let param_types = vec![
+            Ok(intrinsics.ptr_ty.as_basic_type_enum()), // ptr to vmctx
+            Ok(intrinsics.ptr_ty.as_basic_type_enum()), // ptr to Global #0
+            Ok(intrinsics.ptr_ty.as_basic_type_enum()), // ptr to Memory #0
+        ]
+        .into_iter()
+        .chain(user_param_types);
 
         let vmctx_attributes = |i: u32| {
             vec![
+                // Attributes for the vmctx ptr
                 (
                     context.create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
                     AttributeLoc::Param(i),
                 ),
                 (
                     context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                    AttributeLoc::Param(i),
+                ),
+                (
+                    context.create_string_attribute("vm_param_kind", "vmctx"),
                     AttributeLoc::Param(i),
                 ),
                 (
@@ -78,9 +86,64 @@ impl Abi for Aarch64SystemV {
                     ),
                     AttributeLoc::Param(i),
                 ),
+                // Attributes for the ptr to G#0
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
+                    AttributeLoc::Param(i + 1),
+                ),
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                    AttributeLoc::Param(i + 1),
+                ),
+                (
+                    context.create_string_attribute("vm_param_kind", "g0"),
+                    AttributeLoc::Param(i + 1),
+                ),
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0),
+                    AttributeLoc::Param(i + 1),
+                ),
+                (
+                    context.create_enum_attribute(
+                        Attribute::get_named_enum_kind_id("align"),
+                        std::mem::align_of::<*const u8>().try_into().unwrap(),
+                    ),
+                    AttributeLoc::Param(i + 1),
+                ),
+                // Attributes for the ptr to M#0
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
+                    AttributeLoc::Param(i + 2),
+                ),
+                (
+                    context.create_string_attribute("vm_param_kind", "m0"),
+                    AttributeLoc::Param(i + 2),
+                ),
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                    AttributeLoc::Param(i + 2),
+                ),
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0),
+                    AttributeLoc::Param(i + 2),
+                ),
+                (
+                    context.create_enum_attribute(
+                        Attribute::get_named_enum_kind_id("align"),
+                        std::mem::align_of::<*const u8>().try_into().unwrap(),
+                    ),
+                    AttributeLoc::Param(i + 2),
+                ),
             ]
         };
-        let param_attributes: Vec<(Attribute, AttributeLoc)> = (0..sig.params().len() as u32).map(|i| (context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0), AttributeLoc::Param(i+1))).collect();
+        let param_attributes: Vec<(Attribute, AttributeLoc)> = (0..sig.params().len() as u32)
+            .map(|i| {
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("noundef"), 0),
+                    AttributeLoc::Param(i + 3),
+                )
+            })
+            .collect();
         let mut all_attributes = vmctx_attributes(0);
         all_attributes.extend(param_attributes.iter());
         Ok(match sig.results() {
@@ -266,6 +329,8 @@ impl Abi for Aarch64SystemV {
         func_sig: &FuncSig,
         llvm_fn_ty: &FunctionType<'ctx>,
         ctx_ptr: PointerValue<'ctx>,
+        g0_ptr: PointerValue<'ctx>,
+        m0_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
@@ -284,7 +349,13 @@ impl Abi for Aarch64SystemV {
             None
         };
 
-        let values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
+        let values = vec![
+            ctx_ptr.as_basic_value_enum(),
+            g0_ptr.as_basic_value_enum(),
+            m0_ptr.as_basic_value_enum(),
+        ]
+        .into_iter()
+        .chain(values.iter().copied());
 
         let ret = if let Some(sret) = sret {
             std::iter::once(sret.as_basic_value_enum())
