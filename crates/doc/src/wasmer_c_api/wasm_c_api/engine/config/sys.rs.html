@@ -203,6 +203,8 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="comment">// Necessary when a single backend is enabled.
 </span><span class="attr">#![allow(irrefutable_let_patterns)]
 
@@ -217,8 +219,10 @@
 </span><span class="kw">pub use </span><span class="kw">crate</span>::wasm_c_api::unstable::middlewares::wasmer_middleware_t;
 
 <span class="kw">use </span>cfg_if::cfg_if;
-<span class="kw">use </span>wasmer_api::Engine;
-<span class="kw">use </span>wasmer_compiler::EngineBuilder;
+<span class="attr">#[cfg(any(feature = <span class="string">"compiler"</span>, feature = <span class="string">"compiler-headless"</span>))]
+</span><span class="kw">use </span>wasmer_api::Engine;
+<span class="attr">#[cfg(any(feature = <span class="string">"compiler"</span>, feature = <span class="string">"compiler-headless"</span>))]
+</span><span class="kw">use </span>wasmer_compiler::EngineBuilder;
 
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span>wasmer_api::sys::CompilerConfig;

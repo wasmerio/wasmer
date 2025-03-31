@@ -154,6 +154,8 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
@@ -171,7 +173,8 @@
     target::{CpuFeature, Target},
     Features, LocalFunctionIndex,
 };
-<span class="kw">use </span>wasmparser::{Validator, WasmFeatures};
+<span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
+</span><span class="kw">use </span>wasmparser::{Validator, WasmFeatures};
 
 <span class="doccomment">/// The compiler configuration options.
 </span><span class="kw">pub trait </span>CompilerConfig {
@@ -239,6 +242,7 @@
     <span class="doccomment">/// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
+    </span><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
     </span><span class="kw">fn </span>validate_module(<span class="kw-2">&amp;</span><span class="self">self</span>, features: <span class="kw-2">&amp;</span>Features, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>wasm_features = WasmFeatures::default();
         wasm_features.set(WasmFeatures::BULK_MEMORY, features.bulk_memory);

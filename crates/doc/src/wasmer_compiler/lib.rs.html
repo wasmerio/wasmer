@@ -146,14 +146,14 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::artifact_builders::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">mod </span>compiler;
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::compiler::{Compiler, CompilerConfig};
 
 <span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
 #[macro_use]
 </span><span class="kw">mod </span>translator;
-<span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
-</span><span class="kw">pub use </span><span class="kw">crate</span>::compiler::{Compiler, CompilerConfig};
 <span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::translator::{
     from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type, wptype_to_type,

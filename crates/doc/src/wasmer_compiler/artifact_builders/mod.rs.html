@@ -10,10 +10,10 @@
 </pre></div><pre class="rust"><code><span class="doccomment">//! Generic Artifact abstraction for Wasmer Engines.
 
 </span><span class="kw">mod </span>artifact_builder;
-<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-</span><span class="kw">mod </span>trampoline;
+<span class="kw">mod </span>trampoline;
 
 <span class="kw">pub use </span><span class="self">self</span>::artifact_builder::{ArtifactBuild, ArtifactBuildFromArchive, ModuleFromArchive};
+<span class="kw">pub use </span><span class="self">self</span>::trampoline::get_libcall_trampoline;
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">pub use </span><span class="self">self</span>::trampoline::<span class="kw-2">*</span>;
 </code></pre></div></section></main></body></html>

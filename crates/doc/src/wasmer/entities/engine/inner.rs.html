@@ -190,12 +190,16 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::{path::Path, sync::Arc};
 <span class="kw">use </span>wasmer_types::{target::Target, DeserializeError, Features};
 
 <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-</span><span class="kw">use </span>wasmer_compiler::{Artifact, CompilerConfig};
+</span><span class="kw">use </span>wasmer_compiler::Artifact;
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+</span><span class="kw">use </span>wasmer_compiler::CompilerConfig;
 
 <span class="kw">use crate</span>::{
     macros::backend::{gen_rt_ty, match_rt},

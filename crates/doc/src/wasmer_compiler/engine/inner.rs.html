@@ -536,13 +536,6 @@
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
-<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
@@ -565,12 +558,14 @@
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <span class="kw">use </span>std::sync::{Arc, Mutex};
 
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+</span><span class="kw">use </span>wasmer_types::Features;
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
     SignatureIndex,
 };
-<span class="kw">use </span>wasmer_types::{target::Target, CompileError, Features, HashAlgorithm};
+<span class="kw">use </span>wasmer_types::{target::Target, CompileError, HashAlgorithm};
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_vm::{
@@ -619,15 +614,6 @@
             name,
             hash_algorithm: <span class="prelude-val">None</span>,
         }
-    }
-
-    <span class="attr">#[cfg(not(feature = <span class="string">"compiler"</span>))]
-    </span><span class="kw">pub fn </span>new(
-        compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;,
-        target: Target,
-        features: Features,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="macro">panic!</span>(<span class="string">"The engine is not compiled with any compiler support"</span>)
     }
 
     <span class="doccomment">/// Returns the name of this engine

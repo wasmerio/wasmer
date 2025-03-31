@@ -128,10 +128,14 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Trampolines for libcalls.
 //!
 //! This is needed because the target of libcall relocations are not reachable
 //! through normal branch instructions.
+
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"compiler"</span>), allow(dead_code))]
 
 </span><span class="kw">use </span>enum_iterator::IntoEnumIterator;
 <span class="kw">use </span>wasmer_types::target::{Architecture, Target};

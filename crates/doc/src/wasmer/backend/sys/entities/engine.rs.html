@@ -269,20 +269,23 @@
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for `sys` runtime's `Engine` implementation.
 
 </span><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
-<span class="kw">pub use </span>wasmer_compiler::{
-    Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
-};
+<span class="kw">pub use </span>wasmer_compiler::{Artifact, BaseTunables, Engine, EngineBuilder, Tunables};
 <span class="kw">use </span>wasmer_types::{target::Target, DeserializeError, Features, HashAlgorithm};
 
 <span class="kw">use crate</span>::{BackendEngine, BackendModule};
 
 <span class="doccomment">/// Get the default config for the sys Engine
 </span><span class="attr">#[allow(unreachable_code)]
+#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">pub fn </span>get_default_compiler_config() -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>wasmer_compiler::CompilerConfig&gt;&gt; {
     <span class="macro">cfg_if::cfg_if!</span> {
         <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">"cranelift"</span>)] </span>{
@@ -300,21 +303,18 @@
 
 <span class="doccomment">/// Returns the default engine for the Sys engine
 </span><span class="kw">pub fn </span>default_engine() -&gt; Engine {
-    <span class="attr">#[allow(unreachable_code, unused_mut)]
+    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
     </span><span class="kw">fn </span>get_engine() -&gt; Engine {
-        <span class="macro">cfg_if::cfg_if!</span> {
-            <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)] </span>{
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(config) = get_default_compiler_config() {
-                    EngineBuilder::new(config)
-                        .engine()
-                } <span class="kw">else </span>{
-                    EngineBuilder::headless()
-                        .engine()
-                }
-            } <span class="kw">else </span>{
-                EngineBuilder::headless().engine()
-            }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(config) = get_default_compiler_config() {
+            EngineBuilder::new(config).engine()
+        } <span class="kw">else </span>{
+            EngineBuilder::headless().engine()
         }
+    }
+
+    <span class="attr">#[cfg(not(feature = <span class="string">"compiler"</span>))]
+    </span><span class="kw">fn </span>get_engine() -&gt; Engine {
+        EngineBuilder::headless().engine()
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>engine = get_engine();
@@ -328,7 +328,11 @@
 </span><span class="kw">pub trait </span>NativeEngineExt {
     <span class="doccomment">/// Create a new `Engine` with the given config
     </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-    </span><span class="kw">fn </span>new(compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;, target: Target, features: Features) -&gt; <span class="self">Self</span>;
+    </span><span class="kw">fn </span>new(
+        compiler_config: Box&lt;<span class="kw">dyn </span>wasmer_compiler::CompilerConfig&gt;,
+        target: Target,
+        features: Features,
+    ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// Sets the hash algorithm
     </span><span class="kw">fn </span>set_hash_algorithm(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash_algorithm: <span class="prelude-ty">Option</span>&lt;HashAlgorithm&gt;);
@@ -380,7 +384,11 @@
 
 <span class="kw">impl </span>NativeEngineExt <span class="kw">for </span><span class="kw">crate</span>::engine::Engine {
     <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-    </span><span class="kw">fn </span>new(compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt;, target: Target, features: Features) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">fn </span>new(
+        compiler_config: Box&lt;<span class="kw">dyn </span>wasmer_compiler::CompilerConfig&gt;,
+        target: Target,
+        features: Features,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             be: BackendEngine::Sys(Engine::new(compiler_config, target, features)),
             id: <span class="self">Self</span>::atomic_next_engine_id(),

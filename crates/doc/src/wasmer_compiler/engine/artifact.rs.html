@@ -1250,6 +1250,9 @@
 <a href="#1250" id="1250">1250</a>
 <a href="#1251" id="1251">1251</a>
 <a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1258,6 +1261,8 @@
     Arc,
 };
 
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::ModuleEnvironment;
 <span class="kw">use crate</span>::{
     engine::link::link_module,
     lib::std::vec::IntoIter,
@@ -1265,8 +1270,7 @@
     serialize::{MetadataHeader, SerializableModule},
     types::relocation::{RelocationLike, RelocationTarget},
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
-    ModuleEnvironment, Tunables,
+    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
 };
 <span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
 </span><span class="kw">use crate</span>::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
@@ -1282,13 +1286,15 @@
 <span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::object::{emit_compilation, emit_data, get_object_for_target, Object};
 
+<span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+</span><span class="kw">use </span>wasmer_types::HashAlgorithm;
 <span class="kw">use </span>wasmer_types::{
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, HashAlgorithm, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
+    SerializeError, SignatureIndex, TableIndex,
 };
 
 <span class="kw">use </span>wasmer_vm::{
