@@ -126,6 +126,27 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Edge SSH command.
 
 </span><span class="kw">use </span>anyhow::Context;
@@ -142,23 +163,35 @@
     <span class="doccomment">/// SSH port to use.
     </span><span class="attr">#[clap(long, default_value = <span class="string">"22"</span>)]
     </span><span class="kw">pub </span>ssh_port: u16,
-    <span class="doccomment">/// SSH Host
-    </span><span class="attr">#[clap(long, default_value = <span class="string">"root.wasmer.network"</span>)]
-    </span><span class="kw">pub </span>host: String,
     <span class="doccomment">/// Local port mapping to the package that's running, this allows
     /// for instance a HTTP server to be tested remotely while giving
     /// instant logs over stderr channelled via SSH.
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>map_port: Vec&lt;u16&gt;,
     <span class="doccomment">/// Package to run on the Deploy servers
-    </span><span class="attr">#[clap(index = <span class="number">1</span>, default_value = <span class="string">"sharrattj/bash"</span>)]
-    </span><span class="kw">pub </span>run: String,
-    <span class="doccomment">/// Arguments to pass the package running on Deploy
+    ///
+    /// By default a bash session will be started.
+    </span><span class="attr">#[clap(index = <span class="number">1</span>)]
+    </span><span class="kw">pub </span>run: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// Additional arguments to pass to the package.
     </span><span class="attr">#[clap(index = <span class="number">2</span>, trailing_var_arg = <span class="bool-val">true</span>)]
     </span><span class="kw">pub </span>run_args: Vec&lt;String&gt;,
-    <span class="doccomment">/// Prints the SSH command rather than executing it
+
+    <span class="doccomment">/// The Edge SSH server host to connect to.
+    ///
+    /// You can usually ignore this flag, it mainly exists for debugging purposes.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>host: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// Prints the SSH command rather than executing it.
     </span><span class="attr">#[clap(short, long)]
     </span><span class="kw">pub </span>print: bool,
+}
+
+<span class="kw">impl </span>CmdSsh {
+    <span class="doccomment">/// The default package to run.
+    </span><span class="kw">const </span>DEFAULT_PACKAGE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"wasmer/bash"</span>;
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -171,14 +204,22 @@
 
         <span class="kw">let </span>(token, is_new) = acquire_ssh_token(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>config.config).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">let </span>host = <span class="self">self</span>.host;
+        <span class="kw">let </span>host = <span class="kw">if let </span><span class="prelude-val">Some</span>(host) = <span class="self">self</span>.host {
+            host
+        } <span class="kw">else </span>{
+            <span class="comment">// No custom host specified, use an appropriate one based on the
+            // environment.
+            </span><span class="self">self</span>.env
+                .app_domain()
+                .context(<span class="string">"Could not determine SSH host based on the backend url"</span>)<span class="question-mark">?
+        </span>};
         <span class="kw">let </span>port = <span class="self">self</span>.ssh_port;
 
         <span class="kw">if </span>is_new {
             <span class="macro">eprintln!</span>(<span class="string">"Acquired new SSH token"</span>);
             config.set_ssh_token(token.clone())<span class="question-mark">?</span>;
             <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = config.save() {
-                <span class="macro">eprintln!</span>(<span class="string">"Warning: failed to save config: {err}"</span>);
+                <span class="macro">eprintln!</span>(<span class="string">"WARNING: failed to save config: {err}"</span>);
             }
         }
 
@@ -206,7 +247,8 @@
             cmd = cmd.args([<span class="string">"-L"</span>, <span class="macro">format!</span>(<span class="string">"{map_port}:localhost:{map_port}"</span>).as_str()]);
         }
 
-        cmd = cmd.arg(<span class="macro">format!</span>(<span class="string">"{token}@{host}"</span>)).arg(<span class="self">self</span>.run.as_str());
+        <span class="kw">let </span>package = <span class="self">self</span>.run.as_deref().unwrap_or(<span class="self">Self</span>::DEFAULT_PACKAGE);
+        cmd = cmd.arg(<span class="macro">format!</span>(<span class="string">"{token}@{host}"</span>)).arg(package);
         <span class="kw">for </span>run_arg <span class="kw">in </span><span class="self">self</span>.run_args {
             cmd = cmd.arg(<span class="kw-2">&amp;</span>run_arg);
         }
