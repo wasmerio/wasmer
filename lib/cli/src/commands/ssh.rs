@@ -14,23 +14,35 @@ pub struct CmdSsh {
     /// SSH port to use.
     #[clap(long, default_value = "22")]
     pub ssh_port: u16,
-    /// SSH Host
-    #[clap(long, default_value = "root.wasmer.network")]
-    pub host: String,
     /// Local port mapping to the package that's running, this allows
     /// for instance a HTTP server to be tested remotely while giving
     /// instant logs over stderr channelled via SSH.
     #[clap(long)]
     pub map_port: Vec<u16>,
     /// Package to run on the Deploy servers
-    #[clap(index = 1, default_value = "sharrattj/bash")]
-    pub run: String,
-    /// Arguments to pass the package running on Deploy
+    ///
+    /// By default a bash session will be started.
+    #[clap(index = 1)]
+    pub run: Option<String>,
+
+    /// Additional arguments to pass to the package.
     #[clap(index = 2, trailing_var_arg = true)]
     pub run_args: Vec<String>,
-    /// Prints the SSH command rather than executing it
+
+    /// The Edge SSH server host to connect to.
+    ///
+    /// You can usually ignore this flag, it mainly exists for debugging purposes.
+    #[clap(long)]
+    pub host: Option<String>,
+
+    /// Prints the SSH command rather than executing it.
     #[clap(short, long)]
     pub print: bool,
+}
+
+impl CmdSsh {
+    /// The default package to run.
+    const DEFAULT_PACKAGE: &'static str = "wasmer/bash";
 }
 
 #[async_trait::async_trait]
@@ -43,14 +55,22 @@ impl AsyncCliCommand for CmdSsh {
 
         let (token, is_new) = acquire_ssh_token(&client, &config.config).await?;
 
-        let host = self.host;
+        let host = if let Some(host) = self.host {
+            host
+        } else {
+            // No custom host specified, use an appropriate one based on the
+            // environment.
+            self.env
+                .app_domain()
+                .context("Could not determine SSH host based on the backend url")?
+        };
         let port = self.ssh_port;
 
         if is_new {
             eprintln!("Acquired new SSH token");
             config.set_ssh_token(token.clone())?;
             if let Err(err) = config.save() {
-                eprintln!("Warning: failed to save config: {err}");
+                eprintln!("WARNING: failed to save config: {err}");
             }
         }
 
@@ -78,7 +98,8 @@ impl AsyncCliCommand for CmdSsh {
             cmd = cmd.args(["-L", format!("{map_port}:localhost:{map_port}").as_str()]);
         }
 
-        cmd = cmd.arg(format!("{token}@{host}")).arg(self.run.as_str());
+        let package = self.run.as_deref().unwrap_or(Self::DEFAULT_PACKAGE);
+        cmd = cmd.arg(format!("{token}@{host}")).arg(package);
         for run_arg in self.run_args {
             cmd = cmd.arg(&run_arg);
         }

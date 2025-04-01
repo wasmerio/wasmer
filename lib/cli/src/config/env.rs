@@ -34,6 +34,9 @@ pub struct WasmerEnv {
 }
 
 impl WasmerEnv {
+    const APP_DOMAIN_PROD: &'static str = "wasmer.app";
+    const APP_DOMAIN_DEV: &'static str = "wasmer.dev";
+
     pub fn new(
         wasmer_dir: PathBuf,
         cache_dir: PathBuf,
@@ -132,6 +135,25 @@ impl WasmerEnv {
         config
             .registry
             .get_login_token_for_registry(registry_endpoint.as_str())
+    }
+
+    pub fn app_domain(&self) -> Result<String, Error> {
+        let registry_url = self.registry_public_url()?;
+        let domain = registry_url
+            .host_str()
+            .context("url has no host")?
+            .trim_end_matches('.');
+
+        if domain.ends_with("wasmer.io") {
+            Ok(Self::APP_DOMAIN_PROD.to_string())
+        } else if domain.ends_with("wasmer.wtf") {
+            Ok(Self::APP_DOMAIN_DEV.to_string())
+        } else {
+            anyhow::bail!(
+                "could not determine app domain for backend url '{}': unknown backend",
+                domain
+            );
+        }
     }
 
     pub fn client_unauthennticated(&self) -> Result<WasmerClient, anyhow::Error> {
@@ -248,6 +270,33 @@ mod tests {
         );
         assert_eq!(env.token().unwrap(), "prod-token");
         assert_eq!(env.cache_dir(), temp.path().join("cache"));
+    }
+
+    #[test]
+    fn env_app_domain() {
+        // Prod
+        {
+            let env = WasmerEnv {
+                wasmer_dir: PathBuf::from("/tmp"),
+                registry: Some(UserRegistry::from("https://registry.wasmer.io/graphql")),
+                cache_dir: PathBuf::from("/tmp/cache"),
+                token: None,
+            };
+
+            assert_eq!(env.app_domain().unwrap(), "wasmer.app");
+        }
+
+        // Dev
+        {
+            let env = WasmerEnv {
+                wasmer_dir: PathBuf::from("/tmp"),
+                registry: Some(UserRegistry::from("https://registry.wasmer.wtf/graphql")),
+                cache_dir: PathBuf::from("/tmp/cache"),
+                token: None,
+            };
+
+            assert_eq!(env.app_domain().unwrap(), "wasmer.dev");
+        }
     }
 
     #[test]
