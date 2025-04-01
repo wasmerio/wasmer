@@ -386,8 +386,10 @@ fn filesystem(
 
     if found_v3 && !found_v2 {
         filesystem_v3(packages, pkg, root_is_local_dir)
-    } else {
+    } else if found_v2 && !found_v3 {
         filesystem_v2(packages, pkg, root_is_local_dir)
+    } else {
+        anyhow::bail!("Mix of webc v2 and v3 in the same dependency tree is not supported");
     }
 }
 
