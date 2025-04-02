@@ -98,9 +98,9 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
 pub fn emit_data(
     obj: &mut Object,
     name: &[u8],
+    data: &[u8],
     align: u64,
-    relocs_builder: &mut ObjectMetadataBuilder,
-) -> Result<(), ObjectError> {
+) -> Result<u64, ObjectError> {
     let symbol_id = obj.add_symbol(ObjSymbol {
         name: name.to_vec(),
         value: 0,
@@ -112,15 +112,9 @@ pub fn emit_data(
         flags: SymbolFlags::None,
     });
     let section_id = obj.section_id(StandardSection::Data);
-    let offset = obj.add_symbol_data(
-        symbol_id,
-        section_id,
-        relocs_builder.placeholder_data(),
-        align,
-    );
-    relocs_builder.set_section_offset(offset);
+    let offset = obj.add_symbol_data(symbol_id, section_id, data, align);
 
-    Ok(())
+    Ok(offset)
 }
 
 /// Emit the compilation result into an existing object.
@@ -130,15 +124,16 @@ pub fn emit_data(
 /// ```rust
 /// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
 /// # use wasmer_types::target::Triple;
-/// # use wasmer_compiler::object::{ObjectError, get_object_for_target, emit_compilation};
+/// # use wasmer_compiler::object::{ObjectError, ObjectMetadataBuilder, get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
 /// #     triple: &Triple,
 /// #     compilation: Compilation,
+/// #     builder: ObjectMetadataBuilder,
 /// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
 /// let mut object = get_object_for_target(&triple)?;
-/// emit_compilation(&mut object, compilation, &symbol_registry, &triple)?;
+/// emit_compilation(&mut object, compilation, &symbol_registry, &triple, &builder)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -574,7 +569,8 @@ impl ObjectMetadataBuilder {
         Ok(aself)
     }
 
-    fn set_section_offset(&mut self, offset: u64) {
+    /// Sets section offset used in relocations
+    pub fn set_section_offset(&mut self, offset: u64) {
         self.section_offset = offset;
     }
 

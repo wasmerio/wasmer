@@ -1093,8 +1093,14 @@ impl Artifact {
         }
         .symbol_to_name(crate::types::symbols::Symbol::Metadata);
 
-        emit_data(&mut obj, object_name.as_bytes(), 1, &mut metadata_builder)
-            .map_err(to_compile_error)?;
+        let offset = emit_data(
+            &mut obj,
+            object_name.as_bytes(),
+            metadata_builder.placeholder_data(),
+            1,
+        )
+        .map_err(to_compile_error)?;
+        metadata_builder.set_section_offset(offset);
 
         emit_compilation(
             &mut obj,
