@@ -98,8 +98,12 @@ impl FuncTranslator {
         // The function type, used for the callbacks.
         let function = CompiledKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
+        let function_name = match wasm_module.function_names.get(&func_index) {
+            Some(f) => f.to_string(),
+            None => symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index)),
+        };
+
+        let is_start = function_name == "_start";
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {function_name}"),
             Some(module_name) => format!("module {module_name} function {function_name}"),
@@ -119,9 +123,13 @@ impl FuncTranslator {
         // TODO: pointer width
         let offsets = VMOffsets::new(8, wasm_module);
         let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
-        let (func_type, func_attrs) =
-            self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, Some(&offsets), wasm_fn_type)?;
+        let (func_type, func_attrs) = self.abi.func_type_to_llvm(
+            &self.ctx,
+            &intrinsics,
+            Some(&offsets),
+            wasm_fn_type,
+            !is_start,
+        )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
         for (attr, attr_loc) in &func_attrs {
@@ -164,6 +172,35 @@ impl FuncTranslator {
         cache_builder.position_before(&br);
         builder.position_at_end(start_of_code);
 
+        let mut codegen_ctx = CtxType::new(wasm_module, &func, &cache_builder, &*self.abi);
+
+        let g0 = if !is_start {
+            self.abi.get_g0_ptr_param(&func)
+        } else {
+            match codegen_ctx.global(GlobalIndex::from_u32(0), &intrinsics, &module)? {
+                GlobalCache::Mut { ptr_to_value, .. } => ptr_to_value.clone(),
+                _ => panic!(),
+            }
+        };
+
+        let str = self.ctx.const_string(function_name.as_bytes(), true);
+
+        // Define the type for the global string:
+        // an array of i8 with length equal to the string length plus one for the null terminator.
+        let array_type = intrinsics.i8_ty.array_type(function_name.len() as u32 + 1);
+
+        // Add a global variable of the array type to the module.
+        let global_string = module.add_global(array_type, None, "global_string");
+
+        // Set the initializer of the global to the constant string.
+        global_string.set_initializer(&str);
+
+        //err!(cache_builder.build_call(
+        //    intrinsics.debug_str,
+        //    &[global_string.as_pointer_value().into()],
+        //    ""
+        //));
+
         let mut state = State::new();
         builder.position_at_end(return_);
         let phis: SmallVec<[PhiValue; 1]> = wasm_fn_type
@@ -189,13 +226,13 @@ impl FuncTranslator {
         let mut params = vec![];
         let first_param =
             if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
-                2
+                3
             } else {
-                1
+                2
             };
         let mut is_first_alloca = true;
-        let mut insert_alloca = |ty, name| -> Result<PointerValue, CompileError> {
-            let alloca = err!(alloca_builder.build_alloca(ty, name));
+        let mut insert_alloca = |ty, name: String| -> Result<PointerValue, CompileError> {
+            let alloca = err!(alloca_builder.build_alloca(ty, &name));
             if is_first_alloca {
                 alloca_builder.position_at(entry, &alloca.as_instruction_value().unwrap());
                 is_first_alloca = false;
@@ -209,7 +246,7 @@ impl FuncTranslator {
             let value = func
                 .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
-            let alloca = insert_alloca(ty, "param")?;
+            let alloca = insert_alloca(ty, format!("param_{idx}"))?;
             err!(cache_builder.build_store(alloca, value));
             params.push((ty, alloca));
         }
@@ -220,8 +257,8 @@ impl FuncTranslator {
             let (count, ty) = reader.read_local_decl()?;
             let ty = err!(wptype_to_type(ty));
             let ty = type_to_llvm(&intrinsics, ty)?;
-            for _ in 0..count {
-                let alloca = insert_alloca(ty, "local")?;
+            for i in 0..count {
+                let alloca = insert_alloca(ty, format!("local_{i}"))?;
                 err!(cache_builder.build_store(alloca, ty.const_zero()));
                 locals.push((ty, alloca));
             }
@@ -229,8 +266,10 @@ impl FuncTranslator {
 
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
+        //eprintln!("{function_name} -- params_locals: {params_locals:#?}");
 
         let mut fcg = LLVMFunctionCodeGenerator {
+            g0,
             context: &self.ctx,
             builder,
             alloca_builder,
@@ -238,7 +277,7 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(wasm_module, &func, &cache_builder, &*self.abi),
+            ctx: codegen_ctx,
             unreachable_depth: 0,
             memory_styles,
             _table_styles,
@@ -271,6 +310,26 @@ impl FuncTranslator {
             fcg.translate_operator(op, pos)?;
         }
 
+        let str = self
+            .ctx
+            .const_string(format!("{function_name}_end").as_bytes(), true);
+
+        // Define the type for the global string:
+        // an array of i8 with length equal to the string length plus one for the null terminator.
+        let array_type = intrinsics.i8_ty.array_type(function_name.len() as u32 + 5);
+
+        // Add a global variable of the array type to the module.
+        let global_string = module.add_global(array_type, None, "global_string");
+
+        // Set the initializer of the global to the constant string.
+        global_string.set_initializer(&str);
+
+        //err!(fcg.builder.build_call(
+        //    intrinsics.debug_str,
+        //    &[global_string.as_pointer_value().into()],
+        //    ""
+        //));
+
         fcg.finalize(wasm_fn_type)?;
 
         if let Some(ref callbacks) = config.callbacks {
@@ -279,9 +338,9 @@ impl FuncTranslator {
 
         let mut passes = vec![];
 
-        if config.enable_verifier {
-            passes.push("verify");
-        }
+        //if config.enable_verifier {
+        passes.push("verify");
+        // }
 
         passes.push("sccp");
         passes.push("early-cse");
@@ -310,6 +369,16 @@ impl FuncTranslator {
         passes.push("simplifycfg");
         passes.push("mem2reg");
 
+        let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            let path = std::path::Path::new(llvm_dump_path);
+            if !path.exists() {
+                std::fs::create_dir_all(path).unwrap()
+            }
+            let path = path.join(format!("{function_name}.ll"));
+            _ = module.print_to_file(path).unwrap();
+        }
+
         module
             .run_passes(
                 passes.join(",").as_str(),
@@ -317,6 +386,14 @@ impl FuncTranslator {
                 PassBuilderOptions::create(),
             )
             .unwrap();
+
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            if !passes.is_empty() {
+                let path =
+                    std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
+                _ = module.print_to_file(path).unwrap();
+            }
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -364,7 +441,7 @@ impl FuncTranslator {
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &str| {
                 Ok({
-                    let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
+                    let mut name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
                         if name.starts_with("_") {
                             name.replacen("_", "", 1)
                         } else {
@@ -373,6 +450,17 @@ impl FuncTranslator {
                     } else {
                         name.to_string()
                     };
+
+                    for (k, v) in wasm_module.function_names.iter() {
+                        if v == &name {
+                            if let Some(index) = wasm_module.local_func_index(*k) {
+                                name = format!("f{}", index.as_u32());
+                            }
+
+                            break;
+                        }
+                    }
+
                     if let Some(Symbol::LocalFunction(local_func_index)) =
                         symbol_registry.name_to_symbol(&name)
                     {
@@ -1573,6 +1661,7 @@ fn finalize_opcode_stack_map<'ctx>(
  */
 
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
+    g0: PointerValue<'ctx>,
     context: &'ctx Context,
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
@@ -1623,6 +1712,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         // TODO: remove this vmctx by moving everything into CtxType. Values
         // computed off vmctx usually benefit from caching.
         let vmctx = &self.ctx.basic().into_pointer_value();
+        let g0 = &self.g0;
 
         //let opcode_offset: Option<usize> = None;
 
@@ -2271,7 +2361,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             // Operate on self.locals.
             Operator::LocalGet { local_index } => {
                 let (type_value, pointer_value) = self.locals[local_index as usize];
-                let v = err!(self.builder.build_load(type_value, pointer_value, ""));
+                let v = err!(self.builder.build_load(
+                    type_value,
+                    pointer_value,
+                    &format!("local.get{local_index}")
+                ));
                 tbaa_label(
                     self.module,
                     self.intrinsics,
@@ -2404,6 +2498,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
+                let mut callee_g0 = None;
 
                 let FunctionCache {
                     func,
@@ -2411,9 +2506,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    let function_name = self
-                        .symbol_registry
-                        .symbol_to_name(Symbol::LocalFunction(local_func_index));
+                    callee_g0 = Some(g0.clone());
+
+                    let function_name = match self.wasm_module.function_names.get(&func_index) {
+                        Some(f) => f.to_string(),
+                        None => self
+                            .symbol_registry
+                            .symbol_to_name(Symbol::LocalFunction(local_func_index)),
+                    };
+
                     self.ctx.local_func(
                         local_func_index,
                         func_index,
@@ -2466,6 +2567,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     callee_vmctx.into_pointer_value(),
                     params.as_slice(),
                     self.intrinsics,
+                    callee_g0,
                 )?;
 
                 /*
@@ -2756,17 +2858,49 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(continue_block);
 
+                /* todo here  */
+
+                let foreign_idx_block = self
+                    .context
+                    .append_basic_block(self.function, "foreign_call_block");
+                let local_idx_block = self
+                    .context
+                    .append_basic_block(self.function, "local_call_block");
+                let cont = self.context.append_basic_block(self.function, "cont");
+
+                let num_imported_functions = self
+                    .context
+                    .i32_type()
+                    .const_int(self.wasm_module.num_imported_functions as u64, true);
+
+                let cmp = err!(self.builder.build_int_compare(
+                    IntPredicate::UGE,
+                    func_index,
+                    num_imported_functions,
+                    "cmp"
+                ));
+
+                err!(self.builder.build_conditional_branch(
+                    cmp,
+                    local_idx_block,
+                    foreign_idx_block
+                ));
+
+                //let current_block = self.builder.get_insert_block().unwrap();
+                self.builder.position_at_end(local_idx_block);
+
                 let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
                     self.context,
                     self.intrinsics,
                     Some(self.ctx.get_offsets()),
                     func_type,
+                    true,
                 )?;
 
-                let params = self.state.popn_save_extra(func_type.params().len())?;
+                let lcl_params = self.state.popn_save_extra(func_type.params().len())?;
 
                 // Apply pending canonicalizations.
-                let params = params
+                let params = lcl_params
                     .iter()
                     .zip(func_type.params().iter())
                     .map(|((v, info), wasm_ty)| match wasm_ty {
@@ -2792,6 +2926,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     ctx_ptr.into_pointer_value(),
                     params.as_slice(),
                     self.intrinsics,
+                    Some(g0.clone()),
                 )?;
 
                 let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -2820,7 +2955,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                let call_site = if let Some(lpad) = self.state.get_landingpad() {
+                let call_site_local = if let Some(lpad) = self.state.get_landingpad() {
                     let then_block = self.context.append_basic_block(self.function, "then_block");
 
                     let ret = err!(self.builder.build_indirect_invoke(
@@ -2848,7 +2983,129 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     ))
                 };
                 for (attr, attr_loc) in llvm_func_attrs {
-                    call_site.add_attribute(attr_loc, attr);
+                    call_site_local.add_attribute(attr_loc, attr);
+                }
+                /*
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        finalize_opcode_stack_map(
+                            self.intrinsics,
+                            self.builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            offset,
+                        )
+                    }
+                }
+                */
+                let local_rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    call_site_local,
+                    func_type,
+                )?;
+
+                err!(self.builder.build_unconditional_branch(cont));
+
+                self.builder.position_at_end(foreign_idx_block);
+
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    self.context,
+                    self.intrinsics,
+                    Some(self.ctx.get_offsets()),
+                    func_type,
+                    false, // <- Duplicate for both variants..
+                )?;
+
+                //let params = self.state.popn_save_extra(func_type.params().len())?;
+
+                // Apply pending canonicalizations.
+                let params = lcl_params
+                    .iter()
+                    .zip(func_type.params().iter())
+                    .map(|((v, info), wasm_ty)| match wasm_ty {
+                        Type::F32 => err_nt!(self.builder.build_bit_cast(
+                            self.apply_pending_canonicalization(*v, *info)?,
+                            self.intrinsics.f32_ty,
+                            "",
+                        )),
+                        Type::F64 => err_nt!(self.builder.build_bit_cast(
+                            self.apply_pending_canonicalization(*v, *info)?,
+                            self.intrinsics.f64_ty,
+                            "",
+                        )),
+                        Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                        _ => Ok(*v),
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let params = self.abi.args_to_call(
+                    &self.alloca_builder,
+                    func_type,
+                    &llvm_func_type,
+                    ctx_ptr.into_pointer_value(),
+                    params.as_slice(),
+                    self.intrinsics,
+                    None,
+                )?;
+
+                let typed_func_ptr = err!(self.builder.build_pointer_cast(
+                    func_ptr,
+                    self.context.ptr_type(AddressSpace::default()),
+                    "typed_func_ptr",
+                ));
+
+                /*
+                if self.track_state {
+                    if let Some(offset) = opcode_offset {
+                        let mut stackmaps = self.stackmaps.borrow_mut();
+                        emit_stack_map(
+                            &info,
+                            self.intrinsics,
+                            self.builder,
+                            self.index,
+                            &mut *stackmaps,
+                            StackmapEntryKind::Call,
+                            &self.locals,
+                            state,
+                            ctx,
+                            offset,
+                        )
+                    }
+                }
+                */
+
+                let call_site_foreign = if let Some(lpad) = self.state.get_landingpad() {
+                    let then_block = self.context.append_basic_block(self.function, "then_block");
+
+                    let ret = err!(self.builder.build_indirect_invoke(
+                        llvm_func_type,
+                        typed_func_ptr,
+                        params.as_slice(),
+                        then_block,
+                        lpad,
+                        "",
+                    ));
+
+                    self.builder.position_at_end(then_block);
+                    ret
+                } else {
+                    err!(self.builder.build_indirect_call(
+                        llvm_func_type,
+                        typed_func_ptr,
+                        params
+                            .iter()
+                            .copied()
+                            .map(Into::into)
+                            .collect::<Vec<BasicMetadataValueEnum>>()
+                            .as_slice(),
+                        "indirect_call",
+                    ))
+                };
+                for (attr, attr_loc) in llvm_func_attrs {
+                    call_site_foreign.add_attribute(attr_loc, attr);
                 }
                 /*
                 if self.track_state {
@@ -2866,12 +3123,26 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                self.abi
-                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                    .iter()
-                    .for_each(|ret| self.state.push1(*ret));
-            }
+                let foreign_rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    call_site_foreign,
+                    func_type,
+                )?;
 
+                err!(self.builder.build_unconditional_branch(cont));
+
+                self.builder.position_at_end(cont);
+
+                for i in 0..foreign_rets.len() {
+                    let f_i = foreign_rets[i];
+                    let l_i = local_rets[i];
+                    let ty = f_i.get_type();
+                    let v = err!(self.builder.build_phi(ty, ""));
+                    v.add_incoming(&[(&f_i, foreign_idx_block), (&l_i, local_idx_block)]);
+                    self.state.push1(v.as_basic_value());
+                }
+            }
             /***************************
              * Integer Arithmetic instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#integer-arithmetic-instructions

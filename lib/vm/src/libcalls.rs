@@ -693,6 +693,26 @@ pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
     }
 }
 
+/// (debug) Print an usize.
+#[no_mangle]
+pub extern "C-unwind" fn wasmer_vm_dbg_str(mut ptr: *const u8) {
+    if !ptr.is_null() {
+        let mut chars = vec![];
+        unsafe {
+            while (*ptr) != 0 {
+                chars.push(*ptr);
+                ptr = ptr.add(1);
+            }
+
+            if let Ok(x) = String::from_utf8(chars) {
+                println!("{x}")
+            } else {
+                println!("err!")
+            }
+        }
+    }
+}
+
 /// Implementation for allocating an exception.
 #[no_mangle]
 pub extern "C-unwind" fn wasmer_vm_alloc_exception(size: usize) -> u64 {
@@ -936,5 +956,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::DeleteException => wasmer_vm_delete_exception as usize,
         LibCall::ReadException => wasmer_vm_read_exception as usize,
         LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
+        LibCall::DebugStr => wasmer_vm_dbg_str as usize,
     }
 }

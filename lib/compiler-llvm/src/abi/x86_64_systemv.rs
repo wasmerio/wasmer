@@ -36,6 +36,12 @@ impl Abi for X86_64SystemV {
             .into_pointer_value()
     }
 
+    /// Given a function definition, retrieve the parameter that is the pointer to the first --
+    /// number 0 -- local global.
+    fn get_g0_ptr_param<'ctx>(&self, _func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+        todo!()
+    }
+
     // Given a wasm function type, produce an llvm function declaration.
     fn func_type_to_llvm<'ctx>(
         &self,
@@ -43,6 +49,7 @@ impl Abi for X86_64SystemV {
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
+        _is_local: bool
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
@@ -296,6 +303,7 @@ impl Abi for X86_64SystemV {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
+        _g0: Option<PointerValue<'ctx>>
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
         // If it's an sret, allocate the return space.
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {

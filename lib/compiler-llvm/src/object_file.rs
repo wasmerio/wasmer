@@ -83,6 +83,7 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_delete_exception" => LibCall::DeleteException,
     "wasmer_vm_read_exception" => LibCall::ReadException,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "wasmer_vm_dbg_str" => LibCall::DebugStr,
     "wasmer_eh_personality" => LibCall::EHPersonality,
 };
 
@@ -137,6 +138,7 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_delete_exception" => LibCall::DeleteException,
     "_wasmer_vm_read_exception" => LibCall::ReadException,
     "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "_wasmer_vm_dbg_str" => LibCall::DebugStr,
     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
     // will generate things differently than "normal", wreaking havoc.
     //

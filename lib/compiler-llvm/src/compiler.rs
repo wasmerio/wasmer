@@ -273,6 +273,12 @@ impl Compiler for LLVMCompiler {
             HashSet::default()
         };
 
+        //module
+        //    .function_names
+        //    .iter()
+        //    .sorted_by_key(|(k, _)| **k)
+        //    .for_each(|(i, s)| eprintln!("{i:?} => {s}"));
+
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()

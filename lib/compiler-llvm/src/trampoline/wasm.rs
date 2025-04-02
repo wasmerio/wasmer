@@ -72,7 +72,7 @@ impl FuncTrampoline {
 
         let (callee_ty, callee_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, false)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ptr_ty.into(), // vmctx ptr
@@ -222,7 +222,7 @@ impl FuncTrampoline {
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, false)?;
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
@@ -248,6 +248,21 @@ impl FuncTrampoline {
             passes.push("verify");
         }
 
+        let trampoline_ty_str = trampoline_ty
+            .to_string()
+            .replace(" ", "_")
+            .replace("\"", "");
+
+        let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            let path = std::path::Path::new(llvm_dump_path);
+            if !path.exists() {
+                std::fs::create_dir_all(path).unwrap()
+            }
+            let path = path.join(format!("trmpl_{trampoline_ty_str}.ll"));
+            _ = module.print_to_file(path).unwrap();
+        }
+
         passes.push("early-cse");
         module
             .run_passes(
@@ -256,6 +271,14 @@ impl FuncTrampoline {
                 PassBuilderOptions::create(),
             )
             .unwrap();
+
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            if !passes.is_empty() {
+                let path = std::path::Path::new(llvm_dump_path)
+                    .join(format!("trmpl_{trampoline_ty_str}_opt.ll"));
+                _ = module.print_to_file(path).unwrap();
+            }
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);

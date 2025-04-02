@@ -29,7 +29,7 @@ macro_rules! wasi_try_ok {
                 val
             }
             Err(err) => {
-                //tracing::debug!("wasi::wasi_try_ok::err: {:?}", err);
+                tracing::debug!("wasi::wasi_try_ok::err: {:?}", err);
                 return Ok(err);
             }
         }
