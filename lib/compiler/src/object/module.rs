@@ -483,12 +483,6 @@ pub fn emit_serialized(
     Ok(())
 }
 
-/// FunctionRelocsBuilder uses information from a ModuleInfo to build
-/// a table of functions, trampolines and dynamic function trampoline
-/// pointers. A linker can then rely on this information to fill in actual
-/// addresses of functions automatically. There is no need for serialized
-/// data generation in C header file.
-
 /// ObjectMetadataBuilder builds serialized module metadata include in
 /// an object. In addition, it also relies on information from ModuleInfo
 /// to build a table of function pointers, trmampolines and dynamic function
