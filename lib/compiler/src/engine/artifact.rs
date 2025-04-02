@@ -29,7 +29,9 @@ use shared_buffer::OwnedBuffer;
 use std::mem;
 
 #[cfg(feature = "static-artifact-create")]
-use crate::object::{emit_compilation, emit_data, get_object_for_target, Object};
+use crate::object::{
+    emit_compilation, emit_data, get_object_for_target, Object, ObjectMetadataBuilder,
+};
 
 #[cfg(feature = "compiler")]
 use wasmer_types::HashAlgorithm;
@@ -1073,10 +1075,8 @@ impl Artifact {
         - SignatureIndex -> VMSharedSignatureindextureIndex // signatures
          */
 
-        let serialized_data = metadata.serialize().map_err(to_compile_error)?;
-        let mut metadata_binary = vec![];
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
-        metadata_binary.extend(serialized_data);
+        let mut metadata_builder =
+            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
 
         let (_compile_info, symbol_registry) = metadata.split();
 
@@ -1093,15 +1093,21 @@ impl Artifact {
         }
         .symbol_to_name(crate::types::symbols::Symbol::Metadata);
 
-        emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
+        emit_data(&mut obj, object_name.as_bytes(), 1, &mut metadata_builder)
             .map_err(to_compile_error)?;
 
-        emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
-            .map_err(to_compile_error)?;
+        emit_compilation(
+            &mut obj,
+            compilation,
+            &symbol_registry,
+            target_triple,
+            &metadata_builder,
+        )
+        .map_err(to_compile_error)?;
         Ok((
             Arc::try_unwrap(metadata.compile_info.module).unwrap(),
             obj,
-            metadata_binary.len(),
+            metadata_builder.placeholder_data().len(),
             Box::new(symbol_registry),
         ))
     }
