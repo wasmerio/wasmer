@@ -664,6 +664,8 @@
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -1052,8 +1054,10 @@
 
     <span class="kw">if </span>found_v3 &amp;&amp; !found_v2 {
         filesystem_v3(packages, pkg, root_is_local_dir)
-    } <span class="kw">else </span>{
+    } <span class="kw">else if </span>found_v2 &amp;&amp; !found_v3 {
         filesystem_v2(packages, pkg, root_is_local_dir)
+    } <span class="kw">else </span>{
+        <span class="macro">anyhow::bail!</span>(<span class="string">"Mix of webc v2 and v3 in the same dependency tree is not supported"</span>);
     }
 }
 
