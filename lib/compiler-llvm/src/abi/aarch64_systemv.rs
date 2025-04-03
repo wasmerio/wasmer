@@ -31,14 +31,14 @@ impl Abi for Aarch64SystemV {
                     .is_some(),
             ))
             .unwrap();
-        param.set_name("vmctx");
+        //param.set_name("vmctx");
 
         param.into_pointer_value()
     }
 
     /// Given a function definition, retrieve the parameter that is the pointer to the first --
     /// number 0 -- local global.
-    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx> {
         // g0 is always after the vmctx.
         let vmctx_idx = u32::from(
             func_value
@@ -52,7 +52,7 @@ impl Abi for Aarch64SystemV {
         let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
         param.set_name("g0_ptr");
 
-        param.into_pointer_value()
+        param.into_int_value()
     }
 
     // Given a wasm function type, produce an llvm function declaration.
@@ -68,12 +68,12 @@ impl Abi for Aarch64SystemV {
 
         let mut param_types = vec![Ok(intrinsics.ptr_ty.as_basic_type_enum())];
         if is_local {
-            param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
+            param_types.push(Ok(intrinsics.i32_ty.as_basic_type_enum()));
         }
         let param_types = param_types.into_iter().chain(user_param_types);
 
         let vmctx_attributes = |i: u32| {
-            let mut ret = vec![
+            let ret = vec![
                 (
                     context.create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
                     AttributeLoc::Param(i),
@@ -101,20 +101,20 @@ impl Abi for Aarch64SystemV {
                 ),
             ];
 
-            if is_local {
-                ret.append(&mut vec![
-                    (
-                        context
-                            .create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
-                        AttributeLoc::Param(i + 1),
-                    ),
-                    (
-                        context
-                            .create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0),
-                        AttributeLoc::Param(i + 1),
-                    ),
-                ]);
-            }
+            //if is_local {
+            //    ret.append(&mut vec![
+            //        (
+            //            context
+            //                .create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
+            //            AttributeLoc::Param(i + 1),
+            //        ),
+            //        (
+            //            context
+            //                .create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0),
+            //            AttributeLoc::Param(i + 1),
+            //        ),
+            //    ]);
+            //}
 
             ret
         };
@@ -303,7 +303,7 @@ impl Abi for Aarch64SystemV {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
-        g0: Option<PointerValue<'ctx>>,
+        g0: Option<IntValue<'ctx>>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
         // If it's an sret, allocate the return space.
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {

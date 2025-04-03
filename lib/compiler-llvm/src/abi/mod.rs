@@ -12,7 +12,7 @@ use inkwell::{
     context::Context,
     targets::TargetMachine,
     types::FunctionType,
-    values::{BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
+    values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
 };
 use wasmer_types::CompileError;
 use wasmer_types::FunctionType as FuncSig;
@@ -48,7 +48,7 @@ pub trait Abi {
     /// Given a function definition, retrieve the parameter that is the pointer to the first --
     /// number 0 -- local global.
     #[allow(unused)]
-    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx>;
+    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx>;
 
     /// Given a wasm function type, produce an llvm function declaration.
     fn func_type_to_llvm<'ctx>(
@@ -57,7 +57,7 @@ pub trait Abi {
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
-        is_local: bool
+        is_local: bool,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError>;
 
     /// Marshall wasm stack values into function parameters.
@@ -69,7 +69,7 @@ pub trait Abi {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
-        g0: Option<PointerValue<'ctx>>
+        g0: Option<IntValue<'ctx>>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError>;
 
     /// Given a CallSite, extract the returned values and return them in a Vec.

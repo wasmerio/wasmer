@@ -1040,7 +1040,7 @@ impl<'ctx> Intrinsics<'ctx> {
 
             debug_ptr: module.add_function(
                 "wasmer_vm_dbg_usize",
-                void_ty.fn_type(&[ptr_ty.into()], false),
+                void_ty.fn_type(&[i32_ty.into()], false),
                 None,
             ),
             debug_str: module.add_function(
@@ -1292,7 +1292,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                                 intrinsics.i8_ty,
                                 ctx_ptr_value,
                                 &[offset],
-                                &format!("mem_{}_def_ptr", index.as_u32()),
+                                ""
                             ))
                         }
                     } else {
@@ -1303,19 +1303,19 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                                 intrinsics.i8_ty,
                                 ctx_ptr_value,
                                 &[offset],
-                                &format!("mem_{}_def_ptr_ptr", index.as_u32()),
+                                ""
                             ))
                         };
                         let memory_definition_ptr_ptr = err!(cache_builder.build_bit_cast(
                             memory_definition_ptr_ptr,
                             intrinsics.ptr_ty,
-                            &format!("mem_{}_def_ptr_ptr_cast", index.as_u32()),
+                            "",
                         ))
                         .into_pointer_value();
                         let memory_definition_ptr = err!(cache_builder.build_load(
                             intrinsics.ptr_ty,
                             memory_definition_ptr_ptr,
-                            &format!("mem_{}_def_ptr", index.as_u32()),
+                            ""
                         ))
                         .into_pointer_value();
                         tbaa_label(
@@ -1329,33 +1329,29 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let memory_definition_ptr = err!(cache_builder.build_bit_cast(
                     memory_definition_ptr,
                     intrinsics.ptr_ty,
-                    &format!("mem_{}_def_ptr_cast", index.as_u32()),
+                    "",
                 ))
                 .into_pointer_value();
                 let base_ptr = err!(cache_builder.build_struct_gep(
                     intrinsics.vmmemory_definition_ty,
                     memory_definition_ptr,
                     intrinsics.vmmemory_definition_base_element,
-                    &format!("mem_{}_def_base_ptr_ptr", index.as_u32()),
+                    "",
                 ));
                 let value = if let MemoryStyle::Dynamic { .. } = memory_style {
                     let current_length_ptr = err!(cache_builder.build_struct_gep(
                         intrinsics.vmmemory_definition_ty,
                         memory_definition_ptr,
                         intrinsics.vmmemory_definition_current_length_element,
-                        &format!("mem_{}_current_length_ptr", index.as_u32()),
+                        "",
                     ));
                     MemoryCache::Dynamic {
                         ptr_to_base_ptr: base_ptr,
                         ptr_to_current_length: current_length_ptr,
                     }
                 } else {
-                    let base_ptr = err!(cache_builder.build_load(
-                        intrinsics.ptr_ty,
-                        base_ptr,
-                        &format!("mem_{}_base_ptr", index.as_u32()),
-                    ))
-                    .into_pointer_value();
+                    let base_ptr = err!(cache_builder.build_load(intrinsics.ptr_ty, base_ptr, ""))
+                        .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
@@ -1616,21 +1612,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                             intrinsics.i8_ty,
                             ctx_ptr_value,
                             &[offset],
-                            &format!("global_{}_ptr_ptr", index.as_u32())
+                            ""
                         ))
                     };
-                    let global_ptr_ptr = err!(cache_builder.build_bit_cast(
-                        global_ptr_ptr,
-                        intrinsics.ptr_ty,
-                        &format!("global_{}_ptr_ptr_cast", index.as_u32())
-                    ))
-                    .into_pointer_value();
-                    let global_ptr = err!(cache_builder.build_load(
-                        intrinsics.ptr_ty,
-                        global_ptr_ptr,
-                        &format!("explicitly_loaded_g{}_ptr", index.as_u32())
-                    ))
-                    .into_pointer_value();
+                    let global_ptr_ptr =
+                        err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
+                            .into_pointer_value();
+                    let global_ptr =
+                        err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
+                            .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
@@ -1642,7 +1632,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let global_ptr = err!(cache_builder.build_bit_cast(
                     global_ptr,
                     type_to_llvm_ptr(intrinsics, global_value_type)?,
-                    &format!("explicitly_loaded_g{}_ptr_cast", index.as_u32())
+                    "",
                 ))
                 .into_pointer_value();
 
@@ -1651,7 +1641,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         let value = err!(cache_builder.build_load(
                             type_to_llvm(intrinsics, global_value_type)?,
                             global_ptr,
-                            &format!("explicitly_loaded_g{}", index.as_u32()),
+                            "",
                         ));
                         tbaa_label(
                             module,

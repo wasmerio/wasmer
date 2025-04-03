@@ -30,7 +30,9 @@ pub fn fd_write<M: MemorySize>(
     iovs_len: M::Offset,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    tracing::info!("About to do process_signals_and_exit...");
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    tracing::info!("About to do process_signals_and_exit...done!");
 
     let env = ctx.data();
     let enable_journal = env.enable_journal;
@@ -120,6 +122,7 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
 }
 
 #[allow(clippy::await_holding_lock)]
+#[instrument(level = "trace", skip(data), ret)]
 pub(crate) fn fd_write_internal<M: MemorySize>(
     mut ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -132,13 +135,21 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     let mut env = ctx.data();
     let state = env.state.clone();
 
+    tracing::info!("Getting fd entry...");
     let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
+    tracing::info!("Got it!");
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_written = {
+        tracing::info!("checking rights..");
         if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_WRITE) {
+            tracing::info!(
+                "wrong: {is_stdio} --  {}",
+                fd_entry.inner.rights.contains(Rights::FD_WRITE)
+            );
             return Ok(Err(Errno::Access));
         }
+        tracing::info!("oki!");
 
         let fd_flags = fd_entry.inner.flags;
         let mut memory = unsafe { env.memory_view(&ctx) };
@@ -168,10 +179,14 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                         fd_entry.inner.offset.store(offset, Ordering::Release);
                                     }
 
+                                    tracing::info!("handle seekkkk....");
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset))
                                         .await
-                                        .map_err(map_io_err)?;
+                                        .map_err(|v| {
+                                            tracing::info!("io err: {v:?}");
+                                            map_io_err(v)
+                                        })?;
                                 }
 
                                 let mut written = 0usize;
@@ -287,12 +302,15 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             let iovs_arr = wasi_try_ok_ok!(iovs
                                 .slice(&memory, *iovs_len)
                                 .map_err(mem_error_to_wasi));
+                            tracing::info!("iovs_arr");
                             let iovs_arr =
                                 wasi_try_ok_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
                             for iovs in iovs_arr.iter() {
+                                tracing::info!("iovs.buf");
                                 let buf = wasi_try_ok_ok!(WasmPtr::<u8, M>::new(iovs.buf)
                                     .slice(&memory, iovs.buf_len)
                                     .map_err(mem_error_to_wasi));
+                                tracing::info!("iovs.buf2");
                                 let buf = wasi_try_ok_ok!(buf.access().map_err(mem_error_to_wasi));
                                 let write_result = std::io::Write::write(tx, buf.as_ref());
                                 let local_written = match write_result {
@@ -302,7 +320,10 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                         raise_sigpipe = true;
                                         break;
                                     }
-                                    Err(e) => return Ok(Err(map_io_err(e))),
+                                    Err(e) => {
+                                        tracing::info!("write_result...");
+                                        return Ok(Err(map_io_err(e)));
+                                    }
                                 };
 
                                 written += local_written;

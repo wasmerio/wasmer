@@ -38,7 +38,7 @@ impl Abi for X86_64SystemV {
 
     /// Given a function definition, retrieve the parameter that is the pointer to the first --
     /// number 0 -- local global.
-    fn get_g0_ptr_param<'ctx>(&self, _func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+    fn get_g0_ptr_param<'ctx>(&self, _func_value: &FunctionValue<'ctx>) -> IntValue<'ctx> {
         todo!()
     }
 
@@ -303,7 +303,7 @@ impl Abi for X86_64SystemV {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
-        _g0: Option<PointerValue<'ctx>>
+        _g0: Option<IntValue<'ctx>>
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
         // If it's an sret, allocate the return space.
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {

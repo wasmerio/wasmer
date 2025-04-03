@@ -686,7 +686,7 @@ pub unsafe extern "C-unwind" fn wasmer_vm_rethrow(exc: *mut UwExceptionWrapper) 
 
 /// (debug) Print an usize.
 #[no_mangle]
-pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
+pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: i32) {
     #[allow(clippy::print_stdout)]
     {
         println!("wasmer_vm_dbg_usize: {value}");
