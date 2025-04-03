@@ -69,8 +69,13 @@ static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
 static WEBC_WEB_SERVER: &[u8] = include_bytes!(
     "./webc/static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc"
 );
+static WEBC_WEB_SERVER_OPCODES: &'static [u8] = include_bytes!(
+    "./webc/static-web-server-opcodes-1.0.8-454915f4-2823-4ddf-a784-1c5f58950c46.webc"
+);
 static WEBC_WASMER_SH: &[u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
+static WEBC_WASMER_SH_OPCODES: &'static [u8] =
+    include_bytes!("./webc/wasmer-sh-opcodes-1.0.63-f3551836-16c9-4ccd-83bd-ab697efe5dcd.webc");
 
 impl std::fmt::Debug for TestSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -770,6 +775,103 @@ fn test_snapshot_web_server_epoll() {
         include_bytes!("./wasm/web-server-epoll.wasm"),
         Box::new(with),
     );
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_web_server_opcodes() {
+    let with_inner = || {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+
+        let http_get = |url, max_retries| {
+            rt.block_on(async move {
+                for n in 0..(max_retries+1) {
+                    println!("http request: {}", url);
+                    tokio::select! {
+                        resp = reqwest::get(url) => {
+                            let resp = match resp {
+                                Ok(a) => a,
+                                Err(_) if n < max_retries => {
+                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                    continue;
+                                }
+                                Err(err) => return Err(err.into())
+                            };
+                            if resp.status().is_success() == false {
+                                return Err(anyhow::format_err!("incorrect status code: {}", resp.status()));
+                            }
+                            return Ok(resp.bytes().await?);
+                        }
+                        _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
+                            eprintln!("retrying request... ({} attempts)", n);
+                            continue;
+                        }
+                    }
+                }
+                Err(anyhow::format_err!("timeout while performing HTTP request"))
+            })
+        };
+
+        let expected_size = usize::from_str_radix(
+            String::from_utf8_lossy(http_get("http://localhost:7778/main.js.size", 50)?.as_ref())
+                .trim(),
+            10,
+        )?;
+        if expected_size == 0 {
+            return Err(anyhow::format_err!("There was no data returned"));
+        }
+        println!("expected_size: {}", expected_size);
+
+        let reference_data = http_get("http://localhost:7778/main.js", 0)?;
+        for _ in 0..20 {
+            let test_data = http_get("http://localhost:7778/main.js", 0)?;
+            println!("actual_size: {}", test_data.len());
+
+            if expected_size != test_data.len() {
+                return Err(anyhow::format_err!(
+                    "The actual size and expected size does not match {} vs {}",
+                    test_data.len(),
+                    expected_size
+                ));
+            }
+            if test_data
+                .iter()
+                .zip(reference_data.iter())
+                .any(|(a, b)| a != b)
+            {
+                return Err(anyhow::format_err!("The returned data is inconsistent"));
+            }
+        }
+
+        Ok(0)
+    };
+
+    let with = move |mut child: Child| {
+        let ret = with_inner();
+        child.kill().ok();
+        ret
+    };
+
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .enable_network(true)
+        .include_static_package(
+            "sharrattj/static-web-server-opcodes@1.0.8",
+            WEBC_WEB_SERVER_OPCODES,
+        )
+        .include_static_package("sharrattj/wasmer-sh-opcodes@1.0.63", WEBC_WASMER_SH_OPCODES)
+        .use_coreutils()
+        .use_pkg("sharrattj/wasmer-sh-opcodes")
+        .stdin_str(
+            r#"
+cat /public/main.js | wc -c > /public/main.js.size
+rm -f /cfg/config.toml
+/bin/webserver --log-level warn --root /public --port 7778"#,
+        )
+        .run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
     assert_json_snapshot!(snapshot);
 }
 
