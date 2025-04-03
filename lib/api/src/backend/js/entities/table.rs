@@ -101,6 +101,27 @@ impl Table {
         unimplemented!();
     }
 
+    pub fn fill(
+        &self,
+        _store: &mut impl AsStoreMut,
+        _index: u32,
+        _len: u32,
+        _value: Value,
+    ) -> Result<(), RuntimeError> {
+        unimplemented!();
+    }
+
+    pub fn init(
+        &self,
+        _store: &mut impl AsStoreMut,
+        _dst_index: u32,
+        _src_index: u32,
+        _len: u32,
+        _values: &[Value],
+    ) -> Result<(), RuntimeError> {
+        unimplemented!();
+    }
+
     pub fn copy(
         _store: &mut impl AsStoreMut,
         _dst_table: &Self,
