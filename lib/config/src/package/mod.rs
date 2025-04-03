@@ -105,7 +105,7 @@ const LICENSE_PATHS: &[&str; 3] = &["LICENSE", "LICENSE.md", "COPYING"];
 /// Package definition for a Wasmer package.
 ///
 /// Usually stored in a `wasmer.toml` file.
-#[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
+#[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub struct Package {
     /// The package's name in the form `namespace/name`.
@@ -203,7 +203,7 @@ impl PackageBuilder {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Command {
     V1(CommandV1),
@@ -234,7 +234,7 @@ impl Command {
 /// by looking at the [`Abi`] from the [`Module`] it refers to.
 ///
 /// If possible, prefer to use the [`CommandV2`] format.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)] // Note: needed to prevent accidentally parsing
 // a CommandV2 as a CommandV1
 #[deprecated(since = "0.9.2", note = "Prefer the CommandV2 syntax")]
@@ -246,7 +246,7 @@ pub struct CommandV1 {
 }
 
 /// An executable command.
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct CommandV2 {
     /// The name of the command.
     pub name: String,
@@ -266,6 +266,7 @@ impl CommandV2 {
     pub fn get_annotations(&self, basepath: &Path) -> Result<Option<ciborium::Value>, String> {
         match self.annotations.as_ref() {
             Some(CommandAnnotations::Raw(v)) => Ok(Some(toml_to_cbor_value(v))),
+            Some(CommandAnnotations::CBOR(v)) => Ok(Some(v.clone())),
             Some(CommandAnnotations::File(FileCommandAnnotations { file, kind })) => {
                 let path = basepath.join(file.clone());
                 let file = std::fs::read_to_string(&path).map_err(|e| {
@@ -310,7 +311,7 @@ impl CommandV2 {
 /// # Serialization
 ///
 /// A [`ModuleReference`] is serialized via its [`String`] representation.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModuleReference {
     /// A module in the current package.
     CurrentPackage {
@@ -461,7 +462,11 @@ pub enum CommandAnnotations {
     File(FileCommandAnnotations),
     /// Annotations that are specified inline.
     Raw(toml::Value),
+    /// Annotations that are specified inline.
+    CBOR(ciborium::Value),
 }
+
+impl Eq for CommandAnnotations {}
 
 /// Annotations on disk.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -706,7 +711,7 @@ pub enum ImportsError {
 }
 
 /// The manifest represents the file used to describe a Wasm package.
-#[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
+#[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Manifest {
     /// Metadata about the package itself.
