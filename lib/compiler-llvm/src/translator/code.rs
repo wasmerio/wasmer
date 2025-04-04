@@ -103,7 +103,8 @@ impl FuncTranslator {
             None => symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index)),
         };
 
-        let is_start = function_name == "_start";
+        let is_start = false;
+
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {function_name}"),
             Some(module_name) => format!("module {module_name} function {function_name}"),
@@ -2919,31 +2920,60 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 //                    .builder
                 //                    .build_call(self.intrinsics.debug_ptr, &[func_index.into()], ""));
 
+                let mut local_func_indices = vec![];
+                let mut foreign_func_indices = vec![];
+
+                for t in &self.wasm_module.table_initializers {
+                    if t.table_index.as_u32() == table_index {
+                        for (func_in_table_idx, func_idx) in t.elements.iter().enumerate() {
+                            if self.wasm_module.local_func_index(*func_idx).is_some() {
+                                local_func_indices.push(func_in_table_idx)
+                            } else {
+                                foreign_func_indices.push(func_in_table_idx)
+                            }
+                        }
+                        break;
+                    }
+                }
+
                 let foreign_idx_block = self
                     .context
                     .append_basic_block(self.function, "foreign_call_block");
                 let local_idx_block = self
                     .context
                     .append_basic_block(self.function, "local_call_block");
+                let unreachable_indirect_call_branch_block = self
+                    .context
+                    .append_basic_block(self.function, "unreachable_indirect_call_branch");
+
                 let cont = self.context.append_basic_block(self.function, "cont");
 
-                let num_imported_functions = self
-                    .context
-                    .i32_type()
-                    .const_int(self.wasm_module.num_imported_functions as u64, true);
+                //let cmp = err!(self.builder.build_int_compare(
+                //    IntPredicate::ULT,
+                //    func_index,
+                //    num_imported_functions,
+                //    "cmp"
+                //));
 
-                let cmp = err!(self.builder.build_int_compare(
-                    IntPredicate::ULT,
+                err!(self.builder.build_switch(
                     func_index,
-                    num_imported_functions,
-                    "cmp"
+                    unreachable_indirect_call_branch_block,
+                    &local_func_indices
+                        .into_iter()
+                        .map(|v| (
+                            self.intrinsics.i32_ty.const_int(v as _, false),
+                            local_idx_block.clone()
+                        ))
+                        .chain(foreign_func_indices.into_iter().map(|v| (
+                            self.intrinsics.i32_ty.const_int(v as _, false),
+                            foreign_idx_block.clone()
+                        )))
+                        .collect::<Vec<_>>()
                 ));
 
-                err!(self.builder.build_conditional_branch(
-                    cmp,
-                    local_idx_block,
-                    foreign_idx_block
-                ));
+                self.builder
+                    .position_at_end(unreachable_indirect_call_branch_block);
+                err!(self.builder.build_unreachable());
 
                 //let current_block = self.builder.get_insert_block().unwrap();
                 self.builder.position_at_end(local_idx_block);

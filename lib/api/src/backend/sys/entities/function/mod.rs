@@ -460,6 +460,7 @@ where
 
     unsafe extern "C" fn call_trampoline(
         vmctx: *mut VMContext,
+        g0: i32,
         _body: VMFunctionCallback,
         args: *mut RawValue,
     ) {
@@ -553,17 +554,18 @@ macro_rules! impl_host_function {
             unsafe extern "C" fn call_trampoline<$( $x: FromToNativeWasmType, )* Rets: WasmTypeList>
   	        (
                   vmctx: *mut crate::backend::sys::vm::VMContext,
+                  g0: i32,
                   body: crate::backend::sys::vm::VMFunctionCallback,
                   args: *mut RawValue,
               ) {
-	         let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+	         let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, i32, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
   	         let mut _n = 0;
   	         $(
   	             let $x = *args.add(_n).cast();
   	             _n += 1;
   	         )*
 
-  	         let results = body(vmctx, $( $x ),*);
+  	         let results = body(vmctx, g0, $( $x ),*);
   	         Rets::write_c_struct_to_ptr(results, args);
             }
 
@@ -617,17 +619,18 @@ macro_rules! impl_host_function {
 
             unsafe extern "C" fn call_trampoline<$( $x: FromToNativeWasmType, )* Rets: WasmTypeList>(
                   vmctx: *mut crate::backend::sys::vm::VMContext,
+                  g0: i32,
                   body: crate::backend::sys::vm::VMFunctionCallback,
                   args: *mut RawValue,
             ) {
-	          let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+	          let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, i32, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
 	          let mut _n = 0;
 	          $(
 	          let $x = *args.add(_n).cast();
 	          _n += 1;
 	          )*
 
-	          let results = body(vmctx, $( $x ),*);
+	          let results = body(vmctx, g0, $( $x ),*);
 	          Rets::write_c_struct_to_ptr(results, args);
             }
 

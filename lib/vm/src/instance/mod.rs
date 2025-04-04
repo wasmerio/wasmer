@@ -300,7 +300,7 @@ impl Instance {
     }
 
     /// Return the indexed `VMGlobalDefinition`.
-    fn global(&self, index: LocalGlobalIndex) -> VMGlobalDefinition {
+    pub fn global(&self, index: LocalGlobalIndex) -> VMGlobalDefinition {
         unsafe { self.global_ptr(index).as_ref().clone() }
     }
 
@@ -313,7 +313,7 @@ impl Instance {
     }
 
     /// Return the indexed `VMGlobalDefinition`.
-    fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
+    pub fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
         // TODO:
         NonNull::new(unsafe { *self.globals_ptr().add(index) }).unwrap()

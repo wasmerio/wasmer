@@ -76,6 +76,7 @@ impl FuncTrampoline {
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ptr_ty.into(), // vmctx ptr
+                intrinsics.i32_ty.into(), // vmctx ptr
                 intrinsics.ptr_ty.into(), // callee function address
                 intrinsics.ptr_ty.into(), // in/out values ptr
             ],
@@ -369,10 +370,18 @@ impl FuncTrampoline {
         let builder = context.create_builder();
         builder.position_at_end(entry_block);
 
-        let (callee_vmctx_ptr, func_ptr, args_rets_ptr) =
+        let (callee_vmctx_ptr, g0, func_ptr, args_rets_ptr) =
             match *trampoline_func.get_params().as_slice() {
                 [callee_vmctx_ptr, func_ptr, args_rets_ptr] => (
                     callee_vmctx_ptr,
+                    None,
+                    func_ptr.into_pointer_value(),
+                    args_rets_ptr.into_pointer_value(),
+                ),
+
+                [callee_vmctx_ptr, g0, func_ptr, args_rets_ptr] => (
+                    callee_vmctx_ptr,
+                    Some(g0),
                     func_ptr.into_pointer_value(),
                     args_rets_ptr.into_pointer_value(),
                 ),
@@ -383,8 +392,11 @@ impl FuncTrampoline {
                 }
             };
 
-        let mut args_vec: Vec<BasicMetadataValueEnum> =
-            Vec::with_capacity(func_sig.params().len() + 1);
+        let mut args_vec: Vec<BasicMetadataValueEnum> = Vec::with_capacity(if g0.is_some() {
+            func_sig.params().len() + 2
+        } else {
+            func_sig.params().len() + 1
+        });
 
         if self.abi.is_sret(func_sig)? {
             let basic_types: Vec<_> = func_sig
@@ -398,6 +410,9 @@ impl FuncTrampoline {
         }
 
         args_vec.push(callee_vmctx_ptr.into());
+        if let Some(g0) = g0 {
+            args_vec.push(g0.into());
+        }
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {
             let index = intrinsics.i32_ty.const_int(i as _, false);
