@@ -24,7 +24,7 @@ use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 use std::sync::{LazyLock, Once};
-use wasmer_types::{LocalGlobalIndex, TrapCode};
+use wasmer_types::{LocalGlobalIndex, LocalMemoryIndex, MemoryIndex, TrapCode};
 
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
@@ -687,19 +687,21 @@ pub unsafe fn wasmer_call_trampoline(
 ) -> Result<(), Trap> {
     let instance = unsafe { &*(vmctx.vmctx) }.instance();
     let global = instance.global(LocalGlobalIndex::from_u32(0));
-    let global_ptr = instance.global_ptr(LocalGlobalIndex::from_u32(0));
     let global_value: i32 = global.val.i32;
+
+    let base = instance.get_memory(MemoryIndex::from_u32(0)).base as usize;
 
     catch_traps(trap_handler, config, move || {
         mem::transmute::<
             unsafe extern "C" fn(
                 *mut VMContext,
                 i32,
+                usize,
                 *const VMFunctionBody,
                 *mut wasmer_types::RawValue,
             ),
-            extern "C" fn(VMFunctionContext, i32, *const VMFunctionBody, *mut u8),
-        >(trampoline)(vmctx, global_value, callee, values_vec);
+            extern "C" fn(VMFunctionContext, i32, usize, *const VMFunctionBody, *mut u8),
+        >(trampoline)(vmctx, global_value, base, callee, values_vec);
     })
 }
 

@@ -72,11 +72,12 @@ impl FuncTrampoline {
 
         let (callee_ty, callee_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, false)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, true)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ptr_ty.into(), // vmctx ptr
-                intrinsics.i32_ty.into(), // vmctx ptr
+                intrinsics.i32_ty.into(), // g0 value
+                intrinsics.ptr_ty.into(), // m0_ptr value
                 intrinsics.ptr_ty.into(), // callee function address
                 intrinsics.ptr_ty.into(), // in/out values ptr
             ],
@@ -370,7 +371,7 @@ impl FuncTrampoline {
         let builder = context.create_builder();
         builder.position_at_end(entry_block);
 
-        let (callee_vmctx_ptr, g0, func_ptr, args_rets_ptr) =
+        let (callee_vmctx_ptr, local_params, func_ptr, args_rets_ptr) =
             match *trampoline_func.get_params().as_slice() {
                 [callee_vmctx_ptr, func_ptr, args_rets_ptr] => (
                     callee_vmctx_ptr,
@@ -379,9 +380,9 @@ impl FuncTrampoline {
                     args_rets_ptr.into_pointer_value(),
                 ),
 
-                [callee_vmctx_ptr, g0, func_ptr, args_rets_ptr] => (
+                [callee_vmctx_ptr, g0, m0, func_ptr, args_rets_ptr] => (
                     callee_vmctx_ptr,
-                    Some(g0),
+                    Some((g0, m0)),
                     func_ptr.into_pointer_value(),
                     args_rets_ptr.into_pointer_value(),
                 ),
@@ -392,11 +393,12 @@ impl FuncTrampoline {
                 }
             };
 
-        let mut args_vec: Vec<BasicMetadataValueEnum> = Vec::with_capacity(if g0.is_some() {
-            func_sig.params().len() + 2
-        } else {
-            func_sig.params().len() + 1
-        });
+        let mut args_vec: Vec<BasicMetadataValueEnum> =
+            Vec::with_capacity(if local_params.is_some() {
+                func_sig.params().len() + 3
+            } else {
+                func_sig.params().len() + 1
+            });
 
         if self.abi.is_sret(func_sig)? {
             let basic_types: Vec<_> = func_sig
@@ -410,8 +412,9 @@ impl FuncTrampoline {
         }
 
         args_vec.push(callee_vmctx_ptr.into());
-        if let Some(g0) = g0 {
+        if let Some((g0, m0)) = local_params {
             args_vec.push(g0.into());
+            args_vec.push(m0.into());
         }
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {

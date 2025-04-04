@@ -226,7 +226,7 @@ impl Instance {
 
     #[allow(dead_code)]
     /// Get a locally defined or imported memory.
-    fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
+    pub fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
             self.memory(local_index)
         } else {
@@ -371,13 +371,18 @@ impl Instance {
             }
         };
 
+        let m0 = unsafe { self.get_memory(MemoryIndex::from_u32(0)).base };
+        let g0 = unsafe { self.global(LocalGlobalIndex::from_u32(0)).val.i32 };
+
         // Make the call.
         unsafe {
-            catch_traps(trap_handler, config, move || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
-                    callee_address,
-                )(callee_vmctx)
-            })
+            let ret = catch_traps(trap_handler, config, move || {
+                mem::transmute::<
+                    *const VMFunctionBody,
+                    unsafe extern "C" fn(VMFunctionContext, i32, usize),
+                >(callee_address)(callee_vmctx, g0, m0 as usize)
+            });
+            ret
         }
     }
 

@@ -219,13 +219,13 @@ impl FuncTranslator {
                 if is_start {
                     2
                 } else {
-                    3
+                    4
                 }
             } else {
                 if is_start {
                     1
                 } else {
-                    2
+                    3
                 }
             };
         let mut is_first_alloca = true;
@@ -266,6 +266,8 @@ impl FuncTranslator {
 
         g0.set_name("g0");
 
+        let m0 = self.abi.get_m0_ptr_param(&func);
+
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty)?;
@@ -303,6 +305,7 @@ impl FuncTranslator {
         //}
 
         let mut fcg = LLVMFunctionCodeGenerator {
+            m0,
             g0,
             context: &self.ctx,
             builder,
@@ -1293,7 +1296,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr =
+        let base_ptr = if memory_index.as_u32() == 0 {
+            self.m0.clone()
+        } else {
             match self
                 .ctx
                 .memory(memory_index, intrinsics, self.module, self.memory_styles)?
@@ -1406,7 +1411,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     ptr_to_base
                 }
                 MemoryCache::Static { base_ptr } => base_ptr,
-            };
+            }
+        };
         let value_ptr =
             unsafe { err!(builder.build_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "")) };
         err_nt!(builder
@@ -1696,6 +1702,7 @@ fn finalize_opcode_stack_map<'ctx>(
 
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     g0: PointerValue<'ctx>,
+    m0: PointerValue<'ctx>,
     context: &'ctx Context,
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
@@ -2549,7 +2556,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
-                let mut callee_g0 = None;
+                let mut local_callee_params = None;
 
                 let FunctionCache {
                     func,
@@ -2564,7 +2571,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             .builder
                             .build_load(self.intrinsics.i32_ty, self.g0.clone(), ""));
 
-                    callee_g0 = Some(value.into_int_value());
+                    local_callee_params = Some((value.into_int_value(), self.m0.clone()));
 
                     let function_name = match self.wasm_module.function_names.get(&func_index) {
                         Some(f) => f.to_string(),
@@ -2625,7 +2632,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     callee_vmctx.into_pointer_value(),
                     params.as_slice(),
                     self.intrinsics,
-                    callee_g0,
+                    local_callee_params,
                 )?;
 
                 /*
@@ -3026,7 +3033,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         ctx_ptr.into_pointer_value(),
                         params.as_slice(),
                         self.intrinsics,
-                        Some(g0_value.into_int_value()),
+                        Some((g0_value.into_int_value(), self.m0.clone())),
                     )?;
 
                     let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -3290,7 +3297,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         ctx_ptr.into_pointer_value(),
                         params.as_slice(),
                         self.intrinsics,
-                        Some(g0_value.into_int_value()),
+                        Some((g0_value.into_int_value(), self.m0.clone())),
                     )?;
 
                     let typed_func_ptr = err!(self.builder.build_pointer_cast(
