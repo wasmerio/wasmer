@@ -2936,309 +2936,561 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
 
-                let foreign_idx_block = self
-                    .context
-                    .append_basic_block(self.function, "foreign_call_block");
-                let local_idx_block = self
-                    .context
-                    .append_basic_block(self.function, "local_call_block");
-                let unreachable_indirect_call_branch_block = self
-                    .context
-                    .append_basic_block(self.function, "unreachable_indirect_call_branch");
+                let needs_switch =
+                    !local_func_indices.is_empty() && !foreign_func_indices.is_empty();
 
-                let cont = self.context.append_basic_block(self.function, "cont");
+                if needs_switch {
+                    let foreign_idx_block = self
+                        .context
+                        .append_basic_block(self.function, "foreign_call_block");
+                    let local_idx_block = self
+                        .context
+                        .append_basic_block(self.function, "local_call_block");
+                    let unreachable_indirect_call_branch_block = self
+                        .context
+                        .append_basic_block(self.function, "unreachable_indirect_call_branch");
 
-                //let cmp = err!(self.builder.build_int_compare(
-                //    IntPredicate::ULT,
-                //    func_index,
-                //    num_imported_functions,
-                //    "cmp"
-                //));
+                    let cont = self.context.append_basic_block(self.function, "cont");
 
-                err!(self.builder.build_switch(
-                    func_index,
-                    unreachable_indirect_call_branch_block,
-                    &local_func_indices
-                        .into_iter()
-                        .map(|v| (
-                            self.intrinsics.i32_ty.const_int(v as _, false),
-                            local_idx_block.clone()
+                    //let cmp = err!(self.builder.build_int_compare(
+                    //    IntPredicate::ULT,
+                    //    func_index,
+                    //    num_imported_functions,
+                    //    "cmp"
+                    //));
+
+                    err!(self.builder.build_switch(
+                        func_index,
+                        unreachable_indirect_call_branch_block,
+                        &local_func_indices
+                            .into_iter()
+                            .map(|v| (
+                                self.intrinsics.i32_ty.const_int(v as _, false),
+                                local_idx_block.clone()
+                            ))
+                            .chain(foreign_func_indices.into_iter().map(|v| (
+                                self.intrinsics.i32_ty.const_int(v as _, false),
+                                foreign_idx_block.clone()
+                            )))
+                            .collect::<Vec<_>>()
+                    ));
+
+                    self.builder
+                        .position_at_end(unreachable_indirect_call_branch_block);
+                    err!(self.builder.build_unreachable());
+
+                    //let current_block = self.builder.get_insert_block().unwrap();
+                    self.builder.position_at_end(local_idx_block);
+
+                    let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                        self.context,
+                        self.intrinsics,
+                        Some(self.ctx.get_offsets()),
+                        func_type,
+                        true,
+                    )?;
+
+                    let lcl_params = self.state.popn_save_extra(func_type.params().len())?;
+
+                    // Apply pending canonicalizations.
+                    let params = lcl_params
+                        .iter()
+                        .zip(func_type.params().iter())
+                        .map(|((v, info), wasm_ty)| match wasm_ty {
+                            Type::F32 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f32_ty,
+                                "",
+                            )),
+                            Type::F64 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f64_ty,
+                                "",
+                            )),
+                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                            _ => Ok(*v),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    // removed with mem2reg.
+                    //
+                    let g0_value =
+                        err!(self
+                            .builder
+                            .build_load(self.intrinsics.i32_ty, self.g0.clone(), ""));
+
+                    let params = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        ctx_ptr.into_pointer_value(),
+                        params.as_slice(),
+                        self.intrinsics,
+                        Some(g0_value.into_int_value()),
+                    )?;
+
+                    let typed_func_ptr = err!(self.builder.build_pointer_cast(
+                        func_ptr,
+                        self.context.ptr_type(AddressSpace::default()),
+                        "typed_func_ptr",
+                    ));
+
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            emit_stack_map(
+                                &info,
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                &self.locals,
+                                state,
+                                ctx,
+                                offset,
+                            )
+                        }
+                    }
+                    */
+
+                    let call_site_local = if let Some(lpad) = self.state.get_landingpad() {
+                        let then_block =
+                            self.context.append_basic_block(self.function, "then_block");
+
+                        let ret = err!(self.builder.build_indirect_invoke(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params.as_slice(),
+                            then_block,
+                            lpad,
+                            "",
+                        ));
+
+                        self.builder.position_at_end(then_block);
+                        ret
+                    } else {
+                        err!(self.builder.build_indirect_call(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params
+                                .iter()
+                                .copied()
+                                .map(Into::into)
+                                .collect::<Vec<BasicMetadataValueEnum>>()
+                                .as_slice(),
+                            "indirect_call",
                         ))
-                        .chain(foreign_func_indices.into_iter().map(|v| (
-                            self.intrinsics.i32_ty.const_int(v as _, false),
-                            foreign_idx_block.clone()
-                        )))
-                        .collect::<Vec<_>>()
-                ));
-
-                self.builder
-                    .position_at_end(unreachable_indirect_call_branch_block);
-                err!(self.builder.build_unreachable());
-
-                //let current_block = self.builder.get_insert_block().unwrap();
-                self.builder.position_at_end(local_idx_block);
-
-                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
-                    self.context,
-                    self.intrinsics,
-                    Some(self.ctx.get_offsets()),
-                    func_type,
-                    true,
-                )?;
-
-                let lcl_params = self.state.popn_save_extra(func_type.params().len())?;
-
-                // Apply pending canonicalizations.
-                let params = lcl_params
-                    .iter()
-                    .zip(func_type.params().iter())
-                    .map(|((v, info), wasm_ty)| match wasm_ty {
-                        Type::F32 => err_nt!(self.builder.build_bit_cast(
-                            self.apply_pending_canonicalization(*v, *info)?,
-                            self.intrinsics.f32_ty,
-                            "",
-                        )),
-                        Type::F64 => err_nt!(self.builder.build_bit_cast(
-                            self.apply_pending_canonicalization(*v, *info)?,
-                            self.intrinsics.f64_ty,
-                            "",
-                        )),
-                        Type::V128 => self.apply_pending_canonicalization(*v, *info),
-                        _ => Ok(*v),
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                // removed with mem2reg.
-                //
-                let g0_value =
-                    err!(self
-                        .builder
-                        .build_load(self.intrinsics.i32_ty, self.g0.clone(), ""));
-
-                let params = self.abi.args_to_call(
-                    &self.alloca_builder,
-                    func_type,
-                    &llvm_func_type,
-                    ctx_ptr.into_pointer_value(),
-                    params.as_slice(),
-                    self.intrinsics,
-                    Some(g0_value.into_int_value()),
-                )?;
-
-                let typed_func_ptr = err!(self.builder.build_pointer_cast(
-                    func_ptr,
-                    self.context.ptr_type(AddressSpace::default()),
-                    "typed_func_ptr",
-                ));
-
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            &info,
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            &self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        )
+                    };
+                    for (attr, attr_loc) in llvm_func_attrs {
+                        call_site_local.add_attribute(attr_loc, attr);
                     }
-                }
-                */
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            finalize_opcode_stack_map(
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                offset,
+                            )
+                        }
+                    }
+                    */
+                    let local_rets = self.abi.rets_from_call(
+                        &self.builder,
+                        self.intrinsics,
+                        call_site_local,
+                        func_type,
+                    )?;
 
-                let call_site_local = if let Some(lpad) = self.state.get_landingpad() {
-                    let then_block = self.context.append_basic_block(self.function, "then_block");
+                    err!(self.builder.build_unconditional_branch(cont));
 
-                    let ret = err!(self.builder.build_indirect_invoke(
-                        llvm_func_type,
-                        typed_func_ptr,
+                    self.builder.position_at_end(foreign_idx_block);
+
+                    let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                        self.context,
+                        self.intrinsics,
+                        Some(self.ctx.get_offsets()),
+                        func_type,
+                        false, // <- Duplicate for both variants..
+                    )?;
+
+                    //let params = self.state.popn_save_extra(func_type.params().len())?;
+
+                    // Apply pending canonicalizations.
+                    let params = lcl_params
+                        .iter()
+                        .zip(func_type.params().iter())
+                        .map(|((v, info), wasm_ty)| match wasm_ty {
+                            Type::F32 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f32_ty,
+                                "",
+                            )),
+                            Type::F64 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f64_ty,
+                                "",
+                            )),
+                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                            _ => Ok(*v),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    let params = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        ctx_ptr.into_pointer_value(),
                         params.as_slice(),
-                        then_block,
-                        lpad,
-                        "",
+                        self.intrinsics,
+                        None,
+                    )?;
+
+                    let typed_func_ptr = err!(self.builder.build_pointer_cast(
+                        func_ptr,
+                        self.context.ptr_type(AddressSpace::default()),
+                        "typed_func_ptr",
                     ));
 
-                    self.builder.position_at_end(then_block);
-                    ret
-                } else {
-                    err!(self.builder.build_indirect_call(
-                        llvm_func_type,
-                        typed_func_ptr,
-                        params
-                            .iter()
-                            .copied()
-                            .map(Into::into)
-                            .collect::<Vec<BasicMetadataValueEnum>>()
-                            .as_slice(),
-                        "indirect_call",
-                    ))
-                };
-                for (attr, attr_loc) in llvm_func_attrs {
-                    call_site_local.add_attribute(attr_loc, attr);
-                }
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            offset,
-                        )
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            emit_stack_map(
+                                &info,
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                &self.locals,
+                                state,
+                                ctx,
+                                offset,
+                            )
+                        }
                     }
-                }
-                */
-                let local_rets = self.abi.rets_from_call(
-                    &self.builder,
-                    self.intrinsics,
-                    call_site_local,
-                    func_type,
-                )?;
+                    */
 
-                err!(self.builder.build_unconditional_branch(cont));
+                    let call_site_foreign = if let Some(lpad) = self.state.get_landingpad() {
+                        let then_block =
+                            self.context.append_basic_block(self.function, "then_block");
 
-                self.builder.position_at_end(foreign_idx_block);
-
-                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
-                    self.context,
-                    self.intrinsics,
-                    Some(self.ctx.get_offsets()),
-                    func_type,
-                    false, // <- Duplicate for both variants..
-                )?;
-
-                //let params = self.state.popn_save_extra(func_type.params().len())?;
-
-                // Apply pending canonicalizations.
-                let params = lcl_params
-                    .iter()
-                    .zip(func_type.params().iter())
-                    .map(|((v, info), wasm_ty)| match wasm_ty {
-                        Type::F32 => err_nt!(self.builder.build_bit_cast(
-                            self.apply_pending_canonicalization(*v, *info)?,
-                            self.intrinsics.f32_ty,
+                        let ret = err!(self.builder.build_indirect_invoke(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params.as_slice(),
+                            then_block,
+                            lpad,
                             "",
-                        )),
-                        Type::F64 => err_nt!(self.builder.build_bit_cast(
-                            self.apply_pending_canonicalization(*v, *info)?,
-                            self.intrinsics.f64_ty,
-                            "",
-                        )),
-                        Type::V128 => self.apply_pending_canonicalization(*v, *info),
-                        _ => Ok(*v),
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
+                        ));
 
-                let params = self.abi.args_to_call(
-                    &self.alloca_builder,
-                    func_type,
-                    &llvm_func_type,
-                    ctx_ptr.into_pointer_value(),
-                    params.as_slice(),
-                    self.intrinsics,
-                    None,
-                )?;
-
-                let typed_func_ptr = err!(self.builder.build_pointer_cast(
-                    func_ptr,
-                    self.context.ptr_type(AddressSpace::default()),
-                    "typed_func_ptr",
-                ));
-
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            &info,
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            &self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        )
+                        self.builder.position_at_end(then_block);
+                        ret
+                    } else {
+                        err!(self.builder.build_indirect_call(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params
+                                .iter()
+                                .copied()
+                                .map(Into::into)
+                                .collect::<Vec<BasicMetadataValueEnum>>()
+                                .as_slice(),
+                            "indirect_call",
+                        ))
+                    };
+                    for (attr, attr_loc) in llvm_func_attrs {
+                        call_site_foreign.add_attribute(attr_loc, attr);
                     }
-                }
-                */
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            finalize_opcode_stack_map(
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                offset,
+                            )
+                        }
+                    }
+                    */
 
-                let call_site_foreign = if let Some(lpad) = self.state.get_landingpad() {
-                    let then_block = self.context.append_basic_block(self.function, "then_block");
+                    let foreign_rets = self.abi.rets_from_call(
+                        &self.builder,
+                        self.intrinsics,
+                        call_site_foreign,
+                        func_type,
+                    )?;
 
-                    let ret = err!(self.builder.build_indirect_invoke(
-                        llvm_func_type,
-                        typed_func_ptr,
+                    err!(self.builder.build_unconditional_branch(cont));
+
+                    self.builder.position_at_end(cont);
+
+                    for i in 0..foreign_rets.len() {
+                        let f_i = foreign_rets[i];
+                        let l_i = local_rets[i];
+                        let ty = f_i.get_type();
+                        let v = err!(self.builder.build_phi(ty, ""));
+                        v.add_incoming(&[(&f_i, foreign_idx_block), (&l_i, local_idx_block)]);
+                        self.state.push1(v.as_basic_value());
+                    }
+                } else if foreign_func_indices.is_empty() {
+                    // local jump only
+                    let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                        self.context,
+                        self.intrinsics,
+                        Some(self.ctx.get_offsets()),
+                        func_type,
+                        true,
+                    )?;
+
+                    let params = self.state.popn_save_extra(func_type.params().len())?;
+
+                    // Apply pending canonicalizations.
+                    let params = params
+                        .iter()
+                        .zip(func_type.params().iter())
+                        .map(|((v, info), wasm_ty)| match wasm_ty {
+                            Type::F32 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f32_ty,
+                                "",
+                            )),
+                            Type::F64 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f64_ty,
+                                "",
+                            )),
+                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                            _ => Ok(*v),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    // removed with mem2reg.
+                    //
+                    let g0_value =
+                        err!(self
+                            .builder
+                            .build_load(self.intrinsics.i32_ty, self.g0.clone(), ""));
+
+                    let params = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        ctx_ptr.into_pointer_value(),
                         params.as_slice(),
-                        then_block,
-                        lpad,
-                        "",
+                        self.intrinsics,
+                        Some(g0_value.into_int_value()),
+                    )?;
+
+                    let typed_func_ptr = err!(self.builder.build_pointer_cast(
+                        func_ptr,
+                        self.context.ptr_type(AddressSpace::default()),
+                        "typed_func_ptr",
                     ));
 
-                    self.builder.position_at_end(then_block);
-                    ret
-                } else {
-                    err!(self.builder.build_indirect_call(
-                        llvm_func_type,
-                        typed_func_ptr,
-                        params
-                            .iter()
-                            .copied()
-                            .map(Into::into)
-                            .collect::<Vec<BasicMetadataValueEnum>>()
-                            .as_slice(),
-                        "indirect_call",
-                    ))
-                };
-                for (attr, attr_loc) in llvm_func_attrs {
-                    call_site_foreign.add_attribute(attr_loc, attr);
-                }
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            offset,
-                        )
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            emit_stack_map(
+                                &info,
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                &self.locals,
+                                state,
+                                ctx,
+                                offset,
+                            )
+                        }
                     }
-                }
-                */
+                    */
 
-                let foreign_rets = self.abi.rets_from_call(
-                    &self.builder,
-                    self.intrinsics,
-                    call_site_foreign,
-                    func_type,
-                )?;
+                    let call_site = if let Some(lpad) = self.state.get_landingpad() {
+                        let then_block =
+                            self.context.append_basic_block(self.function, "then_block");
 
-                err!(self.builder.build_unconditional_branch(cont));
+                        let ret = err!(self.builder.build_indirect_invoke(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params.as_slice(),
+                            then_block,
+                            lpad,
+                            "",
+                        ));
 
-                self.builder.position_at_end(cont);
+                        self.builder.position_at_end(then_block);
+                        ret
+                    } else {
+                        err!(self.builder.build_indirect_call(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params
+                                .iter()
+                                .copied()
+                                .map(Into::into)
+                                .collect::<Vec<BasicMetadataValueEnum>>()
+                                .as_slice(),
+                            "indirect_call",
+                        ))
+                    };
+                    for (attr, attr_loc) in llvm_func_attrs {
+                        call_site.add_attribute(attr_loc, attr);
+                    }
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            finalize_opcode_stack_map(
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                offset,
+                            )
+                        }
+                    }
+                    */
 
-                for i in 0..foreign_rets.len() {
-                    let f_i = foreign_rets[i];
-                    let l_i = local_rets[i];
-                    let ty = f_i.get_type();
-                    let v = err!(self.builder.build_phi(ty, ""));
-                    v.add_incoming(&[(&f_i, foreign_idx_block), (&l_i, local_idx_block)]);
-                    self.state.push1(v.as_basic_value());
+                    self.abi
+                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                        .iter()
+                        .for_each(|ret| self.state.push1(*ret));
+                } else {
+                    let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                        self.context,
+                        self.intrinsics,
+                        Some(self.ctx.get_offsets()),
+                        func_type,
+                        false,
+                    )?;
+
+                    let params = self.state.popn_save_extra(func_type.params().len())?;
+
+                    // Apply pending canonicalizations.
+                    let params = params
+                        .iter()
+                        .zip(func_type.params().iter())
+                        .map(|((v, info), wasm_ty)| match wasm_ty {
+                            Type::F32 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f32_ty,
+                                "",
+                            )),
+                            Type::F64 => err_nt!(self.builder.build_bit_cast(
+                                self.apply_pending_canonicalization(*v, *info)?,
+                                self.intrinsics.f64_ty,
+                                "",
+                            )),
+                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                            _ => Ok(*v),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    let params = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        ctx_ptr.into_pointer_value(),
+                        params.as_slice(),
+                        self.intrinsics,
+                        None,
+                    )?;
+
+                    let typed_func_ptr = err!(self.builder.build_pointer_cast(
+                        func_ptr,
+                        self.context.ptr_type(AddressSpace::default()),
+                        "typed_func_ptr",
+                    ));
+
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            emit_stack_map(
+                                &info,
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                &self.locals,
+                                state,
+                                ctx,
+                                offset,
+                            )
+                        }
+                    }
+                    */
+
+                    let call_site = if let Some(lpad) = self.state.get_landingpad() {
+                        let then_block =
+                            self.context.append_basic_block(self.function, "then_block");
+
+                        let ret = err!(self.builder.build_indirect_invoke(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params.as_slice(),
+                            then_block,
+                            lpad,
+                            "",
+                        ));
+
+                        self.builder.position_at_end(then_block);
+                        ret
+                    } else {
+                        err!(self.builder.build_indirect_call(
+                            llvm_func_type,
+                            typed_func_ptr,
+                            params
+                                .iter()
+                                .copied()
+                                .map(Into::into)
+                                .collect::<Vec<BasicMetadataValueEnum>>()
+                                .as_slice(),
+                            "indirect_call",
+                        ))
+                    };
+                    for (attr, attr_loc) in llvm_func_attrs {
+                        call_site.add_attribute(attr_loc, attr);
+                    }
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            finalize_opcode_stack_map(
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                offset,
+                            )
+                        }
+                    }
+                    */
+
+                    self.abi
+                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                        .iter()
+                        .for_each(|ret| self.state.push1(*ret));
                 }
             }
+
             /***************************
              * Integer Arithmetic instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#integer-arithmetic-instructions
