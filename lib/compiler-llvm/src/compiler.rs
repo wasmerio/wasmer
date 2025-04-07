@@ -9,7 +9,7 @@ use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
@@ -24,7 +24,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
-use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex};
 use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
@@ -78,6 +78,52 @@ impl SymbolRegistry for ShortNames {
                 idx,
             ))),
             _ => None,
+        }
+    }
+}
+
+struct ModuleBasedSymbolRegistry {
+    wasm_module: Arc<ModuleInfo>,
+    local_func_names: HashMap<String, LocalFunctionIndex>,
+    short_names: ShortNames,
+}
+
+impl ModuleBasedSymbolRegistry {
+    fn new(wasm_module: Arc<ModuleInfo>) -> Self {
+        let local_func_names = HashMap::from_iter(
+            wasm_module
+                .function_names
+                .iter()
+                .map(|(f, v)| (wasm_module.local_func_index(f.clone()), v))
+                .filter(|(f, _)| f.is_some())
+                .map(|(f, v)| (v.clone(), f.unwrap())),
+        );
+        Self {
+            wasm_module,
+            local_func_names,
+            short_names: ShortNames {},
+        }
+    }
+}
+
+impl SymbolRegistry for ModuleBasedSymbolRegistry {
+    fn symbol_to_name(&self, symbol: Symbol) -> String {
+        match symbol {
+            Symbol::LocalFunction(index) => self
+                .wasm_module
+                .function_names
+                .get(&self.wasm_module.func_index(index))
+                .map(|v| v.clone())
+                .unwrap_or(self.short_names.symbol_to_name(symbol)),
+            _ => self.short_names.symbol_to_name(symbol),
+        }
+    }
+
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
+        if let Some(idx) = self.local_func_names.get(name) {
+            Some(Symbol::LocalFunction(*idx))
+        } else {
+            self.short_names.name_to_symbol(name)
         }
     }
 }
@@ -273,6 +319,8 @@ impl Compiler for LLVMCompiler {
             HashSet::default()
         };
 
+        let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
+
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -294,7 +342,7 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         memory_styles,
                         table_styles,
-                        &ShortNames {},
+                        &symbol_registry,
                     )
                 },
             )
