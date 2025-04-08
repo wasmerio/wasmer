@@ -369,8 +369,8 @@ fn filesystem(
         )));
     }
 
-    let mut found_v2 = false;
-    let mut found_v3 = false;
+    let mut found_v2 = None;
+    let mut found_v3 = None;
 
     for ResolvedFileSystemMapping { package, .. } in &pkg.filesystem {
         let container = packages.get(package).with_context(|| {
@@ -380,16 +380,23 @@ fn filesystem(
             )
         })?;
 
-        found_v2 |= container.version() == webc::Version::V2;
-        found_v3 |= container.version() == webc::Version::V3;
+        if container.version() == webc::Version::V2 && found_v2.is_none() {
+            found_v2 = Some(package.clone());
+        }
+        if container.version() == webc::Version::V3 && found_v3.is_none() {
+            found_v3 = Some(package.clone());
+        }
     }
 
-    if found_v3 && !found_v2 {
-        filesystem_v3(packages, pkg, root_is_local_dir)
-    } else if found_v2 && !found_v3 {
-        filesystem_v2(packages, pkg, root_is_local_dir)
-    } else {
-        anyhow::bail!("Mix of webc v2 and v3 in the same dependency tree is not supported");
+    match (found_v2, found_v3) {
+        (None, Some(_)) => filesystem_v3(packages, pkg, root_is_local_dir),
+        (Some(_), None) => filesystem_v2(packages, pkg, root_is_local_dir),
+        (Some(v2), Some(v3)) => {
+            anyhow::bail!(
+                "Mix of webc v2 and v3 in the same dependency tree is not supported; v2: {v2}, v3: {v3}"
+            )
+        }
+        (None, None) => anyhow::bail!("Internal error: no packages found in tree"),
     }
 }
 
