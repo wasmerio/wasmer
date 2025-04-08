@@ -416,46 +416,46 @@ impl FuncTrampoline {
                 }
             };
 
-        let i8_type = context.i8_type();
+        //let i8_type = context.i8_type();
 
-        let string_len = 6;
-        let array_type = i8_type.array_type(string_len);
-        let local_str = builder.build_alloca(array_type, "local_str").unwrap();
+        //let string_len = 6;
+        //let array_type = i8_type.array_type(string_len);
+        //let local_str = builder.build_alloca(array_type, "local_str").unwrap();
 
-        // Create a constant string "trmpl\n"
-        let const_str = context.const_string(b"trmpl\n", false);
+        //// Create a constant string "trmpl\n"
+        //let const_str = context.const_string(b"trmpl\n", false);
 
-        // Store the constant into the stack allocated buffer.
-        builder.build_store(local_str, const_str).unwrap();
+        //// Store the constant into the stack allocated buffer.
+        //builder.build_store(local_str, const_str).unwrap();
 
-        let asm_str = r#"mov X0, #1
-        mov X1, $0 
-        mov X2, #6
-        mov X16, #4
-        svc 0x80"#;
-        let constraints = "r,~{memory},~{cc},~{x0},~{x1},~{x2},~{x16}";
+        //let asm_str = r#"mov X0, #1
+        //mov X1, $0
+        //mov X2, #6
+        //mov X16, #4
+        //svc 0x80"#;
+        //let constraints = "r,~{memory},~{cc},~{x0},~{x1},~{x2},~{x16}";
 
-        let zero = context.i32_type().const_int(0, false);
-        let str_ptr =
-            unsafe { builder.build_in_bounds_gep(array_type, local_str, &[zero, zero], "str_ptr") }
-                .unwrap();
+        //let zero = context.i32_type().const_int(0, false);
+        //let str_ptr =
+        //    unsafe { builder.build_in_bounds_gep(array_type, local_str, &[zero, zero], "str_ptr") }
+        //        .unwrap();
 
-        // The inline asm is declared with a function type that takes one i8* parameter and returns void.
-        let asm_fn_type = context
-            .void_type()
-            .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
-        let inline_asm = context.create_inline_asm(
-            asm_fn_type,
-            asm_str.to_string(),
-            constraints.to_string(),
-            false, // has_side_effects (prevents removal during optimization)
-            false, // is_align_stack
-            None,  // dialect; on AArch64 this is not critical
-            false,
-        );
+        //// The inline asm is declared with a function type that takes one i8* parameter and returns void.
+        //let asm_fn_type = context
+        //    .void_type()
+        //    .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
+        //let inline_asm = context.create_inline_asm(
+        //    asm_fn_type,
+        //    asm_str.to_string(),
+        //    constraints.to_string(),
+        //    false, // has_side_effects (prevents removal during optimization)
+        //    false, // is_align_stack
+        //    None,  // dialect; on AArch64 this is not critical
+        //    false,
+        //);
 
-        // Insert the call to the inline assembly, passing the string pointer as operand.
-        err!(builder.build_indirect_call(asm_fn_type, inline_asm, &[str_ptr.into()], "asm_call"));
+        //// Insert the call to the inline assembly, passing the string pointer as operand.
+        //err!(builder.build_indirect_call(asm_fn_type, inline_asm, &[str_ptr.into()], "asm_call"));
 
         let mut args_vec: Vec<BasicMetadataValueEnum> = Vec::with_capacity(if true {
             func_sig.params().len() + 3
@@ -681,46 +681,46 @@ impl FuncTrampoline {
             "",
         ));
 
-        let i8_type = context.i8_type();
+        //let i8_type = context.i8_type();
 
-        let string_len = 6;
-        let array_type = i8_type.array_type(string_len);
-        let local_str = builder.build_alloca(array_type, "local_str").unwrap();
+        //let string_len = 6;
+        //let array_type = i8_type.array_type(string_len);
+        //let local_str = builder.build_alloca(array_type, "local_str").unwrap();
 
-        // Create a constant string "trmpl\n"
-        let const_str = context.const_string(b"dympl\n", false);
+        //// Create a constant string "trmpl\n"
+        //let const_str = context.const_string(b"dympl\n", false);
 
-        // Store the constant into the stack allocated buffer.
-        builder.build_store(local_str, const_str).unwrap();
+        //// Store the constant into the stack allocated buffer.
+        //builder.build_store(local_str, const_str).unwrap();
 
-        let asm_str = r#"mov X0, #1
-        mov X1, $0 
-        mov X2, #6
-        mov X16, #4
-        svc 0x80"#;
-        let constraints = "r,~{memory},~{cc},~{x0},~{x1},~{x2},~{x16}";
+        //let asm_str = r#"mov X0, #1
+        //mov X1, $0 
+        //mov X2, #6
+        //mov X16, #4
+        //svc 0x80"#;
+        //let constraints = "r,~{memory},~{cc},~{x0},~{x1},~{x2},~{x16}";
 
-        let zero = context.i32_type().const_int(0, false);
-        let str_ptr =
-            unsafe { builder.build_in_bounds_gep(array_type, local_str, &[zero, zero], "str_ptr") }
-                .unwrap();
+        //let zero = context.i32_type().const_int(0, false);
+        //let str_ptr =
+        //    unsafe { builder.build_in_bounds_gep(array_type, local_str, &[zero, zero], "str_ptr") }
+        //        .unwrap();
 
-        // The inline asm is declared with a function type that takes one i8* parameter and returns void.
-        let asm_fn_type = context
-            .void_type()
-            .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
-        let inline_asm = context.create_inline_asm(
-            asm_fn_type,
-            asm_str.to_string(),
-            constraints.to_string(),
-            false, // has_side_effects (prevents removal during optimization)
-            false, // is_align_stack
-            None,  // dialect; on AArch64 this is not critical
-            false,
-        );
+        //// The inline asm is declared with a function type that takes one i8* parameter and returns void.
+        //let asm_fn_type = context
+        //    .void_type()
+        //    .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
+        //let inline_asm = context.create_inline_asm(
+        //    asm_fn_type,
+        //    asm_str.to_string(),
+        //    constraints.to_string(),
+        //    false, // has_side_effects (prevents removal during optimization)
+        //    false, // is_align_stack
+        //    None,  // dialect; on AArch64 this is not critical
+        //    false,
+        //);
 
-        // Insert the call to the inline assembly, passing the string pointer as operand.
-        builder.build_indirect_call(asm_fn_type, inline_asm, &[str_ptr.into()], "asm_call");
+        //// Insert the call to the inline assembly, passing the string pointer as operand.
+        //builder.build_indirect_call(asm_fn_type, inline_asm, &[str_ptr.into()], "asm_call");
 
         // Copy params to 'values'.
         let first_user_param = if self.abi.is_sret(func_sig)? { 2 } else { 1 };
