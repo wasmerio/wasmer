@@ -20,7 +20,10 @@ use crate::vmcontext::{
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTagImport,
     VMTrampoline,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody, VMTag};
+use crate::{
+    wasmer_call_trampoline, FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody,
+    VMTag,
+};
 use crate::{LinearMemory, NotifyLocation};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
@@ -371,13 +374,22 @@ impl Instance {
             }
         };
 
-        // Make the call.
+        let sig = self.module.functions[start_index];
+        let trampoline = self.function_call_trampolines[sig];
+        let values_vec = vec![].as_mut_ptr() as *mut u8;
+
         unsafe {
-            catch_traps(trap_handler, config, move || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
-                    callee_address,
-                )(callee_vmctx)
-            })
+            // Even though we already know the type of the function we need to call, in certain
+            // specific cases trampoline prepare callee arguments for specific optimizations, such
+            // as passing g0 and m0_base_ptr as paramters.
+            wasmer_call_trampoline(
+                trap_handler,
+                config,
+                callee_vmctx,
+                trampoline,
+                callee_address,
+                values_vec,
+            )
         }
     }
 

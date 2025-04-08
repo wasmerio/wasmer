@@ -18,7 +18,11 @@ use inkwell::{
 use std::{cmp, convert::TryInto};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::types::{function::FunctionBody, relocation::RelocationTarget};
-use wasmer_types::{CompileError, FunctionType as FuncType, LocalFunctionIndex};
+use wasmer_types::{
+    entity::PrimaryMap, CompileError, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, Mutability,
+};
+use wasmer_vm::{MemoryStyle, VMOffsets};
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -56,6 +60,8 @@ impl FuncTrampoline {
 
     pub fn trampoline_to_module(
         &self,
+        wasm_module: &ModuleInfo,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         ty: &FuncType,
         config: &LLVM,
         name: &str,
@@ -72,7 +78,7 @@ impl FuncTrampoline {
 
         let (callee_ty, callee_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, true)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ptr_ty.into(), // vmctx ptr
@@ -95,6 +101,8 @@ impl FuncTrampoline {
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         self.generate_trampoline(
+            wasm_module,
+            memory_styles,
             trampoline_func,
             ty,
             callee_ty,
@@ -109,11 +117,24 @@ impl FuncTrampoline {
 
         let mut passes = vec![];
 
-        if config.enable_verifier {
-            passes.push("verify");
-        }
+        //if config.enable_verifier {
+        passes.push("verify");
+        //}
 
         passes.push("instcombine");
+
+        let callee_ty_str = callee_ty.to_string().replace(" ", "_").replace("\"", "");
+
+        let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            let path = std::path::Path::new(llvm_dump_path);
+            if !path.exists() {
+                std::fs::create_dir_all(path).unwrap()
+            }
+            let path = path.join(format!("trmpl_{callee_ty_str}.ll"));
+            _ = module.print_to_file(path).unwrap();
+        }
+
         module
             .run_passes(
                 passes.join(",").as_str(),
@@ -121,6 +142,14 @@ impl FuncTrampoline {
                 PassBuilderOptions::create(),
             )
             .unwrap();
+
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            if !passes.is_empty() {
+                let path = std::path::Path::new(llvm_dump_path)
+                    .join(format!("trmpl_{callee_ty_str}_opt.ll"));
+                _ = module.print_to_file(path).unwrap();
+            }
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -138,11 +167,13 @@ impl FuncTrampoline {
 
     pub fn trampoline(
         &self,
+        wasm_module: &ModuleInfo,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         ty: &FuncType,
         config: &LLVM,
         name: &str,
     ) -> Result<FunctionBody, CompileError> {
-        let module = self.trampoline_to_module(ty, config, name)?;
+        let module = self.trampoline_to_module(wasm_module, memory_styles, ty, config, name)?;
         let function = CompiledKind::FunctionCallTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
@@ -222,7 +253,7 @@ impl FuncTrampoline {
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, false)?;
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
@@ -248,6 +279,21 @@ impl FuncTrampoline {
             passes.push("verify");
         }
 
+        let trampoline_ty_str = trampoline_ty
+            .to_string()
+            .replace(" ", "_")
+            .replace("\"", "");
+
+        let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            let path = std::path::Path::new(llvm_dump_path);
+            if !path.exists() {
+                std::fs::create_dir_all(path).unwrap()
+            }
+            let path = path.join(format!("dyn_trmpl_{trampoline_ty_str}.ll"));
+            _ = module.print_to_file(path).unwrap();
+        }
+
         passes.push("early-cse");
         module
             .run_passes(
@@ -256,6 +302,14 @@ impl FuncTrampoline {
                 PassBuilderOptions::create(),
             )
             .unwrap();
+
+        if let Ok(ref llvm_dump_path) = llvm_dump_path {
+            if !passes.is_empty() {
+                let path = std::path::Path::new(llvm_dump_path)
+                    .join(format!("dyn_trmpl_{trampoline_ty_str}_opt.ll"));
+                _ = module.print_to_file(path).unwrap();
+            }
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -335,6 +389,8 @@ impl FuncTrampoline {
 
     fn generate_trampoline<'ctx>(
         &self,
+        wasm_module: &ModuleInfo,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         trampoline_func: FunctionValue,
         func_sig: &FuncType,
         llvm_func_type: FunctionType,
@@ -360,8 +416,52 @@ impl FuncTrampoline {
                 }
             };
 
-        let mut args_vec: Vec<BasicMetadataValueEnum> =
-            Vec::with_capacity(func_sig.params().len() + 1);
+        let i8_type = context.i8_type();
+
+        let string_len = 6;
+        let array_type = i8_type.array_type(string_len);
+        let local_str = builder.build_alloca(array_type, "local_str").unwrap();
+
+        // Create a constant string "trmpl\n"
+        let const_str = context.const_string(b"trmpl\n", false);
+
+        // Store the constant into the stack allocated buffer.
+        builder.build_store(local_str, const_str).unwrap();
+
+        let asm_str = r#"mov X0, #1
+        mov X1, $0 
+        mov X2, #6
+        mov X16, #4
+        svc 0x80"#;
+        let constraints = "r,~{memory},~{cc},~{x0},~{x1},~{x2},~{x16}";
+
+        let zero = context.i32_type().const_int(0, false);
+        let str_ptr =
+            unsafe { builder.build_in_bounds_gep(array_type, local_str, &[zero, zero], "str_ptr") }
+                .unwrap();
+
+        // The inline asm is declared with a function type that takes one i8* parameter and returns void.
+        let asm_fn_type = context
+            .void_type()
+            .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
+        let inline_asm = context.create_inline_asm(
+            asm_fn_type,
+            asm_str.to_string(),
+            constraints.to_string(),
+            false, // has_side_effects (prevents removal during optimization)
+            false, // is_align_stack
+            None,  // dialect; on AArch64 this is not critical
+            false,
+        );
+
+        // Insert the call to the inline assembly, passing the string pointer as operand.
+        err!(builder.build_indirect_call(asm_fn_type, inline_asm, &[str_ptr.into()], "asm_call"));
+
+        let mut args_vec: Vec<BasicMetadataValueEnum> = Vec::with_capacity(if true {
+            func_sig.params().len() + 3
+        } else {
+            func_sig.params().len() + 1
+        });
 
         if self.abi.is_sret(func_sig)? {
             let basic_types: Vec<_> = func_sig
@@ -375,6 +475,133 @@ impl FuncTrampoline {
         }
 
         args_vec.push(callee_vmctx_ptr.into());
+
+        let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();
+        if true {
+            // get value of G0, get a pointer to M0's base
+
+            let offsets = VMOffsets::new(8, wasm_module);
+
+            let global_index = GlobalIndex::from_u32(0);
+            let global_type = wasm_module.globals[global_index];
+            let global_value_type = global_type.ty;
+            let global_mutability = global_type.mutability;
+
+            let offset =
+                if let Some(local_global_index) = wasm_module.local_global_index(global_index) {
+                    offsets.vmctx_vmglobal_definition(local_global_index)
+                } else {
+                    offsets.vmctx_vmglobal_import(global_index)
+                };
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let global_ptr = {
+                let global_ptr_ptr = unsafe {
+                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
+                };
+                let global_ptr_ptr =
+                    err!(builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
+                        .into_pointer_value();
+                let global_ptr = err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
+                    .into_pointer_value();
+
+                global_ptr
+            };
+
+            let global_ptr = err!(builder.build_bit_cast(
+                global_ptr,
+                type_to_llvm_ptr(intrinsics, global_value_type)?,
+                "",
+            ))
+            .into_pointer_value();
+
+            let global_value = match global_mutability {
+                Mutability::Const => {
+                    let value = err!(builder.build_load(
+                        type_to_llvm(intrinsics, global_value_type)?,
+                        global_ptr,
+                        "g0",
+                    ));
+                    //tbaa_label(
+                    //    module,
+                    //    intrinsics,
+                    //    format!("global {}", index.as_u32()),
+                    //    value.as_instruction_value().unwrap(),
+                    //);
+                    value
+                }
+                Mutability::Var => {
+                    err!(builder.build_load(
+                        type_to_llvm(intrinsics, global_value_type)?,
+                        global_ptr,
+                        ""
+                    ))
+                    //tbaa_label(
+                    //    self.module,
+                    //    self.intrinsics,
+                    //    format!("global {}", global_index.as_u32()),
+                    //    value.as_instruction_value().unwrap(),
+                    //);
+                }
+            };
+
+            //let global_value = err!(builder.build_load(
+            //    type_to_llvm(intrinsics, global_value_type)?,
+            //    global_ptr,
+            //    ""
+            //));
+
+            global_value.set_name("trmpl_g0");
+            args_vec.push(global_value.into());
+
+            // load mem
+            let memory_index = MemoryIndex::from_u32(0);
+            let memory_definition_ptr = if let Some(local_memory_index) =
+                wasm_module.local_memory_index(memory_index)
+            {
+                let offset = offsets.vmctx_vmmemory_definition(local_memory_index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                unsafe {
+                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
+                }
+            } else {
+                let offset = offsets.vmctx_vmmemory_import(memory_index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let memory_definition_ptr_ptr = unsafe {
+                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
+                };
+                let memory_definition_ptr_ptr =
+                    err!(builder.build_bit_cast(memory_definition_ptr_ptr, intrinsics.ptr_ty, "",))
+                        .into_pointer_value();
+                let memory_definition_ptr =
+                    err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
+                        .into_pointer_value();
+
+                memory_definition_ptr
+            };
+            let memory_definition_ptr =
+                err!(builder.build_bit_cast(memory_definition_ptr, intrinsics.ptr_ty, "",))
+                    .into_pointer_value();
+            let base_ptr = err!(builder.build_struct_gep(
+                intrinsics.vmmemory_definition_ty,
+                memory_definition_ptr,
+                intrinsics.vmmemory_definition_base_element,
+                "",
+            ));
+
+            let memory_style = &memory_styles[memory_index];
+            let base_ptr = if let MemoryStyle::Dynamic { .. } = memory_style {
+                base_ptr
+            } else {
+                let base_ptr =
+                    err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value();
+
+                base_ptr
+            };
+
+            base_ptr.set_name("trmpl_m0_base_ptr");
+
+            args_vec.push(base_ptr.into());
+        }
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {
             let index = intrinsics.i32_ty.const_int(i as _, false);
@@ -453,6 +680,47 @@ impl FuncTrampoline {
             )),
             "",
         ));
+
+        let i8_type = context.i8_type();
+
+        let string_len = 6;
+        let array_type = i8_type.array_type(string_len);
+        let local_str = builder.build_alloca(array_type, "local_str").unwrap();
+
+        // Create a constant string "trmpl\n"
+        let const_str = context.const_string(b"dympl\n", false);
+
+        // Store the constant into the stack allocated buffer.
+        builder.build_store(local_str, const_str).unwrap();
+
+        let asm_str = r#"mov X0, #1
+        mov X1, $0 
+        mov X2, #6
+        mov X16, #4
+        svc 0x80"#;
+        let constraints = "r,~{memory},~{cc},~{x0},~{x1},~{x2},~{x16}";
+
+        let zero = context.i32_type().const_int(0, false);
+        let str_ptr =
+            unsafe { builder.build_in_bounds_gep(array_type, local_str, &[zero, zero], "str_ptr") }
+                .unwrap();
+
+        // The inline asm is declared with a function type that takes one i8* parameter and returns void.
+        let asm_fn_type = context
+            .void_type()
+            .fn_type(&[context.ptr_type(AddressSpace::default()).into()], false);
+        let inline_asm = context.create_inline_asm(
+            asm_fn_type,
+            asm_str.to_string(),
+            constraints.to_string(),
+            false, // has_side_effects (prevents removal during optimization)
+            false, // is_align_stack
+            None,  // dialect; on AArch64 this is not critical
+            false,
+        );
+
+        // Insert the call to the inline assembly, passing the string pointer as operand.
+        builder.build_indirect_call(asm_fn_type, inline_asm, &[str_ptr.into()], "asm_call");
 
         // Copy params to 'values'.
         let first_user_param = if self.abi.is_sret(func_sig)? { 2 } else { 1 };

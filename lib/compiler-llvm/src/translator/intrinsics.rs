@@ -252,6 +252,9 @@ pub struct Intrinsics<'ctx> {
     // Debug
     pub debug_ptr: FunctionValue<'ctx>,
 
+    // Debug
+    pub debug_str: FunctionValue<'ctx>,
+
     // VM builtins.
     pub vmfunction_import_ty: StructType<'ctx>,
     pub vmfunction_import_body_element: u32,
@@ -1040,6 +1043,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[ptr_ty.into()], false),
                 None,
             ),
+            debug_str: module.add_function(
+                "wasmer_vm_dbg_str",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
             memory_wait32: module.add_function(
                 "wasmer_vm_memory32_atomic_wait32",
                 i32_ty.fn_type(
@@ -1695,9 +1703,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 debug_assert!(module.get_function(function_name).is_none());
-                let (llvm_func_type, llvm_func_attrs) =
-                    self.abi
-                        .func_type_to_llvm(context, intrinsics, Some(offsets), func_type)?;
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    Some(offsets),
+                    func_type,
+                    true,
+                )?;
                 let func =
                     module.add_function(function_name, llvm_func_type, Some(Linkage::External));
                 for (attr, attr_loc) in &llvm_func_attrs {
@@ -1730,9 +1742,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         match cached_functions.entry(function_index) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
             Entry::Vacant(entry) => {
-                let (llvm_func_type, llvm_func_attrs) =
-                    self.abi
-                        .func_type_to_llvm(context, intrinsics, Some(offsets), func_type)?;
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    Some(offsets),
+                    func_type,
+                    false,
+                )?;
                 debug_assert!(wasm_module.local_func_index(function_index).is_none());
                 let offset = offsets.vmctx_vmfunction_import(function_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
