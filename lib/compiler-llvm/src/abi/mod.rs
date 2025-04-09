@@ -12,7 +12,7 @@ use inkwell::{
     context::Context,
     targets::TargetMachine,
     types::FunctionType,
-    values::{BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
+    values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
 };
 use wasmer_types::CompileError;
 use wasmer_types::FunctionType as FuncSig;
@@ -37,6 +37,25 @@ pub fn get_abi(target_machine: &TargetMachine) -> Box<dyn Abi> {
     }
 }
 
+#[derive(Debug)]
+pub(crate) enum FunctionKind {
+    Local,
+    Imported,
+}
+
+impl FunctionKind {
+    /// Returns `true` if the function kind is [`Local`].
+    ///
+    /// [`Local`]: FunctionKind::Local
+    #[must_use]
+    pub(crate) fn is_local(&self) -> bool {
+        matches!(self, Self::Local)
+    }
+}
+
+/// The two additional parameters needed for g0m0 optimization.
+pub(crate) type LocalFunctionG0M0params<'ctx> = Option<(IntValue<'ctx>, PointerValue<'ctx>)>;
+
 /// We need to produce different LLVM IR for different platforms. (Contrary to
 /// popular knowledge LLVM IR is not intended to be portable in that way.) This
 /// trait deals with differences between function signatures on different
@@ -45,13 +64,29 @@ pub trait Abi {
     /// Given a function definition, retrieve the parameter that is the vmctx pointer.
     fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx>;
 
+    /// Given a function definition, retrieve the parameter that is the pointer to the first --
+    /// number 0 -- local global.
+    #[allow(unused)]
+    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx>;
+
+    /// Given a function definition, retrieve the parameter that is the pointer to the first --
+    /// number 0 -- local memory.
+    ///
+    /// # Notes
+    /// This function assumes that g0m0 is enabled.
+    fn get_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx>;
+
     /// Given a wasm function type, produce an llvm function declaration.
+    ///
+    /// # Notes
+    /// This function assumes that g0m0 is enabled.
     fn func_type_to_llvm<'ctx>(
         &self,
         context: &'ctx Context,
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
+        function_kind: Option<FunctionKind>,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError>;
 
     /// Marshall wasm stack values into function parameters.
@@ -63,6 +98,7 @@ pub trait Abi {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
+        g0m0: LocalFunctionG0M0params<'ctx>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError>;
 
     /// Given a CallSite, extract the returned values and return them in a Vec.

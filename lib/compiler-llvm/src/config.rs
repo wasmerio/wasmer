@@ -43,6 +43,7 @@ pub trait LLVMCallbacks: Debug + Send + Sync {
 #[derive(Debug, Clone)]
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
+    pub(crate) enable_g0m0_opt: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
@@ -62,12 +63,21 @@ impl LLVM {
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
+            enable_g0m0_opt: false,
         }
     }
 
     /// The optimization levels when optimizing the IR.
     pub fn opt_level(&mut self, opt_level: LLVMOptLevel) -> &mut Self {
         self.opt_level = opt_level;
+        self
+    }
+
+    /// (warning: experimental) Pass the value of the first (#0) global and the base pointer of the
+    /// first (#0) memory as parameter between guest functions.
+    pub fn enable_pass_params_opt(&mut self) -> &mut Self {
+        // internally, the "pass_params" opt is known as g0m0 opt.
+        self.enable_g0m0_opt = true;
         self
     }
 
