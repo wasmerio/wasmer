@@ -17,8 +17,11 @@ use shared_buffer::OwnedBuffer;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
+use std::{
+    io::Write,
+    sync::atomic::{AtomicUsize, Ordering::SeqCst},
+};
 
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
@@ -27,7 +30,7 @@ use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
     SignatureIndex,
 };
-use wasmer_types::{target::Target, CompileError, HashAlgorithm};
+use wasmer_types::{target::Target, CompileError, HashAlgorithm, ModuleInfo};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -486,6 +489,41 @@ impl EngineInner {
             .last_mut()
             .unwrap()
             .register_frame_info(frame_info);
+    }
+
+    pub(crate) fn register_perfmap(
+        &self,
+        finished_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
+        module_info: &ModuleInfo,
+    ) -> Result<(), CompileError> {
+        if self
+            .compiler
+            .as_ref()
+            .is_some_and(|v| v.get_perfmap_enabled())
+        {
+            let filename = format!("/tmp/perf-{}.map", std::process::id());
+            let mut file = std::io::BufWriter::new(std::fs::File::create(filename).unwrap());
+
+            for (func_index, code) in finished_functions.iter() {
+                let func_index = module_info.func_index(func_index);
+                let name = if let Some(func_name) = module_info.function_names.get(&func_index) {
+                    func_name.clone()
+                } else {
+                    format!("{:p}", code.ptr.0)
+                };
+
+                let sanitized_name = name.replace(['\n', '\r'], "_");
+                let line = format!(
+                    "{:p} {:x} {}\n",
+                    code.ptr.0 as *const _, code.length, sanitized_name
+                );
+                write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
+                file.flush()
+                    .map_err(|e| CompileError::Codegen(e.to_string()))?;
+            }
+        }
+
+        Ok(())
     }
 }
 

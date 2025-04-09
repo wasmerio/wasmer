@@ -6,9 +6,9 @@
 // module.
 #![allow(dead_code, unused_imports, unused_variables)]
 
-use std::path::PathBuf;
 use std::string::ToString;
 use std::sync::Arc;
+use std::{path::PathBuf, str::FromStr};
 
 use anyhow::{bail, Result};
 #[cfg(feature = "sys")]
@@ -187,6 +187,12 @@ pub struct RuntimeOptions {
     #[clap(long)]
     enable_verifier: bool,
 
+    /// Enable a profiler.
+    ///
+    /// Available for cranelift, LLVM and singlepass.
+    #[clap(long, value_enum)]
+    profiler: Option<Profiler>,
+
     /// LLVM debug directory, where IR and object files will be written to.
     ///
     /// Only available for the LLVM compiler.
@@ -200,6 +206,23 @@ pub struct RuntimeOptions {
 
     #[clap(flatten)]
     features: WasmFeatures,
+}
+
+#[derive(Clone, Debug)]
+pub enum Profiler {
+    /// Perfmap-based profilers.
+    Perfmap,
+}
+
+impl FromStr for Profiler {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "perfmap" => Ok(Self::Perfmap),
+            _ => Err(anyhow::anyhow!("Unrecognized profiler: {s}")),
+        }
+    }
 }
 
 impl RuntimeOptions {
@@ -422,6 +445,14 @@ impl RuntimeOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if let Some(p) = &self.profiler {
+                    match p {
+                        Profiler::Perfmap => {
+                            config.enable_perfmap()
+                        }
+                    }
+                }
+
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
@@ -429,6 +460,13 @@ impl RuntimeOptions {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
                 if self.enable_verifier {
                     config.enable_verifier();
+                }
+                if let Some(p) = &self.profiler {
+                    match p {
+                        Profiler::Perfmap => {
+                            config.enable_perfmap()
+                        }
+                    }
                 }
                 Box::new(config)
             }
@@ -538,6 +576,14 @@ impl RuntimeOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if let Some(p) = &self.profiler {
+                    match p {
+                        Profiler::Perfmap => {
+                            config.enable_perfmap()
+                        }
+                    }
+                }
+
                 Box::new(config)
             }
             BackendType::V8 | BackendType::Wamr | BackendType::Wasmi => unreachable!(),
@@ -611,7 +657,17 @@ impl BackendType {
         match self {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
-                let config = wasmer_compiler_singlepass::Singlepass::new();
+                let mut config = wasmer_compiler_singlepass::Singlepass::new();
+                if runtime_opts.enable_verifier {
+                    config.enable_verifier();
+                }
+                if let Some(p) = &runtime_opts.profiler {
+                    match p {
+                        Profiler::Perfmap => {
+                            config.enable_perfmap()
+                        }
+                    }
+                }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))
                     .set_target(Some(target.clone()))
@@ -621,7 +677,17 @@ impl BackendType {
             }
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
-                let config = wasmer_compiler_cranelift::Cranelift::new();
+                let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                if runtime_opts.enable_verifier {
+                    config.enable_verifier();
+                }
+                if let Some(p) = &runtime_opts.profiler {
+                    match p {
+                        Profiler::Perfmap => {
+                            config.enable_perfmap()
+                        }
+                    }
+                }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))
                     .set_target(Some(target.clone()))
@@ -735,6 +801,14 @@ impl BackendType {
 
                 if runtime_opts.enable_pass_params_opt {
                     config.enable_pass_params_opt();
+                }
+
+                if let Some(p) = &runtime_opts.profiler {
+                    match p {
+                        Profiler::Perfmap => {
+                            config.enable_perfmap()
+                        }
+                    }
                 }
 
                 let engine = wasmer_compiler::EngineBuilder::new(config)

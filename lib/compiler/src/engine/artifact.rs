@@ -446,6 +446,8 @@ impl Artifact {
             get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
         )?;
 
+        engine_inner.register_perfmap(&finished_functions, module_info)?;
+
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
 
