@@ -6,3 +6,4 @@ pub(crate) mod utils;
 pub(crate) mod vm;
 
 pub use entities::*;
+pub use utils::*;
