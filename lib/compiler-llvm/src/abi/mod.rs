@@ -90,6 +90,7 @@ pub trait Abi {
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError>;
 
     /// Marshall wasm stack values into function parameters.
+    #[allow(clippy::too_many_arguments)]
     fn args_to_call<'ctx>(
         &self,
         alloca_builder: &Builder<'ctx>,

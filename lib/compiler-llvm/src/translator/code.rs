@@ -207,12 +207,10 @@ impl FuncTranslator {
                 } else {
                     2
                 }
+            } else if g0m0_is_enabled {
+                3
             } else {
-                if g0m0_is_enabled {
-                    3
-                } else {
-                    1
-                }
+                1
             };
         let mut is_first_alloca = true;
         let mut insert_alloca = |ty, name| -> Result<PointerValue, CompileError> {
@@ -345,15 +343,15 @@ impl FuncTranslator {
         passes.push("simplifycfg");
         passes.push("mem2reg");
 
-        let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
-        if let Ok(ref llvm_dump_path) = llvm_dump_path {
-            let path = std::path::Path::new(llvm_dump_path);
-            if !path.exists() {
-                std::fs::create_dir_all(path).unwrap()
-            }
-            let path = path.join(format!("{function_name}.ll"));
-            _ = module.print_to_file(path).unwrap();
-        }
+        //let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
+        //    let path = std::path::Path::new(llvm_dump_path);
+        //    if !path.exists() {
+        //        std::fs::create_dir_all(path).unwrap()
+        //    }
+        //    let path = path.join(format!("{function_name}.ll"));
+        //    _ = module.print_to_file(path).unwrap();
+        //}
 
         module
             .run_passes(
@@ -363,13 +361,13 @@ impl FuncTranslator {
             )
             .unwrap();
 
-        if let Ok(ref llvm_dump_path) = llvm_dump_path {
-            if !passes.is_empty() {
-                let path =
-                    std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
-                _ = module.print_to_file(path).unwrap();
-            }
-        }
+        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
+        //    if !passes.is_empty() {
+        //        let path =
+        //            std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
+        //        _ = module.print_to_file(path).unwrap();
+        //    }
+        //}
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -1226,7 +1224,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
         let base_ptr = if let Some((_, ref m0)) = self.g0m0 {
-            m0.clone()
+            *m0
         } else {
             match self
                 .ctx
@@ -1552,9 +1550,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         func_index: IntValue<'ctx>,
     ) -> Result<(), CompileError> {
         let Some((g0, m0)) = self.g0m0 else {
-            return Err(CompileError::Codegen(format!(
-                "Call to build_g0m0_indirect_call without g0m0 parameters!"
-            )));
+            return Err(CompileError::Codegen(
+                "Call to build_g0m0_indirect_call without g0m0 parameters!".to_string(),
+            ));
         };
 
         let mut local_func_indices = vec![];
@@ -1601,11 +1599,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .into_iter()
                     .map(|v| (
                         self.intrinsics.i32_ty.const_int(v as _, false),
-                        local_idx_block.clone()
+                        local_idx_block
                     ))
                     .chain(foreign_func_indices.into_iter().map(|v| (
                         self.intrinsics.i32_ty.const_int(v as _, false),
-                        foreign_idx_block.clone()
+                        foreign_idx_block
                     )))
                     .collect::<Vec<_>>()
             ));
@@ -2626,10 +2624,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     };
 
                     // Removed with mem2reg.
-                    let value =
-                        err!(self
-                            .builder
-                            .build_load(self.intrinsics.i32_ty, g0.clone(), ""));
+                    let value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, ""));
 
                     self.state.push1(value);
                 } else {
@@ -2663,11 +2658,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let Some((g0, _)) = self.g0m0 else {
                         unreachable!()
                     };
-                    let ptr_to_value = g0.clone();
+                    let ptr_to_value = g0;
                     let (value, info) = self.state.pop1_extra()?;
                     let value = self.apply_pending_canonicalization(value, info)?;
                     let store = err!(self.builder.build_store(ptr_to_value, value));
-                    tbaa_label(self.module, self.intrinsics, format!("global 0",), store);
+                    tbaa_label(self.module, self.intrinsics, "global 0".to_string(), store);
                 } else {
                     let global_index = GlobalIndex::from_u32(global_index);
                     match self
@@ -2755,12 +2750,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
                     if let Some((g0, m0)) = &self.g0m0 {
                         // removed with mem2reg.
-                        let value =
-                            err!(self
-                                .builder
-                                .build_load(self.intrinsics.i32_ty, g0.clone(), ""));
+                        let value = err!(self.builder.build_load(self.intrinsics.i32_ty, *g0, ""));
 
-                        g0m0_params = Some((value.into_int_value(), m0.clone()));
+                        g0m0_params = Some((value.into_int_value(), *m0));
                     }
 
                     let function_name = self

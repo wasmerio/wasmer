@@ -94,7 +94,7 @@ impl ModuleBasedSymbolRegistry {
             wasm_module
                 .function_names
                 .iter()
-                .map(|(f, v)| (wasm_module.local_func_index(f.clone()), v))
+                .map(|(f, v)| (wasm_module.local_func_index(*f), v))
                 .filter(|(f, _)| f.is_some())
                 .map(|(f, v)| (v.clone(), f.unwrap())),
         );
@@ -113,7 +113,7 @@ impl SymbolRegistry for ModuleBasedSymbolRegistry {
                 .wasm_module
                 .function_names
                 .get(&self.wasm_module.func_index(index))
-                .map(|v| v.clone())
+                .cloned()
                 .unwrap_or(self.short_names.symbol_to_name(symbol)),
             _ => self.short_names.symbol_to_name(symbol),
         }

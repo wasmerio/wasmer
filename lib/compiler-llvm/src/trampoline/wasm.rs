@@ -346,6 +346,7 @@ impl FuncTrampoline {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_trampoline<'ctx>(
         &self,
         config: &LLVM,
@@ -375,11 +376,12 @@ impl FuncTrampoline {
                 }
             };
 
-        let mut args_vec: Vec<BasicMetadataValueEnum> = Vec::with_capacity(if config.enable_g0m0_opt {
-            func_sig.params().len() + 3
-        } else {
-            func_sig.params().len() + 1
-        });
+        let mut args_vec: Vec<BasicMetadataValueEnum> =
+            Vec::with_capacity(if config.enable_g0m0_opt {
+                func_sig.params().len() + 3
+            } else {
+                func_sig.params().len() + 1
+            });
 
         if self.abi.is_sret(func_sig)? {
             let basic_types: Vec<_> = func_sig
@@ -436,12 +438,11 @@ impl FuncTrampoline {
 
             let global_value = match global_mutability {
                 wasmer_types::Mutability::Const => {
-                    let value = err!(builder.build_load(
+                    err!(builder.build_load(
                         type_to_llvm(intrinsics, global_value_type)?,
                         global_ptr,
                         "g0",
-                    ));
-                    value
+                    ))
                 }
                 wasmer_types::Mutability::Var => {
                     err!(builder.build_load(
