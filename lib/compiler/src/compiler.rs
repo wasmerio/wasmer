@@ -39,6 +39,12 @@ pub trait CompilerConfig {
         // in case they create an IR that they can verify.
     }
 
+    /// Enable generation of perfmaps to sample the JIT compiled frames.
+    fn enable_perfmap(&mut self) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they create an IR that they can verify.
+    }
+
     /// Enable NaN canonicalization.
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly
@@ -154,5 +160,10 @@ pub trait Compiler: Send {
     /// Get the CpuFeatues used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
         *cpu_features
+    }
+
+    /// Get whether `perfmap` is enabled or not.
+    fn get_perfmap_enabled(&self) -> bool {
+        false
     }
 }

@@ -45,6 +45,7 @@ pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_g0m0_opt: bool,
     pub(crate) enable_verifier: bool,
+    pub(crate) enable_perfmap: bool,
     pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
     pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
@@ -59,6 +60,7 @@ impl LLVM {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
+            enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
             callbacks: None,
@@ -298,6 +300,10 @@ impl CompilerConfig for LLVM {
         // TODO: although we can emit PIC, the object file parser does not yet
         // support all the relocations.
         self.is_pic = true;
+    }
+
+    fn enable_perfmap(&mut self) {
+        self.enable_perfmap = true
     }
 
     /// Whether to verify compiler IR.

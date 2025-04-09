@@ -70,6 +70,10 @@ impl Compiler for CraneliftCompiler {
         "cranelift"
     }
 
+    fn get_perfmap_enabled(&self) -> bool {
+        self.config.enable_perfmap
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares
