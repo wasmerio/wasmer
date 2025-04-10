@@ -51,7 +51,7 @@ impl Engine {
     }
 
     /// Returns the deterministic id of this engine.
-    pub fn deterministic_id(&self) -> &str {
+    pub fn deterministic_id(&self) -> String {
         self.be.deterministic_id()
     }
 

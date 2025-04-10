@@ -5,9 +5,9 @@ use wasmer_types::{target::Target, Features};
 pub struct Engine;
 
 impl Engine {
-    pub(crate) fn deterministic_id(&self) -> &str {
+    pub(crate) fn deterministic_id(&self) -> String {
         // All js engines have the same id
-        "js-generic"
+        String::from("js-generic")
     }
 
     /// Returns the WebAssembly features supported by the JS engine.

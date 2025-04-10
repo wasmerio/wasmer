@@ -94,12 +94,13 @@ impl Engine {
     }
 
     /// Returns the deterministic id of this engine
-    pub fn deterministic_id(&self) -> &str {
-        // TODO: add a `deterministic_id` to the Compiler, so two
-        // compilers can actually serialize into a different deterministic_id
-        // if their configuration is different (eg. LLVM with optimizations vs LLVM
-        // without optimizations)
-        self.name.as_str()
+    pub fn deterministic_id(&self) -> String {
+        let i = self.inner();
+        if let Some(ref c) = i.compiler {
+            c.deterministic_id()
+        } else {
+            self.name.clone()
+        }
     }
 
     /// Create a headless `Engine`

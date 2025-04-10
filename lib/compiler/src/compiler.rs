@@ -75,12 +75,15 @@ where
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler: Send {
+pub trait Compiler: Send + std::fmt::Debug {
     /// Returns a descriptive name for this compiler.
     ///
     /// Note that this is an API breaking change since 3.0
     fn name(&self) -> &str;
 
+    /// Returns the deterministic id of this compiler. Same compilers with different
+    /// optimizations map to different deterministic IDs.
+    fn deterministic_id(&self) -> String;
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
