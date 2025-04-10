@@ -123,7 +123,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Gains direct access to the memory of this slice
     #[inline]
     pub fn access(self) -> Result<WasmRefAccess<'a, T>, MemoryAccessError> {
-        WasmRefAccess::new(self)
+        WasmRefAccess::new(self, self.buffer.is_owned())
     }
 }
 
@@ -245,7 +245,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     /// Gains direct access to the memory of this slice
     #[inline]
     pub fn access(self) -> Result<WasmSliceAccess<'a, T>, MemoryAccessError> {
-        WasmSliceAccess::new(self)
+        WasmSliceAccess::new(self, self.buffer.is_owned())
     }
 
     /// Reads an element of this slice.

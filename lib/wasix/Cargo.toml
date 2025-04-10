@@ -234,6 +234,8 @@ js = [
 	"wasm-bindgen",
 	"wasm-bindgen-futures",
 	"web-sys",
+	"wasmer/js-default",
+	"wasmer/wasm-types-polyfill",
 ]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
@@ -250,6 +252,7 @@ enable-serde = [
 	"typetag",
 	"virtual-fs/enable-serde",
 	"wasmer-wasix-types/enable-serde",
+	"wasmer/enable-serde",
 ]
 
 [package.metadata.docs.rs]

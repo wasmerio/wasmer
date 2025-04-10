@@ -2256,6 +2256,7 @@ impl core::fmt::Debug for OptionTimestamp {
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Signal {
     Signone = 0,
     Sighup,
@@ -2331,6 +2332,7 @@ impl core::fmt::Debug for Signal {
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Disposition {
     Default,
     Ignore,

@@ -30,6 +30,12 @@ impl<'a> MemoryBuffer<'a> {
         Ok(())
     }
 
+    #[inline]
+    pub(crate) fn len(&self) -> usize {
+        let view = unsafe { &*(self.base) };
+        view.length() as usize
+    }
+
     pub(crate) fn read_uninit<'b>(
         &self,
         offset: u64,

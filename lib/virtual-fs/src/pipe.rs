@@ -169,6 +169,11 @@ impl Pipe {
     pub fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
         self.recv.try_read(buf)
     }
+
+    pub fn close(&mut self) {
+        self.send.close();
+        self.recv.close();
+    }
 }
 
 impl Default for Pipe {
