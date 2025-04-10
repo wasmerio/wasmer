@@ -2,7 +2,10 @@
 
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
-use wasmer_types::{target::Target, DeserializeError, Features};
+use wasmer_types::{
+    target::{SuggestedCompilerOptimizations, Target},
+    CompileError, DeserializeError, Features,
+};
 
 #[cfg(feature = "sys")]
 use wasmer_compiler::Artifact;
@@ -222,5 +225,23 @@ impl Engine {
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
         self.be.deserialize_from_file_unchecked(file_ref)
+    }
+
+    /// Add suggested optimizations to this engine.
+    ///
+    /// # Note
+    ///
+    /// Not every backend supports every optimization. This function may fail (i.e. not set the
+    /// suggested optimizations) silently if the underlying engine backend does not support one or
+    /// more optimizations.
+    pub fn with_opts(
+        &mut self,
+        suggested_opts: &SuggestedCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        match self.be {
+            #[cfg(feature = "sys")]
+            BackendEngine::Sys(ref mut e) => e.with_opts(suggested_opts),
+            _ => Ok(()),
+        }
     }
 }

@@ -229,3 +229,11 @@ impl Default for Target {
         }
     }
 }
+
+/// A set of suggested optimizations, which will be passed on to backends in the chain of
+/// execution.
+#[derive(Debug, Clone, Default)]
+pub struct SuggestedCompilerOptimizations {
+    /// Suggest the "pass_params" (also known as `g0m0`) optimiation to be enabled.
+    pub pass_params: Option<bool>,
+}

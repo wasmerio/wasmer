@@ -9,6 +9,7 @@ use crate::{
     FunctionBodyData, ModuleTranslationState,
 };
 use enumset::EnumSet;
+use wasmer_types::target::SuggestedCompilerOptimizations;
 use wasmer_types::{
     entity::PrimaryMap,
     error::CompileError,
@@ -84,6 +85,22 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Returns the deterministic id of this compiler. Same compilers with different
     /// optimizations map to different deterministic IDs.
     fn deterministic_id(&self) -> String;
+
+    /// Add suggested optimizations to this compiler.
+    ///
+    /// # Note
+    ///
+    /// Not every compiler supports every optimization. This function may fail (i.e. not set the
+    /// suggested optimizations) silently if the underlying compiler does not support one or
+    /// more optimizations.
+    fn with_opts(
+        &mut self,
+        suggested_compiler_opts: &SuggestedCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        _ = suggested_compiler_opts;
+        Ok(())
+    }
+
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.

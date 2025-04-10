@@ -284,11 +284,31 @@ impl Engine {
     pub fn tunables(&self) -> &dyn Tunables {
         self.tunables.as_ref()
     }
+
+    /// Add suggested optimizations to this engine.
+    ///
+    /// # Note
+    ///
+    /// Not every backend supports every optimization. This function may fail (i.e. not set the
+    /// suggested optimizations) silently if the underlying engine backend does not support one or
+    /// more optimizations.
+    pub fn with_opts(
+        &mut self,
+        suggested_opts: &wasmer_types::target::SuggestedCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        let mut i = self.inner_mut();
+        if let Some(ref mut c) = i.compiler {
+            c.with_opts(suggested_opts)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for Engine {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Engine")
+            .field("inner", &self.inner)
             .field("target", &self.target)
             .field("engine_id", &self.engine_id)
             .field("name", &self.name)
@@ -312,6 +332,16 @@ pub struct EngineInner {
     /// performantly.
     #[cfg(not(target_arch = "wasm32"))]
     signatures: SignatureRegistry,
+}
+
+impl std::fmt::Debug for EngineInner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("EngineInner")
+            .field("compiler", &self.compiler)
+            .field("features", &self.features)
+            .field("signatures", &self.signatures)
+            .finish()
+    }
 }
 
 impl EngineInner {
