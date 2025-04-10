@@ -56,10 +56,19 @@ impl<'a> BackendMemoryBuffer<'a> {
             Self::V8(s) => s.len,
 
             #[cfg(feature = "js")]
-            Self::Js(s) => panic!("js memory buffers do not support the `len` function!"),
+            Self::Js(s) => s.len(),
 
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => s.len,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_owned(&self) -> bool {
+        match self {
+            #[cfg(feature = "js")]
+            Self::Js(_) => true,
+            _ => false,
         }
     }
 
