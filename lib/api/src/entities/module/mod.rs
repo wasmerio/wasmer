@@ -453,6 +453,9 @@ impl std::fmt::Debug for Module {
 #[cfg(feature = "js")]
 impl From<Module> for wasm_bindgen::JsValue {
     fn from(value: Module) -> Self {
-        todo!()
+        match value.0 {
+            BackendModule::Js(module) => Self::from(module),
+            _ => unreachable!(),
+        }
     }
 }
