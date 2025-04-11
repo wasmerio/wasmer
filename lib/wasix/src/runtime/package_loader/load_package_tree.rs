@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{Context, Error};
+use anyhow::{bail, Context, Error};
 use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
@@ -408,9 +408,6 @@ fn filesystem_v3(
 ) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
-    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
-
     let union_fs = UnionFileSystem::new();
 
     for ResolvedFileSystemMapping {
@@ -422,6 +419,12 @@ fn filesystem_v3(
     {
         if *package == pkg.root_package && root_is_local_dir {
             continue;
+        }
+
+        if mount_path.as_path() == Path::new("/") {
+            bail!(
+                "The \"{package}\" package wants to mount a volume at \"/\", but that's not allowed",
+            );
         }
 
         // Note: We want to reuse existing Volume instances if we can. That way
@@ -483,9 +486,6 @@ fn filesystem_v2(
     let mut filesystems = Vec::new();
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
-    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
-    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
-
     for ResolvedFileSystemMapping {
         mount_path,
         volume_name,
@@ -495,6 +495,12 @@ fn filesystem_v2(
     {
         if *package == pkg.root_package && root_is_local_dir {
             continue;
+        }
+
+        if mount_path.as_path() == Path::new("/") {
+            bail!(
+                "The \"{package}\" package wants to mount a volume at \"/\", but that's not allowed",
+            );
         }
 
         // Note: We want to reuse existing Volume instances if we can. That way
