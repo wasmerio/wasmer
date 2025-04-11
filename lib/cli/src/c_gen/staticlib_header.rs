@@ -8,63 +8,13 @@ use super::{generate_c, CStatement, CType};
 /// Helper functions to simplify the usage of the static artifact.
 fn gen_helper_functions(atom_name: &str, module_name: &str) -> String {
     format!("
-    wasm_byte_vec_t generate_serialized_data_{atom_name}() {{
-        // We need to pass all the bytes as one big buffer so we have to do all this logic to memcpy
-        // the various pieces together from the generated header file.
-        //
-        // We should provide a `deseralize_vectored` function to avoid requiring this extra work.
-
-        char* byte_ptr = (char*)&{module_name}[0];
-
-        size_t num_function_pointers
-                = sizeof(function_pointers_{atom_name}) / sizeof(void*);
-        size_t num_function_trampolines
-                = sizeof(function_trampolines_{atom_name}) / sizeof(void*);
-        size_t num_dynamic_function_trampoline_pointers
-                = sizeof(dynamic_function_trampoline_pointers_{atom_name}) / sizeof(void*);
-
-
-        size_t buffer_size = module_bytes_len_{atom_name}
-                + sizeof(size_t) + sizeof(function_pointers_{atom_name})
-                + sizeof(size_t) + sizeof(function_trampolines_{atom_name})
-                + sizeof(size_t) + sizeof(dynamic_function_trampoline_pointers_{atom_name});
-
-        char* memory_buffer = (char*) malloc(buffer_size);
-        size_t current_offset = 0;
-
-        memcpy(memory_buffer + current_offset, byte_ptr, module_bytes_len_{atom_name});
-        current_offset += module_bytes_len_{atom_name};
-
-        memcpy(memory_buffer + current_offset, (void*)&num_function_pointers, sizeof(size_t));
-        current_offset += sizeof(size_t);
-
-        memcpy(memory_buffer + current_offset, (void*)&function_pointers_{atom_name}[0], sizeof(function_pointers_{atom_name}));
-        current_offset += sizeof(function_pointers_{atom_name});
-
-        memcpy(memory_buffer + current_offset, (void*)&num_function_trampolines, sizeof(size_t));
-        current_offset += sizeof(size_t);
-
-        memcpy(memory_buffer + current_offset, (void*)&function_trampolines_{atom_name}[0], sizeof(function_trampolines_{atom_name}));
-        current_offset += sizeof(function_trampolines_{atom_name});
-
-        memcpy(memory_buffer + current_offset, (void*)&num_dynamic_function_trampoline_pointers, sizeof(size_t));
-        current_offset += sizeof(size_t);
-
-        memcpy(memory_buffer + current_offset, (void*)&dynamic_function_trampoline_pointers_{atom_name}[0], sizeof(dynamic_function_trampoline_pointers_{atom_name}));
-        current_offset += sizeof(dynamic_function_trampoline_pointers_{atom_name});
-
-        wasm_byte_vec_t module_byte_vec = {{
-                .size = buffer_size,
-                .data = memory_buffer,
-        }};
-        return module_byte_vec;
-    }}
-
     wasm_module_t* wasmer_object_module_new_{atom_name}(wasm_store_t* store, const char* wasm_name) {{
             // wasm_name intentionally unused for now: will be used in the future.
-            wasm_byte_vec_t module_byte_vec = generate_serialized_data_{atom_name}();
+            wasm_byte_vec_t module_byte_vec = {{
+                .size = module_bytes_len_{atom_name},
+                .data = (char*)&{module_name}[0],
+            }};
             wasm_module_t* module = wasm_module_deserialize(store, &module_byte_vec);
-            free(module_byte_vec.data);
 
             return module;
     }}
@@ -135,41 +85,6 @@ pub fn generate_header_file(
     });
     c_statements.extend(function_declarations);
 
-    // function pointer array
-    {
-        let function_pointer_array_statements = module_info
-            .functions
-            .iter()
-            .filter_map(|(f_index, sig_index)| {
-                Some((module_info.local_func_index(f_index)?, sig_index))
-            })
-            .map(|(function_local_index, _sig_index)| {
-                let function_name =
-                    symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
-                // TODO: figure out the signature here too
-
-                CStatement::Cast {
-                    target_type: CType::void_ptr(),
-                    expression: Box::new(CStatement::LiteralConstant {
-                        value: function_name,
-                    }),
-                }
-            })
-            .collect::<Vec<_>>();
-
-        c_statements.push(CStatement::Declaration {
-            name: format!("function_pointers_{atom_name}"),
-            is_extern: false,
-            is_const: true,
-            ctype: CType::Array {
-                inner: Box::new(CType::void_ptr()),
-            },
-            definition: Some(Box::new(CStatement::LiteralArray {
-                items: function_pointer_array_statements,
-            })),
-        });
-    }
-
     let func_trampoline_declarations =
         module_info
             .signatures
@@ -198,33 +113,6 @@ pub fn generate_header_file(
         .to_string(),
     });
     c_statements.extend(func_trampoline_declarations);
-
-    // function trampolines
-    {
-        let function_trampoline_statements = module_info
-            .signatures
-            .iter()
-            .map(|(sig_index, _vm_shared_index)| {
-                let function_name =
-                    symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
-                CStatement::LiteralConstant {
-                    value: function_name,
-                }
-            })
-            .collect::<Vec<_>>();
-
-        c_statements.push(CStatement::Declaration {
-            name: format!("function_trampolines_{atom_name}"),
-            is_extern: false,
-            is_const: true,
-            ctype: CType::Array {
-                inner: Box::new(CType::void_ptr()),
-            },
-            definition: Some(Box::new(CStatement::LiteralArray {
-                items: function_trampoline_statements,
-            })),
-        });
-    }
 
     let dyn_func_declarations = module_info
         .functions
@@ -262,33 +150,6 @@ pub fn generate_header_file(
         },
         new_name: "dyn_func_trampoline_t".to_string(),
     });
-
-    // dynamic function trampoline pointer array
-    {
-        let dynamic_function_trampoline_statements = module_info
-            .functions
-            .keys()
-            .take(module_info.num_imported_functions)
-            .map(|func_index| {
-                let function_name =
-                    symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-                CStatement::LiteralConstant {
-                    value: function_name,
-                }
-            })
-            .collect::<Vec<_>>();
-        c_statements.push(CStatement::Declaration {
-            name: format!("dynamic_function_trampoline_pointers_{atom_name}"),
-            is_extern: false,
-            is_const: true,
-            ctype: CType::Array {
-                inner: Box::new(CType::TypeDef("dyn_func_trampoline_t".to_string())),
-            },
-            definition: Some(Box::new(CStatement::LiteralArray {
-                items: dynamic_function_trampoline_statements,
-            })),
-        });
-    }
 
     c_statements.push(CStatement::LiteralConstant {
         value: gen_helper_functions(atom_name, &symbol_registry.symbol_to_name(Symbol::Metadata)),
