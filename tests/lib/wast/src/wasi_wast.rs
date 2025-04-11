@@ -15,11 +15,14 @@ use virtual_fs::{
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_types::ModuleHash;
-use wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
     generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
     WasiEnv, WasiEnvBuilder, WasiVersion,
+};
+use wasmer_wasix::{
+    http::client_builder::ClientBuilderConfig,
+    runtime::task_manager::{tokio::TokioTaskManager, InlineWaker},
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -107,7 +110,10 @@ impl<'a> WasiTest<'a> {
         #[cfg(not(target_arch = "wasm32"))]
         let _guard = handle.enter();
         #[cfg(not(target_arch = "wasm32"))]
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+        let mut rt = PluggableRuntime::new(
+            Arc::new(TokioTaskManager::new(runtime)),
+            &ClientBuilderConfig::default(),
+        );
         #[cfg(target_arch = "wasm32")]
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
         rt.set_engine(Some(store.engine().clone()));
