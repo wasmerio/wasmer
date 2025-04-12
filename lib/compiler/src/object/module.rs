@@ -152,7 +152,7 @@ pub fn emit_compilation(
 
     let debug_index = compilation.unwind_info.eh_frame;
 
-    let align = match triple.architecture {
+    let default_align = match triple.architecture {
         Architecture::X86_64 => 1,
         // In Arm64 is recommended a 4-byte alignment
         Architecture::Aarch64(_) => 4,
@@ -169,7 +169,7 @@ pub fn emit_compilation(
                 let segment = obj.segment_name(StandardSegment::Debug).to_vec();
                 let section_id =
                     obj.add_section(segment, DWARF_SECTION_NAME.to_vec(), SectionKind::Debug);
-                obj.append_section_data(section_id, custom_section.bytes.as_slice(), align);
+                obj.append_section_data(section_id, custom_section.bytes.as_slice(), default_align);
                 let section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
                 let symbol_id = obj.add_symbol(ObjSymbol {
                     name: section_name.into_bytes(),
@@ -205,7 +205,7 @@ pub fn emit_compilation(
                     symbol_id,
                     section_id,
                     custom_section.bytes.as_slice(),
-                    align,
+                    custom_section.alignment.unwrap_or(default_align),
                 );
                 (section_id, symbol_id)
             }
@@ -229,7 +229,7 @@ pub fn emit_compilation(
                 section: SymbolSection::Section(section_id),
                 flags: SymbolFlags::None,
             });
-            obj.add_symbol_data(symbol_id, section_id, &function.body, align);
+            obj.add_symbol_data(symbol_id, section_id, &function.body, default_align);
             (section_id, symbol_id)
         })
         .collect::<PrimaryMap<LocalFunctionIndex, _>>();
@@ -249,7 +249,7 @@ pub fn emit_compilation(
             section: SymbolSection::Section(section_id),
             flags: SymbolFlags::None,
         });
-        obj.add_symbol_data(symbol_id, section_id, &function.body, align);
+        obj.add_symbol_data(symbol_id, section_id, &function.body, default_align);
     }
 
     // Add dynamic function trampolines
@@ -267,7 +267,7 @@ pub fn emit_compilation(
             section: SymbolSection::Section(section_id),
             flags: SymbolFlags::None,
         });
-        obj.add_symbol_data(symbol_id, section_id, &function.body, align);
+        obj.add_symbol_data(symbol_id, section_id, &function.body, default_align);
     }
 
     let mut all_relocations = Vec::new();

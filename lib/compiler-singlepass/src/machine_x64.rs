@@ -8235,6 +8235,7 @@ impl Machine for MachineX86_64 {
 
         Ok(CustomSection {
             protection: CustomSectionProtection::ReadExecute,
+            alignment: None,
             bytes: section_body,
             relocations: vec![],
         })

@@ -68,6 +68,10 @@ pub struct CustomSection {
     /// Memory protection that applies to this section.
     pub protection: CustomSectionProtection,
 
+    /// Alignment of this section. When missing, the default value for
+    /// each platform shall be used.
+    pub alignment: Option<u64>,
+
     /// The bytes corresponding to this section.
     ///
     /// > Note: These bytes have to be at-least 8-byte aligned
@@ -86,6 +90,7 @@ pub trait CustomSectionLike<'a> {
     type Relocations: RelocationLike;
 
     fn protection(&self) -> CustomSectionProtection;
+    fn alignment(&self) -> Option<u64>;
     fn bytes(&self) -> &[u8];
     fn relocations(&'a self) -> &[Self::Relocations];
 }
@@ -95,6 +100,10 @@ impl<'a> CustomSectionLike<'a> for CustomSection {
 
     fn protection(&self) -> CustomSectionProtection {
         self.protection.clone()
+    }
+
+    fn alignment(&self) -> Option<u64> {
+        self.alignment
     }
 
     fn bytes(&self) -> &[u8] {
@@ -112,6 +121,11 @@ impl<'a> CustomSectionLike<'a> for ArchivedCustomSection {
     fn protection(&self) -> CustomSectionProtection {
         let protection = rkyv::deserialize::<CustomSectionProtection, ()>(&self.protection);
         protection.unwrap()
+    }
+
+    fn alignment(&self) -> Option<u64> {
+        let alignment = rkyv::deserialize::<Option<u64>, ()>(&self.alignment);
+        alignment.unwrap()
     }
 
     fn bytes(&self) -> &[u8] {

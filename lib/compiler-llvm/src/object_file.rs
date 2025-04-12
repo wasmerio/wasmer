@@ -611,17 +611,13 @@ where
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
+            let section = obj.section_by_index(*elf_section_index).unwrap();
             (
                 custom_section_index,
                 CustomSection {
                     protection: CustomSectionProtection::Read,
-                    bytes: SectionBody::new_with_vec(
-                        obj.section_by_index(*elf_section_index)
-                            .unwrap()
-                            .data()
-                            .unwrap()
-                            .to_vec(),
-                    ),
+                    alignment: Some(section.align()),
+                    bytes: SectionBody::new_with_vec(section.data().unwrap().to_vec()),
                     relocations: relocations
                         .remove_entry(elf_section_index)
                         .map_or(vec![], |(_, v)| v),
