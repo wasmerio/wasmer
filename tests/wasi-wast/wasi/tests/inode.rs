@@ -7,7 +7,7 @@ use std::io;
 use std::os::wasi::fs::MetadataExt;
 
 // `test_fs` will be implicit.
-// this need experimentat MetadataExt
+// this need experimental MetadataExt
 // this program does nothing in native
 // it only tests things in wasi
 fn main() {
