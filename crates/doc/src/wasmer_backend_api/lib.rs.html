@@ -28,6 +28,7 @@
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
 </pre></div><pre class="rust"><code><span class="comment">// Allowed because it makes code more readable.
 </span><span class="attr">#![allow(clippy::bool_comparison, clippy::match_like_matches_macro)]
 
@@ -37,7 +38,8 @@
 <span class="kw">pub mod </span>global_id;
 <span class="kw">pub mod </span>query;
 <span class="kw">pub mod </span>stream;
-<span class="kw">pub mod </span>subscription;
+<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+</span><span class="kw">pub mod </span>subscription;
 <span class="kw">pub mod </span>types;
 
 <span class="kw">use </span>url::Url;

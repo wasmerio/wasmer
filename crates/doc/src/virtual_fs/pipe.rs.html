@@ -564,6 +564,11 @@
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::{Buf, Bytes};
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Read, Seek, SeekFrom};
 <span class="kw">use </span>std::pin::Pin;
@@ -734,6 +739,11 @@
 
     <span class="kw">pub fn </span>try_read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
         <span class="self">self</span>.recv.try_read(buf)
+    }
+
+    <span class="kw">pub fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.send.close();
+        <span class="self">self</span>.recv.close();
     }
 }
 

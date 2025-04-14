@@ -3826,6 +3826,8 @@
 <a href="#3826" id="3826">3826</a>
 <a href="#3827" id="3827">3827</a>
 <a href="#3828" id="3828">3828</a>
+<a href="#3829" id="3829">3829</a>
+<a href="#3830" id="3830">3830</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -6084,6 +6086,7 @@
 }
 <span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Signal {
     Signone = <span class="number">0</span>,
     Sighup,
@@ -6159,6 +6162,7 @@
 
 <span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Disposition {
     Default,
     Ignore,

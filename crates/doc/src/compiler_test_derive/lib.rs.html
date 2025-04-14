@@ -135,6 +135,10 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(proc_macro)]
 </span><span class="kw">extern crate </span>proc_macro;
 
@@ -231,8 +235,12 @@
     <span class="kw">let </span>construct_compiler_test =
         |func: <span class="kw-2">&amp;</span>::syn::ItemFn, compiler_name: <span class="kw-2">&amp;</span>str| -&gt; ::proc_macro2::TokenStream {
             <span class="kw">let </span>mod_name = <span class="macro">::quote::format_ident!</span>(<span class="string">"{}"</span>, compiler_name.to_lowercase());
-            <span class="kw">let </span>universal_engine_test =
-                construct_engine_test(func, compiler_name, <span class="string">"Universal"</span>, <span class="string">"universal"</span>);
+            <span class="kw">let </span>universal_engine_test = construct_engine_test(
+                func,
+                compiler_name,
+                compiler_name,
+                <span class="kw-2">&amp;</span>compiler_name.to_lowercase(),
+            );
             <span class="kw">let </span>compiler_name_lowercase = compiler_name.to_lowercase();
 
             <span class="macro">quote!</span> {

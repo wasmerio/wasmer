@@ -81,6 +81,15 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{marker::PhantomData, mem::MaybeUninit};
 
 <span class="kw">use crate</span>::{
@@ -139,10 +148,19 @@
             </span><span class="self">Self</span>::V8(s) =&gt; s.len,
 
             <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-            </span><span class="self">Self</span>::Js(s) =&gt; <span class="macro">panic!</span>(<span class="string">"js memory buffers do not support the `len` function!"</span>),
+            </span><span class="self">Self</span>::Js(s) =&gt; s.len(),
 
             <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
             </span><span class="self">Self</span>::Jsc(s) =&gt; s.len,
+        }
+    }
+
+    <span class="attr">#[inline]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_owned(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+            </span><span class="self">Self</span>::Js(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
         }
     }
 

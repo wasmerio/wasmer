@@ -2341,6 +2341,7 @@
 <a href="#2341" id="2341">2341</a>
 <a href="#2342" id="2342">2342</a>
 <a href="#2343" id="2343">2343</a>
+<a href="#2344" id="2344">2344</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
@@ -2450,6 +2451,7 @@
 </span><span class="kw">pub const </span>MAX_SYMLINKS: u32 = <span class="number">128</span>;
 
 <span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Inode(u64);
 
 <span class="kw">impl </span>Inode {

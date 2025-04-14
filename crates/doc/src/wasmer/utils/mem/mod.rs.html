@@ -533,7 +533,7 @@
     <span class="doccomment">/// Gains direct access to the memory of this slice
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>access(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasmRefAccess&lt;<span class="lifetime">'a</span>, T&gt;, MemoryAccessError&gt; {
-        WasmRefAccess::new(<span class="self">self</span>)
+        WasmRefAccess::new(<span class="self">self</span>, <span class="self">self</span>.buffer.is_owned())
     }
 }
 
@@ -655,7 +655,7 @@
     <span class="doccomment">/// Gains direct access to the memory of this slice
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>access(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasmSliceAccess&lt;<span class="lifetime">'a</span>, T&gt;, MemoryAccessError&gt; {
-        WasmSliceAccess::new(<span class="self">self</span>)
+        WasmSliceAccess::new(<span class="self">self</span>, <span class="self">self</span>.buffer.is_owned())
     }
 
     <span class="doccomment">/// Reads an element of this slice.
