@@ -1,4 +1,5 @@
-use std::mem::MaybeUninit;
+use std::mem::{self, MaybeUninit};
+use std::slice;
 
 use crate::{
     utils::mem::{WasmRef, WasmSlice},
@@ -162,6 +163,7 @@ pub struct WasmRefAccess<'a, T>
 where
     T: wasmer_types::ValueType,
 {
+    pub(crate) is_owned: bool,
     pub(crate) ptr: WasmRef<'a, T>,
     pub(crate) buf: RefCow<'a, T>,
 }
@@ -225,7 +227,15 @@ impl<'a, T> WasmSliceAccess<'a, T>
 where
     T: wasmer_types::ValueType,
 {
-    pub(crate) fn new(slice: WasmSlice<'a, T>) -> Result<Self, MemoryAccessError> {
+    pub(crate) fn new(slice: WasmSlice<'a, T>, is_owned: bool) -> Result<Self, MemoryAccessError> {
+        if is_owned {
+            Self::new_owned(slice)
+        } else {
+            Self::new_borrowed(slice)
+        }
+    }
+
+    pub(crate) fn new_borrowed(slice: WasmSlice<'a, T>) -> Result<Self, MemoryAccessError> {
         let total_len = slice
             .len
             .checked_mul(std::mem::size_of::<T>() as u64)
@@ -256,13 +266,29 @@ where
             buf: SliceCow::Borrowed(buf),
         })
     }
+
+    pub(crate) fn new_owned(slice: WasmSlice<'a, T>) -> Result<Self, MemoryAccessError> {
+        let buf = slice.read_to_vec()?;
+        Ok(Self {
+            slice,
+            buf: SliceCow::Owned(buf, false),
+        })
+    }
 }
 
 impl<'a, T> WasmRefAccess<'a, T>
 where
     T: wasmer_types::ValueType,
 {
-    pub(crate) fn new(ptr: WasmRef<'a, T>) -> Result<Self, MemoryAccessError> {
+    pub(crate) fn new(ptr: WasmRef<'a, T>, is_owned: bool) -> Result<Self, MemoryAccessError> {
+        if is_owned {
+            Self::new_owned(ptr)
+        } else {
+            Self::new_borrowed(ptr)
+        }
+    }
+
+    pub(crate) fn new_borrowed(ptr: WasmRef<'a, T>) -> Result<Self, MemoryAccessError> {
         let total_len = std::mem::size_of::<T>() as u64;
         let end = ptr
             .offset
@@ -283,8 +309,23 @@ where
             &mut *val_ptr
         };
         Ok(Self {
+            is_owned: false,
             ptr,
             buf: RefCow::Borrowed(val),
+        })
+    }
+
+    pub(crate) fn new_owned(ptr: WasmRef<'a, T>) -> Result<Self, MemoryAccessError> {
+        let mut out = MaybeUninit::uninit();
+        let buf =
+            unsafe { slice::from_raw_parts_mut(out.as_mut_ptr() as *mut u8, mem::size_of::<T>()) };
+        ptr.buffer.read(ptr.offset, buf)?;
+        let val = unsafe { out.assume_init() };
+
+        Ok(Self {
+            is_owned: true,
+            ptr,
+            buf: RefCow::Owned(val, false),
         })
     }
 }
@@ -306,9 +347,22 @@ where
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
     pub fn write(&mut self, val: T) {
-        // Note: Zero padding is not required here as its a typed copy which does
-        //       not leak the bytes into the memory
-        // https://stackoverflow.com/questions/61114026/does-stdptrwrite-transfer-the-uninitialized-ness-of-the-bytes-it-writes
-        *(self.as_mut()) = val;
+        if self.is_owned {
+            let mut data = MaybeUninit::new(val);
+            let data = unsafe {
+                slice::from_raw_parts_mut(
+                    data.as_mut_ptr() as *mut MaybeUninit<u8>,
+                    mem::size_of::<T>(),
+                )
+            };
+            val.zero_padding_bytes(data);
+            let data = unsafe { slice::from_raw_parts(data.as_ptr() as *const _, data.len()) };
+            self.ptr.buffer.write(self.ptr.offset, data).unwrap()
+        } else {
+            // Note: Zero padding is not required here as its a typed copy which does
+            //       not leak the bytes into the memory
+            // https://stackoverflow.com/questions/61114026/does-stdptrwrite-transfer-the-uninitialized-ness-of-the-bytes-it-writes
+            *(self.as_mut()) = val;
+        }
     }
 }

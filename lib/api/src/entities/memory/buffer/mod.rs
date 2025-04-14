@@ -36,4 +36,12 @@ impl<'a> MemoryBuffer<'a> {
     pub(crate) fn base(&self) -> *mut u8 {
         self.0.base()
     }
+
+    /// This is used to determine if the buffer is owned by the memory.
+    ///
+    /// This is only useful for JS memory buffers, as they will slowdown
+    /// if we always need to own the memory in other engines.
+    pub(crate) fn is_owned(&self) -> bool {
+        self.0.is_owned()
+    }
 }

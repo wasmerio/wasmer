@@ -107,6 +107,7 @@ const STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 pub const MAX_SYMLINKS: u32 = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Inode(u64);
 
 impl Inode {

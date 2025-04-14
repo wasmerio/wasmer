@@ -35,6 +35,7 @@ pub trait AsJs: Sized {
 }
 
 #[inline]
+/// Convert a JsValue into a wasmer Value
 pub fn js_value_to_wasmer(ty: &Type, js_val: &JsValue) -> Value {
     match ty {
         Type::I32 => Value::I32(js_val.as_f64().unwrap() as _),
@@ -57,6 +58,7 @@ pub fn js_value_to_wasmer(ty: &Type, js_val: &JsValue) -> Value {
 }
 
 #[inline]
+/// Convert a wasmer Value into a JsValue
 pub fn wasmer_value_to_js(val: &Value) -> JsValue {
     match val {
         Value::I32(i) => JsValue::from_f64(*i as _),
