@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 
 /*
-this is an exemple of address reuse using UDP sockets
+this is an example of address reuse using UDP sockets
 it set address reuse option to 1 and then bind to the same address
 it set port reuse option to 1 and then bind to the same port
 */
