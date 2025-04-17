@@ -669,10 +669,6 @@
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
 <span class="kw">use </span>target_lexicon::BinaryFormat;
 
@@ -1286,17 +1282,13 @@
     <span class="kw">let </span><span class="kw-2">mut </span>custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
+            <span class="kw">let </span>section = obj.section_by_index(<span class="kw-2">*</span>elf_section_index).unwrap();
             (
                 custom_section_index,
                 CustomSection {
                     protection: CustomSectionProtection::Read,
-                    bytes: SectionBody::new_with_vec(
-                        obj.section_by_index(<span class="kw-2">*</span>elf_section_index)
-                            .unwrap()
-                            .data()
-                            .unwrap()
-                            .to_vec(),
-                    ),
+                    alignment: <span class="prelude-val">Some</span>(section.align()),
+                    bytes: SectionBody::new_with_vec(section.data().unwrap().to_vec()),
                     relocations: relocations
                         .remove_entry(elf_section_index)
                         .map_or(<span class="macro">vec!</span>[], |(<span class="kw">_</span>, v)| v),

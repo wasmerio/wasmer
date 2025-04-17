@@ -479,6 +479,11 @@
 <a href="#479" id="479">479</a>
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::LLVM;
 <span class="kw">use </span><span class="kw">crate</span>::trampoline::FuncTrampoline;
 <span class="kw">use </span><span class="kw">crate</span>::translator::FuncTranslator;
@@ -811,6 +816,7 @@
                         <span class="comment">// TODO: we do this to keep the count right, remove it.
                         </span>module_custom_sections.push(CustomSection {
                             protection: CustomSectionProtection::Read,
+                            alignment: <span class="prelude-val">None</span>,
                             bytes: SectionBody::new_with_vec(<span class="macro">vec!</span>[]),
                             relocations: <span class="macro">vec!</span>[],
                         });
@@ -828,6 +834,7 @@
                         <span class="comment">// TODO: we do this to keep the count right, remove it.
                         </span>module_custom_sections.push(CustomSection {
                             protection: CustomSectionProtection::Read,
+                            alignment: <span class="prelude-val">None</span>,
                             bytes: SectionBody::new_with_vec(<span class="macro">vec!</span>[]),
                             relocations: <span class="macro">vec!</span>[],
                         });
@@ -859,6 +866,7 @@
             // in lib/object/src/module.rs emit_compilation
             </span>module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
+                alignment: <span class="prelude-val">None</span>,
                 bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
                 relocations: eh_frame_section_relocations,
             });
@@ -869,6 +877,7 @@
             <span class="kw">let </span>cu_index = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
+                alignment: <span class="prelude-val">None</span>,
                 bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
                 relocations: compact_unwind_section_relocations,
             });
@@ -943,6 +952,7 @@
             <span class="kw">let </span>got_idx = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
+                alignment: <span class="prelude-val">None</span>,
                 bytes: SectionBody::new_with_vec(got_data),
                 relocations: got_relocs,
             });

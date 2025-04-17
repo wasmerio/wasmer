@@ -619,7 +619,7 @@
 
     <span class="kw">let </span>debug_index = compilation.unwind_info.eh_frame;
 
-    <span class="kw">let </span>align = <span class="kw">match </span>triple.architecture {
+    <span class="kw">let </span>default_align = <span class="kw">match </span>triple.architecture {
         Architecture::X86_64 =&gt; <span class="number">1</span>,
         <span class="comment">// In Arm64 is recommended a 4-byte alignment
         </span>Architecture::Aarch64(<span class="kw">_</span>) =&gt; <span class="number">4</span>,
@@ -636,7 +636,7 @@
                 </span><span class="kw">let </span>segment = obj.segment_name(StandardSegment::Debug).to_vec();
                 <span class="kw">let </span>section_id =
                     obj.add_section(segment, DWARF_SECTION_NAME.to_vec(), SectionKind::Debug);
-                obj.append_section_data(section_id, custom_section.bytes.as_slice(), align);
+                obj.append_section_data(section_id, custom_section.bytes.as_slice(), default_align);
                 <span class="kw">let </span>section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
                 <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
                     name: section_name.into_bytes(),
@@ -672,7 +672,7 @@
                     symbol_id,
                     section_id,
                     custom_section.bytes.as_slice(),
-                    align,
+                    custom_section.alignment.unwrap_or(default_align),
                 );
                 (section_id, symbol_id)
             }
@@ -696,7 +696,7 @@
                 section: SymbolSection::Section(section_id),
                 flags: SymbolFlags::None,
             });
-            obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, align);
+            obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, default_align);
             (section_id, symbol_id)
         })
         .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;();
@@ -716,7 +716,7 @@
             section: SymbolSection::Section(section_id),
             flags: SymbolFlags::None,
         });
-        obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, align);
+        obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, default_align);
     }
 
     <span class="comment">// Add dynamic function trampolines
@@ -734,7 +734,7 @@
             section: SymbolSection::Section(section_id),
             flags: SymbolFlags::None,
         });
-        obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, align);
+        obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, default_align);
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>all_relocations = Vec::new();

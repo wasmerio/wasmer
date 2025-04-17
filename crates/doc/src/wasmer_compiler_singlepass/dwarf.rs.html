@@ -103,6 +103,7 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>gimli::{
     write::{Address, EndianVec, <span class="prelude-ty">Result</span>, Writer},
     RunTimeEndian, SectionId,
@@ -140,6 +141,7 @@
         <span class="kw">let </span>data = <span class="self">self</span>.writer.into_vec();
         CustomSection {
             protection: CustomSectionProtection::Read,
+            alignment: <span class="prelude-val">None</span>,
             bytes: SectionBody::new_with_vec(data),
             relocations: <span class="self">self</span>.relocs,
         }

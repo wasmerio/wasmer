@@ -8713,6 +8713,7 @@
 <a href="#8713" id="8713">8713</a>
 <a href="#8714" id="8714">8714</a>
 <a href="#8715" id="8715">8715</a>
+<a href="#8716" id="8716">8716</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts;
 <span class="kw">use crate</span>::{
@@ -16950,6 +16951,7 @@
 
         <span class="prelude-val">Ok</span>(CustomSection {
             protection: CustomSectionProtection::ReadExecute,
+            alignment: <span class="prelude-val">None</span>,
             bytes: section_body,
             relocations: <span class="macro">vec!</span>[],
         })

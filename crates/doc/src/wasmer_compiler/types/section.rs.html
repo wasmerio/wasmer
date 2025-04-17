@@ -168,6 +168,20 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="comment">/*
  * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
  * on their own.
@@ -238,6 +252,10 @@
     <span class="doccomment">/// Memory protection that applies to this section.
     </span><span class="kw">pub </span>protection: CustomSectionProtection,
 
+    <span class="doccomment">/// Alignment of this section. When missing, the default value for
+    /// each platform shall be used.
+    </span><span class="kw">pub </span>alignment: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+
     <span class="doccomment">/// The bytes corresponding to this section.
     ///
     /// &gt; Note: These bytes have to be at-least 8-byte aligned
@@ -256,6 +274,7 @@
     <span class="kw">type </span>Relocations: RelocationLike;
 
     <span class="kw">fn </span>protection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CustomSectionProtection;
+    <span class="kw">fn </span>alignment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt;;
     <span class="kw">fn </span>bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8];
     <span class="kw">fn </span>relocations(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="self">Self</span>::Relocations];
 }
@@ -265,6 +284,10 @@
 
     <span class="kw">fn </span>protection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CustomSectionProtection {
         <span class="self">self</span>.protection.clone()
+    }
+
+    <span class="kw">fn </span>alignment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+        <span class="self">self</span>.alignment
     }
 
     <span class="kw">fn </span>bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
@@ -282,6 +305,11 @@
     <span class="kw">fn </span>protection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CustomSectionProtection {
         <span class="kw">let </span>protection = rkyv::deserialize::&lt;CustomSectionProtection, ()&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.protection);
         protection.unwrap()
+    }
+
+    <span class="kw">fn </span>alignment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+        <span class="kw">let </span>alignment = rkyv::deserialize::&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;, ()&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>.alignment);
+        alignment.unwrap()
     }
 
     <span class="kw">fn </span>bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {

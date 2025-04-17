@@ -3778,6 +3778,7 @@
 <a href="#3778" id="3778">3778</a>
 <a href="#3779" id="3779">3779</a>
 <a href="#3780" id="3780">3780</a>
+<a href="#3781" id="3781">3781</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use crate</span>::{
     arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON},
     location::{Multiplier, Reg},
@@ -7554,6 +7555,7 @@
 
     <span class="prelude-val">Ok</span>(CustomSection {
         protection: CustomSectionProtection::ReadExecute,
+        alignment: <span class="prelude-val">None</span>,
         bytes: section_body,
         relocations: <span class="macro">vec!</span>[],
     })

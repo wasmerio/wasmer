@@ -130,6 +130,7 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Trampolines for libcalls.
 //!
 //! This is needed because the target of libcall relocations are not reachable
@@ -249,6 +250,7 @@
     }
     CustomSection {
         protection: CustomSectionProtection::ReadExecute,
+        alignment: <span class="prelude-val">None</span>,
         bytes: SectionBody::new_with_vec(code),
         relocations,
     }
