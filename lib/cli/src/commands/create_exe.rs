@@ -1109,7 +1109,7 @@ pub(crate) fn create_header_files_in_dir(
 
             let metadata_obj_idx = syms_in_data_sec
                 .iter()
-                .position(|v| v.name().is_ok_and(|v| v == &symbol_name))
+                .position(|v| v.name().is_ok_and(|v| v == symbol_name))
                 .unwrap();
 
             metadata_length = if metadata_obj_idx == syms_in_data_sec.len() - 1 {
