@@ -33,6 +33,7 @@ impl WriterRelocate {
         let data = self.writer.into_vec();
         CustomSection {
             protection: CustomSectionProtection::Read,
+            alignment: None,
             bytes: SectionBody::new_with_vec(data),
             relocations: self.relocs,
         }

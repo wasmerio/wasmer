@@ -3774,6 +3774,7 @@ pub fn gen_import_call_trampoline_arm64(
 
     Ok(CustomSection {
         protection: CustomSectionProtection::ReadExecute,
+        alignment: None,
         bytes: section_body,
         relocations: vec![],
     })

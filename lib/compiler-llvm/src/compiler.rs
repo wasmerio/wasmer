@@ -330,6 +330,7 @@ impl Compiler for LLVMCompiler {
                         // TODO: we do this to keep the count right, remove it.
                         module_custom_sections.push(CustomSection {
                             protection: CustomSectionProtection::Read,
+                            alignment: None,
                             bytes: SectionBody::new_with_vec(vec![]),
                             relocations: vec![],
                         });
@@ -347,6 +348,7 @@ impl Compiler for LLVMCompiler {
                         // TODO: we do this to keep the count right, remove it.
                         module_custom_sections.push(CustomSection {
                             protection: CustomSectionProtection::Read,
+                            alignment: None,
                             bytes: SectionBody::new_with_vec(vec![]),
                             relocations: vec![],
                         });
@@ -378,6 +380,7 @@ impl Compiler for LLVMCompiler {
             // in lib/object/src/module.rs emit_compilation
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
+                alignment: None,
                 bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
                 relocations: eh_frame_section_relocations,
             });
@@ -388,6 +391,7 @@ impl Compiler for LLVMCompiler {
             let cu_index = SectionIndex::from_u32(module_custom_sections.len() as u32);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
+                alignment: None,
                 bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
                 relocations: compact_unwind_section_relocations,
             });
@@ -462,6 +466,7 @@ impl Compiler for LLVMCompiler {
             let got_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
+                alignment: None,
                 bytes: SectionBody::new_with_vec(got_data),
                 relocations: got_relocs,
             });

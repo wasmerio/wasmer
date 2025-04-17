@@ -117,6 +117,7 @@ pub fn make_libcall_trampolines(target: &Target) -> CustomSection {
     }
     CustomSection {
         protection: CustomSectionProtection::ReadExecute,
+        alignment: None,
         bytes: SectionBody::new_with_vec(code),
         relocations,
     }
