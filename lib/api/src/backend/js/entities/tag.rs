@@ -1,6 +1,8 @@
 use wasmer_types::{TagType, Type};
 
 use crate::{
+    BackendTag,
+    TagKind,
     js::vm::VMTag,
     vm::{VMExtern, VMExternTag},
     AsStoreMut, AsStoreRef,
@@ -21,22 +23,72 @@ unsafe impl Sync for Tag {}
 
 impl Tag {
     pub fn new<P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, params: P) -> Self {
-        panic!("EH not supported yet!")
+        // unimplemented!("Tag is not yet supported in Javascript");
+        // VMExtern::Tag(crate::js::vm::VMExtern::Tag(self.handle.clone()))
+        // let descriptor = js_sys::WebAssembly::TagDescriptor::new(params);
+        let descriptor = js_sys::Object::new();
+        let params: Box<[Type]> = params.into();
+        let parameters: Vec<String> = params.into_iter().map(|param| {
+            match param {
+                Type::I32 => "i32".to_string(),
+                Type::I64 => "i64".to_string(),
+                Type::F32 => "f32".to_string(),
+                Type::F64 => "f64".to_string(),
+                _ => unimplemented!("The type is not yet supported in the JS Global API"),
+            }
+        }).collect();
+        // This is the value type as string, even though is incorrectly called "value"
+        // in the JS API.
+        js_sys::Reflect::set(&descriptor, &"parameters".into(), &parameters.into()).unwrap();
+
+        let tag = js_sys::WebAssembly::Tag::new(&descriptor);
+        let ty = TagType::new(TagKind::Exception, params);
+        let handle = VMTag::new(tag.unwrap(), ty);
+        Self { handle }
     }
 
     pub fn ty(&self, store: &impl AsStoreRef) -> TagType {
-        panic!("EH not supported yet!")
+        self.handle.ty.clone()
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
-        panic!("EH not supported yet!")
+        Self {
+            handle: vm_extern.into_js(),
+        }
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        panic!("EH not supported yet!")
+        true
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        panic!("EH not supported yet!")
+        VMExtern::Js(crate::js::vm::VMExtern::Tag(self.handle.clone()))
+    }
+}
+
+
+impl crate::Tag {
+    /// Consume [`self`] into [`crate::backend::js::tag::Tag`].
+    pub fn into_js(self) -> crate::backend::js::tag::Tag {
+        match self.0 {
+            BackendTag::Js(s) => s,
+            _ => panic!("Not a `js` tag!"),
+        }
+    }
+
+    /// Convert a reference to [`self`] into a reference [`crate::backend::js::tag::Tag`].
+    pub fn as_js(&self) -> &crate::backend::js::tag::Tag {
+        match self.0 {
+            BackendTag::Js(ref s) => s,
+            _ => panic!("Not a `js` tag!"),
+        }
+    }
+
+    /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::js::tag::Tag`].
+    pub fn as_js_mut(&mut self) -> &mut crate::backend::js::tag::Tag {
+        match self.0 {
+            BackendTag::Js(ref mut s) => s,
+            _ => panic!("Not a `js` tag!"),
+        }
     }
 }

@@ -475,35 +475,35 @@ pub enum TagKind {
 pub struct TagType {
     /// The kind of the tag.
     pub kind: TagKind,
-    /// The type of the tag.
-    pub ty: FunctionType,
+    /// The parameters of the function
+    pub params: Box<[Type]>,
 }
 
 impl TagType {
     /// Creates a new [`TagType`] with the given kind, parameter and return types.
-    pub fn new<Params, Returns>(kind: TagKind, params: Params, returns: Returns) -> Self
+    pub fn new<Params>(kind: TagKind, params: Params) -> Self
     where
         Params: Into<Box<[Type]>>,
-        Returns: Into<Box<[Type]>>,
     {
-        let ty = FunctionType::new(params.into(), returns.into());
-
-        Self::from_fn_type(kind, ty)
+        Self {
+            kind,
+            params: params.into(),
+        }
     }
 
-    /// Return types.
-    pub fn results(&self) -> &[Type] {
-        self.ty.results()
-    }
+    // /// Return types.
+    // pub fn results(&self) -> &[Type] {
+    //     self.ty.results()
+    // }
 
     /// Parameter types.
     pub fn params(&self) -> &[Type] {
-        self.ty.params()
+        &self.params
     }
 
     /// Create a new [`TagType`] with the given kind and the associated type.
     pub fn from_fn_type(kind: TagKind, ty: FunctionType) -> Self {
-        Self { kind, ty }
+        Self { kind, params: ty.params().into() }
     }
 }
 
@@ -511,10 +511,9 @@ impl fmt::Display for TagType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "({:?}) {:?} -> {:?}",
+            "({:?}) {:?}",
             self.kind,
             self.params(),
-            self.results()
         )
     }
 }

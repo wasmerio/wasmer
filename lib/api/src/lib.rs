@@ -443,7 +443,7 @@ pub use wasmer_types::{
     FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
     MemoryType, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
     TableStyle, TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
-    WASM_PAGE_SIZE,
+    WASM_PAGE_SIZE, TagType, TagKind,
 };
 
 #[cfg(feature = "wasmparser")]

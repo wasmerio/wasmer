@@ -2,7 +2,7 @@ use wasmer_types::RawValue;
 
 use crate::{AsStoreMut, Extern, VMExternToExtern};
 
-use super::{function::VMFunction, global::VMGlobal, memory::VMMemory, table::VMTable};
+use super::{function::VMFunction, global::VMGlobal, memory::VMMemory, table::VMTable, tag::VMTag};
 
 /// The value of an export passed from one instance to another in the `js` VM.
 pub enum VMExtern {
@@ -17,6 +17,9 @@ pub enum VMExtern {
 
     /// A global export value.
     Global(VMGlobal),
+
+    /// A tag export value.
+    Tag(VMTag),
 }
 
 impl VMExternToExtern for VMExtern {
@@ -37,6 +40,10 @@ impl VMExternToExtern for VMExtern {
             Self::Table(t) => Extern::Table(crate::Table::from_vm_extern(
                 store,
                 crate::vm::VMExternTable::Js(t),
+            )),
+            Self::Tag(t) => Extern::Tag(crate::Tag::from_vm_extern(
+                store,
+                crate::vm::VMExternTag::Js(t),
             )),
         }
     }
