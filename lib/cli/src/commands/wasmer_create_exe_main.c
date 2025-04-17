@@ -14,7 +14,7 @@
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
-  printf("Error len: `%d`\n", error_len);
+  //printf("Error len: `%d`\n", error_len);
   char *error_str = (char *)malloc(error_len);
   wasmer_last_error_message(error_str, error_len);
   printf("%s\n", error_str);
