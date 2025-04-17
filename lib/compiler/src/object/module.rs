@@ -153,9 +153,16 @@ pub fn emit_compilation(
     let debug_index = compilation.unwind_info.eh_frame;
 
     let default_align = match triple.architecture {
-        Architecture::X86_64 => 1,
-        // In Arm64 is recommended a 4-byte alignment
-        Architecture::Aarch64(_) => 4,
+        target_lexicon::Architecture::Aarch64(_) => {
+            if matches!(
+                triple.operating_system,
+                target_lexicon::OperatingSystem::Darwin
+            ) {
+                8
+            } else {
+                4
+            }
+        }
         _ => 1,
     };
 
