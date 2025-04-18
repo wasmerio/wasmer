@@ -6,7 +6,7 @@ Listed below are notable sections of code that are licensed
 from other projects and the relevant license of those projects.
 
 These are the projects that were used as inspiration and/or that we are using code from.
-Each of the subcrates we have have an `Aknowledgements` section with more details.
+Each of the subcrates we have an `Aknowledgements` section with more details.
 
 Projects:
 
