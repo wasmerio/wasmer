@@ -77,7 +77,7 @@ ignore = [
 
 	"proc-macro-error@1.0.4",
 	"RUSTSEC-2024-0370",
-	"RUSTSEC-2024-0436"
+	"RUSTSEC-2024-0436",
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
@@ -121,6 +121,9 @@ exceptions = [
 	# Each entry is the crate and version constraint, and its specific allow
 	# list
 	#{ allow = ["Zlib"], crate = "adler32" },
+
+	{ allow = ["BUSL-1.1"], crate = "wasmer-compiler-singlepass" },
+	{ allow = ["BUSL-1.1"], crate = "wasmer-compiler-llvm" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
