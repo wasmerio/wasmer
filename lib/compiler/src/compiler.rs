@@ -9,11 +9,10 @@ use crate::{
     FunctionBodyData, ModuleTranslationState,
 };
 use enumset::EnumSet;
-use wasmer_types::target::SuggestedCompilerOptimizations;
 use wasmer_types::{
     entity::PrimaryMap,
     error::CompileError,
-    target::{CpuFeature, Target},
+    target::{CpuFeature, SuggestedCompilerOptimizations, Target},
     Features, LocalFunctionIndex,
 };
 #[cfg(feature = "translator")]
