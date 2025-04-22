@@ -9,6 +9,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
+use object::ObjectSection;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -17,6 +18,7 @@ use std::{
     process::{Command, Stdio},
 };
 use tar::Archive;
+use target_lexicon::BinaryFormat;
 use wasmer::{
     sys::{engine::NativeEngineExt, *},
     *,
@@ -285,7 +287,13 @@ impl CliCommand for CreateExe {
 
         get_module_infos(&engine, &tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
-        create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
+        create_header_files_in_dir(
+            &tempdir,
+            &mut entrypoint,
+            &atoms,
+            &self.precompiled_atom,
+            &target_triple.binary_format,
+        )?;
         link_exe_from_dir(
             &self.env,
             &tempdir,
@@ -1057,6 +1065,7 @@ pub(crate) fn create_header_files_in_dir(
     entrypoint: &mut Entrypoint,
     atoms: &[(String, Vec<u8>)],
     prefixes: &[String],
+    binary_fmt: &BinaryFormat,
 ) -> anyhow::Result<()> {
     use object::{Object, ObjectSymbol};
 
@@ -1080,10 +1089,36 @@ pub(crate) fn create_header_files_in_dir(
         let object_file = std::fs::read(&object_file_src)
             .map_err(|e| anyhow::anyhow!("could not read {}: {e}", object_file_src.display()))?;
         let obj_file = object::File::parse(&*object_file)?;
-        let metadata_length = obj_file
-            .symbol_by_name(&symbol_registry.symbol_to_name(Symbol::Metadata))
-            .unwrap()
-            .size() as usize;
+        let mut symbol_name = symbol_registry.symbol_to_name(Symbol::Metadata);
+        if matches!(binary_fmt, BinaryFormat::Macho) {
+            symbol_name = format!("_{symbol_name}");
+        }
+
+        let mut metadata_length = obj_file.symbol_by_name(&symbol_name).unwrap().size() as usize;
+        if metadata_length == 0 {
+            let metadata_obj = obj_file.symbol_by_name(&symbol_name).unwrap();
+            let sec = obj_file
+                .section_by_index(metadata_obj.section().index().unwrap())
+                .unwrap();
+            let mut syms_in_data_sec = obj_file
+                .symbols()
+                .filter(|v| v.section_index().is_some_and(|i| i == sec.index()))
+                .collect::<Vec<_>>();
+
+            syms_in_data_sec.sort_by_key(|v| v.address());
+
+            let metadata_obj_idx = syms_in_data_sec
+                .iter()
+                .position(|v| v.name().is_ok_and(|v| v == symbol_name))
+                .unwrap();
+
+            metadata_length = if metadata_obj_idx == syms_in_data_sec.len() - 1 {
+                (sec.address() + sec.size()) - syms_in_data_sec[metadata_obj_idx].address()
+            } else {
+                syms_in_data_sec[metadata_obj_idx + 1].address()
+                    - syms_in_data_sec[metadata_obj_idx].address()
+            } as usize;
+        }
 
         let module_info = atom
             .module_info

@@ -212,10 +212,10 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(_) => {
-                    return Err(DeserializeError::Incompatible(
-                        "The provided bytes are not wasmer-universal".to_string(),
-                    ));
+                Err(e) => {
+                    return Err(DeserializeError::Incompatible(format!(
+                        "The provided bytes are not wasmer-universal: {e}"
+                    )));
                 }
             }
         }
@@ -257,10 +257,10 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(_) => {
-                    return Err(DeserializeError::Incompatible(
-                        "The provided bytes are not wasmer-universal".to_string(),
-                    ));
+                Err(e) => {
+                    return Err(DeserializeError::Incompatible(format!(
+                        "The provided bytes are not wasmer-universal: {e}"
+                    )));
                 }
             }
         }
@@ -1093,8 +1093,27 @@ impl Artifact {
         }
         .symbol_to_name(crate::types::symbols::Symbol::Metadata);
 
-        emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
-            .map_err(to_compile_error)?;
+        let default_align = match target_triple.architecture {
+            target_lexicon::Architecture::Aarch64(_) => {
+                if matches!(
+                    target_triple.operating_system,
+                    target_lexicon::OperatingSystem::Darwin
+                ) {
+                    8
+                } else {
+                    4
+                }
+            }
+            _ => 1,
+        };
+
+        emit_data(
+            &mut obj,
+            object_name.as_bytes(),
+            &metadata_binary,
+            default_align,
+        )
+        .map_err(to_compile_error)?;
 
         emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
             .map_err(to_compile_error)?;

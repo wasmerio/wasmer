@@ -153,9 +153,16 @@ pub fn emit_compilation(
     let debug_index = compilation.unwind_info.eh_frame;
 
     let default_align = match triple.architecture {
-        Architecture::X86_64 => 1,
-        // In Arm64 is recommended a 4-byte alignment
-        Architecture::Aarch64(_) => 4,
+        target_lexicon::Architecture::Aarch64(_) => {
+            if matches!(
+                triple.operating_system,
+                target_lexicon::OperatingSystem::Darwin
+            ) {
+                8
+            } else {
+                4
+            }
+        }
         _ => 1,
     };
 
@@ -323,9 +330,99 @@ pub fn emit_compilation(
                     RelocationEncoding::Generic,
                     32,
                 ),
+                Reloc::MachoArm64RelocBranch26 => (
+                    RelocationKind::MachO {
+                        value: macho::ARM64_RELOC_BRANCH26,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocUnsigned => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_UNSIGNED,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocSubtractor => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_SUBTRACTOR,
+                        relative: false,
+                    },
+                    RelocationEncoding::Generic,
+                    64,
+                ),
+                Reloc::MachoArm64RelocPage21 => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_PAGE21,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+
+                Reloc::MachoArm64RelocPageoff12 => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_PAGEOFF12,
+                        relative: false,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocGotLoadPage21 => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocGotLoadPageoff12 => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocPointerToGot => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_POINTER_TO_GOT,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocTlvpLoadPage21 => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_TLVP_LOAD_PAGE21,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocTlvpLoadPageoff12 => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12,
+                        relative: true,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::MachoArm64RelocAddend => (
+                    RelocationKind::MachO {
+                        value: object::macho::ARM64_RELOC_ADDEND,
+                        relative: false,
+                    },
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+
                 other => {
                     return Err(ObjectError::UnsupportedArchitecture(format!(
-                        "{} (relocation: {}",
+                        "{} (relocation: {})",
                         triple.architecture, other
                     )))
                 }
@@ -348,7 +445,13 @@ pub fn emit_compilation(
                     .map_err(ObjectError::Write)?;
                 }
                 RelocationTarget::LibCall(libcall) => {
-                    let libcall_fn_name = libcall.to_function_name().as_bytes();
+                    let mut libcall_fn_name = libcall.to_function_name().to_string();
+                    if matches!(triple.binary_format, BinaryFormat::Macho) {
+                        libcall_fn_name = format!("_{libcall_fn_name}");
+                    }
+
+                    let libcall_fn_name = libcall_fn_name.as_bytes();
+
                     // We add the symols lazily as we see them
                     let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
                         obj.add_symbol(ObjSymbol {
