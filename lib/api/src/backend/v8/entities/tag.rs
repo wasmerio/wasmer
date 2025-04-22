@@ -69,7 +69,7 @@ impl Tag {
             res
         };
 
-        TagType::new(wasmer_types::TagKind::Exception, params, vec![])
+        TagType::new(wasmer_types::TagKind::Exception, params)
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_tag: VMExternTag) -> Self {

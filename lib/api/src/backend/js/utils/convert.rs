@@ -2,7 +2,7 @@ use std::{collections::HashMap, convert::TryInto};
 
 use js_sys::{
     Function as JsFunction,
-    WebAssembly::{Memory as JsMemory, Table as JsTable},
+    WebAssembly::{Global as JsGlobal, Memory as JsMemory, Table as JsTable, Tag as JsTag},
 };
 use wasm_bindgen::{JsCast, JsError, JsValue};
 use wasmer_types::ExternType;
@@ -12,12 +12,11 @@ use crate::{
     instance::Instance,
     js::{
         instance::Instance as JsInstance,
-        utils::polyfill::Global as JsGlobal,
-        vm::{VMFunction, VMGlobal, VMMemory, VMTable},
+        vm::{VMFunction, VMGlobal, VMMemory, VMTable, VMTag},
     },
     store::{AsStoreMut, AsStoreRef},
     value::Value,
-    Extern, Function, Global, Memory, Table, Type,
+    Extern, Function, Global, Memory, Table, Tag, Type,
 };
 
 /// Convert the given type to a [`JsValue`].
@@ -193,7 +192,7 @@ impl AsJs for Extern {
             Self::Function(function) => function.as_js().handle.function.clone().into(),
             Self::Table(table) => table.as_js().handle.table.clone().into(),
             Self::Global(global) => global.as_js().handle.global.clone().into(),
-            Self::Tag(_) => unimplemented!("Tags are not yet supported in the JS Function API"),
+            Self::Tag(tag) => tag.as_js().handle.tag.clone().into(),
         }
     }
 
@@ -219,9 +218,7 @@ impl AsJs for Extern {
             ExternType::Table(table_type) => {
                 Ok(Self::Table(Table::from_jsvalue(store, table_type, val)?))
             }
-            ExternType::Tag(_) => {
-                unimplemented!("Tags are not yet supported in the JS Function API")
-            }
+            ExternType::Tag(tag_type) => Ok(Self::Tag(Tag::from_jsvalue(store, tag_type, val)?)),
         }
     }
 }
@@ -297,6 +294,34 @@ impl AsJs for Function {
         } else {
             Err(JsError::new(&format!(
                 "Extern expect to be of type Function, but received {:?}",
+                value
+            )))
+        }
+    }
+}
+
+impl AsJs for Tag {
+    type DefinitionType = crate::TagType;
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+        self.as_js().handle.tag.clone().into()
+    }
+
+    fn from_jsvalue(
+        store: &mut impl AsStoreMut,
+        tag: &Self::DefinitionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
+        if value.is_instance_of::<JsTag>() {
+            Ok(Tag::from_vm_extern(
+                store,
+                crate::vm::VMExternTag::Js(VMTag::new(
+                    value.clone().unchecked_into::<JsTag>(),
+                    tag.clone(),
+                )),
+            ))
+        } else {
+            Err(JsError::new(&format!(
+                "Extern expect to be of type Tag, but received {:?}",
                 value
             )))
         }

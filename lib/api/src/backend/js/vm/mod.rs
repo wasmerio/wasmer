@@ -3,6 +3,7 @@ pub(crate) mod function;
 pub(crate) mod global;
 pub(crate) mod memory;
 pub(crate) mod table;
+pub(crate) mod tag;
 pub use super::error::Trap;
 
 pub use external::*;
@@ -10,6 +11,7 @@ pub use function::*;
 pub use global::*;
 pub use memory::*;
 pub use table::*;
+pub use tag::*;
 
 /// The type of instances in the `js` VM.
 pub type VMInstance = js_sys::WebAssembly::Instance;
@@ -27,8 +29,7 @@ pub(crate) type VMExternFunction = VMFunction;
 
 // No EH for now.
 pub(crate) type VMException = ();
-pub(crate) type VMTag = ();
-pub(crate) type VMExternTag = ();
+pub(crate) type VMExternTag = VMTag;
 
 pub struct VMExceptionRef;
 impl VMExceptionRef {

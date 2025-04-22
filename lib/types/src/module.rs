@@ -403,7 +403,7 @@ impl ModuleInfo {
 
                     ExternType::Tag(TagType {
                         kind: crate::types::TagKind::Exception,
-                        ty: tag_type.clone(),
+                        params: tag_type.params().into(),
                     })
                 }
             };

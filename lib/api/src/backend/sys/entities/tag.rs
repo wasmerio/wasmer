@@ -39,11 +39,12 @@ impl Tag {
     pub fn ty(&self, store: &impl AsStoreRef) -> TagType {
         TagType {
             kind: wasmer_types::TagKind::Exception,
-            ty: self
+            params: self
                 .handle
                 .get(store.as_store_ref().objects().as_sys())
                 .signature
-                .clone(),
+                .params()
+                .into(),
         }
     }
 

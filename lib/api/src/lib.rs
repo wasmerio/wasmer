@@ -442,8 +442,8 @@ pub use wasmer_types::{
     is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
     FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
     MemoryType, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
-    TableStyle, TableType, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
-    WASM_PAGE_SIZE,
+    TableStyle, TableType, TagKind, TagType, Type, ValueType, WasmError, WasmResult,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 #[cfg(feature = "wasmparser")]

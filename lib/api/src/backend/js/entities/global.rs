@@ -2,10 +2,11 @@ use wasm_bindgen::{prelude::*, JsValue};
 use wasmer_types::{GlobalType, Mutability, RawValue, Type};
 
 use crate::{
-    js::{utils::polyfill::Global as JsGlobal, vm::VMGlobal},
+    js::vm::VMGlobal,
     vm::{VMExtern, VMExternGlobal},
     AsStoreMut, AsStoreRef, BackendGlobal, RuntimeError, Value,
 };
+use js_sys::WebAssembly;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `global` in `js`.
@@ -54,7 +55,7 @@ impl Global {
             &mutability.is_mutable().into(),
         )?;
 
-        let js_global = JsGlobal::new(&descriptor, &value).unwrap();
+        let js_global = WebAssembly::Global::new(&descriptor, &value).unwrap();
         let vm_global = VMGlobal::new(js_global, global_ty);
 
         Ok(Self::from_vm_extern(store, VMExternGlobal::Js(vm_global)))
