@@ -96,10 +96,18 @@ impl Engine {
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> String {
         let i = self.inner();
-        if let Some(ref c) = i.compiler {
-            c.deterministic_id()
-        } else {
-            self.name.clone()
+        #[cfg(feature = "compiler")]
+        {
+            if let Some(ref c) = i.compiler {
+                return c.deterministic_id();
+            } else {
+                return self.name.clone();
+            }
+        }
+
+        #[allow(unreachable_code)]
+        {
+            return self.name.to_string();
         }
     }
 
@@ -296,9 +304,12 @@ impl Engine {
         &mut self,
         suggested_opts: &wasmer_types::target::SuggestedCompilerOptimizations,
     ) -> Result<(), CompileError> {
-        let mut i = self.inner_mut();
-        if let Some(ref mut c) = i.compiler {
-            c.with_opts(suggested_opts)?;
+        #[cfg(feature = "compiler")]
+        {
+            let mut i = self.inner_mut();
+            if let Some(ref mut c) = i.compiler {
+                c.with_opts(suggested_opts)?;
+            }
         }
 
         Ok(())
@@ -336,11 +347,19 @@ pub struct EngineInner {
 
 impl std::fmt::Debug for EngineInner {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("EngineInner")
-            .field("compiler", &self.compiler)
-            .field("features", &self.features)
-            .field("signatures", &self.signatures)
-            .finish()
+        let mut formatter = f.debug_struct("EngineInner");
+        #[cfg(feature = "compiler")]
+        {
+            formatter.field("compiler", &self.compiler);
+            formatter.field("features", &self.features);
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            formatter.field("signatures", &self.signatures);
+        }
+
+        formatter.finish()
     }
 }
 
