@@ -302,7 +302,7 @@ impl Engine {
     /// more optimizations.
     pub fn with_opts(
         &mut self,
-        suggested_opts: &wasmer_types::target::SuggestedCompilerOptimizations,
+        suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
         #[cfg(feature = "compiler")]
         {

@@ -560,7 +560,7 @@ impl Compiler for LLVMCompiler {
 
     fn with_opts(
         &mut self,
-        suggested_compiler_opts: &wasmer_types::target::SuggestedCompilerOptimizations,
+        suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
         if suggested_compiler_opts.pass_params.is_some_and(|v| v) {
             self.config.enable_g0m0_opt = true;

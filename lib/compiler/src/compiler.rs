@@ -12,7 +12,7 @@ use enumset::EnumSet;
 use wasmer_types::{
     entity::PrimaryMap,
     error::CompileError,
-    target::{CpuFeature, SuggestedCompilerOptimizations, Target},
+    target::{CpuFeature, UserCompilerOptimizations, Target},
     Features, LocalFunctionIndex,
 };
 #[cfg(feature = "translator")]
@@ -94,7 +94,7 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// more optimizations.
     fn with_opts(
         &mut self,
-        suggested_compiler_opts: &SuggestedCompilerOptimizations,
+        suggested_compiler_opts: &UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
         _ = suggested_compiler_opts;
         Ok(())

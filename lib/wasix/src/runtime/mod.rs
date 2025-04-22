@@ -7,7 +7,7 @@ pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
 use self::{module_cache::CacheError, task_manager::InlineWaker};
 use wasmer_config::package::SuggestedCompilerOptimizations;
 use wasmer_types::{
-    target::SuggestedCompilerOptimizations as WasmerSuggestedCompilerOptimizations, ModuleHash,
+    target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations, ModuleHash,
 };
 
 use std::{

@@ -3,7 +3,7 @@
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
 use wasmer_types::{
-    target::{SuggestedCompilerOptimizations, Target},
+    target::{UserCompilerOptimizations, Target},
     CompileError, DeserializeError, Features,
 };
 
@@ -236,7 +236,7 @@ impl Engine {
     /// more optimizations.
     pub fn with_opts(
         &mut self,
-        suggested_opts: &SuggestedCompilerOptimizations,
+        suggested_opts: &UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
         match self.be {
             #[cfg(feature = "sys")]
