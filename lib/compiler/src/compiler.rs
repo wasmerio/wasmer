@@ -12,7 +12,7 @@ use enumset::EnumSet;
 use wasmer_types::{
     entity::PrimaryMap,
     error::CompileError,
-    target::{CpuFeature, UserCompilerOptimizations, Target},
+    target::{CpuFeature, Target, UserCompilerOptimizations},
     Features, LocalFunctionIndex,
 };
 #[cfg(feature = "translator")]

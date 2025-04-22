@@ -3,7 +3,7 @@
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
 use wasmer_types::{
-    target::{UserCompilerOptimizations, Target},
+    target::{Target, UserCompilerOptimizations},
     CompileError, DeserializeError, Features,
 };
 
