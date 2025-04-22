@@ -2329,6 +2329,41 @@
 <a href="#2329" id="2329">2329</a>
 <a href="#2330" id="2330">2330</a>
 <a href="#2331" id="2331">2331</a>
+<a href="#2332" id="2332">2332</a>
+<a href="#2333" id="2333">2333</a>
+<a href="#2334" id="2334">2334</a>
+<a href="#2335" id="2335">2335</a>
+<a href="#2336" id="2336">2336</a>
+<a href="#2337" id="2337">2337</a>
+<a href="#2338" id="2338">2338</a>
+<a href="#2339" id="2339">2339</a>
+<a href="#2340" id="2340">2340</a>
+<a href="#2341" id="2341">2341</a>
+<a href="#2342" id="2342">2342</a>
+<a href="#2343" id="2343">2343</a>
+<a href="#2344" id="2344">2344</a>
+<a href="#2345" id="2345">2345</a>
+<a href="#2346" id="2346">2346</a>
+<a href="#2347" id="2347">2347</a>
+<a href="#2348" id="2348">2348</a>
+<a href="#2349" id="2349">2349</a>
+<a href="#2350" id="2350">2350</a>
+<a href="#2351" id="2351">2351</a>
+<a href="#2352" id="2352">2352</a>
+<a href="#2353" id="2353">2353</a>
+<a href="#2354" id="2354">2354</a>
+<a href="#2355" id="2355">2355</a>
+<a href="#2356" id="2356">2356</a>
+<a href="#2357" id="2357">2357</a>
+<a href="#2358" id="2358">2358</a>
+<a href="#2359" id="2359">2359</a>
+<a href="#2360" id="2360">2360</a>
+<a href="#2361" id="2361">2361</a>
+<a href="#2362" id="2362">2362</a>
+<a href="#2363" id="2363">2363</a>
+<a href="#2364" id="2364">2364</a>
+<a href="#2365" id="2365">2365</a>
+<a href="#2366" id="2366">2366</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -2340,6 +2375,7 @@
 };
 <span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>object::ObjectSection;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
     collections::BTreeMap,
@@ -2348,6 +2384,7 @@
     process::{Command, Stdio},
 };
 <span class="kw">use </span>tar::Archive;
+<span class="kw">use </span>target_lexicon::BinaryFormat;
 <span class="kw">use </span>wasmer::{
     sys::{engine::NativeEngineExt, <span class="kw-2">*</span>},
     <span class="kw-2">*</span>,
@@ -2616,7 +2653,13 @@
 
         get_module_infos(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>tempdir, <span class="kw-2">&amp;</span>atoms)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>entrypoint = get_entrypoint(<span class="kw-2">&amp;</span>tempdir)<span class="question-mark">?</span>;
-        create_header_files_in_dir(<span class="kw-2">&amp;</span>tempdir, <span class="kw-2">&amp;mut </span>entrypoint, <span class="kw-2">&amp;</span>atoms, <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom)<span class="question-mark">?</span>;
+        create_header_files_in_dir(
+            <span class="kw-2">&amp;</span>tempdir,
+            <span class="kw-2">&amp;mut </span>entrypoint,
+            <span class="kw-2">&amp;</span>atoms,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom,
+            <span class="kw-2">&amp;</span>target_triple.binary_format,
+        )<span class="question-mark">?</span>;
         link_exe_from_dir(
             <span class="kw-2">&amp;</span><span class="self">self</span>.env,
             <span class="kw-2">&amp;</span>tempdir,
@@ -3388,6 +3431,7 @@
     entrypoint: <span class="kw-2">&amp;mut </span>Entrypoint,
     atoms: <span class="kw-2">&amp;</span>[(String, Vec&lt;u8&gt;)],
     prefixes: <span class="kw-2">&amp;</span>[String],
+    binary_fmt: <span class="kw-2">&amp;</span>BinaryFormat,
 ) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">use </span>object::{Object, ObjectSymbol};
 
@@ -3411,10 +3455,36 @@
         <span class="kw">let </span>object_file = std::fs::read(<span class="kw-2">&amp;</span>object_file_src)
             .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">"could not read {}: {e}"</span>, object_file_src.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span>obj_file = object::File::parse(<span class="kw-2">&amp;*</span>object_file)<span class="question-mark">?</span>;
-        <span class="kw">let </span>metadata_length = obj_file
-            .symbol_by_name(<span class="kw-2">&amp;</span>symbol_registry.symbol_to_name(Symbol::Metadata))
-            .unwrap()
-            .size() <span class="kw">as </span>usize;
+        <span class="kw">let </span><span class="kw-2">mut </span>symbol_name = symbol_registry.symbol_to_name(Symbol::Metadata);
+        <span class="kw">if </span><span class="macro">matches!</span>(binary_fmt, BinaryFormat::Macho) {
+            symbol_name = <span class="macro">format!</span>(<span class="string">"_{symbol_name}"</span>);
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>metadata_length = obj_file.symbol_by_name(<span class="kw-2">&amp;</span>symbol_name).unwrap().size() <span class="kw">as </span>usize;
+        <span class="kw">if </span>metadata_length == <span class="number">0 </span>{
+            <span class="kw">let </span>metadata_obj = obj_file.symbol_by_name(<span class="kw-2">&amp;</span>symbol_name).unwrap();
+            <span class="kw">let </span>sec = obj_file
+                .section_by_index(metadata_obj.section().index().unwrap())
+                .unwrap();
+            <span class="kw">let </span><span class="kw-2">mut </span>syms_in_data_sec = obj_file
+                .symbols()
+                .filter(|v| v.section_index().is_some_and(|i| i == sec.index()))
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+            syms_in_data_sec.sort_by_key(|v| v.address());
+
+            <span class="kw">let </span>metadata_obj_idx = syms_in_data_sec
+                .iter()
+                .position(|v| v.name().is_ok_and(|v| v == symbol_name))
+                .unwrap();
+
+            metadata_length = <span class="kw">if </span>metadata_obj_idx == syms_in_data_sec.len() - <span class="number">1 </span>{
+                (sec.address() + sec.size()) - syms_in_data_sec[metadata_obj_idx].address()
+            } <span class="kw">else </span>{
+                syms_in_data_sec[metadata_obj_idx + <span class="number">1</span>].address()
+                    - syms_in_data_sec[metadata_obj_idx].address()
+            } <span class="kw">as </span>usize;
+        }
 
         <span class="kw">let </span>module_info = atom
             .module_info

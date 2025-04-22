@@ -1253,6 +1253,25 @@
 <a href="#1253" id="1253">1253</a>
 <a href="#1254" id="1254">1254</a>
 <a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1467,10 +1486,10 @@
                 <span class="prelude-val">Ok</span>(v) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(v);
                 }
-                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                        <span class="string">"The provided bytes are not wasmer-universal"</span>.to_string(),
-                    ));
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(<span class="macro">format!</span>(
+                        <span class="string">"The provided bytes are not wasmer-universal: {e}"
+                    </span>)));
                 }
             }
         }
@@ -1512,10 +1531,10 @@
                 <span class="prelude-val">Ok</span>(v) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(v);
                 }
-                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                        <span class="string">"The provided bytes are not wasmer-universal"</span>.to_string(),
-                    ));
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(<span class="macro">format!</span>(
+                        <span class="string">"The provided bytes are not wasmer-universal: {e}"
+                    </span>)));
                 }
             }
         }
@@ -2348,8 +2367,27 @@
         }
         .symbol_to_name(<span class="kw">crate</span>::types::symbols::Symbol::Metadata);
 
-        emit_data(<span class="kw-2">&amp;mut </span>obj, object_name.as_bytes(), <span class="kw-2">&amp;</span>metadata_binary, <span class="number">1</span>)
-            .map_err(to_compile_error)<span class="question-mark">?</span>;
+        <span class="kw">let </span>default_align = <span class="kw">match </span>target_triple.architecture {
+            target_lexicon::Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
+                <span class="kw">if </span><span class="macro">matches!</span>(
+                    target_triple.operating_system,
+                    target_lexicon::OperatingSystem::Darwin
+                ) {
+                    <span class="number">8
+                </span>} <span class="kw">else </span>{
+                    <span class="number">4
+                </span>}
+            }
+            <span class="kw">_ </span>=&gt; <span class="number">1</span>,
+        };
+
+        emit_data(
+            <span class="kw-2">&amp;mut </span>obj,
+            object_name.as_bytes(),
+            <span class="kw-2">&amp;</span>metadata_binary,
+            default_align,
+        )
+        .map_err(to_compile_error)<span class="question-mark">?</span>;
 
         emit_compilation(<span class="kw-2">&amp;mut </span>obj, compilation, <span class="kw-2">&amp;</span>symbol_registry, target_triple)
             .map_err(to_compile_error)<span class="question-mark">?</span>;
