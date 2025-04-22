@@ -6,6 +6,7 @@
 
 use crate::abi::Abi;
 use crate::error::err;
+use crate::LLVM;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -1211,6 +1212,7 @@ pub struct FunctionCache<'ctx> {
 pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
 
+    config: &'a LLVM,
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
     abi: &'a dyn Abi,
@@ -1232,8 +1234,10 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
         abi: &'a dyn Abi,
+        config: &'a LLVM,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
+            config,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
             wasm_module,
@@ -1700,7 +1704,11 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     intrinsics,
                     Some(offsets),
                     func_type,
-                    Some(crate::abi::FunctionKind::Local),
+                    if self.config.enable_g0m0_opt {
+                        Some(crate::abi::G0M0FunctionKind::Local)
+                    } else {
+                        None
+                    },
                 )?;
                 let func =
                     module.add_function(function_name, llvm_func_type, Some(Linkage::External));

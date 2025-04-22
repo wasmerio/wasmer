@@ -15,7 +15,7 @@ use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;
 
-use super::{FunctionKind, LocalFunctionG0M0params};
+use super::{G0M0FunctionKind, LocalFunctionG0M0params};
 
 /// Implementation of the [`Abi`] trait for the Aarch64 ABI on Linux.
 pub struct Aarch64SystemV {}
@@ -83,7 +83,7 @@ impl Abi for Aarch64SystemV {
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
-        function_kind: Option<FunctionKind>,
+        function_kind: Option<G0M0FunctionKind>,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 

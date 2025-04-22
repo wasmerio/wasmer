@@ -1,5 +1,5 @@
 use crate::{
-    abi::{get_abi, Abi, FunctionKind},
+    abi::{get_abi, Abi, G0M0FunctionKind},
     config::{CompiledKind, LLVM},
     error::{err, err_nt},
     object_file::{load_object_file, CompiledFunction},
@@ -75,7 +75,7 @@ impl FuncTrampoline {
         let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
 
         let func_kind = if config.enable_g0m0_opt {
-            Some(FunctionKind::Local)
+            Some(G0M0FunctionKind::Local)
         } else {
             None
         };

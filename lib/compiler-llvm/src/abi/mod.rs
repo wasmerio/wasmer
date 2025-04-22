@@ -38,12 +38,12 @@ pub fn get_abi(target_machine: &TargetMachine) -> Box<dyn Abi> {
 }
 
 #[derive(Debug)]
-pub(crate) enum FunctionKind {
+pub(crate) enum G0M0FunctionKind {
     Local,
     Imported,
 }
 
-impl FunctionKind {
+impl G0M0FunctionKind {
     /// Returns `true` if the function kind is [`Local`].
     ///
     /// [`Local`]: FunctionKind::Local
@@ -86,7 +86,7 @@ pub trait Abi {
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
-        function_kind: Option<FunctionKind>,
+        function_kind: Option<G0M0FunctionKind>,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError>;
 
     /// Marshall wasm stack values into function parameters.

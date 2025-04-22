@@ -27,7 +27,7 @@ use smallvec::SmallVec;
 use target_lexicon::BinaryFormat;
 
 use crate::{
-    abi::{get_abi, Abi, FunctionKind, LocalFunctionG0M0params},
+    abi::{get_abi, Abi, G0M0FunctionKind, LocalFunctionG0M0params},
     config::{CompiledKind, LLVM},
     error::{err, err_nt},
     object_file::{load_object_file, CompiledFunction},
@@ -104,7 +104,7 @@ impl FuncTranslator {
 
         let g0m0_is_enabled = config.enable_g0m0_opt;
         let func_kind = if g0m0_is_enabled {
-            Some(FunctionKind::Local)
+            Some(G0M0FunctionKind::Local)
         } else {
             None
         };
@@ -271,7 +271,7 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(wasm_module, &func, &cache_builder, &*self.abi),
+            ctx: CtxType::new(wasm_module, &func, &cache_builder, &*self.abi, config),
             unreachable_depth: 0,
             memory_styles,
             _table_styles,
@@ -1618,7 +1618,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 ctx_ptr,
                 func_type,
                 func_ptr,
-                Some(FunctionKind::Local),
+                Some(G0M0FunctionKind::Local),
                 Some((g0_value.into_int_value(), m0)),
             )?;
 
@@ -1636,7 +1636,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 ctx_ptr,
                 func_type,
                 func_ptr,
-                Some(FunctionKind::Imported),
+                Some(G0M0FunctionKind::Imported),
                 None,
             )?;
 
@@ -1664,7 +1664,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 ctx_ptr,
                 func_type,
                 func_ptr,
-                Some(FunctionKind::Local),
+                Some(G0M0FunctionKind::Local),
                 Some((g0_value.into_int_value(), m0)),
             )?;
 
@@ -1677,7 +1677,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 ctx_ptr,
                 func_type,
                 func_ptr,
-                Some(FunctionKind::Imported),
+                Some(G0M0FunctionKind::Imported),
                 Some((g0_value.into_int_value(), m0)),
             )?;
             self.abi
@@ -1694,7 +1694,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         ctx_ptr: PointerValue<'ctx>,
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
-        func_kind: Option<FunctionKind>,
+        func_kind: Option<G0M0FunctionKind>,
         g0m0_params: LocalFunctionG0M0params<'ctx>,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
