@@ -1,8 +1,6 @@
 use std::path::Path;
 
-use wasmer_config::package::{
-    UserAnnotations, ModuleReference, SuggestedCompilerOptimizations,
-};
+use wasmer_config::package::{ModuleReference, SuggestedCompilerOptimizations, UserAnnotations};
 
 use webc::Container;
 
@@ -160,8 +158,11 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
                     .get(SuggestedCompilerOptimizations::KEY)
                 {
                     if let Some((_, v)) = sco.as_map().and_then(|v| {
-                        v.iter()
-                            .find(|(k, _)| k.as_text().is_some_and(|v| v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY))
+                        v.iter().find(|(k, _)| {
+                            k.as_text().is_some_and(|v| {
+                                v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY
+                            })
+                        })
                     }) {
                         annotations = Some(UserAnnotations {
                             suggested_compiler_optimizations: SuggestedCompilerOptimizations {

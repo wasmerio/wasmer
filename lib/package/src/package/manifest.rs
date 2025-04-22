@@ -10,7 +10,7 @@ use shared_buffer::{MmapError, OwnedBuffer};
 use url::Url;
 #[allow(deprecated)]
 use wasmer_config::package::{CommandV1, CommandV2, Manifest as WasmerManifest, Package};
-use wasmer_config::package::{UserAnnotations, SuggestedCompilerOptimizations};
+use wasmer_config::package::{SuggestedCompilerOptimizations, UserAnnotations};
 use webc::{
     indexmap::{self, IndexMap},
     metadata::AtomSignature,
@@ -161,14 +161,7 @@ pub(crate) fn wasmer_manifest_to_webc(
 /// take a `wasmer.toml` manifest and convert it to the `*.webc` equivalent.
 pub(crate) fn in_memory_wasmer_manifest_to_webc(
     manifest: &WasmerManifest,
-    atoms: &BTreeMap<
-        String,
-        (
-            Option<String>,
-            OwnedBuffer,
-            Option<&UserAnnotations>,
-        ),
-    >,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
 ) -> Result<(WebcManifest, BTreeMap<String, OwnedBuffer>), ManifestError> {
     let use_map = transform_dependencies(&manifest.dependencies)?;
 
@@ -297,27 +290,13 @@ fn transform_atoms(
 }
 
 fn transform_in_memory_atoms(
-    atoms: &BTreeMap<
-        String,
-        (
-            Option<String>,
-            OwnedBuffer,
-            Option<&UserAnnotations>,
-        ),
-    >,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
 ) -> Result<(IndexMap<String, Atom>, Atoms), ManifestError> {
     transform_atoms_shared(atoms)
 }
 
 fn transform_atoms_shared(
-    atoms: &BTreeMap<
-        String,
-        (
-            Option<String>,
-            OwnedBuffer,
-            Option<&UserAnnotations>,
-        ),
-    >,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
 ) -> Result<(IndexMap<String, Atom>, Atoms), ManifestError> {
     let mut atom_files = BTreeMap::new();
     let mut metadata = IndexMap::new();
