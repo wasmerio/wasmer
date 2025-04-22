@@ -1,4 +1,4 @@
-use crate::backend::js::utils::polyfill::Global as JsGlobal;
+use js_sys::WebAssembly::Global as JsGlobal;
 use wasmer_types::GlobalType;
 
 /// The VM Global type

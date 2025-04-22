@@ -2,7 +2,7 @@ use std::{collections::HashMap, convert::TryInto};
 
 use js_sys::{
     Function as JsFunction,
-    WebAssembly::{Memory as JsMemory, Table as JsTable, Tag as JsTag},
+    WebAssembly::{Global as JsGlobal, Memory as JsMemory, Table as JsTable, Tag as JsTag},
 };
 use wasm_bindgen::{JsCast, JsError, JsValue};
 use wasmer_types::ExternType;
@@ -12,12 +12,11 @@ use crate::{
     instance::Instance,
     js::{
         instance::Instance as JsInstance,
-        utils::polyfill::Global as JsGlobal,
         vm::{VMFunction, VMGlobal, VMMemory, VMTable, VMTag},
     },
     store::{AsStoreMut, AsStoreRef},
     value::Value,
-    Extern, Function, Global, Memory, Table, Type, Tag,
+    Extern, Function, Global, Memory, Table, Tag, Type,
 };
 
 /// Convert the given type to a [`JsValue`].
@@ -219,9 +218,7 @@ impl AsJs for Extern {
             ExternType::Table(table_type) => {
                 Ok(Self::Table(Table::from_jsvalue(store, table_type, val)?))
             }
-            ExternType::Tag(tag_type) => {
-                Ok(Self::Tag(Tag::from_jsvalue(store, tag_type, val)?))
-            }
+            ExternType::Tag(tag_type) => Ok(Self::Tag(Tag::from_jsvalue(store, tag_type, val)?)),
         }
     }
 }

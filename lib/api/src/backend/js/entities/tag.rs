@@ -1,11 +1,9 @@
 use wasmer_types::{TagType, Type};
 
 use crate::{
-    BackendTag,
-    TagKind,
     js::vm::VMTag,
     vm::{VMExtern, VMExternTag},
-    AsStoreMut, AsStoreRef,
+    AsStoreMut, AsStoreRef, BackendTag, TagKind,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,22 +21,18 @@ unsafe impl Sync for Tag {}
 
 impl Tag {
     pub fn new<P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, params: P) -> Self {
-        // unimplemented!("Tag is not yet supported in Javascript");
-        // VMExtern::Tag(crate::js::vm::VMExtern::Tag(self.handle.clone()))
-        // let descriptor = js_sys::WebAssembly::TagDescriptor::new(params);
         let descriptor = js_sys::Object::new();
         let params: Box<[Type]> = params.into();
-        let parameters: Vec<String> = params.into_iter().map(|param| {
-            match param {
+        let parameters: Vec<String> = params
+            .into_iter()
+            .map(|param| match param {
                 Type::I32 => "i32".to_string(),
                 Type::I64 => "i64".to_string(),
                 Type::F32 => "f32".to_string(),
                 Type::F64 => "f64".to_string(),
                 _ => unimplemented!("The type is not yet supported in the JS Global API"),
-            }
-        }).collect();
-        // This is the value type as string, even though is incorrectly called "value"
-        // in the JS API.
+            })
+            .collect();
         js_sys::Reflect::set(&descriptor, &"parameters".into(), &parameters.into()).unwrap();
 
         let tag = js_sys::WebAssembly::Tag::new(&descriptor);
@@ -65,7 +59,6 @@ impl Tag {
         VMExtern::Js(crate::js::vm::VMExtern::Tag(self.handle.clone()))
     }
 }
-
 
 impl crate::Tag {
     /// Consume [`self`] into [`crate::backend::js::tag::Tag`].

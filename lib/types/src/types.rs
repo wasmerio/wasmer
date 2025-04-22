@@ -491,11 +491,6 @@ impl TagType {
         }
     }
 
-    // /// Return types.
-    // pub fn results(&self) -> &[Type] {
-    //     self.ty.results()
-    // }
-
     /// Parameter types.
     pub fn params(&self) -> &[Type] {
         &self.params
@@ -503,18 +498,16 @@ impl TagType {
 
     /// Create a new [`TagType`] with the given kind and the associated type.
     pub fn from_fn_type(kind: TagKind, ty: FunctionType) -> Self {
-        Self { kind, params: ty.params().into() }
+        Self {
+            kind,
+            params: ty.params().into(),
+        }
     }
 }
 
 impl fmt::Display for TagType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({:?}) {:?}",
-            self.kind,
-            self.params(),
-        )
+        write!(f, "({:?}) {:?}", self.kind, self.params(),)
     }
 }
 
