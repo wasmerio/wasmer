@@ -107,7 +107,7 @@ impl Engine {
 
         #[allow(unreachable_code)]
         {
-            return self.name.to_string();
+            self.name.to_string()
         }
     }
 
