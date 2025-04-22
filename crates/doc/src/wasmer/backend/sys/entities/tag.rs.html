@@ -71,6 +71,7 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for `sys` runtime's `Tag` implementation.
 </span><span class="kw">use </span>wasmer_types::{FunctionType, TagType, Type};
 <span class="kw">use </span>wasmer_vm::StoreHandle;
@@ -112,11 +113,12 @@
     </span><span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; TagType {
         TagType {
             kind: wasmer_types::TagKind::Exception,
-            ty: <span class="self">self
+            params: <span class="self">self
                 </span>.handle
                 .get(store.as_store_ref().objects().as_sys())
                 .signature
-                .clone(),
+                .params()
+                .into(),
         }
     }
 

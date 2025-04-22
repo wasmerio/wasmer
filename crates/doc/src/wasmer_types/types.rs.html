@@ -716,14 +716,6 @@
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::indexes::{FunctionIndex, GlobalIndex};
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::borrow::ToOwned;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
@@ -1201,47 +1193,39 @@
 </span><span class="kw">pub struct </span>TagType {
     <span class="doccomment">/// The kind of the tag.
     </span><span class="kw">pub </span>kind: TagKind,
-    <span class="doccomment">/// The type of the tag.
-    </span><span class="kw">pub </span>ty: FunctionType,
+    <span class="doccomment">/// The parameters of the function
+    </span><span class="kw">pub </span>params: Box&lt;[Type]&gt;,
 }
 
 <span class="kw">impl </span>TagType {
     <span class="doccomment">/// Creates a new [`TagType`] with the given kind, parameter and return types.
-    </span><span class="kw">pub fn </span>new&lt;Params, Returns&gt;(kind: TagKind, params: Params, returns: Returns) -&gt; <span class="self">Self
+    </span><span class="kw">pub fn </span>new&lt;Params&gt;(kind: TagKind, params: Params) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>Params: Into&lt;Box&lt;[Type]&gt;&gt;,
-        Returns: Into&lt;Box&lt;[Type]&gt;&gt;,
     {
-        <span class="kw">let </span>ty = FunctionType::new(params.into(), returns.into());
-
-        <span class="self">Self</span>::from_fn_type(kind, ty)
-    }
-
-    <span class="doccomment">/// Return types.
-    </span><span class="kw">pub fn </span>results(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Type] {
-        <span class="self">self</span>.ty.results()
+        <span class="self">Self </span>{
+            kind,
+            params: params.into(),
+        }
     }
 
     <span class="doccomment">/// Parameter types.
     </span><span class="kw">pub fn </span>params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Type] {
-        <span class="self">self</span>.ty.params()
+        <span class="kw-2">&amp;</span><span class="self">self</span>.params
     }
 
     <span class="doccomment">/// Create a new [`TagType`] with the given kind and the associated type.
     </span><span class="kw">pub fn </span>from_fn_type(kind: TagKind, ty: FunctionType) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ kind, ty }
+        <span class="self">Self </span>{
+            kind,
+            params: ty.params().into(),
+        }
     }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>TagType {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-        <span class="macro">write!</span>(
-            f,
-            <span class="string">"({:?}) {:?} -&gt; {:?}"</span>,
-            <span class="self">self</span>.kind,
-            <span class="self">self</span>.params(),
-            <span class="self">self</span>.results()
-        )
+        <span class="macro">write!</span>(f, <span class="string">"({:?}) {:?}"</span>, <span class="self">self</span>.kind, <span class="self">self</span>.params(),)
     }
 }
 
