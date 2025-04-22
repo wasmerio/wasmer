@@ -230,10 +230,12 @@ impl Default for Target {
     }
 }
 
-/// A set of suggested optimizations, which will be passed on to backends in the chain of
-/// execution.
-#[derive(Debug, Clone, Default)]
+/// Suggested optimization that might be operated on the module when (and if) compiled.
+///
+// Note: This type is a copy of `wasmer_config::package::SuggestedCompilerOptimizations`, so to
+// avoid dependencies on `wasmer_config` for crates that already depend on `wasmer_types`.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct SuggestedCompilerOptimizations {
-    /// Suggest the "pass_params" (also known as `g0m0`) optimiation to be enabled.
+    /// Suggest the `pass_params` (also known as g0m0) optimization pass.
     pub pass_params: Option<bool>,
 }
