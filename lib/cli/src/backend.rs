@@ -447,9 +447,7 @@ impl RuntimeOptions {
                 }
                 if let Some(p) = &self.profiler {
                     match p {
-                        Profiler::Perfmap => {
-                            config.enable_perfmap()
-                        }
+                        Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
 
@@ -463,9 +461,7 @@ impl RuntimeOptions {
                 }
                 if let Some(p) = &self.profiler {
                     match p {
-                        Profiler::Perfmap => {
-                            config.enable_perfmap()
-                        }
+                        Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
                 Box::new(config)
@@ -578,9 +574,7 @@ impl RuntimeOptions {
                 }
                 if let Some(p) = &self.profiler {
                     match p {
-                        Profiler::Perfmap => {
-                            config.enable_perfmap()
-                        }
+                        Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
 
@@ -663,9 +657,7 @@ impl BackendType {
                 }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
-                        Profiler::Perfmap => {
-                            config.enable_perfmap()
-                        }
+                        Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
@@ -683,9 +675,7 @@ impl BackendType {
                 }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
-                        Profiler::Perfmap => {
-                            config.enable_perfmap()
-                        }
+                        Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
@@ -805,9 +795,7 @@ impl BackendType {
 
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
-                        Profiler::Perfmap => {
-                            config.enable_perfmap()
-                        }
+                        Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
 
