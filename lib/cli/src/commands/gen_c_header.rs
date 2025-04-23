@@ -3,12 +3,11 @@ use std::path::PathBuf;
 use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
-use wasmer_compiler::{types::symbols::ModuleMetadataSymbolRegistry, Artifact};
-use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
-use wasmer_types::{
-    target::{CpuFeature, Triple},
-    MetadataHeader,
+use wasmer_compiler::{
+    object::ObjectMetadataBuilder, types::symbols::ModuleMetadataSymbolRegistry, Artifact,
 };
+use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
+use wasmer_types::target::{CpuFeature, Triple};
 use webc::{compat::SharedBytes, Container, ContainerError, DetectError};
 
 use crate::backend::RuntimeOptions;
@@ -101,13 +100,9 @@ impl GenCHeader {
         )
         .map_err(|e| anyhow::anyhow!("could not generate metadata: {e}"))?;
 
-        let serialized_data = metadata
-            .serialize()
-            .map_err(|e| anyhow::anyhow!("failed to serialize: {e}"))?;
-        let mut metadata_binary = vec![];
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
-        metadata_binary.extend(serialized_data);
-        let metadata_length = metadata_binary.len();
+        let metadata_builder = ObjectMetadataBuilder::new(&metadata, &target_triple)
+            .map_err(|e| anyhow::anyhow!("failed to create relocs builder: {e}"))?;
+        let metadata_length = metadata_builder.placeholder_data().len();
 
         let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
             &prefix,
