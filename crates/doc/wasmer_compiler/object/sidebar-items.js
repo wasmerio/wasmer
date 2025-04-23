@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ObjectError"],"fn":["emit_compilation","emit_data","emit_serialized","get_object_for_target"],"mod":["error","module"],"struct":["Object"]};
+window.SIDEBAR_ITEMS = {"enum":["ObjectError"],"fn":["emit_compilation","emit_data","emit_serialized","get_object_for_target"],"mod":["error","module"],"struct":["Object","ObjectMetadataBuilder"]};
