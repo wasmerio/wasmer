@@ -73,6 +73,7 @@ impl Compiler for CraneliftCompiler {
 
     fn get_perfmap_enabled(&self) -> bool {
         self.config.enable_perfmap
+    }
 
     fn deterministic_id(&self) -> String {
         String::from("cranelift")
