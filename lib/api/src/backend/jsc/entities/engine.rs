@@ -166,9 +166,9 @@ impl JSCEngine {
 }
 
 impl Engine {
-    pub(crate) fn deterministic_id(&self) -> &str {
+    pub(crate) fn deterministic_id(&self) -> String {
         // All js engines have the same id
-        "javascriptcore"
+        String::from("javascriptcore")
     }
 
     /// Returns the WebAssembly features supported by the JSC engine for the given target.

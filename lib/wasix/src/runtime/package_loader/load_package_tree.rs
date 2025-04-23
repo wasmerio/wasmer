@@ -10,7 +10,7 @@ use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
-use wasmer_config::package::PackageId;
+use wasmer_config::package::{PackageId, SuggestedCompilerOptimizations};
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
@@ -208,10 +208,45 @@ fn load_binary_command(
         None
     };
 
-    let cmd =
-        BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash, features);
+    let suggested_compiler_optimizations =
+        if let Some(atom_metadata) = webc.manifest().atoms.get(&atom_name) {
+            extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
+        } else {
+            wasmer_config::package::SuggestedCompilerOptimizations::default()
+        };
+
+    let cmd = BinaryPackageCommand::new(
+        command_name.to_string(),
+        cmd.clone(),
+        atom,
+        hash,
+        features,
+        suggested_compiler_optimizations,
+    );
 
     Ok(Some(cmd))
+}
+
+fn extract_suggested_compiler_opts_from_atom_metadata(
+    atom_metadata: &webc::metadata::Atom,
+) -> wasmer_config::package::SuggestedCompilerOptimizations {
+    let mut ret = SuggestedCompilerOptimizations::default();
+
+    if let Some(sco) = atom_metadata
+        .annotations
+        .get(SuggestedCompilerOptimizations::KEY)
+    {
+        if let Some((_, v)) = sco.as_map().and_then(|v| {
+            v.iter().find(|(k, _)| {
+                k.as_text()
+                    .is_some_and(|v| v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY)
+            })
+        }) {
+            ret.pass_params = v.as_bool()
+        }
+    }
+
+    ret
 }
 
 fn atom_name_for_command(
@@ -281,12 +316,21 @@ fn legacy_atom_hack(
         None
     };
 
+    // Get WebAssembly features from manifest atom annotations
+    let suggested_opts_from_manifest = if let Some(atom_metadata) = webc.manifest().atoms.get(&name)
+    {
+        extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
+    } else {
+        SuggestedCompilerOptimizations::default()
+    };
+
     Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
         hash,
         features,
+        suggested_opts_from_manifest,
     )))
 }
 

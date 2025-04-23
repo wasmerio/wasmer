@@ -36,8 +36,8 @@ impl Engine {
         Self::default()
     }
 
-    pub(crate) fn deterministic_id(&self) -> &str {
-        "wasmi"
+    pub(crate) fn deterministic_id(&self) -> String {
+        String::from("wasmi")
     }
 
     /// Returns the WebAssembly features supported by the WASMI engine.
