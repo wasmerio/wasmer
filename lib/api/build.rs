@@ -48,6 +48,8 @@ fn build_wamr() {
         zip.into_reader()
             .read_to_end(&mut zip_data)
             .expect("failed to download wamr");
+        std::fs::create_dir_all(&zip_dir)
+            .expect("Failed to create temporary zip extraction directory");
         zip::read::ZipArchive::new(std::io::Cursor::new(zip_data))
             .expect("failed to open wamr zip file")
             .extract(&zip_dir)
