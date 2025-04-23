@@ -889,6 +889,76 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
     result.unwrap()
 }
 
+// A list of floating-point & 64-bit mul/div routine functions that might be
+// referenced by LLVM engine. Ideally, any modern Rust / C toolchain should provide
+// implementations for those functions as part of libc, so we don't need to manually
+// implementation. However, it is also possible to simply implement them in Rust to
+// cope with unique environments, such as __muldi3 below.
+// Since we only use them by the function address value below, there is no need to
+// include parameter types and return types.
+extern "C" {
+    fn __adddf3();
+    fn __addsf3();
+    fn __divdf3();
+    fn __divdi3();
+    fn __divsf3();
+    fn __divsi3();
+    fn __eqdf2();
+    fn __eqsf2();
+    fn __extendsfdf2();
+    fn __fixdfdi();
+    fn __fixdfsi();
+    fn __fixsfdi();
+    fn __fixsfsi();
+    fn __fixunsdfdi();
+    fn __fixunsdfsi();
+    fn __fixunssfdi();
+    fn __fixunssfsi();
+    fn __floatdidf();
+    fn __floatdisf();
+    fn __floatsidf();
+    fn __floatsisf();
+    fn __floatundidf();
+    fn __floatundisf();
+    fn __floatunsidf();
+    fn __floatunsisf();
+    fn __gedf2();
+    fn __gesf2();
+    fn __gtdf2();
+    fn __gtsf2();
+    fn __ledf2();
+    fn __lesf2();
+    fn __ltdf2();
+    fn __ltsf2();
+    fn __moddi3();
+    fn __modsi3();
+    fn __muldf3();
+    fn __muldi3();
+    fn __mulsf3();
+    fn __nedf2();
+    fn __negdf2();
+    fn __negsf2();
+    fn __nesf2();
+    fn __subdf3();
+    fn __subsf3();
+    fn __truncdfsf2();
+    fn __udivdi3();
+    fn __udivsi3();
+    fn __umoddi3();
+    fn __umodsi3();
+    fn __unorddf2();
+    fn __unordsf2();
+    fn memset();
+    fn sqrt();
+}
+
+/// This is simply __mulsi3 but for some reasons, 64-bit environment does
+/// not provide it by default. Hence we are implementing it in rust.
+#[no_mangle]
+pub extern "C" fn wasmer_vm__mulsi3(a: i32, b: i32) -> i32 {
+    a.wrapping_mul(b)
+}
+
 /// The function pointer to a libcall
 pub fn function_pointer(libcall: LibCall) -> usize {
     match libcall {
@@ -936,5 +1006,59 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::DeleteException => wasmer_vm_delete_exception as usize,
         LibCall::ReadException => wasmer_vm_read_exception as usize,
         LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
+        LibCall::Adddf3 => __adddf3 as usize,
+        LibCall::Addsf3 => __addsf3 as usize,
+        LibCall::Divdf3 => __divdf3 as usize,
+        LibCall::Divdi3 => __divdi3 as usize,
+        LibCall::Divsf3 => __divsf3 as usize,
+        LibCall::Divsi3 => __divsi3 as usize,
+        LibCall::Eqdf2 => __eqdf2 as usize,
+        LibCall::Eqsf2 => __eqsf2 as usize,
+        LibCall::Extendsfdf2 => __extendsfdf2 as usize,
+        LibCall::Fixdfdi => __fixdfdi as usize,
+        LibCall::Fixdfsi => __fixdfsi as usize,
+        LibCall::Fixsfdi => __fixsfdi as usize,
+        LibCall::Fixsfsi => __fixsfsi as usize,
+        LibCall::Fixunsdfdi => __fixunsdfdi as usize,
+        LibCall::Fixunsdfsi => __fixunsdfsi as usize,
+        LibCall::Fixunssfdi => __fixunssfdi as usize,
+        LibCall::Fixunssfsi => __fixunssfsi as usize,
+        LibCall::Floatdidf => __floatdidf as usize,
+        LibCall::Floatdisf => __floatdisf as usize,
+        LibCall::Floatsidf => __floatsidf as usize,
+        LibCall::Floatsisf => __floatsisf as usize,
+        LibCall::Floatundidf => __floatundidf as usize,
+        LibCall::Floatundisf => __floatundisf as usize,
+        LibCall::Floatunsidf => __floatunsidf as usize,
+        LibCall::Floatunsisf => __floatunsisf as usize,
+        LibCall::Gedf2 => __gedf2 as usize,
+        LibCall::Gesf2 => __gesf2 as usize,
+        LibCall::Gtdf2 => __gtdf2 as usize,
+        LibCall::Gtsf2 => __gtsf2 as usize,
+        LibCall::Ledf2 => __ledf2 as usize,
+        LibCall::Lesf2 => __lesf2 as usize,
+        LibCall::Ltdf2 => __ltdf2 as usize,
+        LibCall::Ltsf2 => __ltsf2 as usize,
+        LibCall::Moddi3 => __moddi3 as usize,
+        LibCall::Modsi3 => __modsi3 as usize,
+        LibCall::Muldf3 => __muldf3 as usize,
+        LibCall::Muldi3 => __muldi3 as usize,
+        LibCall::Mulsf3 => __mulsf3 as usize,
+        LibCall::Mulsi3 => wasmer_vm__mulsi3 as usize,
+        LibCall::Nedf2 => __nedf2 as usize,
+        LibCall::Negdf2 => __negdf2 as usize,
+        LibCall::Negsf2 => __negsf2 as usize,
+        LibCall::Nesf2 => __nesf2 as usize,
+        LibCall::Subdf3 => __subdf3 as usize,
+        LibCall::Subsf3 => __subsf3 as usize,
+        LibCall::Truncdfsf2 => __truncdfsf2 as usize,
+        LibCall::Udivdi3 => __udivdi3 as usize,
+        LibCall::Udivsi3 => __udivsi3 as usize,
+        LibCall::Umoddi3 => __umoddi3 as usize,
+        LibCall::Umodsi3 => __umodsi3 as usize,
+        LibCall::Unorddf2 => __unorddf2 as usize,
+        LibCall::Unordsf2 => __unordsf2 as usize,
+        LibCall::Memset => memset as usize,
+        LibCall::Sqrt => sqrt as usize,
     }
 }

@@ -149,7 +149,8 @@ impl LLVMCompiler {
         let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine, binary_format).unwrap()
+                let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                FuncTranslator::new(target_machine, binary_format, pointer_width).unwrap()
             },
             |func_translator, (i, input)| {
                 let module = func_translator.translate_to_module(
@@ -356,7 +357,8 @@ impl Compiler for LLVMCompiler {
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTranslator::new(target_machine, binary_format).unwrap()
+                    let pointer_width = target.triple().pointer_width().unwrap().bytes();
+                    FuncTranslator::new(target_machine, binary_format, pointer_width).unwrap()
                 },
                 |func_translator, (i, input)| {
                     // TODO: remove (to serialize)
