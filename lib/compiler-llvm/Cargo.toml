@@ -8,7 +8,6 @@ readme = "README.md"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
-license = "BUSL-1.1"
 license-file = "LICENSE"
 repository.workspace = true
 rust-version.workspace = true
