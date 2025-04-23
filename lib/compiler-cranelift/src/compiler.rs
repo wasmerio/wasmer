@@ -49,6 +49,7 @@ use wasmer_types::{
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
+#[derive(Debug)]
 pub struct CraneliftCompiler {
     config: Cranelift,
 }
@@ -72,6 +73,9 @@ impl Compiler for CraneliftCompiler {
 
     fn get_perfmap_enabled(&self) -> bool {
         self.config.enable_perfmap
+
+    fn deterministic_id(&self) -> String {
+        String::from("cranelift")
     }
 
     /// Get the middlewares for this compiler

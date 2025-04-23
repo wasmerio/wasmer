@@ -491,6 +491,7 @@ async fn construct_manifest(
             map.insert("wasi".to_string(), "0.1.0-unstable".to_string());
             map
         }),
+        annotations: None,
     }];
 
     let mut pkg = wasmer_config::package::Package::builder(

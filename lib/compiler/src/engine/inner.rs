@@ -97,12 +97,21 @@ impl Engine {
     }
 
     /// Returns the deterministic id of this engine
-    pub fn deterministic_id(&self) -> &str {
-        // TODO: add a `deterministic_id` to the Compiler, so two
-        // compilers can actually serialize into a different deterministic_id
-        // if their configuration is different (eg. LLVM with optimizations vs LLVM
-        // without optimizations)
-        self.name.as_str()
+    pub fn deterministic_id(&self) -> String {
+        let i = self.inner();
+        #[cfg(feature = "compiler")]
+        {
+            if let Some(ref c) = i.compiler {
+                return c.deterministic_id();
+            } else {
+                return self.name.clone();
+            }
+        }
+
+        #[allow(unreachable_code)]
+        {
+            self.name.to_string()
+        }
     }
 
     /// Create a headless `Engine`
@@ -286,11 +295,34 @@ impl Engine {
     pub fn tunables(&self) -> &dyn Tunables {
         self.tunables.as_ref()
     }
+
+    /// Add suggested optimizations to this engine.
+    ///
+    /// # Note
+    ///
+    /// Not every backend supports every optimization. This function may fail (i.e. not set the
+    /// suggested optimizations) silently if the underlying engine backend does not support one or
+    /// more optimizations.
+    pub fn with_opts(
+        &mut self,
+        suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        #[cfg(feature = "compiler")]
+        {
+            let mut i = self.inner_mut();
+            if let Some(ref mut c) = i.compiler {
+                c.with_opts(suggested_opts)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for Engine {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Engine")
+            .field("inner", &self.inner)
             .field("target", &self.target)
             .field("engine_id", &self.engine_id)
             .field("name", &self.name)
@@ -314,6 +346,24 @@ pub struct EngineInner {
     /// performantly.
     #[cfg(not(target_arch = "wasm32"))]
     signatures: SignatureRegistry,
+}
+
+impl std::fmt::Debug for EngineInner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut formatter = f.debug_struct("EngineInner");
+        #[cfg(feature = "compiler")]
+        {
+            formatter.field("compiler", &self.compiler);
+            formatter.field("features", &self.features);
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            formatter.field("signatures", &self.signatures);
+        }
+
+        formatter.finish()
+    }
 }
 
 impl EngineInner {

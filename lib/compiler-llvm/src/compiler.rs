@@ -29,6 +29,7 @@ use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
+#[derive(Debug)]
 pub struct LLVMCompiler {
     config: LLVM,
 }
@@ -261,8 +262,27 @@ impl Compiler for LLVMCompiler {
         "llvm"
     }
 
+
     fn get_perfmap_enabled(&self) -> bool {
         self.config.enable_perfmap
+    }
+
+    fn deterministic_id(&self) -> String {
+        let mut ret = format!(
+            "llvm-{}",
+            match self.config.opt_level {
+                inkwell::OptimizationLevel::None => "opt0",
+                inkwell::OptimizationLevel::Less => "optl",
+                inkwell::OptimizationLevel::Default => "optd",
+                inkwell::OptimizationLevel::Aggressive => "opta",
+            }
+        );
+
+        if self.config.enable_g0m0_opt {
+            ret.push_str("-g0m0");
+        }
+
+        ret
     }
 
     /// Get the middlewares for this compiler
@@ -541,5 +561,15 @@ impl Compiler for LLVMCompiler {
             unwind_info,
             got,
         })
+    }
+
+    fn with_opts(
+        &mut self,
+        suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        if suggested_compiler_opts.pass_params.is_some_and(|v| v) {
+            self.config.enable_g0m0_opt = true;
+        }
+        Ok(())
     }
 }

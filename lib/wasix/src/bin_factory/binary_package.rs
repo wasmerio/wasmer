@@ -4,7 +4,9 @@ use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
 use virtual_fs::FileSystem;
-use wasmer_config::package::{PackageHash, PackageId, PackageSource};
+use wasmer_config::package::{
+    PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
+};
 use wasmer_package::package::Package;
 use webc::compat::SharedBytes;
 use webc::Container;
@@ -24,6 +26,7 @@ pub struct BinaryPackageCommand {
     pub(crate) atom: SharedBytes,
     hash: ModuleHash,
     features: Option<wasmer_types::Features>,
+    pub suggested_compiler_optimizations: SuggestedCompilerOptimizations,
 }
 
 impl BinaryPackageCommand {
@@ -33,6 +36,7 @@ impl BinaryPackageCommand {
         atom: SharedBytes,
         hash: ModuleHash,
         features: Option<wasmer_types::Features>,
+        suggested_compiler_optimizations: SuggestedCompilerOptimizations,
     ) -> Self {
         Self {
             name,
@@ -40,6 +44,7 @@ impl BinaryPackageCommand {
             atom,
             hash,
             features,
+            suggested_compiler_optimizations,
         }
     }
 

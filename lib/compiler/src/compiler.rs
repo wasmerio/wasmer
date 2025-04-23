@@ -12,7 +12,7 @@ use enumset::EnumSet;
 use wasmer_types::{
     entity::PrimaryMap,
     error::CompileError,
-    target::{CpuFeature, Target},
+    target::{CpuFeature, Target, UserCompilerOptimizations},
     Features, LocalFunctionIndex,
 };
 #[cfg(feature = "translator")]
@@ -81,11 +81,30 @@ where
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler: Send {
+pub trait Compiler: Send + std::fmt::Debug {
     /// Returns a descriptive name for this compiler.
     ///
     /// Note that this is an API breaking change since 3.0
     fn name(&self) -> &str;
+
+    /// Returns the deterministic id of this compiler. Same compilers with different
+    /// optimizations map to different deterministic IDs.
+    fn deterministic_id(&self) -> String;
+
+    /// Add suggested optimizations to this compiler.
+    ///
+    /// # Note
+    ///
+    /// Not every compiler supports every optimization. This function may fail (i.e. not set the
+    /// suggested optimizations) silently if the underlying compiler does not support one or
+    /// more optimizations.
+    fn with_opts(
+        &mut self,
+        suggested_compiler_opts: &UserCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        _ = suggested_compiler_opts;
+        Ok(())
+    }
 
     /// Validates a module.
     ///

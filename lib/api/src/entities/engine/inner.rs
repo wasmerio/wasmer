@@ -17,7 +17,7 @@ gen_rt_ty!(Engine @derives Debug, Clone);
 impl BackendEngine {
     /// Returns the deterministic id of this engine.
     #[inline]
-    pub fn deterministic_id(&self) -> &str {
+    pub fn deterministic_id(&self) -> String {
         match_rt!(on self  => s {
             s.deterministic_id()
         })

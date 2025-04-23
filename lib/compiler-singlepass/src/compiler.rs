@@ -38,6 +38,7 @@ use wasmer_types::{
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
+#[derive(Debug)]
 pub struct SinglepassCompiler {
     config: Singlepass,
 }
@@ -57,6 +58,10 @@ impl SinglepassCompiler {
 impl Compiler for SinglepassCompiler {
     fn name(&self) -> &str {
         "singlepass"
+    }
+
+    fn deterministic_id(&self) -> String {
+        String::from("singlepass")
     }
 
     /// Get the middlewares for this compiler
