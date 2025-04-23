@@ -327,6 +327,22 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::LLVMCompiler;
 <span class="kw">use </span>inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target <span class="kw">as </span>InkwellTarget, TargetMachine,
@@ -372,7 +388,9 @@
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>LLVM {
     <span class="kw">pub</span>(<span class="kw">crate</span>) enable_nan_canonicalization: bool,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) enable_g0m0_opt: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) enable_verifier: bool,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) enable_perfmap: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) opt_level: LLVMOptLevel,
     is_pic: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>LLVMCallbacks&gt;&gt;,
@@ -387,16 +405,26 @@
         <span class="self">Self </span>{
             enable_nan_canonicalization: <span class="bool-val">false</span>,
             enable_verifier: <span class="bool-val">false</span>,
+            enable_perfmap: <span class="bool-val">false</span>,
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: <span class="bool-val">false</span>,
             callbacks: <span class="prelude-val">None</span>,
             middlewares: <span class="macro">vec!</span>[],
+            enable_g0m0_opt: <span class="bool-val">false</span>,
         }
     }
 
     <span class="doccomment">/// The optimization levels when optimizing the IR.
     </span><span class="kw">pub fn </span>opt_level(<span class="kw-2">&amp;mut </span><span class="self">self</span>, opt_level: LLVMOptLevel) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.opt_level = opt_level;
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// (warning: experimental) Pass the value of the first (#0) global and the base pointer of the
+    /// first (#0) memory as parameter between guest functions.
+    </span><span class="kw">pub fn </span>enable_pass_params_opt(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="comment">// internally, the "pass_params" opt is known as g0m0 opt.
+        </span><span class="self">self</span>.enable_g0m0_opt = <span class="bool-val">true</span>;
         <span class="self">self
     </span>}
 
@@ -618,6 +646,10 @@
         // support all the relocations.
         </span><span class="self">self</span>.is_pic = <span class="bool-val">true</span>;
     }
+
+    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true
+    </span>}
 
     <span class="doccomment">/// Whether to verify compiler IR.
     </span><span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {

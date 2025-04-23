@@ -220,6 +220,12 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::CraneliftCompiler;
 <span class="kw">use </span>cranelift_codegen::{
     isa::{lookup, TargetIsa},
@@ -255,6 +261,7 @@
 </span><span class="kw">pub struct </span>Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) enable_perfmap: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
     <span class="doccomment">/// The middleware chain.
@@ -271,6 +278,7 @@
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: <span class="bool-val">false</span>,
             middlewares: <span class="macro">vec!</span>[],
+            enable_perfmap: <span class="bool-val">false</span>,
         }
     }
 
@@ -414,6 +422,10 @@
 
     <span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
+    }
+
+    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true</span>;
     }
 
     <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {

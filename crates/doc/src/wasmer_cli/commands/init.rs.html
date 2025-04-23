@@ -570,6 +570,7 @@
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>cargo_metadata::{CargoOpt, MetadataCommand};
@@ -1063,6 +1064,7 @@
             map.insert(<span class="string">"wasi"</span>.to_string(), <span class="string">"0.1.0-unstable"</span>.to_string());
             map
         }),
+        annotations: <span class="prelude-val">None</span>,
     }];
 
     <span class="kw">let </span><span class="kw-2">mut </span>pkg = wasmer_config::package::Package::builder(

@@ -1498,6 +1498,28 @@
 <a href="#1498" id="1498">1498</a>
 <a href="#1499" id="1499">1499</a>
 <a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wasmer package definitions.
 //!
 //! Describes the contents of a `wasmer.toml` file.
@@ -2003,6 +2025,26 @@
     <span class="doccomment">/// Interface definitions that can be used to generate bindings to this
     /// module.
     </span><span class="kw">pub </span>bindings: <span class="prelude-ty">Option</span>&lt;Bindings&gt;,
+    <span class="doccomment">/// Miscellaneous annotations from the user.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+    </span><span class="kw">pub </span>annotations: <span class="prelude-ty">Option</span>&lt;UserAnnotations&gt;,
+}
+
+<span class="doccomment">/// Miscellaneous annotations specified by the user.
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+</span><span class="kw">pub struct </span>UserAnnotations {
+    <span class="kw">pub </span>suggested_compiler_optimizations: SuggestedCompilerOptimizations,
+}
+
+<span class="doccomment">/// Suggested optimization that might be operated on the module when (and if) compiled.
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+</span><span class="kw">pub struct </span>SuggestedCompilerOptimizations {
+    <span class="kw">pub </span>pass_params: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+}
+
+<span class="kw">impl </span>SuggestedCompilerOptimizations {
+    <span class="kw">pub const </span>KEY: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"suggested_compiler_optimizations"</span>;
+    <span class="kw">pub const </span>PASS_PARAMS_KEY: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"pass_params"</span>;
 }
 
 <span class="doccomment">/// The interface exposed by a [`Module`].
@@ -2507,6 +2549,7 @@
                 interfaces: <span class="prelude-val">None</span>,
                 kind: <span class="prelude-val">Some</span>(<span class="string">"https://webc.org/kind/wasi"</span>.to_string()),
                 source: Path::new(<span class="string">"test.wasm"</span>).to_path_buf(),
+                annotations: <span class="prelude-val">None</span>,
             }],
             commands: Vec::new(),
             fs: <span class="macro">vec!</span>[
@@ -2562,7 +2605,8 @@ module = "mod"
                     wit_exports: PathBuf::from(<span class="string">"exports.wit"</span>),
                     wit_bindgen: <span class="string">"0.0.0"</span>.parse().unwrap()
                 })),
-            },
+                annotations: <span class="prelude-val">None
+            </span>},
         );
     }
 

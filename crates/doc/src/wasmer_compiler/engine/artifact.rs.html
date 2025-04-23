@@ -1272,6 +1272,11 @@
 <a href="#1272" id="1272">1272</a>
 <a href="#1273" id="1273">1273</a>
 <a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1719,6 +1724,11 @@
             compact_unwind,
             get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
         )<span class="question-mark">?</span>;
+
+        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+        </span>{
+            engine_inner.register_perfmap(<span class="kw-2">&amp;</span>finished_functions, module_info)<span class="question-mark">?</span>;
+        }
 
         <span class="comment">// Make all code compiled thus far executable.
         </span>engine_inner.publish_compiled_code();

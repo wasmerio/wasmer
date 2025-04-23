@@ -1573,6 +1573,15 @@
 <a href="#1573" id="1573">1573</a>
 <a href="#1574" id="1574">1574</a>
 <a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -1587,7 +1596,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::imports::Imports;
 <span class="kw">use </span><span class="kw">crate</span>::store::{InternalStoreHandle, StoreObjects};
 <span class="kw">use </span><span class="kw">crate</span>::table::TableElement;
-<span class="kw">use </span><span class="kw">crate</span>::trap::{catch_traps, Trap, TrapCode};
+<span class="kw">use </span><span class="kw">crate</span>::trap::{Trap, TrapCode};
 <span class="kw">use </span><span class="kw">crate</span>::vmcontext::{
     memory32_atomic_check32, memory32_atomic_check64, memory_copy, memory_fill,
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
@@ -1595,7 +1604,7 @@
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTagImport,
     VMTrampoline,
 };
-<span class="kw">use crate</span>::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody, VMTag};
+<span class="kw">use crate</span>::{wasmer_call_trampoline, FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag};
 <span class="kw">use crate</span>::{LinearMemory, NotifyLocation};
 <span class="kw">use crate</span>::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 <span class="kw">pub use </span>allocator::InstanceAllocator;
@@ -1946,13 +1955,22 @@
             }
         };
 
-        <span class="comment">// Make the call.
-        </span><span class="kw">unsafe </span>{
-            catch_traps(trap_handler, config, <span class="kw">move </span>|| {
-                mem::transmute::&lt;<span class="kw-2">*const </span>VMFunctionBody, <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(VMFunctionContext)&gt;(
-                    callee_address,
-                )(callee_vmctx)
-            })
+        <span class="kw">let </span>sig = <span class="self">self</span>.module.functions[start_index];
+        <span class="kw">let </span>trampoline = <span class="self">self</span>.function_call_trampolines[sig];
+        <span class="kw">let </span>values_vec = <span class="macro">vec!</span>[].as_mut_ptr();
+
+        <span class="kw">unsafe </span>{
+            <span class="comment">// Even though we already know the type of the function we need to call, in certain
+            // specific cases trampoline prepare callee arguments for specific optimizations, such
+            // as passing g0 and m0_base_ptr as paramters.
+            </span>wasmer_call_trampoline(
+                trap_handler,
+                config,
+                callee_vmctx,
+                trampoline,
+                callee_address,
+                values_vec,
+            )
         }
     }
 

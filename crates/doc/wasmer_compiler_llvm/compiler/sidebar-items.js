@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["LLVMCompiler","ShortNames"]};
+window.SIDEBAR_ITEMS = {"struct":["LLVMCompiler","ModuleBasedSymbolRegistry","ShortNames"]};

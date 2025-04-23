@@ -673,6 +673,50 @@
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -685,7 +729,7 @@
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>petgraph::visit::EdgeRef;
 <span class="kw">use </span>virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
-<span class="kw">use </span>wasmer_config::package::PackageId;
+<span class="kw">use </span>wasmer_config::package::{PackageId, SuggestedCompilerOptimizations};
 <span class="kw">use </span>wasmer_package::utils::wasm_annotations_to_features;
 <span class="kw">use </span>webc::metadata::annotations::Atom <span class="kw">as </span>AtomAnnotation;
 <span class="kw">use </span>webc::{Container, Volume};
@@ -883,10 +927,45 @@
         <span class="prelude-val">None
     </span>};
 
-    <span class="kw">let </span>cmd =
-        BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash, features);
+    <span class="kw">let </span>suggested_compiler_optimizations =
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(atom_metadata) = webc.manifest().atoms.get(<span class="kw-2">&amp;</span>atom_name) {
+            extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
+        } <span class="kw">else </span>{
+            wasmer_config::package::SuggestedCompilerOptimizations::default()
+        };
+
+    <span class="kw">let </span>cmd = BinaryPackageCommand::new(
+        command_name.to_string(),
+        cmd.clone(),
+        atom,
+        hash,
+        features,
+        suggested_compiler_optimizations,
+    );
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cmd))
+}
+
+<span class="kw">fn </span>extract_suggested_compiler_opts_from_atom_metadata(
+    atom_metadata: <span class="kw-2">&amp;</span>webc::metadata::Atom,
+) -&gt; wasmer_config::package::SuggestedCompilerOptimizations {
+    <span class="kw">let </span><span class="kw-2">mut </span>ret = SuggestedCompilerOptimizations::default();
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(sco) = atom_metadata
+        .annotations
+        .get(SuggestedCompilerOptimizations::KEY)
+    {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, v)) = sco.as_map().and_then(|v| {
+            v.iter().find(|(k, <span class="kw">_</span>)| {
+                k.as_text()
+                    .is_some_and(|v| v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY)
+            })
+        }) {
+            ret.pass_params = v.as_bool()
+        }
+    }
+
+    ret
 }
 
 <span class="kw">fn </span>atom_name_for_command(
@@ -956,12 +1035,21 @@
         <span class="prelude-val">None
     </span>};
 
+    <span class="comment">// Get WebAssembly features from manifest atom annotations
+    </span><span class="kw">let </span>suggested_opts_from_manifest = <span class="kw">if let </span><span class="prelude-val">Some</span>(atom_metadata) = webc.manifest().atoms.get(<span class="kw-2">&amp;</span>name)
+    {
+        extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
+    } <span class="kw">else </span>{
+        SuggestedCompilerOptimizations::default()
+    };
+
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
         hash,
         features,
+        suggested_opts_from_manifest,
     )))
 }
 

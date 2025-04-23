@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BackendType"],"struct":["RuntimeOptions","WasmFeatures"]};
+window.SIDEBAR_ITEMS = {"enum":["BackendType","Profiler"],"struct":["RuntimeOptions","WasmFeatures"]};

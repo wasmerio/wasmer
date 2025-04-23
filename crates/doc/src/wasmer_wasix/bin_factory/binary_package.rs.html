@@ -379,13 +379,20 @@
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>sha2::Digest;
 <span class="kw">use </span>virtual_fs::FileSystem;
-<span class="kw">use </span>wasmer_config::package::{PackageHash, PackageId, PackageSource};
+<span class="kw">use </span>wasmer_config::package::{
+    PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
+};
 <span class="kw">use </span>wasmer_package::package::Package;
 <span class="kw">use </span>webc::compat::SharedBytes;
 <span class="kw">use </span>webc::Container;
@@ -405,6 +412,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) atom: SharedBytes,
     hash: ModuleHash,
     features: <span class="prelude-ty">Option</span>&lt;wasmer_types::Features&gt;,
+    <span class="kw">pub </span>suggested_compiler_optimizations: SuggestedCompilerOptimizations,
 }
 
 <span class="kw">impl </span>BinaryPackageCommand {
@@ -414,6 +422,7 @@
         atom: SharedBytes,
         hash: ModuleHash,
         features: <span class="prelude-ty">Option</span>&lt;wasmer_types::Features&gt;,
+        suggested_compiler_optimizations: SuggestedCompilerOptimizations,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             name,
@@ -421,6 +430,7 @@
             atom,
             hash,
             features,
+            suggested_compiler_optimizations,
         }
     }
 

@@ -229,6 +229,16 @@
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
 <a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Target configuration
 
 </span><span class="comment">// The clippy::use_self exception is due to a false positive indicating that
@@ -459,5 +469,15 @@
             cpu_features: CpuFeature::for_host(),
         }
     }
+}
+
+<span class="doccomment">/// User-suggested optimization that might be operated on the module when (and if) compiled.
+///
+</span><span class="comment">// Note: This type is a copy of `wasmer_config::package::SuggestedCompilerOptimizations`, so to
+// avoid dependencies on `wasmer_config` for crates that already depend on `wasmer_types`.
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Default)]
+</span><span class="kw">pub struct </span>UserCompilerOptimizations {
+    <span class="doccomment">/// Suggest the `pass_params` (also known as g0m0) optimization pass.
+    </span><span class="kw">pub </span>pass_params: <span class="prelude-ty">Option</span>&lt;bool&gt;,
 }
 </code></pre></div></section></main></body></html>

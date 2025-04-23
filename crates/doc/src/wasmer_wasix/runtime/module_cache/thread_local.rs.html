@@ -116,7 +116,7 @@
 </span><span class="kw">impl </span>ModuleCache <span class="kw">for </span>ThreadLocalCache {
     <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%key))]
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
-        <span class="kw">match </span><span class="self">self</span>.lookup(key, engine.deterministic_id()) {
+        <span class="kw">match </span><span class="self">self</span>.lookup(key, <span class="kw-2">&amp;</span>engine.deterministic_id()) {
             <span class="prelude-val">Some</span>(m) =&gt; {
                 <span class="macro">tracing::debug!</span>(<span class="string">"Cache hit!"</span>);
                 <span class="prelude-val">Ok</span>(m)
@@ -132,7 +132,7 @@
         engine: <span class="kw-2">&amp;</span>Engine,
         module: <span class="kw-2">&amp;</span>Module,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
-        <span class="self">self</span>.insert(key, module, engine.deterministic_id());
+        <span class="self">self</span>.insert(key, module, <span class="kw-2">&amp;</span>engine.deterministic_id());
         <span class="prelude-val">Ok</span>(())
     }
 }

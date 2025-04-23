@@ -211,7 +211,7 @@
 <span class="kw">impl </span>BackendEngine {
     <span class="doccomment">/// Returns the deterministic id of this engine.
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+    </span><span class="kw">pub fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="macro">match_rt!</span>(on <span class="self">self  </span>=&gt; s {
             s.deterministic_id()
         })

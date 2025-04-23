@@ -99,7 +99,7 @@
 </span><span class="kw">impl </span>ModuleCache <span class="kw">for </span>SharedCache {
     <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%key))]
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
-        <span class="kw">let </span>key = (key, engine.deterministic_id().to_string());
+        <span class="kw">let </span>key = (key, engine.deterministic_id());
 
         <span class="kw">match </span><span class="self">self</span>.modules.get(<span class="kw-2">&amp;</span>key) {
             <span class="prelude-val">Some</span>(m) =&gt; {

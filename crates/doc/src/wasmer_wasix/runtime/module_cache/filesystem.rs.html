@@ -344,7 +344,7 @@
 </span><span class="kw">impl </span>ModuleCache <span class="kw">for </span>FileSystemCache {
     <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(% key))]
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
-        <span class="kw">let </span>path = <span class="self">self</span>.path(key, engine.deterministic_id());
+        <span class="kw">let </span>path = <span class="self">self</span>.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
 
         <span class="self">self</span>.task_manager
             .runtime_handle()
@@ -399,7 +399,7 @@
         engine: <span class="kw-2">&amp;</span>Engine,
         module: <span class="kw-2">&amp;</span>Module,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
-        <span class="kw">let </span>path = <span class="self">self</span>.path(key, engine.deterministic_id());
+        <span class="kw">let </span>path = <span class="self">self</span>.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
 
         <span class="self">self</span>.task_manager
             .runtime_handle()
@@ -523,7 +523,7 @@
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
-        <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
+        <span class="kw">let </span>expected_path = cache.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
 
         cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
 
@@ -564,7 +564,7 @@
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
+        <span class="kw">let </span>expected_path = cache.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         <span class="kw">let </span>serialized = module.serialize().unwrap();
         std::fs::write(<span class="kw-2">&amp;</span>expected_path, <span class="kw-2">&amp;</span>serialized).unwrap();
@@ -587,7 +587,7 @@
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>key = ModuleHash::xxhash_from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
+        <span class="kw">let </span>expected_path = cache.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         <span class="kw">let </span>serialized = module.serialize().unwrap();
         <span class="kw">let </span><span class="kw-2">mut </span>encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);

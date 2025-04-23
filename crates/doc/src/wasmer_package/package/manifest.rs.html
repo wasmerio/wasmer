@@ -1413,18 +1413,34 @@
 <a href="#1413" id="1413">1413</a>
 <a href="#1414" id="1414">1414</a>
 <a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
 
-<span class="kw">use </span>ciborium::Value;
+<span class="kw">use </span>ciborium::{cbor, Value};
 <span class="kw">use </span>semver::VersionReq;
 <span class="kw">use </span>sha2::Digest;
 <span class="kw">use </span>shared_buffer::{MmapError, OwnedBuffer};
 <span class="kw">use </span>url::Url;
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>wasmer_config::package::{CommandV1, CommandV2, Manifest <span class="kw">as </span>WasmerManifest, Package};
+<span class="kw">use </span>wasmer_config::package::{SuggestedCompilerOptimizations, UserAnnotations};
 <span class="kw">use </span>webc::{
     indexmap::{<span class="self">self</span>, IndexMap},
     metadata::AtomSignature,
@@ -1575,7 +1591,7 @@
 <span class="doccomment">/// take a `wasmer.toml` manifest and convert it to the `*.webc` equivalent.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>in_memory_wasmer_manifest_to_webc(
     manifest: <span class="kw-2">&amp;</span>WasmerManifest,
-    atoms: <span class="kw-2">&amp;</span>BTreeMap&lt;String, (<span class="prelude-ty">Option</span>&lt;String&gt;, OwnedBuffer)&gt;,
+    atoms: <span class="kw-2">&amp;</span>BTreeMap&lt;String, (<span class="prelude-ty">Option</span>&lt;String&gt;, OwnedBuffer, <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>UserAnnotations&gt;)&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(WebcManifest, BTreeMap&lt;String, OwnedBuffer&gt;), ManifestError&gt; {
     <span class="kw">let </span>use_map = transform_dependencies(<span class="kw-2">&amp;</span>manifest.dependencies)<span class="question-mark">?</span>;
 
@@ -1694,27 +1710,41 @@
             error,
         })<span class="question-mark">?</span>;
 
-        atom_entries.insert(name.clone(), (module.kind.clone(), file));
+        atom_entries.insert(
+            name.clone(),
+            (module.kind.clone(), file, module.annotations.as_ref()),
+        );
     }
 
     transform_atoms_shared(<span class="kw-2">&amp;</span>atom_entries)
 }
 
 <span class="kw">fn </span>transform_in_memory_atoms(
-    atoms: <span class="kw-2">&amp;</span>BTreeMap&lt;String, (<span class="prelude-ty">Option</span>&lt;String&gt;, OwnedBuffer)&gt;,
+    atoms: <span class="kw-2">&amp;</span>BTreeMap&lt;String, (<span class="prelude-ty">Option</span>&lt;String&gt;, OwnedBuffer, <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>UserAnnotations&gt;)&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(IndexMap&lt;String, Atom&gt;, Atoms), ManifestError&gt; {
     transform_atoms_shared(atoms)
 }
 
 <span class="kw">fn </span>transform_atoms_shared(
-    atoms: <span class="kw-2">&amp;</span>BTreeMap&lt;String, (<span class="prelude-ty">Option</span>&lt;String&gt;, OwnedBuffer)&gt;,
+    atoms: <span class="kw-2">&amp;</span>BTreeMap&lt;String, (<span class="prelude-ty">Option</span>&lt;String&gt;, OwnedBuffer, <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>UserAnnotations&gt;)&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(IndexMap&lt;String, Atom&gt;, Atoms), ManifestError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>atom_files = BTreeMap::new();
     <span class="kw">let </span><span class="kw-2">mut </span>metadata = IndexMap::new();
 
-    <span class="kw">for </span>(name, (kind, content)) <span class="kw">in </span>atoms.iter() {
+    <span class="kw">for </span>(name, (kind, content, misc_annotations)) <span class="kw">in </span>atoms.iter() {
         <span class="comment">// Create atom with annotations including Wasm features if available
         </span><span class="kw">let </span><span class="kw-2">mut </span>annotations = IndexMap::new();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(misc_annotations) = misc_annotations {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(pass_params) = misc_annotations
+                .suggested_compiler_optimizations
+                .pass_params
+            {
+                annotations.insert(
+                    SuggestedCompilerOptimizations::KEY.to_string(),
+                    <span class="macro">cbor!</span>({<span class="string">"pass_params" </span>=&gt; pass_params}).unwrap(),
+                );
+            }
+        }
 
         <span class="comment">// Detect required WebAssembly features by analyzing the module binary
         </span><span class="kw">let </span>features_result = wasmer_types::Features::detect_from_wasm(content);

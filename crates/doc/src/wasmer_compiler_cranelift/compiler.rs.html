@@ -495,6 +495,15 @@
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.
 
 </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
@@ -546,6 +555,7 @@
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>CraneliftCompiler {
     config: Cranelift,
 }
@@ -566,6 +576,14 @@
     <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
         <span class="string">"cranelift"
     </span>}
+
+    <span class="kw">fn </span>get_perfmap_enabled(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.config.enable_perfmap
+    }
+
+    <span class="kw">fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        String::from(<span class="string">"cranelift"</span>)
+    }
 
     <span class="doccomment">/// Get the middlewares for this compiler
     </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {

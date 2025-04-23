@@ -2086,6 +2086,22 @@
 <a href="#2086" id="2086">2086</a>
 <a href="#2087" id="2087">2087</a>
 <a href="#2088" id="2088">2088</a>
+<a href="#2089" id="2089">2089</a>
+<a href="#2090" id="2090">2090</a>
+<a href="#2091" id="2091">2091</a>
+<a href="#2092" id="2092">2092</a>
+<a href="#2093" id="2093">2093</a>
+<a href="#2094" id="2094">2094</a>
+<a href="#2095" id="2095">2095</a>
+<a href="#2096" id="2096">2096</a>
+<a href="#2097" id="2097">2097</a>
+<a href="#2098" id="2098">2098</a>
+<a href="#2099" id="2099">2099</a>
+<a href="#2100" id="2100">2100</a>
+<a href="#2101" id="2101">2101</a>
+<a href="#2102" id="2102">2102</a>
+<a href="#2103" id="2103">2103</a>
+<a href="#2104" id="2104">2104</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
@@ -2094,6 +2110,7 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::abi::Abi;
 <span class="kw">use </span><span class="kw">crate</span>::error::err;
+<span class="kw">use </span><span class="kw">crate</span>::LLVM;
 <span class="kw">use </span>inkwell::values::BasicMetadataValueEnum;
 <span class="kw">use </span>inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -3299,6 +3316,7 @@
 <span class="kw">pub struct </span>CtxType&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; {
     ctx_ptr_value: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
+    config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>LLVM,
     wasm_module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasmerCompilerModule,
     cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
     abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
@@ -3320,8 +3338,10 @@
         func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
         cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
         abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
+        config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>LLVM,
     ) -&gt; CtxType&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; {
         CtxType {
+            config,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
             wasm_module,
@@ -3783,9 +3803,17 @@
             Entry::Occupied(entry) =&gt; entry.into_mut(),
             Entry::Vacant(entry) =&gt; {
                 <span class="macro">debug_assert!</span>(module.get_function(function_name).is_none());
-                <span class="kw">let </span>(llvm_func_type, llvm_func_attrs) =
-                    <span class="self">self</span>.abi
-                        .func_type_to_llvm(context, intrinsics, <span class="prelude-val">Some</span>(offsets), func_type)<span class="question-mark">?</span>;
+                <span class="kw">let </span>(llvm_func_type, llvm_func_attrs) = <span class="self">self</span>.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    <span class="prelude-val">Some</span>(offsets),
+                    func_type,
+                    <span class="kw">if </span><span class="self">self</span>.config.enable_g0m0_opt {
+                        <span class="prelude-val">Some</span>(<span class="kw">crate</span>::abi::G0M0FunctionKind::Local)
+                    } <span class="kw">else </span>{
+                        <span class="prelude-val">None
+                    </span>},
+                )<span class="question-mark">?</span>;
                 <span class="kw">let </span>func =
                     module.add_function(function_name, llvm_func_type, <span class="prelude-val">Some</span>(Linkage::External));
                 <span class="kw">for </span>(attr, attr_loc) <span class="kw">in </span><span class="kw-2">&amp;</span>llvm_func_attrs {
@@ -3818,9 +3846,13 @@
         <span class="kw">match </span>cached_functions.entry(function_index) {
             Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(entry.into_mut()),
             Entry::Vacant(entry) =&gt; {
-                <span class="kw">let </span>(llvm_func_type, llvm_func_attrs) =
-                    <span class="self">self</span>.abi
-                        .func_type_to_llvm(context, intrinsics, <span class="prelude-val">Some</span>(offsets), func_type)<span class="question-mark">?</span>;
+                <span class="kw">let </span>(llvm_func_type, llvm_func_attrs) = <span class="self">self</span>.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    <span class="prelude-val">Some</span>(offsets),
+                    func_type,
+                    <span class="prelude-val">None</span>,
+                )<span class="question-mark">?</span>;
                 <span class="macro">debug_assert!</span>(wasm_module.local_func_index(function_index).is_none());
                 <span class="kw">let </span>offset = offsets.vmctx_vmfunction_import(function_index);
                 <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);

@@ -678,6 +678,64 @@
 <a href="#678" id="678">678</a>
 <a href="#679" id="679">679</a>
 <a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::abi::Abi;
 <span class="kw">use </span><span class="kw">crate</span>::error::{err, err_nt};
 <span class="kw">use </span><span class="kw">crate</span>::translator::intrinsics::{type_to_llvm, Intrinsics};
@@ -697,13 +755,15 @@
 
 <span class="kw">use </span>std::convert::TryInto;
 
+<span class="kw">use super</span>::{G0M0FunctionKind, LocalFunctionG0M0params};
+
 <span class="doccomment">/// Implementation of the [`Abi`] trait for the AMD64 SystemV ABI.
 </span><span class="kw">pub struct </span>X86_64SystemV {}
 
 <span class="kw">impl </span>Abi <span class="kw">for </span>X86_64SystemV {
-    <span class="comment">// Given a function definition, retrieve the parameter that is the vmctx pointer.
+    <span class="doccomment">/// Given a function definition, retrieve the parameter that is the vmctx pointer.
     </span><span class="kw">fn </span>get_vmctx_ptr_param&lt;<span class="lifetime">'ctx</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;) -&gt; PointerValue&lt;<span class="lifetime">'ctx</span>&gt; {
-        func_value
+        <span class="kw">let </span>param = func_value
             .get_nth_param(u32::from(
                 func_value
                     .get_enum_attribute(
@@ -712,8 +772,48 @@
                     )
                     .is_some(),
             ))
-            .unwrap()
-            .into_pointer_value()
+            .unwrap();
+        <span class="comment">//param.set_name("vmctx");
+
+        </span>param.into_pointer_value()
+    }
+
+    <span class="doccomment">/// Given a function definition, retrieve the parameter that is the pointer to the first --
+    /// number 0 -- local global.
+    </span><span class="kw">fn </span>get_g0_ptr_param&lt;<span class="lifetime">'ctx</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;) -&gt; IntValue&lt;<span class="lifetime">'ctx</span>&gt; {
+        <span class="comment">// g0 is always after the vmctx.
+        </span><span class="kw">let </span>vmctx_idx = u32::from(
+            func_value
+                .get_enum_attribute(
+                    AttributeLoc::Param(<span class="number">0</span>),
+                    Attribute::get_named_enum_kind_id(<span class="string">"sret"</span>),
+                )
+                .is_some(),
+        );
+
+        <span class="kw">let </span>param = func_value.get_nth_param(vmctx_idx + <span class="number">1</span>).unwrap();
+        param.set_name(<span class="string">"g0"</span>);
+
+        param.into_int_value()
+    }
+
+    <span class="doccomment">/// Given a function definition, retrieve the parameter that is the pointer to the first --
+    /// number 0 -- local memory.
+    </span><span class="kw">fn </span>get_m0_ptr_param&lt;<span class="lifetime">'ctx</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;) -&gt; PointerValue&lt;<span class="lifetime">'ctx</span>&gt; {
+        <span class="comment">// m0 is always after g0.
+        </span><span class="kw">let </span>vmctx_idx = u32::from(
+            func_value
+                .get_enum_attribute(
+                    AttributeLoc::Param(<span class="number">0</span>),
+                    Attribute::get_named_enum_kind_id(<span class="string">"sret"</span>),
+                )
+                .is_some(),
+        );
+
+        <span class="kw">let </span>param = func_value.get_nth_param(vmctx_idx + <span class="number">2</span>).unwrap();
+        param.set_name(<span class="string">"m0_base_ptr"</span>);
+
+        param.into_pointer_value()
     }
 
     <span class="comment">// Given a wasm function type, produce an llvm function declaration.
@@ -723,11 +823,19 @@
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
         offsets: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>VMOffsets&gt;,
         sig: <span class="kw-2">&amp;</span>FuncSig,
+        function_kind: <span class="prelude-ty">Option</span>&lt;G0M0FunctionKind&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(FunctionType&lt;<span class="lifetime">'ctx</span>&gt;, Vec&lt;(Attribute, AttributeLoc)&gt;), CompileError&gt; {
         <span class="kw">let </span>user_param_types = sig.params().iter().map(|<span class="kw-2">&amp;</span>ty| type_to_llvm(intrinsics, ty));
 
-        <span class="kw">let </span>param_types =
-            std::iter::once(<span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum())).chain(user_param_types);
+        <span class="kw">let </span><span class="kw-2">mut </span>param_types = <span class="macro">vec!</span>[<span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum())];
+        <span class="kw">if </span>function_kind.is_some_and(|v| v.is_local()) {
+            <span class="comment">// The value of g0
+            </span>param_types.push(<span class="prelude-val">Ok</span>(intrinsics.i32_ty.as_basic_type_enum()));
+            <span class="comment">// The base pointer to m0
+            </span>param_types.push(<span class="prelude-val">Ok</span>(intrinsics.ptr_ty.as_basic_type_enum()));
+        }
+
+        <span class="kw">let </span>param_types = param_types.into_iter().chain(user_param_types);
 
         <span class="comment">// TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         </span><span class="kw">let </span>vmctx_attributes = |i: u32| {
@@ -976,6 +1084,7 @@
         ctx_ptr: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
         values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;],
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        g0m0: LocalFunctionG0M0params&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;, CompileError&gt; {
         <span class="comment">// If it's an sret, allocate the return space.
         </span><span class="kw">let </span>sret = <span class="kw">if </span>llvm_fn_ty.get_return_type().is_none() &amp;&amp; func_sig.results().len() &gt; <span class="number">1 </span>{
@@ -992,14 +1101,21 @@
             <span class="prelude-val">None
         </span>};
 
-        <span class="kw">let </span>values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
+        <span class="kw">let </span><span class="kw-2">mut </span>args = <span class="macro">vec!</span>[ctx_ptr.as_basic_value_enum()];
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((g0, m0)) = g0m0 {
+            args.push(g0.into());
+            args.push(m0.into());
+        }
+
+        <span class="kw">let </span>args = args.into_iter().chain(values.iter().copied());
 
         <span class="kw">let </span>ret = <span class="kw">if let </span><span class="prelude-val">Some</span>(sret) = sret {
             std::iter::once(sret.as_basic_value_enum())
-                .chain(values)
+                .chain(args)
                 .collect()
         } <span class="kw">else </span>{
-            values.collect()
+            args.collect()
         };
 
         <span class="prelude-val">Ok</span>(ret)

@@ -1129,6 +1129,8 @@
 <a href="#1129" id="1129">1129</a>
 <a href="#1130" id="1130">1130</a>
 <a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1391,9 +1393,11 @@
                                 <span class="kw">let </span>engine_id = filtered_backends[<span class="number">0</span>].to_string();
 
                                 <span class="comment">// Get a new engine that's compatible with the required features
-                                </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(new_engine) =
-                                    filtered_backends[<span class="number">0</span>].get_engine(<span class="kw-2">&amp;</span>Target::default(), <span class="kw-2">&amp;</span>features)
-                                {
+                                </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(new_engine) = filtered_backends[<span class="number">0</span>].get_engine(
+                                    <span class="kw-2">&amp;</span>Target::default(),
+                                    <span class="kw-2">&amp;</span>features,
+                                    <span class="kw-2">&amp;</span><span class="self">self</span>.rt,
+                                ) {
                                     <span class="macro">tracing::info!</span>(
                                         <span class="string">"The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}."</span>,
                                         cmd.name(),
