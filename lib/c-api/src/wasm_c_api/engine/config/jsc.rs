@@ -23,7 +23,7 @@ pub(crate) fn wasm_jsc_engine_new_with_config(config: wasm_config_t) -> Option<B
     }
 
     Some(Box::new(wasm_engine_t {
-        inner: wasmer_api::jsc::Engine::default().into(),
+        inner: wasmer_api::jsc::JSC::default().into(),
     }))
 }
 
