@@ -98,6 +98,9 @@ impl WasiFunctionEnv {
                 WasiThreadError::ExportError(err)
             })?;
 
+        // FIXME: shouldn't this happen _before_ instantiating, so the startup code in the instance
+        // has access to the globals?
+
         // Set all the globals
         if let Some(snapshot) = store_snapshot {
             restore_store_snapshot(&mut store, &snapshot);

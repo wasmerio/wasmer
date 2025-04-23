@@ -7319,6 +7319,7 @@ dependencies = [
  "wasmer-package",
  "wasmer-types",
  "wasmer-wasix-types",
+ "wasmparser 0.224.1",
  "wcgi",
  "wcgi-host",
  "web-sys",

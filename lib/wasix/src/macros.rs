@@ -103,3 +103,29 @@ macro_rules! get_input_str_bus_ok {
         wasi_try_mem_bus_ok!($data.read_utf8_string($memory, $len))
     }};
 }
+
+macro_rules! wasi_dl_err {
+    ($err:expr, $memory:ident, $err_buf:ident, $err_buf_len:ident) => {
+        wasi_try_mem_ok!(write_dl_error(
+            $err,
+            &$memory,
+            $err_buf,
+            $err_buf_len.into()
+        ));
+
+        // Doesn't matter which errno we return, since the actual code is ignored.
+        return Ok(Errno::Unknown);
+    };
+}
+
+macro_rules! wasi_try_dl {
+    ($expr:expr, $fmt:tt, $memory:ident, $err_buf:ident, $err_buf_len:ident) => {
+        match $expr {
+            Ok(o) => o,
+            Err(err) => {
+                let err = format!($fmt, err);
+                wasi_dl_err!(&err, $memory, $err_buf, $err_buf_len);
+            }
+        }
+    };
+}

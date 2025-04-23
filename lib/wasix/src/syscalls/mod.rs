@@ -85,12 +85,12 @@ pub use windows::*;
 
 pub(crate) use self::types::{
     wasi::{
-        Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
-        Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
-        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, ProcSpawnFdOp,
-        Rights, SignalDisposition, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
-        StackSnapshot, StdioMode as WasiStdioMode, Streamsecurity, Subscription,
-        SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Addressfamily, Advice, Clockid, Dircookie, Dirent, DlFlags, DlHandle, Errno, Event,
+        EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext,
+        Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid,
+        Prestat, ProcSpawnFdOp, Rights, SignalDisposition, Snapshot0Clockid, Sockoption,
+        Sockstatus, Socktype, StackSnapshot, StdioMode as WasiStdioMode, Streamsecurity,
+        Subscription, SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     *,
 };

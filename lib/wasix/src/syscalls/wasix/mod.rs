@@ -1,5 +1,8 @@
 mod callback_signal;
 mod chdir;
+mod dlclose;
+mod dlopen;
+mod dlsym;
 mod epoll_create;
 mod epoll_ctl;
 mod epoll_wait;
@@ -79,6 +82,9 @@ mod tty_set;
 
 pub use callback_signal::*;
 pub use chdir::*;
+pub use dlclose::*;
+pub use dlopen::*;
+pub use dlsym::*;
 pub use epoll_create::*;
 pub use epoll_ctl::*;
 pub use epoll_wait::*;

@@ -12,7 +12,7 @@ use virtual_fs::{FileSystem, FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
-    MemoryView, Module, TypedFunction,
+    MemoryView, Module, Table, TypedFunction,
 };
 use wasmer_config::package::PackageSource;
 use wasmer_wasix_types::{
@@ -29,6 +29,7 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
+    linker::Linker,
     os::task::{
         control_plane::ControlPlaneError,
         process::{WasiProcess, WasiProcessId},
@@ -133,6 +134,10 @@ pub struct WasiInstanceHandles {
     /// when to propagate results back.
     #[allow(dead_code)]
     pub(crate) asyncify_get_state: Option<TypedFunction<(), i32>>,
+
+    /// The indirect function table, used when loading symbols from
+    /// dynamically linked modules.
+    pub(crate) indirect_function_table: Option<Table>,
 }
 
 impl WasiInstanceHandles {
@@ -181,6 +186,11 @@ impl WasiInstanceHandles {
             asyncify_get_state: instance
                 .exports
                 .get_typed_function(store, "asyncify_get_state")
+                .ok(),
+            indirect_function_table: instance
+                .exports
+                .get_table("__indirect_function_table")
+                .cloned()
                 .ok(),
             instance,
         }
@@ -327,6 +337,12 @@ pub struct WasiEnv {
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn Runtime + Send + Sync + 'static>,
 
+    /// Linker used to load dynamically-linked modules
+    // The linker is only created if the module calls dl syscalls. This helps with
+    // instantiating the linker, which can't exist without a base instance.
+    // TODO: can we improve this?
+    pub linker: Option<Linker>,
+
     pub capabilities: Capabilities,
 
     /// Is this environment capable and setup for deep sleeping
@@ -378,6 +394,7 @@ impl Clone for WasiEnv {
             inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
+            linker: self.linker.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -419,6 +436,7 @@ impl WasiEnv {
             inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
+            linker: None,
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -560,6 +578,7 @@ impl WasiEnv {
                 .threading
                 .enable_exponential_cpu_backoff,
             runtime: init.runtime,
+            linker: None,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,

@@ -48,6 +48,7 @@ pub mod capabilities;
 pub mod fs;
 pub mod http;
 pub mod journal;
+pub mod linker;
 mod rewind;
 pub mod runners;
 pub mod runtime;
@@ -566,6 +567,9 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "tty_set" => Function::new_typed_with_env(&mut store, env, tty_set::<Memory32>),
         "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd::<Memory32>),
         "chdir" => Function::new_typed_with_env(&mut store, env, chdir::<Memory32>),
+        "dlclose" => Function::new_typed_with_env(&mut store, env, dlclose::<Memory32>),
+        "dlopen" => Function::new_typed_with_env(&mut store, env, dlopen::<Memory32>),
+        "dlsym" => Function::new_typed_with_env(&mut store, env, dlsym::<Memory32>),
         "callback_signal" => Function::new_typed_with_env(&mut store, env, callback_signal::<Memory32>),
         "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory32>),
         "thread_spawn_v2" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory32>),
@@ -698,6 +702,9 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "tty_set" => Function::new_typed_with_env(&mut store, env, tty_set::<Memory64>),
         "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd::<Memory64>),
         "chdir" => Function::new_typed_with_env(&mut store, env, chdir::<Memory64>),
+        "dlclose" => Function::new_typed_with_env(&mut store, env, dlclose::<Memory64>),
+        "dlopen" => Function::new_typed_with_env(&mut store, env, dlopen::<Memory64>),
+        "dlsym" => Function::new_typed_with_env(&mut store, env, dlsym::<Memory64>),
         "callback_signal" => Function::new_typed_with_env(&mut store, env, callback_signal::<Memory64>),
         "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory64>),
         "thread_spawn_v2" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory64>),
