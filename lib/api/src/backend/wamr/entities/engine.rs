@@ -36,8 +36,8 @@ impl Engine {
         Self::default()
     }
 
-    pub(crate) fn deterministic_id(&self) -> &str {
-        "wamr"
+    pub(crate) fn deterministic_id(&self) -> String {
+        String::from("wamr")
     }
 
     /// Returns the WebAssembly features supported by the WAMR engine.

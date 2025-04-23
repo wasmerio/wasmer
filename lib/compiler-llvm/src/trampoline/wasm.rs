@@ -1,5 +1,5 @@
 use crate::{
-    abi::{get_abi, Abi},
+    abi::{get_abi, Abi, G0M0FunctionKind},
     config::{CompiledKind, LLVM},
     error::{err, err_nt},
     object_file::{load_object_file, CompiledFunction},
@@ -17,8 +17,11 @@ use inkwell::{
 };
 use std::{cmp, convert::TryInto};
 use target_lexicon::BinaryFormat;
-use wasmer_compiler::types::{function::FunctionBody, relocation::RelocationTarget};
+use wasmer_compiler::types::{
+    function::FunctionBody, module::CompileModuleInfo, relocation::RelocationTarget,
+};
 use wasmer_types::{CompileError, FunctionType as FuncType, LocalFunctionIndex};
+use wasmer_vm::MemoryStyle;
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -59,6 +62,7 @@ impl FuncTrampoline {
         ty: &FuncType,
         config: &LLVM,
         name: &str,
+        compile_info: &CompileModuleInfo,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledKind::FunctionCallTrampoline(ty.clone());
@@ -70,9 +74,15 @@ impl FuncTrampoline {
         module.set_data_layout(&target_data.get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
 
+        let func_kind = if config.enable_g0m0_opt {
+            Some(G0M0FunctionKind::Local)
+        } else {
+            None
+        };
+
         let (callee_ty, callee_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, func_kind)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ptr_ty.into(), // vmctx ptr
@@ -95,6 +105,8 @@ impl FuncTrampoline {
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         self.generate_trampoline(
+            config,
+            compile_info,
             trampoline_func,
             ty,
             callee_ty,
@@ -141,8 +153,9 @@ impl FuncTrampoline {
         ty: &FuncType,
         config: &LLVM,
         name: &str,
+        compile_info: &CompileModuleInfo,
     ) -> Result<FunctionBody, CompileError> {
-        let module = self.trampoline_to_module(ty, config, name)?;
+        let module = self.trampoline_to_module(ty, config, name, compile_info)?;
         let function = CompiledKind::FunctionCallTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
@@ -222,7 +235,7 @@ impl FuncTrampoline {
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, None)?;
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
@@ -333,8 +346,11 @@ impl FuncTrampoline {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_trampoline<'ctx>(
         &self,
+        config: &LLVM,
+        compile_info: &CompileModuleInfo,
         trampoline_func: FunctionValue,
         func_sig: &FuncType,
         llvm_func_type: FunctionType,
@@ -361,7 +377,11 @@ impl FuncTrampoline {
             };
 
         let mut args_vec: Vec<BasicMetadataValueEnum> =
-            Vec::with_capacity(func_sig.params().len() + 1);
+            Vec::with_capacity(if config.enable_g0m0_opt {
+                func_sig.params().len() + 3
+            } else {
+                func_sig.params().len() + 1
+            });
 
         if self.abi.is_sret(func_sig)? {
             let basic_types: Vec<_> = func_sig
@@ -375,6 +395,116 @@ impl FuncTrampoline {
         }
 
         args_vec.push(callee_vmctx_ptr.into());
+
+        if config.enable_g0m0_opt {
+            let wasm_module = &compile_info.module;
+            let memory_styles = &compile_info.memory_styles;
+            let callee_vmctx_ptr_value = callee_vmctx_ptr.into_pointer_value();
+            // get value of G0, get a pointer to M0's base
+
+            let offsets = wasmer_vm::VMOffsets::new(8, wasm_module);
+
+            let global_index = wasmer_types::GlobalIndex::from_u32(0);
+            let global_type = wasm_module.globals[global_index];
+            let global_value_type = global_type.ty;
+            let global_mutability = global_type.mutability;
+
+            let offset =
+                if let Some(local_global_index) = wasm_module.local_global_index(global_index) {
+                    offsets.vmctx_vmglobal_definition(local_global_index)
+                } else {
+                    offsets.vmctx_vmglobal_import(global_index)
+                };
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let global_ptr = {
+                let global_ptr_ptr = unsafe {
+                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
+                };
+                let global_ptr_ptr =
+                    err!(builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
+                        .into_pointer_value();
+                let global_ptr = err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
+                    .into_pointer_value();
+
+                global_ptr
+            };
+
+            let global_ptr = err!(builder.build_bit_cast(
+                global_ptr,
+                type_to_llvm_ptr(intrinsics, global_value_type)?,
+                "",
+            ))
+            .into_pointer_value();
+
+            let global_value = match global_mutability {
+                wasmer_types::Mutability::Const => {
+                    err!(builder.build_load(
+                        type_to_llvm(intrinsics, global_value_type)?,
+                        global_ptr,
+                        "g0",
+                    ))
+                }
+                wasmer_types::Mutability::Var => {
+                    err!(builder.build_load(
+                        type_to_llvm(intrinsics, global_value_type)?,
+                        global_ptr,
+                        ""
+                    ))
+                }
+            };
+
+            global_value.set_name("trmpl_g0");
+            args_vec.push(global_value.into());
+
+            // load mem
+            let memory_index = wasmer_types::MemoryIndex::from_u32(0);
+            let memory_definition_ptr = if let Some(local_memory_index) =
+                wasm_module.local_memory_index(memory_index)
+            {
+                let offset = offsets.vmctx_vmmemory_definition(local_memory_index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                unsafe {
+                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
+                }
+            } else {
+                let offset = offsets.vmctx_vmmemory_import(memory_index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let memory_definition_ptr_ptr = unsafe {
+                    err!(builder.build_gep(intrinsics.i8_ty, callee_vmctx_ptr_value, &[offset], ""))
+                };
+                let memory_definition_ptr_ptr =
+                    err!(builder.build_bit_cast(memory_definition_ptr_ptr, intrinsics.ptr_ty, "",))
+                        .into_pointer_value();
+                let memory_definition_ptr =
+                    err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
+                        .into_pointer_value();
+
+                memory_definition_ptr
+            };
+            let memory_definition_ptr =
+                err!(builder.build_bit_cast(memory_definition_ptr, intrinsics.ptr_ty, "",))
+                    .into_pointer_value();
+            let base_ptr = err!(builder.build_struct_gep(
+                intrinsics.vmmemory_definition_ty,
+                memory_definition_ptr,
+                intrinsics.vmmemory_definition_base_element,
+                "",
+            ));
+
+            let memory_style = &memory_styles[memory_index];
+            let base_ptr = if let MemoryStyle::Dynamic { .. } = memory_style {
+                base_ptr
+            } else {
+                let base_ptr =
+                    err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value();
+
+                base_ptr
+            };
+
+            base_ptr.set_name("trmpl_m0_base_ptr");
+
+            args_vec.push(base_ptr.into());
+        }
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {
             let index = intrinsics.i32_ty.const_int(i as _, false);

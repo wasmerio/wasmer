@@ -50,8 +50,8 @@ impl Engine {
         Self::default()
     }
 
-    pub(crate) fn deterministic_id(&self) -> &str {
-        "v8"
+    pub(crate) fn deterministic_id(&self) -> String {
+        String::from("v8")
     }
 
     /// Returns the WebAssembly features supported by the V8 engine.

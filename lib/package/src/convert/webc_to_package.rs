@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use wasmer_config::package::ModuleReference;
+use wasmer_config::package::{ModuleReference, SuggestedCompilerOptimizations, UserAnnotations};
 
 use webc::Container;
 
@@ -150,6 +150,29 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
 
             let relative_path = format!("./{module_dir_name}/{atom_name}");
 
+            let mut annotations = None;
+
+            if let Some(manifest_atom) = manifest.atoms.get(&atom_name) {
+                if let Some(sco) = manifest_atom
+                    .annotations
+                    .get(SuggestedCompilerOptimizations::KEY)
+                {
+                    if let Some((_, v)) = sco.as_map().and_then(|v| {
+                        v.iter().find(|(k, _)| {
+                            k.as_text().is_some_and(|v| {
+                                v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY
+                            })
+                        })
+                    }) {
+                        annotations = Some(UserAnnotations {
+                            suggested_compiler_optimizations: SuggestedCompilerOptimizations {
+                                pass_params: Some(v.as_bool().unwrap_or_default()),
+                            },
+                        });
+                    }
+                }
+            }
+
             pkg_manifest.modules.push(wasmer_config::package::Module {
                 name: atom_name,
                 source: relative_path.into(),
@@ -157,6 +180,7 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
                 kind: None,
                 interfaces: None,
                 bindings: None,
+                annotations,
             });
         }
     }

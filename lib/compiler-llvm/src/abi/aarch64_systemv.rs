@@ -15,13 +15,15 @@ use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;
 
+use super::{G0M0FunctionKind, LocalFunctionG0M0params};
+
 /// Implementation of the [`Abi`] trait for the Aarch64 ABI on Linux.
 pub struct Aarch64SystemV {}
 
 impl Abi for Aarch64SystemV {
     // Given a function definition, retrieve the parameter that is the vmctx pointer.
     fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
-        func_value
+        let param = func_value
             .get_nth_param(u32::from(
                 func_value
                     .get_enum_attribute(
@@ -30,8 +32,48 @@ impl Abi for Aarch64SystemV {
                     )
                     .is_some(),
             ))
-            .unwrap()
-            .into_pointer_value()
+            .unwrap();
+        //param.set_name("vmctx");
+
+        param.into_pointer_value()
+    }
+
+    /// Given a function definition, retrieve the parameter that is the pointer to the first --
+    /// number 0 -- local global.
+    fn get_g0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> IntValue<'ctx> {
+        // g0 is always after the vmctx.
+        let vmctx_idx = u32::from(
+            func_value
+                .get_enum_attribute(
+                    AttributeLoc::Param(0),
+                    Attribute::get_named_enum_kind_id("sret"),
+                )
+                .is_some(),
+        );
+
+        let param = func_value.get_nth_param(vmctx_idx + 1).unwrap();
+        param.set_name("g0");
+
+        param.into_int_value()
+    }
+
+    /// Given a function definition, retrieve the parameter that is the pointer to the first --
+    /// number 0 -- local memory.
+    fn get_m0_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
+        // m0 is always after g0.
+        let vmctx_idx = u32::from(
+            func_value
+                .get_enum_attribute(
+                    AttributeLoc::Param(0),
+                    Attribute::get_named_enum_kind_id("sret"),
+                )
+                .is_some(),
+        );
+
+        let param = func_value.get_nth_param(vmctx_idx + 2).unwrap();
+        param.set_name("m0_base_ptr");
+
+        param.into_pointer_value()
     }
 
     // Given a wasm function type, produce an llvm function declaration.
@@ -41,11 +83,19 @@ impl Abi for Aarch64SystemV {
         intrinsics: &Intrinsics<'ctx>,
         offsets: Option<&VMOffsets>,
         sig: &FuncSig,
+        function_kind: Option<G0M0FunctionKind>,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
-        let param_types =
-            std::iter::once(Ok(intrinsics.ptr_ty.as_basic_type_enum())).chain(user_param_types);
+        let mut param_types = vec![Ok(intrinsics.ptr_ty.as_basic_type_enum())];
+        if function_kind.is_some_and(|v| v.is_local()) {
+            // The value of g0
+            param_types.push(Ok(intrinsics.i32_ty.as_basic_type_enum()));
+            // The base pointer to m0
+            param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
+        }
+
+        let param_types = param_types.into_iter().chain(user_param_types);
 
         let vmctx_attributes = |i: u32| {
             vec![
@@ -261,6 +311,7 @@ impl Abi for Aarch64SystemV {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
+        g0m0: LocalFunctionG0M0params<'ctx>,
     ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError> {
         // If it's an sret, allocate the return space.
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {
@@ -277,14 +328,21 @@ impl Abi for Aarch64SystemV {
             None
         };
 
-        let values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
+        let mut args = vec![ctx_ptr.as_basic_value_enum()];
+
+        if let Some((g0, m0)) = g0m0 {
+            args.push(g0.into());
+            args.push(m0.into());
+        }
+
+        let args = args.into_iter().chain(values.iter().copied());
 
         let ret = if let Some(sret) = sret {
             std::iter::once(sret.as_basic_value_enum())
-                .chain(values)
+                .chain(args)
                 .collect()
         } else {
-            values.collect()
+            args.collect()
         };
 
         Ok(ret)

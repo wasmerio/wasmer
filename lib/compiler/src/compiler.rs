@@ -12,7 +12,7 @@ use enumset::EnumSet;
 use wasmer_types::{
     entity::PrimaryMap,
     error::CompileError,
-    target::{CpuFeature, Target},
+    target::{CpuFeature, Target, UserCompilerOptimizations},
     Features, LocalFunctionIndex,
 };
 #[cfg(feature = "translator")]
@@ -35,6 +35,12 @@ pub trait CompilerConfig {
     /// For compilers capable of doing so, this enables internal consistency
     /// checking.
     fn enable_verifier(&mut self) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they create an IR that they can verify.
+    }
+
+    /// Enable generation of perfmaps to sample the JIT compiled frames.
+    fn enable_perfmap(&mut self) {
         // By default we do nothing, each backend will need to customize this
         // in case they create an IR that they can verify.
     }
@@ -75,11 +81,30 @@ where
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler: Send {
+pub trait Compiler: Send + std::fmt::Debug {
     /// Returns a descriptive name for this compiler.
     ///
     /// Note that this is an API breaking change since 3.0
     fn name(&self) -> &str;
+
+    /// Returns the deterministic id of this compiler. Same compilers with different
+    /// optimizations map to different deterministic IDs.
+    fn deterministic_id(&self) -> String;
+
+    /// Add suggested optimizations to this compiler.
+    ///
+    /// # Note
+    ///
+    /// Not every compiler supports every optimization. This function may fail (i.e. not set the
+    /// suggested optimizations) silently if the underlying compiler does not support one or
+    /// more optimizations.
+    fn with_opts(
+        &mut self,
+        suggested_compiler_opts: &UserCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        _ = suggested_compiler_opts;
+        Ok(())
+    }
 
     /// Validates a module.
     ///
@@ -154,5 +179,10 @@ pub trait Compiler: Send {
     /// Get the CpuFeatues used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
         *cpu_features
+    }
+
+    /// Get whether `perfmap` is enabled or not.
+    fn get_perfmap_enabled(&self) -> bool {
+        false
     }
 }

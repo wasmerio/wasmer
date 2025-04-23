@@ -6,6 +6,7 @@
 
 use crate::abi::Abi;
 use crate::error::err;
+use crate::LLVM;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -1211,6 +1212,7 @@ pub struct FunctionCache<'ctx> {
 pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
 
+    config: &'a LLVM,
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
     abi: &'a dyn Abi,
@@ -1232,8 +1234,10 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
         abi: &'a dyn Abi,
+        config: &'a LLVM,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
+            config,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
             wasm_module,
@@ -1695,9 +1699,17 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 debug_assert!(module.get_function(function_name).is_none());
-                let (llvm_func_type, llvm_func_attrs) =
-                    self.abi
-                        .func_type_to_llvm(context, intrinsics, Some(offsets), func_type)?;
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    Some(offsets),
+                    func_type,
+                    if self.config.enable_g0m0_opt {
+                        Some(crate::abi::G0M0FunctionKind::Local)
+                    } else {
+                        None
+                    },
+                )?;
                 let func =
                     module.add_function(function_name, llvm_func_type, Some(Linkage::External));
                 for (attr, attr_loc) in &llvm_func_attrs {
@@ -1730,9 +1742,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         match cached_functions.entry(function_index) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
             Entry::Vacant(entry) => {
-                let (llvm_func_type, llvm_func_attrs) =
-                    self.abi
-                        .func_type_to_llvm(context, intrinsics, Some(offsets), func_type)?;
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    Some(offsets),
+                    func_type,
+                    None,
+                )?;
                 debug_assert!(wasm_module.local_func_index(function_index).is_none());
                 let offset = offsets.vmctx_vmfunction_import(function_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);

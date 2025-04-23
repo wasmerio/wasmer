@@ -9,7 +9,7 @@ use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
@@ -24,11 +24,12 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
-use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex};
 use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
+#[derive(Debug)]
 pub struct LLVMCompiler {
     config: LLVM,
 }
@@ -82,6 +83,52 @@ impl SymbolRegistry for ShortNames {
     }
 }
 
+struct ModuleBasedSymbolRegistry {
+    wasm_module: Arc<ModuleInfo>,
+    local_func_names: HashMap<String, LocalFunctionIndex>,
+    short_names: ShortNames,
+}
+
+impl ModuleBasedSymbolRegistry {
+    fn new(wasm_module: Arc<ModuleInfo>) -> Self {
+        let local_func_names = HashMap::from_iter(
+            wasm_module
+                .function_names
+                .iter()
+                .map(|(f, v)| (wasm_module.local_func_index(*f), v))
+                .filter(|(f, _)| f.is_some())
+                .map(|(f, v)| (v.clone(), f.unwrap())),
+        );
+        Self {
+            wasm_module,
+            local_func_names,
+            short_names: ShortNames {},
+        }
+    }
+}
+
+impl SymbolRegistry for ModuleBasedSymbolRegistry {
+    fn symbol_to_name(&self, symbol: Symbol) -> String {
+        match symbol {
+            Symbol::LocalFunction(index) => self
+                .wasm_module
+                .function_names
+                .get(&self.wasm_module.func_index(index))
+                .cloned()
+                .unwrap_or(self.short_names.symbol_to_name(symbol)),
+            _ => self.short_names.symbol_to_name(symbol),
+        }
+    }
+
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
+        if let Some(idx) = self.local_func_names.get(name) {
+            Some(Symbol::LocalFunction(*idx))
+        } else {
+            self.short_names.name_to_symbol(name)
+        }
+    }
+}
+
 impl LLVMCompiler {
     #[allow(clippy::too_many_arguments)]
     fn compile_native_object(
@@ -127,7 +174,12 @@ impl LLVMCompiler {
             },
             |func_trampoline, (i, sig)| {
                 let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
-                let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
+                let module = func_trampoline.trampoline_to_module(
+                    sig,
+                    self.config(),
+                    &name,
+                    compile_info,
+                )?;
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
             },
         );
@@ -210,6 +262,28 @@ impl Compiler for LLVMCompiler {
         "llvm"
     }
 
+    fn get_perfmap_enabled(&self) -> bool {
+        self.config.enable_perfmap
+    }
+
+    fn deterministic_id(&self) -> String {
+        let mut ret = format!(
+            "llvm-{}",
+            match self.config.opt_level {
+                inkwell::OptimizationLevel::None => "opt0",
+                inkwell::OptimizationLevel::Less => "optl",
+                inkwell::OptimizationLevel::Default => "optd",
+                inkwell::OptimizationLevel::Aggressive => "opta",
+            }
+        );
+
+        if self.config.enable_g0m0_opt {
+            ret.push_str("-g0m0");
+        }
+
+        ret
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares
@@ -273,6 +347,8 @@ impl Compiler for LLVMCompiler {
             HashSet::default()
         };
 
+        let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
+
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -294,7 +370,7 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         memory_styles,
                         table_styles,
-                        &ShortNames {},
+                        &symbol_registry,
                     )
                 },
             )
@@ -408,7 +484,9 @@ impl Compiler for LLVMCompiler {
                     let target_machine = self.config().target_machine(target);
                     FuncTrampoline::new(target_machine, binary_format).unwrap()
                 },
-                |func_trampoline, sig| func_trampoline.trampoline(sig, self.config(), ""),
+                |func_trampoline, sig| {
+                    func_trampoline.trampoline(sig, self.config(), "", compile_info)
+                },
             )
             .collect::<Vec<_>>()
             .into_iter()
@@ -482,5 +560,15 @@ impl Compiler for LLVMCompiler {
             unwind_info,
             got,
         })
+    }
+
+    fn with_opts(
+        &mut self,
+        suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        if suggested_compiler_opts.pass_params.is_some_and(|v| v) {
+            self.config.enable_g0m0_opt = true;
+        }
+        Ok(())
     }
 }

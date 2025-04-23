@@ -5,7 +5,10 @@ pub mod task_manager;
 
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
 use self::{module_cache::CacheError, task_manager::InlineWaker};
-use wasmer_types::ModuleHash;
+use wasmer_config::package::SuggestedCompilerOptimizations;
+use wasmer_types::{
+    target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations, ModuleHash,
+};
 
 use std::{
     fmt,
@@ -15,7 +18,7 @@ use std::{
 
 use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{Module, RuntimeError};
+use wasmer::{CompileError, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -77,6 +80,17 @@ where
         wasmer::Engine::default()
     }
 
+    fn engine_with_suggested_opts(
+        &self,
+        suggested_opts: &SuggestedCompilerOptimizations,
+    ) -> Result<wasmer::Engine, CompileError> {
+        let mut engine = self.engine();
+        engine.with_opts(&WasmerSuggestedCompilerOptimizations {
+            pass_params: suggested_opts.pass_params,
+        })?;
+        Ok(engine)
+    }
+
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {
         cfg_if::cfg_if! {
@@ -106,10 +120,21 @@ where
         &self,
         cmd: &BinaryPackageCommand,
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let engine = self.engine();
         let hash = *cmd.hash();
         let wasm = cmd.atom();
         let module_cache = self.module_cache();
+
+        let engine = match self.engine_with_suggested_opts(&cmd.suggested_compiler_optimizations) {
+            Ok(engine) => engine,
+            Err(error) => {
+                return Box::pin(async move {
+                    Err(SpawnError::CompileError {
+                        module_hash: hash,
+                        error,
+                    })
+                })
+            }
+        };
 
         let task = async move { load_module(&engine, &module_cache, &wasm, hash).await };
 
