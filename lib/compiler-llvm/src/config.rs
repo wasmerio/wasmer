@@ -5,8 +5,8 @@ use inkwell::targets::{
 };
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
-use std::fmt::Debug;
 use std::sync::Arc;
+use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::{
@@ -51,6 +51,8 @@ pub struct LLVM {
     pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+    /// Number of threads to use when compiling a module.
+    pub(crate) num_threads: NonZero<usize>,
 }
 
 impl LLVM {
@@ -66,6 +68,7 @@ impl LLVM {
             callbacks: None,
             middlewares: vec![],
             enable_g0m0_opt: false,
+            num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
     }
 
@@ -80,6 +83,11 @@ impl LLVM {
     pub fn enable_pass_params_opt(&mut self) -> &mut Self {
         // internally, the "pass_params" opt is known as g0m0 opt.
         self.enable_g0m0_opt = true;
+        self
+    }
+
+    pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
+        self.num_threads = num_threads;
         self
     }
 
