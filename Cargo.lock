@@ -6212,7 +6212,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.24.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6244,7 +6244,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.7.0"
+version = "0.600.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6258,7 +6258,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.15.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6357,7 +6357,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.38.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6728,7 +6728,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.7.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -7047,7 +7047,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.14.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7141,7 +7141,7 @@ version = "6.0.0"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.21.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7178,7 +7178,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.7.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7208,7 +7208,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.10.0"
+version = "0.600.0"
 dependencies = [
  "thiserror 1.0.69",
  "tokio",
@@ -7222,7 +7222,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.38.0"
+version = "0.600.0"
 dependencies = [
  "libc",
  "region",
@@ -7287,7 +7287,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.38.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7374,7 +7374,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.38.0"
+version = "0.600.0"
 dependencies = [
  "anyhow",
  "bitflags 1.3.2",

@@ -31,13 +31,13 @@ wasmer-compiler-llvm = { version = "=6.0.0", path = "../compiler-llvm", optional
 wasmer-compiler-singlepass = { version = "=6.0.0", path = "../compiler-singlepass", optional = true }
 wasmer-middlewares = { version = "=6.0.0", path = "../middlewares", optional = true }
 wasmer-types = { version = "=6.0.0", path = "../types" }
-wasmer-wasix = { path = "../wasix", version = "=0.38.0", features = [
+wasmer-wasix = { path = "../wasix", version = "=0.600.0", features = [
 	"host-fs",
 	"host-vnet",
 	"sys",
 ], default-features = false, optional = true }
 webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.24.0", path = "../virtual-fs", optional = true, default-features = false, features = [
+virtual-fs = { version = "0.600.0", path = "../virtual-fs", optional = true, default-features = false, features = [
 	"static-fs",
 ] }
 enumset.workspace = true

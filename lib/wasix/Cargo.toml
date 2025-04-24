@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.38.0"
+version = "0.600.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -14,7 +14,7 @@ rust-version.workspace = true
 
 [dependencies]
 wasmer-package.workspace = true
-wasmer-wasix-types = { path = "../wasi-types", version = "0.38.0", features = [
+wasmer-wasix-types = { path = "../wasi-types", version = "0.600.0", features = [
 	"enable-serde",
 ] }
 wasmer-types = { path = "../types", version = "=6.0.0", default-features = false }
@@ -22,15 +22,15 @@ wasmer = { path = "../api", version = "=6.0.0", default-features = false, featur
 	"wat",
 	"js-serializable-module",
 ] }
-virtual-mio = { path = "../virtual-io", version = "0.7.0", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.24.0", default-features = false, features = [
+virtual-mio = { path = "../virtual-io", version = "0.600.0", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.600.0", default-features = false, features = [
 	"webc-fs",
 ] }
-virtual-net = { path = "../virtual-net", version = "0.15.0", default-features = false, features = [
+virtual-net = { path = "../virtual-net", version = "0.600.0", default-features = false, features = [
 	"rkyv",
 ] }
-wasmer-journal = { path = "../journal", version = "0.21.0", default-features = false }
-wasmer-config = { version = "0.14.0", path = "../config" }
+wasmer-journal = { path = "../journal", version = "0.600.0", default-features = false }
+wasmer-config = { version = "0.600.0", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
