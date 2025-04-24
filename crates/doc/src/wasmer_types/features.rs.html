@@ -496,6 +496,25 @@
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -884,6 +903,25 @@
         }
 
         <span class="prelude-val">Ok</span>(features)
+    }
+
+    <span class="doccomment">/// Extend this feature set with another set.
+    ///
+    /// Self will be modified to include all features that are required by
+    /// either set.
+    </span><span class="kw">pub fn </span>extend(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
+        <span class="self">self</span>.threads |= other.threads;
+        <span class="self">self</span>.reference_types |= other.reference_types;
+        <span class="self">self</span>.simd |= other.simd;
+        <span class="self">self</span>.bulk_memory |= other.bulk_memory;
+        <span class="self">self</span>.multi_value |= other.multi_value;
+        <span class="self">self</span>.tail_call |= other.tail_call;
+        <span class="self">self</span>.module_linking |= other.module_linking;
+        <span class="self">self</span>.multi_memory |= other.multi_memory;
+        <span class="self">self</span>.memory64 |= other.memory64;
+        <span class="self">self</span>.exceptions |= other.exceptions;
+        <span class="self">self</span>.relaxed_simd |= other.relaxed_simd;
+        <span class="self">self</span>.extended_const |= other.extended_const;
     }
 }
 
