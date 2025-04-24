@@ -63,6 +63,42 @@ impl Features {
         }
     }
 
+    /// Create a new feature set with all features enabled.
+    pub fn all() -> Self {
+        Self {
+            threads: true,
+            reference_types: true,
+            simd: true,
+            bulk_memory: true,
+            multi_value: true,
+            tail_call: true,
+            module_linking: true,
+            multi_memory: true,
+            memory64: true,
+            exceptions: true,
+            relaxed_simd: true,
+            extended_const: true,
+        }
+    }
+
+    /// Create a new feature set with all features disabled.
+    pub fn none() -> Self {
+        Self {
+            threads: false,
+            reference_types: false,
+            simd: false,
+            bulk_memory: false,
+            multi_value: false,
+            tail_call: false,
+            module_linking: false,
+            multi_memory: false,
+            memory64: false,
+            exceptions: false,
+            relaxed_simd: false,
+            extended_const: false,
+        }
+    }
+
     /// Configures whether the WebAssembly threads proposal will be enabled.
     ///
     /// The [WebAssembly threads proposal][threads] is not currently fully
@@ -393,18 +429,36 @@ impl Features {
     /// Self will be modified to include all features that are required by
     /// either set.
     pub fn extend(&mut self, other: &Self) {
-        self.threads |= other.threads;
-        self.reference_types |= other.reference_types;
-        self.simd |= other.simd;
-        self.bulk_memory |= other.bulk_memory;
-        self.multi_value |= other.multi_value;
-        self.tail_call |= other.tail_call;
-        self.module_linking |= other.module_linking;
-        self.multi_memory |= other.multi_memory;
-        self.memory64 |= other.memory64;
-        self.exceptions |= other.exceptions;
-        self.relaxed_simd |= other.relaxed_simd;
-        self.extended_const |= other.extended_const;
+        // Written this way to cause compile errors when new features are added.
+        let Self {
+            threads,
+            reference_types,
+            simd,
+            bulk_memory,
+            multi_value,
+            tail_call,
+            module_linking,
+            multi_memory,
+            memory64,
+            exceptions,
+            relaxed_simd,
+            extended_const,
+        } = other.clone();
+
+        *self = Self {
+            threads: self.threads || threads,
+            reference_types: self.reference_types || reference_types,
+            simd: self.simd || simd,
+            bulk_memory: self.bulk_memory || bulk_memory,
+            multi_value: self.multi_value || multi_value,
+            tail_call: self.tail_call || tail_call,
+            module_linking: self.module_linking || module_linking,
+            multi_memory: self.multi_memory || multi_memory,
+            memory64: self.memory64 || memory64,
+            exceptions: self.exceptions || exceptions,
+            relaxed_simd: self.relaxed_simd || relaxed_simd,
+            extended_const: self.extended_const || extended_const,
+        };
     }
 }
 
@@ -437,6 +491,14 @@ mod test_features {
                 extended_const: false,
             }
         );
+    }
+
+    #[test]
+    fn features_extend() {
+        let all = Features::all();
+        let mut target = Features::none();
+        target.extend(&all);
+        assert_eq!(target, all);
     }
 
     #[test]
