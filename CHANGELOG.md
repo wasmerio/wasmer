@@ -10,6 +10,15 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 6.0.0 - 24/04/2025
 
+This stable release adds support for the exception handling proposal on Linux
+and Darwin platforms when using LLVM, adds a new LLVM-specific optimization
+(`--enable-pass-params-opt`), allows for multiple heterogeneous backends to be
+embedded in the same Wasmer build (`--llvm`, `--cranelift`, `--singlepass`,
+`--v8`, `--wamr`, `--wasmi`), adds support for process spawning without
+asyncify via full support for posix_spawn in wasix-libc with the new
+proc_spawn2 syscall, a number of QoL improvements to CLI commands and WASIX and
+much more. 
+
 ## Added
 
   - [#5524](https://github.com/wasmerio/wasmer/pull/5524) feat(llvm): Add ability to select how many threads LLVM should use during compilation.
