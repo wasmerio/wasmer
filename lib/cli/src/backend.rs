@@ -6,6 +6,7 @@
 // module.
 #![allow(dead_code, unused_imports, unused_variables)]
 
+use std::num::NonZero;
 use std::string::ToString;
 use std::sync::Arc;
 use std::{path::PathBuf, str::FromStr};
@@ -203,6 +204,11 @@ pub struct RuntimeOptions {
     /// global and the first (#0) memory passed between guest functions as explicit parameters.
     #[clap(long)]
     enable_pass_params_opt: bool,
+
+    /// Only available for the LLVM compiler. Sets the number of threads used to compile the
+    /// input module(s).
+    #[clap(long)]
+    llvm_num_threads: Option<NonZero<usize>>,
 
     #[clap(flatten)]
     features: WasmFeatures,
@@ -478,6 +484,10 @@ impl RuntimeOptions {
 
                 if self.enable_pass_params_opt {
                     config.enable_pass_params_opt();
+                }
+
+                if let Some(num_threads) = self.llvm_num_threads {
+                    config.num_threads(num_threads);
                 }
 
                 struct Callbacks {
@@ -791,6 +801,10 @@ impl BackendType {
 
                 if runtime_opts.enable_pass_params_opt {
                     config.enable_pass_params_opt();
+                }
+
+                if let Some(num_threads) = runtime_opts.llvm_num_threads {
+                    config.num_threads(num_threads);
                 }
 
                 if let Some(p) = &runtime_opts.profiler {

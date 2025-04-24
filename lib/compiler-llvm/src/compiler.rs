@@ -9,6 +9,7 @@ use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::ThreadPoolBuilder;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
@@ -349,32 +350,66 @@ impl Compiler for LLVMCompiler {
 
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
-        let functions = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
-            .map_init(
-                || {
-                    let target_machine = self.config().target_machine(target);
-                    FuncTranslator::new(target_machine, binary_format).unwrap()
-                },
-                |func_translator, (i, input)| {
+        let functions = if self.config.num_threads.get() > 1 {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(self.config.num_threads.get())
+                .build()
+                .map_err(|e| CompileError::Resource(e.to_string()))?;
+            pool.install(|| {
+                function_body_inputs
+                    .iter()
+                    .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+                    .par_iter()
+                    .map_init(
+                        || {
+                            let target_machine = self.config().target_machine(target);
+                            FuncTranslator::new(target_machine, binary_format).unwrap()
+                        },
+                        |func_translator, (i, input)| {
+                            // TODO: remove (to serialize)
+                            //let _data = data.lock().unwrap();
+
+                            func_translator.translate(
+                                module,
+                                module_translation,
+                                i,
+                                input,
+                                self.config(),
+                                memory_styles,
+                                table_styles,
+                                &symbol_registry,
+                            )
+                        },
+                    )
+                    .collect::<Result<Vec<_>, CompileError>>()
+            })?
+        } else {
+            let target_machine = self.config().target_machine(target);
+            let func_translator = FuncTranslator::new(target_machine, binary_format).unwrap();
+
+            function_body_inputs
+                .iter()
+                .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+                .into_iter()
+                .map(|(i, input)| {
                     // TODO: remove (to serialize)
                     //let _data = data.lock().unwrap();
 
                     func_translator.translate(
                         module,
                         module_translation,
-                        i,
+                        &i,
                         input,
                         self.config(),
                         memory_styles,
                         table_styles,
                         &symbol_registry,
                     )
-                },
-            )
-            .collect::<Result<Vec<_>, CompileError>>()?
+                })
+                .collect::<Result<Vec<_>, CompileError>>()?
+        };
+
+        let functions = functions
             .into_iter()
             .map(|mut compiled_function| {
                 let first_section = module_custom_sections.len() as u32;
@@ -474,40 +509,79 @@ impl Compiler for LLVMCompiler {
             unwind_info.compact_unwind = Some(cu_index);
         }
 
-        let function_call_trampolines = module
-            .signatures
-            .values()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .map_init(
-                || {
-                    let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine, binary_format).unwrap()
-                },
-                |func_trampoline, sig| {
-                    func_trampoline.trampoline(sig, self.config(), "", compile_info)
-                },
-            )
-            .collect::<Vec<_>>()
-            .into_iter()
-            .collect::<Result<PrimaryMap<_, _>, CompileError>>()?;
+        let function_call_trampolines = if self.config.num_threads.get() > 1 {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(self.config.num_threads.get())
+                .build()
+                .map_err(|e| CompileError::Resource(e.to_string()))?;
+            pool.install(|| {
+                module
+                    .signatures
+                    .values()
+                    .collect::<Vec<_>>()
+                    .par_iter()
+                    .map_init(
+                        || {
+                            let target_machine = self.config().target_machine(target);
+                            FuncTrampoline::new(target_machine, binary_format).unwrap()
+                        },
+                        |func_trampoline, sig| {
+                            func_trampoline.trampoline(sig, self.config(), "", compile_info)
+                        },
+                    )
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .collect::<Result<PrimaryMap<_, _>, CompileError>>()
+            })?
+        } else {
+            let target_machine = self.config().target_machine(target);
+            let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
+            module
+                .signatures
+                .values()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|sig| func_trampoline.trampoline(sig, self.config(), "", compile_info))
+                .collect::<Vec<_>>()
+                .into_iter()
+                .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
+        };
 
-        let dynamic_function_trampolines = module
-            .imported_function_types()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .map_init(
-                || {
-                    let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine, binary_format).unwrap()
-                },
-                |func_trampoline, func_type| {
-                    func_trampoline.dynamic_trampoline(func_type, self.config(), "")
-                },
-            )
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .collect::<PrimaryMap<_, _>>();
+        let dynamic_function_trampolines = if self.config.num_threads.get() > 1 {
+            let pool = ThreadPoolBuilder::new()
+                .num_threads(self.config.num_threads.get())
+                .build()
+                .map_err(|e| CompileError::Resource(e.to_string()))?;
+            pool.install(|| {
+                module
+                    .imported_function_types()
+                    .collect::<Vec<_>>()
+                    .par_iter()
+                    .map_init(
+                        || {
+                            let target_machine = self.config().target_machine(target);
+                            FuncTrampoline::new(target_machine, binary_format).unwrap()
+                        },
+                        |func_trampoline, func_type| {
+                            func_trampoline.dynamic_trampoline(func_type, self.config(), "")
+                        },
+                    )
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .collect::<Result<PrimaryMap<_, _>, CompileError>>()
+            })?
+        } else {
+            let target_machine = self.config().target_machine(target);
+            let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
+            module
+                .imported_function_types()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|func_type| func_trampoline.dynamic_trampoline(&func_type, self.config(), ""))
+                .collect::<Vec<_>>()
+                .into_iter()
+                .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
+        };
 
         let mut got = wasmer_compiler::types::function::GOT::empty();
 
