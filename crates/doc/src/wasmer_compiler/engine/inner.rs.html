@@ -620,11 +620,6 @@
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
-<a href="#623" id="623">623</a>
-<a href="#624" id="624">624</a>
-<a href="#625" id="625">625</a>
-<a href="#626" id="626">626</a>
-<a href="#627" id="627">627</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
@@ -948,12 +943,7 @@
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Engine {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
-        f.debug_struct(<span class="string">"Engine"</span>)
-            .field(<span class="string">"inner"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner)
-            .field(<span class="string">"target"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.target)
-            .field(<span class="string">"engine_id"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.engine_id)
-            .field(<span class="string">"name"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name)
-            .finish()
+        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.deterministic_id())
     }
 }
 
