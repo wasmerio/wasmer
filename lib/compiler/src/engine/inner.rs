@@ -321,7 +321,7 @@ impl Engine {
 
 impl std::fmt::Debug for Engine {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-       write!(f, "{}", self.deterministic_id())
+        write!(f, "{}", self.deterministic_id())
     }
 }
 
