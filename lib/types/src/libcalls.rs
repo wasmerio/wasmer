@@ -156,6 +156,168 @@ pub enum LibCall {
 
     /// debug_usize
     DebugUsize,
+
+    /// __adddf3
+    Adddf3,
+
+    /// __addsf3
+    Addsf3,
+
+    /// __divdf3
+    Divdf3,
+
+    /// __divdi3
+    Divdi3,
+
+    /// __divsf3
+    Divsf3,
+
+    /// __divsi3
+    Divsi3,
+
+    /// __eqdf2
+    Eqdf2,
+
+    /// __eqsf2
+    Eqsf2,
+
+    /// __extendsfdf2
+    Extendsfdf2,
+
+    /// __fixdfdi
+    Fixdfdi,
+
+    /// __fixdfsi
+    Fixdfsi,
+
+    /// __fixsfdi
+    Fixsfdi,
+
+    /// __fixsfsi
+    Fixsfsi,
+
+    /// __fixunsdfdi
+    Fixunsdfdi,
+
+    /// __fixunsdfsi
+    Fixunsdfsi,
+
+    /// __fixunssfdi
+    Fixunssfdi,
+
+    /// __fixunssfsi
+    Fixunssfsi,
+
+    /// __floatdidf
+    Floatdidf,
+
+    /// __floatdisf
+    Floatdisf,
+
+    /// __floatsidf
+    Floatsidf,
+
+    /// __floatsisf
+    Floatsisf,
+
+    /// __floatundidf
+    Floatundidf,
+
+    /// __floatundisf
+    Floatundisf,
+
+    /// __floatunsidf
+    Floatunsidf,
+
+    /// __floatunsisf
+    Floatunsisf,
+
+    /// __gedf2
+    Gedf2,
+
+    /// __gesf2
+    Gesf2,
+
+    /// __gtdf2
+    Gtdf2,
+
+    /// __gtsf2
+    Gtsf2,
+
+    /// __ledf2
+    Ledf2,
+
+    /// __lesf2
+    Lesf2,
+
+    /// __ltdf2
+    Ltdf2,
+
+    /// __ltsf2
+    Ltsf2,
+
+    /// __moddi3
+    Moddi3,
+
+    /// __modsi3
+    Modsi3,
+
+    /// __muldf3
+    Muldf3,
+
+    /// __muldi3
+    Muldi3,
+
+    /// __mulsf3
+    Mulsf3,
+
+    /// __mulsi3
+    Mulsi3,
+
+    /// __nedf2
+    Nedf2,
+
+    /// __negdf2
+    Negdf2,
+
+    /// __negsf2
+    Negsf2,
+
+    /// __nesf2
+    Nesf2,
+
+    /// __subdf3
+    Subdf3,
+
+    /// __subsf3
+    Subsf3,
+
+    /// __truncdfsf2
+    Truncdfsf2,
+
+    /// __udivdi3
+    Udivdi3,
+
+    /// __udivsi3
+    Udivsi3,
+
+    /// __umoddi3
+    Umoddi3,
+
+    /// __umodsi3
+    Umodsi3,
+
+    /// __unorddf2
+    Unorddf2,
+
+    /// __unordsf2
+    Unordsf2,
+
+    /// memset
+    Memset,
+
+    /// sqrt
+    Sqrt,
 }
 
 impl LibCall {
@@ -211,6 +373,60 @@ impl LibCall {
             Self::DeleteException => "wasmer_vm_delete_exception",
             Self::ReadException => "wasmer_vm_read_exception",
             Self::DebugUsize => "wasmer_vm_dbg_usize",
+            Self::Adddf3 => "__adddf3",
+            Self::Addsf3 => "__addsf3",
+            Self::Divdf3 => "__divdf3",
+            Self::Divdi3 => "__divdi3",
+            Self::Divsf3 => "__divsf3",
+            Self::Divsi3 => "__divsi3",
+            Self::Eqdf2 => "__eqdf2",
+            Self::Eqsf2 => "__eqsf2",
+            Self::Extendsfdf2 => "__extendsfdf2",
+            Self::Fixdfdi => "__fixdfdi",
+            Self::Fixdfsi => "__fixdfsi",
+            Self::Fixsfdi => "__fixsfdi",
+            Self::Fixsfsi => "__fixsfsi",
+            Self::Fixunsdfdi => "__fixunsdfdi",
+            Self::Fixunsdfsi => "__fixunsdfsi",
+            Self::Fixunssfdi => "__fixunssfdi",
+            Self::Fixunssfsi => "__fixunssfsi",
+            Self::Floatdidf => "__floatdidf",
+            Self::Floatdisf => "__floatdisf",
+            Self::Floatsidf => "__floatsidf",
+            Self::Floatsisf => "__floatsisf",
+            Self::Floatundidf => "__floatundidf",
+            Self::Floatundisf => "__floatundisf",
+            Self::Floatunsidf => "__floatunsidf",
+            Self::Floatunsisf => "__floatunsisf",
+            Self::Gedf2 => "__gedf2",
+            Self::Gesf2 => "__gesf2",
+            Self::Gtdf2 => "__gtdf2",
+            Self::Gtsf2 => "__gtsf2",
+            Self::Ledf2 => "__ledf2",
+            Self::Lesf2 => "__lesf2",
+            Self::Ltdf2 => "__ltdf2",
+            Self::Ltsf2 => "__ltsf2",
+            Self::Moddi3 => "__moddi3",
+            Self::Modsi3 => "__modsi3",
+            Self::Muldf3 => "__muldf3",
+            Self::Muldi3 => "__muldi3",
+            Self::Mulsf3 => "__mulsf3",
+            Self::Mulsi3 => "__mulsi3",
+            Self::Nedf2 => "__nedf2",
+            Self::Negdf2 => "__negdf2",
+            Self::Negsf2 => "__negsf2",
+            Self::Nesf2 => "__nesf2",
+            Self::Subdf3 => "__subdf3",
+            Self::Subsf3 => "__subsf3",
+            Self::Truncdfsf2 => "__truncdfsf2",
+            Self::Udivdi3 => "__udivdi3",
+            Self::Udivsi3 => "__udivsi3",
+            Self::Umoddi3 => "__umoddi3",
+            Self::Umodsi3 => "__umodsi3",
+            Self::Unorddf2 => "__unorddf2",
+            Self::Unordsf2 => "__unordsf2",
+            Self::Memset => "memset",
+            Self::Sqrt => "sqrt",
         }
     }
 }
