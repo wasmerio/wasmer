@@ -387,6 +387,25 @@ impl Features {
 
         Ok(features)
     }
+
+    /// Extend this feature set with another set.
+    ///
+    /// Self will be modified to include all features that are required by
+    /// either set.
+    pub fn extend(&mut self, other: &Self) {
+        self.threads |= other.threads;
+        self.reference_types |= other.reference_types;
+        self.simd |= other.simd;
+        self.bulk_memory |= other.bulk_memory;
+        self.multi_value |= other.multi_value;
+        self.tail_call |= other.tail_call;
+        self.module_linking |= other.module_linking;
+        self.multi_memory |= other.multi_memory;
+        self.memory64 |= other.memory64;
+        self.exceptions |= other.exceptions;
+        self.relaxed_simd |= other.relaxed_simd;
+        self.extended_const |= other.extended_const;
+    }
 }
 
 impl Default for Features {
