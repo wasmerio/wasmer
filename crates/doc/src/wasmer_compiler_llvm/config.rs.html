@@ -343,6 +343,14 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::LLVMCompiler;
 <span class="kw">use </span>inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target <span class="kw">as </span>InkwellTarget, TargetMachine,
@@ -350,8 +358,8 @@
 };
 <span class="kw">pub use </span>inkwell::OptimizationLevel <span class="kw">as </span>LLVMOptLevel;
 <span class="kw">use </span>itertools::Itertools;
-<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{fmt::Debug, num::NonZero};
 <span class="kw">use </span>target_lexicon::BinaryFormat;
 <span class="kw">use </span>wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 <span class="kw">use </span>wasmer_types::{
@@ -396,6 +404,8 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>LLVMCallbacks&gt;&gt;,
     <span class="doccomment">/// The middleware chain.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) middlewares: Vec&lt;Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;&gt;,
+    <span class="doccomment">/// Number of threads to use when compiling a module.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) num_threads: NonZero&lt;usize&gt;,
 }
 
 <span class="kw">impl </span>LLVM {
@@ -411,6 +421,7 @@
             callbacks: <span class="prelude-val">None</span>,
             middlewares: <span class="macro">vec!</span>[],
             enable_g0m0_opt: <span class="bool-val">false</span>,
+            num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(<span class="number">1</span>).unwrap()),
         }
     }
 
@@ -425,6 +436,11 @@
     </span><span class="kw">pub fn </span>enable_pass_params_opt(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="comment">// internally, the "pass_params" opt is known as g0m0 opt.
         </span><span class="self">self</span>.enable_g0m0_opt = <span class="bool-val">true</span>;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>num_threads(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_threads: NonZero&lt;usize&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.num_threads = num_threads;
         <span class="self">self
     </span>}
 

@@ -898,6 +898,20 @@
 <a href="#898" id="898">898</a>
 <a href="#899" id="899">899</a>
 <a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -906,7 +920,8 @@
 // module.
 </span><span class="attr">#![allow(dead_code, unused_imports, unused_variables)]
 
-</span><span class="kw">use </span>std::string::ToString;
+</span><span class="kw">use </span>std::num::NonZero;
+<span class="kw">use </span>std::string::ToString;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::{path::PathBuf, str::FromStr};
 
@@ -1103,6 +1118,11 @@
     /// global and the first (#0) memory passed between guest functions as explicit parameters.
     </span><span class="attr">#[clap(long)]
     </span>enable_pass_params_opt: bool,
+
+    <span class="doccomment">/// Only available for the LLVM compiler. Sets the number of threads used to compile the
+    /// input module(s).
+    </span><span class="attr">#[clap(long)]
+    </span>llvm_num_threads: <span class="prelude-ty">Option</span>&lt;NonZero&lt;usize&gt;&gt;,
 
     <span class="attr">#[clap(flatten)]
     </span>features: WasmFeatures,
@@ -1378,6 +1398,10 @@
 
                 <span class="kw">if </span><span class="self">self</span>.enable_pass_params_opt {
                     config.enable_pass_params_opt();
+                }
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(num_threads) = <span class="self">self</span>.llvm_num_threads {
+                    config.num_threads(num_threads);
                 }
 
                 <span class="kw">struct </span>Callbacks {
@@ -1691,6 +1715,10 @@
 
                 <span class="kw">if </span>runtime_opts.enable_pass_params_opt {
                     config.enable_pass_params_opt();
+                }
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(num_threads) = runtime_opts.llvm_num_threads {
+                    config.num_threads(num_threads);
                 }
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="kw-2">&amp;</span>runtime_opts.profiler {
